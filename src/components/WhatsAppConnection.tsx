@@ -33,6 +33,41 @@ const WhatsAppConnection = () => {
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
 
+  // Função para cancelar/deletar instância
+  const cancelInstance = async (instanceId: string) => {
+    try {
+      const { error } = await supabase
+        .from('whatsapp_instances')
+        .delete()
+        .eq('id', instanceId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Conexão cancelada",
+        description: "A instância WhatsApp foi removida",
+      });
+
+      await loadInstances();
+    } catch (error: any) {
+      console.error('Erro ao cancelar instância:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível cancelar a instância",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para fechar o dialog
+  const handleCloseDialog = async () => {
+    if (selectedInstance && (selectedInstance.status === 'WAITING_QR' || selectedInstance.status === 'CREATING')) {
+      await cancelInstance(selectedInstance.id);
+    }
+    setQrDialogOpen(false);
+    setSelectedInstance(null);
+  };
+
   // Carregar instâncias do usuário
   const loadInstances = async () => {
     try {
@@ -227,7 +262,11 @@ const WhatsAppConnection = () => {
 
   return (
     <>
-      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+      <Dialog open={qrDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          handleCloseDialog();
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -235,10 +274,18 @@ const WhatsAppConnection = () => {
               Conectar WhatsApp
             </DialogTitle>
             <DialogDescription>
-              Escaneie o QR Code com seu WhatsApp para conectar
+              Escaneie o QR Code com seu WhatsApp para conectar. Fechar esta janela cancelará a conexão.
             </DialogDescription>
           </DialogHeader>
           {selectedInstance && renderQRCode(selectedInstance)}
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={handleCloseDialog}
+            >
+              Cancelar Conexão
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
