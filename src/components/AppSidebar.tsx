@@ -1,5 +1,7 @@
-import { LayoutDashboard, Kanban, CheckSquare, Users, Settings } from "lucide-react";
+import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -9,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -22,6 +25,7 @@ const items = [
 
 export function AppSidebar() {
   const { open } = useSidebar();
+  const { signOut, user } = useAuth();
 
   return (
     <Sidebar collapsible="icon">
@@ -55,6 +59,34 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4">
+        {open ? (
+          <div className="space-y-2">
+            <p className="text-xs text-sidebar-foreground/60 truncate">
+              {user?.email}
+            </p>
+            <Button
+              onClick={signOut}
+              variant="outline"
+              className="w-full justify-start gap-2 bg-sidebar-accent hover:bg-sidebar-accent/80"
+              size="sm"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={signOut}
+            variant="ghost"
+            size="icon"
+            className="w-full"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
+      </SidebarFooter>
     </Sidebar>
   );
 }
