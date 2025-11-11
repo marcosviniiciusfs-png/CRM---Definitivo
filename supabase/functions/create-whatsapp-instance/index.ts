@@ -48,13 +48,17 @@ serve(async (req) => {
       throw new Error('Evolution API credentials not configured');
     }
 
+    // Remove trailing slash and /manager from URL if present
+    const baseUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
+
     // Webhook URL for QR code and connection status updates
     const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
 
     console.log('Creating instance with name:', instanceName);
+    console.log('Using Evolution API URL:', baseUrl);
 
     // Create instance in Evolution API
-    const evolutionResponse = await fetch(`${evolutionApiUrl}/instance/create`, {
+    const evolutionResponse = await fetch(`${baseUrl}/instance/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
