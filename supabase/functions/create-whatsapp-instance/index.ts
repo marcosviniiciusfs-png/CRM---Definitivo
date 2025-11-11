@@ -11,6 +11,81 @@ interface CreateInstanceRequest {
   userId: string;
 }
 
+// Function to poll for QR Code
+async function pollForQRCode(
+  baseUrl: string, 
+  apiKey: string, 
+  instanceName: string, 
+  dbInstanceId: string,
+  supabase: any,
+  maxAttempts: number = 10
+) {
+  console.log(`Starting QR Code polling for instance: ${instanceName}`);
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // Wait 2 seconds between attempts
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log(`Polling attempt ${attempt}/${maxAttempts} for ${instanceName}`);
+      
+      // Fetch instance status from Evolution API
+      const statusResponse = await fetch(`${baseUrl}/instance/fetchInstances/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'apikey': apiKey,
+        },
+      });
+
+      if (!statusResponse.ok) {
+        console.warn(`Polling attempt ${attempt} failed:`, statusResponse.status);
+        continue;
+      }
+
+      const statusData = await statusResponse.json();
+      console.log(`Instance status data:`, statusData);
+
+      // Try to extract QR code
+      let qrCodeBase64: string | null = null;
+      
+      if (statusData?.instance?.qrcode) {
+        const qrData = statusData.instance.qrcode;
+        let rawQR = qrData.base64 || qrData.qrcode || qrData.code || qrData;
+        
+        if (typeof rawQR === 'string') {
+          qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/, '');
+          console.log(`✅ QR Code found in polling attempt ${attempt}`);
+        }
+      }
+
+      // If QR code found, update database and exit
+      if (qrCodeBase64) {
+        const { error: updateError } = await supabase
+          .from('whatsapp_instances')
+          .update({
+            qr_code: qrCodeBase64,
+            status: 'DISCONNECTED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', dbInstanceId);
+
+        if (updateError) {
+          console.error('Error updating QR Code in database:', updateError);
+        } else {
+          console.log(`✅ QR Code updated successfully in database for instance ${instanceName}`);
+        }
+        
+        return; // Exit polling
+      }
+
+    } catch (error) {
+      console.error(`Error in polling attempt ${attempt}:`, error);
+    }
+  }
+  
+  console.log(`⚠️ Polling completed without finding QR Code for ${instanceName}. Relying on webhook.`);
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -93,14 +168,33 @@ serve(async (req) => {
     const evolutionData = await evolutionResponse.json();
     console.log('Evolution API response:', evolutionData);
 
-    // Save instance to database
+    // Extract QR Code from initial response if available
+    let qrCodeBase64: string | null = null;
+    
+    // Try to extract QR code from various possible locations in the response
+    if (evolutionData?.qrcode) {
+      const qrData = evolutionData.qrcode;
+      
+      // Try to get base64 from different possible properties
+      let rawQR = qrData.base64 || qrData.qrcode || qrData.code || qrData;
+      
+      // If rawQR is a string, clean it
+      if (typeof rawQR === 'string') {
+        // Remove data:image prefix if present
+        qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/, '');
+        console.log('QR Code extracted from creation response:', qrCodeBase64.substring(0, 50) + '...');
+      }
+    }
+
+    // Save instance to database with initial QR code if available
     const { data: instanceData, error: dbError } = await supabase
       .from('whatsapp_instances')
       .insert({
         user_id: user.id,
         instance_name: instanceName,
-        status: 'CREATING',
+        status: qrCodeBase64 ? 'DISCONNECTED' : 'CREATING',
         webhook_url: webhookUrl,
+        qr_code: qrCodeBase64,
       })
       .select()
       .single();
@@ -110,16 +204,27 @@ serve(async (req) => {
       throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log('Instance saved to database:', instanceData.id);
+    console.log('Instance saved to database:', instanceData.id, 'with QR Code:', !!qrCodeBase64);
+
+    // If QR Code not in initial response, start polling
+    if (!qrCodeBase64) {
+      console.log('QR Code not in initial response, starting polling...');
+      
+      // Start polling in background (don't await, let it run async)
+      pollForQRCode(baseUrl, evolutionApiKey, instanceName, instanceData.id, supabase).catch(err => {
+        console.error('Error in QR polling:', err);
+      });
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Instance created successfully. QR Code will be available shortly.',
+        message: qrCodeBase64 ? 'Instance created with QR Code.' : 'Instance created. QR Code will be available shortly.',
         instance: {
           id: instanceData.id,
           instanceName: instanceName,
-          status: 'CREATING',
+          status: instanceData.status,
+          qrCode: qrCodeBase64,
         },
         evolutionData: evolutionData,
       }),
