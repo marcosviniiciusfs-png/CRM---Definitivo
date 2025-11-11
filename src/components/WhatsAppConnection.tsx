@@ -219,31 +219,30 @@ const WhatsAppConnection = () => {
                   let qrCodeBase64 = '';
                   
                   try {
+                    let rawBase64 = '';
+                    
                     if (typeof instance.qr_code === 'string') {
-                      // Se for string, pode ser base64 puro ou já ter o prefixo
-                      qrCodeBase64 = instance.qr_code.startsWith('data:image')
-                        ? instance.qr_code
-                        : `data:image/png;base64,${instance.qr_code}`;
+                      rawBase64 = instance.qr_code;
                     } else if (typeof instance.qr_code === 'object') {
-                      // Verificar se tem o formato aninhado { _type, value }
                       const qrData: any = instance.qr_code;
                       
+                      // Formato aninhado { _type: "String", value: "{...}" }
                       if (qrData._type === 'String' && qrData.value) {
-                        // Parse do JSON dentro de value
                         const parsed = JSON.parse(qrData.value);
-                        qrCodeBase64 = parsed.base64 || '';
-                      } else if (qrData.base64) {
-                        // Formato direto com base64
-                        qrCodeBase64 = qrData.base64;
-                      } else if (qrData.value && typeof qrData.value === 'string') {
-                        // Tentar parse direto do value
-                        try {
-                          const parsed = JSON.parse(qrData.value);
-                          qrCodeBase64 = parsed.base64 || '';
-                        } catch {
-                          qrCodeBase64 = qrData.value;
-                        }
+                        rawBase64 = parsed.base64 || '';
+                      } 
+                      // Formato direto { base64: "..." }
+                      else if (qrData.base64) {
+                        rawBase64 = qrData.base64;
                       }
+                    }
+
+                    // Remover qualquer prefixo data:image existente
+                    if (rawBase64.startsWith('data:image')) {
+                      qrCodeBase64 = rawBase64;
+                    } else {
+                      // Adicionar prefixo apenas se não existir
+                      qrCodeBase64 = `data:image/png;base64,${rawBase64}`;
                     }
                   } catch (error) {
                     console.error('Erro ao processar QR Code:', error, instance.qr_code);
