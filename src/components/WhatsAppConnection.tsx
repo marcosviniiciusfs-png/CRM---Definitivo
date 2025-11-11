@@ -225,9 +225,11 @@ const WhatsAppConnection = () => {
         }
       }
 
-      if (rawBase64.startsWith('data:image')) {
-        qrCodeBase64 = rawBase64;
-      } else {
+      // Remove any existing data:image prefix
+      rawBase64 = rawBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+
+      // Add prefix for image display
+      if (rawBase64) {
         qrCodeBase64 = `data:image/png;base64,${rawBase64}`;
       }
     } catch (error) {

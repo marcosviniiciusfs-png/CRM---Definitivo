@@ -38,9 +38,9 @@ serve(async (req) => {
 
     // Handle QR Code update events
     if (event === 'qrcode.updated' || event === 'QRCODE_UPDATED') {
-      const qrCode = data?.qrcode || data?.qr;
+      const qrCodeRaw = data?.qrcode || data?.qr || data?.base64;
       
-      if (!qrCode) {
+      if (!qrCodeRaw) {
         console.log('No QR code found in payload');
         return new Response(
           JSON.stringify({ success: true, message: 'Ignored - no QR code' }),
@@ -48,35 +48,75 @@ serve(async (req) => {
         );
       }
 
-      console.log(`Updating QR code for instance: ${instance}`);
+      console.log(`Processing QR code for instance: ${instance}`);
+      console.log('QR Code raw type:', typeof qrCodeRaw);
 
-      // Update QR code in database
-      const { error: updateError } = await supabase
-        .from('whatsapp_instances')
-        .update({ 
-          qr_code: qrCode,
-          status: 'WAITING_QR'
-        })
-        .eq('instance_name', instance);
-
-      if (updateError) {
-        console.error('Error updating QR code:', updateError);
-        throw updateError;
-      }
-
-      console.log(`QR code updated successfully for instance: ${instance}`);
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'QR code updated successfully',
-          instance
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+      // Extract pure Base64 string from various payload formats
+      let pureBase64 = '';
+      
+      try {
+        if (typeof qrCodeRaw === 'string') {
+          // If it's a string, remove any data:image prefix
+          pureBase64 = qrCodeRaw.replace(/^data:image\/[a-z]+;base64,/, '');
+        } else if (typeof qrCodeRaw === 'object') {
+          // If it's an object, try to extract base64 property
+          pureBase64 = qrCodeRaw.base64 || qrCodeRaw.qrcode || qrCodeRaw.code || '';
+          
+          // Remove prefix if still present
+          if (typeof pureBase64 === 'string') {
+            pureBase64 = pureBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+          }
         }
-      );
+
+        if (!pureBase64) {
+          console.error('Could not extract Base64 from QR code:', qrCodeRaw);
+          return new Response(
+            JSON.stringify({ success: false, message: 'Invalid QR code format' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          );
+        }
+
+        console.log(`Pure Base64 extracted (${pureBase64.length} chars) for instance: ${instance}`);
+
+        // Update QR code in database with pure Base64 string
+        const { error: updateError } = await supabase
+          .from('whatsapp_instances')
+          .update({ 
+            qr_code: pureBase64,
+            status: 'WAITING_QR'
+          })
+          .eq('instance_name', instance);
+
+        if (updateError) {
+          console.error('Error updating QR code:', updateError);
+          throw updateError;
+        }
+
+        console.log(`QR code updated successfully for instance: ${instance}`);
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'QR code updated successfully',
+            instance,
+            base64Length: pureBase64.length
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        );
+      } catch (extractError: any) {
+        console.error('Error extracting Base64 from QR code:', extractError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Failed to process QR code',
+            details: extractError.message
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
     }
 
     // Handle connection status update events
