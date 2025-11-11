@@ -91,11 +91,17 @@ const Chat = () => {
 
     setSending(true);
     try {
+      // Nome do colaborador (você pode substituir por dados do usuário autenticado)
+      const collaboratorName = "Atendente";
+      
+      // Formatar mensagem com assinatura em itálico: *Nome:*\nMensagem
+      const messageForEvolution = `*${collaboratorName}:*\n${text.trim()}`;
+
       // Call edge function to send message via Evolution API
       const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
         body: {
           number: selectedLead.telefone_lead,
-          text: text,
+          text: messageForEvolution,
           userId: 'system',
           leadId: selectedLead.id,
         },
