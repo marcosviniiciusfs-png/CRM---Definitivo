@@ -14,7 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leads: {
+        Row: {
+          created_at: string
+          id: string
+          nome_lead: string
+          telefone_lead: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome_lead: string
+          telefone_lead: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome_lead?: string
+          telefone_lead?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mensagens_chat: {
+        Row: {
+          corpo_mensagem: string
+          created_at: string
+          data_hora: string
+          direcao: string
+          evolution_message_id: string | null
+          id: string
+          id_lead: string
+          status_entrega: string | null
+        }
+        Insert: {
+          corpo_mensagem: string
+          created_at?: string
+          data_hora?: string
+          direcao: string
+          evolution_message_id?: string | null
+          id?: string
+          id_lead: string
+          status_entrega?: string | null
+        }
+        Update: {
+          corpo_mensagem?: string
+          created_at?: string
+          data_hora?: string
+          direcao?: string
+          evolution_message_id?: string | null
+          id?: string
+          id_lead?: string
+          status_entrega?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_chat_id_lead_fkey"
+            columns: ["id_lead"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
