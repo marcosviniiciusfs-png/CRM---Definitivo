@@ -6,11 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock } from "lucide-react";
 
+interface QRCodeData {
+  instance: string;
+  pairingCode: string | null;
+  code: string;
+  base64: string;
+}
+
 interface WhatsAppInstance {
   id: string;
   instance_name: string;
   status: string;
-  qr_code: string | null;
+  qr_code: QRCodeData | string | null;
   phone_number: string | null;
   created_at: string;
   connected_at: string | null;
@@ -207,51 +214,71 @@ const WhatsAppConnection = () => {
                 </div>
 
                 {/* Exibir QR Code quando disponível */}
-                {(instance.status === 'WAITING_QR' || instance.status === 'CREATING' || instance.status === 'DISCONNECTED') && instance.qr_code && (
-                  <div className="bg-muted rounded-lg p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <QrCode className="h-4 w-4" />
-                      Escaneie o QR Code no WhatsApp
-                    </div>
-                    {!qrCodeErrors[instance.id] ? (
-                      <div className="flex justify-center bg-white p-4 rounded-lg">
-                        <img
-                          src={`data:image/png;base64,${instance.qr_code}`}
-                          alt="QR Code WhatsApp"
-                          className="w-64 h-64"
-                          onError={() => {
-                            console.error('Erro ao carregar QR Code');
-                            setQrCodeErrors(prev => ({ ...prev, [instance.id]: true }));
-                          }}
-                        />
+                {(instance.status === 'WAITING_QR' || instance.status === 'CREATING' || instance.status === 'DISCONNECTED') && instance.qr_code && (() => {
+                  // Extrair o base64 do QR code
+                  let qrCodeBase64 = '';
+                  
+                  if (typeof instance.qr_code === 'string') {
+                    // Se for string, pode ser base64 puro ou já ter o prefixo
+                    qrCodeBase64 = instance.qr_code.startsWith('data:image')
+                      ? instance.qr_code
+                      : `data:image/png;base64,${instance.qr_code}`;
+                  } else if (typeof instance.qr_code === 'object' && instance.qr_code.base64) {
+                    // Se for objeto, pegar a propriedade base64
+                    qrCodeBase64 = instance.qr_code.base64;
+                  }
+
+                  if (!qrCodeBase64) return null;
+
+                  return (
+                    <div className="bg-muted rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <QrCode className="h-4 w-4" />
+                        Escaneie o QR Code no WhatsApp
                       </div>
-                    ) : (
-                      <div className="flex justify-center bg-white p-4 rounded-lg">
-                        <div className="w-64 h-64 flex items-center justify-center">
-                          <div className="text-center space-y-2">
-                            <XCircle className="h-12 w-12 mx-auto text-destructive" />
-                            <p className="text-sm text-muted-foreground">
-                              Falha ao carregar a imagem
-                            </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setQrCodeErrors(prev => ({ ...prev, [instance.id]: false }));
-                                loadInstances();
-                              }}
-                            >
-                              Tentar novamente
-                            </Button>
+                      {!qrCodeErrors[instance.id] ? (
+                        <div className="flex justify-center bg-white p-4 rounded-lg">
+                          <img
+                            src={qrCodeBase64}
+                            alt="QR Code WhatsApp"
+                            className="w-64 h-64"
+                            onError={(e) => {
+                              console.error('Erro ao carregar QR Code:', qrCodeBase64.substring(0, 100));
+                              setQrCodeErrors(prev => ({ ...prev, [instance.id]: true }));
+                            }}
+                            onLoad={() => {
+                              console.log('QR Code carregado com sucesso');
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex justify-center bg-white p-4 rounded-lg">
+                          <div className="w-64 h-64 flex items-center justify-center">
+                            <div className="text-center space-y-2">
+                              <XCircle className="h-12 w-12 mx-auto text-destructive" />
+                              <p className="text-sm text-muted-foreground">
+                                Falha ao carregar a imagem
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setQrCodeErrors(prev => ({ ...prev, [instance.id]: false }));
+                                  loadInstances();
+                                }}
+                              >
+                                Tentar novamente
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                    <p className="text-xs text-center text-muted-foreground">
-                      Abra o WhatsApp no seu celular e escaneie este código
-                    </p>
-                  </div>
-                )}
+                      )}
+                      <p className="text-xs text-center text-muted-foreground">
+                        Abra o WhatsApp no seu celular e escaneie este código
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 {/* Mostrar informações quando conectado */}
                 {instance.status === 'CONNECTED' && instance.phone_number && (
