@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock } from "lucide-react";
 
 interface QRCodeData {
@@ -29,6 +30,8 @@ const WhatsAppConnection = () => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [qrCodeErrors, setQrCodeErrors] = useState<Record<string, boolean>>({});
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
 
   // Carregar instâncias do usuário
   const loadInstances = async () => {
@@ -118,6 +121,18 @@ const WhatsAppConnection = () => {
     };
   }, []);
 
+  // Abrir dialog automaticamente quando houver QR Code
+  useEffect(() => {
+    const instanceWithQR = instances.find(
+      (i) => (i.status === 'WAITING_QR' || i.status === 'CREATING') && i.qr_code
+    );
+    
+    if (instanceWithQR && !qrDialogOpen) {
+      setSelectedInstance(instanceWithQR);
+      setQrDialogOpen(true);
+    }
+  }, [instances, qrDialogOpen]);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'CONNECTED':
@@ -156,18 +171,88 @@ const WhatsAppConnection = () => {
     );
   }
 
+  const renderQRCode = (instance: WhatsAppInstance) => {
+    let qrCodeBase64 = '';
+    
+    try {
+      let rawBase64 = '';
+      
+      if (typeof instance.qr_code === 'string') {
+        rawBase64 = instance.qr_code;
+      } else if (typeof instance.qr_code === 'object') {
+        const qrData: any = instance.qr_code;
+        
+        if (qrData._type === 'String' && qrData.value) {
+          const parsed = JSON.parse(qrData.value);
+          rawBase64 = parsed.base64 || '';
+        } else if (qrData.base64) {
+          rawBase64 = qrData.base64;
+        }
+      }
+
+      if (rawBase64.startsWith('data:image')) {
+        qrCodeBase64 = rawBase64;
+      } else {
+        qrCodeBase64 = `data:image/png;base64,${rawBase64}`;
+      }
+    } catch (error) {
+      console.error('Erro ao processar QR Code:', error, instance.qr_code);
+    }
+
+    if (!qrCodeBase64) return null;
+
+    return (
+      <div className="flex flex-col items-center space-y-4">
+        <div className="bg-white p-4 rounded-lg">
+          <img
+            src={qrCodeBase64}
+            alt="QR Code WhatsApp"
+            className="w-64 h-64"
+            onError={() => {
+              setQrCodeErrors(prev => ({ ...prev, [instance.id]: true }));
+              toast({
+                title: "Erro ao carregar QR Code",
+                description: "Tente criar uma nova instância",
+                variant: "destructive",
+              });
+            }}
+          />
+        </div>
+        <p className="text-sm text-center text-muted-foreground">
+          Abra o WhatsApp no seu celular e escaneie este código
+        </p>
+      </div>
+    );
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-primary" />
-          Conexão WhatsApp
-        </CardTitle>
-        <CardDescription>
-          Conecte seu WhatsApp para enviar e receber mensagens
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <>
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />
+              Conectar WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              Escaneie o QR Code com seu WhatsApp para conectar
+            </DialogDescription>
+          </DialogHeader>
+          {selectedInstance && renderQRCode(selectedInstance)}
+        </DialogContent>
+      </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            Conexão WhatsApp
+          </CardTitle>
+          <CardDescription>
+            Conecte seu WhatsApp para enviar e receber mensagens
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
         {instances.length === 0 ? (
           <div className="text-center py-8 space-y-4">
             <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
@@ -213,92 +298,21 @@ const WhatsAppConnection = () => {
                   {getStatusBadge(instance.status)}
                 </div>
 
-                {/* Exibir QR Code quando disponível */}
-                {(instance.status === 'WAITING_QR' || instance.status === 'CREATING' || instance.status === 'DISCONNECTED') && instance.qr_code && (() => {
-                  // Extrair o base64 do QR code
-                  let qrCodeBase64 = '';
-                  
-                  try {
-                    let rawBase64 = '';
-                    
-                    if (typeof instance.qr_code === 'string') {
-                      rawBase64 = instance.qr_code;
-                    } else if (typeof instance.qr_code === 'object') {
-                      const qrData: any = instance.qr_code;
-                      
-                      // Formato aninhado { _type: "String", value: "{...}" }
-                      if (qrData._type === 'String' && qrData.value) {
-                        const parsed = JSON.parse(qrData.value);
-                        rawBase64 = parsed.base64 || '';
-                      } 
-                      // Formato direto { base64: "..." }
-                      else if (qrData.base64) {
-                        rawBase64 = qrData.base64;
-                      }
-                    }
-
-                    // Remover qualquer prefixo data:image existente
-                    if (rawBase64.startsWith('data:image')) {
-                      qrCodeBase64 = rawBase64;
-                    } else {
-                      // Adicionar prefixo apenas se não existir
-                      qrCodeBase64 = `data:image/png;base64,${rawBase64}`;
-                    }
-                  } catch (error) {
-                    console.error('Erro ao processar QR Code:', error, instance.qr_code);
-                  }
-
-                  if (!qrCodeBase64) return null;
-
-                  return (
-                    <div className="bg-muted rounded-lg p-4 space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <QrCode className="h-4 w-4" />
-                        Escaneie o QR Code no WhatsApp
-                      </div>
-                      {!qrCodeErrors[instance.id] ? (
-                        <div className="flex justify-center bg-white p-4 rounded-lg">
-                          <img
-                            src={qrCodeBase64}
-                            alt="QR Code WhatsApp"
-                            className="w-64 h-64"
-                            onError={(e) => {
-                              console.error('Erro ao carregar QR Code:', qrCodeBase64.substring(0, 100));
-                              setQrCodeErrors(prev => ({ ...prev, [instance.id]: true }));
-                            }}
-                            onLoad={() => {
-                              console.log('QR Code carregado com sucesso');
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex justify-center bg-white p-4 rounded-lg">
-                          <div className="w-64 h-64 flex items-center justify-center">
-                            <div className="text-center space-y-2">
-                              <XCircle className="h-12 w-12 mx-auto text-destructive" />
-                              <p className="text-sm text-muted-foreground">
-                                Falha ao carregar a imagem
-                              </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setQrCodeErrors(prev => ({ ...prev, [instance.id]: false }));
-                                  loadInstances();
-                                }}
-                              >
-                                Tentar novamente
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      <p className="text-xs text-center text-muted-foreground">
-                        Abra o WhatsApp no seu celular e escaneie este código
-                      </p>
-                    </div>
-                  );
-                })()}
+                {/* Botão para abrir QR Code manualmente */}
+                {(instance.status === 'WAITING_QR' || instance.status === 'CREATING') && instance.qr_code && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedInstance(instance);
+                      setQrDialogOpen(true);
+                    }}
+                    className="w-full"
+                  >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Ver QR Code
+                  </Button>
+                )}
 
                 {/* Mostrar informações quando conectado */}
                 {instance.status === 'CONNECTED' && instance.phone_number && (
@@ -378,6 +392,7 @@ const WhatsAppConnection = () => {
         )}
       </CardContent>
     </Card>
+    </>
   );
 };
 
