@@ -1,4 +1,4 @@
-import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Leads", url: "/leads", icon: Users },
+  { title: "Chat", url: "/chat", icon: MessageSquare },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
