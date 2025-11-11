@@ -11,7 +11,7 @@ interface CreateInstanceRequest {
   userId: string;
 }
 
-// Function to poll for QR Code
+// Function to poll for QR Code (FALLBACK ONLY)
 async function pollForQRCode(
   baseUrl: string, 
   apiKey: string, 
@@ -20,14 +20,26 @@ async function pollForQRCode(
   supabase: any,
   maxAttempts: number = 10
 ) {
-  console.log(`Starting QR Code polling for instance: ${instanceName}`);
+  console.log(`🔄 Starting FALLBACK QR Code polling for instance: ${instanceName}`);
   
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       // Wait 2 seconds between attempts
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log(`Polling attempt ${attempt}/${maxAttempts} for ${instanceName}`);
+      console.log(`⏳ Polling attempt ${attempt}/${maxAttempts} for ${instanceName}`);
+      
+      // FIRST: Check if QR Code already exists in database
+      const { data: existingInstance } = await supabase
+        .from('whatsapp_instances')
+        .select('qr_code, status')
+        .eq('id', dbInstanceId)
+        .single();
+      
+      if (existingInstance?.qr_code) {
+        console.log(`✅ QR Code already exists in database - stopping polling`);
+        return; // Exit immediately - don't overwrite existing QR Code
+      }
       
       // Fetch instance status from Evolution API
       const statusResponse = await fetch(`${baseUrl}/instance/fetchInstances/${instanceName}`, {
@@ -38,12 +50,12 @@ async function pollForQRCode(
       });
 
       if (!statusResponse.ok) {
-        console.warn(`Polling attempt ${attempt} failed:`, statusResponse.status);
+        console.warn(`⚠️ Polling attempt ${attempt} failed:`, statusResponse.status);
         continue;
       }
 
       const statusData = await statusResponse.json();
-      console.log(`Instance status data:`, statusData);
+      console.log(`📊 Instance status data:`, JSON.stringify(statusData, null, 2));
 
       // Try to extract QR code
       let qrCodeBase64: string | null = null;
@@ -52,9 +64,9 @@ async function pollForQRCode(
         const qrData = statusData.instance.qrcode;
         let rawQR = qrData.base64 || qrData.qrcode || qrData.code || qrData;
         
-        if (typeof rawQR === 'string') {
-          qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/, '');
-          console.log(`✅ QR Code found in polling attempt ${attempt}`);
+        if (typeof rawQR === 'string' && rawQR.length > 0) {
+          qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/i, '').trim();
+          console.log(`✅ QR Code found in polling attempt ${attempt} - Length:`, qrCodeBase64.length);
         }
       }
 
@@ -70,16 +82,16 @@ async function pollForQRCode(
           .eq('id', dbInstanceId);
 
         if (updateError) {
-          console.error('Error updating QR Code in database:', updateError);
+          console.error('❌ Error updating QR Code in database:', updateError);
         } else {
-          console.log(`✅ QR Code updated successfully in database for instance ${instanceName}`);
+          console.log(`✅ QR Code updated successfully via polling for ${instanceName}`);
         }
         
         return; // Exit polling
       }
 
     } catch (error) {
-      console.error(`Error in polling attempt ${attempt}:`, error);
+      console.error(`❌ Error in polling attempt ${attempt}:`, error);
     }
   }
   
@@ -168,25 +180,39 @@ serve(async (req) => {
     const evolutionData = await evolutionResponse.json();
     console.log('Evolution API response:', evolutionData);
 
-    // Extract QR Code from initial response if available
+    // ========================================
+    // PRIORITY: IMMEDIATE QR CODE EXTRACTION
+    // ========================================
+    // Extract QR Code IMMEDIATELY from Evolution API response
+    // This is CRITICAL for QR Code freshness - any delay causes expiration
+    
     let qrCodeBase64: string | null = null;
     
-    // Try to extract QR code from various possible locations in the response
     if (evolutionData?.qrcode) {
       const qrData = evolutionData.qrcode;
+      console.log('🔍 QR Data structure:', JSON.stringify(qrData, null, 2));
       
-      // Try to get base64 from different possible properties
-      let rawQR = qrData.base64 || qrData.qrcode || qrData.code || qrData;
+      // Priority extraction: base64 > qrcode > code
+      let rawQR = qrData.base64 || qrData.qrcode || qrData.code;
       
-      // If rawQR is a string, clean it
-      if (typeof rawQR === 'string') {
-        // Remove data:image prefix if present
-        qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/, '');
-        console.log('QR Code extracted from creation response:', qrCodeBase64.substring(0, 50) + '...');
+      if (typeof rawQR === 'string' && rawQR.length > 0) {
+        // CRITICAL: Clean Base64 string - remove ANY prefix
+        qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/i, '').trim();
+        console.log('✅ QR Code extracted IMMEDIATELY - Length:', qrCodeBase64.length);
+        console.log('📦 QR Code preview:', qrCodeBase64.substring(0, 100) + '...');
+      } else {
+        console.warn('⚠️ QR Code found but invalid format:', typeof rawQR, rawQR?.substring?.(0, 50));
       }
+    } else {
+      console.warn('⚠️ No qrcode field in Evolution API response');
     }
 
-    // Save instance to database with initial QR code if available
+    // ========================================
+    // IMMEDIATE DATABASE SAVE
+    // ========================================
+    // Save to database IMMEDIATELY - no delays, no waiting
+    console.log('💾 Saving to database NOW - QR Code present:', !!qrCodeBase64);
+    
     const { data: instanceData, error: dbError } = await supabase
       .from('whatsapp_instances')
       .insert({
@@ -200,20 +226,34 @@ serve(async (req) => {
       .single();
 
     if (dbError) {
-      console.error('Database error:', dbError);
+      console.error('❌ Database error:', dbError);
       throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log('Instance saved to database:', instanceData.id, 'with QR Code:', !!qrCodeBase64);
+    const saveTimestamp = Date.now();
+    console.log('✅ Instance saved to database:', instanceData.id);
+    console.log('⏱️ QR Code in DB:', !!qrCodeBase64, '- Ready for immediate display');
 
-    // If QR Code not in initial response, start polling
+    // ========================================
+    // FALLBACK POLLING (Only if needed)
+    // ========================================
+    // Only poll if QR Code was NOT in initial response
     if (!qrCodeBase64) {
-      console.log('QR Code not in initial response, starting polling...');
+      console.log('⚠️ QR Code not in initial response - starting fallback polling');
       
-      // Start polling in background (don't await, let it run async)
-      pollForQRCode(baseUrl, evolutionApiKey, instanceName, instanceData.id, supabase).catch(err => {
-        console.error('Error in QR polling:', err);
+      // Start background polling as fallback (don't await)
+      pollForQRCode(
+        baseUrl, 
+        evolutionApiKey, 
+        instanceName, 
+        instanceData.id, 
+        supabase
+      ).catch(err => {
+        console.error('❌ Error in fallback polling:', err);
       });
+    } else {
+      console.log('✅ QR Code captured in initial response - NO POLLING NEEDED');
+      console.log('🚀 Returning fresh QR Code immediately');
     }
 
     return new Response(
