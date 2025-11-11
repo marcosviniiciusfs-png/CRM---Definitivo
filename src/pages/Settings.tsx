@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings as SettingsIcon, User, Bell, Shield } from "lucide-react";
+import WhatsAppConnection from "@/components/WhatsAppConnection";
 
 const Settings = () => {
   return (
@@ -11,6 +12,8 @@ const Settings = () => {
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">Gerencie suas preferências e configurações do sistema</p>
       </div>
+
+      <WhatsAppConnection />
 
       <Card>
         <CardHeader>
