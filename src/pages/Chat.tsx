@@ -91,34 +91,37 @@ const Chat = () => {
 
     setSending(true);
     try {
-      const newMsg = {
-        id_lead: selectedLead.id,
-        direcao: "SAIDA" as const,
-        corpo_mensagem: text,
-        data_hora: new Date().toISOString(),
-        status_entrega: "SENT" as const,
-      };
-
-      const { data, error } = await supabase
-        .from("mensagens_chat")
-        .insert([newMsg])
-        .select()
-        .single();
+      // Call edge function to send message via Evolution API
+      const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
+        body: {
+          number: selectedLead.telefone_lead,
+          text: text,
+          userId: 'system',
+          leadId: selectedLead.id,
+        },
+      });
 
       if (error) throw error;
 
-      setMessages([...messages, data as Message]);
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao enviar mensagem');
+      }
+
+      console.log('Mensagem enviada com messageId:', data.messageId);
+
+      // Reload messages after sending
+      await loadMessages(selectedLead.id);
       setNewMessage("");
 
       toast({
         title: "Mensagem enviada",
-        description: "Sua mensagem foi enviada com sucesso",
+        description: "Sua mensagem foi enviada via WhatsApp",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao enviar mensagem:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível enviar a mensagem",
+        description: error.message || "Não foi possível enviar a mensagem",
         variant: "destructive",
       });
     } finally {
