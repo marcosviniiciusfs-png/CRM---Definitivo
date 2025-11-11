@@ -168,6 +168,21 @@ const WhatsAppConnection = () => {
     }
   }, [instances, qrDialogOpen]);
 
+  // Fechar dialog automaticamente quando a instância conectar
+  useEffect(() => {
+    if (qrDialogOpen && selectedInstance) {
+      const currentInstance = instances.find(i => i.id === selectedInstance.id);
+      if (currentInstance?.status === 'CONNECTED') {
+        setQrDialogOpen(false);
+        setSelectedInstance(null);
+        toast({
+          title: "WhatsApp conectado!",
+          description: `Conectado com sucesso ao número ${currentInstance.phone_number || 'WhatsApp'}`,
+        });
+      }
+    }
+  }, [instances, qrDialogOpen, selectedInstance, toast]);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'CONNECTED':
