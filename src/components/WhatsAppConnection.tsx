@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut } from "lucide-react";
 
 interface QRCodeData {
   instance: string;
@@ -29,6 +29,7 @@ const WhatsAppConnection = () => {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [qrCodeErrors, setQrCodeErrors] = useState<Record<string, boolean>>({});
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
@@ -127,6 +128,39 @@ const WhatsAppConnection = () => {
       });
     } finally {
       setCreating(false);
+    }
+  };
+
+  // Desconectar instância
+  const disconnectInstance = async (instanceId: string) => {
+    setDisconnecting(instanceId);
+    try {
+      const { data, error } = await supabase.functions.invoke('disconnect-whatsapp-instance', {
+        body: { instanceId },
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao desconectar instância');
+      }
+
+      toast({
+        title: "WhatsApp desconectado",
+        description: "A instância foi desconectada com sucesso.",
+      });
+
+      // Recarregar instâncias
+      await loadInstances();
+    } catch (error: any) {
+      console.error('Erro ao desconectar instância:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível desconectar a instância",
+        variant: "destructive",
+      });
+    } finally {
+      setDisconnecting(null);
     }
   };
 
@@ -380,21 +414,40 @@ const WhatsAppConnection = () => {
 
                 {/* Mostrar informações quando conectado */}
                 {instance.status === 'CONNECTED' && instance.phone_number && (
-                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
+                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4 space-y-3">
                     <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
                       <CheckCircle2 className="h-4 w-4" />
                       <span className="text-sm font-medium">
                         WhatsApp conectado com sucesso!
                       </span>
                     </div>
-                    <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+                    <p className="text-sm text-green-600 dark:text-green-500">
                       Número: {instance.phone_number}
                     </p>
                     {instance.connected_at && (
-                      <p className="text-xs text-green-600/70 dark:text-green-500/70 mt-1">
+                      <p className="text-xs text-green-600/70 dark:text-green-500/70">
                         Conectado em {new Date(instance.connected_at).toLocaleString('pt-BR')}
                       </p>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => disconnectInstance(instance.id)}
+                      disabled={disconnecting === instance.id}
+                      className="w-full"
+                    >
+                      {disconnecting === instance.id ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                          Desconectando...
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="h-3 w-3 mr-2" />
+                          Desconectar WhatsApp
+                        </>
+                      )}
+                    </Button>
                   </div>
                 )}
 
