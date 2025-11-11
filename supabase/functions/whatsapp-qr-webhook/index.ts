@@ -38,68 +38,77 @@ serve(async (req) => {
 
     // Handle QR Code update events
     if (event === 'qrcode.updated' || event === 'QRCODE_UPDATED') {
-      const qrCodeRaw = data?.qrcode || data?.qr || data?.base64;
+      console.log(`Processing QR code update for instance: ${instance}`);
+      console.log('Payload data structure:', JSON.stringify(data, null, 2));
       
-      if (!qrCodeRaw) {
-        console.log('No QR code found in payload');
-        return new Response(
-          JSON.stringify({ success: true, message: 'Ignored - no QR code' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
-      }
-
-      console.log(`Processing QR code for instance: ${instance}`);
-      console.log('QR Code raw type:', typeof qrCodeRaw);
-
-      // Extract pure Base64 string from various payload formats
+      // Evolution API sends QR code in data.qrcode.base64
       let pureBase64 = '';
       
       try {
-        if (typeof qrCodeRaw === 'string') {
-          // If it's a string, remove any data:image prefix
-          pureBase64 = qrCodeRaw.replace(/^data:image\/[a-z]+;base64,/, '');
-        } else if (typeof qrCodeRaw === 'object') {
-          // If it's an object, try to extract base64 property
-          pureBase64 = qrCodeRaw.base64 || qrCodeRaw.qrcode || qrCodeRaw.code || '';
-          
-          // Remove prefix if still present
-          if (typeof pureBase64 === 'string') {
-            pureBase64 = pureBase64.replace(/^data:image\/[a-z]+;base64,/, '');
-          }
+        // Extract base64 from the correct path in Evolution API payload
+        if (data?.qrcode?.base64) {
+          // Primary path: data.qrcode.base64 (Evolution API standard format)
+          pureBase64 = data.qrcode.base64;
+          console.log('QR extracted from data.qrcode.base64');
+        } else if (typeof data?.qrcode === 'string') {
+          // Alternative: direct string
+          pureBase64 = data.qrcode;
+          console.log('QR extracted from data.qrcode (string)');
+        } else if (typeof data?.qr === 'string') {
+          // Alternative: data.qr
+          pureBase64 = data.qr;
+          console.log('QR extracted from data.qr');
+        } else if (typeof data?.base64 === 'string') {
+          // Alternative: data.base64
+          pureBase64 = data.base64;
+          console.log('QR extracted from data.base64');
         }
 
         if (!pureBase64) {
-          console.error('Could not extract Base64 from QR code:', qrCodeRaw);
+          console.error('No QR code found in any expected payload path');
+          return new Response(
+            JSON.stringify({ success: true, message: 'Ignored - no QR code in payload' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+
+        // Remove data:image prefix if present (keep only pure base64)
+        const cleanBase64 = pureBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+        
+        if (!cleanBase64 || cleanBase64.length < 100) {
+          console.error('Invalid Base64 length after cleaning:', cleanBase64.length);
           return new Response(
             JSON.stringify({ success: false, message: 'Invalid QR code format' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
           );
         }
 
-        console.log(`Pure Base64 extracted (${pureBase64.length} chars) for instance: ${instance}`);
+        console.log(`Clean Base64 extracted (${cleanBase64.length} chars) for instance: ${instance}`);
 
-        // Update QR code in database with pure Base64 string
+        // Update QR code in database with timestamp to track freshness
         const { error: updateError } = await supabase
           .from('whatsapp_instances')
           .update({ 
-            qr_code: pureBase64,
-            status: 'WAITING_QR'
+            qr_code: cleanBase64,
+            status: 'WAITING_QR',
+            updated_at: new Date().toISOString()
           })
           .eq('instance_name', instance);
 
         if (updateError) {
-          console.error('Error updating QR code:', updateError);
+          console.error('Error updating QR code in database:', updateError);
           throw updateError;
         }
 
-        console.log(`QR code updated successfully for instance: ${instance}`);
+        console.log(`✅ QR code updated successfully for instance: ${instance}`);
 
         return new Response(
           JSON.stringify({ 
             success: true, 
             message: 'QR code updated successfully',
             instance,
-            base64Length: pureBase64.length
+            qrCodeLength: cleanBase64.length,
+            timestamp: new Date().toISOString()
           }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -107,7 +116,7 @@ serve(async (req) => {
           }
         );
       } catch (extractError: any) {
-        console.error('Error extracting Base64 from QR code:', extractError);
+        console.error('❌ Error processing QR code:', extractError);
         return new Response(
           JSON.stringify({ 
             success: false, 
