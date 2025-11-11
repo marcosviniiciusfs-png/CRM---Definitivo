@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut } from "lucide-react";
+import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
 
 interface QRCodeData {
   instance: string;
@@ -30,6 +30,7 @@ const WhatsAppConnection = () => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [qrCodeErrors, setQrCodeErrors] = useState<Record<string, boolean>>({});
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
@@ -161,6 +162,39 @@ const WhatsAppConnection = () => {
       });
     } finally {
       setDisconnecting(null);
+    }
+  };
+
+  // Deletar instância
+  const deleteInstance = async (instanceId: string) => {
+    setDeleting(instanceId);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-whatsapp-instance', {
+        body: { instanceId },
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao deletar instância');
+      }
+
+      toast({
+        title: "Instância removida",
+        description: "A instância foi deletada com sucesso.",
+      });
+
+      // Recarregar instâncias
+      await loadInstances();
+    } catch (error: any) {
+      console.error('Erro ao deletar instância:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível deletar a instância",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -429,56 +463,103 @@ const WhatsAppConnection = () => {
                         Conectado em {new Date(instance.connected_at).toLocaleString('pt-BR')}
                       </p>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => disconnectInstance(instance.id)}
-                      disabled={disconnecting === instance.id}
-                      className="w-full"
-                    >
-                      {disconnecting === instance.id ? (
-                        <>
-                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                          Desconectando...
-                        </>
-                      ) : (
-                        <>
-                          <LogOut className="h-3 w-3 mr-2" />
-                          Desconectar WhatsApp
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => disconnectInstance(instance.id)}
+                        disabled={disconnecting === instance.id || deleting === instance.id}
+                        className="flex-1"
+                      >
+                        {disconnecting === instance.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                            Desconectando...
+                          </>
+                        ) : (
+                          <>
+                            <LogOut className="h-3 w-3 mr-2" />
+                            Desconectar
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteInstance(instance.id)}
+                        disabled={disconnecting === instance.id || deleting === instance.id}
+                        className="flex-1"
+                      >
+                        {deleting === instance.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                            Deletando...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-3 w-3 mr-2" />
+                            Remover
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
-                {/* Mostrar aviso quando desconectado */}
-                {instance.status === 'DISCONNECTED' && (
-                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg p-4">
+                {/* Mostrar aviso quando desconectado ou status desconhecido */}
+                {(instance.status === 'DISCONNECTED' || instance.status === 'UNKNOWN') && (
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg p-4 space-y-3">
                     <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
                       <XCircle className="h-4 w-4" />
                       <span className="text-sm font-medium">
-                        WhatsApp desconectado
+                        {instance.status === 'UNKNOWN' ? 'Status desconhecido' : 'WhatsApp desconectado'}
                       </span>
                     </div>
-                    <p className="text-sm text-red-600 dark:text-red-500 mt-1">
-                      Clique no botão abaixo para reconectar
+                    <p className="text-sm text-red-600 dark:text-red-500">
+                      {instance.status === 'UNKNOWN' 
+                        ? 'Esta instância está em um estado desconhecido. Remova e crie uma nova conexão.'
+                        : 'Clique no botão abaixo para reconectar ou remover esta instância'
+                      }
                     </p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-3"
-                      onClick={createInstance}
-                      disabled={creating}
-                    >
-                      {creating ? (
-                        <>
-                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                          Reconectando...
-                        </>
-                      ) : (
-                        'Reconectar'
+                    <div className="flex gap-2">
+                      {instance.status === 'DISCONNECTED' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={createInstance}
+                          disabled={creating || deleting === instance.id}
+                        >
+                          {creating ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                              Reconectando...
+                            </>
+                          ) : (
+                            'Reconectar'
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteInstance(instance.id)}
+                        disabled={creating || deleting === instance.id}
+                        className="flex-1"
+                      >
+                        {deleting === instance.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                            Removendo...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-3 w-3 mr-2" />
+                            Remover Instância
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
