@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
+import whatsappLogo from "@/assets/whatsapp-logo.png";
 
 interface QRCodeData {
   instance: string;
@@ -469,7 +470,7 @@ const WhatsAppConnection = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
+            <img src={whatsappLogo} alt="WhatsApp" className="h-6 w-6" />
             Conexão WhatsApp
           </CardTitle>
           <CardDescription>
