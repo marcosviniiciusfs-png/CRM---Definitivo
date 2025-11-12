@@ -7,6 +7,23 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// CRITICAL: Rigorously clean Base64 string
+function cleanBase64(rawBase64: string): string {
+  // Remove data:image prefix if present
+  let cleaned = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
+  
+  // Remove ALL whitespace characters: spaces, tabs, newlines, carriage returns
+  cleaned = cleaned.replace(/\s/g, '');
+  
+  // Remove quotes (single and double)
+  cleaned = cleaned.replace(/['"]/g, '');
+  
+  // Remove any character that is NOT valid Base64 (A-Z, a-z, 0-9, +, /, =)
+  cleaned = cleaned.replace(/[^A-Za-z0-9+/=]/g, '');
+  
+  return cleaned;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -73,12 +90,12 @@ serve(async (req) => {
           );
         }
 
-        // CRITICAL: Clean Base64 - remove data:image prefix if present
-        const cleanBase64 = rawBase64.replace(/^data:image\/[a-zA-Z]+;base64,/i, '').trim();
+        // CRITICAL: Rigorously clean Base64 - remove prefix, whitespace, quotes, invalid chars
+        const cleanedBase64 = cleanBase64(rawBase64);
         
         // Validate cleaned Base64 length (QR codes are typically 10000+ chars)
-        if (cleanBase64.length < 100) {
-          console.error(`❌ Invalid Base64 length: ${cleanBase64.length} chars`);
+        if (cleanedBase64.length < 100) {
+          console.error(`❌ Invalid Base64 length: ${cleanedBase64.length} chars`);
           console.error('Raw QR preview:', rawBase64.substring(0, 200));
           return new Response(
             JSON.stringify({ success: false, message: 'Invalid QR code format - too short' }),
@@ -86,15 +103,15 @@ serve(async (req) => {
           );
         }
 
-        console.log(`✅ Clean Base64 ready: ${cleanBase64.length} characters`);
-        console.log(`📸 QR Code preview: ${cleanBase64.substring(0, 50)}...`);
+        console.log(`✅ Clean Base64 ready: ${cleanedBase64.length} characters`);
+        console.log(`📸 QR Code preview: ${cleanedBase64.substring(0, 50)}...`);
 
         // CRITICAL: Update database with fresh QR code
         const updateTimestamp = new Date().toISOString();
         const { error: updateError } = await supabase
           .from('whatsapp_instances')
           .update({ 
-            qr_code: cleanBase64,
+            qr_code: cleanedBase64,
             status: 'DISCONNECTED', // Changed from WAITING_QR to DISCONNECTED for better UX
             updated_at: updateTimestamp
           })
@@ -113,7 +130,7 @@ serve(async (req) => {
             success: true, 
             message: 'QR code updated successfully',
             instance,
-            qrCodeLength: cleanBase64.length,
+            qrCodeLength: cleanedBase64.length,
             timestamp: updateTimestamp
           }),
           {

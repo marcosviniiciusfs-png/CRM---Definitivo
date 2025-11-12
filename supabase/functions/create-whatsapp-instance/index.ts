@@ -11,6 +11,23 @@ interface CreateInstanceRequest {
   userId: string;
 }
 
+// CRITICAL: Rigorously clean Base64 string
+function cleanBase64(rawBase64: string): string {
+  // Remove data:image prefix if present
+  let cleaned = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
+  
+  // Remove ALL whitespace characters: spaces, tabs, newlines, carriage returns
+  cleaned = cleaned.replace(/\s/g, '');
+  
+  // Remove quotes (single and double)
+  cleaned = cleaned.replace(/['"]/g, '');
+  
+  // Remove any character that is NOT valid Base64 (A-Z, a-z, 0-9, +, /, =)
+  cleaned = cleaned.replace(/[^A-Za-z0-9+/=]/g, '');
+  
+  return cleaned;
+}
+
 // Function to poll for QR Code (FALLBACK ONLY)
 async function pollForQRCode(
   baseUrl: string, 
@@ -65,7 +82,7 @@ async function pollForQRCode(
         let rawQR = qrData.base64 || qrData.qrcode || qrData.code || qrData;
         
         if (typeof rawQR === 'string' && rawQR.length > 0) {
-          qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/i, '').trim();
+          qrCodeBase64 = cleanBase64(rawQR);
           console.log(`✅ QR Code found in polling attempt ${attempt} - Length:`, qrCodeBase64.length);
         }
       }
@@ -196,8 +213,8 @@ serve(async (req) => {
       let rawQR = qrData.base64 || qrData.qrcode || qrData.code;
       
       if (typeof rawQR === 'string' && rawQR.length > 0) {
-        // CRITICAL: Clean Base64 string - remove ANY prefix
-        qrCodeBase64 = rawQR.replace(/^data:image\/[a-z]+;base64,/i, '').trim();
+        // CRITICAL: Rigorously clean Base64 string - remove prefix, whitespace, quotes, invalid chars
+        qrCodeBase64 = cleanBase64(rawQR);
         console.log('✅ QR Code extracted IMMEDIATELY - Length:', qrCodeBase64.length);
         console.log('📦 QR Code preview:', qrCodeBase64.substring(0, 100) + '...');
       } else {
