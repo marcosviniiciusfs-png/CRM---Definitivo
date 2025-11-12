@@ -3,11 +3,21 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Filter, Phone, MessageSquare, Loader2 } from "lucide-react";
+import { Search, Plus, Filter, Phone, MessageSquare, Loader2, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
   NOVO: { label: "Novo", variant: "default" },
@@ -24,6 +34,7 @@ const Leads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   // Carregar leads do Supabase
   useEffect(() => {
     loadLeads();
@@ -83,6 +94,33 @@ const Leads = () => {
 
   const openChat = (lead: Lead) => {
     navigate('/chat', { state: { selectedLead: lead } });
+  };
+
+  const handleDeleteLead = async () => {
+    if (!leadToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .delete()
+        .eq("id", leadToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Lead excluído",
+        description: "O lead foi removido com sucesso",
+      });
+
+      setLeadToDelete(null);
+    } catch (error) {
+      console.error("Erro ao excluir lead:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o lead",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -151,16 +189,28 @@ const Leads = () => {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openChat(lead);
-                          }}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Abrir Chat
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openChat(lead);
+                            }}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Abrir Chat
+                          </Button>
+                          <Button 
+                            size="sm"
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLeadToDelete(lead);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                         {lead.last_message_at && (
                           <div className="text-xs text-muted-foreground">
                             Última mensagem: {formatDate(lead.last_message_at)}
@@ -175,6 +225,28 @@ const Leads = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={!!leadToDelete} onOpenChange={() => setLeadToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o lead <strong>{leadToDelete?.nome_lead}</strong>?
+              Esta ação não pode ser desfeita e todas as mensagens do lead também serão removidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteLead}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
