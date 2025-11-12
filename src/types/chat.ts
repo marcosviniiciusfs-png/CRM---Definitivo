@@ -4,6 +4,8 @@ export interface Lead {
   nome_lead: string;
   created_at: string;
   updated_at: string;
+  last_message_at?: string;
+  source?: string;
 }
 
 export interface Message {

@@ -45,21 +45,27 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          last_message_at: string | null
           nome_lead: string
+          source: string | null
           telefone_lead: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
+          last_message_at?: string | null
           nome_lead: string
+          source?: string | null
           telefone_lead: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
+          last_message_at?: string | null
           nome_lead?: string
+          source?: string | null
           telefone_lead?: string
           updated_at?: string
         }

@@ -9,178 +9,122 @@ const corsHeaders = {
 
 // CRITICAL: Rigorously clean Base64 string
 function cleanBase64(rawBase64: string): string {
-  // Remove data:image prefix if present
   let cleaned = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
-  
-  // Remove ALL whitespace characters: spaces, tabs, newlines, carriage returns
   cleaned = cleaned.replace(/\s/g, '');
-  
-  // Remove quotes (single and double)
   cleaned = cleaned.replace(/['"]/g, '');
-  
-  // Remove any character that is NOT valid Base64 (A-Z, a-z, 0-9, +, /, =)
   cleaned = cleaned.replace(/[^A-Za-z0-9+/=]/g, '');
-  
   return cleaned;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const payload = await req.json();
-    
-    console.log('QR/Connection webhook received:', JSON.stringify(payload, null, 2));
+    console.log('📥 Webhook recebido:', JSON.stringify(payload, null, 2));
 
-    // Extract event type and data from Evolution API webhook
     const event = payload.event;
     const instance = payload.instance;
     const data = payload.data;
 
     if (!event || !instance) {
-      console.log('Invalid payload structure');
+      console.log('⚠️ Payload inválido');
       return new Response(
-        JSON.stringify({ success: true, message: 'Ignored - invalid payload' }),
+        JSON.stringify({ success: true, message: 'Payload inválido' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Handle QR Code update events
+    // ==================== EVENTO: QRCODE.UPDATED ====================
     if (event === 'qrcode.updated' || event === 'QRCODE_UPDATED') {
-      console.log(`🔄 Processing QR code update for instance: ${instance}`);
-      console.log('📦 Raw payload.data:', JSON.stringify(data, null, 2));
+      console.log(`🔄 Processando QR Code para instância: ${instance}`);
       
-      // CRITICAL: Extract QR code Base64 string ONLY - never save objects
       let rawBase64 = '';
       
-      try {
-        // Path 1: Evolution API format - data.qrcode.base64
-        if (data?.qrcode?.base64 && typeof data.qrcode.base64 === 'string') {
-          rawBase64 = data.qrcode.base64;
-          console.log('✅ QR extracted from: data.qrcode.base64 (string)');
-        } 
-        // Path 2: Direct string in qrcode field
-        else if (typeof data?.qrcode === 'string') {
-          rawBase64 = data.qrcode;
-          console.log('✅ QR extracted from: data.qrcode (direct string)');
-        } 
-        // Path 3: Alternative field names
-        else if (typeof data?.qr === 'string') {
-          rawBase64 = data.qr;
-          console.log('✅ QR extracted from: data.qr');
-        } 
-        else if (typeof data?.base64 === 'string') {
-          rawBase64 = data.base64;
-          console.log('✅ QR extracted from: data.base64');
+      if (data?.qrcode?.base64 && typeof data.qrcode.base64 === 'string') {
+        rawBase64 = data.qrcode.base64;
+        console.log('✅ QR extraído de: data.qrcode.base64');
+      } else if (typeof data?.qrcode === 'string') {
+        rawBase64 = data.qrcode;
+        console.log('✅ QR extraído de: data.qrcode (string)');
+      } else if (typeof data?.qr === 'string') {
+        rawBase64 = data.qr;
+        console.log('✅ QR extraído de: data.qr');
+      } else if (typeof data?.base64 === 'string') {
+        rawBase64 = data.base64;
+        console.log('✅ QR extraído de: data.base64');
+      } else if (data?.qrcode && typeof data.qrcode === 'object') {
+        const qrObject: any = data.qrcode;
+        if (typeof qrObject.base64 === 'string') {
+          rawBase64 = qrObject.base64;
+          console.log('✅ QR extraído de objeto: data.qrcode.base64');
         }
-        // Path 4: CRITICAL FIX - If qrcode is an object, try to extract base64 field
-        else if (data?.qrcode && typeof data.qrcode === 'object') {
-          console.log('⚠️ data.qrcode is an object, attempting to extract base64 field');
-          const qrObject: any = data.qrcode;
-          
-          if (typeof qrObject.base64 === 'string') {
-            rawBase64 = qrObject.base64;
-            console.log('✅ QR extracted from nested object: data.qrcode.base64');
-          } else {
-            console.error('❌ data.qrcode is object but has no base64 field:', Object.keys(qrObject));
-          }
-        }
+      }
 
-        // CRITICAL: Validate we got a STRING, not an object
-        if (typeof rawBase64 !== 'string' || rawBase64.length === 0) {
-          console.error('❌ No valid Base64 string found. Type:', typeof rawBase64);
-          console.error('❌ Data structure received:', JSON.stringify(data, null, 2));
-          return new Response(
-            JSON.stringify({ success: true, message: 'No valid QR code string in payload' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-          );
-        }
-
-        // CRITICAL: Rigorously clean Base64 - remove prefix, whitespace, quotes, invalid chars
-        const cleanedBase64 = cleanBase64(rawBase64);
-        
-        // Validate cleaned Base64 length (QR codes are typically 10000+ chars)
-        if (cleanedBase64.length < 100) {
-          console.error(`❌ Invalid Base64 length: ${cleanedBase64.length} chars`);
-          console.error('Raw QR preview:', rawBase64.substring(0, 200));
-          return new Response(
-            JSON.stringify({ success: false, message: 'Invalid QR code format - too short' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-          );
-        }
-
-        console.log(`✅ Clean Base64 ready: ${cleanedBase64.length} characters`);
-        console.log(`📸 QR Code preview: ${cleanedBase64.substring(0, 50)}...`);
-
-        // CRITICAL: Update database with fresh QR code
-        const updateTimestamp = new Date().toISOString();
-        const { error: updateError } = await supabase
-          .from('whatsapp_instances')
-          .update({ 
-            qr_code: cleanedBase64,
-            status: 'DISCONNECTED', // Changed from WAITING_QR to DISCONNECTED for better UX
-            updated_at: updateTimestamp
-          })
-          .eq('instance_name', instance);
-
-        if (updateError) {
-          console.error('❌ Database update error:', updateError);
-          throw updateError;
-        }
-
-        console.log(`✅ QR code saved to database for instance: ${instance}`);
-        console.log(`⏱️ Timestamp: ${updateTimestamp}`);
-
+      if (typeof rawBase64 !== 'string' || rawBase64.length === 0) {
+        console.error('❌ QR Code não encontrado');
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'QR code updated successfully',
-            instance,
-            qrCodeLength: cleanedBase64.length,
-            timestamp: updateTimestamp
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          }
-        );
-      } catch (extractError: any) {
-        console.error('❌ Critical error processing QR code:', extractError);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Failed to process QR code',
-            details: extractError.message
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          JSON.stringify({ success: false, error: 'QR Code não encontrado' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         );
       }
+
+      const cleanedBase64 = cleanBase64(rawBase64);
+      
+      if (cleanedBase64.length < 1000) {
+        console.error(`❌ QR Code inválido: ${cleanedBase64.length} caracteres`);
+        return new Response(
+          JSON.stringify({ success: false, error: 'QR Code muito curto' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      console.log(`✅ QR Code limpo: ${cleanedBase64.length} caracteres`);
+
+      const { error: updateError } = await supabase
+        .from('whatsapp_instances')
+        .update({ 
+          qr_code: cleanedBase64,
+          status: 'WAITING_QR',
+          updated_at: new Date().toISOString()
+        })
+        .eq('instance_name', instance);
+
+      if (updateError) {
+        console.error('❌ Erro ao salvar QR Code:', updateError);
+        throw updateError;
+      }
+
+      console.log(`✅ QR Code salvo para: ${instance}`);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'QR Code atualizado', qrCodeLength: cleanedBase64.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
 
-    // Handle connection status update events
+    // ==================== EVENTO: CONNECTION.UPDATE ====================
     if (event === 'connection.update' || event === 'CONNECTION_UPDATE') {
       const state = data?.state || data?.status;
       
       if (!state) {
-        console.log('No state found in payload');
+        console.log('⚠️ Estado não encontrado');
         return new Response(
-          JSON.stringify({ success: true, message: 'Ignored - no state' }),
+          JSON.stringify({ success: true, message: 'Estado não encontrado' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
         );
       }
 
-      // Map Evolution API status to internal status
-      let internalStatus = null;
+      let internalStatus = 'DISCONNECTED';
       let phoneNumber = null;
       let connectedAt = null;
+      let qrCode: string | null | undefined = undefined;
 
       switch (state.toLowerCase()) {
         case 'open':
@@ -188,6 +132,8 @@ serve(async (req) => {
           internalStatus = 'CONNECTED';
           phoneNumber = data?.phoneNumber || data?.number || null;
           connectedAt = new Date().toISOString();
+          qrCode = null; // CRÍTICO: Limpar QR Code quando conectado
+          console.log('✅ Conexão estabelecida, limpando QR Code');
           break;
         case 'close':
         case 'disconnected':
@@ -197,69 +143,141 @@ serve(async (req) => {
           internalStatus = 'CONNECTING';
           break;
         default:
-          console.log(`Unknown connection state: ${state}`);
+          console.log(`⚠️ Estado desconhecido: ${state}`);
           internalStatus = 'UNKNOWN';
       }
 
-      console.log(`Updating connection status for instance ${instance} to ${internalStatus}`);
+      console.log(`🔌 Atualizando status para ${internalStatus}`);
 
-      // Build update object
-      const updateData: any = { status: internalStatus };
+      const updateData: any = { status: internalStatus, updated_at: new Date().toISOString() };
       
-      if (phoneNumber) {
-        updateData.phone_number = phoneNumber;
-      }
-      
-      if (connectedAt) {
-        updateData.connected_at = connectedAt;
-      }
+      if (phoneNumber) updateData.phone_number = phoneNumber;
+      if (connectedAt) updateData.connected_at = connectedAt;
+      if (qrCode !== undefined) updateData.qr_code = qrCode;
 
-      // Update connection status in database
       const { error: updateError } = await supabase
         .from('whatsapp_instances')
         .update(updateData)
         .eq('instance_name', instance);
 
       if (updateError) {
-        console.error('Error updating connection status:', updateError);
+        console.error('❌ Erro ao atualizar status:', updateError);
         throw updateError;
       }
 
-      console.log(`Connection status updated successfully for instance: ${instance}`);
+      console.log(`✅ Status atualizado: ${instance} -> ${internalStatus}`);
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Connection status updated successfully',
-          instance,
-          status: internalStatus,
-          phoneNumber
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
+        JSON.stringify({ success: true, message: 'Status atualizado', status: internalStatus }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    // For other event types, just acknowledge receipt
-    console.log(`Event type ${event} - no action taken`);
+    // ==================== EVENTO: MESSAGES.UPSERT ====================
+    if (event === 'messages.upsert' || event === 'MESSAGES_UPSERT' || event === 'message.received') {
+      console.log('💬 Processando mensagem recebida');
+
+      const remoteJid = data?.key?.remoteJid;
+      const fromMe = data?.key?.fromMe || false;
+      const pushName = data?.pushName || 'Desconhecido';
+      const messageContent = data?.message?.conversation 
+        || data?.message?.extendedTextMessage?.text
+        || data?.message?.imageMessage?.caption
+        || '[Mensagem de mídia]';
+      const messageTimestamp = data?.messageTimestamp 
+        ? new Date(parseInt(data.messageTimestamp) * 1000).toISOString()
+        : new Date().toISOString();
+      const evolutionMessageId = data?.key?.id || null;
+
+      // Ignorar mensagens de grupos e mensagens enviadas por nós
+      if (!remoteJid || remoteJid.includes('@g.us') || fromMe) {
+        console.log('⏭️ Mensagem ignorada (grupo ou enviada)');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Mensagem ignorada' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      const phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
+      console.log(`📞 Mensagem de: ${phoneNumber}`);
+
+      // Buscar ou criar lead
+      let { data: existingLead, error: leadError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('telefone_lead', phoneNumber)
+        .single();
+
+      let leadId: string;
+
+      if (leadError || !existingLead) {
+        console.log('➕ Criando novo lead');
+        
+        const { data: newLead, error: createError } = await supabase
+          .from('leads')
+          .insert({
+            telefone_lead: phoneNumber,
+            nome_lead: pushName,
+            source: 'WhatsApp',
+            last_message_at: messageTimestamp,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('❌ Erro ao criar lead:', createError);
+          throw createError;
+        }
+
+        leadId = newLead.id;
+        console.log(`✅ Lead criado: ${leadId}`);
+      } else {
+        leadId = existingLead.id;
+        console.log(`✅ Lead existente: ${leadId}`);
+
+        await supabase
+          .from('leads')
+          .update({ last_message_at: messageTimestamp, nome_lead: pushName })
+          .eq('id', leadId);
+      }
+
+      // Salvar mensagem
+      const { error: messageError } = await supabase
+        .from('mensagens_chat')
+        .insert({
+          id_lead: leadId,
+          direcao: 'ENTRADA',
+          corpo_mensagem: messageContent,
+          data_hora: messageTimestamp,
+          evolution_message_id: evolutionMessageId,
+          status_entrega: 'DELIVERED',
+        });
+
+      if (messageError) {
+        console.error('❌ Erro ao salvar mensagem:', messageError);
+        throw messageError;
+      }
+
+      console.log('✅ Mensagem salva com sucesso');
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Mensagem processada', leadId }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // Evento não processado
+    console.log(`⚠️ Evento não processado: ${event}`);
     return new Response(
-      JSON.stringify({ success: true, message: `Event ${event} acknowledged` }),
+      JSON.stringify({ success: true, message: `Evento ${event} recebido` }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error: any) {
-    console.error('Error in whatsapp-qr-webhook:', error);
+    console.error('❌ Erro no webhook:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
