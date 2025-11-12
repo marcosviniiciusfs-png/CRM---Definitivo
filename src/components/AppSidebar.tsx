@@ -25,11 +25,15 @@ const items = [
 ];
 
 export function AppSidebar() {
-  const { open } = useSidebar();
+  const { open, setOpen } = useSidebar();
   const { signOut, user } = useAuth();
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar 
+      collapsible="icon"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <SidebarContent className="bg-sidebar">
         <div className="p-6 pb-4">
           <h1 className={`font-bold text-sidebar-primary transition-all ${open ? "text-2xl" : "text-xl text-center"}`}>
