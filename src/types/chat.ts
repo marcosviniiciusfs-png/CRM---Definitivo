@@ -6,6 +6,7 @@ export interface Lead {
   updated_at: string;
   last_message_at?: string;
   source?: string;
+  stage?: string;
 }
 
 export interface Message {

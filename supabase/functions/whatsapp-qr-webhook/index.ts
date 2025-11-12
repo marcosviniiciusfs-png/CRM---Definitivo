@@ -220,6 +220,7 @@ serve(async (req) => {
             nome_lead: pushName,
             source: 'WhatsApp',
             last_message_at: messageTimestamp,
+            stage: 'NOVO',
           })
           .select()
           .single();
