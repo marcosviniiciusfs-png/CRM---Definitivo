@@ -309,59 +309,76 @@ const WhatsAppConnection = () => {
   }
 
   const renderQRCode = (instance: WhatsAppInstance) => {
-    let qrCodeBase64 = '';
+    // CRITICAL: O banco de dados armazena APENAS a string Base64 pura (sem prefixo)
+    // Precisamos adicionar o prefixo data:image/png;base64, para renderizar
     
     try {
+      // Extrair a string Base64 pura do banco
       let rawBase64 = '';
       
       if (typeof instance.qr_code === 'string') {
         rawBase64 = instance.qr_code;
-      } else if (typeof instance.qr_code === 'object') {
+        console.log('✅ QR Code lido como string do banco:', rawBase64.substring(0, 100) + '...');
+      } else if (instance.qr_code && typeof instance.qr_code === 'object') {
+        console.warn('⚠️ QR Code veio como objeto, tentando extrair:', instance.qr_code);
         const qrData: any = instance.qr_code;
-        
-        if (qrData._type === 'String' && qrData.value) {
-          const parsed = JSON.parse(qrData.value);
-          rawBase64 = parsed.base64 || '';
-        } else if (qrData.base64) {
-          rawBase64 = qrData.base64;
-        }
+        rawBase64 = qrData.base64 || qrData.value || '';
       }
 
-      // Remove any existing data:image prefix
-      rawBase64 = rawBase64.replace(/^data:image\/[a-z]+;base64,/, '');
-
-      // Add prefix for image display
-      if (rawBase64) {
-        qrCodeBase64 = `data:image/png;base64,${rawBase64}`;
+      // Validar que temos algo para trabalhar
+      if (!rawBase64 || rawBase64.trim().length === 0) {
+        console.error('❌ QR Code vazio ou inválido');
+        return null;
       }
-    } catch (error) {
-      console.error('Erro ao processar QR Code:', error, instance.qr_code);
-    }
 
-    if (!qrCodeBase64) return null;
+      // CRITICAL: Garantir que não há prefixo duplicado
+      // Remove QUALQUER prefixo data:image existente
+      const cleanBase64 = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
+      
+      // Validar comprimento mínimo (QR Codes costumam ter 10000+ caracteres)
+      if (cleanBase64.length < 100) {
+        console.error('❌ Base64 muito curto após limpeza:', cleanBase64.length, 'caracteres');
+        return null;
+      }
 
-    return (
-      <div className="flex flex-col items-center space-y-4">
-        <div className="bg-white p-4 rounded-lg">
-          <img
-            src={qrCodeBase64}
-            alt="QR Code WhatsApp"
-            className="w-64 h-64"
-            onError={() => {
-              setQrCodeErrors(prev => ({ ...prev, [instance.id]: true }));
-              toast({
-                title: "Erro ao carregar QR Code",
-                description: "Tente criar uma nova instância",
-                variant: "destructive",
-              });
-            }}
-          />
+      // CRITICAL: Adicionar o prefixo correto para data URL
+      const finalDataUrl = `data:image/png;base64,${cleanBase64}`;
+      
+      console.log('✅ QR Code pronto para renderizar:', finalDataUrl.substring(0, 100) + '...');
+      console.log('📊 Comprimento do Base64:', cleanBase64.length, 'caracteres');
+
+      return (
+        <div className="flex flex-col items-center space-y-4">
+          <div className="bg-white p-4 rounded-lg">
+            <img
+              src={finalDataUrl}
+              alt="QR Code WhatsApp"
+              className="w-64 h-64"
+              onError={(e) => {
+                console.error('❌ ERRO ao renderizar imagem QR Code');
+                console.error('Data URL que falhou:', finalDataUrl.substring(0, 200));
+                setQrCodeErrors(prev => ({ ...prev, [instance.id]: true }));
+                toast({
+                  title: "Erro ao carregar QR Code",
+                  description: "Falha ao renderizar a imagem. Tente criar uma nova instância.",
+                  variant: "destructive",
+                });
+              }}
+              onLoad={() => {
+                console.log('✅ QR Code renderizado com sucesso!');
+              }}
+            />
+          </div>
+          <p className="text-sm text-center text-muted-foreground">
+            Abra o WhatsApp no seu celular e escaneie este código
+          </p>
         </div>
-        <p className="text-sm text-center text-muted-foreground">
-          Abra o WhatsApp no seu celular e escaneie este código
-        </p>
-      </div>
-    );
+      );
+    } catch (error) {
+      console.error('❌ ERRO CRÍTICO ao processar QR Code:', error);
+      console.error('Dados recebidos:', instance.qr_code);
+      return null;
+    }
   };
 
   return (
