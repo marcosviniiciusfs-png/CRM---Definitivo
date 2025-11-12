@@ -467,17 +467,17 @@ const WhatsAppConnection = () => {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <img src={whatsappLogo} alt="WhatsApp" className="h-6 w-6" />
+      <Card className="border-muted">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="flex items-center gap-3 text-lg">
+            <img src={whatsappLogo} alt="WhatsApp" className="h-12 w-12" />
             Conexão WhatsApp
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs">
             Conecte seu WhatsApp para enviar e receber mensagens
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 pb-4">
         {instances.length === 0 ? (
           <div className="text-center py-8 space-y-4">
             <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
