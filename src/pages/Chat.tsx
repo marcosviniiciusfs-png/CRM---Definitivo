@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead, Message } from "@/types/chat";
 import { Card } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
 
 const Chat = () => {
+  const location = useLocation();
   const { toast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -20,10 +22,35 @@ const Chat = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Carregar leads
+  // Carregar leads e configurar realtime
   useEffect(() => {
     loadLeads();
-  }, []);
+
+    // Se veio um lead selecionado da página Leads
+    if (location.state?.selectedLead) {
+      setSelectedLead(location.state.selectedLead);
+    }
+
+    // Configurar realtime para atualizações automáticas
+    const channel = supabase
+      .channel('leads-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads'
+        },
+        () => {
+          loadLeads();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [location.state]);
 
   // Carregar mensagens quando um lead é selecionado
   useEffect(() => {
