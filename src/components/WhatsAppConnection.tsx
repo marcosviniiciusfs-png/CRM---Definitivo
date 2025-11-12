@@ -467,27 +467,20 @@ const WhatsAppConnection = () => {
         </DialogContent>
       </Dialog>
 
-      <Card className="border-muted">
-        <CardHeader className="pb-3 pt-4 px-4">
+      <Card className="border-muted max-w-2xl">
+        <CardHeader className="pb-2 pt-3 px-4">
           <CardTitle className="flex items-center gap-3 text-lg">
             <img src={whatsappLogo} alt="WhatsApp" className="h-12 w-12" />
             Conexão WhatsApp
           </CardTitle>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-xs text-center">
             Conecte seu WhatsApp para enviar e receber mensagens
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 px-4 pb-4">
+        <CardContent className="px-4 pb-3">
         {instances.length === 0 ? (
-          <div className="text-center py-8 space-y-4">
-            <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
-            <div>
-              <p className="text-lg font-medium">Nenhuma instância conectada</p>
-              <p className="text-sm text-muted-foreground">
-                Clique no botão abaixo para conectar seu WhatsApp
-              </p>
-            </div>
-            <Button onClick={createInstance} disabled={creating} size="lg">
+          <div className="text-center py-3">
+            <Button onClick={createInstance} disabled={creating} size="default">
               {creating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -502,24 +495,24 @@ const WhatsAppConnection = () => {
             </Button>
           </div>
         ) : (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-3">
             {instances.map((instance) => (
               <div key={instance.id}>
                 {instance.status === 'CONNECTED' ? (
                   <Button
                     onClick={() => disconnectInstance(instance.id)}
                     disabled={disconnecting === instance.id}
-                    className="bg-red-600 hover:bg-red-700 text-white px-8 py-6 text-lg"
-                    size="lg"
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    size="default"
                   >
                     {disconnecting === instance.id ? (
                       <>
-                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Desconectando...
                       </>
                     ) : (
                       <>
-                        <LogOut className="h-5 w-5 mr-2" />
+                        <LogOut className="h-4 w-4 mr-2" />
                         Desconectar
                       </>
                     )}
@@ -528,17 +521,17 @@ const WhatsAppConnection = () => {
                   <Button
                     onClick={createInstance}
                     disabled={creating}
-                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-6 text-lg"
-                    size="lg"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    size="default"
                   >
                     {creating ? (
                       <>
-                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Conectando...
                       </>
                     ) : (
                       <>
-                        <MessageSquare className="h-5 w-5 mr-2" />
+                        <MessageSquare className="h-4 w-4 mr-2" />
                         Conectar WhatsApp
                       </>
                     )}
