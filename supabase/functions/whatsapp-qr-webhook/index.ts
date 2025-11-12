@@ -56,22 +56,23 @@ serve(async (req) => {
     // Handle QR Code update events
     if (event === 'qrcode.updated' || event === 'QRCODE_UPDATED') {
       console.log(`🔄 Processing QR code update for instance: ${instance}`);
+      console.log('📦 Raw payload.data:', JSON.stringify(data, null, 2));
       
-      // CRITICAL: Extract QR code dynamically from webhook payload
+      // CRITICAL: Extract QR code Base64 string ONLY - never save objects
       let rawBase64 = '';
       
       try {
-        // Primary path: Evolution API sends QR in data.qrcode.base64
-        if (data?.qrcode?.base64) {
+        // Path 1: Evolution API format - data.qrcode.base64
+        if (data?.qrcode?.base64 && typeof data.qrcode.base64 === 'string') {
           rawBase64 = data.qrcode.base64;
-          console.log('✅ QR extracted from: data.qrcode.base64');
+          console.log('✅ QR extracted from: data.qrcode.base64 (string)');
         } 
-        // Fallback: Check if qrcode is a direct string
+        // Path 2: Direct string in qrcode field
         else if (typeof data?.qrcode === 'string') {
           rawBase64 = data.qrcode;
           console.log('✅ QR extracted from: data.qrcode (direct string)');
         } 
-        // Additional fallback paths
+        // Path 3: Alternative field names
         else if (typeof data?.qr === 'string') {
           rawBase64 = data.qr;
           console.log('✅ QR extracted from: data.qr');
@@ -80,12 +81,25 @@ serve(async (req) => {
           rawBase64 = data.base64;
           console.log('✅ QR extracted from: data.base64');
         }
+        // Path 4: CRITICAL FIX - If qrcode is an object, try to extract base64 field
+        else if (data?.qrcode && typeof data.qrcode === 'object') {
+          console.log('⚠️ data.qrcode is an object, attempting to extract base64 field');
+          const qrObject: any = data.qrcode;
+          
+          if (typeof qrObject.base64 === 'string') {
+            rawBase64 = qrObject.base64;
+            console.log('✅ QR extracted from nested object: data.qrcode.base64');
+          } else {
+            console.error('❌ data.qrcode is object but has no base64 field:', Object.keys(qrObject));
+          }
+        }
 
-        // Validate QR code was found
-        if (!rawBase64 || rawBase64.length === 0) {
-          console.error('❌ No QR code found in payload. Data structure:', JSON.stringify(data, null, 2));
+        // CRITICAL: Validate we got a STRING, not an object
+        if (typeof rawBase64 !== 'string' || rawBase64.length === 0) {
+          console.error('❌ No valid Base64 string found. Type:', typeof rawBase64);
+          console.error('❌ Data structure received:', JSON.stringify(data, null, 2));
           return new Response(
-            JSON.stringify({ success: true, message: 'No QR code in payload' }),
+            JSON.stringify({ success: true, message: 'No valid QR code string in payload' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
           );
         }
