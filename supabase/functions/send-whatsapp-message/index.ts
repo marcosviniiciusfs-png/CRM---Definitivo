@@ -77,8 +77,15 @@ serve(async (req) => {
       );
     }
 
-    // Limpar URL base (remover barras finais e prefixos /manager)
-    const cleanBaseUrl = evolutionApiUrl.replace(/\/+$/, '').replace(/\/manager\/?$/, '');
+    // Limpar URL base de forma mais agressiva
+    // Remove: barras finais, /manager/, /manager, barra dupla, etc
+    let cleanBaseUrl = evolutionApiUrl
+      .replace(/\/+$/, '')           // Remove barras finais
+      .replace(/\/manager\/?/g, '')  // Remove /manager/ ou /manager
+      .replace(/\/\//g, '/');        // Remove barras duplas
+    
+    // Se a URL terminar com protocolo:/, adiciona a segunda barra
+    cleanBaseUrl = cleanBaseUrl.replace(/:\/$/, '://');
     
     // Construir endpoint correto para envio de mensagem
     const sendMessageUrl = `${cleanBaseUrl}/message/sendText/${instance_name}`;

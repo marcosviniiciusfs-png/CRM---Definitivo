@@ -91,11 +91,13 @@ const Chat = () => {
 
     setSending(true);
     try {
-      // Buscar instância conectada
+      // Buscar a instância conectada mais recente do usuário
       const { data: instanceData, error: instanceError } = await supabase
         .from('whatsapp_instances')
-        .select('instance_name')
+        .select('instance_name, id, status')
         .eq('status', 'CONNECTED')
+        .order('connected_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (instanceError) {
