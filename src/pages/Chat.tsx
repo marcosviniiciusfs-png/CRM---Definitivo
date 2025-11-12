@@ -91,6 +91,24 @@ const Chat = () => {
 
     setSending(true);
     try {
+      // Buscar instância conectada
+      const { data: instanceData, error: instanceError } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name')
+        .eq('status', 'CONNECTED')
+        .maybeSingle();
+
+      if (instanceError) {
+        console.error('Erro ao buscar instância:', instanceError);
+        throw new Error('Erro ao buscar instância WhatsApp conectada');
+      }
+
+      if (!instanceData) {
+        throw new Error('Nenhuma instância WhatsApp conectada. Por favor, conecte o WhatsApp nas configurações.');
+      }
+
+      console.log('📱 Usando instância:', instanceData.instance_name);
+
       // Nome do colaborador (você pode substituir por dados do usuário autenticado)
       const collaboratorName = "Atendente";
       
@@ -100,9 +118,9 @@ const Chat = () => {
       // Call edge function to send message via Evolution API
       const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
         body: {
-          number: selectedLead.telefone_lead,
-          text: messageForEvolution,
-          userId: 'system',
+          instance_name: instanceData.instance_name,
+          remoteJid: selectedLead.telefone_lead,
+          message_text: messageForEvolution,
           leadId: selectedLead.id,
         },
       });
@@ -113,7 +131,7 @@ const Chat = () => {
         throw new Error(data.error || 'Erro ao enviar mensagem');
       }
 
-      console.log('Mensagem enviada com messageId:', data.messageId);
+      console.log('✅ Mensagem enviada com messageId:', data.messageId);
 
       // Reload messages after sending
       await loadMessages(selectedLead.id);
@@ -124,7 +142,7 @@ const Chat = () => {
         description: "Sua mensagem foi enviada via WhatsApp",
       });
     } catch (error: any) {
-      console.error("Erro ao enviar mensagem:", error);
+      console.error("❌ Erro ao enviar mensagem:", error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível enviar a mensagem",

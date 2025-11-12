@@ -8,10 +8,10 @@ const corsHeaders = {
 };
 
 interface SendMessageRequest {
-  number: string;
-  text: string;
-  userId: string;
-  leadId: string;
+  instance_name: string;
+  remoteJid: string;
+  message_text: string;
+  leadId?: string; // Opcional, para salvar no banco
 }
 
 serve(async (req) => {
@@ -21,48 +21,66 @@ serve(async (req) => {
   }
 
   try {
-    const { number, text, userId, leadId }: SendMessageRequest = await req.json();
+    const { instance_name, remoteJid, message_text, leadId }: SendMessageRequest = await req.json();
 
-    console.log('Received request:', { number, text, userId, leadId });
+    console.log('📤 Enviando mensagem:', { instance_name, remoteJid, message_text, leadId });
 
-    // Clean phone number - only digits
-    const cleanNumber = number.replace(/\D/g, '');
+    // Validar parâmetros obrigatórios
+    if (!instance_name || !remoteJid || !message_text) {
+      console.error('❌ Parâmetros obrigatórios faltando');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Parâmetros obrigatórios: instance_name, remoteJid, message_text',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, // CRÍTICO: Sempre retorna 200
+        },
+      );
+    }
+
+    // Limpar o número do WhatsApp - apenas dígitos
+    const cleanNumber = remoteJid.replace(/\D/g, '');
     
     if (!cleanNumber) {
-      throw new Error('Invalid phone number');
+      console.error('❌ Número inválido após limpeza');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Número de WhatsApp inválido',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, // CRÍTICO: Sempre retorna 200
+        },
+      );
     }
 
-    console.log('Cleaned number:', cleanNumber);
+    console.log('✅ Número limpo:', cleanNumber);
 
-    // Initialize Supabase client first to get instance info
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get the connected WhatsApp instance
-    const { data: instance, error: instanceError } = await supabase
-      .from('whatsapp_instances')
-      .select('instance_name')
-      .eq('status', 'CONNECTED')
-      .single();
-
-    if (instanceError || !instance) {
-      console.error('No connected WhatsApp instance found:', instanceError);
-      throw new Error('No connected WhatsApp instance found. Please connect WhatsApp first.');
-    }
-
-    console.log('Using instance:', instance.instance_name);
-
-    // Get Evolution API credentials from environment
+    // Obter credenciais da Evolution API
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
 
     if (!evolutionApiUrl || !evolutionApiKey) {
-      throw new Error('Evolution API credentials not configured');
+      console.error('❌ Credenciais da Evolution API não configuradas');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Credenciais da Evolution API não configuradas',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, // CRÍTICO: Sempre retorna 200
+        },
+      );
     }
 
-    // Send message via Evolution API using the correct instance name
-    const evolutionResponse = await fetch(`${evolutionApiUrl}/message/sendText/${instance.instance_name}`, {
+    // Enviar mensagem via Evolution API
+    console.log(`🔄 Chamando Evolution API: ${evolutionApiUrl}/message/sendText/${instance_name}`);
+    
+    const evolutionResponse = await fetch(`${evolutionApiUrl}/message/sendText/${instance_name}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -70,40 +88,68 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         number: cleanNumber,
-        text: text,
+        text: message_text,
       }),
     });
 
+    // Verificar resposta da Evolution API
     if (!evolutionResponse.ok) {
       const errorText = await evolutionResponse.text();
-      console.error('Evolution API error:', errorText);
-      throw new Error(`Evolution API error: ${evolutionResponse.status} - ${errorText}`);
+      console.error('❌ Erro da Evolution API:', {
+        status: evolutionResponse.status,
+        statusText: evolutionResponse.statusText,
+        error: errorText,
+      });
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Evolution API retornou erro ${evolutionResponse.status}: ${errorText}`,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, // CRÍTICO: Sempre retorna 200, mesmo com erro da Evolution
+        },
+      );
     }
 
     const evolutionData = await evolutionResponse.json();
-    console.log('Evolution API response:', evolutionData);
+    console.log('✅ Resposta da Evolution API:', evolutionData);
 
-    // Extract messageId from Evolution response
+    // Extrair messageId da resposta
     const messageId = evolutionData.key?.id || evolutionData.messageId || null;
+    console.log('📝 Message ID:', messageId);
 
-    // Save message to database
-    const { error: dbError } = await supabase
-      .from('mensagens_chat')
-      .insert({
-        id_lead: leadId,
-        direcao: 'SAIDA',
-        corpo_mensagem: text,
-        evolution_message_id: messageId,
-        status_entrega: 'SENT',
-      });
+    // Se leadId foi fornecido, salvar no banco de dados
+    if (leadId) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
 
-    if (dbError) {
-      console.error('Database error:', dbError);
-      throw new Error(`Database error: ${dbError.message}`);
+        const { error: dbError } = await supabase
+          .from('mensagens_chat')
+          .insert({
+            id_lead: leadId,
+            direcao: 'SAIDA',
+            corpo_mensagem: message_text,
+            evolution_message_id: messageId,
+            status_entrega: 'SENT',
+          });
+
+        if (dbError) {
+          console.error('⚠️ Erro ao salvar no banco (mensagem foi enviada):', dbError);
+          // Nota: Não retornamos erro aqui porque a mensagem FOI enviada com sucesso
+        } else {
+          console.log('💾 Mensagem salva no banco com sucesso');
+        }
+      } catch (dbException) {
+        console.error('⚠️ Exceção ao salvar no banco (mensagem foi enviada):', dbException);
+        // Nota: Não retornamos erro aqui porque a mensagem FOI enviada com sucesso
+      }
     }
 
-    console.log('Message saved to database with messageId:', messageId);
-
+    // Sucesso!
     return new Response(
       JSON.stringify({
         success: true,
@@ -115,16 +161,19 @@ serve(async (req) => {
         status: 200,
       },
     );
+
   } catch (error: any) {
-    console.error('Error in send-whatsapp-message:', error);
+    console.error('💥 Erro crítico na função:', error);
+    
+    // CRÍTICO: Mesmo com erro crítico, retornamos 200
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error.message || 'Erro desconhecido ao processar requisição',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 200, // CRÍTICO: Sempre retorna 200
       },
     );
   }
