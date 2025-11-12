@@ -163,16 +163,26 @@ serve(async (req) => {
         console.error('❌ Error fetching config from database:', configError);
       } else if (config && config.length > 0) {
         config.forEach(item => {
-          if (item.config_key === 'EVOLUTION_API_URL') evolutionApiUrl = item.config_value;
-          if (item.config_key === 'EVOLUTION_API_KEY') evolutionApiKey = item.config_value;
+          // CRITICAL: Discard empty or null values
+          const value = item.config_value?.trim();
+          if (value && value.length > 0) {
+            if (item.config_key === 'EVOLUTION_API_URL') evolutionApiUrl = value;
+            if (item.config_key === 'EVOLUTION_API_KEY') evolutionApiKey = value;
+          }
         });
-        console.log('✅ Evolution API credentials loaded from database');
+        
+        if (evolutionApiUrl && evolutionApiKey) {
+          console.log('✅ Evolution API credentials loaded from database');
+        } else {
+          console.warn('⚠️ Evolution API credentials found in database but are empty');
+        }
       }
     }
 
     // Final validation
     if (!evolutionApiUrl || !evolutionApiKey) {
-      throw new Error('Evolution API credentials not configured in environment variables or database');
+      console.error('❌ Missing credentials - URL:', !!evolutionApiUrl, 'Key:', !!evolutionApiKey);
+      throw new Error('Evolution API credentials not configured. Please configure them in Settings > Evolution API Configuration');
     }
 
     // Remove trailing slash and /manager from URL if present
