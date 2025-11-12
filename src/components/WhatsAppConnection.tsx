@@ -309,43 +309,73 @@ const WhatsAppConnection = () => {
   }
 
   const renderQRCode = (instance: WhatsAppInstance) => {
-    // CRITICAL: O banco de dados armazena APENAS a string Base64 pura (sem prefixo)
-    // Precisamos adicionar o prefixo data:image/png;base64, para renderizar
-    
     try {
-      // Extrair a string Base64 pura do banco
+      console.log('🔍 Processando QR Code:', { 
+        id: instance.id, 
+        status: instance.status,
+        qrCodeType: typeof instance.qr_code,
+        qrCodePreview: instance.qr_code ? JSON.stringify(instance.qr_code).substring(0, 200) : 'null'
+      });
+
       let rawBase64 = '';
       
+      // CASO 1: String direta (formato ideal)
       if (typeof instance.qr_code === 'string') {
         rawBase64 = instance.qr_code;
-        console.log('✅ QR Code lido como string do banco:', rawBase64.substring(0, 100) + '...');
-      } else if (instance.qr_code && typeof instance.qr_code === 'object') {
-        console.warn('⚠️ QR Code veio como objeto, tentando extrair:', instance.qr_code);
+        console.log('✅ QR Code é string direta, comprimento:', rawBase64.length);
+      } 
+      // CASO 2: Objeto (pode vir do Supabase/Postgres)
+      else if (instance.qr_code && typeof instance.qr_code === 'object') {
         const qrData: any = instance.qr_code;
-        rawBase64 = qrData.base64 || qrData.value || '';
+        console.log('📦 QR Code é objeto, estrutura:', Object.keys(qrData));
+        
+        // Supabase às vezes retorna { _type: "String", value: "..." }
+        if (qrData._type === 'String' && qrData.value) {
+          rawBase64 = qrData.value;
+          console.log('✅ Extraído de _type/value, comprimento:', rawBase64.length);
+        }
+        // Formato Evolution API: { base64: "data:image...", code: "...", pairingCode: null }
+        else if (qrData.base64) {
+          rawBase64 = qrData.base64;
+          console.log('✅ Extraído de .base64, comprimento:', rawBase64.length);
+        }
+        // Fallback: tentar acessar .value diretamente
+        else if (qrData.value) {
+          rawBase64 = qrData.value;
+          console.log('✅ Extraído de .value, comprimento:', rawBase64.length);
+        }
       }
 
-      // Validar que temos algo para trabalhar
+      // Validação: QR Code vazio
       if (!rawBase64 || rawBase64.trim().length === 0) {
-        console.error('❌ QR Code vazio ou inválido');
-        return null;
+        console.error('❌ QR Code vazio após extração');
+        return (
+          <div className="text-center py-8 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <p>Aguardando QR Code...</p>
+          </div>
+        );
       }
 
-      // CRITICAL: Garantir que não há prefixo duplicado
-      // Remove QUALQUER prefixo data:image existente
+      // Limpeza: remover prefixo data:image se já existir
       const cleanBase64 = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
       
-      // Validar comprimento mínimo (QR Codes costumam ter 10000+ caracteres)
+      // Validação: comprimento mínimo
       if (cleanBase64.length < 100) {
-        console.error('❌ Base64 muito curto após limpeza:', cleanBase64.length, 'caracteres');
+        console.error('❌ Base64 muito curto:', cleanBase64.length, 'caracteres');
+        console.error('Conteúdo:', cleanBase64.substring(0, 100));
         return null;
       }
 
-      // CRITICAL: Adicionar o prefixo correto para data URL
+      // Construir data URL final
       const finalDataUrl = `data:image/png;base64,${cleanBase64}`;
       
-      console.log('✅ QR Code pronto para renderizar:', finalDataUrl.substring(0, 100) + '...');
-      console.log('📊 Comprimento do Base64:', cleanBase64.length, 'caracteres');
+      console.log('✅ QR Code pronto!', {
+        originalLength: rawBase64.length,
+        cleanLength: cleanBase64.length,
+        finalLength: finalDataUrl.length,
+        preview: finalDataUrl.substring(0, 100) + '...'
+      });
 
       return (
         <div className="flex flex-col items-center space-y-4">
