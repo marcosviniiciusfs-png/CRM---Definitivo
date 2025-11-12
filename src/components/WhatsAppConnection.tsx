@@ -132,12 +132,38 @@ const WhatsAppConnection = () => {
         throw new Error(data.error || 'Erro ao criar instância');
       }
 
-      toast({
-        title: "Instância criada!",
-        description: "O QR Code será exibido em alguns segundos.",
-      });
+      console.log('✅ Instância criada com sucesso:', data);
 
-      // Recarregar instâncias
+      // CRÍTICO: Se a resposta contém o QR Code, abrir dialog IMEDIATAMENTE
+      if (data.instance && data.instance.qrCode) {
+        console.log('🚀 QR Code recebido na resposta, abrindo dialog imediatamente');
+        
+        // Criar objeto de instância temporário para exibir no dialog
+        const tempInstance: WhatsAppInstance = {
+          id: data.instance.id,
+          instance_name: data.instance.instanceName,
+          status: data.instance.status || 'WAITING_QR',
+          qr_code: data.instance.qrCode,
+          phone_number: null,
+          created_at: new Date().toISOString(),
+          connected_at: null,
+        };
+        
+        setSelectedInstance(tempInstance);
+        setQrDialogOpen(true);
+        
+        toast({
+          title: "QR Code pronto!",
+          description: "Escaneie o código para conectar seu WhatsApp.",
+        });
+      } else {
+        toast({
+          title: "Instância criada!",
+          description: "O QR Code será exibido em alguns segundos.",
+        });
+      }
+
+      // Recarregar instâncias (o realtime também fará isso)
       await loadInstances();
     } catch (error: any) {
       console.error('Erro ao criar instância:', error);
