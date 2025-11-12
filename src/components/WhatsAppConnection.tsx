@@ -501,184 +501,51 @@ const WhatsAppConnection = () => {
             </Button>
           </div>
         ) : (
-          <>
+          <div className="flex justify-center py-8">
             {instances.map((instance) => (
-              <div
-                key={instance.id}
-                className="border rounded-lg p-4 space-y-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(instance.status)}
-                    <div>
-                      <p className="font-medium">
-                        {instance.phone_number || instance.instance_name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Criado em {new Date(instance.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                  {getStatusBadge(instance.status)}
-                </div>
-
-                {/* Botão para abrir QR Code manualmente */}
-                {(instance.status === 'WAITING_QR' || instance.status === 'CREATING') && instance.qr_code && (
+              <div key={instance.id}>
+                {instance.status === 'CONNECTED' ? (
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedInstance(instance);
-                      setQrDialogOpen(true);
-                    }}
-                    className="w-full"
+                    onClick={() => disconnectInstance(instance.id)}
+                    disabled={disconnecting === instance.id}
+                    className="bg-red-600 hover:bg-red-700 text-white px-8 py-6 text-lg"
+                    size="lg"
                   >
-                    <QrCode className="h-4 w-4 mr-2" />
-                    Ver QR Code
-                  </Button>
-                )}
-
-                {/* Mostrar informações quando conectado */}
-                {instance.status === 'CONNECTED' && instance.phone_number && (
-                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span className="text-sm font-medium">
-                        WhatsApp conectado com sucesso!
-                      </span>
-                    </div>
-                    <p className="text-sm text-green-600 dark:text-green-500">
-                      Número: {instance.phone_number}
-                    </p>
-                    {instance.connected_at && (
-                      <p className="text-xs text-green-600/70 dark:text-green-500/70">
-                        Conectado em {new Date(instance.connected_at).toLocaleString('pt-BR')}
-                      </p>
+                    {disconnecting === instance.id ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Desconectando...
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="h-5 w-5 mr-2" />
+                        Desconectar
+                      </>
                     )}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => disconnectInstance(instance.id)}
-                        disabled={disconnecting === instance.id || deleting === instance.id}
-                        className="flex-1"
-                      >
-                        {disconnecting === instance.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                            Desconectando...
-                          </>
-                        ) : (
-                          <>
-                            <LogOut className="h-3 w-3 mr-2" />
-                            Desconectar
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteInstance(instance.id)}
-                        disabled={disconnecting === instance.id || deleting === instance.id}
-                        className="flex-1"
-                      >
-                        {deleting === instance.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                            Deletando...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="h-3 w-3 mr-2" />
-                            Remover
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Mostrar aviso quando desconectado ou status desconhecido */}
-                {(instance.status === 'DISCONNECTED' || instance.status === 'UNKNOWN') && (
-                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
-                      <XCircle className="h-4 w-4" />
-                      <span className="text-sm font-medium">
-                        {instance.status === 'UNKNOWN' ? 'Status desconhecido' : 'WhatsApp desconectado'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-red-600 dark:text-red-500">
-                      {instance.status === 'UNKNOWN' 
-                        ? 'Esta instância está em um estado desconhecido. Remova e crie uma nova conexão.'
-                        : 'Clique no botão abaixo para reconectar ou remover esta instância'
-                      }
-                    </p>
-                    <div className="flex gap-2">
-                      {instance.status === 'DISCONNECTED' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={createInstance}
-                          disabled={creating || deleting === instance.id}
-                        >
-                          {creating ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                              Reconectando...
-                            </>
-                          ) : (
-                            'Reconectar'
-                          )}
-                        </Button>
-                      )}
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteInstance(instance.id)}
-                        disabled={creating || deleting === instance.id}
-                        className="flex-1"
-                      >
-                        {deleting === instance.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                            Removendo...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="h-3 w-3 mr-2" />
-                            Remover Instância
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={createInstance}
+                    disabled={creating}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-6 text-lg"
+                    size="lg"
+                  >
+                    {creating ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Conectando...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="h-5 w-5 mr-2" />
+                        Conectar WhatsApp
+                      </>
+                    )}
+                  </Button>
                 )}
               </div>
             ))}
-
-            {/* Botão para adicionar nova instância se todas estiverem conectadas */}
-            {instances.every(i => i.status === 'CONNECTED') && (
-              <Button 
-                onClick={createInstance} 
-                disabled={creating} 
-                variant="outline"
-                className="w-full"
-              >
-                {creating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Criando nova instância...
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Adicionar nova instância
-                  </>
-                )}
-              </Button>
-            )}
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
