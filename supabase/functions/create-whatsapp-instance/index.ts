@@ -145,12 +145,34 @@ serve(async (req) => {
     // Generate unique instance name using user ID and timestamp
     const instanceName = `crm-${user.id.substring(0, 8)}-${Date.now()}`;
     
-    // Get Evolution API credentials
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+    // Get Evolution API credentials with fallback to database
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+    let evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
 
+    // FALLBACK: If env vars not available, try database config table
     if (!evolutionApiUrl || !evolutionApiKey) {
-      throw new Error('Evolution API credentials not configured');
+      console.log('⚠️ Evolution API credentials not in env vars, checking database...');
+      
+      const { data: config, error: configError } = await supabase
+        .from('app_config')
+        .select('config_key, config_value')
+        .in('config_key', ['EVOLUTION_API_URL', 'EVOLUTION_API_KEY'])
+        .limit(2);
+
+      if (configError) {
+        console.error('❌ Error fetching config from database:', configError);
+      } else if (config && config.length > 0) {
+        config.forEach(item => {
+          if (item.config_key === 'EVOLUTION_API_URL') evolutionApiUrl = item.config_value;
+          if (item.config_key === 'EVOLUTION_API_KEY') evolutionApiKey = item.config_value;
+        });
+        console.log('✅ Evolution API credentials loaded from database');
+      }
+    }
+
+    // Final validation
+    if (!evolutionApiUrl || !evolutionApiKey) {
+      throw new Error('Evolution API credentials not configured in environment variables or database');
     }
 
     // Remove trailing slash and /manager from URL if present
