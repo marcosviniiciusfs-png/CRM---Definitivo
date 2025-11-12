@@ -467,35 +467,35 @@ const WhatsAppConnection = () => {
         </DialogContent>
       </Dialog>
 
-      <Card className="border-muted max-w-2xl">
-        <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="flex items-center gap-3 text-lg">
-            <img src={whatsappLogo} alt="WhatsApp" className="h-12 w-12" />
+      <Card className="border-muted max-w-xl mx-auto">
+        <CardHeader className="pb-1 pt-2 px-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <img src={whatsappLogo} alt="WhatsApp" className="h-8 w-8" />
             Conexão WhatsApp
           </CardTitle>
-          <CardDescription className="text-xs text-center">
+          <CardDescription className="text-xs text-center pt-1">
             Conecte seu WhatsApp para enviar e receber mensagens
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-4 pb-3">
+        <CardContent className="px-3 pb-2">
         {instances.length === 0 ? (
-          <div className="text-center py-3">
-            <Button onClick={createInstance} disabled={creating} size="default">
+          <div className="text-center py-2">
+            <Button onClick={createInstance} disabled={creating} size="sm">
               {creating ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
                   Criando instância...
                 </>
               ) : (
                 <>
-                  <MessageSquare className="h-4 w-4 mr-2" />
+                  <MessageSquare className="h-3 w-3 mr-2" />
                   Conectar WhatsApp
                 </>
               )}
             </Button>
           </div>
         ) : (
-          <div className="flex justify-center py-3">
+          <div className="flex justify-center py-2">
             {instances.map((instance) => (
               <div key={instance.id}>
                 {instance.status === 'CONNECTED' ? (
@@ -503,16 +503,16 @@ const WhatsAppConnection = () => {
                     onClick={() => disconnectInstance(instance.id)}
                     disabled={disconnecting === instance.id}
                     className="bg-red-600 hover:bg-red-700 text-white"
-                    size="default"
+                    size="sm"
                   >
                     {disconnecting === instance.id ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
                         Desconectando...
                       </>
                     ) : (
                       <>
-                        <LogOut className="h-4 w-4 mr-2" />
+                        <LogOut className="h-3 w-3 mr-2" />
                         Desconectar
                       </>
                     )}
@@ -522,16 +522,16 @@ const WhatsAppConnection = () => {
                     onClick={createInstance}
                     disabled={creating}
                     className="bg-green-600 hover:bg-green-700 text-white"
-                    size="default"
+                    size="sm"
                   >
                     {creating ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
                         Conectando...
                       </>
                     ) : (
                       <>
-                        <MessageSquare className="h-4 w-4 mr-2" />
+                        <MessageSquare className="h-3 w-3 mr-2" />
                         Conectar WhatsApp
                       </>
                     )}
