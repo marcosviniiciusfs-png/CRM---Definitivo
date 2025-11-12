@@ -103,6 +103,25 @@ const WhatsAppConnection = () => {
   const createInstance = async () => {
     setCreating(true);
     try {
+      // Validar se credenciais estão configuradas
+      const { data: config } = await supabase
+        .from('app_config')
+        .select('config_value')
+        .in('config_key', ['EVOLUTION_API_URL', 'EVOLUTION_API_KEY']);
+
+      const hasUrl = config?.some(c => c.config_value && c.config_value.trim().length > 0);
+      const hasKey = config?.some(c => c.config_value && c.config_value.trim().length > 0);
+
+      if (!hasUrl || !hasKey || (config && config.length < 2)) {
+        toast({
+          title: "Credenciais não configuradas",
+          description: "As credenciais da Evolution API não estão configuradas. Entre em contato com o administrador do sistema.",
+          variant: "destructive",
+        });
+        setCreating(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('create-whatsapp-instance', {
         body: {},
       });
