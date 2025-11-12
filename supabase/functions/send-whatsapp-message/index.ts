@@ -34,6 +34,25 @@ serve(async (req) => {
 
     console.log('Cleaned number:', cleanNumber);
 
+    // Initialize Supabase client first to get instance info
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get the connected WhatsApp instance
+    const { data: instance, error: instanceError } = await supabase
+      .from('whatsapp_instances')
+      .select('instance_name')
+      .eq('status', 'CONNECTED')
+      .single();
+
+    if (instanceError || !instance) {
+      console.error('No connected WhatsApp instance found:', instanceError);
+      throw new Error('No connected WhatsApp instance found. Please connect WhatsApp first.');
+    }
+
+    console.log('Using instance:', instance.instance_name);
+
     // Get Evolution API credentials from environment
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
@@ -42,8 +61,8 @@ serve(async (req) => {
       throw new Error('Evolution API credentials not configured');
     }
 
-    // Send message via Evolution API
-    const evolutionResponse = await fetch(`${evolutionApiUrl}/message/sendText/crm-instance`, {
+    // Send message via Evolution API using the correct instance name
+    const evolutionResponse = await fetch(`${evolutionApiUrl}/message/sendText/${instance.instance_name}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,11 +85,6 @@ serve(async (req) => {
 
     // Extract messageId from Evolution response
     const messageId = evolutionData.key?.id || evolutionData.messageId || null;
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Save message to database
     const { error: dbError } = await supabase
