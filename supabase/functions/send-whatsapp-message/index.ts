@@ -77,10 +77,15 @@ serve(async (req) => {
       );
     }
 
-    // Enviar mensagem via Evolution API
-    console.log(`🔄 Chamando Evolution API: ${evolutionApiUrl}/message/sendText/${instance_name}`);
+    // Limpar URL base (remover barras finais e prefixos /manager)
+    const cleanBaseUrl = evolutionApiUrl.replace(/\/+$/, '').replace(/\/manager\/?$/, '');
     
-    const evolutionResponse = await fetch(`${evolutionApiUrl}/message/sendText/${instance_name}`, {
+    // Construir endpoint correto para envio de mensagem
+    const sendMessageUrl = `${cleanBaseUrl}/message/sendText/${instance_name}`;
+    
+    console.log(`🔄 Chamando Evolution API: ${sendMessageUrl}`);
+    
+    const evolutionResponse = await fetch(sendMessageUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
