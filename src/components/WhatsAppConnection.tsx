@@ -471,7 +471,7 @@ const WhatsAppConnection = () => {
         <CardHeader className="pb-1 pt-2 px-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <img src={whatsappLogo} alt="WhatsApp" className="h-8 w-8" />
-            Conexão WhatsApp
+            WhatsApp Business/Pessoal
           </CardTitle>
           <CardDescription className="text-xs text-center pt-1">
             Conecte seu WhatsApp para enviar e receber mensagens
