@@ -73,9 +73,9 @@ const Dashboard = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-semibold">Metas</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pb-6 pt-0">
-            <div className="relative w-full max-w-[280px] h-[140px]">
-              <ResponsiveContainer width="100%" height={140}>
+          <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
+            <div className="relative w-full max-w-[400px] h-[220px]">
+              <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <defs>
                     <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -89,8 +89,8 @@ const Dashboard = () => {
                     cy="85%"
                     startAngle={180}
                     endAngle={0}
-                    innerRadius={60}
-                    outerRadius={75}
+                    innerRadius={90}
+                    outerRadius={110}
                     paddingAngle={0}
                     dataKey="value"
                     strokeWidth={0}
@@ -104,21 +104,21 @@ const Dashboard = () => {
               
               {/* Marcadores (traços pretos) nos pontos de mudança de cor */}
               {/* Marcador 33% */}
-              <div className="absolute left-[22%] top-[32%] w-[2px] h-[14px] bg-black origin-bottom" 
+              <div className="absolute left-[22%] top-[28%] w-[2px] h-[18px] bg-black origin-bottom" 
                    style={{ transform: 'rotate(-60deg)' }} />
               
               {/* Marcador 66% */}
-              <div className="absolute left-[50%] top-[1%] w-[2px] h-[14px] bg-black origin-bottom -translate-x-1/2" />
+              <div className="absolute left-[50%] top-[1%] w-[2px] h-[18px] bg-black origin-bottom -translate-x-1/2" />
               
               {/* Marcador 100% */}
-              <div className="absolute right-[22%] top-[32%] w-[2px] h-[14px] bg-black origin-bottom" 
+              <div className="absolute right-[22%] top-[28%] w-[2px] h-[18px] bg-black origin-bottom" 
                    style={{ transform: 'rotate(60deg)' }} />
               
               {/* Valor central */}
-              <div className="absolute inset-0 flex flex-col items-center justify-end pb-6">
-                <p className="text-2xl font-bold">R${currentValue}</p>
-                <p className="text-sm text-muted-foreground">de R${totalValue}</p>
-                <p className="text-xs text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-10">
+                <p className="text-3xl font-bold">R${currentValue}</p>
+                <p className="text-base text-muted-foreground">de R${totalValue}</p>
+                <p className="text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
           </CardContent>
