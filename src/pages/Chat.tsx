@@ -157,10 +157,6 @@ const Chat = () => {
       if (error) throw error;
 
       if (!data.success) {
-        // Se a instância não existe mais, mostrar mensagem específica
-        if (data.needsReconnect) {
-          throw new Error('Sua conexão WhatsApp expirou. Por favor, reconecte o WhatsApp nas Configurações.');
-        }
         throw new Error(data.error || 'Erro ao enviar mensagem');
       }
 
