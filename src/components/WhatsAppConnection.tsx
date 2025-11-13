@@ -86,29 +86,34 @@ const WhatsAppConnection = () => {
 
       console.log('Verificando status de', instances.length, 'instâncias...');
 
-      // Verificar o status de cada instância na Evolution API
-      for (const instance of instances) {
+      // Verificar o status de cada instância na Evolution API de forma silenciosa
+      const statusChecks = instances.map(async (instance) => {
         try {
           const { data, error } = await supabase.functions.invoke('check-whatsapp-status', {
             body: { instance_name: instance.instance_name },
           });
 
           if (error) {
-            console.error(`Erro ao verificar status da instância ${instance.instance_name}:`, error);
-          } else {
-            console.log(`Status verificado para ${instance.instance_name}:`, data);
+            console.warn(`Não foi possível verificar status da instância ${instance.instance_name}:`, error);
+            return null;
           }
+          
+          console.log(`Status verificado para ${instance.instance_name}:`, data);
+          return data;
         } catch (err) {
-          console.error(`Erro ao verificar instância ${instance.instance_name}:`, err);
-          // Continuar verificando outras instâncias mesmo se uma falhar
+          console.warn(`Erro ao verificar instância ${instance.instance_name}:`, err);
+          return null;
         }
-      }
+      });
+
+      // Aguardar todas as verificações (mesmo que algumas falhem)
+      await Promise.allSettled(statusChecks);
 
       // Recarregar as instâncias após verificar os status
       await loadInstances();
     } catch (error) {
-      console.error('Erro ao verificar status das instâncias:', error);
-      // Não mostrar toast de erro aqui, pois é uma verificação em background
+      console.warn('Erro ao verificar status das instâncias:', error);
+      // Verificação falhou, mas não impede o funcionamento da tela
     }
   };
 
@@ -289,8 +294,15 @@ const WhatsAppConnection = () => {
   useEffect(() => {
     const initializeInstances = async () => {
       await loadInstances();
+      
       // Verificar status de todas as instâncias na Evolution API após carregar
-      await checkAllInstancesStatus();
+      // Esta verificação é opcional e não deve quebrar a UI se falhar
+      try {
+        await checkAllInstancesStatus();
+      } catch (error) {
+        console.warn('Verificação automática de status falhou:', error);
+        // Continuar normalmente mesmo se a verificação falhar
+      }
     };
 
     initializeInstances();

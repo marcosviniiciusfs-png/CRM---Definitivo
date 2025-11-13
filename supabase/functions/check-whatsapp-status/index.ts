@@ -63,7 +63,8 @@ Deno.serve(async (req) => {
     
     console.log('Evolution API URL limpa:', evolutionApiUrl);
 
-    // Construir a URL completa
+    // Construir a URL completa - usando o endpoint correto da Evolution API v2
+    // Endpoint: GET /instance/connectionState/{instanceName}
     const statusUrl = `${evolutionApiUrl}/instance/connectionState/${instance_name}`;
     
     console.log(`URL final para Evolution API: ${statusUrl}`);
@@ -111,15 +112,50 @@ Deno.serve(async (req) => {
     let evolutionData;
     try {
       const responseText = await evolutionResponse.text();
-      console.log('Evolution API raw response:', responseText.substring(0, 200));
+      console.log('Evolution API raw response (primeiros 300 chars):', responseText.substring(0, 300));
+      
+      // Verificar se a resposta é HTML (página de erro)
+      if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+        console.error('Evolution API retornou HTML em vez de JSON. A URL ou endpoint podem estar incorretos.');
+        
+        // Atualizar status para DISCONNECTED
+        await supabase
+          .from('whatsapp_instances')
+          .update({ 
+            status: 'DISCONNECTED',
+            updated_at: new Date().toISOString()
+          })
+          .eq('instance_name', instance_name);
+
+        return new Response(
+          JSON.stringify({ 
+            status: 'DISCONNECTED',
+            message: 'Não foi possível verificar o status. A Evolution API pode estar com problemas.'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       evolutionData = JSON.parse(responseText);
+      console.log('Evolution API parsed response:', JSON.stringify(evolutionData, null, 2));
     } catch (parseError) {
       console.error('Erro ao fazer parse da resposta da Evolution API:', parseError);
+      
+      // Atualizar status para DISCONNECTED como fallback
+      await supabase
+        .from('whatsapp_instances')
+        .update({ 
+          status: 'DISCONNECTED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('instance_name', instance_name);
+
       return new Response(
         JSON.stringify({ 
-          error: 'Evolution API retornou resposta inválida. Verifique a URL da API.' 
+          status: 'DISCONNECTED',
+          message: 'Não foi possível verificar o status'
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     console.log('Evolution API response:', evolutionData);
