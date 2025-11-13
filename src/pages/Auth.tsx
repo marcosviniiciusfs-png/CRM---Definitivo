@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import { StarsBackground } from "@/components/ui/stars-background";
 
 const Auth = () => {
   const { signUp, signIn, user, loading: authLoading } = useAuth();
@@ -126,8 +127,9 @@ const Auth = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 overflow-hidden">
+      <StarsBackground className="w-full h-full" />
+      <Card className="w-full max-w-md relative z-10">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">CRM</CardTitle>
           <CardDescription>Gestão de Leads e Vendas</CardDescription>
