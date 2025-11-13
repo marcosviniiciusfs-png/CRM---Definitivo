@@ -73,9 +73,9 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Metas</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pb-8 pt-4">
-            <div className="relative w-full max-w-[320px] h-[200px]">
-              <ResponsiveContainer width="100%" height={200}>
+          <CardContent className="flex flex-col items-center justify-center pb-4 pt-2">
+            <div className="relative w-full max-w-[110px] h-[70px]">
+              <ResponsiveContainer width="100%" height={70}>
                 <PieChart>
                   <defs>
                     <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -89,8 +89,8 @@ const Dashboard = () => {
                     cy="85%"
                     startAngle={180}
                     endAngle={0}
-                    innerRadius={85}
-                    outerRadius={105}
+                    innerRadius={28}
+                    outerRadius={35}
                     paddingAngle={0}
                     dataKey="value"
                     strokeWidth={0}
@@ -100,18 +100,14 @@ const Dashboard = () => {
                       <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
                     ))}
                   </Pie>
-                  {/* Marcadores internos - linhas brancas/pretas dentro da barra */}
-                  <line x1="35%" y1="32%" x2="38%" y2="38%" stroke="rgba(0,0,0,0.3)" strokeWidth="2" />
-                  <line x1="50%" y1="15%" x2="50%" y2="20%" stroke="rgba(0,0,0,0.3)" strokeWidth="2" />
-                  <line x1="65%" y1="32%" x2="62%" y2="38%" stroke="rgba(0,0,0,0.3)" strokeWidth="2" />
                 </PieChart>
               </ResponsiveContainer>
               
               {/* Valor central */}
-              <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
-                <p className="text-3xl font-bold">R${currentValue}</p>
-                <p className="text-sm text-muted-foreground">de R${totalValue}</p>
-                <p className="text-xs text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-3">
+                <p className="text-base font-bold">R${currentValue}</p>
+                <p className="text-[10px] text-muted-foreground">de R${totalValue}</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
           </CardContent>
