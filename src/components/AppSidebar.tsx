@@ -14,6 +14,8 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import logoFull from "@/assets/logo-full.png";
+import logoIcon from "@/assets/logo-icon.png";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -36,10 +38,20 @@ export function AppSidebar() {
       className="border-r border-sidebar-border shadow-sm"
     >
       <SidebarContent className="bg-sidebar">
-        <div className="p-4 pb-4">
-          <h1 className={`font-bold text-sidebar-primary transition-all ${open ? "text-2xl" : "text-xl text-center"}`}>
-            {open ? "CRM" : "C"}
-          </h1>
+        <div className="p-4 pb-4 flex items-center justify-center">
+          {open ? (
+            <img 
+              src={logoFull} 
+              alt="KairoZ" 
+              className="h-10 w-auto object-contain transition-all"
+            />
+          ) : (
+            <img 
+              src={logoIcon} 
+              alt="K" 
+              className="h-8 w-auto object-contain transition-all"
+            />
+          )}
         </div>
 
         <SidebarGroup>
