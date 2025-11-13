@@ -36,27 +36,27 @@ export function AppSidebar() {
       className="border-r border-sidebar-border shadow-sm"
     >
       <SidebarContent className="bg-sidebar">
-        <div className="p-6 pb-6">
-          <h1 className={`font-bold text-sidebar-primary transition-all ${open ? "text-3xl" : "text-2xl text-center"}`}>
+        <div className="p-4 pb-4">
+          <h1 className={`font-bold text-sidebar-primary transition-all ${open ? "text-2xl" : "text-xl text-center"}`}>
             {open ? "CRM" : "C"}
           </h1>
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 text-base px-4">Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 text-sm px-3">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-2">
+            <SidebarMenu className="space-y-1">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-14">
+                  <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="hover:bg-sidebar-accent text-sidebar-foreground text-lg px-6 py-4"
+                      className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                     >
-                      <item.icon className="h-7 w-7 flex-shrink-0" />
-                      <span className="text-lg">{item.title}</span>
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -66,19 +66,19 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-6">
+      <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4">
         {open ? (
-          <div className="space-y-3">
-            <p className="text-sm text-sidebar-foreground/60 truncate">
+          <div className="space-y-2">
+            <p className="text-xs text-sidebar-foreground/60 truncate">
               {user?.email}
             </p>
             <Button
               onClick={signOut}
               variant="outline"
-              className="w-full justify-start gap-3 bg-sidebar-accent hover:bg-sidebar-accent/80 h-12 text-base"
-              size="lg"
+              className="w-full justify-start gap-2 bg-sidebar-accent hover:bg-sidebar-accent/80 text-sm"
+              size="sm"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-4 w-4" />
               Sair
             </Button>
           </div>
@@ -87,9 +87,9 @@ export function AppSidebar() {
             onClick={signOut}
             variant="ghost"
             size="icon"
-            className="w-full h-12"
+            className="w-full"
           >
-            <LogOut className="h-6 w-6" />
+            <LogOut className="h-4 w-4" />
           </Button>
         )}
       </SidebarFooter>
