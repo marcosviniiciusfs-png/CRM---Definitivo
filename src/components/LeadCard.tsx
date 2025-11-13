@@ -7,6 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 interface LeadCardProps {
   id: string;
@@ -16,8 +18,23 @@ interface LeadCardProps {
 }
 
 export const LeadCard = ({ id, name, phone, date }: LeadCardProps) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   return (
-    <Card className="p-1.5 cursor-move hover:shadow-md transition-shadow bg-background">
+    <Card
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="p-1.5 cursor-move hover:shadow-md transition-shadow bg-background"
+    >
       <div className="flex items-start justify-between mb-1">
         <h3 className="font-semibold text-xs text-foreground leading-tight">{name}</h3>
         <DropdownMenu>

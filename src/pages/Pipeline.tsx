@@ -1,71 +1,140 @@
 import { PipelineColumn } from "@/components/PipelineColumn";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Lead } from "@/types/chat";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
+import { LeadCard } from "@/components/LeadCard";
+import { toast } from "sonner";
 
 const stages = [
-  { 
-    id: "new", 
-    title: "Novo Lead", 
-    color: "bg-blue-500",
-    count: 13,
-    leads: [
-      { id: "1", name: "Marcos Vinicius", phone: "559499086403", date: "10/11/2025 22:35" },
-      { id: "2", name: "Maria Alice", phone: "185065963262140", date: "10/11/2025 17:18" },
-      { id: "3", name: "Kailany Freitas", phone: "5518991565068", date: "10/11/2025 16:38" },
-      { id: "4", name: "5511951735490", phone: "5511951735490", date: "10/11/2025 16:24" },
-      { id: "5", name: "Ingrid", phone: "559499086403", date: "10/11/2025 22:35" },
-    ]
-  },
-  { 
-    id: "attending", 
-    title: "Em Atendimento", 
-    color: "bg-yellow-500",
-    count: 3,
-    leads: [
-      { id: "6", name: "Mateus Santos", phone: "559431992146", date: "10/11/2025 22:58" },
-      { id: "7", name: "Gabriela Brito", phone: "559492865737", date: "10/11/2025 18:11" },
-      { id: "8", name: "João Silva", phone: "+5511987654321", date: "05/11/2025 19:41" },
-    ]
-  },
-  { 
-    id: "closed", 
-    title: "Fechado", 
-    color: "bg-green-500",
-    count: 1,
-    leads: [
-      { id: "9", name: "Pedro Costa", phone: "+5511965432109", date: "05/11/2025 18:46" },
-    ]
-  },
-  { 
-    id: "lost", 
-    title: "Perdido", 
-    color: "bg-red-500",
-    count: 0,
-    leads: []
-  },
+  { id: "NOVO", title: "Novo Lead", color: "bg-blue-500" },
+  { id: "EM_ATENDIMENTO", title: "Em Atendimento", color: "bg-yellow-500" },
+  { id: "FECHADO", title: "Fechado", color: "bg-green-500" },
+  { id: "PERDIDO", title: "Perdido", color: "bg-red-500" },
 ];
 
 const Pipeline = () => {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadLeads();
+  }, []);
+
+  const loadLeads = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setLeads(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar leads:", error);
+      toast.error("Erro ao carregar leads");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const leadId = active.id as string;
+    const newStage = over.id as string;
+
+    // Encontrar o lead que está sendo movido
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead || lead.stage === newStage) return;
+
+    // Atualizar localmente primeiro para feedback imediato
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, stage: newStage } : l))
+    );
+
+    // Atualizar no Supabase
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ stage: newStage })
+        .eq("id", leadId);
+
+      if (error) throw error;
+      toast.success("Lead movido com sucesso!");
+    } catch (error) {
+      console.error("Erro ao atualizar lead:", error);
+      toast.error("Erro ao mover lead");
+      // Reverter mudança local em caso de erro
+      loadLeads();
+    }
+  };
+
+  const getLeadsByStage = (stageId: string) => {
+    return leads.filter((lead) => (lead.stage || "NOVO") === stageId);
+  };
+
+  const activeLead = leads.find((lead) => lead.id === activeId);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Carregando pipeline...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Pipeline de Vendas</h1>
-        <p className="text-muted-foreground mt-1">
-          Arraste e solte os cards para mover leads entre as etapas do funil
-        </p>
+    <DndContext
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Pipeline de Vendas</h1>
+          <p className="text-muted-foreground mt-1">
+            Arraste e solte os cards para mover leads entre as etapas do funil
+          </p>
+        </div>
+
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {stages.map((stage) => {
+            const stageLeads = getLeadsByStage(stage.id);
+            return (
+              <PipelineColumn
+                key={stage.id}
+                id={stage.id}
+                title={stage.title}
+                count={stageLeads.length}
+                color={stage.color}
+                leads={stageLeads}
+                isEmpty={stageLeads.length === 0}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto">
-        {stages.map((stage) => (
-          <PipelineColumn
-            key={stage.id}
-            title={stage.title}
-            count={stage.count}
-            color={stage.color}
-            leads={stage.leads}
-            isEmpty={stage.count === 0}
+      <DragOverlay>
+        {activeLead ? (
+          <LeadCard
+            id={activeLead.id}
+            name={activeLead.nome_lead}
+            phone={activeLead.telefone_lead}
+            date={new Date(activeLead.created_at).toLocaleString("pt-BR")}
           />
-        ))}
-      </div>
-    </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
 
