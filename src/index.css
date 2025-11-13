@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
+    --background: 0 0% 100%;
     --foreground: 215 20% 15%;
 
     --card: 0 0% 100%;
@@ -17,7 +17,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 20% 15%;
 
-    --primary: 174 60% 48%;
+    --primary: 159 97% 37%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 25% 95%;
@@ -26,13 +26,13 @@ All colors MUST be HSL.
     --muted: 215 20% 96%;
     --muted-foreground: 215 15% 50%;
 
-    --accent: 174 60% 48%;
+    --accent: 159 97% 37%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 71% 45%;
+    --success: 159 97% 37%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
@@ -40,20 +40,20 @@ All colors MUST be HSL.
 
     --border: 215 20% 90%;
     --input: 215 20% 90%;
-    --ring: 174 60% 48%;
+    --ring: 159 97% 37%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 215 28% 17%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 174 60% 48%;
+    --sidebar-primary: 159 97% 37%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 28% 22%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 215 28% 22%;
-    --sidebar-ring: 174 60% 48%;
+    --sidebar-ring: 159 97% 37%;
 
-    --chart-1: 174 60% 48%;
+    --chart-1: 159 97% 37%;
     --chart-2: 200 70% 55%;
     --chart-3: 38 92% 50%;
     --chart-4: 142 71% 45%;
@@ -70,7 +70,7 @@ All colors MUST be HSL.
     --popover: 215 28% 17%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 174 60% 48%;
+    --primary: 159 97% 37%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 28% 22%;
@@ -79,7 +79,7 @@ All colors MUST be HSL.
     --muted: 215 28% 22%;
     --muted-foreground: 215 15% 65%;
 
-    --accent: 174 60% 48%;
+    --accent: 159 97% 37%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
@@ -87,16 +87,16 @@ All colors MUST be HSL.
 
     --border: 215 28% 22%;
     --input: 215 28% 22%;
-    --ring: 174 60% 48%;
+    --ring: 159 97% 37%;
 
     --sidebar-background: 215 28% 17%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 174 60% 48%;
+    --sidebar-primary: 159 97% 37%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 28% 22%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 215 28% 22%;
-    --sidebar-ring: 174 60% 48%;
+    --sidebar-ring: 159 97% 37%;
   }
 }
 
