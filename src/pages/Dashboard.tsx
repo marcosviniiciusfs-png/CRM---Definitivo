@@ -68,12 +68,12 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Metas</CardTitle>
+      <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
+        <Card className="max-w-[250px]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Metas</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pb-4 pt-2">
+          <CardContent className="flex flex-col items-center justify-center pb-3 pt-1">
             <div className="relative w-full max-w-[110px] h-[70px]">
               <ResponsiveContainer width="100%" height={70}>
                 <PieChart>
@@ -104,10 +104,10 @@ const Dashboard = () => {
               </ResponsiveContainer>
               
               {/* Valor central */}
-              <div className="absolute inset-0 flex flex-col items-center justify-end pb-3">
-                <p className="text-base font-bold">R${currentValue}</p>
-                <p className="text-[10px] text-muted-foreground">de R${totalValue}</p>
-                <p className="text-[9px] text-muted-foreground mt-0.5">{percentage.toFixed(0)}% concluído</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-2">
+                <p className="text-sm font-bold">R${currentValue}</p>
+                <p className="text-[9px] text-muted-foreground">de R${totalValue}</p>
+                <p className="text-[8px] text-muted-foreground mt-0.5">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
           </CardContent>
