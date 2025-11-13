@@ -56,13 +56,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Remover trailing slash da URL base se houver
-    evolutionApiUrl = evolutionApiUrl.replace(/\/$/, '');
+    console.log('Evolution API URL original:', evolutionApiUrl);
 
-    // Construir a URL corretamente, removendo qualquer barra dupla
-    let statusUrl = `${evolutionApiUrl}/instance/connectionState/${instance_name}`;
-    statusUrl = statusUrl.replace(/([^:]\/)\/+/g, '$1'); // Remove barras duplas exceto depois de http://
-    console.log(`Chamando Evolution API: ${statusUrl}`);
+    // Limpar a URL base: remover trailing slashes e normalizar
+    evolutionApiUrl = evolutionApiUrl.trim().replace(/\/+$/, '');
+    
+    console.log('Evolution API URL limpa:', evolutionApiUrl);
+
+    // Construir a URL completa
+    const statusUrl = `${evolutionApiUrl}/instance/connectionState/${instance_name}`;
+    
+    console.log(`URL final para Evolution API: ${statusUrl}`);
 
     const evolutionResponse = await fetch(statusUrl, {
       method: 'GET',

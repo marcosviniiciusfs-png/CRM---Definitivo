@@ -89,15 +89,18 @@ const WhatsAppConnection = () => {
       // Verificar o status de cada instância na Evolution API
       for (const instance of instances) {
         try {
-          const { error } = await supabase.functions.invoke('check-whatsapp-status', {
+          const { data, error } = await supabase.functions.invoke('check-whatsapp-status', {
             body: { instance_name: instance.instance_name },
           });
 
           if (error) {
             console.error(`Erro ao verificar status da instância ${instance.instance_name}:`, error);
+          } else {
+            console.log(`Status verificado para ${instance.instance_name}:`, data);
           }
         } catch (err) {
           console.error(`Erro ao verificar instância ${instance.instance_name}:`, err);
+          // Continuar verificando outras instâncias mesmo se uma falhar
         }
       }
 
@@ -105,6 +108,7 @@ const WhatsAppConnection = () => {
       await loadInstances();
     } catch (error) {
       console.error('Erro ao verificar status das instâncias:', error);
+      // Não mostrar toast de erro aqui, pois é uma verificação em background
     }
   };
 
