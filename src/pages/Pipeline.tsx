@@ -1,87 +1,68 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { DollarSign, Calendar, User } from "lucide-react";
+import { PipelineColumn } from "@/components/PipelineColumn";
 
 const stages = [
-  { id: "new", title: "Novo Lead", color: "bg-blue-500" },
-  { id: "qualification", title: "Qualificação", color: "bg-yellow-500" },
-  { id: "proposal", title: "Proposta", color: "bg-orange-500" },
-  { id: "negotiation", title: "Negociação", color: "bg-purple-500" },
-  { id: "closed", title: "Fechado", color: "bg-success" },
+  { 
+    id: "new", 
+    title: "Novo Lead", 
+    color: "bg-blue-500",
+    count: 13,
+    leads: [
+      { id: "1", name: "Marcos Vinicius", phone: "559499086403", date: "10/11/2025 22:35" },
+      { id: "2", name: "Maria Alice", phone: "185065963262140", date: "10/11/2025 17:18" },
+      { id: "3", name: "Kailany Freitas", phone: "5518991565068", date: "10/11/2025 16:38" },
+      { id: "4", name: "5511951735490", phone: "5511951735490", date: "10/11/2025 16:24" },
+      { id: "5", name: "Ingrid", phone: "559499086403", date: "10/11/2025 22:35" },
+    ]
+  },
+  { 
+    id: "attending", 
+    title: "Em Atendimento", 
+    color: "bg-yellow-500",
+    count: 3,
+    leads: [
+      { id: "6", name: "Mateus Santos", phone: "559431992146", date: "10/11/2025 22:58" },
+      { id: "7", name: "Gabriela Brito", phone: "559492865737", date: "10/11/2025 18:11" },
+      { id: "8", name: "João Silva", phone: "+5511987654321", date: "05/11/2025 19:41" },
+    ]
+  },
+  { 
+    id: "closed", 
+    title: "Fechado", 
+    color: "bg-green-500",
+    count: 1,
+    leads: [
+      { id: "9", name: "Pedro Costa", phone: "+5511965432109", date: "05/11/2025 18:46" },
+    ]
+  },
+  { 
+    id: "lost", 
+    title: "Perdido", 
+    color: "bg-red-500",
+    count: 0,
+    leads: []
+  },
 ];
-
-const leads = {
-  new: [
-    { id: 1, client: "Tech Solutions Ltda", value: 45000, contact: "Carlos Silva", date: "2024-01-15" },
-    { id: 2, client: "Inovação Digital", value: 32000, contact: "Ana Paula", date: "2024-01-14" },
-  ],
-  qualification: [
-    { id: 3, client: "Empresa X", value: 28000, contact: "João Santos", date: "2024-01-10" },
-    { id: 4, client: "StartUp Y", value: 15000, contact: "Maria Costa", date: "2024-01-12" },
-  ],
-  proposal: [
-    { id: 5, client: "Global Corp", value: 67000, contact: "Pedro Lima", date: "2024-01-08" },
-  ],
-  negotiation: [
-    { id: 6, client: "Mega Empresa", value: 89000, contact: "Julia Rocha", date: "2024-01-05" },
-  ],
-  closed: [
-    { id: 7, client: "Success Inc", value: 54000, contact: "Ricardo Alves", date: "2024-01-03" },
-  ],
-};
 
 const Pipeline = () => {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pipeline de Vendas</h1>
-          <p className="text-muted-foreground">Arraste os cards para atualizar o status</p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="text-sm">
-            Total: R$ 330k
-          </Badge>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Pipeline de Vendas</h1>
+        <p className="text-muted-foreground mt-1">
+          Arraste e solte os cards para mover leads entre as etapas do funil
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stages.map((stage) => (
-          <div key={stage.id} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${stage.color}`} />
-              <h3 className="font-semibold text-sm">{stage.title}</h3>
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {leads[stage.id as keyof typeof leads].length}
-              </Badge>
-            </div>
-            
-            <div className="space-y-3">
-              {leads[stage.id as keyof typeof leads].map((lead) => (
-                <Card key={lead.id} className="cursor-move hover:shadow-lg transition-shadow">
-                  <CardHeader className="p-4 pb-2">
-                    <CardTitle className="text-sm font-medium">{lead.client}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <DollarSign className="h-3 w-3" />
-                      <span className="font-semibold text-primary">
-                        R$ {(lead.value / 1000).toFixed(0)}k
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <User className="h-3 w-3" />
-                      <span>{lead.contact}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span>{new Date(lead.date).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+          <PipelineColumn
+            key={stage.id}
+            title={stage.title}
+            count={stage.count}
+            color={stage.color}
+            leads={stage.leads}
+            isEmpty={stage.count === 0}
+          />
         ))}
       </div>
     </div>
