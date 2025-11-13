@@ -33,6 +33,7 @@ export function AppSidebar() {
       collapsible="icon"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
+      className="border-r border-sidebar-border shadow-sm"
     >
       <SidebarContent className="bg-sidebar">
         <div className="p-6 pb-4">
