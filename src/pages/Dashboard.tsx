@@ -68,14 +68,14 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
-        <Card className="max-w-[250px]">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Metas</CardTitle>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Metas</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pb-3 pt-1">
-            <div className="relative w-full max-w-[110px] h-[70px]">
-              <ResponsiveContainer width="100%" height={70}>
+          <CardContent className="flex flex-col items-center justify-center pb-8 pt-4">
+            <div className="relative w-full max-w-[320px] h-[200px]">
+              <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <defs>
                     <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -89,12 +89,11 @@ const Dashboard = () => {
                     cy="85%"
                     startAngle={180}
                     endAngle={0}
-                    innerRadius={28}
-                    outerRadius={35}
+                    innerRadius={85}
+                    outerRadius={105}
                     paddingAngle={0}
                     dataKey="value"
                     strokeWidth={0}
-                    cornerRadius={10}
                   >
                     {goalData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
@@ -103,11 +102,23 @@ const Dashboard = () => {
                 </PieChart>
               </ResponsiveContainer>
               
+              {/* Marcadores (traços pretos) nos pontos de mudança de cor */}
+              {/* Marcador 33% */}
+              <div className="absolute left-[22%] top-[32%] w-[3px] h-[20px] bg-black origin-bottom" 
+                   style={{ transform: 'rotate(-60deg)' }} />
+              
+              {/* Marcador 66% */}
+              <div className="absolute left-[50%] top-[1%] w-[3px] h-[20px] bg-black origin-bottom -translate-x-1/2" />
+              
+              {/* Marcador 100% */}
+              <div className="absolute right-[22%] top-[32%] w-[3px] h-[20px] bg-black origin-bottom" 
+                   style={{ transform: 'rotate(60deg)' }} />
+              
               {/* Valor central */}
-              <div className="absolute inset-0 flex flex-col items-center justify-end pb-2">
-                <p className="text-sm font-bold">R${currentValue}</p>
-                <p className="text-[9px] text-muted-foreground">de R${totalValue}</p>
-                <p className="text-[8px] text-muted-foreground mt-0.5">{percentage.toFixed(0)}% concluído</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
+                <p className="text-3xl font-bold">R${currentValue}</p>
+                <p className="text-sm text-muted-foreground">de R${totalValue}</p>
+                <p className="text-xs text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
           </CardContent>
