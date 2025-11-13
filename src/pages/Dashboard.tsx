@@ -70,37 +70,41 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Metas</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pb-8">
-            <div className="relative w-full max-w-[300px]">
+          <CardContent className="flex flex-col items-center justify-center pb-8 pt-4">
+            <div className="relative w-full max-w-[320px] h-[200px]">
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
                     data={goalData}
                     cx="50%"
-                    cy="50%"
+                    cy="85%"
                     startAngle={180}
                     endAngle={0}
-                    innerRadius={80}
-                    outerRadius={100}
+                    innerRadius={85}
+                    outerRadius={105}
                     paddingAngle={0}
                     dataKey="value"
+                    strokeWidth={0}
                   >
                     {goalData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                      <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center -mt-8">
+              
+              {/* Marcadores ao longo da curva */}
+              <div className="absolute left-[8%] top-[68%] text-sm text-muted-foreground">0</div>
+              <div className="absolute left-[22%] top-[32%] text-sm text-muted-foreground">25</div>
+              <div className="absolute right-[22%] top-[32%] text-sm text-muted-foreground">95</div>
+              <div className="absolute right-[8%] top-[68%] text-sm text-muted-foreground">50</div>
+              
+              {/* Valor central */}
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
+                <p className="text-xs text-muted-foreground mb-1">95</p>
                 <p className="text-3xl font-bold">R$7580</p>
                 <p className="text-sm text-muted-foreground">de R$8000</p>
               </div>
-            </div>
-            <div className="flex justify-between w-full max-w-[300px] mt-4 px-4 text-sm text-muted-foreground">
-              <span>0</span>
-              <span>25</span>
-              <span>50</span>
-              <span>95</span>
             </div>
           </CardContent>
         </Card>
