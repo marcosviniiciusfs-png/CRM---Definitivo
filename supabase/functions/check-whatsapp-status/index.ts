@@ -58,8 +58,8 @@ Deno.serve(async (req) => {
 
     console.log('Evolution API URL original:', evolutionApiUrl);
 
-    // Limpar a URL base: remover trailing slashes e normalizar
-    evolutionApiUrl = evolutionApiUrl.trim().replace(/\/+$/, '');
+    // Limpar a URL base: remover /manager e trailing slashes (igual create-whatsapp-instance faz)
+    evolutionApiUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '').trim();
     
     console.log('Evolution API URL limpa:', evolutionApiUrl);
 
