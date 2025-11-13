@@ -1,128 +1,191 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Users, FileText, TrendingUp, Target, Clock } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 
-const revenueData = [
-  { month: "Jan", receita: 45000, meta: 50000 },
-  { month: "Fev", receita: 52000, meta: 50000 },
-  { month: "Mar", receita: 48000, meta: 50000 },
-  { month: "Abr", receita: 61000, meta: 55000 },
-  { month: "Mai", receita: 58000, meta: 55000 },
-  { month: "Jun", receita: 67000, meta: 60000 },
+const leadSourceData = [
+  { month: "Jan", emailMarketing: 1200, api: 50, vendaLeads: 5 },
+  { month: "Fev", emailMarketing: 1800, api: 80, vendaLeads: 8 },
+  { month: "Mar", emailMarketing: 2400, api: 120, vendaLeads: 12 },
+  { month: "Apr", emailMarketing: 3200, api: 180, vendaLeads: 15 },
+  { month: "Mai", emailMarketing: 4500, api: 220, vendaLeads: 18 },
+  { month: "Jun", emailMarketing: 5200, api: 260, vendaLeads: 20 },
+  { month: "Jul", emailMarketing: 6100, api: 280, vendaLeads: 22 },
+  { month: "Ago", emailMarketing: 6800, api: 300, vendaLeads: 23 },
+  { month: "Set", emailMarketing: 7200, api: 315, vendaLeads: 24 },
+  { month: "Oct", emailMarketing: 7896, api: 325, vendaLeads: 24 },
 ];
 
-const pipelineData = [
-  { stage: "Novo Lead", count: 24 },
-  { stage: "Qualificação", count: 18 },
-  { stage: "Proposta", count: 12 },
-  { stage: "Negociação", count: 8 },
-  { stage: "Fechado", count: 15 },
+const goalData = [
+  { name: "Atingido", value: 7580, fill: "hsl(180, 70%, 45%)" },
+  { name: "Restante", value: 420, fill: "hsl(0, 0%, 90%)" },
 ];
 
 const Dashboard = () => {
+  const percentage = (7580 / 8000) * 100;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral da performance de vendas</p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <MetricCard
-          title="Leads Ativos"
-          value="87"
-          icon={Users}
-          trend={{ value: "12% vs mês anterior", positive: true }}
-        />
-        <MetricCard
-          title="Propostas Enviadas"
-          value="23"
-          icon={FileText}
-          subtitle="Este mês"
-        />
-        <MetricCard
-          title="Taxa de Conversão"
-          value="32%"
+          title="Novos Leads"
+          value="7089"
           icon={TrendingUp}
-          trend={{ value: "5% vs mês anterior", positive: true }}
+          iconColor="text-cyan-500"
         />
         <MetricCard
-          title="Receita Total"
-          value="R$ 456.8k"
-          icon={DollarSign}
-          trend={{ value: "8% vs mês anterior", positive: true }}
+          title="Novos Clientes"
+          value="65"
+          icon={Users}
+          iconColor="text-green-500"
+        />
+        <MetricCard
+          title="Faturas Enviadas"
+          value="628"
+          icon={FileText}
+          iconColor="text-slate-400"
+        />
+        <MetricCard
+          title="Tarefas Atuais"
+          value="5"
+          icon={CheckSquare}
+          iconColor="text-purple-500"
+        />
+        <MetricCard
+          title="Tarefas de Leads"
+          value="120"
+          icon={List}
+          iconColor="text-orange-400"
+        />
+        <MetricCard
+          title="Tarefas Atrasadas"
+          value="48"
+          icon={AlertCircle}
+          iconColor="text-red-500"
         />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              Receita vs Meta
-            </CardTitle>
+            <CardTitle className="text-lg font-semibold">Metas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" />
-                <Tooltip />
-                <Line type="monotone" dataKey="receita" stroke="hsl(var(--primary))" strokeWidth={2} name="Receita" />
-                <Line type="monotone" dataKey="meta" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="5 5" name="Meta" />
-              </LineChart>
-            </ResponsiveContainer>
+          <CardContent className="flex flex-col items-center justify-center pb-8">
+            <div className="relative w-full max-w-[300px]">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={goalData}
+                    cx="50%"
+                    cy="50%"
+                    startAngle={180}
+                    endAngle={0}
+                    innerRadius={80}
+                    outerRadius={100}
+                    paddingAngle={0}
+                    dataKey="value"
+                  >
+                    {goalData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center -mt-8">
+                <p className="text-3xl font-bold">R$7580</p>
+                <p className="text-sm text-muted-foreground">de R$8000</p>
+              </div>
+            </div>
+            <div className="flex justify-between w-full max-w-[300px] mt-4 px-4 text-sm text-muted-foreground">
+              <span>0</span>
+              <span>25</span>
+              <span>50</span>
+              <span>95</span>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              Distribuição do Pipeline
-            </CardTitle>
+            <CardTitle className="text-lg font-semibold">Fonte de Leads</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={pipelineData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="stage" className="text-xs" angle={-45} textAnchor="end" height={80} />
-                <YAxis className="text-xs" />
-                <Tooltip />
-                <Bar dataKey="count" fill="hsl(var(--primary))" name="Leads" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-6">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">E-mail Marketing</span>
+                  <span className="text-sm font-semibold">7896</span>
+                </div>
+                <ResponsiveContainer width="100%" height={60}>
+                  <LineChart data={leadSourceData}>
+                    <Line 
+                      type="monotone" 
+                      dataKey="emailMarketing" 
+                      stroke="hsl(180, 70%, 45%)" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>Jan</span>
+                  <span>Apr</span>
+                  <span>Jul</span>
+                  <span>Oct</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">API</span>
+                  <span className="text-sm font-semibold">325</span>
+                </div>
+                <ResponsiveContainer width="100%" height={60}>
+                  <LineChart data={leadSourceData}>
+                    <Line 
+                      type="monotone" 
+                      dataKey="api" 
+                      stroke="hsl(180, 70%, 45%)" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>Jan</span>
+                  <span>Apr</span>
+                  <span>Jul</span>
+                  <span>Oct</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">Venda de Leads</span>
+                  <span className="text-sm font-semibold">24</span>
+                </div>
+                <ResponsiveContainer width="100%" height={60}>
+                  <LineChart data={leadSourceData}>
+                    <Line 
+                      type="monotone" 
+                      dataKey="vendaLeads" 
+                      stroke="hsl(0, 0%, 40%)" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>Jan</span>
+                  <span>Apr</span>
+                  <span>Jul</span>
+                  <span>Oct</span>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Atividades Recentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[
-              { name: "João Silva", action: "moveu para Negociação", time: "há 5 minutos", value: "R$ 45.000" },
-              { name: "Maria Santos", action: "criou novo lead", time: "há 15 minutos", value: "R$ 12.000" },
-              { name: "Pedro Costa", action: "enviou proposta", time: "há 1 hora", value: "R$ 28.500" },
-              { name: "Ana Oliveira", action: "fechou negócio", time: "há 2 horas", value: "R$ 67.000" },
-            ].map((activity, i) => (
-              <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">
-                    {activity.name} <span className="text-muted-foreground font-normal">{activity.action}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">{activity.time}</p>
-                </div>
-                <div className="text-sm font-semibold text-primary">{activity.value}</div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
