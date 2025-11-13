@@ -29,6 +29,7 @@ const WhatsAppConnection = () => {
   const { toast } = useToast();
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [verifyingStatus, setVerifyingStatus] = useState(false);
   const [creating, setCreating] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -73,47 +74,63 @@ const WhatsAppConnection = () => {
 
   // Verificar status de todas as instâncias na Evolution API
   const checkAllInstancesStatus = async () => {
+    setVerifyingStatus(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setVerifyingStatus(false);
+        return;
+      }
 
       const { data: instances } = await supabase
         .from('whatsapp_instances')
         .select('instance_name')
         .eq('user_id', user.id);
 
-      if (!instances || instances.length === 0) return;
+      if (!instances || instances.length === 0) {
+        setVerifyingStatus(false);
+        return;
+      }
 
-      console.log('Verificando status de', instances.length, 'instâncias...');
+      console.log('🔍 Verificando status de', instances.length, 'instâncias na Evolution API...');
 
-      // Verificar o status de cada instância na Evolution API de forma silenciosa
+      // Verificar o status de cada instância na Evolution API de forma paralela
       const statusChecks = instances.map(async (instance) => {
         try {
+          console.log(`⏳ Verificando ${instance.instance_name}...`);
           const { data, error } = await supabase.functions.invoke('check-whatsapp-status', {
             body: { instance_name: instance.instance_name },
           });
 
           if (error) {
-            console.warn(`Não foi possível verificar status da instância ${instance.instance_name}:`, error);
+            console.warn(`⚠️  Não foi possível verificar status da instância ${instance.instance_name}:`, error);
             return null;
           }
           
-          console.log(`Status verificado para ${instance.instance_name}:`, data);
+          console.log(`✅ Status verificado para ${instance.instance_name}:`, data?.status);
           return data;
         } catch (err) {
-          console.warn(`Erro ao verificar instância ${instance.instance_name}:`, err);
+          console.warn(`❌ Erro ao verificar instância ${instance.instance_name}:`, err);
           return null;
         }
       });
 
       // Aguardar todas as verificações (mesmo que algumas falhem)
-      await Promise.allSettled(statusChecks);
+      const results = await Promise.allSettled(statusChecks);
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
+      
+      console.log(`✨ Verificação concluída: ${successCount}/${instances.length} instâncias verificadas com sucesso`);
+
+      // Aguardar um momento para garantir que o banco foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Recarregar as instâncias após verificar os status
       await loadInstances();
     } catch (error) {
       console.warn('Erro ao verificar status das instâncias:', error);
       // Verificação falhou, mas não impede o funcionamento da tela
+    } finally {
+      setVerifyingStatus(false);
     }
   };
 
@@ -528,10 +545,18 @@ const WhatsAppConnection = () => {
 
       <Card className="border-muted max-w-xl mx-auto">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <img src={whatsappLogo} alt="WhatsApp" className="h-8 w-8" />
-            WhatsApp Business/Pessoal
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <img src={whatsappLogo} alt="WhatsApp" className="h-8 w-8" />
+              WhatsApp Business/Pessoal
+            </CardTitle>
+            {verifyingStatus && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Verificando...
+              </Badge>
+            )}
+          </div>
           <CardDescription className="text-xs text-center pt-1">
             Conecte seu WhatsApp para enviar e receber mensagens
           </CardDescription>
