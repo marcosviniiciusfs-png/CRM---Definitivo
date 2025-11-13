@@ -113,10 +113,29 @@ serve(async (req) => {
         error: errorText,
       });
       
+      // Se erro 404 (instância não existe), atualizar status no banco
+      if (evolutionResponse.status === 404) {
+        try {
+          const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+          const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          
+          await supabase
+            .from('whatsapp_instances')
+            .update({ status: 'DISCONNECTED' })
+            .eq('instance_name', instance_name);
+          
+          console.log('🔄 Status da instância atualizado para DISCONNECTED');
+        } catch (updateError) {
+          console.error('⚠️ Erro ao atualizar status da instância:', updateError);
+        }
+      }
+      
       return new Response(
         JSON.stringify({
           success: false,
           error: `Evolution API retornou erro ${evolutionResponse.status}: ${errorText}`,
+          needsReconnect: evolutionResponse.status === 404,
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
