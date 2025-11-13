@@ -69,7 +69,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="max-w-[640px]">
+        <Card className="max-w-[450px]">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-semibold">Metas</CardTitle>
           </CardHeader>
