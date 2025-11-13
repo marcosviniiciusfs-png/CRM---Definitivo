@@ -127,9 +127,14 @@ const Auth = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 overflow-hidden">
-      <StarsBackground className="w-full h-full" />
-      <Card className="w-full max-w-md relative z-10">
+    <div className="relative flex min-h-screen items-center justify-center p-4 overflow-hidden bg-gradient-to-b from-[#0a0a1a] to-[#1a1a2e]">
+      <StarsBackground 
+        className="w-full h-full" 
+        starDensity={0.0003}
+        minTwinkleSpeed={0.3}
+        maxTwinkleSpeed={0.8}
+      />
+      <Card className="w-full max-w-md relative z-10 bg-card/95 backdrop-blur-sm border-border/50">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">CRM</CardTitle>
           <CardDescription>Gestão de Leads e Vendas</CardDescription>
