@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
-import { DragOverlayLeadCard } from "@/components/DragOverlayLeadCard";
+import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
 
 const stages = [
@@ -126,7 +126,12 @@ const Pipeline = () => {
 
       <DragOverlay>
         {activeLead ? (
-          <DragOverlayLeadCard name={activeLead.nome_lead} />
+          <LeadCard
+            id={activeLead.id}
+            name={activeLead.nome_lead}
+            phone={activeLead.telefone_lead}
+            date={new Date(activeLead.created_at).toLocaleString("pt-BR")}
+          />
         ) : null}
       </DragOverlay>
     </DndContext>
