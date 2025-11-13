@@ -127,14 +127,9 @@ const Auth = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-4 overflow-hidden bg-gradient-to-b from-[#0a0a1a] to-[#1a1a2e]">
-      <StarsBackground 
-        className="w-full h-full" 
-        starDensity={0.0003}
-        minTwinkleSpeed={0.3}
-        maxTwinkleSpeed={0.8}
-      />
-      <Card className="w-full max-w-md relative z-10 bg-card/95 backdrop-blur-sm border-border/50">
+    <StarsBackground className="min-h-screen" speed={30} factor={0.08}>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md relative z-10 bg-card/95 backdrop-blur-sm border-border/50">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">CRM</CardTitle>
           <CardDescription>Gestão de Leads e Vendas</CardDescription>
@@ -249,8 +244,9 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </StarsBackground>
   );
 };
 
