@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Lead, Message } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-r
 const Chat = () => {
   const location = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -138,11 +140,11 @@ const Chat = () => {
 
       console.log('📱 Usando instância:', instanceData.instance_name);
 
-      // Nome do colaborador (você pode substituir por dados do usuário autenticado)
-      const collaboratorName = "Atendente";
+      // Nome do usuário logado ou fallback para "Atendente"
+      const userName = user?.user_metadata?.name || "Atendente";
       
-      // Formatar mensagem com assinatura em itálico: *Nome:*\nMensagem
-      const messageForEvolution = `*${collaboratorName}:*\n${text.trim()}`;
+      // Formatar mensagem: Nome: Mensagem
+      const messageForEvolution = `${userName}: ${text.trim()}`;
 
       // Call edge function to send message via Evolution API
       const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
