@@ -130,21 +130,32 @@ const Chat = () => {
         .maybeSingle();
 
       if (instanceError) {
-        console.error('Erro ao buscar instância:', instanceError);
-        throw new Error('Erro ao buscar instância WhatsApp conectada');
+        console.error('❌ Erro ao buscar instância:', instanceError);
+        throw new Error('Erro ao buscar instância WhatsApp. Tente novamente.');
       }
 
       if (!instanceData) {
-        throw new Error('Nenhuma instância WhatsApp conectada. Por favor, conecte o WhatsApp nas configurações.');
+        console.warn('⚠️ Nenhuma instância conectada encontrada');
+        throw new Error('Nenhuma instância WhatsApp conectada. Por favor, conecte o WhatsApp nas Configurações antes de enviar mensagens.');
       }
 
-      console.log('📱 Usando instância:', instanceData.instance_name);
+      console.log('📱 Instância encontrada:', {
+        name: instanceData.instance_name,
+        id: instanceData.id,
+        status: instanceData.status
+      });
 
       // Nome do usuário logado ou fallback para "Atendente"
       const userName = user?.user_metadata?.name || "Atendente";
       
       // Formatar mensagem: Nome: Mensagem
       const messageForEvolution = `${userName}: ${text.trim()}`;
+
+      console.log('📤 Enviando mensagem:', {
+        instance: instanceData.instance_name,
+        to: selectedLead.telefone_lead,
+        message: messageForEvolution
+      });
 
       // Call edge function to send message via Evolution API
       const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
@@ -156,13 +167,21 @@ const Chat = () => {
         },
       });
 
-      if (error) throw error;
-
-      if (!data.success) {
-        throw new Error(data.error || 'Erro ao enviar mensagem');
+      if (error) {
+        console.error('❌ Erro na invocação da função:', error);
+        throw error;
       }
 
-      console.log('✅ Mensagem enviada com messageId:', data.messageId);
+      if (!data || !data.success) {
+        const errorMessage = data?.error || 'Erro desconhecido ao enviar mensagem';
+        console.error('❌ Resposta de erro da função:', data);
+        throw new Error(errorMessage);
+      }
+
+      console.log('✅ Mensagem enviada com sucesso:', {
+        messageId: data.messageId,
+        evolutionData: data.evolutionData
+      });
 
       // Reload messages after sending
       await loadMessages(selectedLead.id);
@@ -174,9 +193,19 @@ const Chat = () => {
       });
     } catch (error: any) {
       console.error("❌ Erro ao enviar mensagem:", error);
+      
+      // Extrair mensagem de erro mais específica
+      let errorMessage = "Não foi possível enviar a mensagem";
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível enviar a mensagem",
+        title: "Erro ao enviar",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
