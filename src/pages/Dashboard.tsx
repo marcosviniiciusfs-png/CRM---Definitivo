@@ -94,6 +94,7 @@ const Dashboard = () => {
                     paddingAngle={0}
                     dataKey="value"
                     strokeWidth={0}
+                    cornerRadius={10}
                   >
                     {goalData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
@@ -102,21 +103,9 @@ const Dashboard = () => {
                 </PieChart>
               </ResponsiveContainer>
               
-              {/* Marcadores (traços pretos) nos pontos de mudança de cor */}
-              {/* Marcador 33% */}
-              <div className="absolute left-[22%] top-[28%] w-[2px] h-[18px] bg-black origin-bottom" 
-                   style={{ transform: 'rotate(-60deg)' }} />
-              
-              {/* Marcador 66% */}
-              <div className="absolute left-[50%] top-[1%] w-[2px] h-[18px] bg-black origin-bottom -translate-x-1/2" />
-              
-              {/* Marcador 100% */}
-              <div className="absolute right-[22%] top-[28%] w-[2px] h-[18px] bg-black origin-bottom" 
-                   style={{ transform: 'rotate(60deg)' }} />
-              
               {/* Valor central */}
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-10">
-                <p className="text-3xl font-bold">R${currentValue}</p>
+                <p className="text-xl font-bold">R${currentValue}</p>
                 <p className="text-base text-muted-foreground">de R${totalValue}</p>
                 <p className="text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
