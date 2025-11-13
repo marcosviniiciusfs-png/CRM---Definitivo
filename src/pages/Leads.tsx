@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Filter, Phone, MessageSquare, Loader2, Trash2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Search, Phone, MessageSquare, Loader2, X, Calendar } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { useToast } from "@/hooks/use-toast";
@@ -19,13 +19,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
-  NOVO: { label: "Novo", variant: "default" },
-  QUALIFICACAO: { label: "Qualificação", variant: "secondary" },
-  PROPOSTA: { label: "Proposta", variant: "outline" },
-  NEGOCIACAO: { label: "Negociação", variant: "secondary" },
-  GANHO: { label: "Ganho", variant: "default" },
-  PERDIDO: { label: "Perdido", variant: "outline" },
+const statusConfig: Record<string, { label: string; color: string }> = {
+  NOVO: { label: "Novo", color: "bg-blue-500" },
+  EM_ATENDIMENTO: { label: "Em Atendimento", color: "bg-yellow-500" },
+  FECHADO: { label: "Fechado", color: "bg-green-500" },
+  PERDIDO: { label: "Perdido", color: "bg-red-500" },
 };
 
 const Leads = () => {
@@ -89,7 +87,20 @@ const Leads = () => {
   );
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Hoje';
+    } else if (diffDays === 1) {
+      return 'Ontem';
+    } else if (diffDays < 7) {
+      return `${diffDays} dias atrás`;
+    }
+    
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const openChat = (lead: Lead) => {
@@ -127,104 +138,109 @@ const Leads = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-          <p className="text-muted-foreground">Gerencie seus contatos e oportunidades vindos do WhatsApp</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Gerenciamento de Leads</h1>
+          <p className="text-muted-foreground">Gerencie todos os seus leads em um só lugar</p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por nome ou telefone..." 
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+      {/* Barra de pesquisa */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <Input 
+          placeholder="Buscar por nome, email ou empresa..." 
+          className="pl-10 h-12 text-base"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      {/* Lista de Leads */}
+      {loading ? (
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : filteredLeads.length === 0 ? (
+        <Card className="p-12">
+          <div className="text-center text-muted-foreground">
+            <p className="text-lg">Nenhum lead encontrado</p>
+            {searchQuery && (
+              <p className="text-sm mt-2">Tente ajustar sua busca</p>
+            )}
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : filteredLeads.length === 0 ? (
-            <div className="text-center p-8 text-muted-foreground">
-              <p>Nenhum lead encontrado</p>
-              {searchQuery && (
-                <p className="text-sm mt-2">Tente ajustar sua busca</p>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredLeads.map((lead) => (
-                <Card 
-                  key={lead.id} 
-                  className="hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => openChat(lead)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-lg">{lead.nome_lead}</h3>
-                          {lead.stage && statusLabels[lead.stage] && (
-                            <Badge variant={statusLabels[lead.stage].variant}>
-                              {statusLabels[lead.stage].label}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-4 w-4" />
-                            <span>{lead.telefone_lead}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MessageSquare className="h-4 w-4" />
-                            <span>{lead.source || 'WhatsApp'}</span>
-                          </div>
-                        </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredLeads.map((lead) => {
+            const statusInfo = statusConfig[lead.stage || 'NOVO'] || statusConfig.NOVO;
+            
+            return (
+              <Card 
+                key={lead.id} 
+                className="hover:shadow-lg transition-all duration-200 border-l-4 hover:border-l-primary"
+                style={{ borderLeftColor: statusInfo.color }}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Informações do Lead */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h3 className="font-semibold text-lg text-foreground truncate">
+                          {lead.nome_lead}
+                        </h3>
+                        <Badge 
+                          className={`${statusInfo.color} text-white border-none shrink-0`}
+                        >
+                          {statusInfo.label}
+                        </Badge>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openChat(lead);
-                            }}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Abrir Chat
-                          </Button>
-                          <Button 
-                            size="sm"
-                            variant="destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setLeadToDelete(lead);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                      
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 shrink-0" />
+                          <span>{lead.telefone_lead}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 shrink-0" />
+                          <span>{lead.source || 'WhatsApp'}</span>
                         </div>
                         {lead.last_message_at && (
-                          <div className="text-xs text-muted-foreground">
-                            Última mensagem: {formatDate(lead.last_message_at)}
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 shrink-0" />
+                            <span>{formatDate(lead.last_message_at)}</span>
                           </div>
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+                    {/* Ações */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button 
+                        size="default"
+                        onClick={() => openChat(lead)}
+                        className="gap-2"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        Abrir Chat
+                      </Button>
+                      <Button 
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLeadToDelete(lead);
+                        }}
+                      >
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Dialog de confirmação de exclusão */}
       <AlertDialog open={!!leadToDelete} onOpenChange={() => setLeadToDelete(null)}>
