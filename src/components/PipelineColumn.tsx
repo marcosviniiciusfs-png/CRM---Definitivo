@@ -19,7 +19,7 @@ interface PipelineColumnProps {
 
 export const PipelineColumn = ({ title, count, color, leads, isEmpty }: PipelineColumnProps) => {
   return (
-    <div className="flex flex-col min-w-[200px] w-full">
+    <div className="flex flex-col min-w-[140px] w-full">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge className={cn("rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs", color)}>
