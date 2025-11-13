@@ -94,25 +94,18 @@ const Dashboard = () => {
                     paddingAngle={0}
                     dataKey="value"
                     strokeWidth={0}
+                    cornerRadius={10}
                   >
                     {goalData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
                     ))}
                   </Pie>
+                  {/* Marcadores internos - linhas brancas/pretas dentro da barra */}
+                  <line x1="35%" y1="32%" x2="38%" y2="38%" stroke="rgba(0,0,0,0.3)" strokeWidth="2" />
+                  <line x1="50%" y1="15%" x2="50%" y2="20%" stroke="rgba(0,0,0,0.3)" strokeWidth="2" />
+                  <line x1="65%" y1="32%" x2="62%" y2="38%" stroke="rgba(0,0,0,0.3)" strokeWidth="2" />
                 </PieChart>
               </ResponsiveContainer>
-              
-              {/* Marcadores (traços pretos) nos pontos de mudança de cor */}
-              {/* Marcador 33% */}
-              <div className="absolute left-[22%] top-[32%] w-[3px] h-[20px] bg-black origin-bottom" 
-                   style={{ transform: 'rotate(-60deg)' }} />
-              
-              {/* Marcador 66% */}
-              <div className="absolute left-[50%] top-[1%] w-[3px] h-[20px] bg-black origin-bottom -translate-x-1/2" />
-              
-              {/* Marcador 100% */}
-              <div className="absolute right-[22%] top-[32%] w-[3px] h-[20px] bg-black origin-bottom" 
-                   style={{ transform: 'rotate(60deg)' }} />
               
               {/* Valor central */}
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
