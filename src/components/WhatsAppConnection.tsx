@@ -71,6 +71,43 @@ const WhatsAppConnection = () => {
     setSelectedInstance(null);
   };
 
+  // Verificar status de todas as instâncias na Evolution API
+  const checkAllInstancesStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: instances } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name')
+        .eq('user_id', user.id);
+
+      if (!instances || instances.length === 0) return;
+
+      console.log('Verificando status de', instances.length, 'instâncias...');
+
+      // Verificar o status de cada instância na Evolution API
+      for (const instance of instances) {
+        try {
+          const { error } = await supabase.functions.invoke('check-whatsapp-status', {
+            body: { instance_name: instance.instance_name },
+          });
+
+          if (error) {
+            console.error(`Erro ao verificar status da instância ${instance.instance_name}:`, error);
+          }
+        } catch (err) {
+          console.error(`Erro ao verificar instância ${instance.instance_name}:`, err);
+        }
+      }
+
+      // Recarregar as instâncias após verificar os status
+      await loadInstances();
+    } catch (error) {
+      console.error('Erro ao verificar status das instâncias:', error);
+    }
+  };
+
   // Carregar instâncias do usuário
   const loadInstances = async () => {
     try {
@@ -246,7 +283,13 @@ const WhatsAppConnection = () => {
 
   // Configurar Realtime para atualizar automaticamente
   useEffect(() => {
-    loadInstances();
+    const initializeInstances = async () => {
+      await loadInstances();
+      // Verificar status de todas as instâncias na Evolution API após carregar
+      await checkAllInstancesStatus();
+    };
+
+    initializeInstances();
 
     // Subscribe to realtime updates
     const channel = supabase
