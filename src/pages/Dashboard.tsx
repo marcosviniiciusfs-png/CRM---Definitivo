@@ -93,17 +93,11 @@ const Dashboard = () => {
                 </PieChart>
               </ResponsiveContainer>
               
-              {/* Marcadores ao longo da curva */}
-              <div className="absolute left-[8%] top-[68%] text-sm text-muted-foreground">0</div>
-              <div className="absolute left-[22%] top-[32%] text-sm text-muted-foreground">25</div>
-              <div className="absolute right-[22%] top-[32%] text-sm text-muted-foreground">95</div>
-              <div className="absolute right-[8%] top-[68%] text-sm text-muted-foreground">50</div>
-              
               {/* Valor central */}
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
-                <p className="text-xs text-muted-foreground mb-1">95</p>
                 <p className="text-3xl font-bold">R$7580</p>
                 <p className="text-sm text-muted-foreground">de R$8000</p>
+                <p className="text-xs text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
           </CardContent>
