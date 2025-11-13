@@ -1,0 +1,4 @@
+-- Add missing columns to leads table
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS empresa TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS valor DECIMAL(10,2) DEFAULT 0.00;

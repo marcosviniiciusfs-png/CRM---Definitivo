@@ -7,6 +7,10 @@ export interface Lead {
   last_message_at?: string;
   source?: string;
   stage?: string;
+  email?: string;
+  empresa?: string;
+  valor?: number;
+  position?: number;
 }
 
 export interface Message {

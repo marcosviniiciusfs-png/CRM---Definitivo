@@ -44,6 +44,8 @@ export type Database = {
       leads: {
         Row: {
           created_at: string
+          email: string | null
+          empresa: string | null
           id: string
           last_message_at: string | null
           nome_lead: string
@@ -52,9 +54,12 @@ export type Database = {
           stage: string | null
           telefone_lead: string
           updated_at: string
+          valor: number | null
         }
         Insert: {
           created_at?: string
+          email?: string | null
+          empresa?: string | null
           id?: string
           last_message_at?: string | null
           nome_lead: string
@@ -63,9 +68,12 @@ export type Database = {
           stage?: string | null
           telefone_lead: string
           updated_at?: string
+          valor?: number | null
         }
         Update: {
           created_at?: string
+          email?: string | null
+          empresa?: string | null
           id?: string
           last_message_at?: string | null
           nome_lead?: string
@@ -74,6 +82,7 @@ export type Database = {
           stage?: string | null
           telefone_lead?: string
           updated_at?: string
+          valor?: number | null
         }
         Relationships: []
       }

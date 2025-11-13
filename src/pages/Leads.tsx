@@ -1,9 +1,23 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Phone, MessageSquare, Loader2, X, Calendar } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Plus, ArrowUpDown, Edit, Trash2, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
@@ -26,12 +40,19 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   PERDIDO: { label: "Perdido", color: "bg-red-500" },
 };
 
+type SortColumn = "nome_lead" | "email" | "telefone_lead" | "empresa" | "stage" | "source" | "valor";
+type SortOrder = "asc" | "desc";
+
 const Leads = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("nome_lead");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   // Carregar leads do Supabase
   useEffect(() => {
@@ -80,31 +101,59 @@ const Leads = () => {
     }
   };
 
-  const filteredLeads = leads.filter(
-    (lead) =>
-      lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.telefone_lead.includes(searchQuery)
-  );
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) {
-      return 'Hoje';
-    } else if (diffDays === 1) {
-      return 'Ontem';
-    } else if (diffDays < 7) {
-      return `${diffDays} dias atrás`;
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortOrder("asc");
     }
-    
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const openChat = (lead: Lead) => {
-    navigate('/chat', { state: { selectedLead: lead } });
+  const filteredLeads = leads
+    .filter((lead) => {
+      const matchesSearch =
+        lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.telefone_lead.includes(searchQuery) ||
+        (lead.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (lead.empresa || "").toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
+      const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
+      
+      return matchesSearch && matchesStatus && matchesSource;
+    })
+    .sort((a, b) => {
+      let aValue: any = a[sortColumn] || "";
+      let bValue: any = b[sortColumn] || "";
+      
+      if (sortColumn === "valor") {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      } else {
+        aValue = String(aValue).toLowerCase();
+        bValue = String(bValue).toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+  const formatCurrency = (value: number | string) => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(numValue || 0);
+  };
+
+  const handleEditLead = (lead: Lead) => {
+    // TODO: Implementar modal de edição
+    toast({
+      title: "Em desenvolvimento",
+      description: "Funcionalidade de edição será implementada em breve",
+    });
   };
 
   const handleDeleteLead = async () => {
@@ -136,109 +185,160 @@ const Leads = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Gerenciamento de Leads</h1>
           <p className="text-muted-foreground">Gerencie todos os seus leads em um só lugar</p>
         </div>
+        <Button className="gap-2 bg-primary hover:bg-primary/90">
+          <Plus className="h-4 w-4" />
+          Adicionar Lead
+        </Button>
       </div>
 
-      {/* Barra de pesquisa */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input 
-          placeholder="Buscar por nome, email ou empresa..." 
-          className="pl-10 h-12 text-base"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Filtros e Pesquisa */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Buscar por nome, email ou empresa..." 
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full md:w-[200px] bg-background">
+            <SelectValue placeholder="Todos os Status" />
+          </SelectTrigger>
+          <SelectContent className="bg-background z-50">
+            <SelectItem value="all">Todos os Status</SelectItem>
+            <SelectItem value="NOVO">Novo</SelectItem>
+            <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+            <SelectItem value="FECHADO">Fechado</SelectItem>
+            <SelectItem value="PERDIDO">Perdido</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={sourceFilter} onValueChange={setSourceFilter}>
+          <SelectTrigger className="w-full md:w-[200px] bg-background">
+            <SelectValue placeholder="Todas as Origens" />
+          </SelectTrigger>
+          <SelectContent className="bg-background z-50">
+            <SelectItem value="all">Todas as Origens</SelectItem>
+            <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+            <SelectItem value="Manual">Manual</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Lista de Leads */}
+      {/* Tabela de Leads */}
       {loading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : filteredLeads.length === 0 ? (
-        <Card className="p-12">
-          <div className="text-center text-muted-foreground">
-            <p className="text-lg">Nenhum lead encontrado</p>
-            {searchQuery && (
-              <p className="text-sm mt-2">Tente ajustar sua busca</p>
-            )}
-          </div>
-        </Card>
       ) : (
-        <div className="space-y-3">
-          {filteredLeads.map((lead) => {
-            const statusInfo = statusConfig[lead.stage || 'NOVO'] || statusConfig.NOVO;
-            
-            return (
-              <Card 
-                key={lead.id} 
-                className="hover:shadow-lg transition-all duration-200 border-l-4 hover:border-l-primary"
-                style={{ borderLeftColor: statusInfo.color }}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between gap-4">
-                    {/* Informações do Lead */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="font-semibold text-lg text-foreground truncate">
-                          {lead.nome_lead}
-                        </h3>
-                        <Badge 
-                          className={`${statusInfo.color} text-white border-none shrink-0`}
-                        >
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead 
+                  className="cursor-pointer select-none"
+                  onClick={() => handleSort("nome_lead")}
+                >
+                  <div className="flex items-center gap-2">
+                    Nome
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>Empresa</TableHead>
+                <TableHead 
+                  className="cursor-pointer select-none"
+                  onClick={() => handleSort("stage")}
+                >
+                  <div className="flex items-center gap-2">
+                    Status
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer select-none"
+                  onClick={() => handleSort("source")}
+                >
+                  <div className="flex items-center gap-2">
+                    Origem
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer select-none text-right"
+                  onClick={() => handleSort("valor")}
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Valor
+                    <ArrowUpDown className="h-4 w-4" />
+                  </div>
+                </TableHead>
+                <TableHead className="text-center">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredLeads.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    Nenhum lead encontrado
+                    {searchQuery && <p className="text-sm mt-2">Tente ajustar sua busca ou filtros</p>}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredLeads.map((lead) => {
+                  const statusInfo = statusConfig[lead.stage || 'NOVO'] || statusConfig.NOVO;
+                  
+                  return (
+                    <TableRow key={lead.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">{lead.nome_lead}</TableCell>
+                      <TableCell className="text-muted-foreground">{lead.email || "-"}</TableCell>
+                      <TableCell className="text-primary">{lead.telefone_lead}</TableCell>
+                      <TableCell className="text-muted-foreground">{lead.empresa || "-"}</TableCell>
+                      <TableCell>
+                        <Badge className={`${statusInfo.color} text-white border-none`}>
                           {statusInfo.label}
                         </Badge>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 shrink-0" />
-                          <span>{lead.telefone_lead}</span>
+                      </TableCell>
+                      <TableCell>{lead.source || "WhatsApp"}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(lead.valor || 0)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button 
+                            size="icon" 
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={() => handleEditLead(lead)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="icon" 
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => setLeadToDelete(lead)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <MessageSquare className="h-4 w-4 shrink-0" />
-                          <span>{lead.source || 'WhatsApp'}</span>
-                        </div>
-                        {lead.last_message_at && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 shrink-0" />
-                            <span>{formatDate(lead.last_message_at)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Ações */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button 
-                        size="default"
-                        onClick={() => openChat(lead)}
-                        className="gap-2"
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        Abrir Chat
-                      </Button>
-                      <Button 
-                        size="icon"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLeadToDelete(lead);
-                        }}
-                      >
-                        <X className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
       )}
 
