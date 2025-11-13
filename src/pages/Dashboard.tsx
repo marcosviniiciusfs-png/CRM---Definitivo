@@ -20,18 +20,11 @@ const Dashboard = () => {
   const currentValue = 7580;
   const totalValue = 8000;
   const percentage = (currentValue / totalValue) * 100;
-  
-  // Calcular segmentos com cores progressivas
-  const segment33 = totalValue * 0.33; // 2640
-  const segment66 = totalValue * 0.33; // 2640
-  const segment95 = currentValue - (segment33 + segment66); // até o valor atual (2300)
-  const remaining = totalValue - currentValue; // 420
+  const remaining = totalValue - currentValue;
   
   const goalData = [
-    { name: "0-33%", value: segment33, fill: "#c21b12" }, // Vermelho
-    { name: "33-66%", value: segment66, fill: "#fdca49" }, // Amarelo
-    { name: "66-95%", value: segment95, fill: "#aaff00" }, // Verde
-    { name: "Restante", value: remaining, fill: "hsl(0, 0%, 90%)" }, // Cinza
+    { name: "Atingido", value: currentValue, fill: "url(#goalGradient)" },
+    { name: "Restante", value: remaining, fill: "hsl(0, 0%, 90%)" },
   ];
 
   return (
@@ -84,6 +77,12 @@ const Dashboard = () => {
             <div className="relative w-full max-w-[320px] h-[200px]">
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
+                  <defs>
+                    <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#00aaff" />
+                      <stop offset="100%" stopColor="#00ff00" />
+                    </linearGradient>
+                  </defs>
                   <Pie
                     data={goalData}
                     cx="50%"
