@@ -16,13 +16,23 @@ const leadSourceData = [
   { month: "Oct", emailMarketing: 7896, api: 325, vendaLeads: 24 },
 ];
 
-const goalData = [
-  { name: "Atingido", value: 7580, fill: "hsl(180, 70%, 45%)" },
-  { name: "Restante", value: 420, fill: "hsl(0, 0%, 90%)" },
-];
-
 const Dashboard = () => {
-  const percentage = (7580 / 8000) * 100;
+  const currentValue = 7580;
+  const totalValue = 8000;
+  const percentage = (currentValue / totalValue) * 100;
+  
+  // Calcular segmentos com cores progressivas
+  const segment33 = totalValue * 0.33; // 2640
+  const segment66 = totalValue * 0.33; // 2640
+  const segment95 = currentValue - (segment33 + segment66); // até o valor atual (2300)
+  const remaining = totalValue - currentValue; // 420
+  
+  const goalData = [
+    { name: "0-33%", value: segment33, fill: "#c21b12" }, // Vermelho
+    { name: "33-66%", value: segment66, fill: "#fdca49" }, // Amarelo
+    { name: "66-95%", value: segment95, fill: "#aaff00" }, // Verde
+    { name: "Restante", value: remaining, fill: "hsl(0, 0%, 90%)" }, // Cinza
+  ];
 
   return (
     <div className="space-y-6">
@@ -93,10 +103,22 @@ const Dashboard = () => {
                 </PieChart>
               </ResponsiveContainer>
               
+              {/* Marcadores (traços pretos) nos pontos de mudança de cor */}
+              {/* Marcador 33% */}
+              <div className="absolute left-[22%] top-[32%] w-[3px] h-[20px] bg-black origin-bottom" 
+                   style={{ transform: 'rotate(-60deg)' }} />
+              
+              {/* Marcador 66% */}
+              <div className="absolute left-[50%] top-[1%] w-[3px] h-[20px] bg-black origin-bottom -translate-x-1/2" />
+              
+              {/* Marcador 100% */}
+              <div className="absolute right-[22%] top-[32%] w-[3px] h-[20px] bg-black origin-bottom" 
+                   style={{ transform: 'rotate(60deg)' }} />
+              
               {/* Valor central */}
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
-                <p className="text-3xl font-bold">R$7580</p>
-                <p className="text-sm text-muted-foreground">de R$8000</p>
+                <p className="text-3xl font-bold">R${currentValue}</p>
+                <p className="text-sm text-muted-foreground">de R${totalValue}</p>
                 <p className="text-xs text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
