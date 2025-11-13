@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     }
 
     // Chamar a Evolution API para obter o status real
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
 
     if (!evolutionApiUrl || !evolutionApiKey) {
@@ -55,6 +55,9 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Remover trailing slash da URL base se houver
+    evolutionApiUrl = evolutionApiUrl.replace(/\/$/, '');
 
     const statusUrl = `${evolutionApiUrl}/instance/connectionState/${instance_name}`;
     console.log(`Chamando Evolution API: ${statusUrl}`);
@@ -98,7 +101,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    const evolutionData = await evolutionResponse.json();
+    // Tentar fazer parse do JSON da resposta
+    let evolutionData;
+    try {
+      const responseText = await evolutionResponse.text();
+      console.log('Evolution API raw response:', responseText.substring(0, 200));
+      evolutionData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Erro ao fazer parse da resposta da Evolution API:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Evolution API retornou resposta inválida. Verifique a URL da API.' 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     console.log('Evolution API response:', evolutionData);
 
     // Mapear o estado da Evolution API para o nosso status
