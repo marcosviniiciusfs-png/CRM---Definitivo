@@ -478,9 +478,41 @@ const WhatsAppConnection = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="px-3 pb-2">
-        {instances.length === 0 ? (
-          <div className="text-center py-2">
-            <Button onClick={createInstance} disabled={creating} size="sm">
+        <div className="text-center py-2">
+          {/* Verificar se existe instância conectada */}
+          {instances.some(instance => instance.status === 'CONNECTED') ? (
+            /* Botão Desconectar - exibido apenas quando há instância conectada */
+            instances
+              .filter(instance => instance.status === 'CONNECTED')
+              .map((instance) => (
+                <Button
+                  key={instance.id}
+                  onClick={() => disconnectInstance(instance.id)}
+                  disabled={disconnecting === instance.id}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  size="sm"
+                >
+                  {disconnecting === instance.id ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                      Desconectando...
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="h-3 w-3 mr-2" />
+                      Desconectar
+                    </>
+                  )}
+                </Button>
+              ))
+          ) : (
+            /* Botão Conectar - exibido quando não há instância conectada */
+            <Button
+              onClick={createInstance}
+              disabled={creating}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              size="sm"
+            >
               {creating ? (
                 <>
                   <Loader2 className="h-3 w-3 mr-2 animate-spin" />
@@ -493,54 +525,8 @@ const WhatsAppConnection = () => {
                 </>
               )}
             </Button>
-          </div>
-        ) : (
-          <div className="flex justify-center py-2">
-            {instances.map((instance) => (
-              <div key={instance.id}>
-                {instance.status === 'CONNECTED' ? (
-                  <Button
-                    onClick={() => disconnectInstance(instance.id)}
-                    disabled={disconnecting === instance.id}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    size="sm"
-                  >
-                    {disconnecting === instance.id ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                        Desconectando...
-                      </>
-                    ) : (
-                      <>
-                        <LogOut className="h-3 w-3 mr-2" />
-                        Desconectar
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={createInstance}
-                    disabled={creating}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    size="sm"
-                  >
-                    {creating ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                        Conectando...
-                      </>
-                    ) : (
-                      <>
-                        <MessageSquare className="h-3 w-3 mr-2" />
-                        Conectar WhatsApp
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
     </>
