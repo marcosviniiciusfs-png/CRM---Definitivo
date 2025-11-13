@@ -47,6 +47,7 @@ export type Database = {
           id: string
           last_message_at: string | null
           nome_lead: string
+          position: number | null
           source: string | null
           stage: string | null
           telefone_lead: string
@@ -57,6 +58,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           nome_lead: string
+          position?: number | null
           source?: string | null
           stage?: string | null
           telefone_lead: string
@@ -67,6 +69,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           nome_lead?: string
+          position?: number | null
           source?: string | null
           stage?: string | null
           telefone_lead?: string

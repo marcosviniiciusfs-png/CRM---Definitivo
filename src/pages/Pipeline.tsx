@@ -2,7 +2,8 @@ import { PipelineColumn } from "@/components/PipelineColumn";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, DragOverEvent } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
 
@@ -27,6 +28,8 @@ const Pipeline = () => {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
+        .order("stage", { ascending: true })
+        .order("position", { ascending: true })
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -50,31 +53,93 @@ const Pipeline = () => {
     if (!over) return;
 
     const leadId = active.id as string;
-    const newStage = over.id as string;
+    const overId = over.id as string;
 
-    // Encontrar o lead que está sendo movido
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead || lead.stage === newStage) return;
+    const activeLead = leads.find((l) => l.id === leadId);
+    if (!activeLead) return;
 
-    // Atualizar localmente primeiro para feedback imediato
-    setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, stage: newStage } : l))
-    );
+    // Check if dropped over a stage (column) or another lead
+    const isDroppedOverStage = stages.some((s) => s.id === overId);
+    const overLead = leads.find((l) => l.id === overId);
 
-    // Atualizar no Supabase
-    try {
-      const { error } = await supabase
-        .from("leads")
-        .update({ stage: newStage })
-        .eq("id", leadId);
+    if (isDroppedOverStage) {
+      // Moving to different stage
+      const newStage = overId;
+      if (activeLead.stage === newStage) return;
 
-      if (error) throw error;
-      toast.success("Lead movido com sucesso!");
-    } catch (error) {
-      console.error("Erro ao atualizar lead:", error);
-      toast.error("Erro ao mover lead");
-      // Reverter mudança local em caso de erro
-      loadLeads();
+      const stageLeads = getLeadsByStage(newStage);
+      const newPosition = stageLeads.length;
+
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, stage: newStage, position: newPosition } : l))
+      );
+
+      try {
+        const { error } = await supabase
+          .from("leads")
+          .update({ stage: newStage, position: newPosition })
+          .eq("id", leadId);
+
+        if (error) throw error;
+        toast.success("Lead movido com sucesso!");
+      } catch (error) {
+        console.error("Erro ao atualizar lead:", error);
+        toast.error("Erro ao mover lead");
+        loadLeads();
+      }
+    } else if (overLead) {
+      // Reordering within same or different stage
+      const activeStage = activeLead.stage || "NOVO";
+      const overStage = overLead.stage || "NOVO";
+
+      const stageLeads = getLeadsByStage(overStage);
+      const oldIndex = stageLeads.findIndex((l) => l.id === leadId);
+      const newIndex = stageLeads.findIndex((l) => l.id === overId);
+
+      if (activeStage === overStage && oldIndex === newIndex) return;
+
+      let newLeadsOrder: Lead[];
+
+      if (activeStage === overStage) {
+        // Reordering within same stage
+        newLeadsOrder = arrayMove(stageLeads, oldIndex, newIndex);
+      } else {
+        // Moving to different stage
+        const activeStageLeads = getLeadsByStage(activeStage).filter((l) => l.id !== leadId);
+        const overStageLeads = getLeadsByStage(overStage);
+        const insertIndex = overStageLeads.findIndex((l) => l.id === overId);
+        
+        overStageLeads.splice(insertIndex, 0, { ...activeLead, stage: overStage });
+        newLeadsOrder = overStageLeads;
+      }
+
+      // Update positions
+      const updatedLeads = newLeadsOrder.map((lead, index) => ({
+        ...lead,
+        position: index,
+        stage: overStage,
+      }));
+
+      setLeads((prev) => {
+        const otherStageLeads = prev.filter((l) => (l.stage || "NOVO") !== overStage);
+        return [...otherStageLeads, ...updatedLeads];
+      });
+
+      try {
+        const updates = updatedLeads.map((lead) => 
+          supabase
+            .from("leads")
+            .update({ position: lead.position, stage: lead.stage })
+            .eq("id", lead.id)
+        );
+
+        await Promise.all(updates);
+        toast.success("Lead reordenado com sucesso!");
+      } catch (error) {
+        console.error("Erro ao atualizar ordem:", error);
+        toast.error("Erro ao reordenar lead");
+        loadLeads();
+      }
     }
   };
 
