@@ -131,7 +131,6 @@ const Pipeline = () => {
             name={activeLead.nome_lead}
             phone={activeLead.telefone_lead}
             date={new Date(activeLead.created_at).toLocaleString("pt-BR")}
-            simplified={true}
           />
         ) : null}
       </DragOverlay>
