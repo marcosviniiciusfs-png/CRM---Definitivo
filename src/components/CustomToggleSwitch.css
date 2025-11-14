@@ -43,15 +43,6 @@
   justify-content: space-around;
 }
 
-.texture {
-  width: 2px;
-  height: 70%;
-  background-color: #202020ea;
-  box-shadow:
-    -0.7px -1.5px 1px 0px rgba(192, 192, 192, 0.3),
-    0px 2px 3px rgb(0, 0, 0, 0.3);
-  transition: 0.25s;
-}
 
 .light {
   width: 4px;

@@ -84,7 +84,7 @@ export function AppSidebar() {
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4">
         {open ? (
           <div className="space-y-3">
-            <div className="flex items-center justify-center py-3">
+            <div className="flex items-center justify-center py-3" style={{ minHeight: '45px' }}>
               <CustomToggleSwitch 
                 checked={isOnline}
                 onChange={setIsOnline}
