@@ -225,8 +225,30 @@ serve(async (req) => {
             if (!oldInstanceName) continue;
 
             try {
-              console.log(`  ↳ Deleting instance: ${oldInstanceName}`);
+              console.log(`  ↳ Processing instance: ${oldInstanceName}`);
               
+              // STEP 1.1: Force logout first
+              try {
+                console.log(`    🔓 Logging out: ${oldInstanceName}`);
+                const logoutResponse = await fetch(`${baseUrl}/instance/logout/${oldInstanceName}`, {
+                  method: 'DELETE',
+                  headers: {
+                    'apikey': evolutionApiKey,
+                  },
+                });
+
+                if (logoutResponse.ok) {
+                  console.log(`    ✅ Logged out: ${oldInstanceName}`);
+                } else {
+                  console.warn(`    ⚠️ Logout failed for ${oldInstanceName}:`, logoutResponse.status);
+                }
+              } catch (logoutError) {
+                console.warn(`    ⚠️ Logout error for ${oldInstanceName}:`, logoutError);
+                // Continue to delete even if logout fails
+              }
+
+              // STEP 1.2: Delete the instance
+              console.log(`    🗑️ Deleting: ${oldInstanceName}`);
               const deleteResponse = await fetch(`${baseUrl}/instance/delete/${oldInstanceName}`, {
                 method: 'DELETE',
                 headers: {
@@ -235,12 +257,12 @@ serve(async (req) => {
               });
 
               if (deleteResponse.ok) {
-                console.log(`  ✅ Deleted: ${oldInstanceName}`);
+                console.log(`    ✅ Deleted: ${oldInstanceName}`);
               } else {
-                console.warn(`  ⚠️ Failed to delete ${oldInstanceName}:`, deleteResponse.status);
+                console.warn(`    ⚠️ Failed to delete ${oldInstanceName}:`, deleteResponse.status);
               }
             } catch (deleteError) {
-              console.error(`  ❌ Error deleting ${oldInstanceName}:`, deleteError);
+              console.error(`  ❌ Error processing ${oldInstanceName}:`, deleteError);
             }
           }
 
