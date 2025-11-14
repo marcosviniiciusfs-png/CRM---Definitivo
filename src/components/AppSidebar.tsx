@@ -1,4 +1,4 @@
-import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock } from "lucide-react";
+import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import logoFull from "@/assets/logo-full.png";
 import logoIcon from "@/assets/logo-icon.png";
 
@@ -24,6 +28,16 @@ const items = [
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Leads", url: "/leads", icon: Users },
   { title: "Chat", url: "/chat", icon: MessageSquare },
+];
+
+const administrativoItems = [
+  { title: "Colaboradores", url: "/administrativo/colaboradores", icon: UserCircle },
+  { title: "Produções", url: "/administrativo/producoes", icon: Layers },
+  { title: "Equipes", url: "/administrativo/equipes", icon: Users },
+  { title: "Atividades", url: "/administrativo/atividades", icon: Activity },
+];
+
+const bottomItems = [
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
@@ -32,6 +46,7 @@ export function AppSidebar() {
   const { open, setOpen } = useSidebar();
   const { signOut, user } = useAuth();
   const [isLocked, setIsLocked] = useState(false);
+  const [administrativoOpen, setAdministrativoOpen] = useState(false);
 
   const handleMouseEnter = () => {
     if (!isLocked) {
@@ -79,6 +94,51 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
+                      className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              
+              <Collapsible open={administrativoOpen} onOpenChange={setAdministrativoOpen} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5">
+                      <Briefcase className="h-5 w-5 flex-shrink-0" />
+                      <span>Administrativo</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {administrativoItems.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink
+                              to={subItem.url}
+                              className="hover:bg-sidebar-accent text-sidebar-foreground text-sm px-3 py-2"
+                              activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                            >
+                              <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                              <span>{subItem.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {bottomItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
                       className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                     >
