@@ -186,6 +186,12 @@ const WhatsAppConnection = () => {
         return;
       }
 
+      // Mostrar toast informando sobre limpeza
+      toast({
+        title: "Preparando conexão",
+        description: "Limpando conexões antigas...",
+      });
+
       const { data, error } = await supabase.functions.invoke('create-whatsapp-instance', {
         body: {},
       });
