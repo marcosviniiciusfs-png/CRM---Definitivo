@@ -225,7 +225,7 @@ serve(async (req) => {
     const instanceName = `crm-${user.id.substring(0, 8)}-${Date.now()}`;
     console.log('Creating fresh instance with name:', instanceName);
 
-    // Create instance in Evolution API
+    // Create instance in Evolution API (WITHOUT webhook - will be configured separately)
     const evolutionResponse = await fetch(`${baseUrl}/instance/create`, {
       method: 'POST',
       headers: {
@@ -235,21 +235,7 @@ serve(async (req) => {
       body: JSON.stringify({
         instanceName: instanceName,
         qrcode: true,
-        integration: 'WHATSAPP-BAILEYS',
-        webhook: [
-          {
-            enabled: true,
-            url: webhookUrl,
-            webhookByEvents: false,
-            events: [
-              'QRCODE_UPDATED',
-              'CONNECTION_UPDATE',
-              'MESSAGES_UPSERT',
-              'MESSAGES_UPDATE',
-              'SEND_MESSAGE'
-            ]
-          }
-        ]
+        integration: 'WHATSAPP-BAILEYS'
       }),
     });
 
@@ -261,6 +247,39 @@ serve(async (req) => {
 
     const evolutionData = await evolutionResponse.json();
     console.log('Evolution API response:', evolutionData);
+
+    // ========================================
+    // STEP 3: CONFIGURE WEBHOOK
+    // ========================================
+    console.log('Configuring webhook for instance...');
+    
+    const webhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': evolutionApiKey,
+      },
+      body: JSON.stringify({
+        enabled: true,
+        url: webhookUrl,
+        webhookByEvents: false,
+        events: [
+          'QRCODE_UPDATED',
+          'CONNECTION_UPDATE',
+          'MESSAGES_UPSERT',
+          'MESSAGES_UPDATE',
+          'SEND_MESSAGE'
+        ]
+      }),
+    });
+
+    if (!webhookResponse.ok) {
+      const webhookError = await webhookResponse.text();
+      console.warn('⚠️ Webhook configuration failed (non-critical):', webhookError);
+      // Continue even if webhook fails - it can be configured later
+    } else {
+      console.log('✅ Webhook configured successfully');
+    }
 
     // ========================================
     // PRIORITY: IMMEDIATE QR CODE EXTRACTION
