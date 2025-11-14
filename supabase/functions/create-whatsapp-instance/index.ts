@@ -90,13 +90,11 @@ serve(async (req) => {
     // Remove trailing slash and /manager from URL if present
     const baseUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
 
-    // Webhook URLs
-    const qrWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
-    const connectionWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-connection-webhook`;
+    // Webhook URL
+    const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
 
     console.log('Using Evolution API URL:', baseUrl);
-    console.log('QR Webhook:', qrWebhookUrl);
-    console.log('Connection Webhook:', connectionWebhookUrl);
+    console.log('Webhook:', webhookUrl);
 
     // ========================================
     // STEP 1: CLEANUP OLD INSTANCES
@@ -241,21 +239,14 @@ serve(async (req) => {
         webhook: [
           {
             enabled: true,
-            url: qrWebhookUrl,
+            url: webhookUrl,
             webhookByEvents: false,
             events: [
               'QRCODE_UPDATED',
+              'CONNECTION_UPDATE',
               'MESSAGES_UPSERT',
               'MESSAGES_UPDATE',
               'SEND_MESSAGE'
-            ]
-          },
-          {
-            enabled: true,
-            url: connectionWebhookUrl,
-            webhookByEvents: false,
-            events: [
-              'CONNECTION_UPDATE'
             ]
           }
         ]
@@ -310,7 +301,7 @@ serve(async (req) => {
         user_id: user.id,
         instance_name: instanceName,
         status: qrCodeBase64 ? 'DISCONNECTED' : 'CREATING',
-        webhook_url: qrWebhookUrl,
+        webhook_url: webhookUrl,
         qr_code: qrCodeBase64,
       })
       .select()
