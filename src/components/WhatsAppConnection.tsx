@@ -146,6 +146,7 @@ const WhatsAppConnection = () => {
 
   // Carregar instâncias do usuário
   const loadInstances = async () => {
+    console.log('🔄 loadInstances() chamado');
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -160,6 +161,14 @@ const WhatsAppConnection = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('✅ Instâncias carregadas:', data?.map(i => ({
+        id: i.id,
+        name: i.instance_name,
+        status: i.status,
+        hasQrCode: !!i.qr_code
+      })));
+      
       setInstances(data || []);
     } catch (error: any) {
       console.error('Erro ao carregar instâncias:', error);
@@ -368,21 +377,30 @@ const WhatsAppConnection = () => {
           if (payload.new && payload.new.status === 'CONNECTED') {
             console.log('✅ Status CONNECTED detectado na instância:', payload.new.id);
             
-            // Se for a instância que está no modal E o modal está aberto, fechar
+            // Se for a instância que está no modal E o modal está aberto, fechar IMEDIATAMENTE
             if (isDialogOpen && currentSelectedInstance && payload.new.id === currentSelectedInstance.id) {
-              console.log('🎉 É a instância do modal aberto! Fechando...');
-              setQrDialogOpen(false);
-              setSelectedInstance(null);
-              toast({
-                title: "WhatsApp conectado!",
-                description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
+              console.log('🎉 É a instância do modal aberto! Fechando IMEDIATAMENTE...');
+              
+              // CRÍTICO: Fechar de forma síncrona e garantida
+              requestAnimationFrame(() => {
+                setQrDialogOpen(false);
+                setSelectedInstance(null);
+                toast({
+                  title: "WhatsApp conectado!",
+                  description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
+                });
+                
+                // Recarregar após fechar
+                setTimeout(() => loadInstances(), 100);
               });
+              
+              return; // Não recarregar antes de fechar o modal
             } else {
               console.log('ℹ️ Modal não está aberto ou é outra instância');
             }
           }
           
-          // Sempre recarregar instâncias após qualquer update
+          // Recarregar instâncias após qualquer update (exceto quando fechando modal)
           loadInstances();
         }
       )
@@ -408,6 +426,28 @@ const WhatsAppConnection = () => {
       setQrDialogOpen(true);
     }
   }, [instances, qrDialogOpen]);
+
+  // GARANTIA ADICIONAL: Monitor direto do selectedInstance para fechar modal se conectar
+  useEffect(() => {
+    if (!selectedInstance || !qrDialogOpen) return;
+    
+    console.log('👀 Monitoring selected instance status:', {
+      id: selectedInstance.id,
+      status: selectedInstance.status,
+      dialogOpen: qrDialogOpen
+    });
+    
+    // Se a instância selecionada mudar para CONNECTED, fechar modal imediatamente
+    if (selectedInstance.status === 'CONNECTED') {
+      console.log('🚀 GARANTIA: Selected instance is CONNECTED, forcing modal close!');
+      setQrDialogOpen(false);
+      setSelectedInstance(null);
+      toast({
+        title: "WhatsApp conectado!",
+        description: "Conexão estabelecida com sucesso!",
+      });
+    }
+  }, [selectedInstance, qrDialogOpen, toast]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
