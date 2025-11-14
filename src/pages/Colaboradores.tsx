@@ -96,7 +96,9 @@ const Colaboradores = () => {
   });
   
   const [newColaborador, setNewColaborador] = useState({
+    name: "",
     email: "",
+    password: "",
     role: "member" as "owner" | "admin" | "member"
   });
   
@@ -178,13 +180,31 @@ const Colaboradores = () => {
 
   const handleAddColaborador = async () => {
     try {
-      // Validate email
+      // Validate all fields
       const validationResult = emailSchema.safeParse(newColaborador.email);
       
       if (!validationResult.success) {
         toast({
           title: "Erro de validação",
           description: "Por favor, insira um email válido",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newColaborador.name.trim()) {
+        toast({
+          title: "Erro de validação",
+          description: "Por favor, insira o nome do colaborador",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newColaborador.password || newColaborador.password.length < 6) {
+        toast({
+          title: "Erro de validação",
+          description: "A senha deve ter pelo menos 6 caracteres",
           variant: "destructive"
         });
         return;
@@ -201,15 +221,15 @@ const Colaboradores = () => {
 
       setIsLoading(true);
 
-      // Check if user with this email already exists
-      const { data: existingUser } = await supabase
+      // Check if user with this email already exists in the organization
+      const { data: existingMember } = await supabase
         .from('organization_members' as any)
         .select('email')
         .eq('organization_id', organizationId)
         .eq('email', newColaborador.email.toLowerCase().trim())
         .single();
 
-      if (existingUser) {
+      if (existingMember) {
         toast({
           title: "Colaborador já existe",
           description: "Este email já está cadastrado na organização",
@@ -219,41 +239,73 @@ const Colaboradores = () => {
         return;
       }
 
-      // For now, we'll add the email as a pending member
-      // When the user signs up with this email, they'll be automatically added to the organization
-      const { error } = await supabase
+      // Create the user account
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: newColaborador.email.toLowerCase().trim(),
+        password: newColaborador.password,
+        options: {
+          data: {
+            full_name: newColaborador.name.trim()
+          }
+        }
+      });
+
+      if (signUpError) {
+        console.error('Error creating user:', signUpError);
+        toast({
+          title: "Erro",
+          description: signUpError.message || "Não foi possível criar a conta do colaborador",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (!signUpData.user) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar a conta do colaborador",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Add user to organization
+      const { error: memberError } = await supabase
         .from('organization_members' as any)
         .insert({
           organization_id: organizationId,
-          user_id: null, // Will be filled when user signs up
+          user_id: signUpData.user.id,
           role: newColaborador.role,
           email: newColaborador.email.toLowerCase().trim()
         });
 
-      if (error) {
-        console.error('Error adding colaborador:', error);
+      if (memberError) {
+        console.error('Error adding member to organization:', memberError);
         toast({
           title: "Erro",
-          description: "Não foi possível adicionar o colaborador",
+          description: "Usuário criado mas não foi possível adicionar à organização",
           variant: "destructive"
         });
+        setIsLoading(false);
         return;
       }
 
       toast({
-        title: "Colaborador adicionado!",
-        description: `Convite enviado para ${newColaborador.email}`,
+        title: "Colaborador criado!",
+        description: `Conta criada para ${newColaborador.name}`,
       });
 
       setIsDialogOpen(false);
-      setNewColaborador({ email: "", role: "member" });
+      setNewColaborador({ name: "", email: "", password: "", role: "member" });
       loadOrganizationData();
 
     } catch (error) {
       console.error('Error:', error);
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao adicionar o colaborador",
+        description: "Ocorreu um erro ao criar o colaborador",
         variant: "destructive"
       });
     } finally {
@@ -487,12 +539,22 @@ const Colaboradores = () => {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Adicionar Novo Colaborador</DialogTitle>
+              <DialogTitle>Criar Novo Colaborador</DialogTitle>
               <DialogDescription>
-                Insira o email do colaborador que deseja adicionar à organização.
+                Crie uma conta para o novo colaborador da organização.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nome Completo</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Nome do colaborador"
+                  value={newColaborador.name}
+                  onChange={(e) => setNewColaborador({ ...newColaborador, name: e.target.value })}
+                />
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -501,6 +563,16 @@ const Colaboradores = () => {
                   placeholder="colaborador@exemplo.com"
                   value={newColaborador.email}
                   onChange={(e) => setNewColaborador({ ...newColaborador, email: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Mínimo 6 caracteres"
+                  value={newColaborador.password}
+                  onChange={(e) => setNewColaborador({ ...newColaborador, password: e.target.value })}
                 />
               </div>
               <div className="grid gap-2">
@@ -527,7 +599,7 @@ const Colaboradores = () => {
                 variant="outline"
                 onClick={() => {
                   setIsDialogOpen(false);
-                  setNewColaborador({ email: "", role: "member" });
+                  setNewColaborador({ name: "", email: "", password: "", role: "member" });
                 }}
               >
                 Cancelar
@@ -540,10 +612,10 @@ const Colaboradores = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enviando...
+                    Criando...
                   </>
                 ) : (
-                  "Enviar Convite"
+                  "Criar Colaborador"
                 )}
               </Button>
             </DialogFooter>
