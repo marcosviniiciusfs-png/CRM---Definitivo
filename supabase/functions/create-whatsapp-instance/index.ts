@@ -90,10 +90,13 @@ serve(async (req) => {
     // Remove trailing slash and /manager from URL if present
     const baseUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
 
-    // Webhook URL for QR code and connection status updates
-    const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
+    // Webhook URLs
+    const qrWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
+    const connectionWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-connection-webhook`;
 
     console.log('Using Evolution API URL:', baseUrl);
+    console.log('QR Webhook:', qrWebhookUrl);
+    console.log('Connection Webhook:', connectionWebhookUrl);
 
     // ========================================
     // STEP 1: CLEANUP OLD INSTANCES
@@ -235,18 +238,27 @@ serve(async (req) => {
         instanceName: instanceName,
         qrcode: true,
         integration: 'WHATSAPP-BAILEYS',
-        webhook: {
-          enabled: true,
-          url: webhookUrl,
-          webhookByEvents: false,
-          events: [
-            'CONNECTION_UPDATE',
-            'QRCODE_UPDATED',
-            'MESSAGES_UPSERT',
-            'MESSAGES_UPDATE',
-            'SEND_MESSAGE'
-          ]
-        }
+        webhook: [
+          {
+            enabled: true,
+            url: qrWebhookUrl,
+            webhookByEvents: false,
+            events: [
+              'QRCODE_UPDATED',
+              'MESSAGES_UPSERT',
+              'MESSAGES_UPDATE',
+              'SEND_MESSAGE'
+            ]
+          },
+          {
+            enabled: true,
+            url: connectionWebhookUrl,
+            webhookByEvents: false,
+            events: [
+              'CONNECTION_UPDATE'
+            ]
+          }
+        ]
       }),
     });
 
@@ -298,7 +310,7 @@ serve(async (req) => {
         user_id: user.id,
         instance_name: instanceName,
         status: qrCodeBase64 ? 'DISCONNECTED' : 'CREATING',
-        webhook_url: webhookUrl,
+        webhook_url: qrWebhookUrl,
         qr_code: qrCodeBase64,
       })
       .select()
