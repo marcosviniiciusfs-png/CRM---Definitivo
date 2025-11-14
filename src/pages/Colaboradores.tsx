@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,63 +13,6 @@ import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2 } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-
-const mockColaboradores = [
-  {
-    id: "1",
-    nome: "Gerente Imperio",
-    email: "representanteimperiop@gmail.com",
-    avatar: "",
-    cargo: "Gerente",
-    permissoes: ["adm.geral"],
-    criacao: "27/08/2025"
-  },
-  {
-    id: "2",
-    nome: "Luigy Frota",
-    email: "luigy.frota@gmail.com",
-    avatar: "",
-    cargo: "Supervisor",
-    permissoes: ["time.venda", "equipe.lider"],
-    criacao: "27/08/2025"
-  },
-  {
-    id: "3",
-    nome: "Samara Silva",
-    email: "samara664silva@gmail.com",
-    avatar: "",
-    cargo: "Vendedor",
-    permissoes: ["time.venda"],
-    criacao: "27/08/2025"
-  },
-  {
-    id: "4",
-    nome: "Beatriz Carvalho",
-    email: "beatrizcmultimarcas@gmail.com",
-    avatar: "",
-    cargo: "Supervisor",
-    permissoes: ["time.venda", "equipe.criacao", "equipe.lider", "ranking.editor"],
-    criacao: "27/08/2025"
-  },
-  {
-    id: "5",
-    nome: "Levi Felipe",
-    email: "levifelipe2344@icloud.com",
-    avatar: "",
-    cargo: "Vendedor",
-    permissoes: ["time.venda"],
-    criacao: "27/08/2025"
-  },
-  {
-    id: "6",
-    nome: "Raila Oliveira",
-    email: "raylaoliveira644@gmail.com",
-    avatar: "",
-    cargo: "Vendedor",
-    permissoes: ["time.venda"],
-    criacao: "27/08/2025"
-  }
-];
 
 const emailSchema = z.string().email({ message: "Email inválido" });
 
@@ -125,7 +68,7 @@ const Colaboradores = () => {
 
       // Get user's organization
       const { data: memberData, error: memberError } = await supabase
-        .from('organization_members')
+        .from('organization_members' as any)
         .select('organization_id, role')
         .eq('user_id', user.id)
         .single();
@@ -140,7 +83,7 @@ const Colaboradores = () => {
         return;
       }
 
-      if (!memberData || !memberData.organization_id) {
+      if (!memberData || !(memberData as any).organization_id) {
         toast({
           title: "Organização não encontrada",
           description: "Você não está associado a nenhuma organização. Entre em contato com o suporte.",
@@ -150,12 +93,12 @@ const Colaboradores = () => {
         return;
       }
 
-      const orgId = memberData.organization_id;
+      const orgId = (memberData as any).organization_id;
       setOrganizationId(orgId);
       
       // Load all members of the organization
       const { data: members, error: membersError } = await supabase
-        .from('organization_members')
+        .from('organization_members' as any)
         .select('*')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
@@ -171,7 +114,7 @@ const Colaboradores = () => {
       }
 
       if (members) {
-        setColaboradores(members);
+        setColaboradores(members as any);
         
         // Calculate stats
         const now = new Date();
@@ -246,60 +189,120 @@ const Colaboradores = () => {
 
       setIsLoading(true);
 
-      // Check if user with this email already exists in the organization
-      const { data: existingMember } = await supabase
-        .from('organization_members')
-        .select('email')
-        .eq('organization_id', organizationId)
-        .eq('email', newColaborador.email.toLowerCase().trim())
-        .single();
+      const emailLower = newColaborador.email.toLowerCase().trim();
 
-      if (existingMember) {
+      // Check if user already exists in THIS organization
+      const { data: existingInOrg } = await supabase
+        .from('organization_members' as any)
+        .select('email, user_id')
+        .eq('organization_id', organizationId)
+        .eq('email', emailLower)
+        .maybeSingle();
+
+      if (existingInOrg) {
         toast({
           title: "Colaborador já existe",
-          description: "Este email já está cadastrado na organização",
+          description: "Este email já está cadastrado nesta organização",
           variant: "destructive"
         });
         setIsLoading(false);
         return;
       }
 
-      // Create the user account
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: newColaborador.email.toLowerCase().trim(),
-        password: newColaborador.password,
-        options: {
-          data: {
-            full_name: newColaborador.name.trim()
-          },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
+      // Check if user exists in other organizations
+      const { data: existingInSystem } = await supabase
+        .from('organization_members' as any)
+        .select('user_id')
+        .eq('email', emailLower)
+        .not('user_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
 
-      if (signUpError) {
-        let errorMessage = "Não foi possível criar a conta do colaborador";
-        
-        if (signUpError.message.includes('already registered')) {
-          errorMessage = "Este email já está registrado no sistema";
-        } else if (signUpError.message.includes('invalid email')) {
-          errorMessage = "Email inválido";
-        } else if (signUpError.message.includes('weak password')) {
-          errorMessage = "Senha muito fraca. Use pelo menos 6 caracteres";
-        }
+      let userId: string | null = null;
+
+      // If user exists in system, add to organization. Otherwise, create new user
+      if (existingInSystem && (existingInSystem as any).user_id) {
+        // User exists, just add to this organization
+        userId = (existingInSystem as any).user_id;
         
         toast({
-          title: "Erro ao criar colaborador",
-          description: errorMessage,
-          variant: "destructive"
+          title: "Adicionando usuário existente",
+          description: "Este usuário já existe no sistema e será adicionado à sua organização",
         });
-        setIsLoading(false);
-        return;
+      } else {
+        // Create new user
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: emailLower,
+          password: newColaborador.password,
+          options: {
+            data: {
+              full_name: newColaborador.name.trim()
+            },
+            emailRedirectTo: `${window.location.origin}/`
+          }
+        });
+
+        if (signUpError) {
+          // If user already exists but we couldn't detect it
+          if (signUpError.message.includes('already registered')) {
+            // Try one more time to find the user
+            const { data: retryOrgMember } = await supabase
+              .from('organization_members' as any)
+              .select('user_id')
+              .eq('email', emailLower)
+              .not('user_id', 'is', null)
+              .limit(1)
+              .maybeSingle();
+            
+            if (retryOrgMember && (retryOrgMember as any).user_id) {
+              userId = (retryOrgMember as any).user_id;
+              toast({
+                title: "Adicionando usuário existente",
+                description: "Este usuário já existe e será adicionado à sua organização",
+              });
+            } else {
+              toast({
+                title: "Email já registrado",
+                description: "Este email já está registrado mas não foi possível adicionar à organização. Entre em contato com o suporte.",
+                variant: "destructive"
+              });
+              setIsLoading(false);
+              return;
+            }
+          } else {
+            let errorMessage = "Não foi possível criar a conta do colaborador";
+            
+            if (signUpError.message.includes('invalid email')) {
+              errorMessage = "Email inválido";
+            } else if (signUpError.message.includes('weak password')) {
+              errorMessage = "Senha muito fraca. Use pelo menos 6 caracteres";
+            }
+            
+            toast({
+              title: "Erro ao criar colaborador",
+              description: errorMessage,
+              variant: "destructive"
+            });
+            setIsLoading(false);
+            return;
+          }
+        } else if (!signUpData.user) {
+          toast({
+            title: "Erro",
+            description: "Não foi possível criar a conta do colaborador",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        } else {
+          userId = signUpData.user.id;
+        }
       }
 
-      if (!signUpData.user) {
+      if (!userId) {
         toast({
           title: "Erro",
-          description: "Não foi possível criar a conta do colaborador",
+          description: "Não foi possível obter o ID do usuário",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -308,18 +311,18 @@ const Colaboradores = () => {
 
       // Add user to organization
       const { error: memberError } = await supabase
-        .from('organization_members')
+        .from('organization_members' as any)
         .insert({
           organization_id: organizationId,
-          user_id: signUpData.user.id,
+          user_id: userId,
           role: newColaborador.role,
-          email: newColaborador.email.toLowerCase().trim()
-        });
+          email: emailLower
+        } as any);
 
       if (memberError) {
         toast({
           title: "Erro",
-          description: "Usuário criado mas não foi possível adicionar à organização. Tente novamente.",
+          description: "Não foi possível adicionar o colaborador à organização. Tente novamente.",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -327,8 +330,8 @@ const Colaboradores = () => {
       }
 
       toast({
-        title: "Colaborador criado com sucesso!",
-        description: `Conta criada para ${newColaborador.name}`,
+        title: "Sucesso!",
+        description: `${newColaborador.name} foi adicionado à organização`,
       });
 
       setIsDialogOpen(false);
@@ -338,7 +341,7 @@ const Colaboradores = () => {
     } catch (error: any) {
       toast({
         title: "Erro",
-        description: error?.message || "Ocorreu um erro ao criar o colaborador",
+        description: error?.message || "Ocorreu um erro ao adicionar o colaborador",
         variant: "destructive"
       });
     } finally {
@@ -409,7 +412,7 @@ const Colaboradores = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Colaboradores Ativos</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">15</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.ativos}</p>
                 </div>
                 <div className="bg-green-100 p-3 rounded-full">
                   <UserCircle className="h-8 w-8 text-green-600" />
@@ -423,7 +426,7 @@ const Colaboradores = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Entraram este Mês</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">3</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.novos}</p>
                   <p className="text-xs text-blue-600 mt-1">Novos colaboradores</p>
                 </div>
                 <div className="bg-blue-100 p-3 rounded-full">
@@ -438,7 +441,7 @@ const Colaboradores = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Saíram este Mês</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">2</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.saidas}</p>
                   <p className="text-xs text-yellow-600 mt-1">Desligamentos</p>
                 </div>
                 <div className="bg-yellow-100 p-3 rounded-full">
@@ -453,7 +456,7 @@ const Colaboradores = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Inativos</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">2</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.inativos}</p>
                 </div>
                 <div className="bg-red-100 p-3 rounded-full">
                   <UserX className="h-8 w-8 text-red-600" />
