@@ -71,8 +71,30 @@ serve(async (req) => {
     console.log('Disconnecting from Evolution API:', baseUrl);
     console.log('Instance name:', instance.instance_name);
 
-    // Disconnect/logout instance from Evolution API
-    const evolutionResponse = await fetch(`${baseUrl}/instance/logout/${instance.instance_name}`, {
+    // STEP 1: Logout from Evolution API
+    try {
+      console.log('🔓 Logging out instance:', instance.instance_name);
+      const logoutResponse = await fetch(`${baseUrl}/instance/logout/${instance.instance_name}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionApiKey,
+        },
+      });
+
+      if (logoutResponse.ok) {
+        console.log('✅ Instance logged out successfully');
+      } else {
+        console.warn('⚠️ Logout failed:', logoutResponse.status);
+      }
+    } catch (logoutError) {
+      console.warn('⚠️ Error during logout:', logoutError);
+      // Continue to delete even if logout fails
+    }
+
+    // STEP 2: Delete instance from Evolution API
+    console.log('🗑️ Deleting instance from Evolution API:', instance.instance_name);
+    const deleteResponse = await fetch(`${baseUrl}/instance/delete/${instance.instance_name}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -80,38 +102,32 @@ serve(async (req) => {
       },
     });
 
-    if (!evolutionResponse.ok) {
-      const errorText = await evolutionResponse.text();
-      console.error('Evolution API error:', errorText);
-      throw new Error(`Evolution API error: ${evolutionResponse.status} - ${errorText}`);
+    if (!deleteResponse.ok) {
+      const errorText = await deleteResponse.text();
+      console.error('Evolution API delete error:', errorText);
+      throw new Error(`Evolution API delete error: ${deleteResponse.status} - ${errorText}`);
     }
 
-    const evolutionData = await evolutionResponse.json();
-    console.log('Evolution API logout response:', evolutionData);
+    const evolutionData = await deleteResponse.json();
+    console.log('✅ Evolution API delete response:', evolutionData);
 
-    // Update instance status in database
-    const { error: updateError } = await supabase
+    // STEP 3: Delete instance from database
+    const { error: deleteError } = await supabase
       .from('whatsapp_instances')
-      .update({
-        status: 'DISCONNECTED',
-        qr_code: null,
-        phone_number: null,
-        connected_at: null,
-        updated_at: new Date().toISOString(),
-      })
+      .delete()
       .eq('id', instanceId);
 
-    if (updateError) {
-      console.error('Database update error:', updateError);
-      throw new Error(`Database error: ${updateError.message}`);
+    if (deleteError) {
+      console.error('Database delete error:', deleteError);
+      throw new Error(`Database error: ${deleteError.message}`);
     }
 
-    console.log('Instance disconnected successfully:', instanceId);
+    console.log('✅ Instance deleted successfully from database:', instanceId);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Instance disconnected successfully',
+        message: 'Instance deleted successfully',
         evolutionData: evolutionData,
       }),
       {

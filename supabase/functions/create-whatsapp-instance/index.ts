@@ -100,7 +100,19 @@ serve(async (req) => {
     // ========================================
     console.log('🧹 Starting cleanup of old instances...');
     
-    // Fetch all instances from Evolution API
+    // FIRST: Get all instances from database for this user
+    const { data: dbInstances, error: dbFetchError } = await supabase
+      .from('whatsapp_instances')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (dbFetchError) {
+      console.error('❌ Error fetching instances from database:', dbFetchError);
+    } else {
+      console.log(`📋 Found ${dbInstances?.length || 0} instances in database for user`);
+    }
+
+    // SECOND: Fetch all instances from Evolution API
     try {
       const fetchInstancesResponse = await fetch(`${baseUrl}/instance/fetchInstances`, {
         method: 'GET',
@@ -113,13 +125,21 @@ serve(async (req) => {
         const allInstances = await fetchInstancesResponse.json();
         console.log(`📋 Found ${allInstances.length} total instances in Evolution API`);
 
-        // Filter instances belonging to this user (by instance name pattern)
+        // Filter instances belonging to this user (by instance name pattern OR database records)
         const userPrefix = `crm-${user.id.substring(0, 8)}`;
+        const dbInstanceNames = dbInstances?.map(inst => inst.instance_name) || [];
+        
         const userInstances = Array.isArray(allInstances) 
-          ? allInstances.filter((inst: any) => inst.instance?.instanceName?.startsWith(userPrefix))
+          ? allInstances.filter((inst: any) => {
+              const instanceName = inst.instance?.instanceName;
+              return instanceName && (
+                instanceName.startsWith(userPrefix) || 
+                dbInstanceNames.includes(instanceName)
+              );
+            })
           : [];
 
-        console.log(`🔍 Found ${userInstances.length} instances for user ${user.id}`);
+        console.log(`🔍 Found ${userInstances.length} instances for user in Evolution API`);
 
         // Delete each old instance
         if (userInstances.length > 0) {
