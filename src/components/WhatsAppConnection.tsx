@@ -436,7 +436,7 @@ const WhatsAppConnection = () => {
         id: instance.id, 
         status: instance.status,
         qrCodeType: typeof instance.qr_code,
-        qrCodePreview: instance.qr_code ? JSON.stringify(instance.qr_code).substring(0, 200) : 'null'
+        hasQrCode: !!instance.qr_code
       });
 
       // Verificação inicial: QR Code null, undefined ou vazio
@@ -499,14 +499,25 @@ const WhatsAppConnection = () => {
         );
       }
 
+      // CRÍTICO: Remover aspas duplas literais se existirem
+      // Isso acontece quando o valor vem como "\"base64string\""
+      if (rawBase64.startsWith('"') && rawBase64.endsWith('"')) {
+        rawBase64 = rawBase64.slice(1, -1);
+        console.log('⚙️ Aspas duplas removidas, novo comprimento:', rawBase64.length);
+      }
+
       // Limpeza: remover prefixo data:image se já existir
       const cleanBase64 = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
       
       // Validação: comprimento mínimo
       if (cleanBase64.length < 100) {
         console.error('❌ Base64 muito curto:', cleanBase64.length, 'caracteres');
-        console.error('Conteúdo:', cleanBase64.substring(0, 100));
-        return null;
+        return (
+          <div className="text-center py-8 text-destructive">
+            <XCircle className="h-8 w-8 mx-auto mb-2" />
+            <p>QR Code inválido. Tente criar uma nova conexão.</p>
+          </div>
+        );
       }
 
       // Construir data URL final
@@ -549,7 +560,12 @@ const WhatsAppConnection = () => {
     } catch (error) {
       console.error('❌ ERRO CRÍTICO ao processar QR Code:', error);
       console.error('Dados recebidos:', instance.qr_code);
-      return null;
+      return (
+        <div className="text-center py-8 text-destructive">
+          <XCircle className="h-8 w-8 mx-auto mb-2" />
+          <p>Erro ao processar QR Code. Tente novamente.</p>
+        </div>
+      );
     }
   };
 

@@ -13,10 +13,20 @@ interface CreateInstanceRequest {
 
 // Clean Base64 string
 function cleanBase64(rawBase64: string): string {
-  let cleaned = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
+  // CRÍTICO: Remover aspas duplas literais no início e fim
+  let cleaned = rawBase64;
+  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  
+  // Remover prefixo data:image se existir
+  cleaned = cleaned.replace(/^data:image\/[a-z]+;base64,/i, '');
+  
+  // Remover espaços, aspas e caracteres inválidos
   cleaned = cleaned.replace(/\s/g, '');
   cleaned = cleaned.replace(/['"]/g, '');
   cleaned = cleaned.replace(/[^A-Za-z0-9+/=]/g, '');
+  
   return cleaned;
 }
 
@@ -314,14 +324,15 @@ serve(async (req) => {
     // Save to database IMMEDIATELY - no delays, no waiting
     console.log('💾 Saving to database NOW - QR Code present:', !!qrCodeBase64);
     
+    // CRÍTICO: Salvar o QR Code como string pura, não como JSON
     const { data: instanceData, error: dbError } = await supabase
       .from('whatsapp_instances')
       .insert({
         user_id: user.id,
         instance_name: instanceName,
-        status: qrCodeBase64 ? 'DISCONNECTED' : 'CREATING',
+        status: qrCodeBase64 ? 'WAITING_QR' : 'CREATING',
         webhook_url: webhookUrl,
-        qr_code: qrCodeBase64,
+        qr_code: qrCodeBase64, // String pura, já limpa
       })
       .select()
       .single();

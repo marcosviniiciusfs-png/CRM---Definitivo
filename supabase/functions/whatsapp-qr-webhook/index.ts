@@ -9,10 +9,20 @@ const corsHeaders = {
 
 // CRITICAL: Rigorously clean Base64 string
 function cleanBase64(rawBase64: string): string {
-  let cleaned = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
+  // CRÍTICO: Remover aspas duplas literais no início e fim
+  let cleaned = rawBase64;
+  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  
+  // Remover prefixo data:image se existir
+  cleaned = cleaned.replace(/^data:image\/[a-z]+;base64,/i, '');
+  
+  // Remover espaços, aspas e caracteres inválidos
   cleaned = cleaned.replace(/\s/g, '');
   cleaned = cleaned.replace(/['"]/g, '');
   cleaned = cleaned.replace(/[^A-Za-z0-9+/=]/g, '');
+  
   return cleaned;
 }
 
