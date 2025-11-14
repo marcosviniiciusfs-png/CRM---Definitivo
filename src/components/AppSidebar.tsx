@@ -2,8 +2,7 @@ import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageS
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { CustomToggleSwitch } from "@/components/CustomToggleSwitch";
 import { useState } from "react";
 import {
   Sidebar,
@@ -85,18 +84,10 @@ export function AppSidebar() {
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4">
         {open ? (
           <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-sidebar-accent/50">
-              <Label 
-                htmlFor="online-toggle" 
-                className="text-sm font-medium cursor-pointer"
-              >
-                Status: {isOnline ? "Online" : "Offline"}
-              </Label>
-              <Switch
-                id="online-toggle"
+            <div className="flex items-center justify-center py-3">
+              <CustomToggleSwitch 
                 checked={isOnline}
-                onCheckedChange={setIsOnline}
-                className="data-[state=checked]:bg-success data-[state=unchecked]:bg-destructive"
+                onChange={setIsOnline}
               />
             </div>
             <p className="text-xs text-sidebar-foreground/60 truncate">
@@ -114,11 +105,10 @@ export function AppSidebar() {
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="flex justify-center">
-              <Switch
+            <div className="flex justify-center py-2">
+              <CustomToggleSwitch 
                 checked={isOnline}
-                onCheckedChange={setIsOnline}
-                className="data-[state=checked]:bg-success data-[state=unchecked]:bg-destructive"
+                onChange={setIsOnline}
               />
             </div>
             <Button
