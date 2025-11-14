@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCircle, UserPlus, UserMinus, UserX, Users, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
 
 const mockColaboradores = [
   {
@@ -66,30 +71,220 @@ const mockColaboradores = [
   }
 ];
 
+const emailSchema = z.string().email({ message: "Email inválido" });
+
+interface Colaborador {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  user_id: string | null;
+}
+
 const Colaboradores = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState("20");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    ativos: 0,
+    novos: 0,
+    saidas: 0,
+    inativos: 0
+  });
+  
+  const [newColaborador, setNewColaborador] = useState({
+    email: "",
+    role: "member" as "owner" | "admin" | "member"
+  });
+  
+  const { toast } = useToast();
 
-  const filteredColaboradores = mockColaboradores.filter((colab) =>
-    colab.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  useEffect(() => {
+    loadOrganizationData();
+  }, []);
+
+  const loadOrganizationData = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Erro",
+          description: "Usuário não autenticado",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Get user's organization
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('organization_id, role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (memberError) {
+        console.error('Error loading organization:', memberError);
+        return;
+      }
+
+      if (memberData) {
+        setOrganizationId(memberData.organization_id);
+        
+        // Load all members of the organization
+        const { data: members, error: membersError } = await supabase
+          .from('organization_members')
+          .select('*')
+          .eq('organization_id', memberData.organization_id)
+          .order('created_at', { ascending: false });
+
+        if (membersError) {
+          console.error('Error loading members:', membersError);
+          return;
+        }
+
+        if (members) {
+          setColaboradores(members);
+          
+          // Calculate stats
+          const now = new Date();
+          const thisMonth = now.getMonth();
+          const thisYear = now.getFullYear();
+          
+          const novos = members.filter(m => {
+            const createdDate = new Date(m.created_at);
+            return createdDate.getMonth() === thisMonth && 
+                   createdDate.getFullYear() === thisYear;
+          }).length;
+          
+          setStats({
+            ativos: members.length,
+            novos: novos,
+            saidas: 0,
+            inativos: 0
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddColaborador = async () => {
+    try {
+      // Validate email
+      const validationResult = emailSchema.safeParse(newColaborador.email);
+      
+      if (!validationResult.success) {
+        toast({
+          title: "Erro de validação",
+          description: "Por favor, insira um email válido",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!organizationId) {
+        toast({
+          title: "Erro",
+          description: "Organização não encontrada",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setIsLoading(true);
+
+      // Check if user with this email already exists
+      const { data: existingUser } = await supabase
+        .from('organization_members')
+        .select('email')
+        .eq('organization_id', organizationId)
+        .eq('email', newColaborador.email.toLowerCase().trim())
+        .single();
+
+      if (existingUser) {
+        toast({
+          title: "Colaborador já existe",
+          description: "Este email já está cadastrado na organização",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // For now, we'll add the email as a pending member
+      // When the user signs up with this email, they'll be automatically added to the organization
+      const { error } = await supabase
+        .from('organization_members')
+        .insert({
+          organization_id: organizationId,
+          user_id: null, // Will be filled when user signs up
+          role: newColaborador.role,
+          email: newColaborador.email.toLowerCase().trim()
+        });
+
+      if (error) {
+        console.error('Error adding colaborador:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível adicionar o colaborador",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Colaborador adicionado!",
+        description: `Convite enviado para ${newColaborador.email}`,
+      });
+
+      setIsDialogOpen(false);
+      setNewColaborador({ email: "", role: "member" });
+      loadOrganizationData();
+
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao adicionar o colaborador",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredColaboradores = colaboradores.filter((colab) =>
     colab.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getCargoColor = (cargo: string) => {
-    switch (cargo) {
-      case "Gerente": return "bg-blue-100 text-blue-700 hover:bg-blue-100";
-      case "Supervisor": return "bg-purple-100 text-purple-700 hover:bg-purple-100";
-      case "Vendedor": return "bg-green-100 text-green-700 hover:bg-green-100";
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case "owner": return "bg-blue-100 text-blue-700 hover:bg-blue-100";
+      case "admin": return "bg-purple-100 text-purple-700 hover:bg-purple-100";
+      case "member": return "bg-green-100 text-green-700 hover:bg-green-100";
       default: return "bg-gray-100 text-gray-700 hover:bg-gray-100";
     }
   };
 
-  const getPermissaoColor = (permissao: string) => {
-    if (permissao.includes("adm")) return "bg-pink-100 text-pink-700 hover:bg-pink-100";
-    if (permissao.includes("time")) return "bg-purple-100 text-purple-700 hover:bg-purple-100";
-    if (permissao.includes("equipe")) return "bg-blue-100 text-blue-700 hover:bg-blue-100";
-    if (permissao.includes("ranking")) return "bg-orange-100 text-orange-700 hover:bg-orange-100";
-    return "bg-gray-100 text-gray-700 hover:bg-gray-100";
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "owner": return "Proprietário";
+      case "admin": return "Administrador";
+      case "member": return "Membro";
+      default: return role;
+    }
+  };
+
+  const getInitials = (email: string) => {
+    return email.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -107,7 +302,10 @@ const Colaboradores = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => setIsDialogOpen(true)}
+            >
               Novo Colaborador
             </Button>
             <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
@@ -179,95 +377,6 @@ const Colaboradores = () => {
             </CardContent>
           </Card>
         </div>
-
-        {/* Table Card */}
-        <Card className="shadow-lg">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Users className="h-5 w-5 text-blue-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Lista de Colaboradores (Ativos)</h2>
-            </div>
-            <p className="text-sm text-gray-600 mb-6">Gerencie colaboradores ativos, cargos e permissões.</p>
-
-            {/* Controls */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
-                    <SelectTrigger className="w-20">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-sm text-gray-600">itens por página</span>
-                </div>
-                <span className="text-sm text-gray-600">{filteredColaboradores.length} registros disponíveis</span>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold">INFO</TableHead>
-                    <TableHead className="font-semibold">CARGO</TableHead>
-                    <TableHead className="font-semibold">PERMISSÕES</TableHead>
-                    <TableHead className="font-semibold">CRIAÇÃO</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredColaboradores.map((colab) => (
-                    <TableRow key={colab.id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={colab.avatar} />
-                            <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
-                              {colab.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium text-gray-900">{colab.nome}</p>
-                            <p className="text-sm text-gray-500">{colab.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getCargoColor(colab.cargo)}>
-                          {colab.cargo}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {colab.permissoes.map((perm, idx) => (
-                            <Badge key={idx} variant="secondary" className={getPermissaoColor(perm)}>
-                              {perm}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-gray-600">{colab.criacao}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </DashboardLayout>
   );
