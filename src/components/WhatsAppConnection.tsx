@@ -342,6 +342,22 @@ const WhatsAppConnection = () => {
         },
         (payload) => {
           console.log('Realtime update:', payload);
+          
+          // Verificar se a instância conectou
+          if (payload.eventType === 'UPDATE' && 
+              payload.new && 
+              payload.new.status === 'CONNECTED' &&
+              selectedInstance && 
+              payload.new.id === selectedInstance.id) {
+            console.log('🎉 Instância conectou! Fechando modal...');
+            setQrDialogOpen(false);
+            setSelectedInstance(null);
+            toast({
+              title: "WhatsApp conectado!",
+              description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
+            });
+          }
+          
           loadInstances();
         }
       )
@@ -368,12 +384,19 @@ const WhatsAppConnection = () => {
   useEffect(() => {
     if (qrDialogOpen && selectedInstance) {
       const currentInstance = instances.find(i => i.id === selectedInstance.id);
+      console.log('🔍 Verificando status da instância:', {
+        instanceId: selectedInstance.id,
+        currentStatus: currentInstance?.status,
+        qrDialogOpen
+      });
+      
       if (currentInstance?.status === 'CONNECTED') {
+        console.log('✅ Status CONNECTED detectado! Fechando modal...');
         setQrDialogOpen(false);
         setSelectedInstance(null);
         toast({
           title: "WhatsApp conectado!",
-          description: `Conectado! Os leads aparecerão automaticamente quando receberem mensagens.`,
+          description: "Conectado! Os leads aparecerão automaticamente quando receberem mensagens.",
         });
       }
     }
