@@ -336,37 +336,48 @@ const WhatsAppConnection = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'whatsapp_instances',
         },
         (payload) => {
-          console.log('Realtime update:', payload);
+          console.log('🔔 Realtime UPDATE recebido:', {
+            eventType: payload.eventType,
+            oldStatus: payload.old?.status,
+            newStatus: payload.new?.status,
+            instanceId: payload.new?.id,
+            selectedInstanceId: selectedInstance?.id
+          });
           
-          // Verificar se a instância conectou
-          if (payload.eventType === 'UPDATE' && 
-              payload.new && 
-              payload.new.status === 'CONNECTED' &&
-              selectedInstance && 
-              payload.new.id === selectedInstance.id) {
-            console.log('🎉 Instância conectou! Fechando modal...');
-            setQrDialogOpen(false);
-            setSelectedInstance(null);
-            toast({
-              title: "WhatsApp conectado!",
-              description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
-            });
+          // CRÍTICO: Verificar se a instância conectou
+          if (payload.new && payload.new.status === 'CONNECTED') {
+            console.log('✅ Status CONNECTED detectado!');
+            
+            // Se for a instância que está no modal, fechar
+            if (selectedInstance && payload.new.id === selectedInstance.id) {
+              console.log('🎉 É a instância do modal! Fechando...');
+              setQrDialogOpen(false);
+              setSelectedInstance(null);
+              toast({
+                title: "WhatsApp conectado!",
+                description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
+              });
+            }
           }
           
+          // Sempre recarregar instâncias após qualquer update
           loadInstances();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+      });
 
     return () => {
+      console.log('🔌 Removendo canal Realtime');
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [selectedInstance, toast]);
 
   // Abrir dialog automaticamente quando houver QR Code
   useEffect(() => {
@@ -375,32 +386,11 @@ const WhatsAppConnection = () => {
     );
     
     if (instanceWithQR && !qrDialogOpen) {
+      console.log('📱 Instância com QR Code detectada, abrindo modal:', instanceWithQR.id);
       setSelectedInstance(instanceWithQR);
       setQrDialogOpen(true);
     }
   }, [instances, qrDialogOpen]);
-
-  // Fechar dialog automaticamente quando a instância conectar
-  useEffect(() => {
-    if (qrDialogOpen && selectedInstance) {
-      const currentInstance = instances.find(i => i.id === selectedInstance.id);
-      console.log('🔍 Verificando status da instância:', {
-        instanceId: selectedInstance.id,
-        currentStatus: currentInstance?.status,
-        qrDialogOpen
-      });
-      
-      if (currentInstance?.status === 'CONNECTED') {
-        console.log('✅ Status CONNECTED detectado! Fechando modal...');
-        setQrDialogOpen(false);
-        setSelectedInstance(null);
-        toast({
-          title: "WhatsApp conectado!",
-          description: "Conectado! Os leads aparecerão automaticamente quando receberem mensagens.",
-        });
-      }
-    }
-  }, [instances, qrDialogOpen, selectedInstance, toast]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
