@@ -72,31 +72,6 @@ const WhatsAppConnection = () => {
     setSelectedInstance(null);
   };
 
-  // Sincronizar contatos quando a instância conectar
-  const syncContactsForInstance = async (instanceName: string) => {
-    try {
-      console.log(`🔄 Sincronizando contatos para: ${instanceName}`);
-      
-      const { data, error } = await supabase.functions.invoke('sync-whatsapp-contacts', {
-        body: { instance_name: instanceName }
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        toast({
-          title: "Contatos sincronizados!",
-          description: `${data.stats.created} leads criados, ${data.stats.updated} atualizados`,
-        });
-        console.log('✅ Sincronização concluída:', data.stats);
-      }
-    } catch (error: any) {
-      console.error('❌ Erro ao sincronizar contatos:', error);
-      // Não mostra toast de erro para não incomodar o usuário
-      // A sincronização pode ser tentada novamente depois
-    }
-  };
-
   // Verificar status de todas as instâncias na Evolution API
   const checkAllInstancesStatus = async () => {
     setVerifyingStatus(true);
@@ -367,17 +342,6 @@ const WhatsAppConnection = () => {
         },
         (payload) => {
           console.log('Realtime update:', payload);
-          
-          // Se uma instância mudou para CONNECTED, sincronizar contatos
-          if (payload.eventType === 'UPDATE' && 
-              payload.new && 
-              payload.new.status === 'CONNECTED' && 
-              payload.old && 
-              payload.old.status !== 'CONNECTED') {
-            console.log('🎉 Instância conectou! Sincronizando contatos...');
-            syncContactsForInstance(payload.new.instance_name);
-          }
-          
           loadInstances();
         }
       )
@@ -400,7 +364,7 @@ const WhatsAppConnection = () => {
     }
   }, [instances, qrDialogOpen]);
 
-  // Fechar dialog automaticamente quando a instância conectar e sincronizar contatos
+  // Fechar dialog automaticamente quando a instância conectar
   useEffect(() => {
     if (qrDialogOpen && selectedInstance) {
       const currentInstance = instances.find(i => i.id === selectedInstance.id);
@@ -409,11 +373,8 @@ const WhatsAppConnection = () => {
         setSelectedInstance(null);
         toast({
           title: "WhatsApp conectado!",
-          description: `Conectado com sucesso ao número ${currentInstance.phone_number || 'WhatsApp'}. Sincronizando contatos...`,
+          description: `Conectado com sucesso! Os contatos aparecerão automaticamente quando enviarem mensagens.`,
         });
-        
-        // Sincronizar contatos automaticamente
-        syncContactsForInstance(currentInstance.instance_name);
       }
     }
   }, [instances, qrDialogOpen, selectedInstance, toast]);
