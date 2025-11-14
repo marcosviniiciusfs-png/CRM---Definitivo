@@ -49,6 +49,7 @@ export type Database = {
           id: string
           last_message_at: string | null
           nome_lead: string
+          organization_id: string | null
           position: number | null
           source: string | null
           stage: string | null
@@ -63,6 +64,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           nome_lead: string
+          organization_id?: string | null
           position?: number | null
           source?: string | null
           stage?: string | null
@@ -77,6 +79,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           nome_lead?: string
+          organization_id?: string | null
           position?: number | null
           source?: string | null
           stage?: string | null
@@ -84,7 +87,15 @@ export type Database = {
           updated_at?: string
           valor?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mensagens_chat: {
         Row: {
@@ -126,6 +137,62 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["organization_role"]
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["organization_role"]
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["organization_role"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       whatsapp_instances: {
         Row: {
@@ -171,10 +238,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_organization_id: { Args: { _user_id: string }; Returns: string }
+      get_user_organization_role: {
+        Args: { _user_id: string }
+        Returns: {
+          organization_id: string
+          role: Database["public"]["Enums"]["organization_role"]
+        }[]
+      }
+      is_same_organization: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      organization_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -301,6 +379,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      organization_role: ["owner", "admin", "member"],
+    },
   },
 } as const
