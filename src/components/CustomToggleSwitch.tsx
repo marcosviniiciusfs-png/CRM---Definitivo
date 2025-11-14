@@ -24,9 +24,6 @@ export function CustomToggleSwitch({ checked = false, onChange }: CustomToggleSw
       />
       <span className="slider">
         <div className="slider-btn">
-          <div className="texture"></div>
-          <div className="texture"></div>
-          <div className="texture"></div>
           <div className="light"></div>
         </div>
       </span>
