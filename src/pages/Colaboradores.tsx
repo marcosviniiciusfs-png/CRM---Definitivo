@@ -119,6 +119,7 @@ const Colaboradores = () => {
           description: "Usuário não autenticado",
           variant: "destructive"
         });
+        setIsLoading(false);
         return;
       }
 
@@ -131,48 +132,74 @@ const Colaboradores = () => {
 
       if (memberError) {
         console.error('Error loading organization:', memberError);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os dados da organização",
+          variant: "destructive"
+        });
+        setIsLoading(false);
         return;
       }
 
-      if (memberData) {
-        setOrganizationId((memberData as any).organization_id);
+      if (!memberData || !(memberData as any).organization_id) {
+        toast({
+          title: "Organização não encontrada",
+          description: "Você não está associado a nenhuma organização",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const orgId = (memberData as any).organization_id;
+      setOrganizationId(orgId);
+      
+      // Load all members of the organization
+      const { data: members, error: membersError } = await supabase
+        .from('organization_members' as any)
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false });
+
+      if (membersError) {
+        console.error('Error loading members:', membersError);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os membros da organização",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (members) {
+        setColaboradores(members as any);
         
-        // Load all members of the organization
-        const { data: members, error: membersError } = await supabase
-          .from('organization_members' as any)
-          .select('*')
-          .eq('organization_id', (memberData as any).organization_id)
-          .order('created_at', { ascending: false });
-
-        if (membersError) {
-          console.error('Error loading members:', membersError);
-          return;
-        }
-
-        if (members) {
-          setColaboradores(members as any);
-          
-          // Calculate stats
-          const now = new Date();
-          const thisMonth = now.getMonth();
-          const thisYear = now.getFullYear();
-          
-          const novos = members.filter((m: any) => {
-            const createdDate = new Date(m.created_at);
-            return createdDate.getMonth() === thisMonth && 
-                   createdDate.getFullYear() === thisYear;
-          }).length;
-          
-          setStats({
-            ativos: members.length,
-            novos: novos,
-            saidas: 0,
-            inativos: 0
-          });
-        }
+        // Calculate stats
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+        
+        const novos = members.filter((m: any) => {
+          const createdDate = new Date(m.created_at);
+          return createdDate.getMonth() === thisMonth && 
+                 createdDate.getFullYear() === thisYear;
+        }).length;
+        
+        setStats({
+          ativos: members.length,
+          novos: novos,
+          saidas: 0,
+          inativos: 0
+        });
       }
     } catch (error) {
       console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao carregar os dados",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
