@@ -141,9 +141,6 @@ serve(async (req) => {
     }
 
     console.log('Creating instance for user:', user.id);
-
-    // Generate unique instance name using user ID and timestamp
-    const instanceName = `crm-${user.id.substring(0, 8)}-${Date.now()}`;
     
     // Get Evolution API credentials with fallback to database
     let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
@@ -191,8 +188,94 @@ serve(async (req) => {
     // Webhook URL for QR code and connection status updates
     const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
 
-    console.log('Creating instance with name:', instanceName);
     console.log('Using Evolution API URL:', baseUrl);
+
+    // ========================================
+    // STEP 1: CLEANUP OLD INSTANCES
+    // ========================================
+    console.log('🧹 Starting cleanup of old instances...');
+    
+    // Fetch all instances from Evolution API
+    try {
+      const fetchInstancesResponse = await fetch(`${baseUrl}/instance/fetchInstances`, {
+        method: 'GET',
+        headers: {
+          'apikey': evolutionApiKey,
+        },
+      });
+
+      if (fetchInstancesResponse.ok) {
+        const allInstances = await fetchInstancesResponse.json();
+        console.log(`📋 Found ${allInstances.length} total instances in Evolution API`);
+
+        // Filter instances belonging to this user (by instance name pattern)
+        const userPrefix = `crm-${user.id.substring(0, 8)}`;
+        const userInstances = Array.isArray(allInstances) 
+          ? allInstances.filter((inst: any) => inst.instance?.instanceName?.startsWith(userPrefix))
+          : [];
+
+        console.log(`🔍 Found ${userInstances.length} instances for user ${user.id}`);
+
+        // Delete each old instance
+        if (userInstances.length > 0) {
+          console.log('🗑️ Deleting old instances...');
+          
+          for (const oldInstance of userInstances) {
+            const oldInstanceName = oldInstance.instance?.instanceName;
+            if (!oldInstanceName) continue;
+
+            try {
+              console.log(`  ↳ Deleting instance: ${oldInstanceName}`);
+              
+              const deleteResponse = await fetch(`${baseUrl}/instance/delete/${oldInstanceName}`, {
+                method: 'DELETE',
+                headers: {
+                  'apikey': evolutionApiKey,
+                },
+              });
+
+              if (deleteResponse.ok) {
+                console.log(`  ✅ Deleted: ${oldInstanceName}`);
+              } else {
+                console.warn(`  ⚠️ Failed to delete ${oldInstanceName}:`, deleteResponse.status);
+              }
+            } catch (deleteError) {
+              console.error(`  ❌ Error deleting ${oldInstanceName}:`, deleteError);
+            }
+          }
+
+          // Also cleanup database records for these instances
+          const { error: dbCleanupError } = await supabase
+            .from('whatsapp_instances')
+            .delete()
+            .eq('user_id', user.id);
+
+          if (dbCleanupError) {
+            console.warn('⚠️ Error cleaning up database instances:', dbCleanupError);
+          } else {
+            console.log('✅ Database instances cleaned up');
+          }
+
+          // Wait a moment for Evolution API to fully process deletions
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log('✅ Cleanup completed');
+        } else {
+          console.log('✨ No old instances to clean up');
+        }
+      } else {
+        console.warn('⚠️ Could not fetch instances for cleanup:', fetchInstancesResponse.status);
+      }
+    } catch (cleanupError) {
+      console.error('❌ Error during cleanup:', cleanupError);
+      // Continue with instance creation even if cleanup fails
+    }
+
+    // ========================================
+    // STEP 2: CREATE NEW INSTANCE
+    // ========================================
+    // Generate unique instance name using user ID and timestamp
+    const instanceName = `crm-${user.id.substring(0, 8)}-${Date.now()}`;
+    console.log('Creating fresh instance with name:', instanceName);
 
     // Create instance in Evolution API
     const evolutionResponse = await fetch(`${baseUrl}/instance/create`, {
