@@ -247,7 +247,7 @@ const WhatsAppConnection = () => {
     }
   };
 
-  // Desconectar instância
+  // Desconectar e deletar instância
   const disconnectInstance = async (instanceId: string) => {
     setDisconnecting(instanceId);
     try {
@@ -258,21 +258,21 @@ const WhatsAppConnection = () => {
       if (error) throw error;
 
       if (!data.success) {
-        throw new Error(data.error || 'Erro ao desconectar instância');
+        throw new Error(data.error || 'Erro ao deletar instância');
       }
 
       toast({
-        title: "WhatsApp desconectado",
-        description: "A instância foi desconectada com sucesso.",
+        title: "WhatsApp deletado",
+        description: "A instância foi deletada com sucesso. Você pode criar uma nova conexão.",
       });
 
       // Recarregar instâncias
       await loadInstances();
     } catch (error: any) {
-      console.error('Erro ao desconectar instância:', error);
+      console.error('Erro ao deletar instância:', error);
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível desconectar a instância",
+        description: error.message || "Não foi possível deletar a instância",
         variant: "destructive",
       });
     } finally {
@@ -585,12 +585,12 @@ const WhatsAppConnection = () => {
                   {disconnecting === instance.id ? (
                     <>
                       <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                      Desconectando...
+                      Deletando...
                     </>
                   ) : (
                     <>
                       <LogOut className="h-3 w-3 mr-2" />
-                      Desconectar
+                      Deletar Conexão
                     </>
                   )}
                 </Button>
