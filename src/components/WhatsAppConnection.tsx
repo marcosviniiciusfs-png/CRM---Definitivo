@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useWhatsApp } from "@/contexts/WhatsAppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2, RefreshCw } from "lucide-react";
+import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import whatsappLogo from "@/assets/whatsapp-logo.png";
 
 interface QRCodeData {
@@ -16,58 +16,32 @@ interface QRCodeData {
   base64: string;
 }
 
-interface WhatsAppInstance {
-  id: string;
-  instance_name: string;
-  status: string;
-  qr_code: QRCodeData | string | null;
-  phone_number: string | null;
-  created_at: string;
-  connected_at: string | null;
-}
-
 const WhatsAppConnection = () => {
   const { toast } = useToast();
   const { instances, loading: contextLoading, isConnected, refreshInstances, checkAndUpdateStatus } = useWhatsApp();
   const [creating, setCreating] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [disconnecting, setDisconnecting] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [qrCodeErrors, setQrCodeErrors] = useState<Record<string, boolean>>({});
+  const [disconnecting, setDisconnecting] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
-  const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
+  const [qrCodeError, setQrCodeError] = useState(false);
 
-  const cancelInstance = async (instanceId: string) => {
-    try {
-      const { error } = await supabase
-        .from('whatsapp_instances')
-        .delete()
-        .eq('id', instanceId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Conexão cancelada",
-        description: "A instância WhatsApp foi removida",
-      });
-
-      await refreshInstances();
-    } catch (error: any) {
-      console.error('Erro ao cancelar instância:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível cancelar a instância",
-        variant: "destructive",
-      });
-    }
-  };
+  // Pegar a instância principal (primeira conectada ou a primeira disponível)
+  const mainInstance = instances.find(i => i.status === 'CONNECTED' || i.status === 'OPEN') || instances[0];
 
   const handleCloseDialog = async () => {
-    if (selectedInstance && (selectedInstance.status === 'WAITING_QR' || selectedInstance.status === 'CREATING')) {
-      await cancelInstance(selectedInstance.id);
+    if (mainInstance && (mainInstance.status === 'WAITING_QR' || mainInstance.status === 'CREATING')) {
+      try {
+        await supabase
+          .from('whatsapp_instances')
+          .delete()
+          .eq('id', mainInstance.id);
+        
+        await refreshInstances();
+      } catch (error) {
+        console.error('Erro ao cancelar instância:', error);
+      }
     }
     setQrDialogOpen(false);
-    setSelectedInstance(null);
   };
 
   const handleVerifyStatus = async () => {
@@ -89,7 +63,7 @@ const WhatsAppConnection = () => {
     }
   };
 
-  const createInstance = async () => {
+  const handleConnect = async () => {
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-whatsapp-instance');
@@ -101,17 +75,6 @@ const WhatsAppConnection = () => {
       }
 
       if (data.instance && data.instance.qrCode) {
-        const tempInstance: WhatsAppInstance = {
-          id: data.instance.id,
-          instance_name: data.instance.instanceName,
-          status: data.instance.status || 'WAITING_QR',
-          qr_code: data.instance.qrCode,
-          phone_number: null,
-          created_at: new Date().toISOString(),
-          connected_at: null,
-        };
-        
-        setSelectedInstance(tempInstance);
         setQrDialogOpen(true);
         
         toast({
@@ -120,7 +83,7 @@ const WhatsAppConnection = () => {
         });
       } else {
         toast({
-          title: "Instância criada!",
+          title: "Conexão iniciada!",
           description: "O QR Code será exibido em alguns segundos.",
         });
       }
@@ -130,7 +93,7 @@ const WhatsAppConnection = () => {
       console.error('Erro ao criar instância:', error);
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível criar a instância",
+        description: error.message || "Não foi possível criar a conexão",
         variant: "destructive",
       });
     } finally {
@@ -138,11 +101,13 @@ const WhatsAppConnection = () => {
     }
   };
 
-  const disconnectInstance = async (instanceId: string) => {
-    setDisconnecting(instanceId);
+  const handleDisconnect = async () => {
+    if (!mainInstance) return;
+    
+    setDisconnecting(true);
     try {
       const { data, error } = await supabase.functions.invoke('disconnect-whatsapp-instance', {
-        body: { instanceId },
+        body: { instanceId: mainInstance.id },
       });
 
       if (error) throw error;
@@ -153,7 +118,7 @@ const WhatsAppConnection = () => {
 
       toast({
         title: "WhatsApp desconectado",
-        description: "A instância foi desconectada com sucesso.",
+        description: "Sua conexão foi desconectada com sucesso.",
       });
 
       await refreshInstances();
@@ -161,76 +126,24 @@ const WhatsAppConnection = () => {
       console.error('Erro ao desconectar instância:', error);
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível desconectar a instância",
+        description: error.message || "Não foi possível desconectar",
         variant: "destructive",
       });
     } finally {
-      setDisconnecting(null);
-    }
-  };
-
-  const deleteInstance = async (instanceId: string) => {
-    setDeleting(instanceId);
-    try {
-      const { data, error } = await supabase.functions.invoke('delete-whatsapp-instance', {
-        body: { instanceId },
-      });
-
-      if (error) throw error;
-
-      if (!data.success) {
-        throw new Error(data.error || 'Erro ao deletar instância');
-      }
-
-      toast({
-        title: "Instância removida",
-        description: "A instância foi deletada com sucesso.",
-      });
-
-      await refreshInstances();
-    } catch (error: any) {
-      console.error('Erro ao deletar instância:', error);
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível deletar a instância",
-        variant: "destructive",
-      });
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  const openQrCode = (instance: WhatsAppInstance) => {
-    setSelectedInstance(instance);
-    setQrDialogOpen(true);
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'CONNECTED':
-      case 'OPEN':
-        return <Badge className="bg-success text-white"><CheckCircle2 className="h-3 w-3 mr-1" />Conectado</Badge>;
-      case 'WAITING_QR':
-      case 'CREATING':
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Aguardando</Badge>;
-      case 'DISCONNECTED':
-      case 'CLOSE':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Desconectado</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+      setDisconnecting(false);
     }
   };
 
   const renderQrCode = () => {
-    if (!selectedInstance || !selectedInstance.qr_code) return null;
+    if (!mainInstance || !mainInstance.qr_code) return null;
 
     let qrData: QRCodeData | null = null;
 
     try {
-      if (typeof selectedInstance.qr_code === 'string') {
-        qrData = JSON.parse(selectedInstance.qr_code);
+      if (typeof mainInstance.qr_code === 'string') {
+        qrData = JSON.parse(mainInstance.qr_code);
       } else {
-        qrData = selectedInstance.qr_code;
+        qrData = mainInstance.qr_code;
       }
     } catch (error) {
       console.error('Erro ao processar QR code:', error);
@@ -250,8 +163,11 @@ const WhatsAppConnection = () => {
           src={qrData.base64}
           alt="QR Code WhatsApp"
           className="w-64 h-64 border rounded-lg"
-          onError={() => setQrCodeErrors({ ...qrCodeErrors, [selectedInstance.id]: true })}
+          onError={() => setQrCodeError(true)}
         />
+        {qrCodeError && (
+          <p className="text-sm text-destructive">Erro ao carregar imagem</p>
+        )}
         <div className="text-center space-y-2">
           <p className="text-sm font-medium">Escaneie com seu WhatsApp</p>
           <ol className="text-xs text-muted-foreground space-y-1">
@@ -264,6 +180,9 @@ const WhatsAppConnection = () => {
       </div>
     );
   };
+
+  // Verificar se está aguardando QR code
+  const isWaitingQr = mainInstance && (mainInstance.status === 'WAITING_QR' || mainInstance.status === 'CREATING') && mainInstance.qr_code;
 
   return (
     <>
@@ -289,19 +208,21 @@ const WhatsAppConnection = () => {
                 </CardDescription>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleVerifyStatus}
-              disabled={verifying || contextLoading}
-            >
-              {verifying ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Verificar Status
-            </Button>
+            {isConnected && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleVerifyStatus}
+                disabled={verifying || contextLoading}
+              >
+                {verifying ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Verificar Status
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -309,92 +230,75 @@ const WhatsAppConnection = () => {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : instances.length === 0 ? (
-            <div className="flex flex-col items-center gap-4 py-8">
-              <MessageSquare className="h-12 w-12 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Nenhuma conexão WhatsApp configurada</p>
-              <Button onClick={createInstance} disabled={creating}>
-                {creating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Criando Conexão...
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Conectar WhatsApp
-                  </>
-                )}
-              </Button>
-            </div>
           ) : (
-            <div className="space-y-3">
-              {instances.map((instance) => (
-                <div
-                  key={instance.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium">{instance.instance_name}</p>
-                      {getStatusBadge(instance.status)}
-                    </div>
-                    {instance.phone_number && (
-                      <p className="text-sm text-muted-foreground">
-                        {instance.phone_number}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    {(instance.status === 'WAITING_QR' || instance.status === 'CREATING') && instance.qr_code && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openQrCode(instance)}
-                      >
-                        <QrCode className="h-4 w-4 mr-2" />
-                        Ver QR Code
-                      </Button>
-                    )}
-                    {(instance.status === 'CONNECTED' || instance.status === 'OPEN') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => disconnectInstance(instance.id)}
-                        disabled={disconnecting === instance.id}
-                      >
-                        {disconnecting === instance.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Desconectar
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => deleteInstance(instance.id)}
-                      disabled={deleting === instance.id}
-                    >
-                      {deleting === instance.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
+            <div className="flex flex-col items-center gap-4 py-6">
+              {mainInstance?.phone_number && (
+                <div className="text-center mb-2">
+                  <p className="text-sm text-muted-foreground">Número conectado</p>
+                  <p className="text-lg font-semibold">{mainInstance.phone_number}</p>
                 </div>
-              ))}
+              )}
+              
+              {isWaitingQr && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setQrDialogOpen(true)}
+                  className="w-full max-w-md"
+                >
+                  <QrCode className="h-5 w-5 mr-2" />
+                  Ver QR Code para Conectar
+                </Button>
+              )}
+
+              {isConnected ? (
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                  className="w-full max-w-md"
+                >
+                  {disconnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Desconectando...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="mr-2 h-5 w-5" />
+                      Desconectar WhatsApp
+                    </>
+                  )}
+                </Button>
+              ) : !isWaitingQr && (
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={handleConnect}
+                  disabled={creating}
+                  className="w-full max-w-md bg-success hover:bg-success/90"
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Conectando...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="mr-2 h-5 w-5" />
+                      Conectar WhatsApp
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={qrDialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Conectar WhatsApp</DialogTitle>
             <DialogDescription>
