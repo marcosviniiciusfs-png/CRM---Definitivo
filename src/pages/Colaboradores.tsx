@@ -122,7 +122,7 @@ const Colaboradores = () => {
 
       // Get user's organization
       const { data: memberData, error: memberError } = await supabase
-        .from('organization_members')
+        .from('organization_members' as any)
         .select('organization_id, role')
         .eq('user_id', user.id)
         .single();
@@ -133,13 +133,13 @@ const Colaboradores = () => {
       }
 
       if (memberData) {
-        setOrganizationId(memberData.organization_id);
+        setOrganizationId((memberData as any).organization_id);
         
         // Load all members of the organization
         const { data: members, error: membersError } = await supabase
-          .from('organization_members')
+          .from('organization_members' as any)
           .select('*')
-          .eq('organization_id', memberData.organization_id)
+          .eq('organization_id', (memberData as any).organization_id)
           .order('created_at', { ascending: false });
 
         if (membersError) {
@@ -148,14 +148,14 @@ const Colaboradores = () => {
         }
 
         if (members) {
-          setColaboradores(members);
+          setColaboradores(members as any);
           
           // Calculate stats
           const now = new Date();
           const thisMonth = now.getMonth();
           const thisYear = now.getFullYear();
           
-          const novos = members.filter(m => {
+          const novos = members.filter((m: any) => {
             const createdDate = new Date(m.created_at);
             return createdDate.getMonth() === thisMonth && 
                    createdDate.getFullYear() === thisYear;
@@ -203,7 +203,7 @@ const Colaboradores = () => {
 
       // Check if user with this email already exists
       const { data: existingUser } = await supabase
-        .from('organization_members')
+        .from('organization_members' as any)
         .select('email')
         .eq('organization_id', organizationId)
         .eq('email', newColaborador.email.toLowerCase().trim())
@@ -222,7 +222,7 @@ const Colaboradores = () => {
       // For now, we'll add the email as a pending member
       // When the user signs up with this email, they'll be automatically added to the organization
       const { error } = await supabase
-        .from('organization_members')
+        .from('organization_members' as any)
         .insert({
           organization_id: organizationId,
           user_id: null, // Will be filled when user signs up
@@ -377,6 +377,178 @@ const Colaboradores = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Table Card */}
+        <Card className="shadow-lg">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-6">
+              <Users className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Lista de Colaboradores</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">Gerencie colaboradores, cargos e status de convites.</p>
+
+            {/* Controls */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-gray-600">itens por página</span>
+                </div>
+                <span className="text-sm text-gray-600">{filteredColaboradores.length} registros disponíveis</span>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-64"
+                />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="font-semibold text-gray-700">INFO</TableHead>
+                    <TableHead className="font-semibold text-gray-700">CARGO</TableHead>
+                    <TableHead className="font-semibold text-gray-700">STATUS</TableHead>
+                    <TableHead className="font-semibold text-gray-700">CRIAÇÃO</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredColaboradores.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                        Nenhum colaborador encontrado
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredColaboradores.map((colab) => (
+                      <TableRow key={colab.id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
+                                {getInitials(colab.email)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm text-gray-500">{colab.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getRoleColor(colab.role)}>
+                            {getRoleLabel(colab.role)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {colab.user_id ? (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                              Ativo
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
+                              Pendente
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          {new Date(colab.created_at).toLocaleDateString('pt-BR')}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Dialog para adicionar colaborador */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Adicionar Novo Colaborador</DialogTitle>
+              <DialogDescription>
+                Insira o email do colaborador que deseja adicionar à organização.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="colaborador@exemplo.com"
+                  value={newColaborador.email}
+                  onChange={(e) => setNewColaborador({ ...newColaborador, email: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Cargo</Label>
+                <Select
+                  value={newColaborador.role}
+                  onValueChange={(value: "owner" | "admin" | "member") => 
+                    setNewColaborador({ ...newColaborador, role: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Membro</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="owner">Proprietário</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  setNewColaborador({ email: "", role: "member" });
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleAddColaborador}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  "Enviar Convite"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
