@@ -449,6 +449,17 @@ const WhatsAppConnection = () => {
         qrCodePreview: instance.qr_code ? JSON.stringify(instance.qr_code).substring(0, 200) : 'null'
       });
 
+      // Verificação inicial: QR Code null, undefined ou vazio
+      if (!instance.qr_code) {
+        console.warn('⚠️ QR Code é null ou undefined');
+        return (
+          <div className="text-center py-8 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <p>Aguardando QR Code...</p>
+          </div>
+        );
+      }
+
       let rawBase64 = '';
       
       // CASO 1: String direta (formato ideal)
@@ -456,29 +467,38 @@ const WhatsAppConnection = () => {
         rawBase64 = instance.qr_code;
         console.log('✅ QR Code é string direta, comprimento:', rawBase64.length);
       } 
-      // CASO 2: Objeto (pode vir do Supabase/Postgres)
-      else if (instance.qr_code && typeof instance.qr_code === 'object') {
+      // CASO 2: Objeto (pode vir do Supabase/Postgres ou Evolution API)
+      else if (typeof instance.qr_code === 'object' && !Array.isArray(instance.qr_code)) {
         const qrData: any = instance.qr_code;
-        console.log('📦 QR Code é objeto, estrutura:', Object.keys(qrData));
         
-        // Supabase às vezes retorna { _type: "String", value: "..." }
-        if (qrData._type === 'String' && qrData.value) {
-          rawBase64 = qrData.value;
-          console.log('✅ Extraído de _type/value, comprimento:', rawBase64.length);
-        }
-        // Formato Evolution API: { base64: "data:image...", code: "...", pairingCode: null }
-        else if (qrData.base64) {
-          rawBase64 = qrData.base64;
-          console.log('✅ Extraído de .base64, comprimento:', rawBase64.length);
-        }
-        // Fallback: tentar acessar .value diretamente
-        else if (qrData.value) {
-          rawBase64 = qrData.value;
-          console.log('✅ Extraído de .value, comprimento:', rawBase64.length);
+        // Verificar se é um objeto válido e não-nulo
+        if (qrData && typeof qrData === 'object') {
+          console.log('📦 QR Code é objeto, estrutura:', Object.keys(qrData));
+          
+          // Formato Evolution API: { base64: "data:image...", code: "...", pairingCode: null }
+          if (qrData.base64) {
+            rawBase64 = qrData.base64;
+            console.log('✅ Extraído de .base64, comprimento:', rawBase64.length);
+          }
+          // Formato Evolution API alternativo: { code: "data:image..." }
+          else if (qrData.code) {
+            rawBase64 = qrData.code;
+            console.log('✅ Extraído de .code, comprimento:', rawBase64.length);
+          }
+          // Supabase às vezes retorna { _type: "String", value: "..." }
+          else if (qrData._type === 'String' && qrData.value) {
+            rawBase64 = qrData.value;
+            console.log('✅ Extraído de _type/value, comprimento:', rawBase64.length);
+          }
+          // Fallback: tentar acessar .value diretamente
+          else if (qrData.value) {
+            rawBase64 = qrData.value;
+            console.log('✅ Extraído de .value, comprimento:', rawBase64.length);
+          }
         }
       }
 
-      // Validação: QR Code vazio
+      // Validação: QR Code vazio após extração
       if (!rawBase64 || rawBase64.trim().length === 0) {
         console.error('❌ QR Code vazio após extração');
         return (
