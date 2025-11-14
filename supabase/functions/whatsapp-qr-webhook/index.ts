@@ -121,10 +121,12 @@ serve(async (req) => {
 
     // ==================== EVENTO: CONNECTION.UPDATE ====================
     if (event === 'connection.update' || event === 'CONNECTION_UPDATE') {
+      console.log('🔌 CONNECTION_UPDATE recebido:', JSON.stringify(data, null, 2));
+      
       const state = data?.state || data?.status;
       
       if (!state) {
-        console.log('⚠️ Estado não encontrado');
+        console.log('⚠️ Estado não encontrado no payload');
         return new Response(
           JSON.stringify({ success: true, message: 'Estado não encontrado' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -136,6 +138,8 @@ serve(async (req) => {
       let connectedAt = null;
       let qrCode: string | null | undefined = undefined;
 
+      console.log('🔍 Processando estado:', state);
+
       switch (state.toLowerCase()) {
         case 'open':
         case 'connected':
@@ -143,27 +147,36 @@ serve(async (req) => {
           phoneNumber = data?.phoneNumber || data?.number || null;
           connectedAt = new Date().toISOString();
           qrCode = null; // CRÍTICO: Limpar QR Code quando conectado
-          console.log('✅ Conexão estabelecida, limpando QR Code');
+          console.log('✅ Conexão estabelecida!', {
+            internalStatus,
+            phoneNumber,
+            connectedAt,
+            willClearQrCode: true
+          });
           break;
         case 'close':
         case 'disconnected':
           internalStatus = 'DISCONNECTED';
+          console.log('⚠️ Conexão desconectada');
           break;
         case 'connecting':
           internalStatus = 'CONNECTING';
+          console.log('⏳ Conectando...');
           break;
         default:
           console.log(`⚠️ Estado desconhecido: ${state}`);
           internalStatus = 'UNKNOWN';
       }
 
-      console.log(`🔌 Atualizando status para ${internalStatus}`);
+      console.log(`🔌 Atualizando status de ${instance} para ${internalStatus}`);
 
       const updateData: any = { status: internalStatus, updated_at: new Date().toISOString() };
       
       if (phoneNumber) updateData.phone_number = phoneNumber;
       if (connectedAt) updateData.connected_at = connectedAt;
       if (qrCode !== undefined) updateData.qr_code = qrCode;
+
+      console.log('💾 Dados para atualizar:', JSON.stringify(updateData, null, 2));
 
       const { error: updateError } = await supabase
         .from('whatsapp_instances')
@@ -175,7 +188,8 @@ serve(async (req) => {
         throw updateError;
       }
 
-      console.log(`✅ Status atualizado: ${instance} -> ${internalStatus}`);
+      console.log(`✅ Status atualizado com sucesso: ${instance} -> ${internalStatus}`);
+      console.log('🔔 Realtime deve notificar o frontend agora');
 
       return new Response(
         JSON.stringify({ success: true, message: 'Status atualizado', status: internalStatus }),

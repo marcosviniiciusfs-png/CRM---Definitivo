@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,16 @@ const WhatsAppConnection = () => {
   const [qrCodeErrors, setQrCodeErrors] = useState<Record<string, boolean>>({});
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
+  
+  // CRÍTICO: useRef para manter referência atualizada no callback do Realtime
+  const selectedInstanceRef = useRef<WhatsAppInstance | null>(null);
+  const qrDialogOpenRef = useRef<boolean>(false);
+  
+  // Sincronizar refs com states
+  useEffect(() => {
+    selectedInstanceRef.current = selectedInstance;
+    qrDialogOpenRef.current = qrDialogOpen;
+  }, [selectedInstance, qrDialogOpen]);
 
   // Função para cancelar/deletar instância
   const cancelInstance = async (instanceId: string) => {
@@ -346,22 +356,29 @@ const WhatsAppConnection = () => {
             oldStatus: payload.old?.status,
             newStatus: payload.new?.status,
             instanceId: payload.new?.id,
-            selectedInstanceId: selectedInstance?.id
+            qrDialogOpen: qrDialogOpenRef.current,
+            selectedInstanceId: selectedInstanceRef.current?.id
           });
+          
+          // CRÍTICO: Usar ref para acessar valor atualizado
+          const currentSelectedInstance = selectedInstanceRef.current;
+          const isDialogOpen = qrDialogOpenRef.current;
           
           // CRÍTICO: Verificar se a instância conectou
           if (payload.new && payload.new.status === 'CONNECTED') {
-            console.log('✅ Status CONNECTED detectado!');
+            console.log('✅ Status CONNECTED detectado na instância:', payload.new.id);
             
-            // Se for a instância que está no modal, fechar
-            if (selectedInstance && payload.new.id === selectedInstance.id) {
-              console.log('🎉 É a instância do modal! Fechando...');
+            // Se for a instância que está no modal E o modal está aberto, fechar
+            if (isDialogOpen && currentSelectedInstance && payload.new.id === currentSelectedInstance.id) {
+              console.log('🎉 É a instância do modal aberto! Fechando...');
               setQrDialogOpen(false);
               setSelectedInstance(null);
               toast({
                 title: "WhatsApp conectado!",
                 description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
               });
+            } else {
+              console.log('ℹ️ Modal não está aberto ou é outra instância');
             }
           }
           
@@ -377,7 +394,7 @@ const WhatsAppConnection = () => {
       console.log('🔌 Removendo canal Realtime');
       supabase.removeChannel(channel);
     };
-  }, [selectedInstance, toast]);
+  }, [toast]);
 
   // Abrir dialog automaticamente quando houver QR Code
   useEffect(() => {
@@ -618,6 +635,13 @@ const WhatsAppConnection = () => {
         </CardHeader>
         <CardContent className="px-3 pb-2">
         <div className="text-center py-2">
+          {/* DEBUG: Mostrar status da instância selecionada */}
+          {selectedInstance && (
+            <div className="text-xs text-muted-foreground mb-2">
+              Debug: Instância {selectedInstance.id.substring(0, 8)} - Status: {selectedInstance.status}
+            </div>
+          )}
+          
           {/* Verificar se existe instância conectada */}
           {instances.some(instance => instance.status === 'CONNECTED') ? (
             /* Botão Desconectar - exibido apenas quando há instância conectada */
