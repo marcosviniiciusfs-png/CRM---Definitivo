@@ -189,140 +189,32 @@ const Colaboradores = () => {
 
       setIsLoading(true);
 
-      const emailLower = newColaborador.email.toLowerCase().trim();
-
-      // Check if user already exists in THIS organization
-      const { data: existingInOrg } = await supabase
-        .from('organization_members' as any)
-        .select('email, user_id')
-        .eq('organization_id', organizationId)
-        .eq('email', emailLower)
-        .maybeSingle();
-
-      if (existingInOrg) {
-        toast({
-          title: "Colaborador já existe",
-          description: "Este email já está cadastrado nesta organização",
-          variant: "destructive"
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if user exists in other organizations
-      const { data: existingInSystem } = await supabase
-        .from('organization_members' as any)
-        .select('user_id')
-        .eq('email', emailLower)
-        .not('user_id', 'is', null)
-        .limit(1)
-        .maybeSingle();
-
-      let userId: string | null = null;
-
-      // If user exists in system, add to organization. Otherwise, create new user
-      if (existingInSystem && (existingInSystem as any).user_id) {
-        // User exists, just add to this organization
-        userId = (existingInSystem as any).user_id;
-        
-        toast({
-          title: "Adicionando usuário existente",
-          description: "Este usuário já existe no sistema e será adicionado à sua organização",
-        });
-      } else {
-        // Create new user
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: emailLower,
+      // Use edge function to handle user creation and organization membership
+      const { data, error } = await supabase.functions.invoke('add-organization-member', {
+        body: {
+          email: newColaborador.email.toLowerCase().trim(),
           password: newColaborador.password,
-          options: {
-            data: {
-              full_name: newColaborador.name.trim()
-            },
-            emailRedirectTo: `${window.location.origin}/`
-          }
-        });
-
-        if (signUpError) {
-          // If user already exists but we couldn't detect it
-          if (signUpError.message.includes('already registered')) {
-            // Try one more time to find the user
-            const { data: retryOrgMember } = await supabase
-              .from('organization_members' as any)
-              .select('user_id')
-              .eq('email', emailLower)
-              .not('user_id', 'is', null)
-              .limit(1)
-              .maybeSingle();
-            
-            if (retryOrgMember && (retryOrgMember as any).user_id) {
-              userId = (retryOrgMember as any).user_id;
-              toast({
-                title: "Adicionando usuário existente",
-                description: "Este usuário já existe e será adicionado à sua organização",
-              });
-            } else {
-              toast({
-                title: "Email já registrado",
-                description: "Este email já está registrado mas não foi possível adicionar à organização. Entre em contato com o suporte.",
-                variant: "destructive"
-              });
-              setIsLoading(false);
-              return;
-            }
-          } else {
-            let errorMessage = "Não foi possível criar a conta do colaborador";
-            
-            if (signUpError.message.includes('invalid email')) {
-              errorMessage = "Email inválido";
-            } else if (signUpError.message.includes('weak password')) {
-              errorMessage = "Senha muito fraca. Use pelo menos 6 caracteres";
-            }
-            
-            toast({
-              title: "Erro ao criar colaborador",
-              description: errorMessage,
-              variant: "destructive"
-            });
-            setIsLoading(false);
-            return;
-          }
-        } else if (!signUpData.user) {
-          toast({
-            title: "Erro",
-            description: "Não foi possível criar a conta do colaborador",
-            variant: "destructive"
-          });
-          setIsLoading(false);
-          return;
-        } else {
-          userId = signUpData.user.id;
+          name: newColaborador.name.trim(),
+          role: newColaborador.role,
+          organizationId: organizationId
         }
-      }
+      });
 
-      if (!userId) {
+      if (error) {
+        console.error('Error adding member:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível obter o ID do usuário",
+          description: error.message || "Não foi possível adicionar o colaborador",
           variant: "destructive"
         });
         setIsLoading(false);
         return;
       }
 
-      // Add user to organization
-      const { error: memberError } = await supabase
-        .from('organization_members' as any)
-        .insert({
-          organization_id: organizationId,
-          user_id: userId,
-          role: newColaborador.role,
-          email: emailLower
-        } as any);
-
-      if (memberError) {
+      if (data?.error) {
         toast({
           title: "Erro",
-          description: "Não foi possível adicionar o colaborador à organização. Tente novamente.",
+          description: data.error,
           variant: "destructive"
         });
         setIsLoading(false);
@@ -331,7 +223,7 @@ const Colaboradores = () => {
 
       toast({
         title: "Sucesso!",
-        description: `${newColaborador.name} foi adicionado à organização`,
+        description: data?.message || `${newColaborador.name} foi adicionado à organização`,
       });
 
       setIsDialogOpen(false);
@@ -339,6 +231,7 @@ const Colaboradores = () => {
       await loadOrganizationData();
 
     } catch (error: any) {
+      console.error('Error:', error);
       toast({
         title: "Erro",
         description: error?.message || "Ocorreu um erro ao adicionar o colaborador",
