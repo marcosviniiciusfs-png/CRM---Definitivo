@@ -201,11 +201,35 @@ serve(async (req) => {
       const phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
       console.log(`📞 Mensagem de: ${phoneNumber}`);
 
+      // Buscar a instância para pegar o organization_id do dono
+      const { data: instanceData, error: instanceError } = await supabase
+        .from('whatsapp_instances')
+        .select('user_id')
+        .eq('instance_name', instance)
+        .single();
+
+      if (instanceError || !instanceData) {
+        console.error('❌ Instância não encontrada:', instanceError);
+        throw new Error('Instância não encontrada');
+      }
+
+      // Buscar organization_id do usuário
+      const { data: orgData, error: orgError } = await supabase
+        .rpc('get_user_organization_id', { _user_id: instanceData.user_id });
+
+      if (orgError || !orgData) {
+        console.error('❌ Organização não encontrada:', orgError);
+        throw new Error('Organização não encontrada');
+      }
+
+      console.log(`🏢 Organization ID: ${orgData}`);
+
       // Buscar ou criar lead
       let { data: existingLead, error: leadError } = await supabase
         .from('leads')
         .select('*')
         .eq('telefone_lead', phoneNumber)
+        .eq('organization_id', orgData)
         .single();
 
       let leadId: string;
@@ -221,6 +245,7 @@ serve(async (req) => {
             source: 'WhatsApp',
             last_message_at: messageTimestamp,
             stage: 'NOVO',
+            organization_id: orgData,
           })
           .select()
           .single();
