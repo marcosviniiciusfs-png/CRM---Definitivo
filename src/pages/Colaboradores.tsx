@@ -125,44 +125,42 @@ const Colaboradores = () => {
 
       // Get user's organization
       const { data: memberData, error: memberError } = await supabase
-        .from('organization_members' as any)
+        .from('organization_members')
         .select('organization_id, role')
         .eq('user_id', user.id)
         .single();
 
       if (memberError) {
-        console.error('Error loading organization:', memberError);
         toast({
-          title: "Erro",
-          description: "Não foi possível carregar os dados da organização",
+          title: "Erro ao carregar organização",
+          description: "Não foi possível carregar os dados da organização. Faça login novamente.",
           variant: "destructive"
         });
         setIsLoading(false);
         return;
       }
 
-      if (!memberData || !(memberData as any).organization_id) {
+      if (!memberData || !memberData.organization_id) {
         toast({
           title: "Organização não encontrada",
-          description: "Você não está associado a nenhuma organização",
+          description: "Você não está associado a nenhuma organização. Entre em contato com o suporte.",
           variant: "destructive"
         });
         setIsLoading(false);
         return;
       }
 
-      const orgId = (memberData as any).organization_id;
+      const orgId = memberData.organization_id;
       setOrganizationId(orgId);
       
       // Load all members of the organization
       const { data: members, error: membersError } = await supabase
-        .from('organization_members' as any)
+        .from('organization_members')
         .select('*')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
 
       if (membersError) {
-        console.error('Error loading members:', membersError);
         toast({
           title: "Erro",
           description: "Não foi possível carregar os membros da organização",
@@ -173,7 +171,7 @@ const Colaboradores = () => {
       }
 
       if (members) {
-        setColaboradores(members as any);
+        setColaboradores(members);
         
         // Calculate stats
         const now = new Date();
@@ -240,7 +238,7 @@ const Colaboradores = () => {
       if (!organizationId) {
         toast({
           title: "Erro",
-          description: "Organização não encontrada",
+          description: "Você precisa fazer login novamente. Sua sessão pode ter expirado.",
           variant: "destructive"
         });
         return;
@@ -250,7 +248,7 @@ const Colaboradores = () => {
 
       // Check if user with this email already exists in the organization
       const { data: existingMember } = await supabase
-        .from('organization_members' as any)
+        .from('organization_members')
         .select('email')
         .eq('organization_id', organizationId)
         .eq('email', newColaborador.email.toLowerCase().trim())
@@ -273,15 +271,25 @@ const Colaboradores = () => {
         options: {
           data: {
             full_name: newColaborador.name.trim()
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/`
         }
       });
 
       if (signUpError) {
-        console.error('Error creating user:', signUpError);
+        let errorMessage = "Não foi possível criar a conta do colaborador";
+        
+        if (signUpError.message.includes('already registered')) {
+          errorMessage = "Este email já está registrado no sistema";
+        } else if (signUpError.message.includes('invalid email')) {
+          errorMessage = "Email inválido";
+        } else if (signUpError.message.includes('weak password')) {
+          errorMessage = "Senha muito fraca. Use pelo menos 6 caracteres";
+        }
+        
         toast({
-          title: "Erro",
-          description: signUpError.message || "Não foi possível criar a conta do colaborador",
+          title: "Erro ao criar colaborador",
+          description: errorMessage,
           variant: "destructive"
         });
         setIsLoading(false);
@@ -300,7 +308,7 @@ const Colaboradores = () => {
 
       // Add user to organization
       const { error: memberError } = await supabase
-        .from('organization_members' as any)
+        .from('organization_members')
         .insert({
           organization_id: organizationId,
           user_id: signUpData.user.id,
@@ -309,10 +317,9 @@ const Colaboradores = () => {
         });
 
       if (memberError) {
-        console.error('Error adding member to organization:', memberError);
         toast({
           title: "Erro",
-          description: "Usuário criado mas não foi possível adicionar à organização",
+          description: "Usuário criado mas não foi possível adicionar à organização. Tente novamente.",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -320,19 +327,18 @@ const Colaboradores = () => {
       }
 
       toast({
-        title: "Colaborador criado!",
+        title: "Colaborador criado com sucesso!",
         description: `Conta criada para ${newColaborador.name}`,
       });
 
       setIsDialogOpen(false);
       setNewColaborador({ name: "", email: "", password: "", role: "member" });
-      loadOrganizationData();
+      await loadOrganizationData();
 
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao criar o colaborador",
+        description: error?.message || "Ocorreu um erro ao criar o colaborador",
         variant: "destructive"
       });
     } finally {
