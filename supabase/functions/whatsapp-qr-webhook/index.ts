@@ -177,6 +177,26 @@ serve(async (req) => {
       if (qrCode !== undefined) updateData.qr_code = qrCode;
 
       console.log('💾 Dados para atualizar:', JSON.stringify(updateData, null, 2));
+      
+      // CRÍTICO: Buscar o ID da instância antes de atualizar
+      const { data: instanceData, error: fetchError } = await supabase
+        .from('whatsapp_instances')
+        .select('id, status, qr_code')
+        .eq('instance_name', instance)
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Erro ao buscar instância:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('📊 Instância antes da atualização:', {
+        id: instanceData.id,
+        oldStatus: instanceData.status,
+        hadQrCode: !!instanceData.qr_code,
+        newStatus: internalStatus,
+        willClearQrCode: qrCode === null
+      });
 
       const { error: updateError } = await supabase
         .from('whatsapp_instances')
@@ -188,11 +208,19 @@ serve(async (req) => {
         throw updateError;
       }
 
-      console.log(`✅ Status atualizado com sucesso: ${instance} -> ${internalStatus}`);
-      console.log('🔔 Realtime deve notificar o frontend agora');
+      console.log(`✅ Status atualizado com sucesso!`);
+      console.log(`📢 REALTIME DEVE NOTIFICAR O FRONTEND AGORA`);
+      console.log(`   - Instance ID: ${instanceData.id}`);
+      console.log(`   - Old Status: ${instanceData.status} -> New Status: ${internalStatus}`);
+      console.log(`   - QR Code cleared: ${qrCode === null}`);
 
       return new Response(
-        JSON.stringify({ success: true, message: 'Status atualizado', status: internalStatus }),
+        JSON.stringify({ 
+          success: true, 
+          message: 'Status atualizado', 
+          status: internalStatus,
+          instanceId: instanceData.id
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
