@@ -2,6 +2,9 @@ import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageS
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +32,7 @@ const items = [
 export function AppSidebar() {
   const { open, setOpen } = useSidebar();
   const { signOut, user } = useAuth();
+  const [isOnline, setIsOnline] = useState(false);
 
   return (
     <Sidebar 
@@ -80,7 +84,21 @@ export function AppSidebar() {
 
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4">
         {open ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-sidebar-accent/50">
+              <Label 
+                htmlFor="online-toggle" 
+                className="text-sm font-medium cursor-pointer"
+              >
+                Status: {isOnline ? "Online" : "Offline"}
+              </Label>
+              <Switch
+                id="online-toggle"
+                checked={isOnline}
+                onCheckedChange={setIsOnline}
+                className="data-[state=checked]:bg-success data-[state=unchecked]:bg-destructive"
+              />
+            </div>
             <p className="text-xs text-sidebar-foreground/60 truncate">
               {user?.email}
             </p>
@@ -95,14 +113,23 @@ export function AppSidebar() {
             </Button>
           </div>
         ) : (
-          <Button
-            onClick={signOut}
-            variant="ghost"
-            size="icon"
-            className="w-full"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
+          <div className="space-y-2">
+            <div className="flex justify-center">
+              <Switch
+                checked={isOnline}
+                onCheckedChange={setIsOnline}
+                className="data-[state=checked]:bg-success data-[state=unchecked]:bg-destructive"
+              />
+            </div>
+            <Button
+              onClick={signOut}
+              variant="ghost"
+              size="icon"
+              className="w-full"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </SidebarFooter>
     </Sidebar>
