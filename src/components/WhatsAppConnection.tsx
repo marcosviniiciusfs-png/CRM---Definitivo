@@ -326,6 +326,25 @@ const WhatsAppConnection = () => {
         console.warn('Verificação automática de status falhou:', error);
         // Continuar normalmente mesmo se a verificação falhar
       }
+
+      // Sincronizar contatos de instâncias já conectadas
+      try {
+        const { data: connectedInstances } = await supabase
+          .from('whatsapp_instances')
+          .select('instance_name')
+          .eq('status', 'CONNECTED');
+
+        if (connectedInstances && connectedInstances.length > 0) {
+          console.log(`🔄 Sincronizando contatos de ${connectedInstances.length} instâncias conectadas...`);
+          
+          // Sincronizar em paralelo (mas sem aguardar, para não travar a UI)
+          connectedInstances.forEach(instance => {
+            syncContactsForInstance(instance.instance_name);
+          });
+        }
+      } catch (error) {
+        console.warn('Sincronização inicial de contatos falhou:', error);
+      }
     };
 
     initializeInstances();
@@ -342,6 +361,17 @@ const WhatsAppConnection = () => {
         },
         (payload) => {
           console.log('Realtime update:', payload);
+          
+          // Se uma instância mudou para CONNECTED, sincronizar contatos
+          if (payload.eventType === 'UPDATE' && 
+              payload.new && 
+              payload.new.status === 'CONNECTED' && 
+              payload.old && 
+              payload.old.status !== 'CONNECTED') {
+            console.log('🎉 Instância conectou! Sincronizando contatos...');
+            syncContactsForInstance(payload.new.instance_name);
+          }
+          
           loadInstances();
         }
       )
@@ -364,7 +394,36 @@ const WhatsAppConnection = () => {
     }
   }, [instances, qrDialogOpen]);
 
-  // Fechar dialog automaticamente quando a instância conectar
+  // Sincronizar contatos quando a instância conectar
+  const syncContactsForInstance = async (instanceName: string) => {
+    try {
+      console.log(`🔄 Sincronizando contatos para: ${instanceName}`);
+      
+      const { data, error } = await supabase.functions.invoke('sync-whatsapp-contacts', {
+        body: { instance_name: instanceName }
+      });
+
+      if (error) {
+        console.error('❌ Erro ao sincronizar:', error);
+        throw error;
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Contatos sincronizados!",
+          description: `${data.stats.created} leads criados, ${data.stats.updated} atualizados`,
+        });
+        console.log('✅ Sincronização concluída:', data.stats);
+      } else {
+        console.warn('⚠️  Sincronização retornou sem sucesso:', data);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao sincronizar contatos:', error);
+      // Não mostra toast de erro para não incomodar o usuário
+    }
+  };
+
+  // Fechar dialog automaticamente quando a instância conectar e sincronizar
   useEffect(() => {
     if (qrDialogOpen && selectedInstance) {
       const currentInstance = instances.find(i => i.id === selectedInstance.id);
@@ -373,8 +432,11 @@ const WhatsAppConnection = () => {
         setSelectedInstance(null);
         toast({
           title: "WhatsApp conectado!",
-          description: `Conectado com sucesso! Os contatos aparecerão automaticamente quando enviarem mensagens.`,
+          description: `Conectado com sucesso! Sincronizando contatos...`,
         });
+        
+        // Sincronizar contatos automaticamente
+        syncContactsForInstance(currentInstance.instance_name);
       }
     }
   }, [instances, qrDialogOpen, selectedInstance, toast]);
