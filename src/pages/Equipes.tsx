@@ -37,12 +37,12 @@ const Equipes = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-background p-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Equipes</h1>
-            <p className="text-gray-600 mt-1">Organize e gerencie suas equipes de vendas</p>
+            <h1 className="text-3xl font-bold text-foreground">Gerenciamento de Equipes</h1>
+            <p className="text-muted-foreground mt-1">Organize e gerencie suas equipes de vendas</p>
           </div>
           <Button className="bg-purple-600 hover:bg-purple-700 text-white">
             + Nova Equipe
@@ -55,8 +55,8 @@ const Equipes = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total de Equipes</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">1</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total de Equipes</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">1</p>
                 </div>
                 <div className="bg-blue-500 p-3 rounded-lg">
                   <Users className="h-6 w-6 text-white" />
@@ -69,8 +69,8 @@ const Equipes = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total de Membros</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">5</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total de Membros</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">5</p>
                 </div>
                 <div className="bg-green-500 p-3 rounded-lg">
                   <User className="h-6 w-6 text-white" />
@@ -83,8 +83,8 @@ const Equipes = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Sem Equipe</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">7</p>
+                  <p className="text-sm font-medium text-muted-foreground">Sem Equipe</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">7</p>
                 </div>
                 <div className="bg-orange-500 p-3 rounded-lg">
                   <UserX className="h-6 w-6 text-white" />
@@ -97,8 +97,8 @@ const Equipes = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Líderes Disponíveis</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">2</p>
+                  <p className="text-sm font-medium text-muted-foreground">Líderes Disponíveis</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">2</p>
                 </div>
                 <div className="bg-purple-500 p-3 rounded-lg">
                   <Crown className="h-6 w-6 text-white" />
@@ -150,15 +150,15 @@ const Equipes = () => {
               </div>
               
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-gray-600">Membros</span>
-                <span className="text-sm font-semibold text-gray-900">{mockSemEquipe.length}</span>
+              <span className="text-sm text-muted-foreground">Membros</span>
+                <span className="text-sm font-semibold text-foreground">{mockSemEquipe.length}</span>
               </div>
 
               <div className="space-y-2">
                 {mockSemEquipe.slice(0, 6).map((membro) => (
                   <div
                     key={membro.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
@@ -218,16 +218,16 @@ const Equipes = () => {
                 </div>
 
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-gray-600">Membros</span>
-                  <span className="text-sm font-semibold text-gray-900">{equipe.membros.length}</span>
+                <span className="text-sm text-muted-foreground">Membros</span>
+                  <span className="text-sm font-semibold text-foreground">{equipe.membros.length}</span>
                 </div>
 
                 <div className="space-y-2">
-                  {equipe.membros.map((membro) => (
-                    <div
-                      key={membro.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
+                    {equipe.membros.map((membro) => (
+                      <div
+                        key={membro.id}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                      >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={membro.avatar} />

@@ -783,7 +783,7 @@ const WhatsAppConnection = () => {
 
       return (
         <div className="flex flex-col items-center space-y-4">
-          <div className="bg-white p-4 rounded-lg">
+          <div className="bg-card p-4 rounded-lg border">
             <img
               src={finalDataUrl}
               alt="QR Code WhatsApp"
