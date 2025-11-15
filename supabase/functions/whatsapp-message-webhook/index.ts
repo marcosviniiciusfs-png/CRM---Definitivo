@@ -8,17 +8,20 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('🚨 WEBHOOK CHAMADO - TIMESTAMP:', new Date().toISOString());
+  console.log('🚨 MÉTODO:', req.method);
+  console.log('🚨 URL:', req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS OPTIONS request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('🔔 WEBHOOK CHAMADO - Método:', req.method);
-    console.log('🔔 WEBHOOK CHAMADO - Headers:', Object.fromEntries(req.headers.entries()));
-    
+    console.log('📥 Tentando ler payload...');
     const payload = await req.json();
-    console.log('📥 MESSAGE WEBHOOK - Payload completo:', JSON.stringify(payload, null, 2));
+    console.log('✅ PAYLOAD RECEBIDO:', JSON.stringify(payload, null, 2));
 
     const event = payload.event;
     const instance = payload.instance;
@@ -97,9 +100,11 @@ serve(async (req) => {
     // Extrair informações da mensagem com logs detalhados
     console.log('📦 Data structure:', JSON.stringify(data, null, 2));
     
-    const message = data.message || data;
-    const messageKey = message.key || {};
-    const messageInfo = message.message || {};
+    // CRITICAL: Estrutura correta do payload da Evolution API
+    // data = { key: {...}, message: {...}, pushName: "...", messageTimestamp: ... }
+    const messageKey = data.key || {};
+    const messageInfo = data.message || {};
+    const pushName = data.pushName || '';
     
     console.log('🔑 Message Key:', JSON.stringify(messageKey));
     console.log('💬 Message Info:', JSON.stringify(messageInfo));
@@ -146,14 +151,14 @@ serve(async (req) => {
     // ========================================
     
     // Verificar se o lead já existe
-    let { data: existingLead, error: leadSearchError } = await supabase
+    const { data: existingLead, error: leadSearchError } = await supabase
       .from('leads')
       .select('id, nome_lead')
       .eq('telefone_lead', phoneNumber)
       .eq('organization_id', organizationId)
-      .single();
+      .maybeSingle();
 
-    if (leadSearchError && leadSearchError.code !== 'PGRST116') {
+    if (leadSearchError) {
       console.error('❌ Erro ao buscar lead:', leadSearchError);
       throw leadSearchError;
     }
@@ -168,17 +173,17 @@ serve(async (req) => {
     } else {
       console.log('🆕 Criando novo lead...');
       
-      // Extrair nome do contato (pushName) se disponível
-      const pushName = message.pushName || phoneNumber;
+      // Usar pushName ou número como nome do lead
+      const newLeadName = pushName || phoneNumber;
       
       const { data: newLead, error: createLeadError } = await supabase
         .from('leads')
         .insert({
           telefone_lead: phoneNumber,
-          nome_lead: pushName,
+          nome_lead: newLeadName,
           organization_id: organizationId,
           source: 'WhatsApp',
-          stage: 'novo',
+          stage: 'NOVO',
           last_message_at: new Date().toISOString()
         })
         .select()
