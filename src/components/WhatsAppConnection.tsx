@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
 import whatsappLogo from "@/assets/whatsapp-logo.png";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface QRCodeData {
   instance: string;
@@ -27,6 +28,7 @@ interface WhatsAppInstance {
 
 const WhatsAppConnection = () => {
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [verifyingStatus, setVerifyingStatus] = useState(false);
@@ -122,14 +124,13 @@ const WhatsAppConnection = () => {
 
   // Verificar status de todas as instâncias na Evolution API
   const checkAllInstancesStatus = async (includeConnected: boolean = false) => {
+    if (!user) {
+      console.warn('⚠️ checkAllInstancesStatus: usuário não autenticado');
+      return;
+    }
+    
     setVerifyingStatus(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setVerifyingStatus(false);
-        return;
-      }
-
       // Buscar instâncias baseado no parâmetro
       let query = supabase
         .from('whatsapp_instances')
@@ -196,20 +197,33 @@ const WhatsAppConnection = () => {
   // Carregar instâncias do usuário
   const loadInstances = async () => {
     console.log('🔄 loadInstances() chamado');
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('Usuário não autenticado');
-        return;
-      }
+    
+    // Aguardar o usuário estar pronto
+    if (authLoading) {
+      console.log('⏳ Aguardando autenticação...');
+      return;
+    }
+    
+    if (!user) {
+      console.error('❌ Usuário não autenticado');
+      setInstances([]);
+      setLoading(false);
+      return;
+    }
 
+    try {
+      console.log(`🔍 Buscando instâncias para user_id: ${user.id}`);
+      
       const { data, error } = await supabase
         .from('whatsapp_instances')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro na query:', error);
+        throw error;
+      }
       
       console.log('✅ Instâncias carregadas:', data?.map(i => ({
         id: i.id,
@@ -220,12 +234,13 @@ const WhatsAppConnection = () => {
       
       setInstances(data || []);
     } catch (error: any) {
-      console.error('Erro ao carregar instâncias:', error);
+      console.error('❌ Erro ao carregar instâncias:', error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar as instâncias WhatsApp",
         variant: "destructive",
       });
+      setInstances([]);
     } finally {
       setLoading(false);
     }
@@ -233,6 +248,15 @@ const WhatsAppConnection = () => {
 
   // Criar nova instância
   const createInstance = async () => {
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar autenticado para criar uma instância",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setCreating(true);
     try {
       // Validar se credenciais estão configuradas
@@ -398,11 +422,18 @@ const WhatsAppConnection = () => {
 
   // Configurar Realtime para atualizar automaticamente
   useEffect(() => {
+    // Só inicializar quando o usuário estiver pronto
+    if (authLoading || !user) {
+      console.log('⏳ Aguardando usuário estar pronto...');
+      return;
+    }
+
     const initializeInstances = async () => {
       await loadInstances();
       console.log('✅ Instâncias carregadas. Status será atualizado via webhook e polling periódico.');
     };
 
+    console.log('🚀 Inicializando WhatsAppConnection para user:', user.id);
     initializeInstances();
 
     // Subscribe to realtime updates
@@ -472,7 +503,7 @@ const WhatsAppConnection = () => {
       console.log('🔌 Removendo canal Realtime');
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, [user, authLoading, toast]); // Dependência: recriar quando user mudar
 
   // GARANTIA ADICIONAL: Monitor direto do selectedInstance para fechar modal se conectar
   useEffect(() => {
@@ -577,11 +608,21 @@ const WhatsAppConnection = () => {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <p className="text-muted-foreground">Você precisa estar autenticado para acessar esta funcionalidade.</p>
         </CardContent>
       </Card>
     );
