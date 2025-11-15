@@ -49,6 +49,11 @@ serve(async (req) => {
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
     const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
 
+    // Limpar a URL base da Evolution API (remover /manager/ se existir)
+    let cleanEvolutionUrl = evolutionApiUrl.replace(/\/manager\/?$/, '');
+    console.log('🔧 Evolution API URL original:', evolutionApiUrl);
+    console.log('🔧 Evolution API URL limpa:', cleanEvolutionUrl);
+
     // Reconfigurar webhook com eventos habilitados
     console.log('🔄 Reconfigurando webhook...');
     
@@ -69,7 +74,7 @@ serve(async (req) => {
     };
 
     const webhookResponse = await fetch(
-      `${evolutionApiUrl}/webhook/set/${instance.instance_name}`,
+      `${cleanEvolutionUrl}/webhook/set/${instance.instance_name}`,
       {
         method: 'POST',
         headers: {
