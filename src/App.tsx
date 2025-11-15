@@ -16,6 +16,7 @@ import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 import Colaboradores from "./pages/Colaboradores";
 import Equipes from "./pages/Equipes";
+import Atividades from "./pages/Atividades";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/chat" element={<ProtectedRoute><DashboardLayout><Chat /></DashboardLayout></ProtectedRoute>} />
             <Route path="/administrativo/colaboradores" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />
             <Route path="/administrativo/equipes" element={<ProtectedRoute><Equipes /></ProtectedRoute>} />
+            <Route path="/administrativo/atividades" element={<ProtectedRoute><Atividades /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><Tasks /></DashboardLayout></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
