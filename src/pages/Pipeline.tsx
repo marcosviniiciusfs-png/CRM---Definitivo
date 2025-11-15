@@ -28,11 +28,12 @@ const Pipeline = () => {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
-        .order("stage", { ascending: true })
         .order("position", { ascending: true })
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      
+      console.log("Leads carregados:", data?.length);
       setLeads(data || []);
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
@@ -44,19 +45,28 @@ const Pipeline = () => {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    console.log("Drag iniciado:", event.active.id);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
-    if (!over) return;
+    if (!over) {
+      console.log("Drag cancelado - sem alvo");
+      return;
+    }
 
     const leadId = active.id as string;
     const overId = over.id as string;
 
+    console.log("Drag finalizado:", { leadId, overId });
+
     const activeLead = leads.find((l) => l.id === leadId);
-    if (!activeLead) return;
+    if (!activeLead) {
+      console.error("Lead ativo não encontrado:", leadId);
+      return;
+    }
 
     // Determinar o stage de destino
     const isDroppedOverStage = stages.some((s) => s.id === overId);
@@ -65,18 +75,26 @@ const Pipeline = () => {
     const targetStage = isDroppedOverStage ? overId : (overLead?.stage || activeLead.stage || "NOVO");
     const activeStage = activeLead.stage || "NOVO";
 
-    // Se for dropado na mesma coluna e no mesmo lugar, não fazer nada
-    if (targetStage === activeStage && leadId === overId) return;
+    console.log("Informações do drop:", { 
+      isDroppedOverStage, 
+      targetStage, 
+      activeStage,
+      overLeadExists: !!overLead 
+    });
+
+    // Se for dropado no mesmo lugar, não fazer nada
+    if (targetStage === activeStage && (isDroppedOverStage || leadId === overId)) {
+      console.log("Mesma posição, nenhuma ação necessária");
+      return;
+    }
 
     try {
       if (isDroppedOverStage) {
-        // Dropado em uma coluna vazia ou no fundo da coluna
-        if (targetStage === activeStage) {
-          return; // Mesma coluna, não fazer nada
-        }
-
+        // Dropado diretamente em uma coluna
         const targetStageLeads = getLeadsByStage(targetStage);
         const newPosition = targetStageLeads.length;
+
+        console.log("Movendo para coluna:", { targetStage, newPosition, totalLeadsInTarget: targetStageLeads.length });
 
         // Atualizar estado local
         setLeads((prev) =>
@@ -94,7 +112,7 @@ const Pipeline = () => {
           .eq("id", leadId);
 
         if (error) throw error;
-        toast.success("Lead movido com sucesso!");
+        toast.success("Lead movido!");
 
       } else if (overLead) {
         // Dropado sobre outro lead
@@ -104,7 +122,22 @@ const Pipeline = () => {
           const oldIndex = stageLeads.findIndex((l) => l.id === leadId);
           const newIndex = stageLeads.findIndex((l) => l.id === overId);
 
-          if (oldIndex === newIndex) return;
+          console.log("Reordenando na mesma coluna:", { 
+            stage: activeStage,
+            oldIndex, 
+            newIndex,
+            totalLeads: stageLeads.length 
+          });
+
+          if (oldIndex === -1 || newIndex === -1) {
+            console.error("Índices inválidos:", { oldIndex, newIndex });
+            return;
+          }
+
+          if (oldIndex === newIndex) {
+            console.log("Mesma posição, ignorando");
+            return;
+          }
 
           // Reordenar array
           const reorderedLeads = arrayMove(stageLeads, oldIndex, newIndex);
@@ -122,6 +155,7 @@ const Pipeline = () => {
           );
 
           // Atualizar posições no banco
+          console.log("Atualizando posições no banco para", reorderedWithPositions.length, "leads");
           await Promise.all(
             reorderedWithPositions.map((lead) =>
               supabase
@@ -131,7 +165,7 @@ const Pipeline = () => {
             )
           );
 
-          toast.success("Lead reordenado com sucesso!");
+          toast.success("Lead reordenado!");
 
         } else {
           // Movendo para outra coluna e posicionando sobre outro lead
@@ -140,6 +174,19 @@ const Pipeline = () => {
           
           const newIndex = targetStageLeads.findIndex((l) => l.id === overId);
           
+          console.log("Movendo para coluna diferente:", { 
+            from: activeStage,
+            to: targetStage, 
+            newIndex,
+            activeCount: activeStageLeads.length,
+            targetCount: targetStageLeads.length
+          });
+
+          if (newIndex === -1) {
+            console.error("Lead de destino não encontrado na coluna");
+            return;
+          }
+
           // Remover da coluna antiga e recalcular posições
           const updatedActiveStage = activeStageLeads
             .filter((l) => l.id !== leadId)
@@ -162,8 +209,13 @@ const Pipeline = () => {
             return [...otherStageLeads, ...updatedActiveStage, ...updatedTargetWithPositions];
           });
 
-          // Atualizar no banco - apenas os afetados
-          await Promise.all([
+          // Atualizar no banco
+          console.log("Atualizando banco:", {
+            activeStageUpdates: updatedActiveStage.length,
+            targetStageUpdates: updatedTargetWithPositions.length
+          });
+
+          const updates = [
             ...updatedActiveStage.map((lead) =>
               supabase.from("leads").update({ position: lead.position }).eq("id", lead.id)
             ),
@@ -173,22 +225,26 @@ const Pipeline = () => {
                 .update({ position: lead.position, stage: lead.stage })
                 .eq("id", lead.id)
             ),
-          ]);
+          ];
 
-          toast.success("Lead movido com sucesso!");
+          await Promise.all(updates);
+          toast.success("Lead movido!");
         }
       }
     } catch (error) {
       console.error("Erro ao atualizar lead:", error);
       toast.error("Erro ao mover lead");
-      await loadLeads(); // Recarregar em caso de erro
+      await loadLeads();
     }
   };
 
   const getLeadsByStage = (stageId: string) => {
-    return leads
+    const filtered = leads
       .filter((lead) => (lead.stage || "NOVO") === stageId)
       .sort((a, b) => (a.position || 0) - (b.position || 0));
+    
+    console.log(`Leads no stage ${stageId}:`, filtered.length);
+    return filtered;
   };
 
   const activeLead = leads.find((lead) => lead.id === activeId);
