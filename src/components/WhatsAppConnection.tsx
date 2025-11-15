@@ -36,6 +36,7 @@ const WhatsAppConnection = () => {
   const [qrCodeErrors, setQrCodeErrors] = useState<Record<string, boolean>>({});
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
+  const [fixingWebhook, setFixingWebhook] = useState(false);
   
   // CRÍTICO: useRef para manter referência atualizada no callback do Realtime
   const selectedInstanceRef = useRef<WhatsAppInstance | null>(null);
@@ -80,6 +81,43 @@ const WhatsAppConnection = () => {
     }
     setQrDialogOpen(false);
     setSelectedInstance(null);
+  };
+
+  // Função para reconfigurar webhook
+  const fixWebhookConfig = async () => {
+    setFixingWebhook(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Não autenticado');
+      }
+
+      const { data, error } = await supabase.functions.invoke('fix-webhook-config', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Webhook Reconfigurado! ✅",
+        description: "Agora você receberá mensagens do WhatsApp no CRM.",
+      });
+
+      console.log('✅ Webhook reconfigurado:', data);
+      
+      await loadInstances();
+    } catch (error: any) {
+      console.error('Erro ao reconfigurar webhook:', error);
+      toast({
+        title: "Erro ao reconfigurar",
+        description: error.message || "Não foi possível reconfigurar o webhook",
+        variant: "destructive",
+      });
+    } finally {
+      setFixingWebhook(false);
+    }
   };
 
   // Verificar status de todas as instâncias na Evolution API
@@ -730,30 +768,50 @@ const WhatsAppConnection = () => {
           
           {/* Verificar se existe instância conectada */}
           {instances.some(instance => instance.status === 'CONNECTED') ? (
-            /* Botão Desconectar - exibido apenas quando há instância conectada */
-            instances
-              .filter(instance => instance.status === 'CONNECTED')
-              .map((instance) => (
-                <Button
-                  key={instance.id}
-                  onClick={() => disconnectInstance(instance.id)}
-                  disabled={disconnecting === instance.id}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  size="sm"
-                >
-                  {disconnecting === instance.id ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                      Deletando...
-                    </>
-                  ) : (
-                    <>
-                      <LogOut className="h-3 w-3 mr-2" />
-                      Deletar Conexão
-                    </>
-                  )}
-                </Button>
-              ))
+            /* Botões de ação - exibidos apenas quando há instância conectada */
+            <div className="flex gap-2 justify-center">
+              <Button
+                onClick={fixWebhookConfig}
+                disabled={fixingWebhook}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                size="sm"
+              >
+                {fixingWebhook ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                    Reconfigurando...
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="h-3 w-3 mr-2" />
+                    Reconfigurar Webhook
+                  </>
+                )}
+              </Button>
+              {instances
+                .filter(instance => instance.status === 'CONNECTED')
+                .map((instance) => (
+                  <Button
+                    key={instance.id}
+                    onClick={() => disconnectInstance(instance.id)}
+                    disabled={disconnecting === instance.id}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    size="sm"
+                  >
+                    {disconnecting === instance.id ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                        Deletando...
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="h-3 w-3 mr-2" />
+                        Deletar Conexão
+                      </>
+                    )}
+                  </Button>
+                ))}
+            </div>
           ) : (
             /* Botão Conectar - exibido quando não há instância conectada */
             <Button

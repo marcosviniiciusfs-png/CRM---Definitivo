@@ -270,7 +270,7 @@ serve(async (req) => {
       webhook: {
         enabled: true,
         url: messageWebhookUrl,
-        webhook_by_events: false,
+        webhook_by_events: true, // CRITICAL: Habilitar webhook por eventos
         webhook_base64: false,
         events: [
           'QRCODE_UPDATED',
