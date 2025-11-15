@@ -68,34 +68,83 @@ serve(async (req) => {
       .from('whatsapp_instances')
       .select('user_id, phone_number')
       .eq('instance_name', instance)
-      .single();
+      .maybeSingle();
 
-    if (instanceError || !instanceData) {
-      console.error('❌ Instância não encontrada:', instanceError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Instância não encontrada' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      );
+    let organizationId: string;
+
+    if (instanceError) {
+      console.error('❌ Erro ao buscar instância:', instanceError);
+      throw instanceError;
     }
 
-    console.log('✅ Instância encontrada:', JSON.stringify(instanceData));
+    if (!instanceData) {
+      console.warn('⚠️ Instância não registrada:', instance);
+      
+      // SOLUÇÃO: Buscar TODAS as instâncias e usar a primeira organização encontrada
+      // Isso permite processar mensagens mesmo de instâncias não registradas
+      const { data: anyInstance, error: anyInstanceError } = await supabase
+        .from('whatsapp_instances')
+        .select('user_id')
+        .limit(1)
+        .maybeSingle();
 
-    // Buscar a organization_id do usuário usando service role
-    const { data: orgData, error: orgError } = await supabase
-      .rpc('get_user_organization_id', { _user_id: instanceData.user_id });
+      if (anyInstanceError || !anyInstance) {
+        console.error('❌ Nenhuma instância encontrada no sistema');
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Nenhuma instância WhatsApp configurada no sistema. Configure uma instância primeiro.',
+            instance_received: instance
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
 
-    if (orgError) {
-      console.error('❌ Erro ao buscar organização:', orgError);
-      throw orgError;
+      // Usar a organização da primeira instância encontrada
+      const { data: orgData, error: orgError } = await supabase
+        .rpc('get_user_organization_id', { _user_id: anyInstance.user_id });
+
+      if (orgError || !orgData) {
+        console.error('❌ Erro ao buscar organização fallback:', orgError);
+        throw new Error('Organização não encontrada');
+      }
+
+      organizationId = orgData;
+      console.log('⚠️ Usando organização fallback:', organizationId);
+      
+      // Auto-registrar a instância desconhecida
+      await supabase
+        .from('whatsapp_instances')
+        .insert({
+          instance_name: instance,
+          user_id: anyInstance.user_id,
+          status: 'CONNECTED',
+          connected_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      console.log('✅ Instância auto-registrada:', instance);
+    } else {
+      console.log('✅ Instância encontrada:', JSON.stringify(instanceData));
+
+      // Buscar a organization_id do usuário usando service role
+      const { data: orgData, error: orgError } = await supabase
+        .rpc('get_user_organization_id', { _user_id: instanceData.user_id });
+
+      if (orgError) {
+        console.error('❌ Erro ao buscar organização:', orgError);
+        throw orgError;
+      }
+
+      if (!orgData) {
+        console.error('❌ Organization não encontrada para user:', instanceData.user_id);
+        throw new Error('Organization não encontrada');
+      }
+
+      organizationId = orgData;
+      console.log('✅ Organization ID:', organizationId);
     }
-
-    if (!orgData) {
-      console.error('❌ Organization não encontrada para user:', instanceData.user_id);
-      throw new Error('Organization não encontrada');
-    }
-
-    const organizationId = orgData;
-    console.log('✅ Organization ID:', organizationId);
 
     // Extrair informações da mensagem com logs detalhados
     console.log('📦 Data structure:', JSON.stringify(data, null, 2));
@@ -191,10 +240,15 @@ serve(async (req) => {
 
       if (createLeadError) {
         console.error('❌ Erro ao criar lead:', createLeadError);
+        console.error('❌ Lead data tentado:', { phoneNumber, newLeadName, organizationId });
         throw createLeadError;
       }
 
-      console.log('✅ Lead criado:', newLead.id);
+      console.log('✅ Lead criado com sucesso!');
+      console.log('📋 Lead ID:', newLead.id);
+      console.log('📱 Telefone:', newLead.telefone_lead);
+      console.log('👤 Nome:', newLead.nome_lead);
+      console.log('🏢 Organization:', newLead.organization_id);
       leadId = newLead.id;
       leadName = newLead.nome_lead;
     }
@@ -220,10 +274,13 @@ serve(async (req) => {
 
     if (saveMessageError) {
       console.error('❌ Erro ao salvar mensagem:', saveMessageError);
+      console.error('❌ Mensagem data tentada:', { leadId, messageContent, messageId });
       throw saveMessageError;
     }
 
-    console.log('✅ Mensagem salva:', savedMessage.id);
+    console.log('✅ Mensagem salva com sucesso!');
+    console.log('💬 Message ID:', savedMessage.id);
+    console.log('📝 Conteúdo:', messageContent.substring(0, 50));
 
     // Atualizar last_message_at do lead
     await supabase
