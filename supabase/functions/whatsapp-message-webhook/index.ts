@@ -15,14 +15,19 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    console.log('📥 MESSAGE WEBHOOK - Payload recebido:', JSON.stringify(payload, null, 2));
+    console.log('📥 MESSAGE WEBHOOK - Payload completo:', JSON.stringify(payload, null, 2));
 
     const event = payload.event;
     const instance = payload.instance;
     const data = payload.data;
 
-    if (!event || !instance || !data) {
-      console.log('⚠️ Payload inválido - faltam campos obrigatórios');
+    // Log para debug
+    console.log('Event:', event);
+    console.log('Instance:', instance);
+    console.log('Has data:', !!data);
+
+    if (!event || !instance) {
+      console.log('⚠️ Payload inválido - event ou instance faltando');
       return new Response(
         JSON.stringify({ success: true, message: 'Payload inválido' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -31,14 +36,22 @@ serve(async (req) => {
 
     // Processar apenas eventos de mensagens recebidas
     if (event !== 'messages.upsert' && event !== 'MESSAGES_UPSERT') {
-      console.log(`⚠️ Evento não processado: ${event}`);
+      console.log(`⏭️ Evento ${event} - encaminhando para outro webhook se necessário`);
       return new Response(
-        JSON.stringify({ success: true, message: `Evento ${event} não processado` }),
+        JSON.stringify({ success: true, message: `Evento ${event} ignorado neste webhook` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    console.log('✅ Processando mensagem recebida');
+    if (!data) {
+      console.log('⚠️ Data não encontrado no payload');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Data faltando' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    console.log('✅ Processando mensagem recebida...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -59,9 +72,9 @@ serve(async (req) => {
       );
     }
 
-    console.log('✅ Instância encontrada:', instanceData);
+    console.log('✅ Instância encontrada:', JSON.stringify(instanceData));
 
-    // Buscar a organization_id do usuário
+    // Buscar a organization_id do usuário usando service role
     const { data: orgData, error: orgError } = await supabase
       .rpc('get_user_organization_id', { _user_id: instanceData.user_id });
 
@@ -70,13 +83,23 @@ serve(async (req) => {
       throw orgError;
     }
 
+    if (!orgData) {
+      console.error('❌ Organization não encontrada para user:', instanceData.user_id);
+      throw new Error('Organization não encontrada');
+    }
+
     const organizationId = orgData;
     console.log('✅ Organization ID:', organizationId);
 
-    // Extrair informações da mensagem
+    // Extrair informações da mensagem com logs detalhados
+    console.log('📦 Data structure:', JSON.stringify(data, null, 2));
+    
     const message = data.message || data;
     const messageKey = message.key || {};
     const messageInfo = message.message || {};
+    
+    console.log('🔑 Message Key:', JSON.stringify(messageKey));
+    console.log('💬 Message Info:', JSON.stringify(messageInfo));
     
     // Determinar direção da mensagem
     const isFromMe = messageKey.fromMe || false;
