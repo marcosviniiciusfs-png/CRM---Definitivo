@@ -455,6 +455,59 @@ const WhatsAppConnection = () => {
     }
   }, [selectedInstance, qrDialogOpen, toast]);
 
+  // CRÍTICO: Polling automático para verificar status quando modal está aberto
+  // Isso garante que o modal fecha mesmo se o webhook da Evolution não funcionar
+  useEffect(() => {
+    if (!selectedInstance || !qrDialogOpen) return;
+    if (selectedInstance.status === 'CONNECTED') return;
+
+    console.log('⏰ Iniciando polling de status para instância:', selectedInstance.instance_name);
+
+    // Verificar status a cada 3 segundos enquanto o modal está aberto
+    const pollInterval = setInterval(async () => {
+      try {
+        console.log('🔍 Polling: Verificando status da instância...');
+        
+        const { data, error } = await supabase.functions.invoke('check-whatsapp-status', {
+          body: { instance_name: selectedInstance.instance_name }
+        });
+
+        if (error) {
+          console.error('❌ Erro no polling:', error);
+          return;
+        }
+
+        console.log('📊 Polling result:', data);
+
+        // Se conectou, o banco será atualizado e o Realtime vai notificar
+        if (data?.status === 'CONNECTED') {
+          console.log('✅ Polling detectou CONNECTED! Aguardando Realtime...');
+          // O Realtime vai fechar o modal, mas vamos garantir
+          setTimeout(() => {
+            if (qrDialogOpenRef.current) {
+              console.log('🔒 Forçando fechamento do modal após detecção de CONNECTED');
+              setQrDialogOpen(false);
+              setSelectedInstance(null);
+              toast({
+                title: "WhatsApp conectado!",
+                description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
+              });
+              loadInstances();
+            }
+          }, 500);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao verificar status no polling:', error);
+      }
+    }, 3000); // Verificar a cada 3 segundos
+
+    // Limpar interval quando o modal fechar ou a instância mudar
+    return () => {
+      console.log('⏰ Parando polling de status');
+      clearInterval(pollInterval);
+    };
+  }, [selectedInstance, qrDialogOpen, toast]);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'CONNECTED':
