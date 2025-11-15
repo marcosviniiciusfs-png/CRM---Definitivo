@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Bell, Shield, Users } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
+import { DiagnoseWebhook } from "@/components/DiagnoseWebhook";
 
 const Settings = () => {
   return (
@@ -24,7 +25,9 @@ const Settings = () => {
 
         <TabsContent value="integracoes" className="space-y-6 mt-6">
           <WhatsAppConnection />
+          <DiagnoseWebhook />
         </TabsContent>
+
 
         <TabsContent value="equipe" className="space-y-6 mt-6">
           <Card>
