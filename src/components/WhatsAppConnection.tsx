@@ -469,6 +469,12 @@ const WhatsAppConnection = () => {
           table: 'whatsapp_instances',
         },
         (payload) => {
+          // 🛑 CRÍTICO: Early Return - Verificar payload válido ANTES de qualquer processamento
+          if (!payload.new || !payload.new.id) {
+            console.warn('⚠️ Realtime payload inválido ou sem ID. Abortando.');
+            return;
+          }
+
           console.log('🔔 Realtime UPDATE recebido:', {
             eventType: payload.eventType,
             oldStatus: payload.old?.status,
@@ -552,8 +558,10 @@ const WhatsAppConnection = () => {
   // CRÍTICO: Polling automático para verificar status quando modal está aberto
   // Isso garante que o modal fecha mesmo se o webhook da Evolution não funcionar
   useEffect(() => {
-    if (!selectedInstance || !qrDialogOpen) return;
-    if (selectedInstance.status === 'CONNECTED') return;
+    // 🛑 CRÍTICO: Early Return - Verificar se selectedInstance existe e tem ID antes de continuar
+    if (!selectedInstance || !selectedInstance.id || !qrDialogOpen || selectedInstance.status === 'CONNECTED') {
+      return;
+    }
 
     console.log('⏰ Iniciando polling de status para instância:', selectedInstance.instance_name);
 
