@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -947,4 +947,4 @@ const WhatsAppConnection = () => {
   );
 };
 
-export default WhatsAppConnection;
+export default memo(WhatsAppConnection);
