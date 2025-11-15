@@ -6,7 +6,7 @@ import { Lead, Message } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
@@ -315,6 +315,7 @@ const Chat = () => {
                   }`}
                 >
                   <Avatar>
+                    <AvatarImage src={lead.avatar_url || undefined} alt={lead.nome_lead} />
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {getInitials(lead.nome_lead)}
                     </AvatarFallback>
@@ -339,11 +340,12 @@ const Chat = () => {
           <>
             {/* Cabeçalho do Chat */}
             <div className="p-4 border-b flex items-center gap-3">
-              <Avatar>
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {getInitials(selectedLead.nome_lead)}
-                </AvatarFallback>
-              </Avatar>
+            <Avatar>
+              <AvatarImage src={selectedLead.avatar_url || undefined} alt={selectedLead.nome_lead} />
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {getInitials(selectedLead.nome_lead)}
+              </AvatarFallback>
+            </Avatar>
               <div>
                 <h2 className="font-semibold">{selectedLead.nome_lead}</h2>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">

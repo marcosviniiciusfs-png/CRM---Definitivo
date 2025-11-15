@@ -237,6 +237,20 @@ serve(async (req) => {
       console.log('✅ Lead existente encontrado:', existingLead.id);
       leadId = existingLead.id;
       leadName = existingLead.nome_lead;
+      
+      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome se pushName estiver disponível e for diferente
+      if (pushName && pushName !== existingLead.nome_lead) {
+        console.log('🔄 Atualizando nome do lead:', pushName);
+        await supabase
+          .from('leads')
+          .update({ 
+            nome_lead: pushName,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingLead.id);
+        
+        leadName = pushName;
+      }
     } else {
       console.log('🆕 Criando novo lead...');
       
