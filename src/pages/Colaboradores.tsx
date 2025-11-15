@@ -333,8 +333,8 @@ const Colaboradores = () => {
                   <p className="text-sm font-medium text-muted-foreground">Colaboradores Ativos</p>
                   <p className="text-3xl font-bold text-foreground mt-2">{stats.ativos}</p>
                 </div>
-                <div className="bg-green-100 p-3 rounded-full">
-                  <UserCircle className="h-8 w-8 text-green-600" />
+                <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
+                  <UserCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </CardContent>
@@ -346,10 +346,10 @@ const Colaboradores = () => {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Entraram este Mês</p>
                   <p className="text-3xl font-bold text-foreground mt-2">{stats.novos}</p>
-                  <p className="text-xs text-blue-600 mt-1">Novos colaboradores</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Novos colaboradores</p>
                 </div>
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <UserPlus className="h-8 w-8 text-blue-600" />
+                <div className="bg-blue-500/10 dark:bg-blue-500/20 p-3 rounded-full">
+                  <UserPlus className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </CardContent>
@@ -361,10 +361,10 @@ const Colaboradores = () => {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Saíram este Mês</p>
                   <p className="text-3xl font-bold text-foreground mt-2">{stats.saidas}</p>
-                  <p className="text-xs text-yellow-600 mt-1">Desligamentos</p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Desligamentos</p>
                 </div>
-                <div className="bg-yellow-100 p-3 rounded-full">
-                  <UserMinus className="h-8 w-8 text-yellow-600" />
+                <div className="bg-yellow-500/10 dark:bg-yellow-500/20 p-3 rounded-full">
+                  <UserMinus className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
                 </div>
               </div>
             </CardContent>
@@ -377,8 +377,8 @@ const Colaboradores = () => {
                   <p className="text-sm font-medium text-muted-foreground">Inativos</p>
                   <p className="text-3xl font-bold text-foreground mt-2">{stats.inativos}</p>
                 </div>
-                <div className="bg-red-100 p-3 rounded-full">
-                  <UserX className="h-8 w-8 text-red-600" />
+                <div className="bg-red-500/10 dark:bg-red-500/20 p-3 rounded-full">
+                  <UserX className="h-8 w-8 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </CardContent>
