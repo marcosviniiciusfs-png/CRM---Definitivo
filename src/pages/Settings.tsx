@@ -1,18 +1,21 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, User, Bell, Shield, Users } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { DiagnoseWebhook } from "@/components/DiagnoseWebhook";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -122,6 +125,37 @@ const Settings = () => {
                 <Input id="role" defaultValue="Gerente de Vendas" />
               </div>
               <Button>Salvar Alterações</Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {theme === "dark" ? (
+                  <Moon className="h-5 w-5 text-primary" />
+                ) : (
+                  <Sun className="h-5 w-5 text-primary" />
+                )}
+                Aparência
+              </CardTitle>
+              <CardDescription>
+                Personalize a aparência do CRM de acordo com sua preferência
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="dark-mode" className="text-base">Tema Escuro</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Alternar entre tema claro e escuro
+                  </p>
+                </div>
+                <Switch
+                  id="dark-mode"
+                  checked={theme === "dark"}
+                  onCheckedChange={toggleTheme}
+                />
+              </div>
             </CardContent>
           </Card>
 
