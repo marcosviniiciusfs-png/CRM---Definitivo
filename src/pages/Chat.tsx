@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
+import { formatPhoneNumber } from "@/lib/utils";
 
 const Chat = () => {
   const location = useLocation();
@@ -322,7 +323,7 @@ const Chat = () => {
                     <p className="font-medium truncate">{lead.nome_lead}</p>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Phone className="h-3 w-3" />
-                      {lead.telefone_lead}
+                      {formatPhoneNumber(lead.telefone_lead)}
                     </p>
                   </div>
                 </button>
@@ -347,7 +348,7 @@ const Chat = () => {
                 <h2 className="font-semibold">{selectedLead.nome_lead}</h2>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Phone className="h-3 w-3" />
-                  {selectedLead.telefone_lead}
+                  {formatPhoneNumber(selectedLead.telefone_lead)}
                 </p>
               </div>
             </div>
