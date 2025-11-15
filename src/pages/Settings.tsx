@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +7,56 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Bell, Shield, Users } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { DiagnoseWebhook } from "@/components/DiagnoseWebhook";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
+  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const getUserRole = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('organization_members')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao buscar role:', error);
+          return;
+        }
+
+        setUserRole(data?.role || null);
+      } catch (error) {
+        console.error('Erro ao buscar role:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getUserRole();
+  }, [user]);
+
+  // Apenas owners e admins podem ver integrações
+  const canViewIntegrations = userRole === 'owner' || userRole === 'admin';
+  const defaultTab = canViewIntegrations ? 'integracoes' : 'perfil';
+
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
@@ -15,18 +64,20 @@ const Settings = () => {
         <p className="text-muted-foreground">Gerencie as configurações da sua conta e integrações</p>
       </div>
 
-      <Tabs defaultValue="integracoes" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
+      <Tabs defaultValue={defaultTab} className="w-full">
+        <TabsList className={`grid w-full ${canViewIntegrations ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          {canViewIntegrations && <TabsTrigger value="integracoes">Integrações</TabsTrigger>}
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
           <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="integracoes" className="space-y-6 mt-6">
-          <WhatsAppConnection />
-          <DiagnoseWebhook />
-        </TabsContent>
+        {canViewIntegrations && (
+          <TabsContent value="integracoes" className="space-y-6 mt-6">
+            <WhatsAppConnection />
+            <DiagnoseWebhook />
+          </TabsContent>
+        )}
 
 
         <TabsContent value="equipe" className="space-y-6 mt-6">
