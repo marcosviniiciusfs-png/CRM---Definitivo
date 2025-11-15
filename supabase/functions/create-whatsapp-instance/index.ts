@@ -331,6 +331,24 @@ serve(async (req) => {
     }
 
     // ========================================
+    // GET USER'S ORGANIZATION
+    // ========================================
+    console.log('🏢 Fetching user organization...');
+    const { data: memberData, error: memberError } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (memberError || !memberData) {
+      console.error('❌ Error fetching organization:', memberError);
+      throw new Error('User is not associated with any organization');
+    }
+
+    const organizationId = memberData.organization_id;
+    console.log('✅ Organization found:', organizationId);
+
+    // ========================================
     // IMMEDIATE DATABASE SAVE
     // ========================================
     // Save to database IMMEDIATELY - no delays, no waiting
@@ -341,6 +359,7 @@ serve(async (req) => {
       .from('whatsapp_instances')
       .insert({
         user_id: user.id,
+        organization_id: organizationId,
         instance_name: instanceName,
         status: qrCodeBase64 ? 'WAITING_QR' : 'CREATING',
         webhook_url: qrWebhookUrl,
