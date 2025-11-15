@@ -7,8 +7,15 @@ import whatsappLogo from "@/assets/whatsapp-logo.png";
 export const WhatsAppStatus = () => {
   const [status, setStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
   const [instanceName, setInstanceName] = useState<string>("");
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   useEffect(() => {
+    getOrganizationId();
+  }, []);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    
     checkConnectionStatus();
     
     // Realtime updates
@@ -30,13 +37,38 @@ export const WhatsAppStatus = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [organizationId]);
+
+  const getOrganizationId = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar organização:', error);
+        return;
+      }
+
+      setOrganizationId(data.organization_id);
+    } catch (error) {
+      console.error('Erro ao buscar organização:', error);
+    }
+  };
 
   const checkConnectionStatus = async () => {
+    if (!organizationId) return;
+    
     try {
       const { data, error } = await supabase
         .from('whatsapp_instances')
         .select('status, instance_name')
+        .eq('organization_id', organizationId)
         .eq('status', 'CONNECTED')
         .order('connected_at', { ascending: false })
         .limit(1)
