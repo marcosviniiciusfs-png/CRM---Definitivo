@@ -289,7 +289,8 @@ const Colaboradores = () => {
     }
   };
 
-  const getInitials = (email: string) => {
+  const getInitials = (email: string | null) => {
+    if (!email) return 'NC';
     return email.substring(0, 2).toUpperCase();
   };
 
@@ -453,11 +454,13 @@ const Colaboradores = () => {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
                               <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
-                                {getInitials(colab.email)}
+                                {getInitials(colab.email || 'NC')}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm text-gray-500">{colab.email}</p>
+                              <p className="text-sm text-gray-500">
+                                {colab.email || 'Email não cadastrado'}
+                              </p>
                             </div>
                           </div>
                         </TableCell>
