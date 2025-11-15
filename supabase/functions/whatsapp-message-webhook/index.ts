@@ -202,7 +202,7 @@ serve(async (req) => {
       .insert({
         id_lead: leadId,
         corpo_mensagem: messageContent,
-        direcao: 'RECEBIDA',
+        direcao: 'ENTRADA', // ENTRADA para mensagens recebidas
         data_hora: new Date().toISOString(),
         evolution_message_id: messageId,
         status_entrega: 'DELIVERED'
