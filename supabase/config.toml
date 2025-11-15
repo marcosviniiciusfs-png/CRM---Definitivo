@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.fix-webhook-config-v2]
 verify_jwt = true
+
+[functions.cleanup-invalid-instances]
+verify_jwt = true
