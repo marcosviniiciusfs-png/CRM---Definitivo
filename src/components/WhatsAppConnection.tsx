@@ -122,6 +122,48 @@ const WhatsAppConnection = () => {
     }
   };
 
+
+  // Sincronizar instâncias da Evolution API com o banco
+  const syncInstances = async () => {
+    try {
+      console.log('🔄 Sincronizando instâncias...');
+      toast({
+        title: "Sincronizando...",
+        description: "Verificando instâncias na Evolution API",
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Não autenticado');
+      }
+
+      const { data, error } = await supabase.functions.invoke('sync-whatsapp-instances', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Sincronização concluída ✅",
+          description: data.message,
+        });
+        await loadInstances();
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao sincronizar:', error);
+      toast({
+        title: "Erro na sincronização",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Verificar status de todas as instâncias na Evolution API
   const checkAllInstancesStatus = async (includeConnected: boolean = false) => {
     if (!user) {
@@ -888,25 +930,36 @@ const WhatsAppConnection = () => {
                 ))}
             </div>
           ) : (
-            /* Botão Conectar - exibido quando não há instância conectada */
-            <Button
-              onClick={createInstance}
-              disabled={creating}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
-            >
-              {creating ? (
-                <>
-                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                  Criando instância...
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="h-3 w-3 mr-2" />
-                  Conectar WhatsApp
-                </>
-              )}
-            </Button>
+            /* Botões quando não há instância conectada */
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={syncInstances}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                <Loader2 className="h-3 w-3 mr-2" />
+                Sincronizar Instâncias
+              </Button>
+              <Button
+                onClick={createInstance}
+                disabled={creating}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                size="sm"
+              >
+                {creating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                    Criando instância...
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="h-3 w-3 mr-2" />
+                    Conectar WhatsApp
+                  </>
+                )}
+              </Button>
+            </div>
           )}
         </div>
       </CardContent>
