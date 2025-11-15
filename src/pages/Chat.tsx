@@ -144,10 +144,26 @@ const Chat = () => {
 
     setSending(true);
     try {
-      // Buscar a instância conectada mais recente do usuário
+      // Buscar a organização do usuário
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Usuário não autenticado');
+
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (memberError || !memberData) {
+        console.error('❌ Erro ao buscar organização:', memberError);
+        throw new Error('Erro ao buscar organização do usuário.');
+      }
+
+      // Buscar a instância conectada da organização
       const { data: instanceData, error: instanceError } = await supabase
         .from('whatsapp_instances')
         .select('instance_name, id, status')
+        .eq('organization_id', memberData.organization_id)
         .eq('status', 'CONNECTED')
         .order('connected_at', { ascending: false })
         .limit(1)
@@ -159,8 +175,8 @@ const Chat = () => {
       }
 
       if (!instanceData) {
-        console.warn('⚠️ Nenhuma instância conectada encontrada');
-        throw new Error('Nenhuma instância WhatsApp conectada. Por favor, conecte o WhatsApp nas Configurações antes de enviar mensagens.');
+        console.warn('⚠️ Nenhuma instância conectada encontrada para a organização');
+        throw new Error('Nenhuma instância WhatsApp conectada. Por favor, peça ao administrador para conectar o WhatsApp nas Configurações.');
       }
 
       console.log('📱 Instância encontrada:', {
