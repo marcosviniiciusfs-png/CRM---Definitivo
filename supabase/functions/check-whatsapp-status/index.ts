@@ -82,13 +82,15 @@ Deno.serve(async (req) => {
       
       // Se retornar 404, a instância não existe na Evolution API
       if (evolutionResponse.status === 404) {
+        // CRÍTICO: NÃO sobrescrever se já está CONNECTED
         await supabase
           .from('whatsapp_instances')
           .update({ 
             status: 'DISCONNECTED',
             updated_at: new Date().toISOString()
           })
-          .eq('instance_name', instance_name);
+          .eq('instance_name', instance_name)
+          .neq('status', 'CONNECTED'); // NÃO sobrescrever CONNECTED
 
         return new Response(
           JSON.stringify({ 
@@ -118,14 +120,15 @@ Deno.serve(async (req) => {
       if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
         console.error('Evolution API retornou HTML em vez de JSON. A URL ou endpoint podem estar incorretos.');
         
-        // Atualizar status para DISCONNECTED
+        // CRÍTICO: NÃO sobrescrever se já está CONNECTED
         await supabase
           .from('whatsapp_instances')
           .update({ 
             status: 'DISCONNECTED',
             updated_at: new Date().toISOString()
           })
-          .eq('instance_name', instance_name);
+          .eq('instance_name', instance_name)
+          .neq('status', 'CONNECTED'); // NÃO sobrescrever CONNECTED
 
         return new Response(
           JSON.stringify({ 
@@ -141,14 +144,15 @@ Deno.serve(async (req) => {
     } catch (parseError) {
       console.error('Erro ao fazer parse da resposta da Evolution API:', parseError);
       
-      // Atualizar status para DISCONNECTED como fallback
+      // CRÍTICO: NÃO sobrescrever se já está CONNECTED
       await supabase
         .from('whatsapp_instances')
         .update({ 
           status: 'DISCONNECTED',
           updated_at: new Date().toISOString()
         })
-        .eq('instance_name', instance_name);
+        .eq('instance_name', instance_name)
+        .neq('status', 'CONNECTED'); // NÃO sobrescrever CONNECTED
 
       return new Response(
         JSON.stringify({ 
@@ -187,10 +191,18 @@ Deno.serve(async (req) => {
       updateData.connected_at = new Date().toISOString();
     }
 
-    const { error: updateError } = await supabase
+    // CRÍTICO: Se estamos tentando atualizar para DISCONNECTED, não sobrescrever CONNECTED
+    const updateQuery = supabase
       .from('whatsapp_instances')
       .update(updateData)
       .eq('instance_name', instance_name);
+    
+    // Se o novo status é DISCONNECTED, não sobrescrever CONNECTED
+    if (newStatus === 'DISCONNECTED') {
+      updateQuery.neq('status', 'CONNECTED');
+    }
+    
+    const { error: updateError } = await updateQuery;
 
     if (updateError) {
       console.error('Erro ao atualizar status no banco:', updateError);
