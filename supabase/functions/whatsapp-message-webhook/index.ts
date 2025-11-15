@@ -162,8 +162,18 @@ serve(async (req) => {
     const isFromMe = messageKey.fromMe || false;
     const remoteJid = messageKey.remoteJid || '';
     
+    // FILTRO CRÍTICO: Ignorar mensagens de grupos
+    if (remoteJid.endsWith('@g.us')) {
+      console.log('⏭️ Mensagem de grupo ignorada - não criar lead');
+      console.log('📱 Group JID:', remoteJid);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Mensagem de grupo ignorada' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+    
     // Extrair número do contato (remover @s.whatsapp.net)
-    const phoneNumber = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+    const phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
     
     // Se for mensagem enviada por nós, ignorar (já foi salva ao enviar)
     if (isFromMe) {
