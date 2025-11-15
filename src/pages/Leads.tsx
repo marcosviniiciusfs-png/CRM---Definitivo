@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { useToast } from "@/hooks/use-toast";
+import { formatPhoneNumber } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -302,7 +303,7 @@ const Leads = () => {
                     <TableRow key={lead.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium">{lead.nome_lead}</TableCell>
                       <TableCell className="text-muted-foreground">{lead.email || "-"}</TableCell>
-                      <TableCell className="text-primary">{lead.telefone_lead}</TableCell>
+                      <TableCell className="text-primary">{formatPhoneNumber(lead.telefone_lead)}</TableCell>
                       <TableCell className="text-muted-foreground">{lead.empresa || "-"}</TableCell>
                       <TableCell>
                         <Badge className={`${statusInfo.color} text-white border-none`}>
