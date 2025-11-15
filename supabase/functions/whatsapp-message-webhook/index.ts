@@ -160,7 +160,14 @@ serve(async (req) => {
     
     // Determinar direção da mensagem
     const isFromMe = messageKey.fromMe || false;
+    
+    // CRÍTICO: Priorizar senderPn (número real) sobre remoteJid (@lid)
+    // senderPn contém o número real do remetente quando remoteJid usa @lid
+    const senderPhone = messageKey.senderPn || messageKey.remoteJid || '';
     const remoteJid = messageKey.remoteJid || '';
+    
+    console.log('📱 Sender Phone (senderPn):', messageKey.senderPn);
+    console.log('📱 Remote JID:', remoteJid);
     
     // FILTRO CRÍTICO: Ignorar mensagens de grupos
     if (remoteJid.endsWith('@g.us')) {
@@ -172,8 +179,9 @@ serve(async (req) => {
       );
     }
     
-    // Extrair número do contato (remover TODOS os sufixos: @s.whatsapp.net, @lid, @g.us)
-    const phoneNumber = remoteJid.replace(/@s\.whatsapp\.net|@lid|@g\.us/g, '').trim();
+    // Extrair número do contato usando senderPhone (que prioriza senderPn)
+    // Remove TODOS os sufixos: @s.whatsapp.net, @lid, @g.us
+    const phoneNumber = senderPhone.replace(/@s\.whatsapp\.net|@lid|@g\.us/g, '').trim();
     
     // Se for mensagem enviada por nós, ignorar (já foi salva ao enviar)
     if (isFromMe) {
