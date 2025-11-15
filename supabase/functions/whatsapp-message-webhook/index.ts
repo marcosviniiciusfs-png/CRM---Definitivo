@@ -172,8 +172,8 @@ serve(async (req) => {
       );
     }
     
-    // Extrair número do contato (remover @s.whatsapp.net)
-    const phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
+    // Extrair número do contato (remover TODOS os sufixos: @s.whatsapp.net, @lid, @g.us)
+    const phoneNumber = remoteJid.replace(/@s\.whatsapp\.net|@lid|@g\.us/g, '').trim();
     
     // Se for mensagem enviada por nós, ignorar (já foi salva ao enviar)
     if (isFromMe) {
