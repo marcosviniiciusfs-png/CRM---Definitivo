@@ -298,10 +298,25 @@ const WhatsAppConnection = () => {
         return;
       }
 
-      // Mostrar toast informando sobre limpeza
+      // CRÍTICO: Limpeza síncrona de instâncias pendentes ANTES de criar nova
+      console.log('🧹 Iniciando limpeza de instâncias pendentes...');
+      const pendingInstances = instances.filter(
+        instance => instance.status === 'CREATING' || instance.status === 'WAITING_QR'
+      );
+      
+      for (const instance of pendingInstances) {
+        console.log(`🗑️ Removendo instância pendente: ${instance.id} (${instance.status})`);
+        await cancelInstance(instance.id);
+      }
+
+      if (pendingInstances.length > 0) {
+        console.log(`✅ ${pendingInstances.length} instância(s) pendente(s) removida(s)`);
+      }
+
+      // Mostrar toast informando sobre criação
       toast({
-        title: "Preparando conexão",
-        description: "Limpando conexões antigas...",
+        title: "Criando conexão",
+        description: "Gerando QR Code...",
       });
 
       const { data, error } = await supabase.functions.invoke('create-whatsapp-instance', {
