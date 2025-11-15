@@ -100,11 +100,13 @@ serve(async (req) => {
     // Remove trailing slash and /manager from URL if present
     const baseUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
 
-    // Webhook URL
-    const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
+    // Webhook URLs
+    const qrWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
+    const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
 
     console.log('Using Evolution API URL:', baseUrl);
-    console.log('Webhook:', webhookUrl);
+    console.log('QR Webhook:', qrWebhookUrl);
+    console.log('Message Webhook:', messageWebhookUrl);
 
     // ========================================
     // STEP 1: CLEANUP OLD INSTANCES
@@ -259,11 +261,12 @@ serve(async (req) => {
     console.log('Evolution API response:', evolutionData);
 
     // ========================================
-    // STEP 3: CONFIGURE WEBHOOK
+    // STEP 3: CONFIGURE WEBHOOKS (POR EVENTO)
     // ========================================
-    console.log('Configuring webhook for instance...');
+    console.log('Configuring webhooks for instance...');
     
-    const webhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+    // Configurar webhook para QR Code e Conexão
+    const qrWebhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -271,24 +274,61 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         enabled: true,
-        url: webhookUrl,
-        webhookByEvents: false,
-        events: [
-          'QRCODE_UPDATED',
-          'CONNECTION_UPDATE',
-          'MESSAGES_UPSERT',
-          'MESSAGES_UPDATE',
-          'SEND_MESSAGE'
-        ]
+        url: qrWebhookUrl,
+        webhook_by_events: false,
+        webhook: {
+          url: qrWebhookUrl,
+          by_events: false,
+          base64: false,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          events: [
+            'QRCODE_UPDATED',
+            'CONNECTION_UPDATE'
+          ]
+        }
       }),
     });
 
-    if (!webhookResponse.ok) {
-      const webhookError = await webhookResponse.text();
-      console.warn('⚠️ Webhook configuration failed (non-critical):', webhookError);
-      // Continue even if webhook fails - it can be configured later
+    if (!qrWebhookResponse.ok) {
+      const qrWebhookError = await qrWebhookResponse.json().catch(() => ({ error: 'Unknown error' }));
+      console.warn('⚠️ QR Webhook configuration failed:', JSON.stringify(qrWebhookError));
     } else {
-      console.log('✅ Webhook configured successfully');
+      console.log('✅ QR Webhook configured successfully');
+    }
+
+    // Configurar webhook para Mensagens
+    const messageWebhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': evolutionApiKey,
+      },
+      body: JSON.stringify({
+        enabled: true,
+        url: messageWebhookUrl,
+        webhook_by_events: false,
+        webhook: {
+          url: messageWebhookUrl,
+          by_events: false,
+          base64: false,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          events: [
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE'
+          ]
+        }
+      }),
+    });
+
+    if (!messageWebhookResponse.ok) {
+      const messageWebhookError = await messageWebhookResponse.json().catch(() => ({ error: 'Unknown error' }));
+      console.warn('⚠️ Message Webhook configuration failed:', JSON.stringify(messageWebhookError));
+    } else {
+      console.log('✅ Message Webhook configured successfully');
     }
 
     // ========================================
@@ -331,7 +371,7 @@ serve(async (req) => {
         user_id: user.id,
         instance_name: instanceName,
         status: qrCodeBase64 ? 'WAITING_QR' : 'CREATING',
-        webhook_url: webhookUrl,
+        webhook_url: qrWebhookUrl,
         qr_code: qrCodeBase64, // String pura, já limpa
       })
       .select()
