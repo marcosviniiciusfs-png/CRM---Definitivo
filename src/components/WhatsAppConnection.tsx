@@ -83,6 +83,7 @@ const WhatsAppConnection = () => {
   };
 
   // Verificar status de todas as instâncias na Evolution API
+  // CRÍTICO: Apenas verifica instâncias em estados pendentes, NUNCA sobrescreve CONNECTED
   const checkAllInstancesStatus = async () => {
     setVerifyingStatus(true);
     try {
@@ -92,22 +93,26 @@ const WhatsAppConnection = () => {
         return;
       }
 
+      // CRÍTICO: Apenas buscar instâncias que NÃO estão CONNECTED
+      // Isso evita sobrescrever o status CONNECTED que veio do webhook
       const { data: instances } = await supabase
         .from('whatsapp_instances')
-        .select('instance_name')
-        .eq('user_id', user.id);
+        .select('instance_name, status')
+        .eq('user_id', user.id)
+        .neq('status', 'CONNECTED'); // NUNCA verificar instâncias já conectadas
 
       if (!instances || instances.length === 0) {
+        console.log('✅ Nenhuma instância pendente para verificar');
         setVerifyingStatus(false);
         return;
       }
 
-      console.log('🔍 Verificando status de', instances.length, 'instâncias na Evolution API...');
+      console.log('🔍 Verificando status de', instances.length, 'instâncias pendentes na Evolution API...');
 
       // Verificar o status de cada instância na Evolution API de forma paralela
       const statusChecks = instances.map(async (instance) => {
         try {
-          console.log(`⏳ Verificando ${instance.instance_name}...`);
+          console.log(`⏳ Verificando ${instance.instance_name} (status atual: ${instance.status})...`);
           const { data, error } = await supabase.functions.invoke('check-whatsapp-status', {
             body: { instance_name: instance.instance_name },
           });
@@ -129,7 +134,7 @@ const WhatsAppConnection = () => {
       const results = await Promise.allSettled(statusChecks);
       const successCount = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
       
-      console.log(`✨ Verificação concluída: ${successCount}/${instances.length} instâncias verificadas com sucesso`);
+      console.log(`✨ Verificação concluída: ${successCount}/${instances.length} instâncias pendentes verificadas com sucesso`);
 
       // Aguardar um momento para garantir que o banco foi atualizado
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -337,14 +342,11 @@ const WhatsAppConnection = () => {
     const initializeInstances = async () => {
       await loadInstances();
       
-      // Verificar status de todas as instâncias na Evolution API após carregar
-      // Esta verificação é opcional e não deve quebrar a UI se falhar
-      try {
-        await checkAllInstancesStatus();
-      } catch (error) {
-        console.warn('Verificação automática de status falhou:', error);
-        // Continuar normalmente mesmo se a verificação falhar
-      }
+      // REMOVIDO: checkAllInstancesStatus() após loadInstances
+      // Motivo: Estava causando race condition e sobrescrevendo status CONNECTED
+      // A verificação de status agora só deve ser feita manualmente pelo usuário
+      // ou será atualizada automaticamente pelo webhook
+      console.log('✅ Instâncias carregadas. Status será atualizado via webhook.');
     };
 
     initializeInstances();
@@ -401,7 +403,11 @@ const WhatsAppConnection = () => {
           }
           
           // Recarregar instâncias após qualquer update (exceto quando fechando modal)
-          loadInstances();
+          // CRÍTICO: Não chamar loadInstances aqui se estamos fechando o modal
+          // pois loadInstances estava chamando checkAllInstancesStatus que sobrescrevia CONNECTED
+          if (!(payload.new && payload.new.status === 'CONNECTED' && isDialogOpen && currentSelectedInstance && payload.new.id === currentSelectedInstance.id)) {
+            loadInstances();
+          }
         }
       )
       .subscribe((status) => {
