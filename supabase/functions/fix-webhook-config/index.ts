@@ -49,8 +49,15 @@ serve(async (req) => {
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
     const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
 
-    // Limpar a URL base da Evolution API (remover /manager/ se existir)
-    let cleanEvolutionUrl = evolutionApiUrl.replace(/\/manager\/?$/, '');
+    // Limpar URL base de forma consistente com outras functions
+    let cleanEvolutionUrl = evolutionApiUrl
+      .replace(/\/+$/, '')           // Remove barras finais
+      .replace(/\/manager\/?$/g, '') // Remove /manager/ do final
+      .replace(/\/\//g, '/');        // Remove barras duplas
+    
+    // Se a URL terminar com protocolo:/, adiciona a segunda barra
+    cleanEvolutionUrl = cleanEvolutionUrl.replace(/:\/$/, '://');
+    
     console.log('🔧 Evolution API URL original:', evolutionApiUrl);
     console.log('🔧 Evolution API URL limpa:', cleanEvolutionUrl);
 
@@ -73,8 +80,12 @@ serve(async (req) => {
       }
     };
 
+    const webhookUrl = `${cleanEvolutionUrl}/webhook/set/${instance.instance_name}`;
+    console.log('🔗 URL completa do webhook:', webhookUrl);
+    console.log('📦 Config do webhook:', JSON.stringify(webhookConfig, null, 2));
+
     const webhookResponse = await fetch(
-      `${cleanEvolutionUrl}/webhook/set/${instance.instance_name}`,
+      webhookUrl,
       {
         method: 'POST',
         headers: {
@@ -86,8 +97,12 @@ serve(async (req) => {
     );
 
     if (!webhookResponse.ok) {
-      const error = await webhookResponse.text();
-      throw new Error(`Erro ao configurar webhook: ${error}`);
+      const error = await webhookResponse.json().catch(async () => {
+        const text = await webhookResponse.text();
+        return { error: text, status: webhookResponse.status };
+      });
+      console.error('❌ Resposta de erro da Evolution API:', JSON.stringify(error, null, 2));
+      throw new Error(`Erro ao configurar webhook: ${JSON.stringify(error)}`);
     }
 
     const webhookResult = await webhookResponse.json();

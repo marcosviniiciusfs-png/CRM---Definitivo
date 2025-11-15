@@ -121,12 +121,61 @@ export const DiagnoseWebhook = () => {
             {fixing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Reconfigurando...
+                Reconfigurando V1...
               </>
             ) : (
               <>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Reconfigurar Webhook
+                Fix V1
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={async () => {
+              setFixing(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                  throw new Error('Não autenticado');
+                }
+
+                const { data, error } = await supabase.functions.invoke('fix-webhook-config-v2', {
+                  headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                  },
+                });
+
+                if (error) throw error;
+
+                toast({
+                  title: "Webhook Reconfigurado! ✅",
+                  description: `Versão: ${data.version}. Envie uma mensagem de teste.`,
+                });
+
+                setResult(data);
+              } catch (error: any) {
+                console.error('Erro ao corrigir webhook:', error);
+                toast({
+                  title: "Erro ao reconfigurar",
+                  description: error.message,
+                  variant: "destructive",
+                });
+              } finally {
+                setFixing(false);
+              }
+            }}
+            disabled={diagnosing || fixing}
+          >
+            {fixing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Reconfigurando V2...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Fix V2
               </>
             )}
           </Button>
