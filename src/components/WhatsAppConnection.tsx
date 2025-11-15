@@ -121,8 +121,7 @@ const WhatsAppConnection = () => {
   };
 
   // Verificar status de todas as instâncias na Evolution API
-  // CRÍTICO: Apenas verifica instâncias em estados pendentes, NUNCA sobrescreve CONNECTED
-  const checkAllInstancesStatus = async () => {
+  const checkAllInstancesStatus = async (includeConnected: boolean = false) => {
     setVerifyingStatus(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -131,13 +130,18 @@ const WhatsAppConnection = () => {
         return;
       }
 
-      // CRÍTICO: Apenas buscar instâncias que NÃO estão CONNECTED
-      // Isso evita sobrescrever o status CONNECTED que veio do webhook
-      const { data: instances } = await supabase
+      // Buscar instâncias baseado no parâmetro
+      let query = supabase
         .from('whatsapp_instances')
         .select('instance_name, status')
-        .eq('user_id', user.id)
-        .neq('status', 'CONNECTED'); // NUNCA verificar instâncias já conectadas
+        .eq('user_id', user.id);
+
+      // Se não incluir conectadas, filtrar apenas pendentes
+      if (!includeConnected) {
+        query = query.neq('status', 'CONNECTED');
+      }
+
+      const { data: instances } = await query;
 
       if (!instances || instances.length === 0) {
         console.log('✅ Nenhuma instância pendente para verificar');
@@ -375,16 +379,21 @@ const WhatsAppConnection = () => {
     }
   };
 
+  // Polling periódico para verificar status de TODAS instâncias
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling periódico: verificando status de todas as instâncias...');
+      checkAllInstancesStatus(true); // true = incluir instâncias CONNECTED
+    }, 30000); // A cada 30 segundos
+
+    return () => clearInterval(pollInterval);
+  }, []);
+
   // Configurar Realtime para atualizar automaticamente
   useEffect(() => {
     const initializeInstances = async () => {
       await loadInstances();
-      
-      // REMOVIDO: checkAllInstancesStatus() após loadInstances
-      // Motivo: Estava causando race condition e sobrescrevendo status CONNECTED
-      // A verificação de status agora só deve ser feita manualmente pelo usuário
-      // ou será atualizada automaticamente pelo webhook
-      console.log('✅ Instâncias carregadas. Status será atualizado via webhook.');
+      console.log('✅ Instâncias carregadas. Status será atualizado via webhook e polling periódico.');
     };
 
     initializeInstances();
