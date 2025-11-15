@@ -268,7 +268,7 @@ const Colaboradores = () => {
   };
 
   const filteredColaboradores = colaboradores.filter((colab) =>
-    colab.email.toLowerCase().includes(searchTerm.toLowerCase())
+    colab.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
   );
 
   const getRoleColor = (role: string) => {
