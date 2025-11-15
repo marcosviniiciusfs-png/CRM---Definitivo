@@ -300,12 +300,12 @@ const Colaboradores = () => {
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-white p-3 rounded-lg shadow-sm">
+            <div className="bg-card p-3 rounded-lg shadow-sm">
               <Users className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Gestão de Colaboradores</h1>
-              <p className="text-gray-600 mt-1">Gerencie e acompanhe todos os colaboradores ativos</p>
+              <h1 className="text-3xl font-bold text-foreground">Gestão de Colaboradores</h1>
+              <p className="text-muted-foreground mt-1">Gerencie e acompanhe todos os colaboradores ativos</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -318,7 +318,7 @@ const Colaboradores = () => {
             <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
               Lote de Colaboradores
             </Button>
-            <Button variant="secondary" className="bg-gray-600 hover:bg-gray-700 text-white">
+            <Button variant="secondary">
               Ver Inativos
             </Button>
           </div>
@@ -330,8 +330,8 @@ const Colaboradores = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Colaboradores Ativos</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.ativos}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Colaboradores Ativos</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{stats.ativos}</p>
                 </div>
                 <div className="bg-green-100 p-3 rounded-full">
                   <UserCircle className="h-8 w-8 text-green-600" />
@@ -344,8 +344,8 @@ const Colaboradores = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Entraram este Mês</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.novos}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Entraram este Mês</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{stats.novos}</p>
                   <p className="text-xs text-blue-600 mt-1">Novos colaboradores</p>
                 </div>
                 <div className="bg-blue-100 p-3 rounded-full">
@@ -359,8 +359,8 @@ const Colaboradores = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Saíram este Mês</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.saidas}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Saíram este Mês</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{stats.saidas}</p>
                   <p className="text-xs text-yellow-600 mt-1">Desligamentos</p>
                 </div>
                 <div className="bg-yellow-100 p-3 rounded-full">
@@ -374,8 +374,8 @@ const Colaboradores = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Inativos</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.inativos}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Inativos</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{stats.inativos}</p>
                 </div>
                 <div className="bg-red-100 p-3 rounded-full">
                   <UserX className="h-8 w-8 text-red-600" />
@@ -390,9 +390,9 @@ const Colaboradores = () => {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-6">
               <Users className="h-5 w-5 text-blue-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Lista de Colaboradores</h2>
+              <h2 className="text-xl font-semibold text-foreground">Lista de Colaboradores</h2>
             </div>
-            <p className="text-sm text-gray-600 mb-6">Gerencie colaboradores, cargos e status de convites.</p>
+            <p className="text-sm text-muted-foreground mb-6">Gerencie colaboradores, cargos e status de convites.</p>
 
             {/* Controls */}
             <div className="flex items-center justify-between mb-6">
@@ -427,11 +427,11 @@ const Colaboradores = () => {
             <div className="border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold text-gray-700">INFO</TableHead>
-                    <TableHead className="font-semibold text-gray-700">CARGO</TableHead>
-                    <TableHead className="font-semibold text-gray-700">STATUS</TableHead>
-                    <TableHead className="font-semibold text-gray-700">CRIAÇÃO</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">INFO</TableHead>
+                    <TableHead className="font-semibold">CARGO</TableHead>
+                    <TableHead className="font-semibold">STATUS</TableHead>
+                    <TableHead className="font-semibold">CRIAÇÃO</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -443,13 +443,13 @@ const Colaboradores = () => {
                     </TableRow>
                   ) : filteredColaboradores.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                         Nenhum colaborador encontrado
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredColaboradores.map((colab) => (
-                      <TableRow key={colab.id} className="hover:bg-gray-50">
+                      <TableRow key={colab.id} className="hover:bg-muted/50">
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
