@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const DiagnoseWebhook = () => {
   const { toast } = useToast();
   const [diagnosing, setDiagnosing] = useState(false);
   const [fixing, setFixing] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
   const [result, setResult] = useState<any>(null);
 
   const diagnoseWebhook = async () => {
@@ -45,6 +46,46 @@ export const DiagnoseWebhook = () => {
       });
     } finally {
       setDiagnosing(false);
+    }
+  };
+
+  const cleanupInstances = async () => {
+    setCleaning(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Não autenticado');
+      }
+
+      const { data, error } = await supabase.functions.invoke('cleanup-invalid-instances', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Limpeza concluída! ✅",
+        description: data.message,
+      });
+
+      setResult(data);
+      
+      // Recarregar a página após 1 segundo
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error: any) {
+      console.error('Erro ao limpar instâncias:', error);
+      toast({
+        title: "Erro na limpeza",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setCleaning(false);
     }
   };
 
@@ -95,90 +136,116 @@ export const DiagnoseWebhook = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <Button
-            onClick={diagnoseWebhook}
-            disabled={diagnosing || fixing}
-            variant="outline"
-          >
-            {diagnosing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Testando...
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-4 w-4 mr-2" />
-                Testar Webhook
-              </>
-            )}
-          </Button>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Button
+              onClick={cleanupInstances}
+              disabled={cleaning || diagnosing || fixing}
+              variant="destructive"
+              className="flex-1"
+            >
+              {cleaning ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Limpando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Limpar Instâncias Inválidas
+                </>
+              )}
+            </Button>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              onClick={diagnoseWebhook}
+              disabled={diagnosing || fixing || cleaning}
+              variant="outline"
+              className="flex-1"
+            >
+              {diagnosing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Testando...
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Testar Webhook
+                </>
+              )}
+            </Button>
 
-          <Button
-            onClick={fixWebhook}
-            disabled={diagnosing || fixing}
-          >
-            {fixing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Reconfigurando V1...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Fix V1
-              </>
-            )}
-          </Button>
+            <Button
+              onClick={fixWebhook}
+              disabled={diagnosing || fixing || cleaning}
+              className="flex-1"
+            >
+              {fixing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reconfigurando V1...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Fix V1
+                </>
+              )}
+            </Button>
 
-          <Button
-            onClick={async () => {
-              setFixing(true);
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) {
-                  throw new Error('Não autenticado');
+            <Button
+              onClick={async () => {
+                setFixing(true);
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) {
+                    throw new Error('Não autenticado');
+                  }
+
+                  const { data, error } = await supabase.functions.invoke('fix-webhook-config-v2', {
+                    headers: {
+                      Authorization: `Bearer ${session.access_token}`,
+                    },
+                  });
+
+                  if (error) throw error;
+
+                  toast({
+                    title: "Webhook Reconfigurado! ✅",
+                    description: `Versão: ${data.version}. Envie uma mensagem de teste.`,
+                  });
+
+                  setResult(data);
+                } catch (error: any) {
+                  console.error('Erro ao corrigir webhook:', error);
+                  toast({
+                    title: "Erro ao reconfigurar",
+                    description: error.message,
+                    variant: "destructive",
+                  });
+                } finally {
+                  setFixing(false);
                 }
-
-                const { data, error } = await supabase.functions.invoke('fix-webhook-config-v2', {
-                  headers: {
-                    Authorization: `Bearer ${session.access_token}`,
-                  },
-                });
-
-                if (error) throw error;
-
-                toast({
-                  title: "Webhook Reconfigurado! ✅",
-                  description: `Versão: ${data.version}. Envie uma mensagem de teste.`,
-                });
-
-                setResult(data);
-              } catch (error: any) {
-                console.error('Erro ao corrigir webhook:', error);
-                toast({
-                  title: "Erro ao reconfigurar",
-                  description: error.message,
-                  variant: "destructive",
-                });
-              } finally {
-                setFixing(false);
-              }
-            }}
-            disabled={diagnosing || fixing}
-          >
-            {fixing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Reconfigurando V2...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Fix V2
-              </>
-            )}
-          </Button>
+              }}
+              disabled={diagnosing || fixing || cleaning}
+              className="flex-1"
+            >
+              {fixing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reconfigurando V2...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Fix V2
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {result && (
