@@ -41,6 +41,8 @@ All colors MUST be HSL.
     --border: 215 20% 90%;
     --input: 215 20% 90%;
     --ring: 159 97% 37%;
+    
+    --hover-border: 202 100% 49%;
 
     --radius: 0.5rem;
 
@@ -94,6 +96,8 @@ All colors MUST be HSL.
     --border: 215 28% 22%;
     --input: 215 28% 22%;
     --ring: 159 97% 37%;
+    
+    --hover-border: 202 100% 49%;
 
     --sidebar-background: 215 28% 10%;
     --sidebar-foreground: 0 0% 90%;

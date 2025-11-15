@@ -45,22 +45,22 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       style={style}
       {...attributes}
       {...listeners}
-      className="p-1.5 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-background"
+      className="p-7 cursor-grab active:cursor-grabbing rounded-[20px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-visible"
     >
-      <div className="flex items-start gap-2 mb-1">
-        <Avatar className="h-8 w-8">
+      <div className="flex items-start gap-2 mb-2">
+        <Avatar className="h-10 w-10">
           <AvatarImage src={avatarUrl || undefined} alt={name} />
-          <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+          <AvatarFallback className="bg-primary/10 text-primary text-xs">
             {getInitials(name)}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
-            <h3 className="font-semibold text-xs text-foreground leading-tight truncate">{name}</h3>
+            <h3 className="font-semibold text-sm text-foreground leading-tight truncate">{name}</h3>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
-                  <MoreVertical className="h-3 w-3 text-muted-foreground" />
+                <Button variant="ghost" size="icon" className="h-5 w-5 -mt-0.5 flex-shrink-0">
+                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-background z-50">
@@ -73,13 +73,13 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
         </div>
       </div>
       
-      <div className="space-y-0.5 pl-10">
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Phone className="h-3 w-3 flex-shrink-0" />
+      <div className="space-y-1 pl-12">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Phone className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="truncate">{phone}</span>
         </div>
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Calendar className="h-3 w-3 flex-shrink-0" />
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
           <span>{date}</span>
         </div>
       </div>
