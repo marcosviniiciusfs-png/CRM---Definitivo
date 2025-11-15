@@ -133,7 +133,7 @@ const WhatsAppConnection = () => {
       // Buscar instâncias baseado no parâmetro
       let query = supabase
         .from('whatsapp_instances')
-        .select('instance_name, status')
+        .select('instance_name, status, id')
         .eq('user_id', user.id);
 
       // Se não incluir conectadas, filtrar apenas pendentes
@@ -143,13 +143,15 @@ const WhatsAppConnection = () => {
 
       const { data: instances } = await query;
 
+      console.log(`🔍 Busca retornou ${instances?.length || 0} instâncias (includeConnected: ${includeConnected})`);
+
       if (!instances || instances.length === 0) {
         console.log('✅ Nenhuma instância pendente para verificar');
         setVerifyingStatus(false);
         return;
       }
 
-      console.log('🔍 Verificando status de', instances.length, 'instâncias pendentes na Evolution API...');
+      console.log('🔍 Verificando status de', instances.length, 'instâncias na Evolution API...');
 
       // Verificar o status de cada instância na Evolution API de forma paralela
       const statusChecks = instances.map(async (instance) => {
@@ -176,7 +178,7 @@ const WhatsAppConnection = () => {
       const results = await Promise.allSettled(statusChecks);
       const successCount = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
       
-      console.log(`✨ Verificação concluída: ${successCount}/${instances.length} instâncias pendentes verificadas com sucesso`);
+      console.log(`✨ Verificação concluída: ${successCount}/${instances.length} instâncias verificadas com sucesso`);
 
       // Aguardar um momento para garantir que o banco foi atualizado
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -381,13 +383,18 @@ const WhatsAppConnection = () => {
 
   // Polling periódico para verificar status de TODAS instâncias
   useEffect(() => {
+    // Só fazer polling se tiver instâncias carregadas
+    if (instances.length === 0) {
+      return;
+    }
+
     const pollInterval = setInterval(() => {
       console.log('🔄 Polling periódico: verificando status de todas as instâncias...');
       checkAllInstancesStatus(true); // true = incluir instâncias CONNECTED
     }, 30000); // A cada 30 segundos
 
     return () => clearInterval(pollInterval);
-  }, []);
+  }, [instances.length]); // Dependência: só recria o interval quando mudar o número de instâncias
 
   // Configurar Realtime para atualizar automaticamente
   useEffect(() => {
@@ -768,15 +775,12 @@ const WhatsAppConnection = () => {
         </CardHeader>
         <CardContent className="px-3 pb-2">
         <div className="text-center py-2">
-          {/* DEBUG: Mostrar status da instância selecionada */}
-          {selectedInstance && (
-            <div className="text-xs text-muted-foreground mb-2">
-              Debug: Instância {selectedInstance.id.substring(0, 8)} - Status: {selectedInstance.status}
+          {/* Não mostrar nada enquanto está carregando */}
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          )}
-          
-          {/* Verificar se existe instância conectada */}
-          {instances.some(instance => instance.status === 'CONNECTED') ? (
+          ) : instances.some(instance => instance.status === 'CONNECTED') ? (
             /* Botões de ação - exibidos apenas quando há instância conectada */
             <div className="flex gap-2 justify-center">
               <Button
