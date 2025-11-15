@@ -203,6 +203,7 @@ export type Database = {
           created_at: string
           id: string
           instance_name: string
+          organization_id: string | null
           phone_number: string | null
           qr_code: string | null
           status: string
@@ -215,6 +216,7 @@ export type Database = {
           created_at?: string
           id?: string
           instance_name: string
+          organization_id?: string | null
           phone_number?: string | null
           qr_code?: string | null
           status?: string
@@ -227,6 +229,7 @@ export type Database = {
           created_at?: string
           id?: string
           instance_name?: string
+          organization_id?: string | null
           phone_number?: string | null
           qr_code?: string | null
           status?: string
@@ -234,7 +237,15 @@ export type Database = {
           user_id?: string
           webhook_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
