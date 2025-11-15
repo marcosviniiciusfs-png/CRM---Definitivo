@@ -54,10 +54,33 @@ const Chat = () => {
     };
   }, [location.state]);
 
-  // Carregar mensagens quando um lead é selecionado
+  // Carregar mensagens quando um lead é selecionado e configurar realtime
   useEffect(() => {
     if (selectedLead) {
       loadMessages(selectedLead.id);
+
+      // Configurar realtime para mensagens do lead selecionado
+      const messagesChannel = supabase
+        .channel(`messages-${selectedLead.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'mensagens_chat',
+            filter: `id_lead=eq.${selectedLead.id}`
+          },
+          (payload) => {
+            console.log('Mensagem recebida em realtime:', payload);
+            // Recarregar mensagens
+            loadMessages(selectedLead.id);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(messagesChannel);
+      };
     }
   }, [selectedLead]);
 
