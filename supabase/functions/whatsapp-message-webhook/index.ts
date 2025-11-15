@@ -220,7 +220,7 @@ serve(async (req) => {
     // Verificar se o lead já existe
     const { data: existingLead, error: leadSearchError } = await supabase
       .from('leads')
-      .select('id, nome_lead, avatar_url')
+      .select('id, nome_lead')
       .eq('telefone_lead', phoneNumber)
       .eq('organization_id', organizationId)
       .maybeSingle();
@@ -238,66 +238,24 @@ serve(async (req) => {
       leadId = existingLead.id;
       leadName = existingLead.nome_lead;
       
-      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome e foto se mudaram
-      const updates: any = {};
-      
+      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome se pushName estiver disponível e for diferente
       if (pushName && pushName !== existingLead.nome_lead) {
-        console.log('🔄 Nome mudou, atualizando:', pushName);
-        updates.nome_lead = pushName;
-        leadName = pushName;
-      }
-      
-      // Buscar foto de perfil atualizada periodicamente (a cada mensagem)
-      try {
-        console.log('📸 Verificando foto de perfil...');
-        const profileResponse = await supabase.functions.invoke('get-profile-picture', {
-          body: {
-            phoneNumber: senderPhone,
-            instanceName: instance
-          }
-        });
-        
-        if (profileResponse.data?.avatarUrl && profileResponse.data.avatarUrl !== existingLead.avatar_url) {
-          console.log('🔄 Foto de perfil mudou, atualizando');
-          updates.avatar_url = profileResponse.data.avatarUrl;
-        }
-      } catch (photoError) {
-        console.error('⚠️ Erro ao atualizar foto de perfil:', photoError);
-      }
-      
-      // Aplicar atualizações se houver
-      if (Object.keys(updates).length > 0) {
-        updates.updated_at = new Date().toISOString();
+        console.log('🔄 Atualizando nome do lead:', pushName);
         await supabase
           .from('leads')
-          .update(updates)
+          .update({ 
+            nome_lead: pushName,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', existingLead.id);
+        
+        leadName = pushName;
       }
     } else {
       console.log('🆕 Criando novo lead...');
       
       // Usar pushName ou número como nome do lead
       const newLeadName = pushName || phoneNumber;
-      
-      // Buscar foto de perfil do WhatsApp
-      let avatarUrl: string | null = null;
-      try {
-        console.log('📸 Buscando foto de perfil...');
-        const profileResponse = await supabase.functions.invoke('get-profile-picture', {
-          body: {
-            phoneNumber: senderPhone,
-            instanceName: instance
-          }
-        });
-        
-        if (profileResponse.data?.avatarUrl) {
-          avatarUrl = profileResponse.data.avatarUrl;
-          console.log('✅ Foto de perfil obtida:', avatarUrl);
-        }
-      } catch (photoError) {
-        console.error('⚠️ Erro ao buscar foto de perfil:', photoError);
-        // Continuar sem foto se houver erro
-      }
       
       const { data: newLead, error: createLeadError } = await supabase
         .from('leads')
@@ -307,8 +265,7 @@ serve(async (req) => {
           organization_id: organizationId,
           source: 'WhatsApp',
           stage: 'NOVO',
-          last_message_at: new Date().toISOString(),
-          avatar_url: avatarUrl
+          last_message_at: new Date().toISOString()
         })
         .select()
         .single();
