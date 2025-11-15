@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Bell, Shield, Users } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { DiagnoseWebhook } from "@/components/DiagnoseWebhook";
+import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -42,9 +43,8 @@ const Settings = () => {
     getUserRole();
   }, [user]);
 
-  // Apenas owners e admins podem ver integrações
-  const canViewIntegrations = userRole === 'owner' || userRole === 'admin';
-  const defaultTab = canViewIntegrations ? 'integracoes' : 'perfil';
+  // Owners e admins podem gerenciar integrações completas
+  const canManageIntegrations = userRole === 'owner' || userRole === 'admin';
 
   if (loading) {
     return (
@@ -64,20 +64,24 @@ const Settings = () => {
         <p className="text-muted-foreground">Gerencie as configurações da sua conta e integrações</p>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className={`grid w-full ${canViewIntegrations ? 'grid-cols-4' : 'grid-cols-3'}`}>
-          {canViewIntegrations && <TabsTrigger value="integracoes">Integrações</TabsTrigger>}
+      <Tabs defaultValue="integracoes" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
           <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
         </TabsList>
 
-        {canViewIntegrations && (
-          <TabsContent value="integracoes" className="space-y-6 mt-6">
-            <WhatsAppConnection />
-            <DiagnoseWebhook />
-          </TabsContent>
-        )}
+        <TabsContent value="integracoes" className="space-y-6 mt-6">
+          {canManageIntegrations ? (
+            <>
+              <WhatsAppConnection />
+              <DiagnoseWebhook />
+            </>
+          ) : (
+            <WhatsAppStatus />
+          )}
+        </TabsContent>
 
 
         <TabsContent value="equipe" className="space-y-6 mt-6">
