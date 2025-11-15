@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,50 @@ export const DiagnoseWebhook = () => {
   const [fixing, setFixing] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [autoValidated, setAutoValidated] = useState(false);
+
+  // Validação automática ao montar o componente
+  useEffect(() => {
+    const autoValidateInstances = async () => {
+      if (autoValidated) return; // Executar apenas uma vez
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data, error } = await supabase.functions.invoke('cleanup-invalid-instances', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (error) {
+          console.error('Erro na validação automática:', error);
+          return;
+        }
+
+        setAutoValidated(true);
+
+        // Apenas notificar se houver instâncias inválidas removidas
+        if (data.success && data.cleaned > 0) {
+          toast({
+            title: "Instâncias inválidas detectadas",
+            description: `${data.cleaned} instância(s) inválida(s) foram removidas automaticamente.`,
+            variant: "default",
+          });
+          
+          // Recarregar após 2 segundos
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        }
+      } catch (error: any) {
+        console.error('Erro na validação automática:', error);
+      }
+    };
+
+    autoValidateInstances();
+  }, [toast, autoValidated]);
 
   const diagnoseWebhook = async () => {
     setDiagnosing(true);
@@ -136,6 +180,15 @@ export const DiagnoseWebhook = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {autoValidated && (
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>
+              Validação automática concluída. Todas as instâncias estão sincronizadas.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <Button
