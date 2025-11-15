@@ -45,7 +45,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       style={style}
       {...attributes}
       {...listeners}
-      className="p-1.5 cursor-move hover:shadow-md transition-shadow bg-background"
+      className="p-1.5 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-background"
     >
       <div className="flex items-start gap-2 mb-1">
         <Avatar className="h-8 w-8">
