@@ -68,12 +68,13 @@ const Colaboradores = () => {
 
       // Get user's organization
       const { data: memberData, error: memberError } = await supabase
-        .from('organization_members' as any)
+        .from('organization_members')
         .select('organization_id, role')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (memberError) {
+        console.error('❌ Erro ao carregar organização:', memberError);
         toast({
           title: "Erro ao carregar organização",
           description: "Não foi possível carregar os dados da organização. Faça login novamente.",
@@ -83,7 +84,8 @@ const Colaboradores = () => {
         return;
       }
 
-      if (!memberData || !(memberData as any).organization_id) {
+      if (!memberData || !memberData.organization_id) {
+        console.error('❌ Usuário não associado a nenhuma organização');
         toast({
           title: "Organização não encontrada",
           description: "Você não está associado a nenhuma organização. Entre em contato com o suporte.",
@@ -93,17 +95,20 @@ const Colaboradores = () => {
         return;
       }
 
-      const orgId = (memberData as any).organization_id;
+      const orgId = memberData.organization_id;
       setOrganizationId(orgId);
+      
+      console.log('🏢 Organização carregada:', orgId);
       
       // Load all members of the organization
       const { data: members, error: membersError } = await supabase
-        .from('organization_members' as any)
+        .from('organization_members')
         .select('*')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
 
       if (membersError) {
+        console.error('❌ Erro ao carregar membros:', membersError);
         toast({
           title: "Erro",
           description: "Não foi possível carregar os membros da organização",
@@ -114,7 +119,8 @@ const Colaboradores = () => {
       }
 
       if (members) {
-        setColaboradores(members as any);
+        console.log(`✅ ${members.length} colaborador(es) carregado(s)`);
+        setColaboradores(members);
         
         // Calculate stats
         const now = new Date();
@@ -189,6 +195,20 @@ const Colaboradores = () => {
 
       setIsLoading(true);
 
+      // Verificar sessão ativa
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Sessão expirada",
+          description: "Faça login novamente para continuar",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('🚀 Adicionando colaborador:', newColaborador.email);
+
       // Use edge function to handle user creation and organization membership
       const { data, error } = await supabase.functions.invoke('add-organization-member', {
         body: {
@@ -201,10 +221,10 @@ const Colaboradores = () => {
       });
 
       if (error) {
-        console.error('Error adding member:', error);
+        console.error('❌ Erro ao adicionar membro:', error);
         toast({
-          title: "Erro",
-          description: error.message || "Não foi possível adicionar o colaborador",
+          title: "Erro ao adicionar colaborador",
+          description: error.message || "Não foi possível adicionar o colaborador. Tente novamente.",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -212,6 +232,7 @@ const Colaboradores = () => {
       }
 
       if (data?.error) {
+        console.error('❌ Erro retornado pela função:', data.error);
         toast({
           title: "Erro",
           description: data.error,
@@ -221,20 +242,24 @@ const Colaboradores = () => {
         return;
       }
 
+      console.log('✅ Colaborador adicionado com sucesso:', data);
+
       toast({
         title: "Sucesso!",
-        description: data?.message || `${newColaborador.name} foi adicionado à organização`,
+        description: data?.message || `${newColaborador.name} foi adicionado à organização com sucesso`,
       });
 
       setIsDialogOpen(false);
       setNewColaborador({ name: "", email: "", password: "", role: "member" });
+      
+      // Recarregar dados da organização
       await loadOrganizationData();
 
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error('❌ Erro inesperado:', error);
       toast({
-        title: "Erro",
-        description: error?.message || "Ocorreu um erro ao adicionar o colaborador",
+        title: "Erro inesperado",
+        description: error?.message || "Ocorreu um erro ao adicionar o colaborador. Por favor, tente novamente.",
         variant: "destructive"
       });
     } finally {
