@@ -440,20 +440,28 @@ const WhatsAppConnection = () => {
     }
   };
 
+  // Ref para manter referência atualizada das instâncias sem causar re-renders
+  const instancesRef = useRef<WhatsAppInstance[]>([]);
+  
+  useEffect(() => {
+    instancesRef.current = instances;
+  }, [instances]);
+
   // Polling periódico para verificar status de TODAS instâncias
   useEffect(() => {
-    // Só fazer polling se tiver instâncias carregadas
-    if (instances.length === 0) {
-      return;
-    }
-
+    // CRÍTICO: Usar um intervalo fixo que não depende de instances.length
     const pollInterval = setInterval(() => {
+      // Verificar se há instâncias usando a ref
+      if (instancesRef.current.length === 0) {
+        return;
+      }
+      
       console.log('🔄 Polling periódico: verificando status de todas as instâncias...');
       checkAllInstancesStatus(true); // true = incluir instâncias CONNECTED
     }, 30000); // A cada 30 segundos
 
     return () => clearInterval(pollInterval);
-  }, [instances.length]); // Dependência: só recria o interval quando mudar o número de instâncias
+  }, []); // CRÍTICO: Array vazio - interval é criado apenas uma vez
 
   // Configurar Realtime para atualizar automaticamente
   useEffect(() => {
@@ -568,7 +576,7 @@ const WhatsAppConnection = () => {
         description: "Conexão estabelecida com sucesso!",
       });
     }
-  }, [selectedInstance, qrDialogOpen, toast]);
+  }, [selectedInstance, qrDialogOpen]); // CRÍTICO: Removido toast das dependências
 
   // CRÍTICO: Polling automático para verificar status quando modal está aberto
   // Isso garante que o modal fecha mesmo se o webhook da Evolution não funcionar
@@ -623,7 +631,7 @@ const WhatsAppConnection = () => {
       console.log('⏰ Parando polling de status');
       clearInterval(pollInterval);
     };
-  }, [selectedInstance, qrDialogOpen, toast]);
+  }, [selectedInstance, qrDialogOpen]); // CRÍTICO: Removido toast das dependências
 
   const getStatusIcon = (status: string) => {
     switch (status) {
