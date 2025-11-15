@@ -420,19 +420,6 @@ const WhatsAppConnection = () => {
     };
   }, [toast]);
 
-  // Abrir dialog automaticamente quando houver QR Code
-  useEffect(() => {
-    const instanceWithQR = instances.find(
-      (i) => (i.status === 'WAITING_QR' || i.status === 'CREATING') && i.qr_code
-    );
-    
-    if (instanceWithQR && !qrDialogOpen) {
-      console.log('📱 Instância com QR Code detectada, abrindo modal:', instanceWithQR.id);
-      setSelectedInstance(instanceWithQR);
-      setQrDialogOpen(true);
-    }
-  }, [instances, qrDialogOpen]);
-
   // GARANTIA ADICIONAL: Monitor direto do selectedInstance para fechar modal se conectar
   useEffect(() => {
     if (!selectedInstance || !qrDialogOpen) return;
