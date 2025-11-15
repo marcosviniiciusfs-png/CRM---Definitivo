@@ -196,45 +196,63 @@ const WhatsAppConnection = () => {
 
   // Carregar instâncias do usuário
   const loadInstances = async () => {
-    console.log('🔄 loadInstances() chamado');
+    console.log('🔄 [loadInstances] Iniciando...');
     
     // Aguardar o usuário estar pronto
     if (authLoading) {
-      console.log('⏳ Aguardando autenticação...');
+      console.log('⏳ [loadInstances] Aguardando autenticação...');
       return;
     }
     
     if (!user) {
-      console.error('❌ Usuário não autenticado');
+      console.error('❌ [loadInstances] Usuário não autenticado');
       setInstances([]);
       setLoading(false);
       return;
     }
 
     try {
-      console.log(`🔍 Buscando instâncias para user_id: ${user.id}`);
+      console.log(`🔍 [loadInstances] Buscando instâncias para user_id: ${user.id}`);
+      console.log(`🔍 [loadInstances] Query: SELECT * FROM whatsapp_instances WHERE user_id = '${user.id}'`);
       
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('whatsapp_instances')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      console.log(`📊 [loadInstances] Query executada. Count: ${count}, Error:`, error);
+      console.log(`📊 [loadInstances] Data recebida (raw):`, data);
+
       if (error) {
-        console.error('❌ Erro na query:', error);
+        console.error('❌ [loadInstances] Erro Supabase:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
       
-      console.log('✅ Instâncias carregadas:', data?.map(i => ({
-        id: i.id,
-        name: i.instance_name,
-        status: i.status,
-        hasQrCode: !!i.qr_code
-      })));
+      if (!data || data.length === 0) {
+        console.warn('⚠️ [loadInstances] Nenhuma instância encontrada no banco! Verificar RLS policies?');
+      } else {
+        console.log('✅ [loadInstances] Instâncias encontradas:', data.map(i => ({
+          id: i.id,
+          name: i.instance_name,
+          status: i.status,
+          user_id: i.user_id,
+          hasQrCode: !!i.qr_code
+        })));
+      }
       
       setInstances(data || []);
     } catch (error: any) {
-      console.error('❌ Erro ao carregar instâncias:', error);
+      console.error('❌ [loadInstances] Exception:', {
+        error,
+        message: error?.message,
+        stack: error?.stack
+      });
       toast({
         title: "Erro",
         description: "Não foi possível carregar as instâncias WhatsApp",
@@ -243,6 +261,7 @@ const WhatsAppConnection = () => {
       setInstances([]);
     } finally {
       setLoading(false);
+      console.log('🏁 [loadInstances] Finalizado');
     }
   };
 
@@ -424,16 +443,18 @@ const WhatsAppConnection = () => {
   useEffect(() => {
     // Só inicializar quando o usuário estiver pronto
     if (authLoading || !user) {
-      console.log('⏳ Aguardando usuário estar pronto...');
+      console.log('⏳ [MOUNT] Aguardando usuário estar pronto... authLoading:', authLoading, 'user:', !!user);
       return;
     }
 
+    console.log('🚀 [MOUNT] Inicializando WhatsAppConnection para user:', user.id);
+    
     const initializeInstances = async () => {
+      console.log('📥 [MOUNT] Chamando loadInstances inicial...');
       await loadInstances();
-      console.log('✅ Instâncias carregadas. Status será atualizado via webhook e polling periódico.');
+      console.log('✅ [MOUNT] Instâncias iniciais carregadas. Status será atualizado via webhook e polling periódico.');
     };
 
-    console.log('🚀 Inicializando WhatsAppConnection para user:', user.id);
     initializeInstances();
 
     // Subscribe to realtime updates
@@ -500,10 +521,10 @@ const WhatsAppConnection = () => {
       });
 
     return () => {
-      console.log('🔌 Removendo canal Realtime');
+      console.log('🔌 [UNMOUNT] Removendo canal Realtime');
       supabase.removeChannel(channel);
     };
-  }, [user, authLoading, toast]); // Dependência: recriar quando user mudar
+  }, [user, authLoading]); // CRITICAL FIX: Removido toast das dependências para evitar loop infinito
 
   // GARANTIA ADICIONAL: Monitor direto do selectedInstance para fechar modal se conectar
   useEffect(() => {
