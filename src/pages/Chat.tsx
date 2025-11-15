@@ -170,7 +170,7 @@ const Chat = () => {
       });
 
       // Nome do usuário logado ou fallback para "Atendente"
-      const userName = user?.user_metadata?.name || "Atendente";
+      const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || "Atendente";
       
       // Formatar mensagem: *Nome:* com quebra de linha
       const messageForEvolution = `*${userName}:*\n${text.trim()}`;
