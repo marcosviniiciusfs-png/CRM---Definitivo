@@ -14,6 +14,9 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🔔 WEBHOOK CHAMADO - Método:', req.method);
+    console.log('🔔 WEBHOOK CHAMADO - Headers:', Object.fromEntries(req.headers.entries()));
+    
     const payload = await req.json();
     console.log('📥 MESSAGE WEBHOOK - Payload completo:', JSON.stringify(payload, null, 2));
 
