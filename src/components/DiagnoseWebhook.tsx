@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,14 +14,23 @@ export const DiagnoseWebhook = () => {
   const [result, setResult] = useState<any>(null);
   const [autoValidated, setAutoValidated] = useState(false);
 
-  // Validação automática ao montar o componente
+  // Validação automática ao montar o componente - APENAS UMA VEZ
   useEffect(() => {
+    // CRÍTICO: Usar sessionStorage para garantir que só execute uma vez por sessão
+    const hasValidated = sessionStorage.getItem('whatsapp_auto_validated');
+    if (hasValidated) {
+      console.log('⏭️ Auto-validação já executada nesta sessão, pulando...');
+      return;
+    }
+    
     const autoValidateInstances = async () => {
-      if (autoValidated) return; // Executar apenas uma vez
-      
       try {
+        console.log('🔍 Executando validação automática de instâncias...');
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        if (!session) {
+          console.log('⚠️ Sem sessão, pulando validação');
+          return;
+        }
 
         const { data, error } = await supabase.functions.invoke('cleanup-invalid-instances', {
           headers: {
@@ -30,32 +39,40 @@ export const DiagnoseWebhook = () => {
         });
 
         if (error) {
-          console.error('Erro na validação automática:', error);
+          console.error('❌ Erro na validação automática:', error);
           return;
         }
 
+        // Marcar como validado ANTES de fazer qualquer ação
+        sessionStorage.setItem('whatsapp_auto_validated', 'true');
         setAutoValidated(true);
 
         // Apenas notificar se houver instâncias inválidas removidas
         if (data.success && data.cleaned > 0) {
+          console.log(`✅ ${data.cleaned} instância(s) inválida(s) removidas`);
           toast({
-            title: "Instâncias inválidas detectadas",
-            description: `${data.cleaned} instância(s) inválida(s) foram removidas automaticamente.`,
-            variant: "default",
+            title: "Instâncias limpas",
+            description: `${data.cleaned} instância(s) inválida(s) foram removidas.`,
           });
           
-          // Recarregar após 2 segundos
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+          // NÃO RECARREGAR - deixar o Realtime atualizar naturalmente
+        } else {
+          console.log('✅ Nenhuma instância inválida encontrada');
         }
       } catch (error: any) {
-        console.error('Erro na validação automática:', error);
+        console.error('❌ Erro na validação automática:', error);
+        // Marcar como validado mesmo em caso de erro para evitar loops
+        sessionStorage.setItem('whatsapp_auto_validated', 'true');
       }
     };
 
     autoValidateInstances();
-  }, [toast, autoValidated]);
+    
+    // Cleanup: Limpar flag quando o componente desmontar
+    return () => {
+      console.log('🧹 Componente desmontado - mantendo flag de validação');
+    };
+  }, []); // CRÍTICO: Array vazio - executar apenas no mount
 
   const diagnoseWebhook = async () => {
     setDiagnosing(true);
@@ -117,10 +134,8 @@ export const DiagnoseWebhook = () => {
 
       setResult(data);
       
-      // Recarregar a página após 1 segundo
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // NÃO RECARREGAR - deixar o Realtime atualizar naturalmente
+      console.log('✅ Limpeza manual concluída. Realtime atualizará automaticamente.');
     } catch (error: any) {
       console.error('Erro ao limpar instâncias:', error);
       toast({
@@ -337,3 +352,5 @@ export const DiagnoseWebhook = () => {
     </Card>
   );
 };
+
+export default memo(DiagnoseWebhook);
