@@ -18,9 +18,6 @@ verify_jwt = true
 [functions.create-whatsapp-instance]
 verify_jwt = true
 
-[functions.sync-whatsapp-instances]
-verify_jwt = true
-
 [functions.fix-webhook-config]
 verify_jwt = true
 
