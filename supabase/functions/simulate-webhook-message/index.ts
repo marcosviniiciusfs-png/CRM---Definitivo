@@ -11,32 +11,33 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🧪 SIMULAÇÃO - Criando payload de teste da Evolution API');
+    console.log('🧪 SIMULAÇÃO INICIADA');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
-    // Payload simulando Evolution API exatamente como ela envia
+    // Payload EXATO da Evolution API
     const testPayload = {
       event: 'MESSAGES_UPSERT',
       instance: 'crm-9b51c26d-1763172430960',
       data: {
         key: {
-          remoteJid: '5511999888777@s.whatsapp.net',
+          remoteJid: '5511988776655@s.whatsapp.net',
           fromMe: false,
-          id: `MSG-TEST-${Date.now()}`
+          id: `TEST-${Date.now()}`
         },
-        pushName: 'Cliente Simulado',
+        pushName: 'Cliente Real',
         message: {
-          conversation: 'Olá! Esta é uma mensagem de teste simulada da Evolution API.'
+          conversation: 'Oi, gostaria de falar com vocês!'
         },
         messageTimestamp: Math.floor(Date.now() / 1000)
       }
     };
 
-    console.log('📤 Enviando para webhook:', JSON.stringify(testPayload, null, 2));
+    console.log('📤 Enviando payload para webhook...');
+    console.log('Payload:', JSON.stringify(testPayload, null, 2));
 
-    // Chamar o webhook
     const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
+    
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
@@ -45,9 +46,10 @@ serve(async (req) => {
       body: JSON.stringify(testPayload),
     });
 
+    console.log('📥 Status do webhook:', response.status);
+    
     const responseText = await response.text();
-    console.log('📥 Resposta do webhook (status):', response.status);
-    console.log('📥 Resposta do webhook (body):', responseText);
+    console.log('📥 Resposta:', responseText);
 
     let responseData;
     try {
@@ -59,7 +61,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: response.ok,
-        message: 'Payload de teste enviado para o webhook',
         webhookStatus: response.status,
         webhookResponse: responseData,
         testPayload
