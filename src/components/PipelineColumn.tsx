@@ -50,6 +50,7 @@ export const PipelineColumn = ({ id, title, count, color, leads, isEmpty }: Pipe
                 name={lead.nome_lead}
                 phone={lead.telefone_lead}
                 date={new Date(lead.created_at).toLocaleString("pt-BR")}
+                avatarUrl={lead.avatar_url}
               />
             ))
           )}

@@ -11,6 +11,7 @@ export interface Lead {
   empresa?: string;
   valor?: number;
   position?: number;
+  avatar_url?: string;
 }
 
 export interface Message {

@@ -43,6 +43,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          avatar_url: string | null
           created_at: string
           email: string | null
           empresa: string | null
@@ -58,6 +59,7 @@ export type Database = {
           valor: number | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           email?: string | null
           empresa?: string | null
@@ -73,6 +75,7 @@ export type Database = {
           valor?: number | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           email?: string | null
           empresa?: string | null

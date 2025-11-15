@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Phone, Calendar, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,9 +16,10 @@ interface LeadCardProps {
   name: string;
   phone: string;
   date: string;
+  avatarUrl?: string;
 }
 
-export const LeadCard = ({ id, name, phone, date }: LeadCardProps) => {
+export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
   });
@@ -26,6 +28,15 @@ export const LeadCard = ({ id, name, phone, date }: LeadCardProps) => {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0 : 1,
+  };
+  
+  const getInitials = (fullName: string) => {
+    return fullName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
@@ -36,23 +47,33 @@ export const LeadCard = ({ id, name, phone, date }: LeadCardProps) => {
       {...listeners}
       className="p-1.5 cursor-move hover:shadow-md transition-shadow bg-background"
     >
-      <div className="flex items-start justify-between mb-1">
-        <h3 className="font-semibold text-xs text-foreground leading-tight">{name}</h3>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5">
-              <MoreVertical className="h-3 w-3 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-background z-50">
-            <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-            <DropdownMenuItem>Editar</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="flex items-start gap-2 mb-1">
+        <Avatar className="h-8 w-8">
+          <AvatarImage src={avatarUrl || undefined} alt={name} />
+          <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+            {getInitials(name)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between">
+            <h3 className="font-semibold text-xs text-foreground leading-tight truncate">{name}</h3>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
+                  <MoreVertical className="h-3 w-3 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-background z-50">
+                <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
+                <DropdownMenuItem>Editar</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
       </div>
       
-      <div className="space-y-0.5">
+      <div className="space-y-0.5 pl-10">
         <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
           <Phone className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">{phone}</span>
