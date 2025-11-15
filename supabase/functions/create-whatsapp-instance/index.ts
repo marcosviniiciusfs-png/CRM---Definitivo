@@ -261,74 +261,46 @@ serve(async (req) => {
     console.log('Evolution API response:', evolutionData);
 
     // ========================================
-    // STEP 3: CONFIGURE WEBHOOKS (POR EVENTO)
+    // STEP 3: CONFIGURE WEBHOOKS
     // ========================================
     console.log('Configuring webhooks for instance...');
     
-    // Configurar webhook para QR Code e Conexão
-    const qrWebhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': evolutionApiKey,
-      },
-      body: JSON.stringify({
-        enabled: true,
-        url: qrWebhookUrl,
-        webhook_by_events: false,
-        webhook: {
-          url: qrWebhookUrl,
-          by_events: false,
-          base64: false,
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          events: [
-            'QRCODE_UPDATED',
-            'CONNECTION_UPDATE'
-          ]
-        }
-      }),
-    });
-
-    if (!qrWebhookResponse.ok) {
-      const qrWebhookError = await qrWebhookResponse.json().catch(() => ({ error: 'Unknown error' }));
-      console.warn('⚠️ QR Webhook configuration failed:', JSON.stringify(qrWebhookError));
-    } else {
-      console.log('✅ QR Webhook configured successfully');
-    }
-
-    // Configurar webhook para Mensagens
-    const messageWebhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': evolutionApiKey,
-      },
-      body: JSON.stringify({
+    // Configurar webhook global usando o formato correto da Evolution API
+    const webhookConfig = {
+      webhook: {
         enabled: true,
         url: messageWebhookUrl,
         webhook_by_events: false,
-        webhook: {
-          url: messageWebhookUrl,
-          by_events: false,
-          base64: false,
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          events: [
-            'MESSAGES_UPSERT',
-            'MESSAGES_UPDATE'
-          ]
-        }
-      }),
+        webhook_base64: false,
+        events: [
+          'QRCODE_UPDATED',
+          'CONNECTION_UPDATE',
+          'MESSAGES_UPSERT',
+          'MESSAGES_UPDATE',
+          'SEND_MESSAGE'
+        ]
+      }
+    };
+
+    const webhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': evolutionApiKey,
+      },
+      body: JSON.stringify(webhookConfig),
     });
 
-    if (!messageWebhookResponse.ok) {
-      const messageWebhookError = await messageWebhookResponse.json().catch(() => ({ error: 'Unknown error' }));
-      console.warn('⚠️ Message Webhook configuration failed:', JSON.stringify(messageWebhookError));
+    if (!webhookResponse.ok) {
+      const webhookError = await webhookResponse.json().catch(async () => {
+        const text = await webhookResponse.text();
+        return { error: text };
+      });
+      console.error('❌ Webhook configuration failed:', JSON.stringify(webhookError, null, 2));
+      // Não falhar a criação da instância por causa do webhook
     } else {
-      console.log('✅ Message Webhook configured successfully');
+      const webhookResult = await webhookResponse.json();
+      console.log('✅ Webhook configured successfully:', JSON.stringify(webhookResult, null, 2));
     }
 
     // ========================================
