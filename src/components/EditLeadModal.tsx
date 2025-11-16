@@ -104,6 +104,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         .eq("organization_id", leadData.organization_id);
 
       if (error) throw error;
+      
+      console.log("Colaboradores carregados:", data);
       setColaboradores(data || []);
     } catch (error) {
       console.error("Erro ao carregar colaboradores:", error);
@@ -1316,7 +1318,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                       type="button"
                                       className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
                                       onClick={() => {
+                                        console.log("Colaborador selecionado:", colab.email);
                                         setResponsavel(colab.email || '');
+                                        setEditingResponsavel(false);
                                         toast.success(`Responsável alterado para ${colab.email}`);
                                       }}
                                     >
