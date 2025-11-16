@@ -245,8 +245,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   };
 
   const handleDeleteActivity = async (activityId: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta atividade?")) return;
-
     try {
       const { error } = await supabase
         .from("lead_activities")
