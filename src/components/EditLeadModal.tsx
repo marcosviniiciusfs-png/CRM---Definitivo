@@ -1203,22 +1203,32 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         <span className="text-xs font-medium text-primary">B</span>
                       </div>
                       <span className="font-medium">Brito</span>
+                      <Pencil className="h-3.5 w-3.5 text-primary" />
                     </div>
                   </div>
 
                   <div className="flex items-start justify-between">
                     <span className="text-muted-foreground">Data de início</span>
-                    <span className="font-medium">Hoje</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Hoje</span>
+                      <Pencil className="h-3.5 w-3.5 text-primary" />
+                    </div>
                   </div>
 
                   <div className="flex items-start justify-between">
                     <span className="text-muted-foreground">Data de conclusão</span>
-                    <span className="text-muted-foreground">Adicionar</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Adicionar</span>
+                      <Pencil className="h-3.5 w-3.5 text-primary" />
+                    </div>
                   </div>
 
                   <div className="flex items-start justify-between">
                     <span className="text-muted-foreground">Descrição</span>
-                    <span className="text-muted-foreground">Adicionar descrição</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Adicionar descrição</span>
+                      <Pencil className="h-3.5 w-3.5 text-primary" />
+                    </div>
                   </div>
 
                   <Separator className="my-2" />
