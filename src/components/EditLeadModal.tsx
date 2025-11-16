@@ -139,13 +139,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <FileText className="h-4 w-4" />
                     <span>Funil de Vendas</span>
                   </div>
-                  <div className="flex items-center w-full -space-x-[23px]">
+                  <div className="flex items-center w-full gap-[1px]">
                     {/* Contato - Primeira etapa */}
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'NOVO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)] z-0'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
                         clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)'
@@ -158,8 +158,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'EM_ATENDIMENTO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)] z-0'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
                         clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
@@ -172,8 +172,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FOLLOW_UP' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)] z-0'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
                         clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
@@ -186,8 +186,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FECHADO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)] z-0'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
                         clipPath: 'polygon(24px 0, 100% 0, 100% 100%, 24px 100%, 0 50%)'
