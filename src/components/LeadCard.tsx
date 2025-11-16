@@ -88,13 +88,13 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
 
       {/* Faixa azul lateral com ícone de olho - desliza da direita no hover */}
       <div 
-        className="absolute top-1/2 -translate-y-1/2 right-0 w-[90px] h-[45px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer opacity-0 translate-x-full group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ease-out z-20"
+        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer opacity-0 translate-x-full group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ease-out z-20"
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
         }}
       >
-        <Eye className="h-6 w-6 text-primary-foreground" />
+        <Eye className="h-4 w-4 text-white" />
       </div>
     </Card>
   );
