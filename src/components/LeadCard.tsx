@@ -149,15 +149,16 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
                   <DropdownMenuItem 
-                    onMouseDown={(e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
-                      e.preventDefault();
+                      console.log("Editar clicado - abrindo modal para:", name);
+                      setTimeout(() => {
+                        setIsEditModalOpen(true);
+                        console.log("Modal aberto para:", name);
+                      }, 0);
                     }}
                     onSelect={(e) => {
                       e.preventDefault();
-                      console.log("Editar clicado - abrindo modal para:", name);
-                      setIsEditModalOpen(true);
-                      console.log("Estado após setIsEditModalOpen(true)");
                     }}
                   >
                     Editar
@@ -195,8 +196,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
     </Card>
 
     {/* Modal de Edição de Lead */}
-    {isEditModalOpen && (
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+    <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Editar Lead: {name}</DialogTitle>
@@ -269,8 +269,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-    )}
+    </Dialog>
   </>
   );
 };
