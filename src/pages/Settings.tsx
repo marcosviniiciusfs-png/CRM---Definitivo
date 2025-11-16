@@ -12,39 +12,81 @@ import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Settings = () => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const getUserRole = async () => {
+    const getUserData = async () => {
       if (!user) return;
       
       try {
-        const { data, error } = await supabase
+        // Get user role
+        const { data: roleData, error: roleError } = await supabase
           .from('organization_members')
           .select('role')
           .eq('user_id', user.id)
           .single();
 
-        if (error) {
-          console.error('Erro ao buscar role:', error);
-          return;
+        if (roleError) {
+          console.error('Erro ao buscar role:', roleError);
+        } else {
+          setUserRole(roleData?.role || null);
         }
 
-        setUserRole(data?.role || null);
+        // Get user profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Erro ao buscar perfil:', profileError);
+        } else if (profileData) {
+          setFullName(profileData.full_name || "");
+          setJobTitle(profileData.job_title || "");
+        }
       } catch (error) {
-        console.error('Erro ao buscar role:', error);
+        console.error('Erro ao buscar dados:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    getUserRole();
+    getUserData();
   }, [user]);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName,
+          job_title: jobTitle,
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast.success("Perfil atualizado com sucesso!");
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      toast.error("Erro ao salvar perfil. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Owners e admins podem gerenciar integrações completas
   const canManageIntegrations = userRole === 'owner' || userRole === 'admin';
@@ -113,18 +155,36 @@ const Settings = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome</Label>
-                  <Input id="name" defaultValue="João Silva" />
+                  <Input 
+                    id="name" 
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Seu nome completo"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="joao@empresa.com" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={user?.email || ""}
+                    disabled
+                    className="bg-muted"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Cargo</Label>
-                <Input id="role" defaultValue="Gerente de Vendas" />
+                <Input 
+                  id="role" 
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  placeholder="Ex: Gerente de Vendas"
+                />
               </div>
-              <Button>Salvar Alterações</Button>
+              <Button onClick={handleSaveProfile} disabled={saving}>
+                {saving ? "Salvando..." : "Salvar Alterações"}
+              </Button>
             </CardContent>
           </Card>
 
