@@ -149,6 +149,10 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
                   <DropdownMenuItem 
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }}
                     onSelect={(e) => {
                       e.preventDefault();
                       console.log("Editar clicado - abrindo modal para:", name);
