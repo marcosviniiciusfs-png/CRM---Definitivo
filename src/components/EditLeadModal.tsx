@@ -1212,235 +1212,243 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   {/* Responsável */}
                   <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Responsável</span>
-                    <Popover open={editingResponsavel} onOpenChange={setEditingResponsavel}>
-                      <PopoverTrigger asChild>
-                        <div className="flex items-center gap-2 cursor-pointer">
-                          <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-xs font-medium text-primary">
-                              {responsavel.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="font-medium">{responsavel}</span>
-                          <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-64 p-2" align="end">
-                        <div className="space-y-1">
-                          {["Brito", "Ana Silva", "Carlos Santos", "Maria Oliveira"].map((name) => (
-                            <div
-                              key={name}
-                              className="flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer"
-                              onClick={() => {
-                                setResponsavel(name);
-                                setEditingResponsavel(false);
-                                toast.success("Responsável atualizado");
-                              }}
-                            >
-                              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-xs font-medium text-primary">
-                                  {name.charAt(0).toUpperCase()}
-                                </span>
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-xs font-medium text-primary">
+                          {responsavel.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="font-medium">{responsavel}</span>
+                      <Popover open={editingResponsavel} onOpenChange={setEditingResponsavel}>
+                        <PopoverTrigger asChild>
+                          <button className="p-0 border-0 bg-transparent">
+                            <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-2" align="end">
+                          <div className="space-y-1">
+                            {["Brito", "Ana Silva", "Carlos Santos", "Maria Oliveira"].map((name) => (
+                              <div
+                                key={name}
+                                className="flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer"
+                                onClick={() => {
+                                  setResponsavel(name);
+                                  setEditingResponsavel(false);
+                                  toast.success("Responsável atualizado");
+                                }}
+                              >
+                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <span className="text-xs font-medium text-primary">
+                                    {name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="text-sm">{name}</span>
+                                {name === responsavel && <Check className="h-4 w-4 ml-auto text-primary" />}
                               </div>
-                              <span className="text-sm">{name}</span>
-                              {name === responsavel && <Check className="h-4 w-4 ml-auto text-primary" />}
-                            </div>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
 
                   {/* Data de início */}
                   <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Data de início</span>
-                    <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio}>
-                      <PopoverTrigger asChild>
-                        <div className="flex items-center gap-2 cursor-pointer">
-                          <span className="font-medium">
-                            {dataInicio ? format(dataInicio, "dd/MM/yyyy", { locale: ptBR }) : "Hoje"}
-                          </span>
-                          <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <div className="p-3">
-                          <Calendar
-                            mode="single"
-                            selected={dataInicio}
-                            onSelect={(date) => {
-                              setDataInicio(date);
-                              setEditingDataInicio(false);
-                              toast.success("Data de início atualizada");
-                            }}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
-                            locale={ptBR}
-                          />
-                          <div className="flex gap-2 mt-2 border-t pt-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                setDataInicio(new Date());
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">
+                        {dataInicio ? format(dataInicio, "dd/MM/yyyy", { locale: ptBR }) : "Hoje"}
+                      </span>
+                      <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio}>
+                        <PopoverTrigger asChild>
+                          <button className="p-0 border-0 bg-transparent">
+                            <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <div className="p-3">
+                            <Calendar
+                              mode="single"
+                              selected={dataInicio}
+                              onSelect={(date) => {
+                                setDataInicio(date);
                                 setEditingDataInicio(false);
-                                toast.success("Data definida para hoje");
+                                toast.success("Data de início atualizada");
                               }}
-                            >
-                              Hoje
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                const tomorrow = new Date();
-                                tomorrow.setDate(tomorrow.getDate() + 1);
-                                setDataInicio(tomorrow);
-                                setEditingDataInicio(false);
-                                toast.success("Data definida para amanhã");
-                              }}
-                            >
-                              Amanhã
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                const nextWeek = new Date();
-                                nextWeek.setDate(nextWeek.getDate() + 7);
-                                setDataInicio(nextWeek);
-                                setEditingDataInicio(false);
-                                toast.success("Data definida para próxima semana");
-                              }}
-                            >
-                              1 semana depois
-                            </Button>
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                              locale={ptBR}
+                            />
+                            <div className="flex gap-2 mt-2 border-t pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  setDataInicio(new Date());
+                                  setEditingDataInicio(false);
+                                  toast.success("Data definida para hoje");
+                                }}
+                              >
+                                Hoje
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  const tomorrow = new Date();
+                                  tomorrow.setDate(tomorrow.getDate() + 1);
+                                  setDataInicio(tomorrow);
+                                  setEditingDataInicio(false);
+                                  toast.success("Data definida para amanhã");
+                                }}
+                              >
+                                Amanhã
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  const nextWeek = new Date();
+                                  nextWeek.setDate(nextWeek.getDate() + 7);
+                                  setDataInicio(nextWeek);
+                                  setEditingDataInicio(false);
+                                  toast.success("Data definida para próxima semana");
+                                }}
+                              >
+                                1 semana depois
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
 
                   {/* Data de conclusão */}
                   <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Data de conclusão</span>
-                    <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao}>
-                      <PopoverTrigger asChild>
-                        <div className="flex items-center gap-2 cursor-pointer">
-                          <span className={cn("font-medium", !dataConclusao && "text-muted-foreground")}>
-                            {dataConclusao ? format(dataConclusao, "dd/MM/yyyy", { locale: ptBR }) : "Adicionar"}
-                          </span>
-                          <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <div className="p-3">
-                          <Calendar
-                            mode="single"
-                            selected={dataConclusao}
-                            onSelect={(date) => {
-                              setDataConclusao(date);
-                              setEditingDataConclusao(false);
-                              toast.success("Data de conclusão atualizada");
-                            }}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
-                            locale={ptBR}
-                          />
-                          <div className="flex gap-2 mt-2 border-t pt-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                setDataConclusao(new Date());
+                    <div className="flex items-center gap-2">
+                      <span className={cn("font-medium", !dataConclusao && "text-muted-foreground")}>
+                        {dataConclusao ? format(dataConclusao, "dd/MM/yyyy", { locale: ptBR }) : "Adicionar"}
+                      </span>
+                      <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao}>
+                        <PopoverTrigger asChild>
+                          <button className="p-0 border-0 bg-transparent">
+                            <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <div className="p-3">
+                            <Calendar
+                              mode="single"
+                              selected={dataConclusao}
+                              onSelect={(date) => {
+                                setDataConclusao(date);
                                 setEditingDataConclusao(false);
-                                toast.success("Data definida para hoje");
+                                toast.success("Data de conclusão atualizada");
                               }}
-                            >
-                              Hoje
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                const tomorrow = new Date();
-                                tomorrow.setDate(tomorrow.getDate() + 1);
-                                setDataConclusao(tomorrow);
-                                setEditingDataConclusao(false);
-                                toast.success("Data definida para amanhã");
-                              }}
-                            >
-                              Amanhã
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                const nextWeek = new Date();
-                                nextWeek.setDate(nextWeek.getDate() + 7);
-                                setDataConclusao(nextWeek);
-                                setEditingDataConclusao(false);
-                                toast.success("Data definida para próxima semana");
-                              }}
-                            >
-                              1 semana depois
-                            </Button>
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                              locale={ptBR}
+                            />
+                            <div className="flex gap-2 mt-2 border-t pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  setDataConclusao(new Date());
+                                  setEditingDataConclusao(false);
+                                  toast.success("Data definida para hoje");
+                                }}
+                              >
+                                Hoje
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  const tomorrow = new Date();
+                                  tomorrow.setDate(tomorrow.getDate() + 1);
+                                  setDataConclusao(tomorrow);
+                                  setEditingDataConclusao(false);
+                                  toast.success("Data definida para amanhã");
+                                }}
+                              >
+                                Amanhã
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  const nextWeek = new Date();
+                                  nextWeek.setDate(nextWeek.getDate() + 7);
+                                  setDataConclusao(nextWeek);
+                                  setEditingDataConclusao(false);
+                                  toast.success("Data definida para próxima semana");
+                                }}
+                              >
+                                1 semana depois
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
 
                   {/* Descrição */}
                   <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Descrição</span>
-                    <Popover open={editingDescricao} onOpenChange={setEditingDescricao}>
-                      <PopoverTrigger asChild>
-                        <div className="flex items-center gap-2 cursor-pointer">
-                          <span className={cn("font-medium", !descricao && "text-muted-foreground")}>
-                            {descricao || "Adicionar descrição"}
-                          </span>
-                          <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80" align="end">
-                        <div className="space-y-3">
-                          <Label htmlFor="descricao">Descrição</Label>
-                          <Textarea
-                            id="descricao"
-                            placeholder="Adicione uma descrição para este negócio..."
-                            value={descricao}
-                            onChange={(e) => setDescricao(e.target.value)}
-                            className="min-h-[100px] resize-none"
-                          />
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditingDescricao(false);
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setEditingDescricao(false);
-                                toast.success("Descrição salva");
-                              }}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("font-medium", !descricao && "text-muted-foreground")}>
+                        {descricao || "Adicionar descrição"}
+                      </span>
+                      <Popover open={editingDescricao} onOpenChange={setEditingDescricao}>
+                        <PopoverTrigger asChild>
+                          <button className="p-0 border-0 bg-transparent">
+                            <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="end">
+                          <div className="space-y-3">
+                            <Label htmlFor="descricao">Descrição</Label>
+                            <Textarea
+                              id="descricao"
+                              placeholder="Adicione uma descrição para este negócio..."
+                              value={descricao}
+                              onChange={(e) => setDescricao(e.target.value)}
+                              className="min-h-[100px] resize-none"
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingDescricao(false);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setEditingDescricao(false);
+                                  toast.success("Descrição salva");
+                                }}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
 
                   <Separator className="my-2" />
