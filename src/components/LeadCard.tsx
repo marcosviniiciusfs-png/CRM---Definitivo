@@ -147,9 +147,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
                   <DropdownMenuItem 
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      console.log("Editar clicado");
+                    onSelect={() => {
                       setIsEditModalOpen(true);
                     }}
                   >
