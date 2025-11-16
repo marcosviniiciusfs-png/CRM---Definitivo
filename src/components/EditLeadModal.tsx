@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -44,6 +44,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -173,6 +175,53 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const handleCancelActivity = () => {
     setActivityContent("");
     setSelectedFile(null);
+    setEditingActivityId(null);
+    setEditingContent("");
+  };
+
+  const handleEditActivity = (activity: any) => {
+    setEditingActivityId(activity.id);
+    setEditingContent(activity.content);
+  };
+
+  const handleSaveEdit = async (activityId: string) => {
+    try {
+      const { error } = await supabase
+        .from("lead_activities")
+        .update({ content: editingContent })
+        .eq("id", activityId);
+
+      if (error) throw error;
+
+      setActivities(activities.map(act => 
+        act.id === activityId ? { ...act, content: editingContent } : act
+      ));
+      setEditingActivityId(null);
+      setEditingContent("");
+      toast.success("Atividade atualizada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao atualizar atividade:", error);
+      toast.error("Erro ao atualizar atividade");
+    }
+  };
+
+  const handleDeleteActivity = async (activityId: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta atividade?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("lead_activities")
+        .delete()
+        .eq("id", activityId);
+
+      if (error) throw error;
+
+      setActivities(activities.filter(act => act.id !== activityId));
+      toast.success("Atividade excluída com sucesso!");
+    } catch (error) {
+      console.error("Erro ao excluir atividade:", error);
+      toast.error("Erro ao excluir atividade");
+    }
   };
 
   const getActivityIcon = (type: string) => {
@@ -860,13 +909,59 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     {format(new Date(activity.created_at), "'Criada hoje' HH:mm", { locale: ptBR })}
                                   </span>
                                 </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleEditActivity(activity)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteActivity(activity.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                               
                               {/* Conteúdo/Mensagem */}
                               <div className="pl-11">
-                                <p className="text-sm text-foreground whitespace-pre-wrap">
-                                  {activity.content}
-                                </p>
+                                {editingActivityId === activity.id ? (
+                                  <div className="space-y-2">
+                                    <Textarea
+                                      value={editingContent}
+                                      onChange={(e) => setEditingContent(e.target.value)}
+                                      className="min-h-[100px]"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleSaveEdit(activity.id)}
+                                      >
+                                        Salvar
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingActivityId(null);
+                                          setEditingContent("");
+                                        }}
+                                      >
+                                        Cancelar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-foreground whitespace-pre-wrap">
+                                    {activity.content}
+                                  </p>
+                                )}
                               </div>
                               
                               {/* Anexos (se existirem) */}
