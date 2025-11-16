@@ -46,6 +46,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
+  const [editingFile, setEditingFile] = useState<File | null>(null);
+  const [editingKeepCurrentAttachment, setEditingKeepCurrentAttachment] = useState(true);
+  const [editingCurrentAttachment, setEditingCurrentAttachment] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -182,22 +185,58 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const handleEditActivity = (activity: any) => {
     setEditingActivityId(activity.id);
     setEditingContent(activity.content);
+    setEditingFile(null);
+    setEditingKeepCurrentAttachment(true);
+    if (activity.attachment_url && activity.attachment_name) {
+      setEditingCurrentAttachment({
+        url: activity.attachment_url,
+        name: activity.attachment_name
+      });
+    } else {
+      setEditingCurrentAttachment(null);
+    }
   };
 
   const handleSaveEdit = async (activityId: string) => {
     try {
+      const updateData: any = { content: editingContent };
+
+      // Se o usuário removeu o anexo atual e não adicionou novo
+      if (!editingKeepCurrentAttachment && !editingFile) {
+        updateData.attachment_url = null;
+        updateData.attachment_name = null;
+      }
+
+      // Se o usuário adicionou um novo anexo
+      if (editingFile) {
+        const fileExt = editingFile.name.split('.').pop();
+        const fileName = `${lead.id}/${Date.now()}.${fileExt}`;
+        
+        const { data, error: uploadError } = await supabase.storage
+          .from('activity-attachments')
+          .upload(fileName, editingFile);
+
+        if (uploadError) throw uploadError;
+
+        updateData.attachment_url = data.path;
+        updateData.attachment_name = editingFile.name;
+      }
+
       const { error } = await supabase
         .from("lead_activities")
-        .update({ content: editingContent })
+        .update(updateData)
         .eq("id", activityId);
 
       if (error) throw error;
 
       setActivities(activities.map(act => 
-        act.id === activityId ? { ...act, content: editingContent } : act
+        act.id === activityId ? { ...act, ...updateData } : act
       ));
       setEditingActivityId(null);
       setEditingContent("");
+      setEditingFile(null);
+      setEditingKeepCurrentAttachment(true);
+      setEditingCurrentAttachment(null);
       toast.success("Atividade atualizada com sucesso!");
     } catch (error) {
       console.error("Erro ao atualizar atividade:", error);
@@ -932,12 +971,75 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               {/* Conteúdo/Mensagem */}
                               <div className="pl-11">
                                 {editingActivityId === activity.id ? (
-                                  <div className="space-y-2">
+                                  <div className="space-y-3">
                                     <Textarea
                                       value={editingContent}
                                       onChange={(e) => setEditingContent(e.target.value)}
                                       className="min-h-[100px]"
                                     />
+                                    
+                                    {/* Gerenciamento de anexo durante edição */}
+                                    <div className="space-y-2">
+                                      {editingCurrentAttachment && editingKeepCurrentAttachment && !editingFile && (
+                                        <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-md">
+                                          <FileText className="h-4 w-4 text-muted-foreground" />
+                                          <span className="text-sm flex-1">{editingCurrentAttachment.name}</span>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => setEditingKeepCurrentAttachment(false)}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                      
+                                      {editingFile && (
+                                        <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-md">
+                                          <FileText className="h-4 w-4 text-muted-foreground" />
+                                          <span className="text-sm flex-1">{editingFile.name}</span>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => setEditingFile(null)}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                      
+                                      {!editingFile && (
+                                        <>
+                                          <input
+                                            type="file"
+                                            id={`edit-file-${activity.id}`}
+                                            className="hidden"
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0];
+                                              if (file) {
+                                                if (file.size > 10 * 1024 * 1024) {
+                                                  toast.error("Arquivo muito grande. Máximo 10MB");
+                                                  return;
+                                                }
+                                                setEditingFile(file);
+                                              }
+                                            }}
+                                          />
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-2"
+                                            onClick={() => document.getElementById(`edit-file-${activity.id}`)?.click()}
+                                          >
+                                            <Paperclip className="h-4 w-4" />
+                                            {editingCurrentAttachment && !editingKeepCurrentAttachment ? "Adicionar novo anexo" : "Alterar anexo"}
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+                                    
                                     <div className="flex items-center gap-2">
                                       <Button
                                         size="sm"
@@ -951,6 +1053,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                         onClick={() => {
                                           setEditingActivityId(null);
                                           setEditingContent("");
+                                          setEditingFile(null);
+                                          setEditingKeepCurrentAttachment(true);
+                                          setEditingCurrentAttachment(null);
                                         }}
                                       >
                                         Cancelar
