@@ -139,61 +139,64 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <FileText className="h-4 w-4" />
                     <span>Funil de Vendas</span>
                   </div>
-                  <div className="flex items-center w-full -space-x-3">
+                  <div className="flex items-center w-full">
                     {/* Contato - Primeira etapa */}
                     <div 
-                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'NOVO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
-                        clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%)'
+                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)',
+                        marginRight: '-1px'
                       }}
                     >
-                      <span className="relative z-10 pr-5 pl-4">Contato</span>
+                      <span className="relative z-10 pr-6 pl-4">Contato</span>
                     </div>
                     
-                    {/* Envio de proposta - Etapa intermediária */}
+                    {/* Envio de proposta */}
                     <div 
-                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'EM_ATENDIMENTO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
-                        clipPath: 'polygon(20px 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 20px 100%, 0 50%)'
+                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)',
+                        marginRight: '-1px'
                       }}
                     >
-                      <span className="relative z-10 px-2">Envio de proposta</span>
+                      <span className="relative z-10 px-1">Envio de proposta</span>
                     </div>
                     
-                    {/* Follow-up - Etapa intermediária */}
+                    {/* Follow-up */}
                     <div 
-                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FOLLOW_UP' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
-                        clipPath: 'polygon(20px 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 20px 100%, 0 50%)'
+                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)',
+                        marginRight: '-1px'
                       }}
                     >
-                      <span className="relative z-10 px-2">Follow-up</span>
+                      <span className="relative z-10 px-1">Follow-up</span>
                     </div>
                     
                     {/* Fechamento - Última etapa */}
                     <div 
-                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FECHADO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
-                        clipPath: 'polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0 50%)'
+                        clipPath: 'polygon(24px 0, 100% 0, 100% 100%, 24px 100%, 0 50%)'
                       }}
                     >
-                      <span className="relative z-10 pl-5 pr-4">Fechamento</span>
+                      <span className="relative z-10 pl-6 pr-4">Fechamento</span>
                     </div>
                   </div>
                 </div>
