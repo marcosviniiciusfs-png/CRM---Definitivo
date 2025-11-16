@@ -1221,13 +1221,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <span className="font-medium">{responsavel}</span>
                       <Popover open={editingResponsavel} onOpenChange={setEditingResponsavel}>
                         <PopoverTrigger asChild>
-                          <button
-                            className="inline-flex items-center justify-center h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:opacity-100"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-accent/50"
                             type="button"
-                            onClick={() => setEditingResponsavel(true)}
                           >
-                            <Pencil className="h-3.5 w-3.5 text-primary cursor-pointer" />
-                          </button>
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80 p-3" align="end">
                           <div className="space-y-3">
@@ -1304,13 +1305,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </span>
                       <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio}>
                         <PopoverTrigger asChild>
-                          <button
-                            className="inline-flex items-center justify-center h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:opacity-100"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-accent/50"
                             type="button"
-                            onClick={() => setEditingDataInicio(true)}
                           >
-                            <Pencil className="h-3.5 w-3.5 text-primary cursor-pointer" />
-                          </button>
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                           <div className="p-3">
@@ -1383,13 +1385,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </span>
                       <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao}>
                         <PopoverTrigger asChild>
-                          <button
-                            className="inline-flex items-center justify-center h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:opacity-100"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-accent/50"
                             type="button"
-                            onClick={() => setEditingDataConclusao(true)}
                           >
-                            <Pencil className="h-3.5 w-3.5 text-primary cursor-pointer" />
-                          </button>
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                           <div className="p-3">
@@ -1462,13 +1465,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </span>
                       <Popover open={editingDescricao} onOpenChange={setEditingDescricao}>
                         <PopoverTrigger asChild>
-                          <button
-                            className="inline-flex items-center justify-center h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:opacity-100"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-accent/50"
                             type="button"
-                            onClick={() => setEditingDescricao(true)}
                           >
-                            <Pencil className="h-3.5 w-3.5 text-primary cursor-pointer" />
-                          </button>
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80" align="end">
                           <div className="space-y-3">
