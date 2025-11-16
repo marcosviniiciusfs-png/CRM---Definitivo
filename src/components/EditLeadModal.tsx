@@ -1302,7 +1302,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           {responsavel?.charAt(0)?.toUpperCase() || '?'}
                         </span>
                       </div>
-                      <span className="font-medium">{responsavel || 'Não definido'}</span>
+                      <span className="font-medium" title={responsavel || 'Não definido'}>
+                        {responsavel 
+                          ? responsavel.length > 8 
+                            ? `${responsavel.substring(0, 8)}...` 
+                            : responsavel
+                          : 'Não definido'
+                        }
+                      </span>
                       <Popover 
                         open={editingResponsavel} 
                         onOpenChange={(open) => {
