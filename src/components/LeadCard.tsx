@@ -45,7 +45,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-visible relative group"
+      className="cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-hidden relative group"
     >
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
@@ -86,9 +86,9 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
         </div>
       </div>
 
-      {/* Faixa azul lateral com ícone de olho - desliza da direita no hover */}
+      {/* Faixa azul lateral com ícone de olho - cresce de dentro do card no hover */}
       <div 
-        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer opacity-0 translate-x-full group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ease-out z-20"
+        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer origin-right scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out z-20"
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
