@@ -89,6 +89,9 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          data_conclusao: string | null
+          data_inicio: string | null
+          descricao_negocio: string | null
           email: string | null
           empresa: string | null
           id: string
@@ -96,6 +99,7 @@ export type Database = {
           nome_lead: string
           organization_id: string | null
           position: number | null
+          responsavel: string | null
           source: string | null
           stage: string | null
           telefone_lead: string
@@ -105,6 +109,9 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          descricao_negocio?: string | null
           email?: string | null
           empresa?: string | null
           id?: string
@@ -112,6 +119,7 @@ export type Database = {
           nome_lead: string
           organization_id?: string | null
           position?: number | null
+          responsavel?: string | null
           source?: string | null
           stage?: string | null
           telefone_lead: string
@@ -121,6 +129,9 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          descricao_negocio?: string | null
           email?: string | null
           empresa?: string | null
           id?: string
@@ -128,6 +139,7 @@ export type Database = {
           nome_lead?: string
           organization_id?: string | null
           position?: number | null
+          responsavel?: string | null
           source?: string | null
           stage?: string | null
           telefone_lead?: string

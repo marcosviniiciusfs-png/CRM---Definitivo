@@ -74,9 +74,56 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     if (open) {
       fetchActivities();
       fetchColaboradores();
-      setCurrentUserAsResponsavel();
+      loadDadosNegocio();
     }
   }, [open]);
+
+  const loadDadosNegocio = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('responsavel, data_inicio, data_conclusao, descricao_negocio')
+        .eq('id', lead.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setResponsavel(data.responsavel || '');
+        setDataInicio(data.data_inicio ? new Date(data.data_inicio) : new Date());
+        setDataConclusao(data.data_conclusao ? new Date(data.data_conclusao) : undefined);
+        setDescricao(data.descricao_negocio || '');
+      } else {
+        // Se não tem dados, definir usuário atual como responsável
+        setCurrentUserAsResponsavel();
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do negócio:', error);
+      setCurrentUserAsResponsavel();
+    }
+  };
+
+  const saveDadosNegocio = async () => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          responsavel: responsavel,
+          data_inicio: dataInicio?.toISOString(),
+          data_conclusao: dataConclusao?.toISOString() || null,
+          descricao_negocio: descricao
+        })
+        .eq('id', lead.id);
+
+      if (error) throw error;
+
+      toast.success('Dados do negócio salvos com sucesso!');
+      onUpdate();
+    } catch (error) {
+      console.error('Erro ao salvar dados do negócio:', error);
+      toast.error('Erro ao salvar dados do negócio');
+    }
+  };
 
   const setCurrentUserAsResponsavel = async () => {
     try {
@@ -1357,9 +1404,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 <Button
                                   size="icon"
                                   className="h-8 w-8"
-                                  onClick={() => {
+                                  onClick={async () => {
+                                    await saveDadosNegocio();
                                     setEditingResponsavel(false);
-                                    toast.success("Responsável confirmado");
                                   }}
                                 >
                                   <Check className="h-4 w-4" />
@@ -1380,11 +1427,26 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                         key={colab.id}
                                         type="button"
                                         className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
-                                        onClick={() => {
+                                        onClick={async () => {
                                           console.log("Colaborador selecionado:", displayName);
                                           setResponsavel(displayName || '');
-                                          setEditingResponsavel(false);
-                                          toast.success(`Responsável alterado para ${displayName}`);
+                                          
+                                          // Salvar imediatamente
+                                          try {
+                                            const { error } = await supabase
+                                              .from('leads')
+                                              .update({ responsavel: displayName || '' })
+                                              .eq('id', lead.id);
+
+                                            if (error) throw error;
+
+                                            setEditingResponsavel(false);
+                                            toast.success(`Responsável alterado para ${displayName}`);
+                                            onUpdate();
+                                          } catch (error) {
+                                            console.error('Erro ao salvar responsável:', error);
+                                            toast.error('Erro ao salvar responsável');
+                                          }
                                         }}
                                       >
                                         <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -1432,10 +1494,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <Calendar
                               mode="single"
                               selected={dataInicio}
-                              onSelect={(date) => {
+                              onSelect={async (date) => {
                                 setDataInicio(date);
-                                setEditingDataInicio(false);
-                                toast.success("Data de início atualizada");
+                                
+                                // Salvar imediatamente
+                                try {
+                                  const { error } = await supabase
+                                    .from('leads')
+                                    .update({ data_inicio: date?.toISOString() })
+                                    .eq('id', lead.id);
+
+                                  if (error) throw error;
+
+                                  setEditingDataInicio(false);
+                                  toast.success("Data de início atualizada");
+                                  onUpdate();
+                                } catch (error) {
+                                  console.error('Erro ao salvar data de início:', error);
+                                  toast.error('Erro ao salvar data');
+                                }
                               }}
                               initialFocus
                               className={cn("p-3 pointer-events-auto")}
@@ -1446,10 +1523,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 variant="outline"
                                 size="sm"
                                 className="flex-1"
-                                onClick={() => {
-                                  setDataInicio(new Date());
-                                  setEditingDataInicio(false);
-                                  toast.success("Data definida para hoje");
+                                onClick={async () => {
+                                  const today = new Date();
+                                  setDataInicio(today);
+                                  
+                                  try {
+                                    const { error } = await supabase
+                                      .from('leads')
+                                      .update({ data_inicio: today.toISOString() })
+                                      .eq('id', lead.id);
+
+                                    if (error) throw error;
+
+                                    setEditingDataInicio(false);
+                                    toast.success("Data definida para hoje");
+                                    onUpdate();
+                                  } catch (error) {
+                                    console.error('Erro ao salvar data:', error);
+                                    toast.error('Erro ao salvar data');
+                                  }
                                 }}
                               >
                                 Hoje
@@ -1512,10 +1604,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <Calendar
                               mode="single"
                               selected={dataConclusao}
-                              onSelect={(date) => {
+                              onSelect={async (date) => {
                                 setDataConclusao(date);
-                                setEditingDataConclusao(false);
-                                toast.success("Data de conclusão atualizada");
+                                
+                                // Salvar imediatamente
+                                try {
+                                  const { error } = await supabase
+                                    .from('leads')
+                                    .update({ data_conclusao: date?.toISOString() || null })
+                                    .eq('id', lead.id);
+
+                                  if (error) throw error;
+
+                                  setEditingDataConclusao(false);
+                                  toast.success("Data de conclusão atualizada");
+                                  onUpdate();
+                                } catch (error) {
+                                  console.error('Erro ao salvar data de conclusão:', error);
+                                  toast.error('Erro ao salvar data');
+                                }
                               }}
                               initialFocus
                               className={cn("p-3 pointer-events-auto")}
@@ -1526,10 +1633,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 variant="outline"
                                 size="sm"
                                 className="flex-1"
-                                onClick={() => {
-                                  setDataConclusao(new Date());
-                                  setEditingDataConclusao(false);
-                                  toast.success("Data definida para hoje");
+                                onClick={async () => {
+                                  const today = new Date();
+                                  setDataConclusao(today);
+                                  
+                                  try {
+                                    const { error } = await supabase
+                                      .from('leads')
+                                      .update({ data_conclusao: today.toISOString() })
+                                      .eq('id', lead.id);
+
+                                    if (error) throw error;
+
+                                    setEditingDataConclusao(false);
+                                    toast.success("Data definida para hoje");
+                                    onUpdate();
+                                  } catch (error) {
+                                    console.error('Erro ao salvar data:', error);
+                                    toast.error('Erro ao salvar data');
+                                  }
                                 }}
                               >
                                 Hoje
@@ -1617,9 +1739,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               </Button>
                               <Button
                                 size="sm"
-                                onClick={() => {
+                                onClick={async () => {
+                                  await saveDadosNegocio();
                                   setEditingDescricao(false);
-                                  toast.success("Descrição salva");
                                 }}
                               >
                                 <Check className="h-4 w-4" />
