@@ -63,7 +63,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [dataConclusao, setDataConclusao] = useState<Date | undefined>(undefined);
   const [descricao, setDescricao] = useState("");
   const [responsavel, setResponsavel] = useState("");
-  const [colaboradores, setColaboradores] = useState<Array<{ id: string; email: string; user_id: string | null }>>([]);
+  const [colaboradores, setColaboradores] = useState<Array<{ 
+    id: string; 
+    email: string; 
+    user_id: string | null;
+    full_name?: string;
+  }>>([]);
 
   useEffect(() => {
     if (open) {
@@ -76,8 +81,16 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const setCurrentUserAsResponsavel = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setResponsavel(user.email);
+      if (user?.id) {
+        // Buscar perfil do usuário
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .single();
+        
+        // Usar nome do perfil se disponível, senão usar email
+        setResponsavel(profile?.full_name || user.email || '');
       }
     } catch (error) {
       console.error("Erro ao obter usuário atual:", error);
@@ -105,8 +118,37 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
       
-      console.log("Colaboradores carregados:", data);
-      setColaboradores(data || []);
+      // Buscar perfis dos colaboradores
+      if (data && data.length > 0) {
+        const userIds = data.filter(m => m.user_id).map(m => m.user_id);
+        
+        let profilesMap: { [key: string]: { full_name: string | null } } = {};
+        
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', userIds);
+          
+          if (profiles) {
+            profilesMap = profiles.reduce((acc, profile) => {
+              acc[profile.user_id] = { full_name: profile.full_name };
+              return acc;
+            }, {} as { [key: string]: { full_name: string | null } });
+          }
+        }
+        
+        // Adicionar full_name aos colaboradores
+        const colabsWithNames = data.map(colab => ({
+          ...colab,
+          full_name: colab.user_id && profilesMap[colab.user_id]
+            ? profilesMap[colab.user_id].full_name
+            : null
+        }));
+        
+        console.log("Colaboradores carregados:", colabsWithNames);
+        setColaboradores(colabsWithNames);
+      }
     } catch (error) {
       console.error("Erro ao carregar colaboradores:", error);
     }
@@ -1257,7 +1299,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-xs font-medium text-primary">
-                          {responsavel?.split('@')[0]?.charAt(0)?.toUpperCase() || '?'}
+                          {responsavel?.charAt(0)?.toUpperCase() || '?'}
                         </span>
                       </div>
                       <span className="font-medium">{responsavel || 'Não definido'}</span>
@@ -1292,7 +1334,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
                               <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
                                 <span className="text-sm font-semibold text-primary-foreground">
-                                  {responsavel?.split('@')[0]?.charAt(0)?.toUpperCase() || '?'}
+                                  {responsavel?.charAt(0)?.toUpperCase() || '?'}
                                 </span>
                               </div>
                               <span className="text-sm font-medium flex-1">{responsavel || 'Não definido'}</span>
@@ -1323,27 +1365,30 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               <div className="text-xs font-medium text-muted-foreground mb-2">Trocar responsável</div>
                               <div className="space-y-1 max-h-48 overflow-y-auto">
                                 {colaboradores
-                                  .filter(colab => colab.email !== responsavel)
-                                  .map((colab) => (
-                                    <button
-                                      key={colab.id}
-                                      type="button"
-                                      className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
-                                      onClick={() => {
-                                        console.log("Colaborador selecionado:", colab.email);
-                                        setResponsavel(colab.email || '');
-                                        setEditingResponsavel(false);
-                                        toast.success(`Responsável alterado para ${colab.email}`);
-                                      }}
-                                    >
-                                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                        <span className="text-xs font-medium text-primary">
-                                          {colab.email?.split('@')[0].charAt(0).toUpperCase()}
-                                        </span>
-                                      </div>
-                                      <span className="text-sm">{colab.email}</span>
-                                    </button>
-                                  ))}
+                                  .filter(colab => (colab.full_name || colab.email) !== responsavel)
+                                  .map((colab) => {
+                                    const displayName = colab.full_name || colab.email;
+                                    return (
+                                      <button
+                                        key={colab.id}
+                                        type="button"
+                                        className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
+                                        onClick={() => {
+                                          console.log("Colaborador selecionado:", displayName);
+                                          setResponsavel(displayName || '');
+                                          setEditingResponsavel(false);
+                                          toast.success(`Responsável alterado para ${displayName}`);
+                                        }}
+                                      >
+                                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                          <span className="text-xs font-medium text-primary">
+                                            {displayName?.charAt(0).toUpperCase()}
+                                          </span>
+                                        </div>
+                                        <span className="text-sm">{displayName}</span>
+                                      </button>
+                                    );
+                                  })}
                                 {colaboradores.length === 0 && (
                                   <div className="text-sm text-muted-foreground text-center py-4">
                                     Nenhum colaborador encontrado
