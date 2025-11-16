@@ -86,9 +86,9 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
         </div>
       </div>
 
-      {/* Faixa azul lateral com ícone de olho - FADE OUT na saída */}
+      {/* Faixa azul lateral com ícone de olho - desliza da direita na entrada */}
       <div 
-        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer z-20 origin-right scale-x-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out"
+        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
