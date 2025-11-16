@@ -287,6 +287,7 @@ const Pipeline = () => {
                 leads={stageLeads}
                 isEmpty={stageLeads.length === 0}
                 onLeadUpdate={loadLeads}
+                onEdit={setEditingLead}
               />
             );
           })}
