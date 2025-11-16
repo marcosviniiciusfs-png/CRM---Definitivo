@@ -12,11 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface EditLeadModalProps {
@@ -35,6 +35,91 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editedEmpresa, setEditedEmpresa] = useState(lead.empresa || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingStage, setIsUpdatingStage] = useState(false);
+  const [activityContent, setActivityContent] = useState("");
+  const [activities, setActivities] = useState<any[]>([]);
+  const [currentTab, setCurrentTab] = useState("nota");
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      fetchActivities();
+    }
+  }, [open]);
+
+  const fetchActivities = async () => {
+    setIsLoadingActivities(true);
+    try {
+      const { data, error } = await supabase
+        .from("lead_activities")
+        .select("*")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setActivities(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar atividades:", error);
+    } finally {
+      setIsLoadingActivities(false);
+    }
+  };
+
+  const handleSaveActivity = async () => {
+    if (!activityContent.trim()) {
+      toast.error("O conteúdo da atividade não pode estar vazio");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const activityTypeMap: Record<string, string> = {
+        nota: "Nota",
+        email: "E-mail",
+        ligacao: "Ligação",
+        whatsapp: "WhatsApp",
+        proposta: "Proposta",
+        reuniao: "Reunião",
+        visita: "Visita"
+      };
+
+      const { error } = await supabase
+        .from("lead_activities")
+        .insert({
+          lead_id: lead.id,
+          user_id: user.id,
+          activity_type: activityTypeMap[currentTab],
+          content: activityContent.trim()
+        });
+
+      if (error) throw error;
+
+      toast.success("Atividade salva com sucesso!");
+      setActivityContent("");
+      await fetchActivities();
+    } catch (error) {
+      console.error("Erro ao salvar atividade:", error);
+      toast.error("Erro ao salvar atividade");
+    }
+  };
+
+  const handleCancelActivity = () => {
+    setActivityContent("");
+  };
+
+  const getActivityIcon = (type: string) => {
+    const icons: Record<string, any> = {
+      "Nota": Pencil,
+      "E-mail": Mail,
+      "Ligação": Phone,
+      "WhatsApp": MessageSquare,
+      "Proposta": FileText,
+      "Reunião": Video,
+      "Visita": MapPin
+    };
+    return icons[type] || Pencil;
+  };
 
   const handleStageClick = async (newStage: string) => {
     if (newStage === editedStage || isUpdatingStage) return;
@@ -230,7 +315,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                 <Separator />
 
                 {/* Tabs de Ações */}
-                <Tabs defaultValue="nota" className="w-full">
+                <Tabs defaultValue="nota" className="w-full" onValueChange={setCurrentTab}>
                   <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0">
                     <TabsTrigger value="nota" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
                       <Pencil className="h-4 w-4" />
@@ -263,52 +348,162 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   </TabsList>
 
                   <div className="mt-4">
-                    <TabsContent value="nota" className="mt-0">
+                    <TabsContent value="nota" className="mt-0 space-y-3">
                       <Textarea
                         placeholder="O que foi feito e qual o próximo passo?"
                         className="min-h-[120px] resize-none"
+                        value={currentTab === "nota" ? activityContent : ""}
+                        onChange={(e) => currentTab === "nota" && setActivityContent(e.target.value)}
                       />
-                      <div className="flex justify-end mt-3">
-                        <Button variant="link" size="sm" className="text-primary">
-                          + Modelos
+                      <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          Adicionar anexo
                         </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="link" size="sm" className="text-muted-foreground">
+                            + Modelos
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
+                            Salvar nota
+                          </Button>
+                        </div>
                       </div>
                     </TabsContent>
-                    <TabsContent value="email" className="mt-0">
+                    <TabsContent value="email" className="mt-0 space-y-3">
                       <Textarea
                         placeholder="Escreva seu e-mail..."
                         className="min-h-[120px] resize-none"
+                        value={currentTab === "email" ? activityContent : ""}
+                        onChange={(e) => currentTab === "email" && setActivityContent(e.target.value)}
                       />
+                      <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          Adicionar anexo
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
+                            Salvar e-mail
+                          </Button>
+                        </div>
+                      </div>
                     </TabsContent>
-                    <TabsContent value="ligacao" className="mt-0">
+                    <TabsContent value="ligacao" className="mt-0 space-y-3">
                       <Textarea
                         placeholder="Notas sobre a ligação..."
                         className="min-h-[120px] resize-none"
+                        value={currentTab === "ligacao" ? activityContent : ""}
+                        onChange={(e) => currentTab === "ligacao" && setActivityContent(e.target.value)}
                       />
+                      <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          Adicionar anexo
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
+                            Salvar ligação
+                          </Button>
+                        </div>
+                      </div>
                     </TabsContent>
-                    <TabsContent value="whatsapp" className="mt-0">
+                    <TabsContent value="whatsapp" className="mt-0 space-y-3">
                       <Textarea
                         placeholder="Escreva sua mensagem..."
                         className="min-h-[120px] resize-none"
+                        value={currentTab === "whatsapp" ? activityContent : ""}
+                        onChange={(e) => currentTab === "whatsapp" && setActivityContent(e.target.value)}
                       />
+                      <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          Adicionar anexo
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
+                            Salvar WhatsApp
+                          </Button>
+                        </div>
+                      </div>
                     </TabsContent>
-                    <TabsContent value="proposta" className="mt-0">
+                    <TabsContent value="proposta" className="mt-0 space-y-3">
                       <Textarea
                         placeholder="Detalhes da proposta..."
                         className="min-h-[120px] resize-none"
+                        value={currentTab === "proposta" ? activityContent : ""}
+                        onChange={(e) => currentTab === "proposta" && setActivityContent(e.target.value)}
                       />
+                      <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          Adicionar anexo
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
+                            Salvar proposta
+                          </Button>
+                        </div>
+                      </div>
                     </TabsContent>
-                    <TabsContent value="reuniao" className="mt-0">
+                    <TabsContent value="reuniao" className="mt-0 space-y-3">
                       <Textarea
                         placeholder="Notas sobre a reunião..."
                         className="min-h-[120px] resize-none"
+                        value={currentTab === "reuniao" ? activityContent : ""}
+                        onChange={(e) => currentTab === "reuniao" && setActivityContent(e.target.value)}
                       />
+                      <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          Adicionar anexo
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
+                            Salvar reunião
+                          </Button>
+                        </div>
+                      </div>
                     </TabsContent>
-                    <TabsContent value="visita" className="mt-0">
+                    <TabsContent value="visita" className="mt-0 space-y-3">
                       <Textarea
                         placeholder="Notas sobre a visita..."
                         className="min-h-[120px] resize-none"
+                        value={currentTab === "visita" ? activityContent : ""}
+                        onChange={(e) => currentTab === "visita" && setActivityContent(e.target.value)}
                       />
+                      <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          Adicionar anexo
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
+                            Salvar visita
+                          </Button>
+                        </div>
+                      </div>
                     </TabsContent>
                   </div>
                 </Tabs>
@@ -318,14 +513,52 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                 {/* Histórico de atividades */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-base">Histórico de atividades</h3>
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="text-muted-foreground text-sm">
-                      Nenhuma atividade registrada
+                  {isLoadingActivities ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-muted-foreground text-sm">Carregando...</div>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Que tal agendar uma ligação para evoluir este negócio?
-                    </p>
-                  </div>
+                  ) : activities.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="text-muted-foreground text-sm">
+                        Nenhuma atividade registrada
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Que tal agendar uma ligação para evoluir este negócio?
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.map((activity) => {
+                        const Icon = getActivityIcon(activity.activity_type);
+                        return (
+                          <Card key={activity.id} className="p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Icon className="h-4 w-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <h4 className="font-semibold text-sm">{activity.activity_type}</h4>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(activity.created_at).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR') 
+                                      ? `Criada hoje ${new Date(activity.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                                      : `Criada ${new Date(activity.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-foreground whitespace-pre-wrap">{activity.content}</p>
+                                {activity.attachment_name && (
+                                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Paperclip className="h-3 w-3" />
+                                    <span>{activity.attachment_name}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </ScrollArea>
