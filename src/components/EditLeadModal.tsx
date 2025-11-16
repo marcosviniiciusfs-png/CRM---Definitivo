@@ -140,44 +140,60 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <span>Funil de Vendas</span>
                   </div>
                   <div className="flex items-center w-full -space-x-3">
-                    {/* Contato - Primeira etapa (sem recuo esquerdo) */}
+                    {/* Contato - Primeira etapa */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/50 cursor-pointer"
+                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                        editedStage === 'NOVO' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
                       style={{
-                        clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 0 0)'
+                        clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%)'
                       }}
                     >
-                      <span className="relative z-10 pr-4 pl-3">Contato</span>
+                      <span className="relative z-10 pr-5 pl-4">Contato</span>
                     </div>
                     
-                    {/* Envio de proposta - Etapa ativa (com recuo esquerdo e ponta direita) */}
+                    {/* Envio de proposta - Etapa intermediária */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-primary-foreground font-semibold bg-primary transition-all duration-200 hover:brightness-110 cursor-pointer"
+                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                        editedStage === 'EM_ATENDIMENTO' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
                       style={{
-                        clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 16px 100%, 0 50%)'
+                        clipPath: 'polygon(20px 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 20px 100%, 0 50%)'
                       }}
                     >
                       <span className="relative z-10 px-2">Envio de proposta</span>
                     </div>
                     
-                    {/* Follow-up - Etapa intermediária (com recuo esquerdo e ponta direita) */}
+                    {/* Follow-up - Etapa intermediária */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/50 cursor-pointer"
+                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                        editedStage === 'FOLLOW_UP' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
                       style={{
-                        clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 16px 100%, 0 50%)'
+                        clipPath: 'polygon(20px 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 20px 100%, 0 50%)'
                       }}
                     >
                       <span className="relative z-10 px-2">Follow-up</span>
                     </div>
                     
-                    {/* Fechamento - Última etapa (com recuo esquerdo, sem ponta direita) */}
+                    {/* Fechamento - Última etapa */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/50 cursor-pointer"
+                      className={`flex-1 relative h-11 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                        editedStage === 'FECHADO' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
                       style={{
-                        clipPath: 'polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 0 50%)'
+                        clipPath: 'polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0 50%)'
                       }}
                     >
-                      <span className="relative z-10 pl-4 pr-3">Fechamento</span>
+                      <span className="relative z-10 pl-5 pr-4">Fechamento</span>
                     </div>
                   </div>
                 </div>
