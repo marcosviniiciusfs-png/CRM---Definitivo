@@ -1229,28 +1229,66 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <Pencil className="h-3.5 w-3.5 text-primary cursor-pointer" />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-64 p-2" align="end">
-                          <div className="space-y-1">
-                            {["Brito", "Ana Silva", "Carlos Santos", "Maria Oliveira"].map((name) => (
-                              <button
-                                key={name}
-                                type="button"
-                                className="w-full flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer"
-                                onClick={() => {
-                                  setResponsavel(name);
-                                  setEditingResponsavel(false);
-                                  toast.success("Responsável atualizado");
-                                }}
-                              >
-                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <span className="text-xs font-medium text-primary">
-                                    {name.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <span className="text-sm">{name}</span>
-                                {name === responsavel && <Check className="h-4 w-4 ml-auto text-primary" />}
-                              </button>
-                            ))}
+                        <PopoverContent className="w-80 p-3" align="end">
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium text-foreground">Responsável</div>
+                            
+                            {/* Colaborador selecionado */}
+                            <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
+                              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                <span className="text-sm font-semibold text-primary-foreground">
+                                  {responsavel.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </span>
+                              </div>
+                              <span className="text-sm font-medium flex-1">Eu ({responsavel})</span>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => setEditingResponsavel(false)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    setEditingResponsavel(false);
+                                    toast.success("Responsável confirmado");
+                                  }}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Lista de outros colaboradores */}
+                            <div className="border-t pt-3">
+                              <div className="text-xs font-medium text-muted-foreground mb-2">Trocar responsável</div>
+                              <div className="space-y-1 max-h-48 overflow-y-auto">
+                                {["Brito", "Ana Silva", "Carlos Santos", "Maria Oliveira"]
+                                  .filter(name => name !== responsavel)
+                                  .map((name) => (
+                                    <button
+                                      key={name}
+                                      type="button"
+                                      className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        setResponsavel(name);
+                                        toast.success(`Responsável alterado para ${name}`);
+                                      }}
+                                    >
+                                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <span className="text-xs font-medium text-primary">
+                                          {name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                        </span>
+                                      </div>
+                                      <span className="text-sm">{name}</span>
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
                           </div>
                         </PopoverContent>
                       </Popover>
