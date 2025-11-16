@@ -882,7 +882,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       {activities.map((activity) => {
                         const Icon = getActivityIcon(activity.activity_type);
                         return (
-                          <Card key={activity.id} className="overflow-hidden">
+                          <Card key={activity.id} className="overflow-hidden group">
                             {/* Cabeçalho com informações do lead */}
                             <div className="bg-muted/30 px-4 py-2 flex items-center gap-2 border-b">
                               <User className="h-4 w-4 text-muted-foreground" />
@@ -909,22 +909,22 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     {format(new Date(activity.created_at), "'Criada hoje' HH:mm", { locale: ptBR })}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8"
+                                    className="h-7 w-7 hover:bg-muted/50"
                                     onClick={() => handleEditActivity(activity)}
                                   >
-                                    <Pencil className="h-4 w-4" />
+                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                    className="h-7 w-7 hover:bg-destructive/10"
                                     onClick={() => handleDeleteActivity(activity.id)}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                                   </Button>
                                 </div>
                               </div>
