@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, MoreVertical, Eye } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -61,7 +61,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
-                    <MoreVertical className="h-3 w-3 text-muted-foreground" />
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
