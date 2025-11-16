@@ -1267,6 +1267,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           console.log("🔥 Popover onOpenChange:", open);
                           setEditingResponsavel(open);
                         }}
+                        modal={false}
                       >
                         <PopoverTrigger asChild>
                           <Button
@@ -1283,7 +1284,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <Pencil className="h-3.5 w-3.5 text-primary" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 p-3" align="end">
+                        <PopoverContent className="w-80 p-3 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
                           <div className="space-y-3">
                             <div className="text-sm font-medium text-foreground">Responsável</div>
                             
@@ -1363,7 +1364,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <span className="font-medium">
                         {dataInicio ? format(dataInicio, "dd/MM/yyyy", { locale: ptBR }) : "Hoje"}
                       </span>
-                      <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio}>
+                      <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio} modal={false}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="ghost"
@@ -1374,7 +1375,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <Pencil className="h-3.5 w-3.5 text-primary" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
+                        <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
                           <div className="p-3">
                             <Calendar
                               mode="single"
@@ -1443,7 +1444,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <span className={cn("font-medium", !dataConclusao && "text-muted-foreground")}>
                         {dataConclusao ? format(dataConclusao, "dd/MM/yyyy", { locale: ptBR }) : "Adicionar"}
                       </span>
-                      <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao}>
+                      <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao} modal={false}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="ghost"
@@ -1454,7 +1455,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <Pencil className="h-3.5 w-3.5 text-primary" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
+                        <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
                           <div className="p-3">
                             <Calendar
                               mode="single"
@@ -1523,7 +1524,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <span className={cn("font-medium", !descricao && "text-muted-foreground")}>
                         {descricao || "Adicionar descrição"}
                       </span>
-                      <Popover open={editingDescricao} onOpenChange={setEditingDescricao}>
+                      <Popover open={editingDescricao} onOpenChange={setEditingDescricao} modal={false}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="ghost"
@@ -1534,7 +1535,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <Pencil className="h-3.5 w-3.5 text-primary" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80" align="end">
+                        <PopoverContent className="w-80 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
                           <div className="space-y-3">
                             <Label htmlFor="descricao">Descrição</Label>
                             <Textarea
