@@ -34,6 +34,31 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editedStage, setEditedStage] = useState(lead.stage || "NOVO");
   const [editedEmpresa, setEditedEmpresa] = useState(lead.empresa || "");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingStage, setIsUpdatingStage] = useState(false);
+
+  const handleStageClick = async (newStage: string) => {
+    if (newStage === editedStage || isUpdatingStage) return;
+    
+    setIsUpdatingStage(true);
+    
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ stage: newStage })
+        .eq("id", lead.id);
+
+      if (error) throw error;
+
+      setEditedStage(newStage);
+      toast.success(`Lead movido para ${getStageLabel(newStage)}`);
+      onUpdate();
+    } catch (error) {
+      console.error("Erro ao atualizar etapa:", error);
+      toast.error("Erro ao atualizar etapa do lead");
+    } finally {
+      setIsUpdatingStage(false);
+    }
+  };
 
   const handleSaveChanges = async () => {
     if (!editedName.trim()) {
@@ -142,11 +167,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   <div className="flex items-center w-full gap-[2px]">
                     {/* Contato - Primeira etapa (esquerda reta, direita com ponta) */}
                     <div 
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      onClick={() => handleStageClick('NOVO')}
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
                         editedStage === 'NOVO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
-                      }`}
+                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
+                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
                       style={{
                         clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)'
                       }}
@@ -156,11 +182,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     
                     {/* Envio de proposta - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
                     <div 
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      onClick={() => handleStageClick('EM_ATENDIMENTO')}
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
                         editedStage === 'EM_ATENDIMENTO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
-                      }`}
+                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
+                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
                       style={{
                         clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
                       }}
@@ -170,11 +197,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     
                     {/* Follow-up - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
                     <div 
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      onClick={() => handleStageClick('FOLLOW_UP')}
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
                         editedStage === 'FOLLOW_UP' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
-                      }`}
+                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
+                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
                       style={{
                         clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
                       }}
@@ -184,11 +212,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     
                     {/* Fechamento - Última etapa (esquerda com reentrância para dentro, direita reta) */}
                     <div 
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      onClick={() => handleStageClick('FECHADO')}
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
                         editedStage === 'FECHADO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
-                      }`}
+                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
+                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
                       style={{
                         clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 24px 50%)'
                       }}
