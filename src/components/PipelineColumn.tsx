@@ -12,9 +12,10 @@ interface PipelineColumnProps {
   color: string;
   leads: Lead[];
   isEmpty?: boolean;
+  onLeadUpdate?: () => void;
 }
 
-export const PipelineColumn = ({ id, title, count, color, leads, isEmpty }: PipelineColumnProps) => {
+export const PipelineColumn = ({ id, title, count, color, leads, isEmpty, onLeadUpdate }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
   });
@@ -51,6 +52,9 @@ export const PipelineColumn = ({ id, title, count, color, leads, isEmpty }: Pipe
                 phone={lead.telefone_lead}
                 date={new Date(lead.created_at).toLocaleString("pt-BR")}
                 avatarUrl={lead.avatar_url}
+                stage={lead.stage}
+                value={lead.valor}
+                onUpdate={onLeadUpdate}
               />
             ))
           )}
