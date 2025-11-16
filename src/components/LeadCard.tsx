@@ -8,8 +8,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useState } from "react";
 
 interface LeadCardProps {
   id: string;
@@ -20,6 +38,12 @@ interface LeadCardProps {
 }
 
 export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) => {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editedName, setEditedName] = useState(name);
+  const [editedPhone, setEditedPhone] = useState(phone);
+  const [editedValue, setEditedValue] = useState("");
+  const [editedStage, setEditedStage] = useState("");
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
   });
@@ -39,7 +63,20 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       .slice(0, 2);
   };
 
+  const handleSaveChanges = () => {
+    // TODO: Implementar lógica de atualização do lead
+    console.log("Salvando alterações:", {
+      id,
+      name: editedName,
+      phone: editedPhone,
+      value: editedValue,
+      stage: editedStage,
+    });
+    setIsEditModalOpen(false);
+  };
+
   return (
+    <>
     <Card
       ref={setNodeRef}
       style={style}
@@ -65,8 +102,10 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
+                  <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
+                    Editar
+                  </DropdownMenuItem>
                   <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                  <DropdownMenuItem>Editar</DropdownMenuItem>
                   <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -97,5 +136,78 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
         <Eye className="h-4 w-4 text-white" />
       </div>
     </Card>
+
+    {/* Modal de Edição de Lead */}
+    <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Editar Lead: {name}</DialogTitle>
+          <DialogDescription>
+            Atualize as informações do lead abaixo.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Nome</Label>
+            <Input
+              id="name"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              placeholder="Nome completo"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="phone">Telefone</Label>
+            <Input
+              id="phone"
+              value={editedPhone}
+              onChange={(e) => setEditedPhone(e.target.value)}
+              placeholder="(00) 00000-0000"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="value">Valor do Negócio</Label>
+            <Input
+              id="value"
+              type="text"
+              value={editedValue}
+              onChange={(e) => setEditedValue(e.target.value)}
+              placeholder="R$ 0,00"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="stage">Etapa do Funil</Label>
+            <Select value={editedStage} onValueChange={setEditedStage}>
+              <SelectTrigger id="stage">
+                <SelectValue placeholder="Selecione a etapa" />
+              </SelectTrigger>
+              <SelectContent className="bg-background">
+                <SelectItem value="novo">Novo Lead</SelectItem>
+                <SelectItem value="contato">Em Contato</SelectItem>
+                <SelectItem value="qualificado">Qualificado</SelectItem>
+                <SelectItem value="proposta">Proposta Enviada</SelectItem>
+                <SelectItem value="negociacao">Em Negociação</SelectItem>
+                <SelectItem value="fechado">Fechado</SelectItem>
+                <SelectItem value="perdido">Perdido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSaveChanges}>
+            Salvar Alterações
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 };
