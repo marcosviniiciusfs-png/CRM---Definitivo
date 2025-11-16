@@ -50,6 +50,8 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
   const [editedStage, setEditedStage] = useState(stage || "NOVO");
   const [isSaving, setIsSaving] = useState(false);
 
+  console.log("LeadCard render - isEditModalOpen:", isEditModalOpen, "for lead:", name);
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
   });
@@ -149,7 +151,9 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
                   <DropdownMenuItem 
                     onSelect={(e) => {
                       e.preventDefault();
+                      console.log("Editar clicado - abrindo modal para:", name);
                       setIsEditModalOpen(true);
+                      console.log("Estado após setIsEditModalOpen(true)");
                     }}
                   >
                     Editar
@@ -187,80 +191,82 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
     </Card>
 
     {/* Modal de Edição de Lead */}
-    <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Editar Lead: {name}</DialogTitle>
-          <DialogDescription>
-            Atualize as informações do lead abaixo.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Nome</Label>
-            <Input
-              id="name"
-              value={editedName}
-              onChange={(e) => setEditedName(e.target.value)}
-              placeholder="Nome completo"
-            />
+    {isEditModalOpen && (
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Editar Lead: {name}</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do lead abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                placeholder="Nome completo"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <Input
+                id="phone"
+                value={editedPhone}
+                onChange={(e) => setEditedPhone(e.target.value)}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="value">Valor do Negócio</Label>
+              <Input
+                id="value"
+                type="text"
+                value={editedValue}
+                onChange={(e) => setEditedValue(e.target.value)}
+                placeholder="R$ 0,00"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="stage">Etapa do Funil</Label>
+              <Select value={editedStage} onValueChange={setEditedStage}>
+                <SelectTrigger id="stage">
+                  <SelectValue placeholder="Selecione a etapa" />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  <SelectItem value="NOVO">Novo Lead</SelectItem>
+                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                  <SelectItem value="FECHADO">Fechado</SelectItem>
+                  <SelectItem value="PERDIDO">Perdido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="phone">Telefone</Label>
-            <Input
-              id="phone"
-              value={editedPhone}
-              onChange={(e) => setEditedPhone(e.target.value)}
-              placeholder="(00) 00000-0000"
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="value">Valor do Negócio</Label>
-            <Input
-              id="value"
-              type="text"
-              value={editedValue}
-              onChange={(e) => setEditedValue(e.target.value)}
-              placeholder="R$ 0,00"
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="stage">Etapa do Funil</Label>
-            <Select value={editedStage} onValueChange={setEditedStage}>
-              <SelectTrigger id="stage">
-                <SelectValue placeholder="Selecione a etapa" />
-              </SelectTrigger>
-              <SelectContent className="bg-background">
-                <SelectItem value="NOVO">Novo Lead</SelectItem>
-                <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                <SelectItem value="FECHADO">Fechado</SelectItem>
-                <SelectItem value="PERDIDO">Perdido</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button 
-            variant="outline" 
-            onClick={() => setIsEditModalOpen(false)}
-            disabled={isSaving}
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleSaveChanges}
-            disabled={isSaving}
-          >
-            {isSaving ? "Salvando..." : "Salvar Alterações"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsEditModalOpen(false)}
+              disabled={isSaving}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSaveChanges}
+              disabled={isSaving}
+            >
+              {isSaving ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
   </>
   );
 };
