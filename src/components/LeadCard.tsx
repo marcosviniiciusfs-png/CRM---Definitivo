@@ -45,47 +45,49 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       style={style}
       {...attributes}
       {...listeners}
-      className="p-1.5 cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-visible relative group"
+      className="cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-hidden group"
     >
-      <div className="flex items-start gap-2 mb-1">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={avatarUrl || undefined} alt={name} />
-          <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-            {getInitials(name)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <h3 className="font-semibold text-xs text-foreground leading-tight truncate">{name}</h3>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
-                  <MoreVertical className="h-3 w-3 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-background z-50">
-                <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                <DropdownMenuItem>Editar</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+      <div className="p-1.5">
+        <div className="flex items-start gap-2 mb-1">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={avatarUrl || undefined} alt={name} />
+            <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+              {getInitials(name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between">
+              <h3 className="font-semibold text-xs text-foreground leading-tight truncate">{name}</h3>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
+                    <MoreVertical className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background z-50">
+                  <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
+                  <DropdownMenuItem>Editar</DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+        
+        <div className="space-y-0.5 pl-10">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Phone className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{phone}</span>
+          </div>
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Calendar className="h-3 w-3 flex-shrink-0" />
+            <span>{date}</span>
           </div>
         </div>
       </div>
-      
-      <div className="space-y-0.5 pl-10">
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Phone className="h-3 w-3 flex-shrink-0" />
-          <span className="truncate">{phone}</span>
-        </div>
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Calendar className="h-3 w-3 flex-shrink-0" />
-          <span>{date}</span>
-        </div>
-      </div>
 
-      {/* Faixa azul com ícone de olho - aparece no hover */}
-      <div className="absolute bottom-0 left-0 right-0 h-[40px] bg-primary rounded-b-[10px] flex items-center justify-end px-3 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 cursor-pointer z-10"
+      {/* Faixa azul com ícone de olho - aparece no hover expandindo o card */}
+      <div className="h-0 group-hover:h-[40px] bg-primary flex items-center justify-end px-3 transition-all duration-300 cursor-pointer overflow-hidden"
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
