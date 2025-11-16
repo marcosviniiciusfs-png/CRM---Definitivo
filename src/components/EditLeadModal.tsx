@@ -1221,9 +1221,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <span className="font-medium">{responsavel}</span>
                       <Popover open={editingResponsavel} onOpenChange={setEditingResponsavel}>
                         <PopoverTrigger asChild>
-                          <button className="p-0 border-0 bg-transparent">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-transparent"
+                            type="button"
+                          >
                             <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                          </button>
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-64 p-2" align="end">
                           <div className="space-y-1">
@@ -1261,9 +1266,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </span>
                       <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio}>
                         <PopoverTrigger asChild>
-                          <button className="p-0 border-0 bg-transparent">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-transparent"
+                            type="button"
+                          >
                             <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                          </button>
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                           <div className="p-3">
@@ -1336,9 +1346,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </span>
                       <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao}>
                         <PopoverTrigger asChild>
-                          <button className="p-0 border-0 bg-transparent">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-transparent"
+                            type="button"
+                          >
                             <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                          </button>
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                           <div className="p-3">
@@ -1411,9 +1426,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </span>
                       <Popover open={editingDescricao} onOpenChange={setEditingDescricao}>
                         <PopoverTrigger asChild>
-                          <button className="p-0 border-0 bg-transparent">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-transparent"
+                            type="button"
+                          >
                             <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer" />
-                          </button>
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80" align="end">
                           <div className="space-y-3">
