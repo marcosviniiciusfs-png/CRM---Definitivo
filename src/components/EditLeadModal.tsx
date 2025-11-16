@@ -1261,13 +1261,24 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         </span>
                       </div>
                       <span className="font-medium">{responsavel || 'Não definido'}</span>
-                      <Popover open={editingResponsavel} onOpenChange={setEditingResponsavel}>
+                      <Popover 
+                        open={editingResponsavel} 
+                        onOpenChange={(open) => {
+                          console.log("🔥 Popover onOpenChange:", open);
+                          setEditingResponsavel(open);
+                        }}
+                      >
                         <PopoverTrigger asChild>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 p-0 hover:bg-accent/50"
                             type="button"
+                            onClick={() => {
+                              console.log("🔥 Botão de lápis clicado!");
+                              console.log("Estado atual editingResponsavel:", editingResponsavel);
+                              console.log("Colaboradores disponíveis:", colaboradores);
+                            }}
                           >
                             <Pencil className="h-3.5 w-3.5 text-primary" />
                           </Button>
