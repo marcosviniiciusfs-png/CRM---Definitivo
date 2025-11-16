@@ -135,17 +135,41 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
               <div className="p-6 space-y-6">
                 {/* Funil de Vendas */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                     <FileText className="h-4 w-4" />
                     <span>Funil de Vendas</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-muted/30 rounded-lg px-4 py-3 text-center text-sm">Contato</div>
-                    <div className="flex-1 bg-primary text-primary-foreground rounded-lg px-4 py-3 text-center text-sm font-medium">
-                      Envio de proposta
+                  <div className="flex items-stretch -mx-1">
+                    {/* Contato */}
+                    <div className="flex-1 relative">
+                      <div className="bg-muted/40 px-4 py-2.5 text-center text-sm text-muted-foreground rounded-l-md">
+                        Contato
+                      </div>
+                      <div className="absolute right-0 top-0 bottom-0 w-0 h-0 border-t-[18px] border-t-transparent border-b-[18px] border-b-transparent border-l-[12px] border-l-muted/40 translate-x-full z-10"></div>
                     </div>
-                    <div className="flex-1 bg-muted/30 rounded-lg px-4 py-3 text-center text-sm">Follow-up</div>
-                    <div className="flex-1 bg-muted/30 rounded-lg px-4 py-3 text-center text-sm">Fechamento</div>
+                    
+                    {/* Envio de proposta - Active */}
+                    <div className="flex-1 relative -ml-3">
+                      <div className="bg-primary px-4 py-2.5 text-center text-sm text-primary-foreground font-medium clip-path-arrow">
+                        Envio de proposta
+                      </div>
+                      <div className="absolute right-0 top-0 bottom-0 w-0 h-0 border-t-[18px] border-t-transparent border-b-[18px] border-b-transparent border-l-[12px] border-l-primary translate-x-full z-10"></div>
+                    </div>
+                    
+                    {/* Follow-up */}
+                    <div className="flex-1 relative -ml-3">
+                      <div className="bg-muted/40 px-4 py-2.5 text-center text-sm text-muted-foreground clip-path-arrow-both">
+                        Follow-up
+                      </div>
+                      <div className="absolute right-0 top-0 bottom-0 w-0 h-0 border-t-[18px] border-t-transparent border-b-[18px] border-b-transparent border-l-[12px] border-l-muted/40 translate-x-full z-10"></div>
+                    </div>
+                    
+                    {/* Fechamento */}
+                    <div className="flex-1 relative -ml-3">
+                      <div className="bg-muted/40 px-4 py-2.5 text-center text-sm text-muted-foreground rounded-r-md clip-path-arrow-left">
+                        Fechamento
+                      </div>
+                    </div>
                   </div>
                 </div>
 
