@@ -165,7 +165,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <span>Funil de Vendas</span>
                   </div>
                   <div className="flex items-center w-full gap-[2px]">
-                    {/* Contato - Primeira etapa (esquerda reta, direita com ponta) */}
+                    {/* Novo Lead - Primeira etapa (esquerda reta, direita com ponta) */}
                     <div 
                       onClick={() => handleStageClick('NOVO')}
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
@@ -177,10 +177,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)'
                       }}
                     >
-                      <span className="relative z-10 pr-6 pl-4">Contato</span>
+                      <span className="relative z-10 pr-6 pl-4">Novo Lead</span>
                     </div>
                     
-                    {/* Envio de proposta - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
+                    {/* Em Atendimento - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
                     <div 
                       onClick={() => handleStageClick('EM_ATENDIMENTO')}
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
@@ -192,25 +192,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
                       }}
                     >
-                      <span className="relative z-10 pr-6 pl-8">Envio de proposta</span>
+                      <span className="relative z-10 pr-6 pl-8">Em Atendimento</span>
                     </div>
                     
-                    {/* Follow-up - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
-                    <div 
-                      onClick={() => handleStageClick('FOLLOW_UP')}
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
-                        editedStage === 'FOLLOW_UP' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
-                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
-                      style={{
-                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
-                      }}
-                    >
-                      <span className="relative z-10 pr-6 pl-8">Follow-up</span>
-                    </div>
-                    
-                    {/* Fechamento - Última etapa (esquerda com reentrância para dentro, direita reta) */}
+                    {/* Fechado - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
                     <div 
                       onClick={() => handleStageClick('FECHADO')}
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
@@ -219,10 +204,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
                       } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
                       style={{
+                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
+                      }}
+                    >
+                      <span className="relative z-10 pr-6 pl-8">Fechado</span>
+                    </div>
+                    
+                    {/* Perdido - Última etapa (esquerda com reentrância para dentro, direita reta) */}
+                    <div 
+                      onClick={() => handleStageClick('PERDIDO')}
+                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
+                        editedStage === 'PERDIDO' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
+                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
+                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
+                      style={{
                         clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 24px 50%)'
                       }}
                     >
-                      <span className="relative z-10 pl-8 pr-4">Fechamento</span>
+                      <span className="relative z-10 pl-8 pr-4">Perdido</span>
                     </div>
                   </div>
                 </div>
