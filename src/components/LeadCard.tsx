@@ -45,7 +45,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-hidden group"
+      className="cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-visible relative group"
     >
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
@@ -86,14 +86,15 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
         </div>
       </div>
 
-      {/* Faixa azul com ícone de olho - aparece no hover expandindo o card */}
-      <div className="h-0 group-hover:h-[40px] bg-primary flex items-center justify-end px-3 transition-all duration-300 cursor-pointer overflow-hidden"
+      {/* Faixa azul lateral com ícone de olho - desliza da direita no hover */}
+      <div 
+        className="absolute top-1/2 -translate-y-1/2 right-0 w-[90px] h-[45px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer opacity-0 translate-x-full group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ease-out z-20"
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
         }}
       >
-        <Eye className="h-5 w-5 text-primary-foreground" />
+        <Eye className="h-6 w-6 text-primary-foreground" />
       </div>
     </Card>
   );
