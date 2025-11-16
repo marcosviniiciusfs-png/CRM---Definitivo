@@ -102,7 +102,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
-                  <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
+                  <DropdownMenuItem onSelect={() => setIsEditModalOpen(true)}>
                     Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
