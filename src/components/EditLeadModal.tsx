@@ -139,7 +139,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <FileText className="h-4 w-4" />
                     <span>Funil de Vendas</span>
                   </div>
-                  <div className="flex items-center w-full gap-[1px]">
+                  <div className="flex items-center w-full gap-[2px]">
                     {/* Contato - Primeira etapa */}
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
@@ -162,10 +162,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
+                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)'
                       }}
                     >
-                      <span className="relative z-10 px-1">Envio de proposta</span>
+                      <span className="relative z-10 pr-6 pl-3">Envio de proposta</span>
                     </div>
                     
                     {/* Follow-up */}
@@ -176,10 +176,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
+                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)'
                       }}
                     >
-                      <span className="relative z-10 px-1">Follow-up</span>
+                      <span className="relative z-10 pr-6 pl-3">Follow-up</span>
                     </div>
                     
                     {/* Fechamento - Última etapa */}
@@ -190,10 +190,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, 100% 0, 100% 100%, 24px 100%, 0 50%)'
+                        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)'
                       }}
                     >
-                      <span className="relative z-10 pl-6 pr-4">Fechamento</span>
+                      <span className="relative z-10 px-4">Fechamento</span>
                     </div>
                   </div>
                 </div>
