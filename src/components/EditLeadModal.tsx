@@ -1196,38 +1196,38 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   <CardTitle className="text-sm font-semibold">Dados do negócio</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Responsável</span>
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-xs font-medium text-primary">B</span>
                       </div>
                       <span className="font-medium">Brito</span>
-                      <Pencil className="h-3.5 w-3.5 text-primary" />
+                      <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                     </div>
                   </div>
 
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Data de início</span>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">Hoje</span>
-                      <Pencil className="h-3.5 w-3.5 text-primary" />
+                      <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                     </div>
                   </div>
 
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Data de conclusão</span>
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">Adicionar</span>
-                      <Pencil className="h-3.5 w-3.5 text-primary" />
+                      <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                     </div>
                   </div>
 
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Descrição</span>
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">Adicionar descrição</span>
-                      <Pencil className="h-3.5 w-3.5 text-primary" />
+                      <Pencil className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                     </div>
                   </div>
 
