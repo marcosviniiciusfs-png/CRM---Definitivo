@@ -86,9 +86,13 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
         </div>
       </div>
 
-      {/* Faixa azul lateral com ícone de olho - cresce de dentro do card no hover */}
+      {/* Faixa azul lateral com ícone de olho - cresce na entrada, desaparece por opacidade na saída */}
       <div 
-        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer origin-right scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out z-20"
+        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer origin-right scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-100 transition-[transform,opacity] duration-300 group-hover:duration-300 [transition-timing-function:ease-out] z-20"
+        style={{
+          transitionProperty: 'transform, opacity',
+          transitionDuration: '300ms, 400ms',
+        }}
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
