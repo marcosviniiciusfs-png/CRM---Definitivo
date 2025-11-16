@@ -139,45 +139,45 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <FileText className="h-4 w-4" />
                     <span>Funil de Vendas</span>
                   </div>
-                  <div className="flex items-center w-full">
-                    {/* Contato */}
+                  <div className="flex items-center w-full -space-x-3">
+                    {/* Contato - Primeira etapa (sem recuo esquerdo) */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/60"
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/50 cursor-pointer"
                       style={{
-                        clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%)'
+                        clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 0 0)'
                       }}
                     >
-                      <span className="relative z-10 px-4">Contato</span>
+                      <span className="relative z-10 pr-4 pl-3">Contato</span>
                     </div>
                     
-                    {/* Envio de proposta - Active */}
+                    {/* Envio de proposta - Etapa ativa (com recuo esquerdo e ponta direita) */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-primary-foreground font-semibold bg-primary -ml-3 transition-all duration-200 hover:brightness-110"
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-primary-foreground font-semibold bg-primary transition-all duration-200 hover:brightness-110 cursor-pointer"
                       style={{
-                        clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%)'
+                        clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 16px 100%, 0 50%)'
                       }}
                     >
-                      <span className="relative z-10 px-4">Envio de proposta</span>
+                      <span className="relative z-10 px-2">Envio de proposta</span>
                     </div>
                     
-                    {/* Follow-up */}
+                    {/* Follow-up - Etapa intermediária (com recuo esquerdo e ponta direita) */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 -ml-3 transition-all duration-200 hover:bg-muted/60"
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/50 cursor-pointer"
                       style={{
-                        clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%)'
+                        clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 16px 100%, 0 50%)'
                       }}
                     >
-                      <span className="relative z-10 px-4">Follow-up</span>
+                      <span className="relative z-10 px-2">Follow-up</span>
                     </div>
                     
-                    {/* Fechamento */}
+                    {/* Fechamento - Última etapa (com recuo esquerdo, sem ponta direita) */}
                     <div 
-                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 -ml-3 transition-all duration-200 hover:bg-muted/60"
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/50 cursor-pointer"
                       style={{
-                        clipPath: 'polygon(12px 0, 100% 0, 100% 100%, 12px 100%, 0 50%)'
+                        clipPath: 'polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 0 50%)'
                       }}
                     >
-                      <span className="relative z-10 px-4">Fechamento</span>
+                      <span className="relative z-10 pl-4 pr-3">Fechamento</span>
                     </div>
                   </div>
                 </div>
