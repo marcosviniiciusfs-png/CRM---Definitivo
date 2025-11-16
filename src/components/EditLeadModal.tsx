@@ -62,13 +62,53 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [dataInicio, setDataInicio] = useState<Date | undefined>(new Date());
   const [dataConclusao, setDataConclusao] = useState<Date | undefined>(undefined);
   const [descricao, setDescricao] = useState("");
-  const [responsavel, setResponsavel] = useState("Brito");
+  const [responsavel, setResponsavel] = useState("");
+  const [colaboradores, setColaboradores] = useState<Array<{ id: string; email: string; user_id: string | null }>>([]);
 
   useEffect(() => {
     if (open) {
       fetchActivities();
+      fetchColaboradores();
+      setCurrentUserAsResponsavel();
     }
   }, [open]);
+
+  const setCurrentUserAsResponsavel = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setResponsavel(user.email);
+      }
+    } catch (error) {
+      console.error("Erro ao obter usuário atual:", error);
+    }
+  };
+
+  const fetchColaboradores = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Buscar organization_id do lead
+      const { data: leadData } = await supabase
+        .from("leads")
+        .select("organization_id")
+        .eq("id", lead.id)
+        .single();
+
+      if (!leadData?.organization_id) return;
+
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select("id, email, user_id")
+        .eq("organization_id", leadData.organization_id);
+
+      if (error) throw error;
+      setColaboradores(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar colaboradores:", error);
+    }
+  };
 
   const fetchActivities = async () => {
     setIsLoadingActivities(true);
@@ -1215,10 +1255,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-xs font-medium text-primary">
-                          {responsavel.charAt(0).toUpperCase()}
+                          {responsavel?.split('@')[0]?.charAt(0)?.toUpperCase() || '?'}
                         </span>
                       </div>
-                      <span className="font-medium">{responsavel}</span>
+                      <span className="font-medium">{responsavel || 'Não definido'}</span>
                       <Popover open={editingResponsavel} onOpenChange={setEditingResponsavel}>
                         <PopoverTrigger asChild>
                           <Button
@@ -1238,10 +1278,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
                               <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
                                 <span className="text-sm font-semibold text-primary-foreground">
-                                  {responsavel.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                  {responsavel?.split('@')[0]?.charAt(0)?.toUpperCase() || '?'}
                                 </span>
                               </div>
-                              <span className="text-sm font-medium flex-1">Eu ({responsavel})</span>
+                              <span className="text-sm font-medium flex-1">{responsavel || 'Não definido'}</span>
                               <div className="flex items-center gap-1">
                                 <Button
                                   variant="ghost"
@@ -1268,26 +1308,31 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             <div className="border-t pt-3">
                               <div className="text-xs font-medium text-muted-foreground mb-2">Trocar responsável</div>
                               <div className="space-y-1 max-h-48 overflow-y-auto">
-                                {["Brito", "Ana Silva", "Carlos Santos", "Maria Oliveira"]
-                                  .filter(name => name !== responsavel)
-                                  .map((name) => (
+                                {colaboradores
+                                  .filter(colab => colab.email !== responsavel)
+                                  .map((colab) => (
                                     <button
-                                      key={name}
+                                      key={colab.id}
                                       type="button"
                                       className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
                                       onClick={() => {
-                                        setResponsavel(name);
-                                        toast.success(`Responsável alterado para ${name}`);
+                                        setResponsavel(colab.email || '');
+                                        toast.success(`Responsável alterado para ${colab.email}`);
                                       }}
                                     >
                                       <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                                         <span className="text-xs font-medium text-primary">
-                                          {name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                          {colab.email?.split('@')[0].charAt(0).toUpperCase()}
                                         </span>
                                       </div>
-                                      <span className="text-sm">{name}</span>
+                                      <span className="text-sm">{colab.email}</span>
                                     </button>
                                   ))}
+                                {colaboradores.length === 0 && (
+                                  <div className="text-sm text-muted-foreground text-center py-4">
+                                    Nenhum colaborador encontrado
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
