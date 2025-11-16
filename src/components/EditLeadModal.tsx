@@ -154,7 +154,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <span className="relative z-10 pr-6 pl-4">Contato</span>
                     </div>
                     
-                    {/* Envio de proposta - Etapa intermediária (esquerda com reentrância, direita com ponta) */}
+                    {/* Envio de proposta - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'EM_ATENDIMENTO' 
@@ -162,13 +162,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
+                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
                       }}
                     >
-                      <span className="relative z-10 pr-6 pl-7">Envio de proposta</span>
+                      <span className="relative z-10 pr-6 pl-8">Envio de proposta</span>
                     </div>
                     
-                    {/* Follow-up - Etapa intermediária (esquerda com reentrância, direita com ponta) */}
+                    {/* Follow-up - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FOLLOW_UP' 
@@ -176,13 +176,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
+                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
                       }}
                     >
-                      <span className="relative z-10 pr-6 pl-7">Follow-up</span>
+                      <span className="relative z-10 pr-6 pl-8">Follow-up</span>
                     </div>
                     
-                    {/* Fechamento - Última etapa (esquerda com reentrância, direita reta) */}
+                    {/* Fechamento - Última etapa (esquerda com reentrância para dentro, direita reta) */}
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FECHADO' 
@@ -190,10 +190,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, 100% 0, 100% 100%, 24px 100%, 0 50%)'
+                        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 24px 50%)'
                       }}
                     >
-                      <span className="relative z-10 pl-7 pr-4">Fechamento</span>
+                      <span className="relative z-10 pl-8 pr-4">Fechamento</span>
                     </div>
                   </div>
                 </div>
