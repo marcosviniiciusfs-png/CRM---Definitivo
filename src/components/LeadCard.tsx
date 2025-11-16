@@ -140,13 +140,19 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
             <div className="flex items-start justify-between">
               <h3 className="font-semibold text-xs text-foreground leading-tight truncate">{name}</h3>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
                     <Pencil className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background z-50">
-                  <DropdownMenuItem onSelect={() => setIsEditModalOpen(true)}>
+                  <DropdownMenuItem 
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      console.log("Editar clicado");
+                      setIsEditModalOpen(true);
+                    }}
+                  >
                     Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
