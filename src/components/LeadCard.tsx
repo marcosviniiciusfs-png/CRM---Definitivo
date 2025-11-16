@@ -86,22 +86,13 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
         </div>
       </div>
 
-      {/* Faixa azul lateral com ícone de olho - cresce na entrada, fade out apenas na saída */}
+      {/* Faixa azul lateral com ícone de olho - cresce na entrada, fade out na saída */}
       <div 
-        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer origin-right scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-100 z-20"
-        style={{
-          transition: 'transform 0.3s ease-out, opacity 0.4s ease-out',
-        }}
-        onTransitionEnd={(e) => {
-          // Após a animação de saída (opacity), reseta o scale
-          if (e.propertyName === 'opacity' && e.currentTarget.style.opacity !== '1') {
-            e.currentTarget.style.transform = 'translateY(-50%) scaleX(0)';
-            e.currentTarget.style.transition = 'none';
-            setTimeout(() => {
-              e.currentTarget.style.transition = 'transform 0.3s ease-out, opacity 0.4s ease-out';
-            }, 10);
-          }
-        }}
+        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer z-20 origin-right
+                   scale-x-0 opacity-0
+                   group-hover:scale-x-100 group-hover:opacity-100
+                   [transition:transform_0.3s_ease-out,opacity_0.3s_ease-out]
+                   group-hover:[transition:transform_0.3s_ease-out,opacity_0.3s_ease-out]"
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
