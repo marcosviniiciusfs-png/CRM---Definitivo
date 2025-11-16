@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Phone, Calendar, Pencil, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,10 +25,11 @@ interface LeadCardProps {
 }
 
 export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpdate, onEdit }: LeadCardProps) => {
-  console.log("LeadCard render - onEdit:", !!onEdit, "for lead:", name);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
+    disabled: isDropdownOpen,
   });
 
   const style = {
@@ -64,7 +66,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between">
               <h3 className="font-semibold text-xs text-foreground leading-tight truncate">{name}</h3>
-              <DropdownMenu>
+              <DropdownMenu onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
                     <Pencil className="h-3 w-3 text-muted-foreground" />
