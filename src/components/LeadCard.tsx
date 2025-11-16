@@ -28,6 +28,8 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface LeadCardProps {
   id: string;
@@ -35,14 +37,18 @@ interface LeadCardProps {
   phone: string;
   date: string;
   avatarUrl?: string;
+  stage?: string;
+  value?: number;
+  onUpdate?: () => void;
 }
 
-export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) => {
+export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpdate }: LeadCardProps) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editedName, setEditedName] = useState(name);
   const [editedPhone, setEditedPhone] = useState(phone);
-  const [editedValue, setEditedValue] = useState("");
-  const [editedStage, setEditedStage] = useState("");
+  const [editedValue, setEditedValue] = useState(value?.toString() || "");
+  const [editedStage, setEditedStage] = useState(stage || "NOVO");
+  const [isSaving, setIsSaving] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
@@ -63,16 +69,54 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       .slice(0, 2);
   };
 
-  const handleSaveChanges = () => {
-    // TODO: Implementar lógica de atualização do lead
-    console.log("Salvando alterações:", {
-      id,
-      name: editedName,
-      phone: editedPhone,
-      value: editedValue,
-      stage: editedStage,
-    });
-    setIsEditModalOpen(false);
+  const handleSaveChanges = async () => {
+    if (!editedName.trim()) {
+      toast.error("O nome do lead é obrigatório");
+      return;
+    }
+
+    if (!editedPhone.trim()) {
+      toast.error("O telefone do lead é obrigatório");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const updateData: any = {
+        nome_lead: editedName.trim(),
+        telefone_lead: editedPhone.trim(),
+        stage: editedStage,
+      };
+
+      // Apenas adicionar valor se foi preenchido
+      if (editedValue.trim()) {
+        const numericValue = parseFloat(editedValue.replace(/[^\d.,]/g, '').replace(',', '.'));
+        if (!isNaN(numericValue)) {
+          updateData.valor = numericValue;
+        }
+      }
+
+      const { error } = await supabase
+        .from("leads")
+        .update(updateData)
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Lead atualizado com sucesso!");
+      setIsEditModalOpen(false);
+      
+      // Chamar callback para recarregar leads
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar lead:", error);
+      toast.error("Erro ao atualizar lead");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -186,24 +230,28 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
                 <SelectValue placeholder="Selecione a etapa" />
               </SelectTrigger>
               <SelectContent className="bg-background">
-                <SelectItem value="novo">Novo Lead</SelectItem>
-                <SelectItem value="contato">Em Contato</SelectItem>
-                <SelectItem value="qualificado">Qualificado</SelectItem>
-                <SelectItem value="proposta">Proposta Enviada</SelectItem>
-                <SelectItem value="negociacao">Em Negociação</SelectItem>
-                <SelectItem value="fechado">Fechado</SelectItem>
-                <SelectItem value="perdido">Perdido</SelectItem>
+                <SelectItem value="NOVO">Novo Lead</SelectItem>
+                <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                <SelectItem value="FECHADO">Fechado</SelectItem>
+                <SelectItem value="PERDIDO">Perdido</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsEditModalOpen(false)}
+            disabled={isSaving}
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSaveChanges}>
-            Salvar Alterações
+          <Button 
+            onClick={handleSaveChanges}
+            disabled={isSaving}
+          >
+            {isSaving ? "Salvando..." : "Salvar Alterações"}
           </Button>
         </DialogFooter>
       </DialogContent>

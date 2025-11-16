@@ -283,6 +283,7 @@ const Pipeline = () => {
                 color={stage.color}
                 leads={stageLeads}
                 isEmpty={stageLeads.length === 0}
+                onLeadUpdate={loadLeads}
               />
             );
           })}
@@ -297,6 +298,8 @@ const Pipeline = () => {
             phone={activeLead.telefone_lead}
             date={new Date(activeLead.created_at).toLocaleString("pt-BR")}
             avatarUrl={activeLead.avatar_url}
+            stage={activeLead.stage}
+            value={activeLead.valor}
           />
         ) : null}
       </DragOverlay>
