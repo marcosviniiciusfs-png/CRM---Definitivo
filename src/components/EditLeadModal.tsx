@@ -49,6 +49,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editingFile, setEditingFile] = useState<File | null>(null);
   const [editingKeepCurrentAttachment, setEditingKeepCurrentAttachment] = useState(true);
   const [editingCurrentAttachment, setEditingCurrentAttachment] = useState<{ url: string; name: string } | null>(null);
+  const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -245,6 +246,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   };
 
   const handleDeleteActivity = async (activityId: string) => {
+    // Inicia a animação de fade-out
+    setDeletingActivityId(activityId);
+    
+    // Aguarda a animação terminar (300ms)
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     try {
       const { error } = await supabase
         .from("lead_activities")
@@ -254,10 +261,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (error) throw error;
 
       setActivities(activities.filter(act => act.id !== activityId));
+      setDeletingActivityId(null);
       toast.success("Atividade excluída com sucesso!");
     } catch (error) {
       console.error("Erro ao excluir atividade:", error);
       toast.error("Erro ao excluir atividade");
+      setDeletingActivityId(null);
     }
   };
 
@@ -918,8 +927,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div className="space-y-3">
                       {activities.map((activity) => {
                         const Icon = getActivityIcon(activity.activity_type);
+                        const isDeleting = deletingActivityId === activity.id;
                         return (
-                          <Card key={activity.id} className="overflow-hidden group">
+                          <Card 
+                            key={activity.id} 
+                            className={`overflow-hidden group transition-all duration-300 ${
+                              isDeleting ? 'animate-fade-out' : ''
+                            }`}
+                          >
                             {/* Cabeçalho com informações do lead */}
                             <div className="bg-muted/30 px-4 py-2 flex items-center gap-2 border-b">
                               <User className="h-4 w-4 text-muted-foreground" />
