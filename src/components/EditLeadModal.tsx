@@ -42,6 +42,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [activities, setActivities] = useState<any[]>([]);
   const [currentTab, setCurrentTab] = useState("nota");
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -67,6 +69,52 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     }
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Verificar tamanho do arquivo (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Arquivo muito grande. Tamanho máximo: 10MB");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+  };
+
+  const uploadFile = async (): Promise<{ url: string; name: string } | null> => {
+    if (!selectedFile) return null;
+
+    setIsUploadingFile(true);
+    try {
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${lead.id}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('activity-attachments')
+        .upload(fileName, selectedFile);
+
+      if (error) throw error;
+
+      // Para buckets privados, usamos o caminho completo que será acessado via RLS
+      const filePath = data.path;
+
+      return {
+        url: filePath,
+        name: selectedFile.name
+      };
+    } catch (error) {
+      console.error("Erro ao fazer upload:", error);
+      toast.error("Erro ao fazer upload do arquivo");
+      return null;
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
   const handleSaveActivity = async () => {
     if (!activityContent.trim()) {
       toast.error("O conteúdo da atividade não pode estar vazio");
@@ -87,19 +135,34 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         visita: "Visita"
       };
 
+      let attachmentUrl = null;
+      let attachmentName = null;
+
+      // Upload do arquivo se houver
+      if (selectedFile) {
+        const uploadResult = await uploadFile();
+        if (uploadResult) {
+          attachmentUrl = uploadResult.url;
+          attachmentName = uploadResult.name;
+        }
+      }
+
       const { error } = await supabase
         .from("lead_activities")
         .insert({
           lead_id: lead.id,
           user_id: user.id,
           activity_type: activityTypeMap[currentTab],
-          content: activityContent.trim()
+          content: activityContent.trim(),
+          attachment_url: attachmentUrl,
+          attachment_name: attachmentName
         });
 
       if (error) throw error;
 
       toast.success("Atividade salva com sucesso!");
       setActivityContent("");
+      setSelectedFile(null);
       await fetchActivities();
     } catch (error) {
       console.error("Erro ao salvar atividade:", error);
@@ -109,6 +172,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const handleCancelActivity = () => {
     setActivityContent("");
+    setSelectedFile(null);
   };
 
   const getActivityIcon = (type: string) => {
@@ -358,20 +422,51 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         value={currentTab === "nota" ? activityContent : ""}
                         onChange={(e) => currentTab === "nota" && setActivityContent(e.target.value)}
                       />
-                      <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Paperclip className="h-4 w-4" />
-                          Adicionar anexo
-                        </Button>
-                        <div className="flex items-center gap-2">
-                          <Button variant="link" size="sm" className="text-muted-foreground">
-                            + Modelos
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
                           </Button>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <input
+                            type="file"
+                            id="nota-file"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => document.getElementById('nota-file')?.click()}
+                            disabled={isUploadingFile}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            Adicionar anexo
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
                             Cancelar
                           </Button>
-                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
-                            Salvar nota
+                          <Button
+                            size="sm"
+                            onClick={handleSaveActivity}
+                            disabled={isUploadingFile}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isUploadingFile ? "Enviando..." : "Salvar nota"}
                           </Button>
                         </div>
                       </div>
@@ -383,17 +478,51 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         value={currentTab === "email" ? activityContent : ""}
                         onChange={(e) => currentTab === "email" && setActivityContent(e.target.value)}
                       />
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Paperclip className="h-4 w-4" />
-                          Adicionar anexo
-                        </Button>
+                        <div>
+                          <input
+                            type="file"
+                            id="email-file"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => document.getElementById('email-file')?.click()}
+                            disabled={isUploadingFile}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            Adicionar anexo
+                          </Button>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
                             Cancelar
                           </Button>
-                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
-                            Salvar e-mail
+                          <Button
+                            size="sm"
+                            onClick={handleSaveActivity}
+                            disabled={isUploadingFile}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isUploadingFile ? "Enviando..." : "Salvar e-mail"}
                           </Button>
                         </div>
                       </div>
@@ -405,17 +534,51 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         value={currentTab === "ligacao" ? activityContent : ""}
                         onChange={(e) => currentTab === "ligacao" && setActivityContent(e.target.value)}
                       />
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Paperclip className="h-4 w-4" />
-                          Adicionar anexo
-                        </Button>
+                        <div>
+                          <input
+                            type="file"
+                            id="ligacao-file"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => document.getElementById('ligacao-file')?.click()}
+                            disabled={isUploadingFile}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            Adicionar anexo
+                          </Button>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
                             Cancelar
                           </Button>
-                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
-                            Salvar ligação
+                          <Button
+                            size="sm"
+                            onClick={handleSaveActivity}
+                            disabled={isUploadingFile}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isUploadingFile ? "Enviando..." : "Salvar ligação"}
                           </Button>
                         </div>
                       </div>
@@ -427,17 +590,51 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         value={currentTab === "whatsapp" ? activityContent : ""}
                         onChange={(e) => currentTab === "whatsapp" && setActivityContent(e.target.value)}
                       />
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Paperclip className="h-4 w-4" />
-                          Adicionar anexo
-                        </Button>
+                        <div>
+                          <input
+                            type="file"
+                            id="whatsapp-file"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => document.getElementById('whatsapp-file')?.click()}
+                            disabled={isUploadingFile}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            Adicionar anexo
+                          </Button>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
                             Cancelar
                           </Button>
-                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
-                            Salvar WhatsApp
+                          <Button
+                            size="sm"
+                            onClick={handleSaveActivity}
+                            disabled={isUploadingFile}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isUploadingFile ? "Enviando..." : "Salvar WhatsApp"}
                           </Button>
                         </div>
                       </div>
@@ -449,17 +646,51 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         value={currentTab === "proposta" ? activityContent : ""}
                         onChange={(e) => currentTab === "proposta" && setActivityContent(e.target.value)}
                       />
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Paperclip className="h-4 w-4" />
-                          Adicionar anexo
-                        </Button>
+                        <div>
+                          <input
+                            type="file"
+                            id="proposta-file"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => document.getElementById('proposta-file')?.click()}
+                            disabled={isUploadingFile}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            Adicionar anexo
+                          </Button>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
                             Cancelar
                           </Button>
-                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
-                            Salvar proposta
+                          <Button
+                            size="sm"
+                            onClick={handleSaveActivity}
+                            disabled={isUploadingFile}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isUploadingFile ? "Enviando..." : "Salvar proposta"}
                           </Button>
                         </div>
                       </div>
@@ -471,17 +702,51 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         value={currentTab === "reuniao" ? activityContent : ""}
                         onChange={(e) => currentTab === "reuniao" && setActivityContent(e.target.value)}
                       />
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Paperclip className="h-4 w-4" />
-                          Adicionar anexo
-                        </Button>
+                        <div>
+                          <input
+                            type="file"
+                            id="reuniao-file"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => document.getElementById('reuniao-file')?.click()}
+                            disabled={isUploadingFile}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            Adicionar anexo
+                          </Button>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
                             Cancelar
                           </Button>
-                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
-                            Salvar reunião
+                          <Button
+                            size="sm"
+                            onClick={handleSaveActivity}
+                            disabled={isUploadingFile}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isUploadingFile ? "Enviando..." : "Salvar reunião"}
                           </Button>
                         </div>
                       </div>
@@ -493,17 +758,51 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         value={currentTab === "visita" ? activityContent : ""}
                         onChange={(e) => currentTab === "visita" && setActivityContent(e.target.value)}
                       />
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Paperclip className="h-4 w-4" />
-                          Adicionar anexo
-                        </Button>
+                        <div>
+                          <input
+                            type="file"
+                            id="visita-file"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => document.getElementById('visita-file')?.click()}
+                            disabled={isUploadingFile}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            Adicionar anexo
+                          </Button>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
                             Cancelar
                           </Button>
-                          <Button size="sm" onClick={handleSaveActivity} className="bg-primary hover:bg-primary/90">
-                            Salvar visita
+                          <Button
+                            size="sm"
+                            onClick={handleSaveActivity}
+                            disabled={isUploadingFile}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isUploadingFile ? "Enviando..." : "Salvar visita"}
                           </Button>
                         </div>
                       </div>
@@ -573,15 +872,36 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               {/* Anexos (se existirem) */}
                               {activity.attachment_url && (
                                 <div className="pl-11 pt-2 border-t">
-                                  <a 
-                                    href={activity.attachment_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    className="h-auto p-0 text-primary hover:underline"
+                                    onClick={async () => {
+                                      try {
+                                        const { data, error } = await supabase.storage
+                                          .from('activity-attachments')
+                                          .download(activity.attachment_url);
+                                        
+                                        if (error) throw error;
+                                        
+                                        // Criar URL temporária e fazer download
+                                        const url = URL.createObjectURL(data);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = activity.attachment_name || 'anexo';
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                      } catch (error) {
+                                        console.error("Erro ao baixar arquivo:", error);
+                                        toast.error("Erro ao baixar arquivo");
+                                      }
+                                    }}
                                   >
-                                    <FileText className="h-4 w-4" />
+                                    <FileText className="h-4 w-4 inline mr-2" />
                                     <span>{activity.attachment_name || 'Anexo'}</span>
-                                  </a>
+                                  </Button>
                                 </div>
                               )}
                               
