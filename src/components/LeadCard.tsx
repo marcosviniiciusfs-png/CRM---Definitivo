@@ -47,19 +47,6 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
       {...listeners}
       className="p-1.5 cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-visible relative group"
     >
-      {/* Botão de visualização - aparece no hover */}
-      <Button
-        variant="default"
-        size="icon"
-        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
-        onClick={(e) => {
-          e.stopPropagation();
-          // Ação de visualizar detalhes do lead
-        }}
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-      
       <div className="flex items-start gap-2 mb-1">
         <Avatar className="h-8 w-8">
           <AvatarImage src={avatarUrl || undefined} alt={name} />
@@ -95,6 +82,16 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl }: LeadCardProps) =>
           <Calendar className="h-3 w-3 flex-shrink-0" />
           <span>{date}</span>
         </div>
+      </div>
+
+      {/* Faixa azul com ícone de olho - aparece no hover */}
+      <div className="absolute bottom-0 left-0 right-0 h-[40px] bg-primary rounded-b-[10px] flex items-center justify-end px-3 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 cursor-pointer z-10"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Ação de visualizar detalhes do lead
+        }}
+      >
+        <Eye className="h-5 w-5 text-primary-foreground" />
       </div>
     </Card>
   );
