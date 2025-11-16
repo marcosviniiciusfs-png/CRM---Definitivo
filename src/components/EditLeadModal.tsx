@@ -1573,8 +1573,16 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   <div className="flex items-start justify-between group">
                     <span className="text-muted-foreground">Descrição</span>
                     <div className="flex items-center gap-2">
-                      <span className={cn("font-medium", !descricao && "text-muted-foreground")}>
-                        {descricao || "Adicionar descrição"}
+                      <span 
+                        className={cn("font-medium", !descricao && "text-muted-foreground")}
+                        title={descricao || "Adicionar descrição"}
+                      >
+                        {descricao 
+                          ? descricao.length > 13 
+                            ? `${descricao.substring(0, 13)}...` 
+                            : descricao
+                          : "Adicionar descrição"
+                        }
                       </span>
                       <Popover open={editingDescricao} onOpenChange={setEditingDescricao} modal={false}>
                         <PopoverTrigger asChild>
