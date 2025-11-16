@@ -16,7 +16,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface EditLeadModalProps {
@@ -131,93 +131,126 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         <div className="flex-1 flex overflow-hidden">
           {/* Main Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <Tabs defaultValue="contatos" className="w-full flex flex-col h-full">
-              <TabsList className="w-full justify-start rounded-none border-b px-6 bg-transparent h-12 flex-shrink-0">
-                <TabsTrigger value="contatos" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                  Contatos
-                </TabsTrigger>
-                <TabsTrigger value="atividades" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                  Histórico de atividades
-                </TabsTrigger>
-              </TabsList>
-
-              <ScrollArea className="flex-1">
-                <div className="p-6">
-                  <TabsContent value="contatos" className="mt-0 space-y-6">
-                    {/* Valor do negócio */}
-                    <div className="space-y-3">
-                      <h3 className="font-semibold text-sm text-foreground">Valor do negócio</h3>
-                      <div className="space-y-2">
-                        <Label htmlFor="value" className="text-xs text-muted-foreground">Produto e serviços</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl font-bold text-foreground">R$</span>
-                          <Input
-                            id="value"
-                            type="text"
-                            value={editedValue}
-                            onChange={(e) => setEditedValue(e.target.value)}
-                            className="text-2xl font-bold h-auto py-1 border-0 border-b rounded-none px-0"
-                          />
-                        </div>
-                      </div>
+            <ScrollArea className="flex-1">
+              <div className="p-6 space-y-6">
+                {/* Funil de Vendas */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    <span>Funil de Vendas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-muted/30 rounded-lg px-4 py-3 text-center text-sm">Contato</div>
+                    <div className="flex-1 bg-primary text-primary-foreground rounded-lg px-4 py-3 text-center text-sm font-medium">
+                      Envio de proposta
                     </div>
-
-                    <Separator />
-
-                    {/* Dados do contato */}
-                    <div className="space-y-3">
-                      <h3 className="font-semibold text-sm text-foreground">Dados do contato</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <span className="font-medium text-primary">
-                              {editedName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <Input
-                              value={editedName}
-                              onChange={(e) => setEditedName(e.target.value)}
-                              className="font-medium"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid gap-3">
-                          <div className="grid grid-cols-[100px_1fr] items-center gap-3">
-                            <Label className="text-xs text-muted-foreground">Email</Label>
-                            <Input
-                              type="email"
-                              value={editedEmail}
-                              onChange={(e) => setEditedEmail(e.target.value)}
-                              placeholder="email@exemplo.com"
-                              className="h-8"
-                            />
-                          </div>
-                          <div className="grid grid-cols-[100px_1fr] items-center gap-3">
-                            <Label className="text-xs text-muted-foreground">Telefone</Label>
-                            <Input
-                              value={editedPhone}
-                              onChange={(e) => setEditedPhone(e.target.value)}
-                              placeholder="(00) 00000-0000"
-                              className="h-8"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="atividades" className="mt-0">
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="text-muted-foreground text-sm">
-                        Nenhuma atividade registrada
-                      </div>
-                    </div>
-                  </TabsContent>
+                    <div className="flex-1 bg-muted/30 rounded-lg px-4 py-3 text-center text-sm">Follow-up</div>
+                    <div className="flex-1 bg-muted/30 rounded-lg px-4 py-3 text-center text-sm">Fechamento</div>
+                  </div>
                 </div>
-              </ScrollArea>
-            </Tabs>
+
+                <Separator />
+
+                {/* Tabs de Ações */}
+                <Tabs defaultValue="nota" className="w-full">
+                  <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0">
+                    <TabsTrigger value="nota" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <Pencil className="h-4 w-4" />
+                      Nota
+                    </TabsTrigger>
+                    <TabsTrigger value="email" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <Mail className="h-4 w-4" />
+                      E-mail
+                    </TabsTrigger>
+                    <TabsTrigger value="ligacao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <Phone className="h-4 w-4" />
+                      Ligação
+                    </TabsTrigger>
+                    <TabsTrigger value="whatsapp" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <MessageSquare className="h-4 w-4" />
+                      WhatsApp
+                    </TabsTrigger>
+                    <TabsTrigger value="proposta" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <FileText className="h-4 w-4" />
+                      Proposta
+                    </TabsTrigger>
+                    <TabsTrigger value="reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <Video className="h-4 w-4" />
+                      Reunião
+                    </TabsTrigger>
+                    <TabsTrigger value="visita" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <MapPin className="h-4 w-4" />
+                      Visita
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <div className="mt-4">
+                    <TabsContent value="nota" className="mt-0">
+                      <Textarea
+                        placeholder="O que foi feito e qual o próximo passo?"
+                        className="min-h-[120px] resize-none"
+                      />
+                      <div className="flex justify-end mt-3">
+                        <Button variant="link" size="sm" className="text-primary">
+                          + Modelos
+                        </Button>
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="email" className="mt-0">
+                      <Textarea
+                        placeholder="Escreva seu e-mail..."
+                        className="min-h-[120px] resize-none"
+                      />
+                    </TabsContent>
+                    <TabsContent value="ligacao" className="mt-0">
+                      <Textarea
+                        placeholder="Notas sobre a ligação..."
+                        className="min-h-[120px] resize-none"
+                      />
+                    </TabsContent>
+                    <TabsContent value="whatsapp" className="mt-0">
+                      <Textarea
+                        placeholder="Escreva sua mensagem..."
+                        className="min-h-[120px] resize-none"
+                      />
+                    </TabsContent>
+                    <TabsContent value="proposta" className="mt-0">
+                      <Textarea
+                        placeholder="Detalhes da proposta..."
+                        className="min-h-[120px] resize-none"
+                      />
+                    </TabsContent>
+                    <TabsContent value="reuniao" className="mt-0">
+                      <Textarea
+                        placeholder="Notas sobre a reunião..."
+                        className="min-h-[120px] resize-none"
+                      />
+                    </TabsContent>
+                    <TabsContent value="visita" className="mt-0">
+                      <Textarea
+                        placeholder="Notas sobre a visita..."
+                        className="min-h-[120px] resize-none"
+                      />
+                    </TabsContent>
+                  </div>
+                </Tabs>
+
+                <Separator />
+
+                {/* Histórico de atividades */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-base">Histórico de atividades</h3>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="text-muted-foreground text-sm">
+                      Nenhuma atividade registrada
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Que tal agendar uma ligação para evoluir este negócio?
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Sidebar de Ações e Dados */}
@@ -228,23 +261,44 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold">Ações</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" size="sm">
-                    <Mail className="h-4 w-4" />
-                    Enviar e-mail
+                <CardContent className="grid grid-cols-2 gap-2">
+                  <Button className="justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 text-white h-auto py-3 flex-col items-center" size="sm">
+                    <Mail className="h-5 w-5" />
+                    <span className="text-xs">Enviar e-mail</span>
                   </Button>
-                  <Button className="w-full justify-start gap-2 bg-blue-600 hover:bg-blue-700 text-white" size="sm">
-                    <Phone className="h-4 w-4" />
-                    Fazer ligação
+                  <Button className="justify-start gap-2 bg-blue-600 hover:bg-blue-700 text-white h-auto py-3 flex-col items-center" size="sm">
+                    <Phone className="h-5 w-5" />
+                    <span className="text-xs">Fazer ligação</span>
                   </Button>
-                  <Button className="w-full justify-start gap-2 bg-purple-600 hover:bg-purple-700 text-white" size="sm">
-                    <FileText className="h-4 w-4" />
-                    Gerar proposta
+                  <Button className="justify-start gap-2 bg-purple-600 hover:bg-purple-700 text-white h-auto py-3 flex-col items-center" size="sm">
+                    <FileText className="h-5 w-5" />
+                    <span className="text-xs">Gerar proposta</span>
                   </Button>
-                  <Button className="w-full justify-start gap-2 bg-green-600 hover:bg-green-700 text-white" size="sm">
-                    <MessageSquare className="h-4 w-4" />
-                    Enviar WhatsApp
+                  <Button className="justify-start gap-2 bg-green-600 hover:bg-green-700 text-white h-auto py-3 flex-col items-center" size="sm">
+                    <MessageSquare className="h-5 w-5" />
+                    <span className="text-xs">Enviar WhatsApp</span>
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* Valor do negócio */}
+              <Card className="bg-primary/5 border-primary/10">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Valor do negócio</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold">R$ {parseFloat(editedValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Produtos e serviços</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum produto ou serviço foi adicionado a este negócio
+                    </p>
+                    <Button variant="link" className="text-primary p-0 h-auto text-sm">
+                      + Adicionar produtos/serviços
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
