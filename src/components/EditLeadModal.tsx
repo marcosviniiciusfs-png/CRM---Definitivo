@@ -12,12 +12,15 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface EditLeadModalProps {
   lead: Lead;
@@ -527,31 +530,72 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {activities.map((activity) => {
                         const Icon = getActivityIcon(activity.activity_type);
                         return (
-                          <Card key={activity.id} className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Icon className="h-4 w-4 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <h4 className="font-semibold text-sm">{activity.activity_type}</h4>
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(activity.created_at).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR') 
-                                      ? `Criada hoje ${new Date(activity.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                                      : `Criada ${new Date(activity.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+                          <Card key={activity.id} className="overflow-hidden">
+                            {/* Cabeçalho com informações do lead */}
+                            <div className="bg-muted/30 px-4 py-2 flex items-center gap-2 border-b">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-medium">{lead.nome_lead}</span>
+                              {lead.telefone_lead && (
+                                <span className="text-xs text-muted-foreground">
+                                  / {lead.telefone_lead}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Conteúdo da atividade */}
+                            <div className="p-4 space-y-3">
+                              {/* Tipo e data */}
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 rounded-full bg-primary/10 p-2">
+                                  <Icon className="h-4 w-4 text-primary" />
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="font-semibold text-sm">
+                                    {activity.activity_type}
+                                  </h4>
+                                  <span className="text-xs text-primary">
+                                    {format(new Date(activity.created_at), "'Criada hoje' HH:mm", { locale: ptBR })}
                                   </span>
                                 </div>
-                                <p className="text-sm text-foreground whitespace-pre-wrap">{activity.content}</p>
-                                {activity.attachment_name && (
-                                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Paperclip className="h-3 w-3" />
-                                    <span>{activity.attachment_name}</span>
-                                  </div>
-                                )}
+                              </div>
+                              
+                              {/* Conteúdo/Mensagem */}
+                              <div className="pl-11">
+                                <p className="text-sm text-foreground whitespace-pre-wrap">
+                                  {activity.content}
+                                </p>
+                              </div>
+                              
+                              {/* Anexos (se existirem) */}
+                              {activity.attachment_url && (
+                                <div className="pl-11 pt-2 border-t">
+                                  <a 
+                                    href={activity.attachment_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                    <span>{activity.attachment_name || 'Anexo'}</span>
+                                  </a>
+                                </div>
+                              )}
+                              
+                              {/* Autoria */}
+                              <div className="pl-11 pt-2 border-t flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">Criada por</span>
+                                <div className="flex items-center gap-1.5">
+                                  <Avatar className="h-5 w-5">
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {lead.nome_lead.substring(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-xs font-medium">{lead.nome_lead}</span>
+                                </div>
                               </div>
                             </div>
                           </Card>
