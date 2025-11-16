@@ -34,7 +34,7 @@ export const PipelineColumn = ({ id, title, count, color, leads, isEmpty }: Pipe
         <div
           ref={setNodeRef}
           className={cn(
-            "space-y-2 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg transition-colors",
+            "space-y-2 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg transition-colors scrollbar-hide",
             isOver && "bg-muted/50"
           )}
         >
