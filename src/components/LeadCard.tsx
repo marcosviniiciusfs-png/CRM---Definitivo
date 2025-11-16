@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { cn } from "@/lib/utils";
 
 interface LeadCardProps {
   id: string;
@@ -20,11 +21,12 @@ interface LeadCardProps {
   avatarUrl?: string;
   stage?: string;
   value?: number;
+  createdAt?: string;
   onUpdate?: () => void;
   onEdit?: () => void;
 }
 
-export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpdate, onEdit }: LeadCardProps) => {
+export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, createdAt, onUpdate, onEdit }: LeadCardProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -47,13 +49,31 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
       .slice(0, 2);
   };
 
+  // Verificar se é um lead novo (menos de 10 minutos e stage NOVO)
+  const isNewLead = () => {
+    if (stage !== 'NOVO' || !createdAt) return false;
+    
+    const now = new Date().getTime();
+    const created = new Date(createdAt).getTime();
+    const diffMinutes = (now - created) / (1000 * 60);
+    
+    return diffMinutes < 10;
+  };
+
+  const hasRedBorder = isNewLead();
+
   return (
     <Card
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab active:cursor-grabbing rounded-[10px] border-2 border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-hidden relative group"
+      className={cn(
+        "cursor-grab active:cursor-grabbing rounded-[10px] border-2 hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-hidden relative group",
+        hasRedBorder 
+          ? "border-red-500 hover:border-red-600" 
+          : "border-border hover:border-hover-border"
+      )}
     >
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">

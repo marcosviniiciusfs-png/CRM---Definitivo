@@ -55,6 +55,7 @@ export const PipelineColumn = ({ id, title, count, color, leads, isEmpty, onLead
                 avatarUrl={lead.avatar_url}
                 stage={lead.stage}
                 value={lead.valor}
+                createdAt={lead.created_at}
                 onUpdate={onLeadUpdate}
                 onEdit={() => onEdit?.(lead)}
               />
