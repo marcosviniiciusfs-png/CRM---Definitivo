@@ -139,36 +139,45 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <FileText className="h-4 w-4" />
                     <span>Funil de Vendas</span>
                   </div>
-                  <div className="flex items-stretch -mx-1">
+                  <div className="flex items-center w-full">
                     {/* Contato */}
-                    <div className="flex-1 relative">
-                      <div className="bg-muted/40 px-4 py-2.5 text-center text-sm text-muted-foreground rounded-l-md">
-                        Contato
-                      </div>
-                      <div className="absolute right-0 top-0 bottom-0 w-0 h-0 border-t-[18px] border-t-transparent border-b-[18px] border-b-transparent border-l-[12px] border-l-muted/40 translate-x-full z-10"></div>
+                    <div 
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 transition-all duration-200 hover:bg-muted/60"
+                      style={{
+                        clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%)'
+                      }}
+                    >
+                      <span className="relative z-10 px-4">Contato</span>
                     </div>
                     
                     {/* Envio de proposta - Active */}
-                    <div className="flex-1 relative -ml-3">
-                      <div className="bg-primary px-4 py-2.5 text-center text-sm text-primary-foreground font-medium clip-path-arrow">
-                        Envio de proposta
-                      </div>
-                      <div className="absolute right-0 top-0 bottom-0 w-0 h-0 border-t-[18px] border-t-transparent border-b-[18px] border-b-transparent border-l-[12px] border-l-primary translate-x-full z-10"></div>
+                    <div 
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-primary-foreground font-semibold bg-primary -ml-3 transition-all duration-200 hover:brightness-110"
+                      style={{
+                        clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%)'
+                      }}
+                    >
+                      <span className="relative z-10 px-4">Envio de proposta</span>
                     </div>
                     
                     {/* Follow-up */}
-                    <div className="flex-1 relative -ml-3">
-                      <div className="bg-muted/40 px-4 py-2.5 text-center text-sm text-muted-foreground clip-path-arrow-both">
-                        Follow-up
-                      </div>
-                      <div className="absolute right-0 top-0 bottom-0 w-0 h-0 border-t-[18px] border-t-transparent border-b-[18px] border-b-transparent border-l-[12px] border-l-muted/40 translate-x-full z-10"></div>
+                    <div 
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 -ml-3 transition-all duration-200 hover:bg-muted/60"
+                      style={{
+                        clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%)'
+                      }}
+                    >
+                      <span className="relative z-10 px-4">Follow-up</span>
                     </div>
                     
                     {/* Fechamento */}
-                    <div className="flex-1 relative -ml-3">
-                      <div className="bg-muted/40 px-4 py-2.5 text-center text-sm text-muted-foreground rounded-r-md clip-path-arrow-left">
-                        Fechamento
-                      </div>
+                    <div 
+                      className="flex-1 relative h-10 flex items-center justify-center text-sm text-muted-foreground font-medium bg-muted/40 -ml-3 transition-all duration-200 hover:bg-muted/60"
+                      style={{
+                        clipPath: 'polygon(12px 0, 100% 0, 100% 100%, 12px 100%, 0 50%)'
+                      }}
+                    >
+                      <span className="relative z-10 px-4">Fechamento</span>
                     </div>
                   </div>
                 </div>
