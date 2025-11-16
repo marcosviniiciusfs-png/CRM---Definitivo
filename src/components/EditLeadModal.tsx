@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -223,33 +224,36 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           <div className="w-80 border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto">
             <div className="p-4 space-y-4">
               {/* Ações */}
-              <div className="space-y-2">
-                <h3 className="font-semibold text-sm text-foreground mb-3">Ações</h3>
-                <Button className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" size="sm">
-                  <Mail className="h-4 w-4" />
-                  Enviar e-mail
-                </Button>
-                <Button className="w-full justify-start gap-2 bg-blue-600 hover:bg-blue-700 text-white" size="sm">
-                  <Phone className="h-4 w-4" />
-                  Fazer ligação
-                </Button>
-                <Button className="w-full justify-start gap-2 bg-purple-600 hover:bg-purple-700 text-white" size="sm">
-                  <FileText className="h-4 w-4" />
-                  Gerar proposta
-                </Button>
-                <Button className="w-full justify-start gap-2 bg-green-600 hover:bg-green-700 text-white" size="sm">
-                  <MessageSquare className="h-4 w-4" />
-                  Enviar WhatsApp
-                </Button>
-              </div>
-
-              <Separator />
+              <Card className="bg-primary/5 border-primary/10">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Ações</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" size="sm">
+                    <Mail className="h-4 w-4" />
+                    Enviar e-mail
+                  </Button>
+                  <Button className="w-full justify-start gap-2 bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+                    <Phone className="h-4 w-4" />
+                    Fazer ligação
+                  </Button>
+                  <Button className="w-full justify-start gap-2 bg-purple-600 hover:bg-purple-700 text-white" size="sm">
+                    <FileText className="h-4 w-4" />
+                    Gerar proposta
+                  </Button>
+                  <Button className="w-full justify-start gap-2 bg-green-600 hover:bg-green-700 text-white" size="sm">
+                    <MessageSquare className="h-4 w-4" />
+                    Enviar WhatsApp
+                  </Button>
+                </CardContent>
+              </Card>
 
               {/* Dados do negócio */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-sm text-foreground">Dados do negócio</h3>
-                
-                <div className="space-y-3 text-sm">
+              <Card className="bg-primary/5 border-primary/10">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Dados do negócio</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
                   <div className="flex items-start justify-between">
                     <span className="text-muted-foreground">Responsável</span>
                     <div className="flex items-center gap-2">
@@ -275,7 +279,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <span className="text-muted-foreground">Adicionar descrição</span>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-2" />
 
                   <div className="flex items-start justify-between">
                     <span className="text-muted-foreground">Cadastrado por</span>
@@ -304,8 +308,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         : new Date(lead.updated_at).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Botões de ação fixos no rodapé */}
