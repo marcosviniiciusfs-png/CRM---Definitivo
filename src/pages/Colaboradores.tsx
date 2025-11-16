@@ -22,6 +22,7 @@ interface Colaborador {
   role: string;
   created_at: string;
   user_id: string | null;
+  full_name?: string;
 }
 
 const Colaboradores = () => {
@@ -100,10 +101,15 @@ const Colaboradores = () => {
       
       console.log('🏢 Organização carregada:', orgId);
       
-      // Load all members of the organization
+      // Load all members of the organization with profile data
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
-        .select('*')
+        .select(`
+          *,
+          profiles:user_id (
+            full_name
+          )
+        `)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
 
@@ -120,21 +126,28 @@ const Colaboradores = () => {
 
       if (members) {
         console.log(`✅ ${members.length} colaborador(es) carregado(s)`);
-        setColaboradores(members);
+        
+        // Transform members to include full_name from profiles
+        const transformedMembers = members.map((member: any) => ({
+          ...member,
+          full_name: member.profiles?.full_name || null
+        }));
+        
+        setColaboradores(transformedMembers);
         
         // Calculate stats
         const now = new Date();
         const thisMonth = now.getMonth();
         const thisYear = now.getFullYear();
         
-        const novos = members.filter((m: any) => {
+        const novos = transformedMembers.filter((m: any) => {
           const createdDate = new Date(m.created_at);
           return createdDate.getMonth() === thisMonth && 
                  createdDate.getFullYear() === thisYear;
         }).length;
         
         setStats({
-          ativos: members.length,
+          ativos: transformedMembers.length,
           novos: novos,
           saidas: 0,
           inativos: 0
@@ -454,13 +467,18 @@ const Colaboradores = () => {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
                               <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
-                                {getInitials(colab.email || 'NC')}
+                                {getInitials(colab.full_name || colab.email || 'NC')}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm text-gray-500">
-                                {colab.email || 'Email não cadastrado'}
+                              <p className="font-medium text-foreground">
+                                {colab.full_name || colab.email || 'Nome não cadastrado'}
                               </p>
+                              {colab.full_name && (
+                                <p className="text-sm text-muted-foreground">
+                                  {colab.email}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </TableCell>
