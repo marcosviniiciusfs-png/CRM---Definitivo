@@ -101,15 +101,10 @@ const Colaboradores = () => {
       
       console.log('🏢 Organização carregada:', orgId);
       
-      // Load all members of the organization with profile data
+      // Load all members of the organization
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
-        .select(`
-          *,
-          profiles:user_id (
-            full_name
-          )
-        `)
+        .select('*')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
 
@@ -127,10 +122,34 @@ const Colaboradores = () => {
       if (members) {
         console.log(`✅ ${members.length} colaborador(es) carregado(s)`);
         
+        // Get user IDs that have profiles
+        const userIds = members
+          .filter(m => m.user_id)
+          .map(m => m.user_id);
+        
+        // Load profiles for these users
+        let profilesMap: { [key: string]: { full_name: string | null } } = {};
+        
+        if (userIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', userIds);
+          
+          if (!profilesError && profiles) {
+            profilesMap = profiles.reduce((acc, profile) => {
+              acc[profile.user_id] = { full_name: profile.full_name };
+              return acc;
+            }, {} as { [key: string]: { full_name: string | null } });
+          }
+        }
+        
         // Transform members to include full_name from profiles
         const transformedMembers = members.map((member: any) => ({
           ...member,
-          full_name: member.profiles?.full_name || null
+          full_name: member.user_id && profilesMap[member.user_id] 
+            ? profilesMap[member.user_id].full_name 
+            : null
         }));
         
         setColaboradores(transformedMembers);
