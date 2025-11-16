@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +23,7 @@ interface Colaborador {
   created_at: string;
   user_id: string | null;
   full_name?: string;
+  avatar_url?: string;
 }
 
 const Colaboradores = () => {
@@ -128,27 +129,33 @@ const Colaboradores = () => {
           .map(m => m.user_id);
         
         // Load profiles for these users
-        let profilesMap: { [key: string]: { full_name: string | null } } = {};
+        let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
         
         if (userIds.length > 0) {
           const { data: profiles, error: profilesError } = await supabase
             .from('profiles')
-            .select('user_id, full_name')
+            .select('user_id, full_name, avatar_url')
             .in('user_id', userIds);
           
           if (!profilesError && profiles) {
             profilesMap = profiles.reduce((acc, profile) => {
-              acc[profile.user_id] = { full_name: profile.full_name };
+              acc[profile.user_id] = { 
+                full_name: profile.full_name,
+                avatar_url: profile.avatar_url
+              };
               return acc;
-            }, {} as { [key: string]: { full_name: string | null } });
+            }, {} as { [key: string]: { full_name: string | null; avatar_url: string | null } });
           }
         }
         
-        // Transform members to include full_name from profiles
+        // Transform members to include full_name and avatar_url from profiles
         const transformedMembers = members.map((member: any) => ({
           ...member,
           full_name: member.user_id && profilesMap[member.user_id] 
             ? profilesMap[member.user_id].full_name 
+            : null,
+          avatar_url: member.user_id && profilesMap[member.user_id]
+            ? profilesMap[member.user_id].avatar_url
             : null
         }));
         
@@ -485,6 +492,12 @@ const Colaboradores = () => {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
+                              {colab.avatar_url && (
+                                <AvatarImage 
+                                  src={colab.avatar_url} 
+                                  alt={colab.full_name || colab.email || 'Avatar'} 
+                                />
+                              )}
                               <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
                                 {getInitials(colab.full_name || colab.email || 'NC')}
                               </AvatarFallback>
