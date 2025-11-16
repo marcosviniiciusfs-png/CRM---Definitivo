@@ -139,17 +139,16 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <FileText className="h-4 w-4" />
                     <span>Funil de Vendas</span>
                   </div>
-                  <div className="flex items-center w-full">
+                  <div className="flex items-center w-full -space-x-6">
                     {/* Contato - Primeira etapa */}
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'NOVO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
                           : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
-                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)',
-                        marginRight: '-1px'
+                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)'
                       }}
                     >
                       <span className="relative z-10 pr-6 pl-4">Contato</span>
@@ -159,12 +158,11 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'EM_ATENDIMENTO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
                           : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)',
-                        marginRight: '-1px'
+                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
                       }}
                     >
                       <span className="relative z-10 px-1">Envio de proposta</span>
@@ -174,12 +172,11 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FOLLOW_UP' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
                           : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
-                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)',
-                        marginRight: '-1px'
+                        clipPath: 'polygon(24px 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 24px 100%, 0 50%)'
                       }}
                     >
                       <span className="relative z-10 px-1">Follow-up</span>
@@ -189,7 +186,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     <div 
                       className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer ${
                         editedStage === 'FECHADO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110' 
+                          ? 'bg-[hsl(250,90%,60%)] text-white hover:brightness-110 z-10' 
                           : 'bg-[hsl(220,13%,91%)] text-gray-700 hover:bg-[hsl(220,13%,85%)]'
                       }`}
                       style={{
