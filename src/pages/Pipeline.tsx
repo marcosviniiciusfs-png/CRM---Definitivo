@@ -6,6 +6,7 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners }
 import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
+import { EditLeadModal } from "@/components/EditLeadModal";
 
 const stages = [
   { id: "NOVO", title: "Novo Lead", color: "bg-blue-500" },
@@ -18,6 +19,7 @@ const Pipeline = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     loadLeads();
@@ -258,6 +260,7 @@ const Pipeline = () => {
   }
 
   return (
+    <>
     <DndContext
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
@@ -304,6 +307,17 @@ const Pipeline = () => {
         ) : null}
       </DragOverlay>
     </DndContext>
+
+    {/* Modal de Edição - FORA do DndContext */}
+    {editingLead && (
+      <EditLeadModal
+        lead={editingLead}
+        open={!!editingLead}
+        onClose={() => setEditingLead(null)}
+        onUpdate={loadLeads}
+      />
+    )}
+    </>
   );
 };
 

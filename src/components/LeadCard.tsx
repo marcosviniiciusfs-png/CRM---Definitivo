@@ -8,28 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 interface LeadCardProps {
   id: string;
@@ -40,17 +20,11 @@ interface LeadCardProps {
   stage?: string;
   value?: number;
   onUpdate?: () => void;
+  onEdit?: () => void;
 }
 
-export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpdate }: LeadCardProps) => {
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editedName, setEditedName] = useState(name);
-  const [editedPhone, setEditedPhone] = useState(phone);
-  const [editedValue, setEditedValue] = useState(value?.toString() || "");
-  const [editedStage, setEditedStage] = useState(stage || "NOVO");
-  const [isSaving, setIsSaving] = useState(false);
-
-  console.log("LeadCard render - isEditModalOpen:", isEditModalOpen, "for lead:", name);
+export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpdate, onEdit }: LeadCardProps) => {
+  console.log("LeadCard render - onEdit:", !!onEdit, "for lead:", name);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
@@ -61,7 +35,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
     transition,
     opacity: isDragging ? 0 : 1,
   };
-  
+
   const getInitials = (fullName: string) => {
     return fullName
       .split(" ")
@@ -71,58 +45,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
       .slice(0, 2);
   };
 
-  const handleSaveChanges = async () => {
-    if (!editedName.trim()) {
-      toast.error("O nome do lead é obrigatório");
-      return;
-    }
-
-    if (!editedPhone.trim()) {
-      toast.error("O telefone do lead é obrigatório");
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const updateData: any = {
-        nome_lead: editedName.trim(),
-        telefone_lead: editedPhone.trim(),
-        stage: editedStage,
-      };
-
-      // Apenas adicionar valor se foi preenchido
-      if (editedValue.trim()) {
-        const numericValue = parseFloat(editedValue.replace(/[^\d.,]/g, '').replace(',', '.'));
-        if (!isNaN(numericValue)) {
-          updateData.valor = numericValue;
-        }
-      }
-
-      const { error } = await supabase
-        .from("leads")
-        .update(updateData)
-        .eq("id", id);
-
-      if (error) throw error;
-
-      toast.success("Lead atualizado com sucesso!");
-      setIsEditModalOpen(false);
-      
-      // Chamar callback para recarregar leads
-      if (onUpdate) {
-        onUpdate();
-      }
-    } catch (error) {
-      console.error("Erro ao atualizar lead:", error);
-      toast.error("Erro ao atualizar lead");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   return (
-    <>
     <Card
       ref={setNodeRef}
       style={style}
@@ -151,11 +74,10 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
                   <DropdownMenuItem 
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log("Editar clicado - abrindo modal para:", name);
-                      setTimeout(() => {
-                        setIsEditModalOpen(true);
-                        console.log("Modal aberto para:", name);
-                      }, 0);
+                      console.log("Editar clicado para:", name);
+                      if (onEdit) {
+                        onEdit();
+                      }
                     }}
                     onSelect={(e) => {
                       e.preventDefault();
@@ -194,82 +116,5 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, onUpd
         <Eye className="h-4 w-4 text-white" />
       </div>
     </Card>
-
-    {/* Modal de Edição de Lead */}
-    <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Editar Lead: {name}</DialogTitle>
-            <DialogDescription>
-              Atualize as informações do lead abaixo.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                placeholder="Nome completo"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                value={editedPhone}
-                onChange={(e) => setEditedPhone(e.target.value)}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="value">Valor do Negócio</Label>
-              <Input
-                id="value"
-                type="text"
-                value={editedValue}
-                onChange={(e) => setEditedValue(e.target.value)}
-                placeholder="R$ 0,00"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="stage">Etapa do Funil</Label>
-              <Select value={editedStage} onValueChange={setEditedStage}>
-                <SelectTrigger id="stage">
-                  <SelectValue placeholder="Selecione a etapa" />
-                </SelectTrigger>
-                <SelectContent className="bg-background">
-                  <SelectItem value="NOVO">Novo Lead</SelectItem>
-                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                  <SelectItem value="FECHADO">Fechado</SelectItem>
-                  <SelectItem value="PERDIDO">Perdido</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsEditModalOpen(false)}
-              disabled={isSaving}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSaveChanges}
-              disabled={isSaving}
-            >
-              {isSaving ? "Salvando..." : "Salvar Alterações"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-    </Dialog>
-  </>
   );
 };
