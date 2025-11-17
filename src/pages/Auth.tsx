@@ -128,7 +128,6 @@ const Auth = () => {
       <div className="auth-wrapper">
         <div className="auth-header">
           <h1>CRM</h1>
-          <p>Gestão de Leads e Vendas</p>
         </div>
         
         <div className="flip-card-container">
