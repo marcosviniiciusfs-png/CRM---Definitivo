@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
+import { AudioPlayer } from "@/components/AudioPlayer";
 
 const Chat = () => {
   const location = useLocation();
@@ -401,21 +402,11 @@ const Chat = () => {
                       >
                         {/* Renderizar player de áudio se for mensagem de áudio */}
                         {message.media_type === 'audio' && message.media_url ? (
-                          <div className="space-y-2">
-                            <audio 
-                              controls 
-                              className="w-full max-w-sm"
-                              preload="metadata"
-                            >
-                              <source src={message.media_url} type={message.media_metadata?.mimetype || 'audio/ogg'} />
-                              Seu navegador não suporta reprodução de áudio.
-                            </audio>
-                            {message.media_metadata?.seconds && (
-                              <p className="text-xs opacity-70">
-                                Duração: {Math.floor(message.media_metadata.seconds)}s
-                              </p>
-                            )}
-                          </div>
+                          <AudioPlayer 
+                            audioUrl={message.media_url}
+                            mimetype={message.media_metadata?.mimetype}
+                            duration={message.media_metadata?.seconds}
+                          />
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">
                             {message.corpo_mensagem}
