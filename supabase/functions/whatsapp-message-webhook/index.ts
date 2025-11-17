@@ -7,35 +7,73 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Função auxiliar para baixar mídia e fazer upload para Supabase Storage
+// Função auxiliar para baixar mídia usando Evolution API e fazer upload para Supabase Storage
 async function downloadAndUploadMedia(
-  mediaUrl: string,
+  messageId: string,
   mediaType: string,
   mimetype: string,
-  leadId: string
+  leadId: string,
+  serverUrl: string,
+  apiKey: string,
+  instance: string
 ): Promise<string> {
-  console.log(`📥 Baixando ${mediaType} de:`, mediaUrl);
+  console.log(`📥 Baixando ${mediaType} da Evolution API para mensagem:`, messageId);
   
   try {
-    // Baixar o arquivo
-    const response = await fetch(mediaUrl);
+    // Usar Evolution API para obter mídia em base64
+    const evolutionUrl = `${serverUrl}/chat/getBase64FromMediaMessage/${instance}`;
+    console.log(`🔗 Chamando Evolution API:`, evolutionUrl);
+    
+    const response = await fetch(evolutionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey
+      },
+      body: JSON.stringify({
+        message: {
+          key: {
+            id: messageId
+          }
+        },
+        convertToMp4: false
+      })
+    });
+    
     if (!response.ok) {
-      throw new Error(`Erro ao baixar ${mediaType}: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ Erro na Evolution API (${response.status}):`, errorText);
+      throw new Error(`Evolution API error: ${response.status} - ${errorText}`);
     }
     
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
+    const data = await response.json();
+    console.log(`✅ Resposta da Evolution API recebida`);
+    
+    // A Evolution API retorna { base64: "..." }
+    if (!data.base64) {
+      throw new Error('Base64 não encontrado na resposta da Evolution API');
+    }
+    
+    // Converter base64 para buffer
+    // Remover prefixo data:mime/type;base64, se existir
+    const base64Data = data.base64.replace(/^data:[^;]+;base64,/, '');
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
     
     // Determinar extensão do arquivo
     let extension = 'bin';
     if (mimetype.includes('ogg')) extension = 'ogg';
     else if (mimetype.includes('opus')) extension = 'opus';
     else if (mimetype.includes('mp3')) extension = 'mp3';
+    else if (mimetype.includes('mpeg')) extension = 'mp3';
     else if (mimetype.includes('jpeg') || mimetype.includes('jpg')) extension = 'jpg';
     else if (mimetype.includes('png')) extension = 'png';
     else if (mimetype.includes('mp4')) extension = 'mp4';
     else if (mimetype.includes('pdf')) extension = 'pdf';
+    else if (mimetype.includes('webp')) extension = 'webp';
     else {
       const parts = mimetype.split('/');
       if (parts.length > 1) extension = parts[1].split(';')[0];
@@ -54,7 +92,7 @@ async function downloadAndUploadMedia(
     // Fazer upload para o bucket 'chat-media'
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('chat-media')
-      .upload(fileName, buffer, {
+      .upload(fileName, bytes, {
         contentType: mimetype,
         upsert: false
       });
@@ -73,8 +111,7 @@ async function downloadAndUploadMedia(
     return urlData.publicUrl;
   } catch (error) {
     console.error(`❌ Erro ao processar ${mediaType}:`, error);
-    // Retornar a URL original em caso de erro
-    return mediaUrl;
+    throw error; // Propagar erro para não salvar URL inválida
   }
 }
 
@@ -97,6 +134,8 @@ serve(async (req) => {
     const event = payload.event;
     const instance = payload.instance;
     const data = payload.data;
+    const serverUrl = payload.server_url;
+    const apiKey = payload.apikey;
 
     // Log para debug
     console.log('Event:', event);
@@ -393,23 +432,31 @@ serve(async (req) => {
     // PROCESSAR MÍDIA
     // ========================================
     
-    let mediaUrl: string | null = originalMediaUrl;
+    let mediaUrl: string | null = null;
     
-    // Se houver mídia, baixar e fazer upload para o Supabase Storage
-    if (originalMediaUrl && mediaType && leadId) {
+    // Se houver mídia, baixar via Evolution API e fazer upload para o Supabase Storage
+    if (originalMediaUrl && mediaType && leadId && serverUrl && apiKey) {
       console.log(`📥 Processando mídia do tipo ${mediaType}...`);
       try {
+        const messageId = messageKey.id;
+        if (!messageId) {
+          throw new Error('Message ID não encontrado');
+        }
+        
         mediaUrl = await downloadAndUploadMedia(
-          originalMediaUrl,
+          messageId,
           mediaType,
           mediaMetadata?.mimetype || 'application/octet-stream',
-          leadId
+          leadId,
+          serverUrl,
+          apiKey,
+          instance
         );
         console.log(`✅ Mídia processada com sucesso: ${mediaUrl}`);
       } catch (error) {
         console.error(`❌ Erro ao processar mídia:`, error);
-        // Manter URL original em caso de erro
-        mediaUrl = originalMediaUrl;
+        // Não salvar URL em caso de erro - deixar null
+        mediaUrl = null;
       }
     }
 
