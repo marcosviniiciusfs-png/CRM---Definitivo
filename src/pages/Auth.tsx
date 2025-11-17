@@ -10,6 +10,7 @@ const Auth = () => {
   const { signUp, signIn, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -130,16 +131,20 @@ const Auth = () => {
           <p>Gestão de Leads e Vendas</p>
         </div>
         
-        <div className="switch">
-          <input 
-            type="checkbox" 
-            id="toggle" 
-            className="toggle" 
-          />
-          <label htmlFor="toggle" className="slider"></label>
-          <label htmlFor="toggle" className="card-side"></label>
+        <div className="flip-card-container">
+          <div className="switch">
+            <input 
+              type="checkbox" 
+              id="toggle" 
+              className="toggle"
+              checked={isSignUp}
+              onChange={(e) => setIsSignUp(e.target.checked)}
+            />
+            <label htmlFor="toggle" className="slider"></label>
+            <label htmlFor="toggle" className="card-side"></label>
+          </div>
           
-          <div className="flip-card__inner">
+          <div className={`flip-card__inner ${isSignUp ? 'flipped' : ''}`}>
             {/* Login Card (Front) */}
             <div className="flip-card__front">
               <form onSubmit={handleLogin} className="flip-card__form">

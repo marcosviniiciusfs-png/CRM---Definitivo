@@ -6,30 +6,43 @@
   --bg-color-alt: #666;
   --main-color: #323232;
   
+  /* Layout principal, centralizando o conteúdo */
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 60px;
+  gap: 30px; /* Espaço entre o header e o card */
+  padding: 20px;
 }
 
-/* switch card */
-.switch {
+/* --- Container do Flip Card e Switch --- */
+.flip-card-container {
   position: relative;
+  width: 300px; /* Largura do card */
+  height: 480px; /* Altura máxima para o card de Sign Up caber */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* --- Switch de Login/Cadastro --- */
+.switch {
+  position: absolute;
+  top: -60px; /* Posiciona o switch acima do flip-card__inner */
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 30px;
   width: 50px;
   height: 20px;
-  z-index: 10;
+  z-index: 20; /* Garante que fique acima do card */
 }
 
 .card-side::before {
   position: absolute;
-  content: 'Log in';
+  content: 'Log In';
   left: -70px;
   top: 0;
   width: 100px;
@@ -40,7 +53,7 @@
 
 .card-side::after {
   position: absolute;
-  content: 'Sign up';
+  content: 'Sign Up';
   left: 70px;
   top: 0;
   width: 100px;
@@ -93,18 +106,17 @@
   transform: translateX(30px);
 }
 
-.toggle:checked ~ .card-side:before {
+.toggle:checked ~ .card-side::before {
   text-decoration: none;
 }
 
-.toggle:checked ~ .card-side:after {
+.toggle:checked ~ .card-side::after {
   text-decoration: underline;
 }
 
-/* card */ 
-
+/* --- Card Flip --- */ 
 .flip-card__inner {
-  width: 300px;
+  width: 300px; /* Deve ser igual ao flip-card-container width */
   height: 380px;
   position: relative;
   background-color: transparent;
@@ -112,14 +124,13 @@
   text-align: center;
   transition: transform 0.8s;
   transform-style: preserve-3d;
+  /* Centraliza o card abaixo do switch */
+  margin-top: 30px; 
 }
 
-.toggle:checked ~ .flip-card__inner {
+/* Novo seletor para quando o React define a classe 'flipped' */
+.flip-card__inner.flipped {
   transform: rotateY(180deg);
-}
-
-.toggle:checked ~ .flip-card__front {
-  box-shadow: none;
 }
 
 .flip-card__front, .flip-card__back {
@@ -131,7 +142,7 @@
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   background: var(--bg-color);
-  gap: 20px;
+  gap: 15px; /* Espaçamento ajustado */
   border-radius: 5px;
   border: 2px solid var(--main-color);
   box-shadow: 4px 4px var(--main-color);
@@ -147,12 +158,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
   width: 100%;
 }
 
 .title {
-  margin: 20px 0 20px 0;
+  margin: 10px 0 10px 0; /* Margem ajustada */
   font-size: 25px;
   font-weight: 900;
   text-align: center;
@@ -189,7 +200,7 @@
 }
 
 .flip-card__btn {
-  margin: 20px 0 20px 0;
+  margin: 15px 0 15px 0; /* Margem ajustada */
   width: 120px;
   height: 40px;
   border-radius: 5px;
