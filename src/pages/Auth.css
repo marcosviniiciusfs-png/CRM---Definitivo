@@ -1,10 +1,10 @@
 .auth-wrapper {
-  --input-focus: #a5f2cd;
-  --font-color: #a5f2cd;
-  --font-color-sub: #a5f2cd;
+  --input-focus: #10b981;
+  --font-color: #10b981;
+  --font-color-sub: #059669;
   --bg-color: #fff;
-  --bg-color-alt: #a5f2cd;
-  --main-color: #a5f2cd;
+  --bg-color-alt: #10b981;
+  --main-color: #10b981;
   
   /* Layout principal, centralizando o conteúdo */
   min-height: 100vh;
