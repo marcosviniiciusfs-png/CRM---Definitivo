@@ -23,4 +23,7 @@ export interface Message {
   evolution_message_id: string | null;
   status_entrega: 'SENT' | 'DELIVERED' | 'READ' | null;
   created_at: string;
+  media_url?: string | null;
+  media_type?: string | null;
+  media_metadata?: any;
 }
