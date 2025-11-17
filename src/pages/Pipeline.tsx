@@ -1,5 +1,5 @@
 import { PipelineColumn } from "@/components/PipelineColumn";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
@@ -20,9 +20,52 @@ const Pipeline = () => {
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const leadIdsRef = useRef<Set<string>>(new Set());
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     loadLeads();
+    
+    // Inicializar áudio de notificação
+    audioRef.current = new Audio("/notification.mp3");
+    audioRef.current.volume = 0.5;
+
+    // Subscrever a novos leads
+    const channel = supabase
+      .channel('leads-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'leads'
+        },
+        (payload) => {
+          const newLead = payload.new as Lead;
+          console.log("Novo lead detectado:", newLead);
+          
+          // Verificar se é realmente um lead novo (não carregado anteriormente)
+          if (!leadIdsRef.current.has(newLead.id)) {
+            // Tocar som
+            audioRef.current?.play().catch(err => console.log("Erro ao tocar som:", err));
+            
+            // Mostrar toast
+            toast.success(`Novo lead: ${newLead.nome_lead}`, {
+              description: newLead.telefone_lead,
+              duration: 5000,
+            });
+            
+            // Adicionar ao estado
+            setLeads(prev => [newLead, ...prev]);
+            leadIdsRef.current.add(newLead.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, []);
 
   const loadLeads = async () => {
@@ -37,6 +80,11 @@ const Pipeline = () => {
       
       console.log("Leads carregados:", data?.length);
       setLeads(data || []);
+      
+      // Armazenar IDs dos leads carregados inicialmente
+      if (data) {
+        leadIdsRef.current = new Set(data.map(lead => lead.id));
+      }
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
       toast.error("Erro ao carregar leads");
