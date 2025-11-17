@@ -69,10 +69,10 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
       {...attributes}
       {...listeners}
       className={cn(
-        "cursor-grab active:cursor-grabbing rounded-[10px] border-2 hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)] transition-all duration-500 ease-in-out bg-card overflow-hidden relative group",
+        "cursor-grab active:cursor-grabbing rounded-[10px] border-2 transition-all duration-500 ease-in-out bg-card overflow-hidden relative group",
         hasRedBorder 
-          ? "border-red-500 hover:border-red-600" 
-          : "border-border hover:border-hover-border"
+          ? "border-border animate-glow-pulse" 
+          : "border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
       <div className="p-1.5">
