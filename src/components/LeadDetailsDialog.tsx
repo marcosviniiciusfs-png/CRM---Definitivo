@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, FileText, Clock } from "lucide-react";
+import { DollarSign, FileText, Clock, User, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -27,11 +27,17 @@ interface Activity {
   content: string;
   created_at: string;
   user_id: string;
+  attachment_name: string | null;
+  attachment_url: string | null;
+}
+
+interface ActivityWithUser extends Activity {
+  user_name: string | null;
 }
 
 export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: LeadDetailsDialogProps) => {
   const [details, setDetails] = useState<LeadDetails | null>(null);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<ActivityWithUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,7 +68,28 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
         .order("created_at", { ascending: false });
 
       if (activitiesError) throw activitiesError;
-      setActivities(activitiesData || []);
+
+      // Buscar nomes dos usuários que criaram as atividades
+      if (activitiesData && activitiesData.length > 0) {
+        const userIds = [...new Set(activitiesData.map(a => a.user_id))];
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Mapear atividades com nomes de usuários
+        const activitiesWithUsers: ActivityWithUser[] = activitiesData.map(activity => ({
+          ...activity,
+          user_name: profilesData?.find(p => p.user_id === activity.user_id)?.full_name || null
+        }));
+
+        setActivities(activitiesWithUsers);
+      } else {
+        setActivities([]);
+      }
     } catch (error) {
       console.error("Erro ao carregar detalhes do lead:", error);
     } finally {
@@ -161,7 +188,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                   {activities.map((activity) => (
                     <div
                       key={activity.id}
-                      className="p-3 rounded-lg bg-muted/50 border border-border space-y-1"
+                      className="p-3 rounded-lg bg-muted/50 border border-border space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-primary capitalize">
@@ -172,6 +199,27 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                         </span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{activity.content}</p>
+                      
+                      {/* Anexo */}
+                      {activity.attachment_name && activity.attachment_url && (
+                        <a
+                          href={activity.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline"
+                        >
+                          <Paperclip className="h-4 w-4" />
+                          <span>{activity.attachment_name}</span>
+                        </a>
+                      )}
+                      
+                      {/* Criado por */}
+                      {activity.user_name && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                          <User className="h-3 w-3" />
+                          <span>Criada por {activity.user_name}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
