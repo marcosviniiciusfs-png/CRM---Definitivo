@@ -72,7 +72,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
         "cursor-grab active:cursor-grabbing rounded-[10px] border-2 transition-all duration-500 ease-in-out bg-card overflow-hidden relative group",
         hasRedBorder 
           ? "border-border animate-glow-pulse" 
-          : "border-border hover:border-hover-border hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
+          : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
       <div className="p-1.5">
@@ -127,15 +127,15 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
         </div>
       </div>
 
-      {/* Faixa azul lateral com ícone de olho - desliza da direita na entrada */}
+      {/* Faixa verde lateral com ícone de olho - desliza da direita na entrada */}
       <div 
-        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-[#008bf8] rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
+        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
         onClick={(e) => {
           e.stopPropagation();
           // Ação de visualizar detalhes do lead
         }}
       >
-        <Eye className="h-4 w-4 text-white" />
+        <Eye className="h-4 w-4 text-primary-foreground" />
       </div>
     </Card>
   );
