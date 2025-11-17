@@ -171,7 +171,7 @@ const Auth = () => {
                   className="flip-card__btn"
                   disabled={loading}
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Log In"}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Entrar"}
                 </button>
               </form>
             </div>
@@ -221,7 +221,7 @@ const Auth = () => {
                   className="flip-card__btn"
                   disabled={loading}
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Sign Up"}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Inscrever-se"}
                 </button>
               </form>
             </div>
