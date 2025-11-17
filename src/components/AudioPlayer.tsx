@@ -22,7 +22,10 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
     const audio = audioRef.current;
     if (!audio) return;
 
+    console.log('🎵 AudioPlayer - Iniciando carregamento:', audioUrl);
+
     const handleLoadedMetadata = () => {
+      console.log('✅ AudioPlayer - Metadados carregados, duração:', audio.duration);
       setAudioDuration(audio.duration);
       setIsLoading(false);
       setHasError(false);
@@ -37,13 +40,17 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
       setCurrentTime(0);
     };
 
-    const handleError = (e: ErrorEvent) => {
-      console.error('Erro ao carregar áudio:', e);
+    const handleError = (e: Event) => {
+      console.error('❌ AudioPlayer - Erro ao carregar áudio:', e);
+      console.error('❌ AudioPlayer - URL:', audioUrl);
+      console.error('❌ AudioPlayer - Error code:', audio.error?.code);
+      console.error('❌ AudioPlayer - Error message:', audio.error?.message);
       setHasError(true);
       setIsLoading(false);
     };
 
     const handleCanPlay = () => {
+      console.log('✅ AudioPlayer - Pronto para reproduzir');
       setIsLoading(false);
       setHasError(false);
     };
@@ -51,35 +58,37 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("error", handleError as any);
+    audio.addEventListener("error", handleError);
     audio.addEventListener("canplay", handleCanPlay);
-
-    // Forçar carregamento
-    audio.load();
 
     return () => {
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("error", handleError as any);
+      audio.removeEventListener("error", handleError);
       audio.removeEventListener("canplay", handleCanPlay);
     };
   }, [audioUrl]);
 
   const togglePlayPause = async () => {
     const audio = audioRef.current;
-    if (!audio || hasError) return;
+    if (!audio || hasError) {
+      console.log('⚠️ AudioPlayer - Não pode reproduzir:', { hasAudio: !!audio, hasError });
+      return;
+    }
 
     try {
       if (isPlaying) {
+        console.log('⏸️ AudioPlayer - Pausando');
         audio.pause();
         setIsPlaying(false);
       } else {
+        console.log('▶️ AudioPlayer - Reproduzindo');
         await audio.play();
         setIsPlaying(true);
       }
     } catch (error) {
-      console.error('Erro ao reproduzir áudio:', error);
+      console.error('❌ AudioPlayer - Erro ao reproduzir:', error);
       setHasError(true);
       setIsPlaying(false);
     }
@@ -87,7 +96,7 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
 
   const handleSliderChange = (value: number[]) => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || isLoading || hasError) return;
 
     const newTime = value[0];
     audio.currentTime = newTime;
@@ -95,6 +104,7 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
   };
 
   const formatTime = (time: number) => {
+    if (!isFinite(time)) return "0:00";
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -104,15 +114,25 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
     return (
       <div className={`flex items-center gap-3 p-3 bg-destructive/10 rounded-lg ${className}`}>
         <span className="text-sm text-destructive">Erro ao carregar áudio</span>
+        <a 
+          href={audioUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-xs text-primary underline ml-2"
+        >
+          Tentar abrir diretamente
+        </a>
       </div>
     );
   }
 
   return (
-    <div className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg ${className}`}>
-      <audio ref={audioRef} preload="metadata" crossOrigin="anonymous">
-        <source src={audioUrl} type={mimetype || "audio/ogg; codecs=opus"} />
-      </audio>
+    <div className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg min-w-[280px] ${className}`}>
+      <audio 
+        ref={audioRef} 
+        src={audioUrl}
+        preload="metadata"
+      />
 
       <Button
         size="icon"
@@ -120,6 +140,7 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
         onClick={togglePlayPause}
         disabled={isLoading || hasError}
         className="shrink-0 h-8 w-8"
+        title={isLoading ? "Carregando..." : "Reproduzir/Pausar"}
       >
         {isPlaying ? (
           <Pause className="h-4 w-4" />
