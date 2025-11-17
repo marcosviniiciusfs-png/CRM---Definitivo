@@ -7,6 +7,77 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Função auxiliar para baixar mídia e fazer upload para Supabase Storage
+async function downloadAndUploadMedia(
+  mediaUrl: string,
+  mediaType: string,
+  mimetype: string,
+  leadId: string
+): Promise<string> {
+  console.log(`📥 Baixando ${mediaType} de:`, mediaUrl);
+  
+  try {
+    // Baixar o arquivo
+    const response = await fetch(mediaUrl);
+    if (!response.ok) {
+      throw new Error(`Erro ao baixar ${mediaType}: ${response.statusText}`);
+    }
+    
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
+    
+    // Determinar extensão do arquivo
+    let extension = 'bin';
+    if (mimetype.includes('ogg')) extension = 'ogg';
+    else if (mimetype.includes('opus')) extension = 'opus';
+    else if (mimetype.includes('mp3')) extension = 'mp3';
+    else if (mimetype.includes('jpeg') || mimetype.includes('jpg')) extension = 'jpg';
+    else if (mimetype.includes('png')) extension = 'png';
+    else if (mimetype.includes('mp4')) extension = 'mp4';
+    else if (mimetype.includes('pdf')) extension = 'pdf';
+    else {
+      const parts = mimetype.split('/');
+      if (parts.length > 1) extension = parts[1].split(';')[0];
+    }
+    
+    const fileName = `${leadId}/${Date.now()}.${extension}`;
+    
+    console.log(`📤 Fazendo upload para Storage: ${fileName}`);
+    
+    // Criar cliente Supabase admin
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    // Fazer upload para o bucket 'chat-media'
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from('chat-media')
+      .upload(fileName, buffer, {
+        contentType: mimetype,
+        upsert: false
+      });
+    
+    if (uploadError) {
+      console.error('❌ Erro ao fazer upload:', uploadError);
+      throw uploadError;
+    }
+    
+    // Obter URL pública
+    const { data: urlData } = supabaseAdmin.storage
+      .from('chat-media')
+      .getPublicUrl(fileName);
+    
+    console.log(`✅ Upload concluído:`, urlData.publicUrl);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error(`❌ Erro ao processar ${mediaType}:`, error);
+    // Retornar a URL original em caso de erro
+    return mediaUrl;
+  }
+}
+
 serve(async (req) => {
   console.log('🚨 WEBHOOK CHAMADO - TIMESTAMP:', new Date().toISOString());
   console.log('🚨 MÉTODO:', req.method);
@@ -192,9 +263,9 @@ serve(async (req) => {
       );
     }
 
-    // Extrair conteúdo da mensagem e dados de mídia
+    // Extrair conteúdo da mensagem e dados de mídia (URLs originais)
     let messageContent = '';
-    let mediaUrl: string | null = null;
+    let originalMediaUrl: string | null = null;
     let mediaType: string | null = null;
     let mediaMetadata: any = null;
 
@@ -202,17 +273,17 @@ serve(async (req) => {
       messageContent = messageInfo.conversation;
     } else if (messageInfo.extendedTextMessage?.text) {
       messageContent = messageInfo.extendedTextMessage.text;
-    } else if (messageInfo.imageMessage?.caption) {
+    } else if (messageInfo.imageMessage) {
       messageContent = `[Imagem] ${messageInfo.imageMessage.caption || ''}`;
-      mediaUrl = messageInfo.imageMessage.url;
+      originalMediaUrl = messageInfo.imageMessage.url;
       mediaType = 'image';
       mediaMetadata = {
         mimetype: messageInfo.imageMessage.mimetype,
         fileLength: messageInfo.imageMessage.fileLength
       };
-    } else if (messageInfo.videoMessage?.caption) {
+    } else if (messageInfo.videoMessage) {
       messageContent = `[Vídeo] ${messageInfo.videoMessage.caption || ''}`;
-      mediaUrl = messageInfo.videoMessage.url;
+      originalMediaUrl = messageInfo.videoMessage.url;
       mediaType = 'video';
       mediaMetadata = {
         mimetype: messageInfo.videoMessage.mimetype,
@@ -221,7 +292,7 @@ serve(async (req) => {
       };
     } else if (messageInfo.audioMessage) {
       messageContent = '[Áudio]';
-      mediaUrl = messageInfo.audioMessage.url;
+      originalMediaUrl = messageInfo.audioMessage.url;
       mediaType = 'audio';
       mediaMetadata = {
         mimetype: messageInfo.audioMessage.mimetype,
@@ -231,7 +302,7 @@ serve(async (req) => {
       };
     } else if (messageInfo.documentMessage) {
       messageContent = `[Documento] ${messageInfo.documentMessage.fileName || ''}`;
-      mediaUrl = messageInfo.documentMessage.url;
+      originalMediaUrl = messageInfo.documentMessage.url;
       mediaType = 'document';
       mediaMetadata = {
         mimetype: messageInfo.documentMessage.mimetype,
@@ -315,6 +386,31 @@ serve(async (req) => {
       console.log('🏢 Organization:', newLead.organization_id);
       leadId = newLead.id;
       leadName = newLead.nome_lead;
+    }
+
+
+    // ========================================
+    // PROCESSAR MÍDIA
+    // ========================================
+    
+    let mediaUrl: string | null = originalMediaUrl;
+    
+    // Se houver mídia, baixar e fazer upload para o Supabase Storage
+    if (originalMediaUrl && mediaType && leadId) {
+      console.log(`📥 Processando mídia do tipo ${mediaType}...`);
+      try {
+        mediaUrl = await downloadAndUploadMedia(
+          originalMediaUrl,
+          mediaType,
+          mediaMetadata?.mimetype || 'application/octet-stream',
+          leadId
+        );
+        console.log(`✅ Mídia processada com sucesso: ${mediaUrl}`);
+      } catch (error) {
+        console.error(`❌ Erro ao processar mídia:`, error);
+        // Manter URL original em caso de erro
+        mediaUrl = originalMediaUrl;
+      }
     }
 
     // ========================================
