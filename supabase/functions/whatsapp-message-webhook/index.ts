@@ -192,20 +192,52 @@ serve(async (req) => {
       );
     }
 
-    // Extrair conteúdo da mensagem
+    // Extrair conteúdo da mensagem e dados de mídia
     let messageContent = '';
+    let mediaUrl: string | null = null;
+    let mediaType: string | null = null;
+    let mediaMetadata: any = null;
+
     if (messageInfo.conversation) {
       messageContent = messageInfo.conversation;
     } else if (messageInfo.extendedTextMessage?.text) {
       messageContent = messageInfo.extendedTextMessage.text;
     } else if (messageInfo.imageMessage?.caption) {
       messageContent = `[Imagem] ${messageInfo.imageMessage.caption || ''}`;
+      mediaUrl = messageInfo.imageMessage.url;
+      mediaType = 'image';
+      mediaMetadata = {
+        mimetype: messageInfo.imageMessage.mimetype,
+        fileLength: messageInfo.imageMessage.fileLength
+      };
     } else if (messageInfo.videoMessage?.caption) {
       messageContent = `[Vídeo] ${messageInfo.videoMessage.caption || ''}`;
+      mediaUrl = messageInfo.videoMessage.url;
+      mediaType = 'video';
+      mediaMetadata = {
+        mimetype: messageInfo.videoMessage.mimetype,
+        fileLength: messageInfo.videoMessage.fileLength,
+        seconds: messageInfo.videoMessage.seconds
+      };
     } else if (messageInfo.audioMessage) {
       messageContent = '[Áudio]';
+      mediaUrl = messageInfo.audioMessage.url;
+      mediaType = 'audio';
+      mediaMetadata = {
+        mimetype: messageInfo.audioMessage.mimetype,
+        fileLength: messageInfo.audioMessage.fileLength,
+        seconds: messageInfo.audioMessage.seconds,
+        ptt: messageInfo.audioMessage.ptt
+      };
     } else if (messageInfo.documentMessage) {
       messageContent = `[Documento] ${messageInfo.documentMessage.fileName || ''}`;
+      mediaUrl = messageInfo.documentMessage.url;
+      mediaType = 'document';
+      mediaMetadata = {
+        mimetype: messageInfo.documentMessage.mimetype,
+        fileName: messageInfo.documentMessage.fileName,
+        fileLength: messageInfo.documentMessage.fileLength
+      };
     } else {
       messageContent = '[Mensagem não suportada]';
     }
@@ -299,7 +331,10 @@ serve(async (req) => {
         direcao: 'ENTRADA', // ENTRADA para mensagens recebidas
         data_hora: new Date().toISOString(),
         evolution_message_id: messageId,
-        status_entrega: 'DELIVERED'
+        status_entrega: 'DELIVERED',
+        media_url: mediaUrl,
+        media_type: mediaType,
+        media_metadata: mediaMetadata
       })
       .select()
       .single();

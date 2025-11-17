@@ -165,6 +165,9 @@ export type Database = {
           evolution_message_id: string | null
           id: string
           id_lead: string
+          media_metadata: Json | null
+          media_type: string | null
+          media_url: string | null
           status_entrega: string | null
         }
         Insert: {
@@ -175,6 +178,9 @@ export type Database = {
           evolution_message_id?: string | null
           id?: string
           id_lead: string
+          media_metadata?: Json | null
+          media_type?: string | null
+          media_url?: string | null
           status_entrega?: string | null
         }
         Update: {
@@ -185,6 +191,9 @@ export type Database = {
           evolution_message_id?: string | null
           id?: string
           id_lead?: string
+          media_metadata?: Json | null
+          media_type?: string | null
+          media_url?: string | null
           status_entrega?: string | null
         }
         Relationships: [
