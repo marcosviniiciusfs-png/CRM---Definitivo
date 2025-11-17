@@ -30,7 +30,7 @@
 /* --- Switch de Login/Cadastro --- */
 .switch {
   position: absolute;
-  top: -60px; /* Posiciona o switch acima do flip-card__inner */
+  top: -30px; /* Posiciona o switch acima do flip-card__inner */
   display: flex;
   flex-direction: column;
   justify-content: center;
