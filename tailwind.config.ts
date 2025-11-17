@@ -56,6 +56,7 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         "hover-border": "hsl(var(--hover-border))",
+        "new-lead-glow": "hsl(var(--new-lead-glow))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -96,10 +97,19 @@ export default {
             height: "0",
           },
         },
+        "glow-pulse": {
+          "0%, 100%": {
+            boxShadow: "0 0 20px 3px hsl(var(--new-lead-glow) / 0.3)",
+          },
+          "50%": {
+            boxShadow: "0 0 30px 5px hsl(var(--new-lead-glow) / 0.5)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "glow-pulse": "glow-pulse 2.5s ease-in-out infinite",
       },
     },
   },
