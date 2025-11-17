@@ -147,7 +147,7 @@ const Auth = () => {
             {/* Login Card (Front) */}
             <div className="flip-card__front">
               <form onSubmit={handleLogin} className="flip-card__form">
-                <h2 className="title">Log in</h2>
+                <h2 className="title">Login</h2>
                 <input
                   type="email"
                   placeholder="Email"
@@ -179,7 +179,7 @@ const Auth = () => {
             {/* Sign Up Card (Back) */}
             <div className="flip-card__back">
               <form onSubmit={handleSignup} className="flip-card__form">
-                <h2 className="title">Sign up</h2>
+                <h2 className="title">Cadastro</h2>
                 <input
                   type="text"
                   placeholder="Nome"
