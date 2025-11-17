@@ -47,23 +47,27 @@ async function downloadAndUploadMedia(
     }
     
     const data = await response.json();
-    console.log(`✅ Resposta da Evolution API recebida`);
+    console.log(`✅ Resposta da Evolution API recebida, tamanho do base64:`, data.base64?.length || 0);
     
     // A Evolution API retorna { base64: "..." }
     if (!data.base64) {
+      console.error('❌ Base64 não encontrado na resposta:', JSON.stringify(data).substring(0, 200));
       throw new Error('Base64 não encontrado na resposta da Evolution API');
     }
     
-    // Converter base64 para buffer (Deno-compatible)
+    // Converter base64 para buffer usando Deno's native decoder
     // Remover prefixo data:mime/type;base64, se existir
     const base64Data = data.base64.replace(/^data:[^;]+;base64,/, '');
+    console.log(`🔄 Decodificando base64, tamanho limpo:`, base64Data.length);
     
-    // Usar Uint8Array.from com decode no Deno
-    const binaryData = Uint8Array.from(
-      atob(base64Data)
-        .split('')
-        .map(char => char.charCodeAt(0))
-    );
+    // Usar TextEncoder/TextDecoder do Deno
+    const binaryString = atob(base64Data);
+    const binaryData = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      binaryData[i] = binaryString.charCodeAt(i);
+    }
+    
+    console.log(`✅ Buffer criado, tamanho:`, binaryData.length, 'bytes');
     
     // Determinar extensão do arquivo
     let extension = 'bin';
@@ -83,7 +87,7 @@ async function downloadAndUploadMedia(
     
     const fileName = `${leadId}/${Date.now()}.${extension}`;
     
-    console.log(`📤 Fazendo upload para Storage: ${fileName}`);
+    console.log(`📤 Fazendo upload para Storage: ${fileName}, tamanho: ${binaryData.length} bytes, tipo: ${mimetype}`);
     
     // Criar cliente Supabase admin
     const supabaseAdmin = createClient(
@@ -109,10 +113,12 @@ async function downloadAndUploadMedia(
       .from('chat-media')
       .getPublicUrl(fileName);
     
-    console.log(`✅ Upload concluído:`, urlData.publicUrl);
+    console.log(`✅ Upload concluído com sucesso!`);
+    console.log(`🔗 URL pública:`, urlData.publicUrl);
     return urlData.publicUrl;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ Erro ao processar ${mediaType}:`, error);
+    console.error(`❌ Stack trace:`, error?.stack);
     throw error; // Propagar erro para não salvar URL inválida
   }
 }
@@ -455,8 +461,15 @@ serve(async (req) => {
           instance
         );
         console.log(`✅ Mídia processada com sucesso: ${mediaUrl}`);
-      } catch (error) {
-        console.error(`❌ Erro ao processar mídia:`, error);
+      } catch (error: any) {
+        console.error(`❌ ERRO CRÍTICO ao processar mídia:`, error);
+        console.error(`❌ Detalhes do erro:`, {
+          message: error?.message,
+          stack: error?.stack,
+          mediaType,
+          leadId,
+          messageId: messageKey.id
+        });
         // Não salvar URL em caso de erro - deixar null
         mediaUrl = null;
       }
