@@ -54,14 +54,16 @@ async function downloadAndUploadMedia(
       throw new Error('Base64 não encontrado na resposta da Evolution API');
     }
     
-    // Converter base64 para buffer
+    // Converter base64 para buffer (Deno-compatible)
     // Remover prefixo data:mime/type;base64, se existir
     const base64Data = data.base64.replace(/^data:[^;]+;base64,/, '');
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
+    
+    // Usar Uint8Array.from com decode no Deno
+    const binaryData = Uint8Array.from(
+      atob(base64Data)
+        .split('')
+        .map(char => char.charCodeAt(0))
+    );
     
     // Determinar extensão do arquivo
     let extension = 'bin';
@@ -92,7 +94,7 @@ async function downloadAndUploadMedia(
     // Fazer upload para o bucket 'chat-media'
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('chat-media')
-      .upload(fileName, bytes, {
+      .upload(fileName, binaryData, {
         contentType: mimetype,
         upsert: false
       });

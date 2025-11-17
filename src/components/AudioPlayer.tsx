@@ -18,9 +18,20 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
   const [hasError, setHasError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Detectar URLs antigas do WhatsApp que não funcionarão
+  const isWhatsAppEncryptedUrl = audioUrl.includes('whatsapp.net') && audioUrl.includes('.enc');
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    // Se for URL criptografada do WhatsApp, marcar erro imediatamente
+    if (isWhatsAppEncryptedUrl) {
+      console.log('⚠️ AudioPlayer - URL criptografada do WhatsApp detectada');
+      setHasError(true);
+      setIsLoading(false);
+      return;
+    }
 
     console.log('🎵 AudioPlayer - Iniciando carregamento:', audioUrl);
 
@@ -112,16 +123,17 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
 
   if (hasError) {
     return (
-      <div className={`flex items-center gap-3 p-3 bg-destructive/10 rounded-lg ${className}`}>
-        <span className="text-sm text-destructive">Erro ao carregar áudio</span>
-        <a 
-          href={audioUrl} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-xs text-primary underline ml-2"
-        >
-          Tentar abrir diretamente
-        </a>
+      <div className={`flex flex-col gap-2 p-3 bg-destructive/10 rounded-lg ${className}`}>
+        <span className="text-sm text-destructive">
+          {isWhatsAppEncryptedUrl 
+            ? 'Áudio recebido antes da atualização do sistema' 
+            : 'Erro ao carregar áudio'}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {isWhatsAppEncryptedUrl
+            ? 'Envie um novo áudio para testar a reprodução'
+            : 'Tente novamente mais tarde'}
+        </span>
       </div>
     );
   }
