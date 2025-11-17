@@ -33,7 +33,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
-    disabled: isDropdownOpen,
+    disabled: isDropdownOpen || showDetailsDialog,
   });
 
   const style = {
