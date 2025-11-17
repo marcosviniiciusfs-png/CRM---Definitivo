@@ -132,8 +132,18 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
       {/* Faixa verde lateral com ícone de olho - desliza da direita na entrada */}
       <div 
         className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+        }}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+        }}
         onClick={(e) => {
           e.stopPropagation();
+          console.log("Click no olho detectado para lead:", id);
           setShowDetailsDialog(true);
         }}
       >
