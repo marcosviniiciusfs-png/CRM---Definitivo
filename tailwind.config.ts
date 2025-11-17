@@ -99,10 +99,10 @@ export default {
         },
         "glow-pulse": {
           "0%, 100%": {
-            boxShadow: "0 0 12px 1px hsl(var(--new-lead-glow) / 0.3)",
+            boxShadow: "0 0 10px 0px hsl(var(--new-lead-glow) / 0.3)",
           },
           "50%": {
-            boxShadow: "0 0 18px 2px hsl(var(--new-lead-glow) / 0.5)",
+            boxShadow: "0 0 16px 0px hsl(var(--new-lead-glow) / 0.5)",
           },
         },
       },
