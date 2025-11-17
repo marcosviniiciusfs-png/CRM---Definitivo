@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { StarsBackground } from "@/components/ui/stars-background";
+import "./Auth.css";
 
 const Auth = () => {
   const { signUp, signIn, user, loading: authLoading } = useAuth();
@@ -128,123 +124,105 @@ const Auth = () => {
 
   return (
     <StarsBackground className="min-h-screen" speed={30} factor={0.08}>
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="w-full max-w-md relative z-10 bg-card/95 backdrop-blur-sm border-border/50">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold text-primary">CRM</CardTitle>
-          <CardDescription>Gestão de Leads e Vendas</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Criar Conta</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Entrando...
-                    </>
-                  ) : (
-                    "Entrar"
-                  )}
-                </Button>
+      <div className="auth-wrapper">
+        <div className="auth-header">
+          <h1>CRM</h1>
+          <p>Gestão de Leads e Vendas</p>
+        </div>
+        
+        <div className="switch">
+          <input 
+            type="checkbox" 
+            id="toggle" 
+            className="toggle" 
+          />
+          <label htmlFor="toggle" className="slider"></label>
+          <label htmlFor="toggle" className="card-side"></label>
+          
+          <div className="flip-card__inner">
+            {/* Login Card (Front) */}
+            <div className="flip-card__front">
+              <form onSubmit={handleLogin} className="flip-card__form">
+                <h2 className="title">Log in</h2>
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="flip-card__input"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Senha"
+                  className="flip-card__input"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <button 
+                  type="submit" 
+                  className="flip-card__btn"
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Log In"}
+                </button>
               </form>
-            </TabsContent>
+            </div>
 
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Seu nome"
-                    value={signupName}
-                    onChange={(e) => setSignupName(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Mínimo 6 caracteres"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-confirm-password">Confirmar Senha</Label>
-                  <Input
-                    id="signup-confirm-password"
-                    type="password"
-                    placeholder="Digite a senha novamente"
-                    value={signupConfirmPassword}
-                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando conta...
-                    </>
-                  ) : (
-                    "Criar Conta"
-                  )}
-                </Button>
+            {/* Sign Up Card (Back) */}
+            <div className="flip-card__back">
+              <form onSubmit={handleSignup} className="flip-card__form">
+                <h2 className="title">Sign up</h2>
+                <input
+                  type="text"
+                  placeholder="Nome"
+                  className="flip-card__input"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="flip-card__input"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Senha"
+                  className="flip-card__input"
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Confirmar Senha"
+                  className="flip-card__input"
+                  value={signupConfirmPassword}
+                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <button 
+                  type="submit" 
+                  className="flip-card__btn"
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Sign Up"}
+                </button>
               </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-        </Card>
+            </div>
+          </div>
+        </div>
       </div>
     </StarsBackground>
   );
