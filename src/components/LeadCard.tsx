@@ -12,6 +12,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 
 interface LeadCardProps {
   id: string;
@@ -28,6 +29,7 @@ interface LeadCardProps {
 
 export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, createdAt, onUpdate, onEdit }: LeadCardProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
@@ -132,11 +134,18 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
         className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
         onClick={(e) => {
           e.stopPropagation();
-          // Ação de visualizar detalhes do lead
+          setShowDetailsDialog(true);
         }}
       >
         <Eye className="h-4 w-4 text-primary-foreground" />
       </div>
+
+      <LeadDetailsDialog
+        open={showDetailsDialog}
+        onOpenChange={setShowDetailsDialog}
+        leadId={id}
+        leadName={name}
+      />
     </Card>
   );
 };
