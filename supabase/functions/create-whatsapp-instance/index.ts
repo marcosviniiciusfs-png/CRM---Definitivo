@@ -58,8 +58,14 @@ serve(async (req) => {
     console.log('Creating instance for user:', user.id);
     
     // Get Evolution API credentials with fallback to database
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
     let evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+
+    // Validar e corrigir URL da Evolution API
+    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
+      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
+      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+    }
 
     // FALLBACK: If env vars not available, try database config table
     if (!evolutionApiUrl || !evolutionApiKey) {

@@ -60,12 +60,18 @@ serve(async (req) => {
     console.log('✅ Número limpo:', cleanNumber);
 
     // Obter credenciais da Evolution API
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (!evolutionApiUrl || !evolutionApiKey) {
+    // Validar e corrigir URL da Evolution API
+    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
+      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
+      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+    }
+
+    if (!evolutionApiKey) {
       console.error('❌ Credenciais da Evolution API não configuradas');
       return new Response(
         JSON.stringify({

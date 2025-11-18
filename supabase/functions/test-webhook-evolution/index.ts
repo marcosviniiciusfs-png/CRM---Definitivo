@@ -13,9 +13,15 @@ serve(async (req) => {
   try {
     console.log('🧪 TESTANDO WEBHOOK - Simulando mensagem da Evolution API');
 
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL')!;
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
     const instanceName = 'crm-9b51c26d-1763172430960';
+
+    // Validar e corrigir URL da Evolution API
+    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
+      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
+      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+    }
 
     // Primeiro, verificar se o webhook está registrado na Evolution API
     console.log('📡 Verificando configuração do webhook na Evolution API...');

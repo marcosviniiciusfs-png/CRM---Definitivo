@@ -143,8 +143,14 @@ serve(async (req) => {
     const instance = payload.instance;
     const data = payload.data;
     // CORREÇÃO CRÍTICA: Usar URL do secret em vez do payload (que pode estar incorreto)
-    const serverUrl = Deno.env.get('EVOLUTION_API_URL') || payload.server_url;
+    let serverUrl = Deno.env.get('EVOLUTION_API_URL') || payload.server_url;
     const apiKey = payload.apikey;
+    
+    // Validar e corrigir URL da Evolution API
+    if (!serverUrl || !/^https?:\/\//.test(serverUrl)) {
+      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
+      serverUrl = 'https://evolution01.kairozspace.com.br';
+    }
     
     console.log('🔧 URL do servidor Evolution:', serverUrl);
     console.log('🔧 URL do payload (ignorada):', payload.server_url);
