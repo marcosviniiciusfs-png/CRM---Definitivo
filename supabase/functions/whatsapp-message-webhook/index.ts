@@ -411,6 +411,23 @@ serve(async (req) => {
         
         leadName = pushName;
       }
+      
+      // Buscar foto de perfil do WhatsApp de forma assíncrona (não bloqueia o fluxo)
+      supabase.functions.invoke('fetch-profile-picture', {
+        body: {
+          instance_name: instance,
+          phone_number: phoneNumber,
+          lead_id: existingLead.id
+        }
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('⚠️ Erro ao buscar foto de perfil:', error);
+        } else {
+          console.log('✅ Foto de perfil processada:', data);
+        }
+      }).catch(err => {
+        console.error('⚠️ Falha ao invocar fetch-profile-picture:', err);
+      });
     } else {
       console.log('🆕 Criando novo lead...');
       
@@ -443,6 +460,23 @@ serve(async (req) => {
       console.log('🏢 Organization:', newLead.organization_id);
       leadId = newLead.id;
       leadName = newLead.nome_lead;
+      
+      // Buscar foto de perfil do WhatsApp de forma assíncrona (não bloqueia o fluxo)
+      supabase.functions.invoke('fetch-profile-picture', {
+        body: {
+          instance_name: instance,
+          phone_number: phoneNumber,
+          lead_id: newLead.id
+        }
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('⚠️ Erro ao buscar foto de perfil:', error);
+        } else {
+          console.log('✅ Foto de perfil processada:', data);
+        }
+      }).catch(err => {
+        console.error('⚠️ Falha ao invocar fetch-profile-picture:', err);
+      });
     }
 
 
