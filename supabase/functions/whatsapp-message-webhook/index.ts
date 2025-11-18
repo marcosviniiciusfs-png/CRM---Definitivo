@@ -442,9 +442,17 @@ serve(async (req) => {
     
     let mediaUrl: string | null = null;
     
+    // Log detalhado dos parâmetros para debugging
+    console.log('🔍 Verificando condições para processar mídia:');
+    console.log(`  - originalMediaUrl: ${originalMediaUrl ? 'PRESENTE' : 'AUSENTE'}`);
+    console.log(`  - mediaType: ${mediaType || 'AUSENTE'}`);
+    console.log(`  - leadId: ${leadId || 'AUSENTE'}`);
+    console.log(`  - serverUrl: ${serverUrl || 'AUSENTE'}`);
+    console.log(`  - apiKey: ${apiKey ? 'PRESENTE' : 'AUSENTE'}`);
+    
     // Se houver mídia, baixar via Evolution API e fazer upload para o Supabase Storage
     if (originalMediaUrl && mediaType && leadId && serverUrl && apiKey) {
-      console.log(`📥 Processando mídia do tipo ${mediaType}...`);
+      console.log(`📥 ✅ TODAS CONDIÇÕES OK - Processando mídia do tipo ${mediaType}...`);
       try {
         const messageId = messageKey.id;
         if (!messageId) {
@@ -460,19 +468,31 @@ serve(async (req) => {
           apiKey,
           instance
         );
-        console.log(`✅ Mídia processada com sucesso: ${mediaUrl}`);
+        console.log(`✅ ✅ ✅ Mídia processada com sucesso: ${mediaUrl}`);
       } catch (error: any) {
-        console.error(`❌ ERRO CRÍTICO ao processar mídia:`, error);
+        console.error(`❌ ❌ ❌ ERRO CRÍTICO ao processar mídia:`, error);
         console.error(`❌ Detalhes do erro:`, {
           message: error?.message,
           stack: error?.stack,
           mediaType,
           leadId,
-          messageId: messageKey.id
+          messageId: messageKey.id,
+          originalMediaUrl,
+          serverUrl,
+          hasApiKey: !!apiKey
         });
         // Não salvar URL em caso de erro - deixar null
         mediaUrl = null;
       }
+    } else {
+      console.log('⚠️ ⚠️ ⚠️ CONDIÇÕES NÃO ATENDIDAS - mídia não será processada');
+      console.log(`  Final check - Faltando: ${[
+        !originalMediaUrl && 'originalMediaUrl',
+        !mediaType && 'mediaType',
+        !leadId && 'leadId',
+        !serverUrl && 'serverUrl',
+        !apiKey && 'apiKey'
+      ].filter(Boolean).join(', ')}`);
     }
 
     // ========================================
