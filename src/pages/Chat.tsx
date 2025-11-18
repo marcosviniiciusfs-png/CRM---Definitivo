@@ -270,6 +270,13 @@ const Chat = () => {
       .slice(0, 2);
   };
 
+  const getAvatarUrl = (lead: Lead) => {
+    if (lead.avatar_url) return lead.avatar_url;
+    // Gera avatar com UI Avatars quando não há foto
+    const initials = getInitials(lead.nome_lead);
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
+  };
+
   const getStatusIcon = (status: string | null) => {
     switch (status) {
       case "SENT":
@@ -334,7 +341,7 @@ const Chat = () => {
                   }`}
                 >
                   <Avatar>
-                    <AvatarImage src={lead.avatar_url || undefined} alt={lead.nome_lead} />
+                    <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {getInitials(lead.nome_lead)}
                     </AvatarFallback>
@@ -360,7 +367,7 @@ const Chat = () => {
             {/* Cabeçalho do Chat */}
             <div className="p-4 border-b flex items-center gap-3">
             <Avatar>
-              <AvatarImage src={selectedLead.avatar_url || undefined} alt={selectedLead.nome_lead} />
+              <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
               <AvatarFallback className="bg-primary/10 text-primary">
                 {getInitials(selectedLead.nome_lead)}
               </AvatarFallback>
@@ -398,7 +405,7 @@ const Chat = () => {
                       {/* Avatar do lead nas mensagens recebidas */}
                       {message.direcao === "ENTRADA" && selectedLead && (
                         <Avatar className="h-8 w-8 flex-shrink-0 mt-1">
-                          <AvatarImage src={selectedLead.avatar_url || undefined} alt={selectedLead.nome_lead} />
+                          <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
                           <AvatarFallback className="bg-primary/10 text-primary text-xs">
                             {getInitials(selectedLead.nome_lead)}
                           </AvatarFallback>
