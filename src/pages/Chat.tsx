@@ -389,12 +389,22 @@ const Chat = () => {
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${
+                      className={`flex gap-2 ${
                         message.direcao === "SAIDA"
                           ? "justify-end"
                           : "justify-start"
                       }`}
                     >
+                      {/* Avatar do lead nas mensagens recebidas */}
+                      {message.direcao === "ENTRADA" && selectedLead && (
+                        <Avatar className="h-8 w-8 flex-shrink-0 mt-1">
+                          <AvatarImage src={selectedLead.avatar_url || undefined} alt={selectedLead.nome_lead} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                            {getInitials(selectedLead.nome_lead)}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      
                       <div
                         className={`max-w-[70%] rounded-lg p-3 ${
                           message.direcao === "SAIDA"
