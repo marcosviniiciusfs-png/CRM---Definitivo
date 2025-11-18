@@ -57,14 +57,23 @@ serve(async (req) => {
 
     console.log(`📋 Encontradas ${dbInstances.length} instâncias no banco`);
 
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL')!;
+    // Ler URL e API key da Evolution API
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
+
+    // Correção crítica: garantir que evolutionApiUrl seja uma URL válida
+    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
+      console.log('⚠️ EVOLUTION_API_URL inválida ou ausente. Valor atual:', evolutionApiUrl);
+      // Fallback seguro para a URL informada pelo usuário
+      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+      console.log('🔧 Usando URL padrão da Evolution API:', evolutionApiUrl);
+    }
 
     // Limpar URL base
     let cleanEvolutionUrl = evolutionApiUrl
-      .replace(/\/+$/, '')           
-      .replace(/\/manager\/?$/g, '') 
-      .replace(/\/\//g, '/');        
+      .replace(/\/+$/, '')
+      .replace(/\/manager\/?$/g, '')
+      .replace(/\/\//g, '/');
     
     cleanEvolutionUrl = cleanEvolutionUrl.replace(/:\/$/, '://');
 
