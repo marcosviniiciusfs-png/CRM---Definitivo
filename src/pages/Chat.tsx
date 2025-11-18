@@ -57,10 +57,9 @@ const Chat = () => {
       )
       .subscribe();
 
-    // Atualizar status de presença a cada 2 minutos (aumentado para reduzir carga)
-    const presenceInterval = setInterval(() => {
-      loadLeads();
-    }, 120000);
+    // REMOVIDO: atualização automática de presença para evitar loops enquanto a Evolution API está instável
+    // Antes chamávamos loadLeads periodicamente aqui, agora confiamos apenas no realtime.
+    const presenceInterval = setInterval(() => {}, 120000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -163,20 +162,8 @@ const Chat = () => {
       if (error) throw error;
       setLeads(data || []);
 
-      // Buscar status de presença para os leads carregados
-      const { data: instances } = await supabase
-        .from("whatsapp_instances")
-        .select("*")
-        .eq("status", "CONNECTED")
-        .limit(1)
-        .single();
-
-      if (instances && data && data.length > 0) {
-        // Buscar status apenas para os primeiros 3 leads para evitar rate limiting
-        data.slice(0, 3).forEach(lead => {
-          fetchPresenceStatus(lead, instances.instance_name);
-        });
-      }
+      // IMPORTANTE: por enquanto não buscamos status de presença automaticamente
+      // para evitar loops de erro quando a Evolution API está instável.
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
       toast({
