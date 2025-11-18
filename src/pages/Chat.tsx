@@ -13,6 +13,7 @@ import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-r
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { SyncProfilePicturesButton } from "@/components/SyncProfilePicturesButton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const Chat = () => {
   const location = useLocation();
@@ -25,6 +26,7 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar leads e configurar realtime
@@ -344,7 +346,15 @@ const Chat = () => {
                     selectedLead?.id === lead.id ? "bg-muted" : ""
                   }`}
                 >
-                  <Avatar>
+                  <Avatar 
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (lead.avatar_url) {
+                        setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
+                      }
+                    }}
+                  >
                     <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {getInitials(lead.nome_lead)}
@@ -370,7 +380,14 @@ const Chat = () => {
           <>
             {/* Cabeçalho do Chat */}
             <div className="p-4 border-b flex items-center gap-3">
-              <Avatar>
+              <Avatar 
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => {
+                  if (selectedLead.avatar_url) {
+                    setViewingAvatar({ url: selectedLead.avatar_url, name: selectedLead.nome_lead });
+                  }
+                }}
+              >
                 <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
                 <AvatarFallback className="bg-primary/10 text-primary">
                   {getInitials(selectedLead.nome_lead)}
@@ -408,7 +425,14 @@ const Chat = () => {
                     >
                       {/* Avatar do lead nas mensagens recebidas */}
                       {message.direcao === "ENTRADA" && selectedLead && (
-                        <Avatar className="h-8 w-8 flex-shrink-0 mt-1">
+                        <Avatar 
+                          className="h-8 w-8 flex-shrink-0 mt-1 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => {
+                            if (selectedLead.avatar_url) {
+                              setViewingAvatar({ url: selectedLead.avatar_url, name: selectedLead.nome_lead });
+                            }
+                          }}
+                        >
                           <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
                           <AvatarFallback className="bg-primary/10 text-primary text-xs">
                             {getInitials(selectedLead.nome_lead)}
@@ -501,6 +525,26 @@ const Chat = () => {
           </div>
         )}
       </Card>
+
+      {/* Dialog para visualizar foto de perfil */}
+      <Dialog open={!!viewingAvatar} onOpenChange={() => setViewingAvatar(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+          {viewingAvatar && (
+            <div className="flex flex-col">
+              <div className="p-4 border-b">
+                <h3 className="font-semibold text-lg">{viewingAvatar.name}</h3>
+              </div>
+              <div className="p-4 bg-muted/50 flex items-center justify-center">
+                <img 
+                  src={viewingAvatar.url} 
+                  alt={viewingAvatar.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
