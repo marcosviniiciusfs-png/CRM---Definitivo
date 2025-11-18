@@ -441,22 +441,46 @@ const Chat = () => {
                     selectedLead?.id === lead.id ? "bg-muted" : ""
                   }`}
                 >
-                  <Avatar 
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (lead.avatar_url) {
-                        setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
-                      }
-                    }}
-                  >
-                    <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {getInitials(lead.nome_lead)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar 
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (lead.avatar_url) {
+                          setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
+                        }
+                      }}
+                    >
+                      <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {getInitials(lead.nome_lead)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Indicador de presença */}
+                    {presenceStatus.get(lead.id) && (
+                      <div 
+                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                          presenceStatus.get(lead.id)?.isOnline 
+                            ? 'bg-green-500' 
+                            : 'bg-gray-400'
+                        }`}
+                        title={
+                          presenceStatus.get(lead.id)?.isOnline 
+                            ? 'Online' 
+                            : presenceStatus.get(lead.id)?.lastSeen 
+                              ? `Visto por último: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR')}`
+                              : 'Offline'
+                        }
+                      />
+                    )}
+                  </div>
                   <div className="flex-1 text-left overflow-hidden">
-                    <p className="font-medium truncate">{lead.nome_lead}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{lead.nome_lead}</p>
+                      {presenceStatus.get(lead.id)?.isOnline && (
+                        <span className="text-xs text-green-600 font-medium">Online</span>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Phone className="h-3 w-3" />
                       {formatPhoneNumber(lead.telefone_lead)}
