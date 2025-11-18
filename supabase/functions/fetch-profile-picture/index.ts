@@ -46,11 +46,11 @@ Deno.serve(async (req) => {
 
     console.log('📞 Número formatado:', formattedNumber);
 
-    // Chamar Evolution API para buscar foto de perfil
-    const profilePicUrl = `${evolutionApiUrl}/chat/fetchProfilePicture/${instance_name}`;
-    console.log('🔗 URL da Evolution API:', profilePicUrl);
+    // Chamar Evolution API para buscar foto de perfil (fetchProfile)
+    const profileUrl = `${evolutionApiUrl}/chat/fetchProfile/${instance_name}`;
+    console.log('🔗 URL da Evolution API (fetchProfile):', profileUrl);
 
-    const response = await fetch(profilePicUrl, {
+    const response = await fetch(profileUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Erro na Evolution API:', {
+      console.error('❌ Erro na Evolution API (fetchProfile):', {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     }
 
     const profileData = await response.json();
-    console.log('✅ Resposta da Evolution API:', profileData);
+    console.log('✅ Resposta da Evolution API (fetchProfile):', profileData);
 
     const profilePictureUrl = profileData?.profilePictureUrl;
 
