@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { SyncProfilePicturesButton } from "@/components/SyncProfilePicturesButton";
@@ -28,6 +28,7 @@ const Chat = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [presenceStatus, setPresenceStatus] = useState<Map<string, { isOnline: boolean; lastSeen?: string }>>(new Map());
+  const [loadingPresence, setLoadingPresence] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
@@ -57,13 +58,8 @@ const Chat = () => {
       )
       .subscribe();
 
-    // REMOVIDO: atualização automática de presença para evitar loops enquanto a Evolution API está instável
-    // Antes chamávamos loadLeads periodicamente aqui, agora confiamos apenas no realtime.
-    const presenceInterval = setInterval(() => {}, 120000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(presenceInterval);
     };
   }, [location.state]);
 
@@ -111,6 +107,7 @@ const Chat = () => {
     if (isProcessingQueue.current || presenceQueue.current.length === 0) return;
     
     isProcessingQueue.current = true;
+    let successCount = 0;
 
     while (presenceQueue.current.length > 0) {
       const item = presenceQueue.current.shift();
@@ -133,6 +130,7 @@ const Chat = () => {
             isOnline: presenceData.is_online,
             lastSeen: presenceData.last_seen,
           }));
+          successCount++;
         }
       } catch (error) {
         // Ignora erros silenciosamente para não poluir o console
@@ -143,12 +141,53 @@ const Chat = () => {
     }
 
     isProcessingQueue.current = false;
+    
+    // Feedback visual ao usuário se houve sucesso
+    if (successCount > 0 && loadingPresence) {
+      setLoadingPresence(false);
+    }
   };
 
   // Adiciona leads à fila de verificação de presença
   const fetchPresenceStatus = (lead: Lead, instanceName: string) => {
     presenceQueue.current.push({ lead, instanceName });
     processPresenceQueue();
+  };
+
+  // Função para buscar presença do lead atual manualmente
+  const handleRefreshPresence = async () => {
+    if (!selectedLead || loadingPresence) return;
+
+    setLoadingPresence(true);
+    
+    try {
+      const { data: instances } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("status", "CONNECTED")
+        .limit(1)
+        .single();
+
+      if (!instances?.instance_name) {
+        toast({
+          title: "Erro",
+          description: "Nenhuma instância WhatsApp conectada",
+          variant: "destructive",
+        });
+        setLoadingPresence(false);
+        return;
+      }
+
+      fetchPresenceStatus(selectedLead, instances.instance_name);
+    } catch (error) {
+      console.error('Erro ao buscar status de presença:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status",
+        variant: "destructive",
+      });
+      setLoadingPresence(false);
+    }
   };
 
   const loadLeads = async () => {
@@ -477,6 +516,20 @@ const Chat = () => {
                   )}
                 </p>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefreshPresence}
+                disabled={loadingPresence}
+                title="Atualizar status de presença"
+                className="shrink-0"
+              >
+                {loadingPresence ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
             </div>
 
             {/* Área de Mensagens */}
