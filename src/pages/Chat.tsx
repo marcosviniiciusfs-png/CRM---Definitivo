@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
+import { AudioPlayer } from "@/components/AudioPlayer";
 
 const Chat = () => {
   const location = useLocation();
@@ -127,45 +128,8 @@ const Chat = () => {
 
       if (error) throw error;
 
-      // Garantir que áudios usem URL assinada do bucket correto (chat-media)
-      const messagesWithSignedUrls = await Promise.all(
-        (data || []).map(async (msg) => {
-          if (msg.media_type === "audio" && msg.media_url) {
-            try {
-              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-              const publicPrefix = `${supabaseUrl}/storage/v1/object/public/chat-media/`;
-
-              let filePath = msg.media_url as string;
-
-              // Se for URL pública do bucket chat-media, extrair o caminho relativo
-              if (filePath.startsWith(publicPrefix)) {
-                filePath = filePath.substring(publicPrefix.length);
-              } else if (filePath.startsWith("http")) {
-                // URLs externas (como whatsapp.net) não pertencem ao bucket, não tentar assinar
-                return msg;
-              }
-
-              const { data: signed, error: signedError } = await supabase.storage
-                .from("chat-media")
-                .createSignedUrl(filePath, 3600);
-
-              if (!signedError && signed?.signedUrl) {
-                return { ...msg, media_url: signed.signedUrl };
-              }
-
-              if (signedError) {
-                console.warn("Aviso ao gerar URL assinada para áudio:", signedError);
-              }
-            } catch (e) {
-              console.warn("Aviso inesperado ao gerar URL assinada para áudio:", e);
-            }
-          }
-
-          return msg;
-        })
-      );
-
-      setMessages(messagesWithSignedUrls as Message[]);
+      // Bucket chat-media é público, então podemos usar as URLs diretamente
+      setMessages(data as Message[]);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
       toast({
@@ -441,29 +405,11 @@ const Chat = () => {
                         {/* Renderizar player de áudio se for mensagem de áudio */}
                         {message.media_type === 'audio' ? (
                           message.media_url ? (
-                            <div className="my-2">
-                              <audio 
-                                controls 
-                                preload="metadata"
-                                className="w-full max-w-[300px]"
-                                style={{ 
-                                  filter: message.direcao === "SAIDA" 
-                                    ? 'invert(1) hue-rotate(180deg)' 
-                                    : 'none' 
-                                }}
-                              >
-                                <source 
-                                  src={message.media_url} 
-                                  type={message.media_metadata?.mimetype || 'audio/ogg; codecs=opus'}
-                                />
-                                Seu navegador não suporta reprodução de áudio.
-                              </audio>
-                              {message.media_metadata?.seconds && (
-                                <p className="text-xs mt-1 opacity-70">
-                                  Duração: {Math.floor(message.media_metadata.seconds)}s
-                                </p>
-                              )}
-                            </div>
+                            <AudioPlayer 
+                              audioUrl={message.media_url} 
+                              mimetype={message.media_metadata?.mimetype}
+                              duration={message.media_metadata?.seconds}
+                            />
                           ) : (
                             <div className="flex items-center gap-2 text-sm">
                               <span className="opacity-70">🎵 Áudio</span>
@@ -473,7 +419,7 @@ const Chat = () => {
                                 </span>
                               )}
                               <span className="text-xs opacity-50 italic">
-                                - Mídia indisponível (erro de servidor)
+                                - Mídia indisponível
                               </span>
                             </div>
                           )
