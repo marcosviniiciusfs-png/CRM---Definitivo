@@ -64,9 +64,9 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       
-      // Se for erro 429 (rate limit), retorna sucesso sem atualizar
-      if (response.status === 400 && errorText.includes('429')) {
-        console.log('⚠️ Rate limit da Evolution API - ignorando requisição');
+      // Se for erro 400 (geralmente rate limit 429), retorna sucesso sem atualizar
+      if (response.status === 400) {
+        console.log('⚠️ Rate limit da Evolution API detectado - ignorando requisição');
         return new Response(
           JSON.stringify({
             success: true,
