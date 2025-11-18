@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
+import { SyncProfilePicturesButton } from "@/components/SyncProfilePicturesButton";
 
 const Chat = () => {
   const location = useLocation();
@@ -308,8 +309,11 @@ const Chat = () => {
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       {/* Lista de Leads - Coluna Esquerda */}
       <Card className="w-80 flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold mb-3">Conversas</h2>
+        <div className="p-4 border-b space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Conversas</h2>
+            <SyncProfilePicturesButton />
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
