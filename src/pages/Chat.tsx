@@ -27,6 +27,7 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
+  const [presenceStatus, setPresenceStatus] = useState<Map<string, { isOnline: boolean; lastSeen?: string }>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar leads e configurar realtime
@@ -54,8 +55,14 @@ const Chat = () => {
       )
       .subscribe();
 
+    // Atualizar status de presença a cada 30 segundos
+    const presenceInterval = setInterval(() => {
+      loadLeads();
+    }, 30000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(presenceInterval);
     };
   }, [location.state]);
 
@@ -98,6 +105,36 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Buscar status de presença de um lead
+  const fetchPresenceStatus = async (lead: Lead, instanceName: string) => {
+    try {
+      const { data: presenceData, error: presenceError } = await supabase.functions.invoke(
+        'fetch-presence-status',
+        {
+          body: {
+            instance_name: instanceName,
+            phone_number: lead.telefone_lead,
+            lead_id: lead.id,
+          },
+        }
+      );
+
+      if (presenceError) {
+        console.error('Erro ao buscar status de presença:', presenceError);
+        return;
+      }
+
+      if (presenceData?.success) {
+        setPresenceStatus(prev => new Map(prev).set(lead.id, {
+          isOnline: presenceData.is_online,
+          lastSeen: presenceData.last_seen,
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar status de presença:', error);
+    }
+  };
+
   const loadLeads = async () => {
     setLoading(true);
     try {
@@ -108,6 +145,21 @@ const Chat = () => {
 
       if (error) throw error;
       setLeads(data || []);
+
+      // Buscar status de presença para os leads carregados
+      const { data: instances } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("status", "CONNECTED")
+        .limit(1)
+        .single();
+
+      if (instances && data && data.length > 0) {
+        // Buscar status para os primeiros 20 leads
+        data.slice(0, 20).forEach(lead => {
+          fetchPresenceStatus(lead, instances.instance_name);
+        });
+      }
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
       toast({
@@ -380,24 +432,45 @@ const Chat = () => {
           <>
             {/* Cabeçalho do Chat */}
             <div className="p-4 border-b flex items-center gap-3">
-              <Avatar 
-                className="cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => {
-                  if (selectedLead.avatar_url) {
-                    setViewingAvatar({ url: selectedLead.avatar_url, name: selectedLead.nome_lead });
-                  }
-                }}
-              >
-                <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {getInitials(selectedLead.nome_lead)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
+              <div className="relative">
+                <Avatar 
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    if (selectedLead.avatar_url) {
+                      setViewingAvatar({ url: selectedLead.avatar_url, name: selectedLead.nome_lead });
+                    }
+                  }}
+                >
+                  <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {getInitials(selectedLead.nome_lead)}
+                  </AvatarFallback>
+                </Avatar>
+                {presenceStatus.get(selectedLead.id)?.isOnline && (
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
                 <h2 className="font-semibold">{selectedLead.nome_lead}</h2>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {formatPhoneNumber(selectedLead.telefone_lead)}
+                  {presenceStatus.get(selectedLead.id)?.isOnline ? (
+                    <span className="text-green-600 dark:text-green-400 font-medium">● Online</span>
+                  ) : presenceStatus.get(selectedLead.id)?.lastSeen ? (
+                    <>
+                      <Clock className="h-3 w-3" />
+                      Visto {new Date(presenceStatus.get(selectedLead.id)!.lastSeen!).toLocaleDateString('pt-BR', { 
+                        day: '2-digit', 
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      <Phone className="h-3 w-3" />
+                      {formatPhoneNumber(selectedLead.telefone_lead)}
+                    </>
+                  )}
                 </p>
               </div>
             </div>

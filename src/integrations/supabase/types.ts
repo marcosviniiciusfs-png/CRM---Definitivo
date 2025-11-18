@@ -95,7 +95,9 @@ export type Database = {
           email: string | null
           empresa: string | null
           id: string
+          is_online: boolean | null
           last_message_at: string | null
+          last_seen: string | null
           nome_lead: string
           organization_id: string | null
           position: number | null
@@ -115,7 +117,9 @@ export type Database = {
           email?: string | null
           empresa?: string | null
           id?: string
+          is_online?: boolean | null
           last_message_at?: string | null
+          last_seen?: string | null
           nome_lead: string
           organization_id?: string | null
           position?: number | null
@@ -135,7 +139,9 @@ export type Database = {
           email?: string | null
           empresa?: string | null
           id?: string
+          is_online?: boolean | null
           last_message_at?: string | null
+          last_seen?: string | null
           nome_lead?: string
           organization_id?: string | null
           position?: number | null
