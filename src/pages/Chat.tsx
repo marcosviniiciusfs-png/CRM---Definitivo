@@ -29,6 +29,8 @@ const Chat = () => {
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [presenceStatus, setPresenceStatus] = useState<Map<string, { isOnline: boolean; lastSeen?: string }>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
+  const isProcessingQueue = useRef(false);
 
   // Carregar leads e configurar realtime
   useEffect(() => {
@@ -55,10 +57,10 @@ const Chat = () => {
       )
       .subscribe();
 
-    // Atualizar status de presença a cada 30 segundos
+    // Atualizar status de presença a cada 60 segundos (aumentado para reduzir carga)
     const presenceInterval = setInterval(() => {
       loadLeads();
-    }, 30000);
+    }, 60000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -105,34 +107,49 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Buscar status de presença de um lead
-  const fetchPresenceStatus = async (lead: Lead, instanceName: string) => {
-    try {
-      const { data: presenceData, error: presenceError } = await supabase.functions.invoke(
-        'fetch-presence-status',
-        {
-          body: {
-            instance_name: instanceName,
-            phone_number: lead.telefone_lead,
-            lead_id: lead.id,
-          },
+  // Processa a fila de requisições de presença com delay para evitar rate limiting
+  const processPresenceQueue = async () => {
+    if (isProcessingQueue.current || presenceQueue.current.length === 0) return;
+    
+    isProcessingQueue.current = true;
+
+    while (presenceQueue.current.length > 0) {
+      const item = presenceQueue.current.shift();
+      if (!item) break;
+
+      try {
+        const { data: presenceData, error: presenceError } = await supabase.functions.invoke(
+          'fetch-presence-status',
+          {
+            body: {
+              instance_name: item.instanceName,
+              phone_number: item.lead.telefone_lead,
+              lead_id: item.lead.id,
+            },
+          }
+        );
+
+        if (!presenceError && presenceData?.success && !presenceData.rate_limited) {
+          setPresenceStatus(prev => new Map(prev).set(item.lead.id, {
+            isOnline: presenceData.is_online,
+            lastSeen: presenceData.last_seen,
+          }));
         }
-      );
-
-      if (presenceError) {
-        console.error('Erro ao buscar status de presença:', presenceError);
-        return;
+      } catch (error) {
+        // Ignora erros silenciosamente para não poluir o console
       }
 
-      if (presenceData?.success) {
-        setPresenceStatus(prev => new Map(prev).set(lead.id, {
-          isOnline: presenceData.is_online,
-          lastSeen: presenceData.last_seen,
-        }));
-      }
-    } catch (error) {
-      console.error('Erro ao buscar status de presença:', error);
+      // Delay de 800ms entre requisições para evitar rate limiting
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
+
+    isProcessingQueue.current = false;
+  };
+
+  // Adiciona leads à fila de verificação de presença
+  const fetchPresenceStatus = (lead: Lead, instanceName: string) => {
+    presenceQueue.current.push({ lead, instanceName });
+    processPresenceQueue();
   };
 
   const loadLeads = async () => {
@@ -155,8 +172,8 @@ const Chat = () => {
         .single();
 
       if (instances && data && data.length > 0) {
-        // Buscar status para os primeiros 20 leads
-        data.slice(0, 20).forEach(lead => {
+        // Buscar status para os primeiros 10 leads (reduzido para evitar rate limiting)
+        data.slice(0, 10).forEach(lead => {
           fetchPresenceStatus(lead, instances.instance_name);
         });
       }

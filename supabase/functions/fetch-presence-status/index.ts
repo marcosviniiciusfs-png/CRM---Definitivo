@@ -63,6 +63,21 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      
+      // Se for erro 429 (rate limit), retorna sucesso sem atualizar
+      if (response.status === 400 && errorText.includes('429')) {
+        console.log('⚠️ Rate limit da Evolution API - ignorando requisição');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            is_online: false,
+            last_seen: null,
+            rate_limited: true,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       console.error('❌ Erro na Evolution API (whatsappNumbers):', {
         status: response.status,
         statusText: response.statusText,
