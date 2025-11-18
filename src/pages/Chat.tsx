@@ -154,9 +154,9 @@ const Chat = () => {
     processPresenceQueue();
   };
 
-  // Função para buscar presença do lead atual manualmente
-  const handleRefreshPresence = async () => {
-    if (!selectedLead || loadingPresence) return;
+  // Função genérica para buscar presença de um lead específico
+  const refreshPresenceForLead = async (lead: Lead) => {
+    if (!lead || loadingPresence) return;
 
     setLoadingPresence(true);
     
@@ -178,7 +178,7 @@ const Chat = () => {
         return;
       }
 
-      fetchPresenceStatus(selectedLead, instances.instance_name);
+      fetchPresenceStatus(lead, instances.instance_name);
     } catch (error) {
       console.error('Erro ao buscar status de presença:', error);
       toast({
@@ -190,6 +190,12 @@ const Chat = () => {
     }
   };
 
+  // Função para buscar presença do lead atual manualmente (botão no cabeçalho)
+  const handleRefreshPresence = async () => {
+    if (!selectedLead) return;
+    await refreshPresenceForLead(selectedLead);
+  };
+
   const loadLeads = async () => {
     setLoading(true);
     try {
@@ -199,10 +205,20 @@ const Chat = () => {
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
-      setLeads(data || []);
+      const leadsData = data || [];
+      setLeads(leadsData);
 
-      // IMPORTANTE: por enquanto não buscamos status de presença automaticamente
-      // para evitar loops de erro quando a Evolution API está instável.
+      // Hidratar status de presença a partir dos campos is_online/last_seen do banco
+      const initialPresence = new Map<string, { isOnline: boolean; lastSeen?: string }>();
+      leadsData.forEach((lead) => {
+        if (lead.is_online !== null || lead.last_seen) {
+          initialPresence.set(lead.id, {
+            isOnline: !!lead.is_online,
+            lastSeen: lead.last_seen || undefined,
+          });
+        }
+      });
+      setPresenceStatus(initialPresence);
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
       toast({
@@ -359,6 +375,12 @@ const Chat = () => {
     sendMessage(newMessage);
   };
 
+  // Ao clicar em um lead na lista, seleciona e já dispara verificação de presença
+  const handleLeadClick = (lead: Lead) => {
+    setSelectedLead(lead);
+    refreshPresenceForLead(lead);
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -436,7 +458,7 @@ const Chat = () => {
               {filteredLeads.map((lead) => (
                 <button
                   key={lead.id}
-                  onClick={() => setSelectedLead(lead)}
+                  onClick={() => handleLeadClick(lead)}
                   className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors ${
                     selectedLead?.id === lead.id ? "bg-muted" : ""
                   }`}
