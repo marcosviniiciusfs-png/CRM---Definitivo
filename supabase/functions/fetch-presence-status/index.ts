@@ -47,8 +47,8 @@ Deno.serve(async (req) => {
     console.log('📞 Número formatado:', formattedNumber);
 
     // Chamar Evolution API para buscar status de presença
-    const presenceUrl = `${evolutionApiUrl}/chat/whatsappNumbers/${instance_name}`;
-    console.log('🔗 URL da Evolution API (whatsappNumbers):', presenceUrl);
+    const presenceUrl = `${evolutionApiUrl}/chat/fetchPresence/${instance_name}`;
+    console.log('🔗 URL da Evolution API (fetchPresence):', presenceUrl);
 
     const response = await fetch(presenceUrl, {
       method: 'POST',
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
         'apikey': evolutionApiKey,
       },
       body: JSON.stringify({
-        numbers: [formattedNumber],
+        number: formattedNumber,
       }),
     });
 
@@ -65,8 +65,8 @@ Deno.serve(async (req) => {
       const errorText = await response.text();
       
       // Se for erro 400 (geralmente rate limit 429), retorna sucesso sem atualizar
-      if (response.status === 400) {
-        console.log('⚠️ Rate limit da Evolution API detectado - ignorando requisição');
+      if (response.status === 400 || response.status === 404) {
+        console.log('⚠️ Erro esperado da Evolution API (rate limit ou número não encontrado) - ignorando requisição');
         return new Response(
           JSON.stringify({
             success: true,
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
         );
       }
       
-      console.error('❌ Erro na Evolution API (whatsappNumbers):', {
+      console.error('❌ Erro na Evolution API (fetchPresence):', {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
@@ -87,12 +87,17 @@ Deno.serve(async (req) => {
     }
 
     const presenceData = await response.json();
-    console.log('✅ Resposta da Evolution API (whatsappNumbers):', presenceData);
+    console.log('✅ Resposta da Evolution API (fetchPresence):', presenceData);
 
-    // Extrair informações de presença
-    const numberInfo = presenceData?.[0];
-    const isOnline = numberInfo?.status === 'available' || numberInfo?.isOnline === true;
-    const lastSeen = numberInfo?.lastSeen || numberInfo?.last_seen || null;
+    // Extrair informações de presença do formato da Evolution API
+    // A resposta pode vir em diferentes formatos dependendo da versão
+    const isOnline = presenceData?.status === 'available' || 
+                     presenceData?.presences?.[formattedNumber]?.lastKnownPresence === 'available' ||
+                     false;
+    
+    const lastSeen = presenceData?.lastSeen || 
+                     presenceData?.presences?.[formattedNumber]?.lastSeen || 
+                     null;
 
     console.log('📊 Status extraído:', { isOnline, lastSeen });
 

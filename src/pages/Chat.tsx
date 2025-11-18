@@ -106,12 +106,18 @@ const Chat = () => {
   const processPresenceQueue = async () => {
     if (isProcessingQueue.current || presenceQueue.current.length === 0) return;
     
+    console.log('📋 Processando fila de presença:', presenceQueue.current.length, 'itens');
     isProcessingQueue.current = true;
     let successCount = 0;
 
     while (presenceQueue.current.length > 0) {
       const item = presenceQueue.current.shift();
       if (!item) break;
+
+      console.log('🔄 Processando item da fila:', { 
+        leadName: item.lead.nome_lead, 
+        instanceName: item.instanceName 
+      });
 
       try {
         const { data: presenceData, error: presenceError } = await supabase.functions.invoke(
@@ -125,15 +131,24 @@ const Chat = () => {
           }
         );
 
+        console.log('📊 Resposta da edge function:', presenceData);
+
         if (!presenceError && presenceData?.success && !presenceData.rate_limited) {
+          console.log('✅ Status atualizado:', { 
+            isOnline: presenceData.is_online, 
+            lastSeen: presenceData.last_seen 
+          });
+          
           setPresenceStatus(prev => new Map(prev).set(item.lead.id, {
             isOnline: presenceData.is_online,
             lastSeen: presenceData.last_seen,
           }));
           successCount++;
+        } else {
+          console.warn('⚠️ Falha ao atualizar status:', { presenceError, presenceData });
         }
       } catch (error) {
-        // Ignora erros silenciosamente para não poluir o console
+        console.error('❌ Erro ao processar item da fila:', error);
       }
 
       // Delay de 2 segundos entre requisições para evitar rate limiting
@@ -141,6 +156,8 @@ const Chat = () => {
     }
 
     isProcessingQueue.current = false;
+    
+    console.log('✅ Fila processada. Sucessos:', successCount);
     
     // Feedback visual ao usuário se houve sucesso
     if (successCount > 0 && loadingPresence) {
@@ -158,6 +175,12 @@ const Chat = () => {
   const refreshPresenceForLead = async (lead: Lead) => {
     if (!lead || loadingPresence) return;
 
+    console.log('🔄 Iniciando busca de presença para:', { 
+      leadName: lead.nome_lead, 
+      phone: lead.telefone_lead,
+      leadId: lead.id 
+    });
+
     setLoadingPresence(true);
     
     try {
@@ -169,6 +192,7 @@ const Chat = () => {
         .single();
 
       if (!instances?.instance_name) {
+        console.warn('⚠️ Nenhuma instância WhatsApp conectada encontrada');
         toast({
           title: "Erro",
           description: "Nenhuma instância WhatsApp conectada",
@@ -178,9 +202,10 @@ const Chat = () => {
         return;
       }
 
+      console.log('✅ Instância encontrada:', instances.instance_name);
       fetchPresenceStatus(lead, instances.instance_name);
     } catch (error) {
-      console.error('Erro ao buscar status de presença:', error);
+      console.error('❌ Erro ao buscar status de presença:', error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o status",
