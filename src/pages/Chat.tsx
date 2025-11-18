@@ -135,10 +135,14 @@ const Chat = () => {
               const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
               const publicPrefix = `${supabaseUrl}/storage/v1/object/public/chat-media/`;
 
-              // Extrair o caminho relativo do arquivo no bucket
               let filePath = msg.media_url as string;
+
+              // Se for URL pública do bucket chat-media, extrair o caminho relativo
               if (filePath.startsWith(publicPrefix)) {
                 filePath = filePath.substring(publicPrefix.length);
+              } else if (filePath.startsWith("http")) {
+                // URLs externas (como whatsapp.net) não pertencem ao bucket, não tentar assinar
+                return msg;
               }
 
               const { data: signed, error: signedError } = await supabase.storage
@@ -150,10 +154,10 @@ const Chat = () => {
               }
 
               if (signedError) {
-                console.error("Erro ao gerar URL assinada para áudio:", signedError);
+                console.warn("Aviso ao gerar URL assinada para áudio:", signedError);
               }
             } catch (e) {
-              console.error("Erro inesperado ao gerar URL assinada para áudio:", e);
+              console.warn("Aviso inesperado ao gerar URL assinada para áudio:", e);
             }
           }
 
