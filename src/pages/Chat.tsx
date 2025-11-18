@@ -126,7 +126,42 @@ const Chat = () => {
         .order("data_hora", { ascending: true });
 
       if (error) throw error;
-      setMessages((data || []) as Message[]);
+
+      // Garantir que áudios usem URL assinada do bucket correto (chat-media)
+      const messagesWithSignedUrls = await Promise.all(
+        (data || []).map(async (msg) => {
+          if (msg.media_type === "audio" && msg.media_url) {
+            try {
+              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+              const publicPrefix = `${supabaseUrl}/storage/v1/object/public/chat-media/`;
+
+              // Extrair o caminho relativo do arquivo no bucket
+              let filePath = msg.media_url as string;
+              if (filePath.startsWith(publicPrefix)) {
+                filePath = filePath.substring(publicPrefix.length);
+              }
+
+              const { data: signed, error: signedError } = await supabase.storage
+                .from("chat-media")
+                .createSignedUrl(filePath, 3600);
+
+              if (!signedError && signed?.signedUrl) {
+                return { ...msg, media_url: signed.signedUrl };
+              }
+
+              if (signedError) {
+                console.error("Erro ao gerar URL assinada para áudio:", signedError);
+              }
+            } catch (e) {
+              console.error("Erro inesperado ao gerar URL assinada para áudio:", e);
+            }
+          }
+
+          return msg;
+        })
+      );
+
+      setMessages(messagesWithSignedUrls as Message[]);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
       toast({
