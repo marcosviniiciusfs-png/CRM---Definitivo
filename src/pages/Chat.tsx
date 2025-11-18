@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, Camera } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2 } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 
@@ -24,9 +24,7 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Carregar leads e configurar realtime
   useEffect(() => {
@@ -279,90 +277,6 @@ const Chat = () => {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
   };
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !event.target.files[0] || !selectedLead) return;
-
-    const file = event.target.files[0];
-    
-    // Validar tipo de arquivo
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Erro",
-        description: "Por favor, selecione uma imagem",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validar tamanho (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "Erro",
-        description: "A imagem deve ter no máximo 5MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploadingAvatar(true);
-
-    try {
-      // Gerar nome único para o arquivo
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${selectedLead.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      // Fazer upload para o bucket chat-media
-      const { error: uploadError } = await supabase.storage
-        .from('chat-media')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Obter URL pública da imagem
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-media')
-        .getPublicUrl(filePath);
-
-      // Atualizar o lead com a nova URL do avatar
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ avatar_url: publicUrl })
-        .eq('id', selectedLead.id);
-
-      if (updateError) throw updateError;
-
-      // Atualizar o estado local
-      setSelectedLead({ ...selectedLead, avatar_url: publicUrl });
-      setLeads(leads.map(lead => 
-        lead.id === selectedLead.id 
-          ? { ...lead, avatar_url: publicUrl }
-          : lead
-      ));
-
-      toast({
-        title: "Sucesso",
-        description: "Foto de perfil atualizada",
-      });
-    } catch (error: any) {
-      console.error('Erro ao fazer upload da foto:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar a foto de perfil",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingAvatar(false);
-      // Limpar o input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
   const getStatusIcon = (status: string | null) => {
     switch (status) {
       case "SENT":
@@ -452,33 +366,12 @@ const Chat = () => {
           <>
             {/* Cabeçalho do Chat */}
             <div className="p-4 border-b flex items-center gap-3">
-              <div className="relative group">
-                <Avatar>
-                  <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {getInitials(selectedLead.nome_lead)}
-                  </AvatarFallback>
-                </Avatar>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-                  title="Alterar foto de perfil"
-                >
-                  {uploadingAvatar ? (
-                    <Loader2 className="h-5 w-5 text-white animate-spin" />
-                  ) : (
-                    <Camera className="h-5 w-5 text-white" />
-                  )}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                />
-              </div>
+              <Avatar>
+                <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {getInitials(selectedLead.nome_lead)}
+                </AvatarFallback>
+              </Avatar>
               <div>
                 <h2 className="font-semibold">{selectedLead.nome_lead}</h2>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
