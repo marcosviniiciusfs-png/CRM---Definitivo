@@ -74,15 +74,20 @@ Deno.serve(async (req) => {
     const profileData = await response.json();
     console.log('✅ Resposta da Evolution API (fetchProfile):', profileData);
 
-    const profilePictureUrl = profileData?.profilePictureUrl;
+    // Evolution API pode retornar a URL da foto em diferentes campos
+    const profilePictureUrl =
+      profileData?.profilePictureUrl ||
+      profileData?.picture ||
+      profileData?.profilePicUrl ||
+      null;
 
     if (!profilePictureUrl) {
-      console.log('⚠️ Lead não possui foto de perfil pública');
+      console.log('⚠️ Lead não possui foto de perfil pública ou Evolution não retornou URL de foto', profileData);
       return new Response(
         JSON.stringify({ 
           success: true, 
           hasProfilePicture: false,
-          message: 'Lead não possui foto de perfil pública'
+          message: 'Lead não possui foto de perfil pública ou Evolution não retornou URL de foto'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
