@@ -439,30 +439,44 @@ const Chat = () => {
                         }`}
                       >
                         {/* Renderizar player de áudio se for mensagem de áudio */}
-                        {message.media_type === 'audio' && message.media_url ? (
-                          <div className="my-2">
-                            <audio 
-                              controls 
-                              preload="metadata"
-                              className="w-full max-w-[300px]"
-                              style={{ 
-                                filter: message.direcao === "SAIDA" 
-                                  ? 'invert(1) hue-rotate(180deg)' 
-                                  : 'none' 
-                              }}
-                            >
-                              <source 
-                                src={message.media_url} 
-                                type={message.media_metadata?.mimetype || 'audio/ogg; codecs=opus'}
-                              />
-                              Seu navegador não suporta reprodução de áudio.
-                            </audio>
-                            {message.media_metadata?.seconds && (
-                              <p className="text-xs mt-1 opacity-70">
-                                Duração: {Math.floor(message.media_metadata.seconds)}s
-                              </p>
-                            )}
-                          </div>
+                        {message.media_type === 'audio' ? (
+                          message.media_url ? (
+                            <div className="my-2">
+                              <audio 
+                                controls 
+                                preload="metadata"
+                                className="w-full max-w-[300px]"
+                                style={{ 
+                                  filter: message.direcao === "SAIDA" 
+                                    ? 'invert(1) hue-rotate(180deg)' 
+                                    : 'none' 
+                                }}
+                              >
+                                <source 
+                                  src={message.media_url} 
+                                  type={message.media_metadata?.mimetype || 'audio/ogg; codecs=opus'}
+                                />
+                                Seu navegador não suporta reprodução de áudio.
+                              </audio>
+                              {message.media_metadata?.seconds && (
+                                <p className="text-xs mt-1 opacity-70">
+                                  Duração: {Math.floor(message.media_metadata.seconds)}s
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="opacity-70">🎵 Áudio</span>
+                              {message.media_metadata?.seconds && (
+                                <span className="text-xs opacity-50">
+                                  ({Math.floor(message.media_metadata.seconds)}s)
+                                </span>
+                              )}
+                              <span className="text-xs opacity-50 italic">
+                                - Mídia indisponível (erro de servidor)
+                              </span>
+                            </div>
+                          )
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">
                             {message.corpo_mensagem}
