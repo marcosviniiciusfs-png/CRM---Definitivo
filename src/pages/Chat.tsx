@@ -57,10 +57,10 @@ const Chat = () => {
       )
       .subscribe();
 
-    // Atualizar status de presença a cada 60 segundos (aumentado para reduzir carga)
+    // Atualizar status de presença a cada 2 minutos (aumentado para reduzir carga)
     const presenceInterval = setInterval(() => {
       loadLeads();
-    }, 60000);
+    }, 120000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -139,8 +139,8 @@ const Chat = () => {
         // Ignora erros silenciosamente para não poluir o console
       }
 
-      // Delay de 800ms entre requisições para evitar rate limiting
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Delay de 2 segundos entre requisições para evitar rate limiting
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     isProcessingQueue.current = false;
@@ -172,8 +172,8 @@ const Chat = () => {
         .single();
 
       if (instances && data && data.length > 0) {
-        // Buscar status para os primeiros 10 leads (reduzido para evitar rate limiting)
-        data.slice(0, 10).forEach(lead => {
+        // Buscar status apenas para os primeiros 3 leads para evitar rate limiting
+        data.slice(0, 3).forEach(lead => {
           fetchPresenceStatus(lead, instances.instance_name);
         });
       }
