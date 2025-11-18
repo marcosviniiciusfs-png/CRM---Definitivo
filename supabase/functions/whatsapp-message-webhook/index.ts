@@ -142,8 +142,12 @@ serve(async (req) => {
     const event = payload.event;
     const instance = payload.instance;
     const data = payload.data;
-    const serverUrl = payload.server_url;
+    // CORREÇÃO CRÍTICA: Usar URL do secret em vez do payload (que pode estar incorreto)
+    const serverUrl = Deno.env.get('EVOLUTION_API_URL') || payload.server_url;
     const apiKey = payload.apikey;
+    
+    console.log('🔧 URL do servidor Evolution:', serverUrl);
+    console.log('🔧 URL do payload (ignorada):', payload.server_url);
 
     // Log para debug
     console.log('Event:', event);
