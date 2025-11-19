@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
-import { SyncProfilePicturesButton } from "@/components/SyncProfilePicturesButton";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
+import { ManageTagsDialog } from "@/components/ManageTagsDialog";
 
 const Chat = () => {
   const location = useLocation();
@@ -29,6 +29,8 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
+  const [manageTagsOpen, setManageTagsOpen] = useState(false);
+  const [leadTagsOpen, setLeadTagsOpen] = useState(false);
   const [presenceStatus, setPresenceStatus] = useState<
     Map<string, { isOnline: boolean; lastSeen?: string; status?: string; rateLimited?: boolean }>
   >(new Map());
@@ -509,7 +511,15 @@ const Chat = () => {
         <div className="p-4 border-b space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Conversas</h2>
-            <SyncProfilePicturesButton />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setManageTagsOpen(true)}
+              className="gap-2"
+            >
+              <Tag className="h-4 w-4" />
+              Etiquetas
+            </Button>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -664,14 +674,15 @@ const Chat = () => {
                   <RefreshCw className="h-4 w-4" />
                 )}
               </Button>
-            </div>
-
-            {/* Etiquetas do Lead */}
-            <div className="px-4 py-3 border-b bg-muted/30">
-              <LeadTagsManager 
-                leadId={selectedLead.id} 
-                onTagsChanged={() => loadLeads()}
-              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLeadTagsOpen(true)}
+                title="Gerenciar etiquetas"
+                className="shrink-0"
+              >
+                <Tag className="h-4 w-4" />
+              </Button>
             </div>
 
             {/* Área de Mensagens */}
@@ -817,6 +828,29 @@ const Chat = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <ManageTagsDialog
+        open={manageTagsOpen}
+        onOpenChange={setManageTagsOpen}
+        onTagsChanged={() => loadLeads()}
+      />
+
+      {selectedLead && (
+        <Dialog open={leadTagsOpen} onOpenChange={setLeadTagsOpen}>
+          <DialogContent className="max-w-md">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg mb-1">Etiquetas</h3>
+                <p className="text-sm text-muted-foreground">{selectedLead.nome_lead}</p>
+              </div>
+              <LeadTagsManager 
+                leadId={selectedLead.id} 
+                onTagsChanged={() => loadLeads()}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
