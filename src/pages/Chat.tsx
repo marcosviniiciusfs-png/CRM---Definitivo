@@ -14,6 +14,8 @@ import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { SyncProfilePicturesButton } from "@/components/SyncProfilePicturesButton";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { LeadTagsManager } from "@/components/LeadTagsManager";
+import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 
 const Chat = () => {
   const location = useLocation();
@@ -592,6 +594,7 @@ const Chat = () => {
                       <Phone className="h-3 w-3" />
                       {formatPhoneNumber(lead.telefone_lead)}
                     </p>
+                    <LeadTagsBadge leadId={lead.id} />
                   </div>
                 </button>
               ))}
@@ -661,6 +664,14 @@ const Chat = () => {
                   <RefreshCw className="h-4 w-4" />
                 )}
               </Button>
+            </div>
+
+            {/* Etiquetas do Lead */}
+            <div className="px-4 py-3 border-b bg-muted/30">
+              <LeadTagsManager 
+                leadId={selectedLead.id} 
+                onTagsChanged={() => loadLeads()}
+              />
             </div>
 
             {/* Área de Mensagens */}
