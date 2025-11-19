@@ -1335,9 +1335,9 @@ const Chat = () => {
             </div>
 
             {/* Área de Mensagens */}
-            <div className="flex-1 relative">
+            <div className="flex-1 relative overflow-hidden">
               <div 
-                className="absolute inset-0"
+                className="absolute inset-0 pointer-events-none"
                 style={{
                   backgroundImage: theme === 'dark' 
                     ? 'url(/chat-pattern-dark.png)' 
@@ -1348,7 +1348,7 @@ const Chat = () => {
                   opacity: 0.3
                 }}
               />
-              <ScrollArea className="flex-1 p-4 relative z-10">
+              <ScrollArea className="h-full p-4 relative z-10">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
