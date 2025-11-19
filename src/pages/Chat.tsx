@@ -95,6 +95,23 @@ const Chat = () => {
     }
   }, [selectedLead]);
 
+  // Atualiza presença em tempo quase em tempo real para o lead selecionado
+  useEffect(() => {
+    if (!selectedLead) return;
+
+    // Dispara uma atualização imediata
+    refreshPresenceForLead(selectedLead);
+
+    // Atualiza a cada 30 segundos enquanto o chat estiver aberto
+    const intervalId = setInterval(() => {
+      refreshPresenceForLead(selectedLead);
+    }, 30000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [selectedLead]);
+
   // Auto-scroll para última mensagem
   useEffect(() => {
     scrollToBottom();
