@@ -67,11 +67,13 @@ Deno.serve(async (req) => {
 
     console.log('📄 Dados do lead para presença:', lead);
 
-    // Também buscamos a última mensagem registrada para esse lead, para ter um dado de atividade mais confiável
+    // Também buscamos a última mensagem RECEBIDA (ENTRADA) para esse lead,
+    // assim o status de online depende da atividade do lead e não do usuário do CRM
     const { data: lastMessage, error: lastMessageError } = await supabase
       .from('mensagens_chat')
-      .select('data_hora')
+      .select('data_hora, direcao')
       .eq('id_lead', lead_id)
+      .eq('direcao', 'ENTRADA')
       .order('data_hora', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -80,7 +82,7 @@ Deno.serve(async (req) => {
       console.error('⚠️ Erro ao buscar última mensagem do lead (ignorando e seguindo com cálculo):', lastMessageError);
     }
 
-    console.log('💬 Última mensagem encontrada para presença:', lastMessage);
+    console.log('💬 Última mensagem ENTRADA encontrada para presença:', lastMessage);
 
     // Regras simples de presença baseadas em atividade recente (lead ou mensagens)
     // - Se última atividade (mensagem ou atualização do lead) foi há <= 5 minutos: available (online)
