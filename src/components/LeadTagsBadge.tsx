@@ -70,11 +70,11 @@ export function LeadTagsBadge({ leadId }: LeadTagsBadgeProps) {
   if (tags.length === 0) return null;
 
   return (
-    <div className="flex gap-1 flex-wrap mt-1">
+    <div className="flex gap-1 items-center">
       {tags.map((tag) => (
         <Tag
           key={tag.id}
-          className="w-3.5 h-3.5"
+          className="w-3.5 h-3.5 shrink-0"
           style={{ 
             color: tag.color,
             fill: tag.color,
