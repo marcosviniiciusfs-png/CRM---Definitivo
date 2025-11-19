@@ -146,6 +146,26 @@ const Chat = () => {
           table: 'lead_tag_assignments'
         },
         () => {
+          console.log('Atribuição de etiqueta atualizada');
+          // Recarregar leads (que internamente já carrega as etiquetas)
+          loadLeads();
+        }
+      )
+      .subscribe();
+
+    // Configurar realtime para todas as mensagens (não só do lead selecionado)
+    const allMessagesChannel = supabase
+      .channel('all-messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensagens_chat'
+        },
+        (payload) => {
+          console.log('Nova mensagem recebida em qualquer conversa:', payload);
+          // Recarregar leads para atualizar last_message_at
           loadLeads();
         }
       )
@@ -154,6 +174,7 @@ const Chat = () => {
     return () => {
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(tagsChannel);
+      supabase.removeChannel(allMessagesChannel);
     };
   }, [location.state]);
 
