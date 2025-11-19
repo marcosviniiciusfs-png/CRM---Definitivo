@@ -25,6 +25,16 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -72,6 +82,8 @@ const Chat = () => {
     Map<string, { isOnline: boolean; lastSeen?: string; status?: string; rateLimited?: boolean }>
   >(new Map());
   const [loadingPresence, setLoadingPresence] = useState(false);
+  const [removeTagsDialogOpen, setRemoveTagsDialogOpen] = useState(false);
+  const [leadToRemoveTags, setLeadToRemoveTags] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
@@ -522,23 +534,31 @@ const Chat = () => {
     }
   };
 
-  // Função para remover todas as etiquetas de um lead
-  const handleRemoveAllTags = async (leadId: string) => {
-    try {
-      const leadTags = leadTagsMap.get(leadId) || [];
-      
-      if (leadTags.length === 0) {
-        toast({
-          title: "Nenhuma etiqueta",
-          description: "Este lead não possui etiquetas para remover",
-        });
-        return;
-      }
+  // Função para abrir dialog de confirmação de remoção de etiquetas
+  const handleRemoveAllTags = (leadId: string) => {
+    const leadTags = leadTagsMap.get(leadId) || [];
+    
+    if (leadTags.length === 0) {
+      toast({
+        title: "Nenhuma etiqueta",
+        description: "Este lead não possui etiquetas para remover",
+      });
+      return;
+    }
 
+    setLeadToRemoveTags(leadId);
+    setRemoveTagsDialogOpen(true);
+  };
+
+  // Função para confirmar remoção de todas as etiquetas
+  const confirmRemoveAllTags = async () => {
+    if (!leadToRemoveTags) return;
+
+    try {
       const { error } = await supabase
         .from('lead_tag_assignments')
         .delete()
-        .eq('lead_id', leadId);
+        .eq('lead_id', leadToRemoveTags);
 
       if (error) throw error;
 
@@ -553,6 +573,9 @@ const Chat = () => {
         description: "Não foi possível remover as etiquetas",
         variant: "destructive",
       });
+    } finally {
+      setRemoveTagsDialogOpen(false);
+      setLeadToRemoveTags(null);
     }
   };
 
@@ -1461,6 +1484,24 @@ const Chat = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Dialog de confirmação para remover etiquetas */}
+      <AlertDialog open={removeTagsDialogOpen} onOpenChange={setRemoveTagsDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover todas as etiquetas?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover todas as etiquetas deste lead? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveAllTags}>
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
