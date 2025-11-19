@@ -46,83 +46,59 @@ Deno.serve(async (req) => {
  
     console.log('📞 Número formatado:', formattedNumber);
 
-    // Chamar Evolution API para buscar status de presença usando fetchPresence
-    const presenceUrl = `${evolutionApiUrl}/chat/fetchPresence/${instance_name}`;
-    console.log('🔗 URL da Evolution API (fetchPresence):', presenceUrl);
+    // Em vez de chamar a Evolution API (que está retornando rate limit / erro),
+    // calculamos o status de presença localmente usando os dados do lead
+    console.log('⚙️ Calculando presença localmente a partir de last_message_at/updated_at');
 
-    const response = await fetch(presenceUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': evolutionApiKey,
-      },
-      body: JSON.stringify({
-        number: formattedNumber,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      
-      // Se for erro 400/404/429 (rate limit ou número não encontrado), retorna sucesso sem atualizar
-      if (response.status === 400 || response.status === 404 || response.status === 429) {
-        console.log('⚠️ Erro esperado da Evolution API (rate limit ou número não encontrado) - ignorando requisição');
-        return new Response(
-          JSON.stringify({
-            success: true,
-            is_online: false,
-            last_seen: null,
-            status: null,
-            rate_limited: true,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      console.error('❌ Erro na Evolution API (fetchPresence):', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText,
-      });
-      throw new Error(`Evolution API retornou ${response.status}: ${errorText}`);
-    }
-
-    const presenceData = await response.json();
-    console.log('✅ Resposta completa da Evolution API:', JSON.stringify(presenceData, null, 2));
-
-    // Extrair informações de presença
-    let isOnline = false;
-    let lastSeen: any = null;
-    let statusText: string | null = null;
-
-    // A Evolution API /chat/fetchPresence retorna: { status: "unavailable" | "available" | "composing" | "recording" | "paused", lastSeen?: number }
-    if (presenceData && typeof presenceData === 'object') {
-      console.log('📱 Dados brutos de presença:', presenceData);
-
-      // Mapear o status retornado pela Evolution API
-      const status = presenceData.status || null;
-      statusText = status;
-
-      // Determinar se está online baseado no status
-      isOnline = status === 'available' || status === 'composing' || status === 'recording';
-
-      // Last seen pode vir como timestamp (number) ou null
-      lastSeen = presenceData.lastSeen || null;
-
-      console.log('📊 Status extraído:', { 
-        isOnline, 
-        lastSeen: lastSeen ? new Date(lastSeen * 1000).toISOString() : null, 
-        statusText 
-      });
-    } else {
-      console.log('⚠️ Resposta da Evolution API não está no formato esperado');
-    }
-
-    // Atualizar status no banco de dados (mantemos apenas os campos já existentes)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('last_message_at, updated_at')
+      .eq('id', lead_id)
+      .maybeSingle();
+
+    if (leadError) {
+      console.error('❌ Erro ao buscar lead para cálculo de presença:', leadError);
+      throw leadError;
+    }
+
+    console.log('📄 Dados do lead para presença:', lead);
+
+    // Regras simples de presença baseadas em atividade recente
+    // - Se última atividade (last_message_at ou updated_at) foi há <= 5 minutos: available (online)
+    // - Senão: unavailable (offline) e last_seen = data da última atividade
+    let isOnline = false;
+    let lastSeen: string | null = null;
+    let statusText: string | null = null;
+
+    if (lead?.last_message_at || lead?.updated_at) {
+      const lastActivityStr = (lead.last_message_at || lead.updated_at) as string;
+      const lastActivity = new Date(lastActivityStr);
+      const diffMs = Date.now() - lastActivity.getTime();
+      const diffMinutes = diffMs / 60000;
+
+      if (diffMinutes <= 5) {
+        isOnline = true;
+        statusText = 'available';
+        lastSeen = null; // online agora
+      } else {
+        isOnline = false;
+        statusText = 'unavailable';
+        lastSeen = lastActivity.toISOString();
+      }
+
+      console.log('📊 Status calculado localmente:', { isOnline, lastSeen, statusText, diffMinutes });
+    } else {
+      console.log('⚠️ Lead sem atividade registrada, marcando como unavailable');
+      isOnline = false;
+      statusText = 'unavailable';
+      lastSeen = null;
+    }
+
+    // Atualizar status no banco de dados (mantemos apenas os campos já existentes)
     const updateData: any = {
       is_online: isOnline,
       updated_at: new Date().toISOString(),
