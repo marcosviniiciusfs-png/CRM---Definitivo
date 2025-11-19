@@ -187,6 +187,13 @@ serve(async (req) => {
       if (phoneNumber) updateData.phone_number = phoneNumber;
       if (connectedAt) updateData.connected_at = connectedAt;
       if (qrCode !== undefined) updateData.qr_code = qrCode;
+      
+      // CRÍTICO: Quando conectado, atualizar webhook_url para receber mensagens
+      if (internalStatus === 'CONNECTED') {
+        const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
+        updateData.webhook_url = messageWebhookUrl;
+        console.log('✅ Atualizando webhook_url para:', messageWebhookUrl);
+      }
 
       console.log('💾 Dados para atualizar:', JSON.stringify(updateData, null, 2));
       
