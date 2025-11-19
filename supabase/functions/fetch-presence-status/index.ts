@@ -89,32 +89,41 @@ Deno.serve(async (req) => {
     const presenceData = await response.json();
     console.log('✅ Resposta completa da Evolution API:', JSON.stringify(presenceData, null, 2));
 
-    // Extrair informações de presença do formato whatsappNumbers
-    // O endpoint retorna um array com os números e seus status
+    // Extrair informações de presença
     let isOnline = false;
-    let lastSeen = null;
+    let lastSeen: any = null;
+    let statusText: string | null = null;
 
-    if (Array.isArray(presenceData)) {
-      // Se for array, procurar o número específico
-      const contactData = presenceData.find((item: any) => 
-        item.jid === formattedNumber || item.id === formattedNumber
+    // A Evolution API está retornando um array, onde o status do lead
+    // vem em presenceData[0].status (por exemplo: "available", "typing", etc.)
+    if (Array.isArray(presenceData) && presenceData[0]) {
+      const contactData = presenceData[0] as any;
+      console.log('📱 Dados brutos de presença:', contactData);
+
+      // Boolean simplificado para retrocompatibilidade
+      isOnline = Boolean(
+        contactData.isOnline ||
+        contactData.online ||
+        contactData.is_online ||
+        contactData.status === 'available' ||
+        contactData.status === 'online'
       );
-      
-      if (contactData) {
-        console.log('📱 Dados do contato encontrado:', contactData);
-        isOnline = contactData.isOnline || contactData.online || false;
-        lastSeen = contactData.lastSeen || contactData.last_seen || null;
-      }
-    } else if (presenceData?.[0]) {
-      // Se for objeto com primeiro elemento
-      console.log('📱 Dados do primeiro contato:', presenceData[0]);
-      isOnline = presenceData[0].isOnline || presenceData[0].online || false;
-      lastSeen = presenceData[0].lastSeen || presenceData[0].last_seen || null;
+
+      // Last seen em formatos diferentes
+      lastSeen = contactData.lastSeen || contactData.last_seen || null;
+
+      // Status textual usado pelo frontend para mapear as cores
+      statusText =
+        contactData.status ||
+        contactData.presence ||
+        contactData.state ||
+        contactData.onlineStatus ||
+        null;
     }
 
-    console.log('📊 Status extraído:', { isOnline, lastSeen, formattedNumber });
+    console.log('📊 Status extraído:', { isOnline, lastSeen, statusText });
 
-    // Atualizar status no banco de dados
+    // Atualizar status no banco de dados (mantemos apenas os campos já existentes)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -124,12 +133,11 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     };
 
-    // Se tiver last_seen, converte para timestamp
     if (lastSeen) {
-      const lastSeenDate = typeof lastSeen === 'number' 
-        ? new Date(lastSeen * 1000).toISOString() // Unix timestamp em segundos
-        : new Date(lastSeen).toISOString(); // ISO string ou timestamp em ms
-      
+      const lastSeenDate = typeof lastSeen === 'number'
+        ? new Date(lastSeen * 1000).toISOString()
+        : new Date(lastSeen).toISOString();
+
       updateData.last_seen = lastSeenDate;
     }
 
@@ -150,6 +158,7 @@ Deno.serve(async (req) => {
         success: true,
         is_online: isOnline,
         last_seen: lastSeen,
+        status: statusText,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
