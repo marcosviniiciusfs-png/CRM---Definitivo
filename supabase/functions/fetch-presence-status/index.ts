@@ -39,14 +39,16 @@ Deno.serve(async (req) => {
       throw new Error('EVOLUTION_API_KEY não configurada');
     }
 
-    // Formatar número no formato esperado pela Evolution API (apenas dígitos)
-    const formattedNumber = phone_number.replace(/\D/g, '');
+    // Formatar número no formato esperado pela Evolution API (com @s.whatsapp.net)
+    const formattedNumber = phone_number.includes('@') 
+      ? phone_number 
+      : `${phone_number.replace(/\D/g, '')}@s.whatsapp.net`;
  
     console.log('📞 Número formatado:', formattedNumber);
 
-    // Chamar Evolution API para buscar status de presença
-    const presenceUrl = `${evolutionApiUrl}/chat/fetchPresence/${instance_name}`;
-    console.log('🔗 URL da Evolution API (fetchPresence):', presenceUrl);
+    // Chamar Evolution API para buscar status de presença usando whatsappNumbers
+    const presenceUrl = `${evolutionApiUrl}/chat/whatsappNumbers/${instance_name}`;
+    console.log('🔗 URL da Evolution API (whatsappNumbers):', presenceUrl);
 
     const response = await fetch(presenceUrl, {
       method: 'POST',
@@ -55,7 +57,7 @@ Deno.serve(async (req) => {
         'apikey': evolutionApiKey,
       },
       body: JSON.stringify({
-        number: formattedNumber,
+        numbers: [formattedNumber],
       }),
     });
 
@@ -85,19 +87,32 @@ Deno.serve(async (req) => {
     }
 
     const presenceData = await response.json();
-    console.log('✅ Resposta da Evolution API (fetchPresence):', presenceData);
+    console.log('✅ Resposta completa da Evolution API:', JSON.stringify(presenceData, null, 2));
 
-    // Extrair informações de presença do formato da Evolution API
-    // A resposta pode vir em diferentes formatos dependendo da versão
-    const isOnline = presenceData?.status === 'available' || 
-                     presenceData?.presences?.[formattedNumber]?.lastKnownPresence === 'available' ||
-                     false;
-    
-    const lastSeen = presenceData?.lastSeen || 
-                     presenceData?.presences?.[formattedNumber]?.lastSeen || 
-                     null;
+    // Extrair informações de presença do formato whatsappNumbers
+    // O endpoint retorna um array com os números e seus status
+    let isOnline = false;
+    let lastSeen = null;
 
-    console.log('📊 Status extraído:', { isOnline, lastSeen });
+    if (Array.isArray(presenceData)) {
+      // Se for array, procurar o número específico
+      const contactData = presenceData.find((item: any) => 
+        item.jid === formattedNumber || item.id === formattedNumber
+      );
+      
+      if (contactData) {
+        console.log('📱 Dados do contato encontrado:', contactData);
+        isOnline = contactData.isOnline || contactData.online || false;
+        lastSeen = contactData.lastSeen || contactData.last_seen || null;
+      }
+    } else if (presenceData?.[0]) {
+      // Se for objeto com primeiro elemento
+      console.log('📱 Dados do primeiro contato:', presenceData[0]);
+      isOnline = presenceData[0].isOnline || presenceData[0].online || false;
+      lastSeen = presenceData[0].lastSeen || presenceData[0].last_seen || null;
+    }
+
+    console.log('📊 Status extraído:', { isOnline, lastSeen, formattedNumber });
 
     // Atualizar status no banco de dados
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
