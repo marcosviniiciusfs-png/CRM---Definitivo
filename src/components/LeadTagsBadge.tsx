@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
+import { Tag } from "lucide-react";
 
 interface LeadTag {
   id: string;
@@ -53,7 +53,7 @@ export function LeadTagsBadge({ leadId }: LeadTagsBadgeProps) {
           )
         `)
         .eq("lead_id", leadId)
-        .limit(3); // Mostrar no máximo 3 tags na lista
+        .limit(5); // Mostrar no máximo 5 tags na lista
 
       if (error) throw error;
 
@@ -72,16 +72,15 @@ export function LeadTagsBadge({ leadId }: LeadTagsBadgeProps) {
   return (
     <div className="flex gap-1 flex-wrap mt-1">
       {tags.map((tag) => (
-        <Badge
+        <Tag
           key={tag.id}
-          style={{
-            backgroundColor: tag.color,
-            color: "white",
+          className="w-3.5 h-3.5"
+          style={{ 
+            color: tag.color,
+            fill: tag.color,
           }}
-          className="text-[10px] px-1.5 py-0 h-4"
-        >
-          {tag.name}
-        </Badge>
+          strokeWidth={2}
+        />
       ))}
     </div>
   );
