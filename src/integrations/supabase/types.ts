@@ -85,6 +85,77 @@ export type Database = {
           },
         ]
       }
+      lead_tag_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tag_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_tag_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "lead_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tags_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           avatar_url: string | null
