@@ -25,6 +25,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const Chat = () => {
   const location = useLocation();
@@ -47,6 +49,7 @@ const Chat = () => {
   const [leadTagsMap, setLeadTagsMap] = useState<Map<string, string[]>>(new Map());
   const [pinnedLeads, setPinnedLeads] = useState<string[]>([]);
   const [contextMenuLeadId, setContextMenuLeadId] = useState<string | null>(null);
+  const [pinnedSectionOpen, setPinnedSectionOpen] = useState(true);
   const [presenceStatus, setPresenceStatus] = useState<
     Map<string, { isOnline: boolean; lastSeen?: string; status?: string; rateLimited?: boolean }>
   >(new Map());
@@ -630,33 +633,46 @@ const Chat = () => {
     });
   };
 
-  const filteredLeads = leads
-    .filter((lead) => {
-      // Filtro de busca por nome ou telefone
-      const matchesSearch =
-        lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.telefone_lead.includes(searchQuery);
+  // Filtrar e ordenar leads
+  const baseFilteredLeads = leads.filter((lead) => {
+    // Filtro de busca por nome ou telefone
+    const matchesSearch =
+      lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.telefone_lead.includes(searchQuery);
 
-      // Filtro por etiquetas selecionadas
-      if (selectedTagIds.length > 0) {
-        const leadTags = leadTagsMap.get(lead.id) || [];
-        const hasSelectedTag = selectedTagIds.some((tagId) =>
-          leadTags.includes(tagId)
-        );
-        return matchesSearch && hasSelectedTag;
-      }
+    // Filtro por etiquetas selecionadas
+    if (selectedTagIds.length > 0) {
+      const leadTags = leadTagsMap.get(lead.id) || [];
+      const hasSelectedTag = selectedTagIds.some((tagId) =>
+        leadTags.includes(tagId)
+      );
+      return matchesSearch && hasSelectedTag;
+    }
 
-      return matchesSearch;
-    })
+    return matchesSearch;
+  });
+
+  // Separar leads fixados dos não fixados
+  const pinnedFilteredLeads = baseFilteredLeads
+    .filter((lead) => pinnedLeads.includes(lead.id))
     .sort((a, b) => {
-      // Primeiro, ordenar por fixados
-      const aIsPinned = pinnedLeads.includes(a.id);
-      const bIsPinned = pinnedLeads.includes(b.id);
-      
-      if (aIsPinned && !bIsPinned) return -1;
-      if (!aIsPinned && bIsPinned) return 1;
-      
-      // Se ambos fixados ou ambos não fixados, aplicar ordenação secundária
+      switch (filterOption) {
+        case "alphabetical":
+          return a.nome_lead.localeCompare(b.nome_lead);
+        case "created":
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case "last_interaction":
+          const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+          const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+          return bTime - aTime;
+        default:
+          return 0;
+      }
+    });
+
+  const unpinnedFilteredLeads = baseFilteredLeads
+    .filter((lead) => !pinnedLeads.includes(lead.id))
+    .sort((a, b) => {
       switch (filterOption) {
         case "alphabetical":
           return a.nome_lead.localeCompare(b.nome_lead);
@@ -821,107 +837,227 @@ const Chat = () => {
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : filteredLeads.length === 0 ? (
+          ) : pinnedFilteredLeads.length === 0 && unpinnedFilteredLeads.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
               <p>Nenhum contato encontrado</p>
             </div>
           ) : (
-            <div className="space-y-1 p-2">
-              {filteredLeads.map((lead) => {
-                const isPinned = pinnedLeads.includes(lead.id);
-                
-                return (
-                  <ContextMenu key={lead.id}>
-                    <ContextMenuTrigger asChild>
-                      <button
-                        onClick={() => handleLeadClick(lead)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors ${
-                          selectedLead?.id === lead.id ? "bg-muted" : ""
-                        }`}
+            <div className="space-y-3">
+              {/* Seção de Conversas Fixadas */}
+              {pinnedFilteredLeads.length > 0 && (
+                <Collapsible
+                  open={pinnedSectionOpen}
+                  onOpenChange={setPinnedSectionOpen}
+                  className="space-y-2"
+                >
+                  <div className="px-2 pt-2">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-between px-2 h-8 hover:bg-primary/5"
                       >
-                        <div className="relative">
-                          <Avatar 
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (lead.avatar_url) {
-                                setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
-                              }
-                            }}
-                          >
-                            <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                              {getInitials(lead.nome_lead)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {/* Indicador de presença */}
-                          <div 
-                            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
-                              presenceStatus.get(lead.id)?.isOnline 
-                                ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
-                                : presenceStatus.get(lead.id)?.lastSeen
-                                  ? 'bg-orange-400'
-                                  : presenceStatus.get(lead.id)
-                                    ? 'bg-gray-400'
-                                    : 'bg-gray-500 opacity-30'
-                            }`}
-                            title={
-                              presenceStatus.get(lead.id)?.isOnline 
-                                ? '🟢 Online agora' 
-                                : presenceStatus.get(lead.id)?.lastSeen 
-                                  ? `🟠 Visto: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}`
-                                  : presenceStatus.get(lead.id)
-                                    ? '⚪ Offline'
-                                    : '⚫ Status desconhecido'
-                            }
-                          />
+                        <div className="flex items-center gap-2">
+                          <Pin className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-xs font-semibold text-primary">
+                            Fixadas ({pinnedFilteredLeads.length})
+                          </span>
                         </div>
-                        <div className="flex-1 text-left overflow-hidden">
-                          <div className="flex items-center gap-2">
-                            {isPinned && (
-                              <Pin className="h-3 w-3 text-primary fill-primary" />
-                            )}
-                            <p className="font-medium truncate">{lead.nome_lead}</p>
-                            {presenceStatus.get(lead.id)?.isOnline && (
-                              <span className="text-xs text-green-600 font-medium">Online</span>
-                            )}
-                            <LeadTagsBadge leadId={lead.id} />
-                          </div>
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {formatPhoneNumber(lead.telefone_lead)}
-                          </p>
-                        </div>
-                      </button>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent className="w-56">
-                      <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
-                        {isPinned ? (
-                          <>
-                            <PinOff className="mr-2 h-4 w-4" />
-                            <span>Desafixar conversa</span>
-                          </>
+                        {pinnedSectionOpen ? (
+                          <ChevronUp className="h-3.5 w-3.5 text-primary" />
                         ) : (
-                          <>
+                          <ChevronDown className="h-3.5 w-3.5 text-primary" />
+                        )}
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  
+                  <CollapsibleContent className="space-y-1 px-2 animate-accordion-down">
+                    <div className="bg-primary/5 rounded-lg p-1 space-y-1">
+                      {pinnedFilteredLeads.map((lead) => {
+                        const isPinned = true;
+                        
+                        return (
+                          <ContextMenu key={lead.id}>
+                            <ContextMenuTrigger asChild>
+                              <button
+                                onClick={() => handleLeadClick(lead)}
+                                className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-background/60 transition-colors ${
+                                  selectedLead?.id === lead.id ? "bg-background shadow-sm" : ""
+                                }`}
+                              >
+                                <div className="relative">
+                                  <Avatar 
+                                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (lead.avatar_url) {
+                                        setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
+                                      }
+                                    }}
+                                  >
+                                    <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
+                                    <AvatarFallback className="bg-primary/10 text-primary">
+                                      {getInitials(lead.nome_lead)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {/* Indicador de presença */}
+                                  <div 
+                                    className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                                      presenceStatus.get(lead.id)?.isOnline 
+                                        ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
+                                        : presenceStatus.get(lead.id)?.lastSeen
+                                          ? 'bg-orange-400'
+                                          : presenceStatus.get(lead.id)
+                                            ? 'bg-gray-400'
+                                            : 'bg-gray-500 opacity-30'
+                                    }`}
+                                    title={
+                                      presenceStatus.get(lead.id)?.isOnline 
+                                        ? '🟢 Online agora' 
+                                        : presenceStatus.get(lead.id)?.lastSeen 
+                                          ? `🟠 Visto: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR', {
+                                              day: '2-digit',
+                                              month: '2-digit',
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            })}`
+                                          : presenceStatus.get(lead.id)
+                                            ? '⚪ Offline'
+                                            : '⚫ Status desconhecido'
+                                    }
+                                  />
+                                </div>
+                                <div className="flex-1 text-left overflow-hidden">
+                                  <div className="flex items-center gap-2">
+                                    <Pin className="h-3 w-3 text-primary fill-primary" />
+                                    <p className="font-medium truncate">{lead.nome_lead}</p>
+                                    {presenceStatus.get(lead.id)?.isOnline && (
+                                      <span className="text-xs text-green-600 font-medium">Online</span>
+                                    )}
+                                    <LeadTagsBadge leadId={lead.id} />
+                                  </div>
+                                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    {formatPhoneNumber(lead.telefone_lead)}
+                                  </p>
+                                </div>
+                              </button>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-56">
+                              <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
+                                <PinOff className="mr-2 h-4 w-4" />
+                                <span>Desafixar conversa</span>
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => openTagsManagerForLead(lead.id)}>
+                                <Tag className="mr-2 h-4 w-4" />
+                                <span>Adicionar etiquetas</span>
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        );
+                      })}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Seção de Todas as Conversas */}
+              {unpinnedFilteredLeads.length > 0 && (
+                <div className="space-y-1 px-2">
+                  {pinnedFilteredLeads.length > 0 && (
+                    <div className="px-2 py-1">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Todas as conversas
+                      </span>
+                    </div>
+                  )}
+                  {unpinnedFilteredLeads.map((lead) => {
+                    const isPinned = false;
+                    
+                    return (
+                      <ContextMenu key={lead.id}>
+                        <ContextMenuTrigger asChild>
+                          <button
+                            onClick={() => handleLeadClick(lead)}
+                            className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors ${
+                              selectedLead?.id === lead.id ? "bg-muted" : ""
+                            }`}
+                          >
+                            <div className="relative">
+                              <Avatar 
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (lead.avatar_url) {
+                                    setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
+                                  }
+                                }}
+                              >
+                                <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
+                                <AvatarFallback className="bg-primary/10 text-primary">
+                                  {getInitials(lead.nome_lead)}
+                                </AvatarFallback>
+                              </Avatar>
+                              {/* Indicador de presença */}
+                              <div 
+                                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                                  presenceStatus.get(lead.id)?.isOnline 
+                                    ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
+                                    : presenceStatus.get(lead.id)?.lastSeen
+                                      ? 'bg-orange-400'
+                                      : presenceStatus.get(lead.id)
+                                        ? 'bg-gray-400'
+                                        : 'bg-gray-500 opacity-30'
+                                }`}
+                                title={
+                                  presenceStatus.get(lead.id)?.isOnline 
+                                    ? '🟢 Online agora' 
+                                    : presenceStatus.get(lead.id)?.lastSeen 
+                                      ? `🟠 Visto: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}`
+                                      : presenceStatus.get(lead.id)
+                                        ? '⚪ Offline'
+                                        : '⚫ Status desconhecido'
+                                }
+                              />
+                            </div>
+                            <div className="flex-1 text-left overflow-hidden">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium truncate">{lead.nome_lead}</p>
+                                {presenceStatus.get(lead.id)?.isOnline && (
+                                  <span className="text-xs text-green-600 font-medium">Online</span>
+                                )}
+                                <LeadTagsBadge leadId={lead.id} />
+                              </div>
+                              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {formatPhoneNumber(lead.telefone_lead)}
+                              </p>
+                            </div>
+                          </button>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-56">
+                          <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
                             <Pin className="mr-2 h-4 w-4" />
                             <span>Fixar conversa</span>
-                          </>
-                        )}
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem onClick={() => openTagsManagerForLead(lead.id)}>
-                        <Tag className="mr-2 h-4 w-4" />
-                        <span>Adicionar etiquetas</span>
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                );
-              })}
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem onClick={() => openTagsManagerForLead(lead.id)}>
+                            <Tag className="mr-2 h-4 w-4" />
+                            <span>Adicionar etiquetas</span>
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </ScrollArea>
