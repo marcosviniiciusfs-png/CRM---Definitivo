@@ -571,10 +571,17 @@ serve(async (req) => {
     console.log('💬 Message ID:', savedMessage.id);
     console.log('📝 Conteúdo:', messageContent.substring(0, 50));
 
-    // Atualizar last_message_at do lead
+    const nowIso = new Date().toISOString();
+
+    // Atualizar last_message_at do lead e marcá-lo como online imediatamente
     await supabase
       .from('leads')
-      .update({ last_message_at: new Date().toISOString() })
+      .update({ 
+        last_message_at: nowIso,
+        is_online: true,
+        last_seen: null,
+        updated_at: nowIso,
+      })
       .eq('id', leadId);
 
     return new Response(
