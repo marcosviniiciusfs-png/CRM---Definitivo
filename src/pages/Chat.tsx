@@ -1025,113 +1025,9 @@ const Chat = () => {
                       <p>Nenhum contato encontrado</p>
                     </div>
                   ) : (
-                    <div className="space-y-3 p-2">
-                      {/* Conversas Fixadas dentro da aba Tudo */}
-                      {pinnedFilteredLeads.length > 0 && (
-                        <div className="space-y-1">
-                          <div className="px-2 py-1 flex items-center gap-2">
-                            <Pin className="h-3 w-3 text-primary" />
-                            <span className="text-xs font-semibold text-primary">
-                              Fixadas
-                            </span>
-                          </div>
-                          <div className="space-y-1">
-                            {pinnedFilteredLeads.map((lead) => (
-                              <ContextMenu key={lead.id}>
-                                <ContextMenuTrigger asChild>
-                                  <button
-                                    onClick={() => handleLeadClick(lead)}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors ${
-                                      selectedLead?.id === lead.id ? "bg-muted" : ""
-                                    }`}
-                                  >
-                                    <div className="relative">
-                                      <Avatar
-                                        className="cursor-pointer hover:opacity-80 transition-opacity"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (lead.avatar_url) {
-                                            setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
-                                          }
-                                        }}
-                                      >
-                                        <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
-                                        <AvatarFallback className="bg-primary/10 text-primary">
-                                          {getInitials(lead.nome_lead)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div
-                                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
-                                          presenceStatus.get(lead.id)?.isOnline
-                                            ? "bg-green-500 animate-pulse shadow-lg shadow-green-500/50"
-                                            : presenceStatus.get(lead.id)?.lastSeen
-                                            ? "bg-orange-400"
-                                            : presenceStatus.get(lead.id)
-                                            ? "bg-gray-400"
-                                            : "bg-gray-500 opacity-30"
-                                        }`}
-                                        title={
-                                          presenceStatus.get(lead.id)?.isOnline
-                                            ? "🟢 Online agora"
-                                            : presenceStatus.get(lead.id)?.lastSeen
-                                            ? `🟠 Visto: ${new Date(
-                                                presenceStatus.get(lead.id)!.lastSeen!
-                                              ).toLocaleString("pt-BR", {
-                                                day: "2-digit",
-                                                month: "2-digit",
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                              })}`
-                                            : presenceStatus.get(lead.id)
-                                            ? "⚪ Offline"
-                                            : "⚫ Status desconhecido"
-                                        }
-                                      />
-                                    </div>
-                                    <div className="flex-1 text-left overflow-hidden">
-                                      <div className="flex items-center gap-2">
-                                        <Pin className="h-3 w-3 text-primary fill-primary" />
-                                        <p className="font-medium truncate">{lead.nome_lead}</p>
-                                        {presenceStatus.get(lead.id)?.isOnline && (
-                                          <span className="text-xs text-green-600 font-medium">Online</span>
-                                        )}
-                                        <LeadTagsBadge leadId={lead.id} />
-                                      </div>
-                                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                        <Phone className="h-3 w-3" />
-                                        {formatPhoneNumber(lead.telefone_lead)}
-                                      </p>
-                                    </div>
-                                  </button>
-                                </ContextMenuTrigger>
-                                <ContextMenuContent className="w-56">
-                                  <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
-                                    <PinOff className="mr-2 h-4 w-4" />
-                                    <span>Desafixar conversa</span>
-                                  </ContextMenuItem>
-                                  <ContextMenuSeparator />
-                                  <ContextMenuItem onClick={() => openTagsManagerForLead(lead.id)}>
-                                    <Tag className="mr-2 h-4 w-4" />
-                                    <span>Adicionar etiquetas</span>
-                                  </ContextMenuItem>
-                                </ContextMenuContent>
-                              </ContextMenu>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Todas as Conversas */}
-                      {unpinnedFilteredLeads.length > 0 && (
-                        <div className="space-y-1">
-                          {pinnedFilteredLeads.length > 0 && (
-                            <div className="px-2 py-1">
-                              <span className="text-xs font-semibold text-muted-foreground">
-                                Todas as conversas
-                              </span>
-                            </div>
-                          )}
-                          {unpinnedFilteredLeads.map((lead) => (
+                    <div className="space-y-1 p-2">
+                      {/* Todas as Conversas (sem fixadas) */}
+                      {unpinnedFilteredLeads.map((lead) => (
                             <ContextMenu key={lead.id}>
                               <ContextMenuTrigger asChild>
                                 <button
@@ -1208,11 +1104,9 @@ const Chat = () => {
                                   <Tag className="mr-2 h-4 w-4" />
                                   <span>Adicionar etiquetas</span>
                                 </ContextMenuItem>
-                              </ContextMenuContent>
+                                </ContextMenuContent>
                             </ContextMenu>
                           ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </ScrollArea>
