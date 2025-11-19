@@ -70,6 +70,7 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [manageTagsOpen, setManageTagsOpen] = useState(false);
   const [leadTagsOpen, setLeadTagsOpen] = useState(false);
@@ -1267,19 +1268,20 @@ const Chat = () => {
         {selectedLead ? (
           <>
             {/* Cabeçalho do Chat */}
-            <div className="p-4 border-b flex items-center gap-3">
-              <div className="relative">
-                <Avatar 
-                  className="cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => {
-                    if (selectedLead.avatar_url) {
-                      setViewingAvatar({ url: selectedLead.avatar_url, name: selectedLead.nome_lead });
-                    }
-                  }}
-                >
-                  <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {getInitials(selectedLead.nome_lead)}
+            <div className="p-4 border-b">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="relative">
+                  <Avatar 
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => {
+                      if (selectedLead.avatar_url) {
+                        setViewingAvatar({ url: selectedLead.avatar_url, name: selectedLead.nome_lead });
+                      }
+                    }}
+                  >
+                    <AvatarImage src={getAvatarUrl(selectedLead)} alt={selectedLead.nome_lead} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {getInitials(selectedLead.nome_lead)}
                   </AvatarFallback>
                 </Avatar>
                 {presenceStatus.get(selectedLead.id)?.isOnline && (
@@ -1332,6 +1334,28 @@ const Chat = () => {
               >
                 <Tag className="h-4 w-4" />
               </Button>
+              </div>
+              
+              {/* Campo de Busca de Mensagens */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar mensagens..."
+                  value={messageSearchQuery}
+                  onChange={(e) => setMessageSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+                {messageSearchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 px-2"
+                    onClick={() => setMessageSearchQuery("")}
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Área de Mensagens */}
@@ -1359,7 +1383,14 @@ const Chat = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((message) => (
+                  {messages
+                    .filter((message) => {
+                      if (!messageSearchQuery.trim()) return true;
+                      return message.corpo_mensagem
+                        .toLowerCase()
+                        .includes(messageSearchQuery.toLowerCase());
+                    })
+                    .map((message) => (
                     <div
                       key={message.id}
                       className={`flex gap-2 ${
@@ -1415,7 +1446,19 @@ const Chat = () => {
                           )
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">
-                            {message.corpo_mensagem}
+                            {messageSearchQuery.trim() ? (
+                              message.corpo_mensagem.split(new RegExp(`(${messageSearchQuery})`, 'gi')).map((part, index) => 
+                                part.toLowerCase() === messageSearchQuery.toLowerCase() ? (
+                                  <mark key={index} className="bg-yellow-300 dark:bg-yellow-600 rounded px-0.5">
+                                    {part}
+                                  </mark>
+                                ) : (
+                                  part
+                                )
+                              )
+                            ) : (
+                              message.corpo_mensagem
+                            )}
                           </p>
                         )}
                         <div
@@ -1434,7 +1477,7 @@ const Chat = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
+                   ))}
                   <div ref={messagesEndRef} />
                 </div>
               )}
