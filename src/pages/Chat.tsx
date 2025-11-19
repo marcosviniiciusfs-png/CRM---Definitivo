@@ -27,7 +27,9 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
-  const [presenceStatus, setPresenceStatus] = useState<Map<string, { isOnline: boolean; lastSeen?: string }>>(new Map());
+  const [presenceStatus, setPresenceStatus] = useState<
+    Map<string, { isOnline: boolean; lastSeen?: string; status?: string; rateLimited?: boolean }>
+  >(new Map());
   const [loadingPresence, setLoadingPresence] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
@@ -133,17 +135,49 @@ const Chat = () => {
 
         console.log('📊 Resposta da edge function:', presenceData);
 
-        if (!presenceError && presenceData?.success && !presenceData.rate_limited) {
-          console.log('✅ Status atualizado:', { 
-            isOnline: presenceData.is_online, 
-            lastSeen: presenceData.last_seen 
-          });
-          
-          setPresenceStatus(prev => new Map(prev).set(item.lead.id, {
-            isOnline: presenceData.is_online,
-            lastSeen: presenceData.last_seen,
-          }));
-          successCount++;
+        if (!presenceError && presenceData?.success) {
+          const isRateLimited = Boolean(presenceData.rate_limited);
+
+          if (isRateLimited) {
+            console.warn('⚠️ Evolution API retornou rate_limited para este número. Mantendo status anterior ou marcando como desconhecido.');
+
+            setPresenceStatus(prev => {
+              const next = new Map(prev);
+              const current = next.get(item.lead.id);
+
+              // Se já existe um status, apenas anotamos que foi rate limited
+              if (current) {
+                next.set(item.lead.id, {
+                  ...current,
+                  rateLimited: true,
+                });
+              } else {
+                // Caso não exista status anterior, marcamos como desconhecido
+                next.set(item.lead.id, {
+                  isOnline: false,
+                  status: 'unknown',
+                  rateLimited: true,
+                });
+              }
+
+              return next;
+            });
+          } else {
+            console.log('✅ Status atualizado:', {
+              isOnline: presenceData.is_online,
+              lastSeen: presenceData.last_seen,
+              status: presenceData.status,
+            });
+
+            setPresenceStatus(prev => new Map(prev).set(item.lead.id, {
+              isOnline: presenceData.is_online,
+              lastSeen: presenceData.last_seen,
+              status: presenceData.status,
+              rateLimited: false,
+            }));
+
+            successCount++;
+          }
         } else {
           console.warn('⚠️ Falha ao atualizar status:', { presenceError, presenceData });
         }
