@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -18,6 +18,13 @@ import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 const Chat = () => {
   const location = useLocation();
@@ -38,6 +45,8 @@ const Chat = () => {
   const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string; color: string }>>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [leadTagsMap, setLeadTagsMap] = useState<Map<string, string[]>>(new Map());
+  const [pinnedLeads, setPinnedLeads] = useState<string[]>([]);
+  const [contextMenuLeadId, setContextMenuLeadId] = useState<string | null>(null);
   const [presenceStatus, setPresenceStatus] = useState<
     Map<string, { isOnline: boolean; lastSeen?: string; status?: string; rateLimited?: boolean }>
   >(new Map());
@@ -50,6 +59,16 @@ const Chat = () => {
   useEffect(() => {
     loadLeads();
     loadAvailableTags();
+
+    // Carregar leads fixados do localStorage
+    const savedPinnedLeads = localStorage.getItem('pinnedLeads');
+    if (savedPinnedLeads) {
+      try {
+        setPinnedLeads(JSON.parse(savedPinnedLeads));
+      } catch (error) {
+        console.error('Erro ao carregar leads fixados:', error);
+      }
+    }
 
     // Se veio um lead selecionado da página Leads
     if (location.state?.selectedLead) {
@@ -419,6 +438,36 @@ const Chat = () => {
     }
   };
 
+  // Função para fixar/desfixar lead
+  const togglePinLead = (leadId: string) => {
+    setPinnedLeads((prev) => {
+      const newPinned = prev.includes(leadId)
+        ? prev.filter((id) => id !== leadId)
+        : [leadId, ...prev];
+      
+      // Salvar no localStorage
+      localStorage.setItem('pinnedLeads', JSON.stringify(newPinned));
+      
+      toast({
+        title: prev.includes(leadId) ? "Contato desafixado" : "Contato fixado",
+        description: prev.includes(leadId) 
+          ? "O contato foi removido dos fixados" 
+          : "O contato foi fixado no topo da lista",
+      });
+      
+      return newPinned;
+    });
+  };
+
+  // Função para abrir gerenciador de etiquetas para um lead específico
+  const openTagsManagerForLead = (leadId: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (lead) {
+      setSelectedLead(lead);
+      setLeadTagsOpen(true);
+    }
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || !selectedLead) return;
 
@@ -600,6 +649,14 @@ const Chat = () => {
       return matchesSearch;
     })
     .sort((a, b) => {
+      // Primeiro, ordenar por fixados
+      const aIsPinned = pinnedLeads.includes(a.id);
+      const bIsPinned = pinnedLeads.includes(b.id);
+      
+      if (aIsPinned && !bIsPinned) return -1;
+      if (!aIsPinned && bIsPinned) return 1;
+      
+      // Se ambos fixados ou ambos não fixados, aplicar ordenação secundária
       switch (filterOption) {
         case "alphabetical":
           return a.nome_lead.localeCompare(b.nome_lead);
@@ -770,71 +827,101 @@ const Chat = () => {
             </div>
           ) : (
             <div className="space-y-1 p-2">
-              {filteredLeads.map((lead) => (
-                <button
-                  key={lead.id}
-                  onClick={() => handleLeadClick(lead)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors ${
-                    selectedLead?.id === lead.id ? "bg-muted" : ""
-                  }`}
-                >
-                  <div className="relative">
-                    <Avatar 
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (lead.avatar_url) {
-                          setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
-                        }
-                      }}
-                    >
-                      <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {getInitials(lead.nome_lead)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {/* Indicador de presença */}
-                    <div 
-                      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
-                        presenceStatus.get(lead.id)?.isOnline 
-                          ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
-                          : presenceStatus.get(lead.id)?.lastSeen
-                            ? 'bg-orange-400'
-                            : presenceStatus.get(lead.id)
-                              ? 'bg-gray-400'
-                              : 'bg-gray-500 opacity-30'
-                      }`}
-                      title={
-                        presenceStatus.get(lead.id)?.isOnline 
-                          ? '🟢 Online agora' 
-                          : presenceStatus.get(lead.id)?.lastSeen 
-                            ? `🟠 Visto: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}`
-                            : presenceStatus.get(lead.id)
-                              ? '⚪ Offline'
-                              : '⚫ Status desconhecido'
-                      }
-                    />
-                  </div>
-                  <div className="flex-1 text-left overflow-hidden">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{lead.nome_lead}</p>
-                      {presenceStatus.get(lead.id)?.isOnline && (
-                        <span className="text-xs text-green-600 font-medium">Online</span>
-                      )}
-                      <LeadTagsBadge leadId={lead.id} />
-                    </div>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {formatPhoneNumber(lead.telefone_lead)}
-                    </p>
-                  </div>
-                </button>
-              ))}
+              {filteredLeads.map((lead) => {
+                const isPinned = pinnedLeads.includes(lead.id);
+                
+                return (
+                  <ContextMenu key={lead.id}>
+                    <ContextMenuTrigger asChild>
+                      <button
+                        onClick={() => handleLeadClick(lead)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors ${
+                          selectedLead?.id === lead.id ? "bg-muted" : ""
+                        }`}
+                      >
+                        <div className="relative">
+                          <Avatar 
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (lead.avatar_url) {
+                                setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
+                              }
+                            }}
+                          >
+                            <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {getInitials(lead.nome_lead)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {/* Indicador de presença */}
+                          <div 
+                            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                              presenceStatus.get(lead.id)?.isOnline 
+                                ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
+                                : presenceStatus.get(lead.id)?.lastSeen
+                                  ? 'bg-orange-400'
+                                  : presenceStatus.get(lead.id)
+                                    ? 'bg-gray-400'
+                                    : 'bg-gray-500 opacity-30'
+                            }`}
+                            title={
+                              presenceStatus.get(lead.id)?.isOnline 
+                                ? '🟢 Online agora' 
+                                : presenceStatus.get(lead.id)?.lastSeen 
+                                  ? `🟠 Visto: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}`
+                                  : presenceStatus.get(lead.id)
+                                    ? '⚪ Offline'
+                                    : '⚫ Status desconhecido'
+                            }
+                          />
+                        </div>
+                        <div className="flex-1 text-left overflow-hidden">
+                          <div className="flex items-center gap-2">
+                            {isPinned && (
+                              <Pin className="h-3 w-3 text-primary fill-primary" />
+                            )}
+                            <p className="font-medium truncate">{lead.nome_lead}</p>
+                            {presenceStatus.get(lead.id)?.isOnline && (
+                              <span className="text-xs text-green-600 font-medium">Online</span>
+                            )}
+                            <LeadTagsBadge leadId={lead.id} />
+                          </div>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {formatPhoneNumber(lead.telefone_lead)}
+                          </p>
+                        </div>
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-56">
+                      <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
+                        {isPinned ? (
+                          <>
+                            <PinOff className="mr-2 h-4 w-4" />
+                            <span>Desafixar conversa</span>
+                          </>
+                        ) : (
+                          <>
+                            <Pin className="mr-2 h-4 w-4" />
+                            <span>Fixar conversa</span>
+                          </>
+                        )}
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => openTagsManagerForLead(lead.id)}>
+                        <Tag className="mr-2 h-4 w-4" />
+                        <span>Adicionar etiquetas</span>
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                );
+              })}
             </div>
           )}
         </ScrollArea>
