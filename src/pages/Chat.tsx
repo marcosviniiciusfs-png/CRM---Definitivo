@@ -821,18 +821,13 @@ const Chat = () => {
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <button
+              {...attributes}
+              {...listeners}
               onClick={() => onLeadClick(lead)}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-background/60 transition-colors ${
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-background/60 transition-colors cursor-grab active:cursor-grabbing ${
                 isSelected ? "bg-background shadow-sm" : ""
               }`}
             >
-              <div
-                {...attributes}
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing touch-none"
-              >
-                <GripVertical className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-              </div>
               <div className="relative">
                 <Avatar
                   className="cursor-pointer hover:opacity-80 transition-opacity"
