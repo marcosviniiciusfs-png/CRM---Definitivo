@@ -159,7 +159,7 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
               Etiquetas
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80" align="start">
+          <PopoverContent className="w-80 z-[100]" align="start">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold text-sm">Etiquetas</h4>
