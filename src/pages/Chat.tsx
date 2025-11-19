@@ -522,6 +522,40 @@ const Chat = () => {
     }
   };
 
+  // Função para remover todas as etiquetas de um lead
+  const handleRemoveAllTags = async (leadId: string) => {
+    try {
+      const leadTags = leadTagsMap.get(leadId) || [];
+      
+      if (leadTags.length === 0) {
+        toast({
+          title: "Nenhuma etiqueta",
+          description: "Este lead não possui etiquetas para remover",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('lead_tag_assignments')
+        .delete()
+        .eq('lead_id', leadId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Etiquetas removidas",
+        description: "Todas as etiquetas foram removidas com sucesso",
+      });
+    } catch (error) {
+      console.error('Error removing tags:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível remover as etiquetas",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Função para lidar com o fim do drag and drop
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -1125,6 +1159,12 @@ const Chat = () => {
                                   <Tag className="mr-2 h-4 w-4" />
                                   <span>Adicionar etiquetas</span>
                                 </ContextMenuItem>
+                                {(leadTagsMap.get(lead.id)?.length || 0) > 0 && (
+                                  <ContextMenuItem onClick={() => handleRemoveAllTags(lead.id)}>
+                                    <Tag className="mr-2 h-4 w-4" />
+                                    <span>Remover etiquetas</span>
+                                  </ContextMenuItem>
+                                )}
                                 </ContextMenuContent>
                             </ContextMenu>
                           ))}
