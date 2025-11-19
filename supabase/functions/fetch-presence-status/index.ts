@@ -106,7 +106,8 @@ Deno.serve(async (req) => {
       const diffMs = Date.now() - lastActivity.getTime();
       const diffMinutes = diffMs / 60000;
 
-      if (diffMinutes <= 5) {
+      // Lead é considerado online se teve atividade nos últimos 10 minutos
+      if (diffMinutes <= 10) {
         isOnline = true;
         statusText = 'available';
         lastSeen = null; // online agora
@@ -116,7 +117,14 @@ Deno.serve(async (req) => {
         lastSeen = lastActivity.toISOString();
       }
 
-      console.log('📊 Status calculado localmente:', { isOnline, lastSeen, statusText, diffMinutes });
+      console.log('📊 Status calculado localmente:', { 
+        isOnline, 
+        lastSeen, 
+        statusText, 
+        diffMinutes: diffMinutes.toFixed(2),
+        lastActivityDate: lastActivity.toISOString(),
+        now: new Date().toISOString()
+      });
     } else {
       console.log('⚠️ Lead sem atividade registrada, marcando como unavailable');
       isOnline = false;
