@@ -71,6 +71,7 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [messageSearchExpanded, setMessageSearchExpanded] = useState(false);
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [manageTagsOpen, setManageTagsOpen] = useState(false);
   const [leadTagsOpen, setLeadTagsOpen] = useState(false);
@@ -1334,27 +1335,46 @@ const Chat = () => {
               >
                 <Tag className="h-4 w-4" />
               </Button>
-              </div>
               
-              {/* Campo de Busca de Mensagens */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar mensagens..."
-                  value={messageSearchQuery}
-                  onChange={(e) => setMessageSearchQuery(e.target.value)}
-                  className="pl-9 h-9"
-                />
-                {messageSearchQuery && (
+              {/* Campo de Busca de Mensagens - Discreto */}
+              {messageSearchExpanded ? (
+                <div className="relative w-64 transition-all duration-200">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar..."
+                    value={messageSearchQuery}
+                    onChange={(e) => setMessageSearchQuery(e.target.value)}
+                    className="pl-8 pr-16 h-8 text-sm"
+                    autoFocus
+                    onBlur={() => {
+                      if (!messageSearchQuery) {
+                        setMessageSearchExpanded(false);
+                      }
+                    }}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 px-2"
-                    onClick={() => setMessageSearchQuery("")}
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
+                    onClick={() => {
+                      setMessageSearchQuery("");
+                      setMessageSearchExpanded(false);
+                    }}
                   >
-                    Limpar
+                    Fechar
                   </Button>
-                )}
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMessageSearchExpanded(true)}
+                  title="Buscar mensagens"
+                  className="shrink-0"
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+              )}
               </div>
             </div>
 
