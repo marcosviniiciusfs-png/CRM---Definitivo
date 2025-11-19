@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Lead, Message } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,7 @@ const Chat = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1336,9 +1338,11 @@ const Chat = () => {
             <ScrollArea 
               className="flex-1 p-4" 
               style={{
-                backgroundImage: 'url(/chat-pattern.png)',
+                backgroundImage: theme === 'dark' 
+                  ? 'url(/chat-pattern-dark.png)' 
+                  : 'url(/chat-pattern.png)',
                 backgroundRepeat: 'repeat',
-                backgroundColor: '#ECE5DD',
+                backgroundColor: theme === 'dark' ? '#0C1317' : '#ECE5DD',
                 backgroundSize: '200px'
               }}
             >
