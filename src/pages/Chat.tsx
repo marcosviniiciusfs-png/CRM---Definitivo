@@ -1439,6 +1439,7 @@ const Chat = () => {
                 </div>
               )}
             </ScrollArea>
+            </div>
 
             {/* Input de Mensagem */}
             <form
@@ -1460,7 +1461,6 @@ const Chat = () => {
                 )}
               </Button>
             </form>
-          </div>
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
