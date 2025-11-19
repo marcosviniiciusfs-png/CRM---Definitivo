@@ -1335,17 +1335,20 @@ const Chat = () => {
             </div>
 
             {/* Área de Mensagens */}
-            <ScrollArea 
-              className="flex-1 p-4" 
-              style={{
-                backgroundImage: theme === 'dark' 
-                  ? 'url(/chat-pattern-dark.png)' 
-                  : 'url(/chat-pattern.png)',
-                backgroundRepeat: 'repeat',
-                backgroundColor: theme === 'dark' ? '#0C1317' : '#ECE5DD',
-                backgroundSize: '200px'
-              }}
-            >
+            <div className="flex-1 relative">
+              <div 
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: theme === 'dark' 
+                    ? 'url(/chat-pattern-dark.png)' 
+                    : 'url(/chat-pattern.png)',
+                  backgroundRepeat: 'repeat',
+                  backgroundColor: theme === 'dark' ? '#0C1317' : '#ECE5DD',
+                  backgroundSize: '200px',
+                  opacity: 0.3
+                }}
+              />
+              <ScrollArea className="flex-1 p-4 relative z-10">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -1457,6 +1460,7 @@ const Chat = () => {
                 )}
               </Button>
             </form>
+          </div>
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
