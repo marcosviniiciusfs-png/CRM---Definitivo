@@ -46,9 +46,9 @@ Deno.serve(async (req) => {
  
     console.log('📞 Número formatado:', formattedNumber);
 
-    // Chamar Evolution API para buscar status de presença usando whatsappNumbers
-    const presenceUrl = `${evolutionApiUrl}/chat/whatsappNumbers/${instance_name}`;
-    console.log('🔗 URL da Evolution API (whatsappNumbers):', presenceUrl);
+    // Chamar Evolution API para buscar status de presença usando fetchPresence
+    const presenceUrl = `${evolutionApiUrl}/chat/fetchPresence/${instance_name}`;
+    console.log('🔗 URL da Evolution API (fetchPresence):', presenceUrl);
 
     const response = await fetch(presenceUrl, {
       method: 'POST',
@@ -57,21 +57,22 @@ Deno.serve(async (req) => {
         'apikey': evolutionApiKey,
       },
       body: JSON.stringify({
-        numbers: [formattedNumber],
+        number: formattedNumber,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       
-      // Se for erro 400 (geralmente rate limit 429), retorna sucesso sem atualizar
-      if (response.status === 400 || response.status === 404) {
+      // Se for erro 400/404/429 (rate limit ou número não encontrado), retorna sucesso sem atualizar
+      if (response.status === 400 || response.status === 404 || response.status === 429) {
         console.log('⚠️ Erro esperado da Evolution API (rate limit ou número não encontrado) - ignorando requisição');
         return new Response(
           JSON.stringify({
             success: true,
             is_online: false,
             last_seen: null,
+            status: null,
             rate_limited: true,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -94,34 +95,28 @@ Deno.serve(async (req) => {
     let lastSeen: any = null;
     let statusText: string | null = null;
 
-    // A Evolution API está retornando um array, onde o status do lead
-    // vem em presenceData[0].status (por exemplo: "available", "typing", etc.)
-    if (Array.isArray(presenceData) && presenceData[0]) {
-      const contactData = presenceData[0] as any;
-      console.log('📱 Dados brutos de presença:', contactData);
+    // A Evolution API /chat/fetchPresence retorna: { status: "unavailable" | "available" | "composing" | "recording" | "paused", lastSeen?: number }
+    if (presenceData && typeof presenceData === 'object') {
+      console.log('📱 Dados brutos de presença:', presenceData);
 
-      // Boolean simplificado para retrocompatibilidade
-      isOnline = Boolean(
-        contactData.isOnline ||
-        contactData.online ||
-        contactData.is_online ||
-        contactData.status === 'available' ||
-        contactData.status === 'online'
-      );
+      // Mapear o status retornado pela Evolution API
+      const status = presenceData.status || null;
+      statusText = status;
 
-      // Last seen em formatos diferentes
-      lastSeen = contactData.lastSeen || contactData.last_seen || null;
+      // Determinar se está online baseado no status
+      isOnline = status === 'available' || status === 'composing' || status === 'recording';
 
-      // Status textual usado pelo frontend para mapear as cores
-      statusText =
-        contactData.status ||
-        contactData.presence ||
-        contactData.state ||
-        contactData.onlineStatus ||
-        null;
+      // Last seen pode vir como timestamp (number) ou null
+      lastSeen = presenceData.lastSeen || null;
+
+      console.log('📊 Status extraído:', { 
+        isOnline, 
+        lastSeen: lastSeen ? new Date(lastSeen * 1000).toISOString() : null, 
+        statusText 
+      });
+    } else {
+      console.log('⚠️ Resposta da Evolution API não está no formato esperado');
     }
-
-    console.log('📊 Status extraído:', { isOnline, lastSeen, statusText });
 
     // Atualizar status no banco de dados (mantemos apenas os campos já existentes)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
