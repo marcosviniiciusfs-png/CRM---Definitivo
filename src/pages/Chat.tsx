@@ -91,6 +91,7 @@ const Chat = () => {
   const [leadToRemoveTags, setLeadToRemoveTags] = useState<string | null>(null);
   const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const firstSearchResultRef = useRef<HTMLDivElement>(null);
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
 
@@ -251,6 +252,16 @@ const Chat = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Auto-scroll para primeiro resultado da busca
+  useEffect(() => {
+    if (messageSearchQuery && firstSearchResultRef.current) {
+      firstSearchResultRef.current.scrollIntoView({ 
+        behavior: "smooth", 
+        block: "center" 
+      });
+    }
+  }, [messageSearchQuery]);
 
   // Processa a fila de requisições de presença com delay para evitar rate limiting
   const processPresenceQueue = async () => {
@@ -1404,15 +1415,24 @@ const Chat = () => {
               ) : (
                 <div className="space-y-4">
                   {messages
-                    .filter((message) => {
-                      if (!messageSearchQuery.trim()) return true;
-                      return message.corpo_mensagem
-                        .toLowerCase()
-                        .includes(messageSearchQuery.toLowerCase());
-                    })
-                    .map((message) => (
+                    .map((message, index) => {
+                      const isSearchMatch = messageSearchQuery.trim() && 
+                        message.corpo_mensagem
+                          .toLowerCase()
+                          .includes(messageSearchQuery.toLowerCase());
+                      
+                      const isFirstMatch = messageSearchQuery.trim() && 
+                        isSearchMatch && 
+                        messages.slice(0, index).every(m => 
+                          !m.corpo_mensagem
+                            .toLowerCase()
+                            .includes(messageSearchQuery.toLowerCase())
+                        );
+                      
+                      return (
                     <div
                       key={message.id}
+                      ref={isFirstMatch ? firstSearchResultRef : null}
                       className={`flex gap-2 ${
                         message.direcao === "SAIDA"
                           ? "justify-end"
@@ -1497,7 +1517,8 @@ const Chat = () => {
                         </div>
                       </div>
                     </div>
-                   ))}
+                      );
+                    })}
                   <div ref={messagesEndRef} />
                 </div>
               )}
