@@ -39,11 +39,9 @@ Deno.serve(async (req) => {
       throw new Error('EVOLUTION_API_KEY não configurada');
     }
 
-    // Formatar número no formato correto (com @s.whatsapp.net)
-    const formattedNumber = phone_number.includes('@') 
-      ? phone_number 
-      : `${phone_number.replace(/\D/g, '')}@s.whatsapp.net`;
-
+    // Formatar número no formato esperado pela Evolution API (apenas dígitos)
+    const formattedNumber = phone_number.replace(/\D/g, '');
+ 
     console.log('📞 Número formatado:', formattedNumber);
 
     // Chamar Evolution API para buscar status de presença
