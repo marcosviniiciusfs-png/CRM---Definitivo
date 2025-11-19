@@ -68,6 +68,12 @@ serve(async (req) => {
     // Tentar formato v2 da API (instanceName no body, sem no path)
     console.log('🔄 Tentando configuração v2 (instanceName no body)...');
     
+    // Get webhook secret for authentication
+    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET not configured - webhooks will not be authenticated!');
+    }
+    
     const webhookConfigV2 = {
       instanceName: instance.instance_name,
       webhook: {
@@ -81,7 +87,13 @@ serve(async (req) => {
         ],
         enabled: true,
         webhookByEvents: true,
-        webhookBase64: false
+        webhookBase64: false,
+        // 🔒 SEGURANÇA: Adicionar header de autenticação
+        ...(webhookSecret ? {
+          headers: {
+            'x-api-key': webhookSecret
+          }
+        } : {})
       }
     };
 
@@ -122,7 +134,13 @@ serve(async (req) => {
             'MESSAGES_UPSERT',
             'MESSAGES_UPDATE',
             'SEND_MESSAGE'
-          ]
+          ],
+          // 🔒 SEGURANÇA: Adicionar header de autenticação (v1 fallback)
+          ...(webhookSecret ? {
+            headers: {
+              'x-api-key': webhookSecret
+            }
+          } : {})
         }
       };
 
