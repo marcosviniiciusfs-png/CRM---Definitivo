@@ -72,6 +72,7 @@ const Chat = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [messageSearchExpanded, setMessageSearchExpanded] = useState(false);
+  const [currentSearchResultIndex, setCurrentSearchResultIndex] = useState(0);
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [manageTagsOpen, setManageTagsOpen] = useState(false);
   const [leadTagsOpen, setLeadTagsOpen] = useState(false);
@@ -92,6 +93,7 @@ const Chat = () => {
   const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const firstSearchResultRef = useRef<HTMLDivElement>(null);
+  const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
 
@@ -256,12 +258,49 @@ const Chat = () => {
   // Auto-scroll para primeiro resultado da busca
   useEffect(() => {
     if (messageSearchQuery && firstSearchResultRef.current) {
+      setCurrentSearchResultIndex(0);
       firstSearchResultRef.current.scrollIntoView({ 
         behavior: "smooth", 
         block: "center" 
       });
+    } else if (!messageSearchQuery) {
+      setCurrentSearchResultIndex(0);
+      searchResultRefs.current.clear();
     }
   }, [messageSearchQuery]);
+
+  // Scroll para resultado específico quando o índice muda
+  useEffect(() => {
+    const resultElement = searchResultRefs.current.get(currentSearchResultIndex);
+    if (resultElement) {
+      resultElement.scrollIntoView({ 
+        behavior: "smooth", 
+        block: "center" 
+      });
+    }
+  }, [currentSearchResultIndex]);
+
+  // Calcular total de resultados
+  const searchResults = messages.filter(message => 
+    messageSearchQuery.trim() && 
+    message.corpo_mensagem
+      .toLowerCase()
+      .includes(messageSearchQuery.toLowerCase())
+  );
+  const totalSearchResults = searchResults.length;
+
+  // Navegar entre resultados
+  const goToNextResult = () => {
+    if (currentSearchResultIndex < totalSearchResults - 1) {
+      setCurrentSearchResultIndex(prev => prev + 1);
+    }
+  };
+
+  const goToPreviousResult = () => {
+    if (currentSearchResultIndex > 0) {
+      setCurrentSearchResultIndex(prev => prev - 1);
+    }
+  };
 
   // Processa a fila de requisições de presença com delay para evitar rate limiting
   const processPresenceQueue = async () => {
@@ -1349,27 +1388,62 @@ const Chat = () => {
               
               {/* Campo de Busca de Mensagens - Discreto */}
               {messageSearchExpanded ? (
-                <div className="relative w-64 transition-all duration-200">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar..."
-                    value={messageSearchQuery}
-                    onChange={(e) => setMessageSearchQuery(e.target.value)}
-                    className="pl-8 pr-16 h-8 text-sm"
-                    autoFocus
-                    onBlur={() => {
-                      if (!messageSearchQuery) {
-                        setMessageSearchExpanded(false);
-                      }
-                    }}
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative w-48 transition-all duration-200">
+                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar..."
+                      value={messageSearchQuery}
+                      onChange={(e) => setMessageSearchQuery(e.target.value)}
+                      className="pl-8 h-8 text-sm"
+                      autoFocus
+                      onBlur={(e) => {
+                        // Não fechar se clicar nos botões de navegação
+                        const relatedTarget = e.relatedTarget as HTMLElement;
+                        if (!messageSearchQuery && !relatedTarget?.closest('[data-search-controls]')) {
+                          setMessageSearchExpanded(false);
+                        }
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Controles de navegação */}
+                  {totalSearchResults > 0 && (
+                    <div className="flex items-center gap-1" data-search-controls>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {currentSearchResultIndex + 1} de {totalSearchResults}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={goToPreviousResult}
+                        disabled={currentSearchResultIndex === 0}
+                        title="Resultado anterior"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={goToNextResult}
+                        disabled={currentSearchResultIndex >= totalSearchResults - 1}
+                        title="Próximo resultado"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                  
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
+                    className="h-7 px-2 text-xs"
                     onClick={() => {
                       setMessageSearchQuery("");
                       setMessageSearchExpanded(false);
+                      setCurrentSearchResultIndex(0);
                     }}
                   >
                     Fechar
@@ -1421,18 +1495,28 @@ const Chat = () => {
                           .toLowerCase()
                           .includes(messageSearchQuery.toLowerCase());
                       
-                      const isFirstMatch = messageSearchQuery.trim() && 
-                        isSearchMatch && 
-                        messages.slice(0, index).every(m => 
-                          !m.corpo_mensagem
+                      // Calcular índice do resultado na lista de resultados
+                      let searchResultIndex = -1;
+                      if (isSearchMatch) {
+                        const matchingMessages = messages.slice(0, index + 1).filter(m =>
+                          m.corpo_mensagem
                             .toLowerCase()
                             .includes(messageSearchQuery.toLowerCase())
                         );
+                        searchResultIndex = matchingMessages.length - 1;
+                      }
                       
                       return (
                     <div
                       key={message.id}
-                      ref={isFirstMatch ? firstSearchResultRef : null}
+                      ref={(el) => {
+                        if (isSearchMatch && searchResultIndex >= 0) {
+                          searchResultRefs.current.set(searchResultIndex, el);
+                          if (searchResultIndex === 0) {
+                            firstSearchResultRef.current = el;
+                          }
+                        }
+                      }}
                       className={`flex gap-2 ${
                         message.direcao === "SAIDA"
                           ? "justify-end"
