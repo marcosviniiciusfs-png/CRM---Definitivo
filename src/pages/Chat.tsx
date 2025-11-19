@@ -1333,12 +1333,7 @@ const Chat = () => {
             </div>
 
             {/* Área de Mensagens */}
-            <ScrollArea className="flex-1 p-4 chat-session" style={{
-              backgroundImage: 'url(/whatsapp-pattern.png)',
-              backgroundRepeat: 'repeat',
-              backgroundColor: '#ECE5DD',
-              backgroundSize: '150px'
-            }}>
+            <ScrollArea className="flex-1 p-4">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
