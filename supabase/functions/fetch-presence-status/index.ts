@@ -67,16 +67,42 @@ Deno.serve(async (req) => {
 
     console.log('📄 Dados do lead para presença:', lead);
 
-    // Regras simples de presença baseadas em atividade recente
-    // - Se última atividade (last_message_at ou updated_at) foi há <= 5 minutos: available (online)
+    // Também buscamos a última mensagem registrada para esse lead, para ter um dado de atividade mais confiável
+    const { data: lastMessage, error: lastMessageError } = await supabase
+      .from('mensagens_chat')
+      .select('data_hora')
+      .eq('id_lead', lead_id)
+      .order('data_hora', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastMessageError) {
+      console.error('⚠️ Erro ao buscar última mensagem do lead (ignorando e seguindo com cálculo):', lastMessageError);
+    }
+
+    console.log('💬 Última mensagem encontrada para presença:', lastMessage);
+
+    // Regras simples de presença baseadas em atividade recente (lead ou mensagens)
+    // - Se última atividade (mensagem ou atualização do lead) foi há <= 5 minutos: available (online)
     // - Senão: unavailable (offline) e last_seen = data da última atividade
     let isOnline = false;
     let lastSeen: string | null = null;
     let statusText: string | null = null;
 
-    if (lead?.last_message_at || lead?.updated_at) {
-      const lastActivityStr = (lead.last_message_at || lead.updated_at) as string;
-      const lastActivity = new Date(lastActivityStr);
+    const activityCandidates: (string | null | undefined)[] = [
+      lead?.last_message_at as string | null | undefined,
+      lead?.updated_at as string | null | undefined,
+      (lastMessage?.data_hora as string | null | undefined) ?? null,
+    ];
+
+    const validActivities = activityCandidates
+      .filter((v): v is string => Boolean(v))
+      .map((v) => new Date(v as string))
+      .filter((d) => !isNaN(d.getTime()));
+
+    if (validActivities.length > 0) {
+      // Pega a atividade mais recente entre lead e mensagens
+      const lastActivity = new Date(Math.max(...validActivities.map((d) => d.getTime())));
       const diffMs = Date.now() - lastActivity.getTime();
       const diffMinutes = diffMs / 60000;
 
