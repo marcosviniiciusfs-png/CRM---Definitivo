@@ -504,22 +504,31 @@ const Chat = () => {
                       </AvatarFallback>
                     </Avatar>
                     {/* Indicador de presença */}
-                    {presenceStatus.get(lead.id) && (
-                      <div 
-                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
-                          presenceStatus.get(lead.id)?.isOnline 
-                            ? 'bg-green-500' 
-                            : 'bg-gray-400'
-                        }`}
-                        title={
-                          presenceStatus.get(lead.id)?.isOnline 
-                            ? 'Online' 
-                            : presenceStatus.get(lead.id)?.lastSeen 
-                              ? `Visto por último: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR')}`
-                              : 'Offline'
-                        }
-                      />
-                    )}
+                    <div 
+                      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                        presenceStatus.get(lead.id)?.isOnline 
+                          ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
+                          : presenceStatus.get(lead.id)?.lastSeen
+                            ? 'bg-orange-400'
+                            : presenceStatus.get(lead.id)
+                              ? 'bg-gray-400'
+                              : 'bg-gray-500 opacity-30'
+                      }`}
+                      title={
+                        presenceStatus.get(lead.id)?.isOnline 
+                          ? '🟢 Online agora' 
+                          : presenceStatus.get(lead.id)?.lastSeen 
+                            ? `🟠 Visto: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}`
+                            : presenceStatus.get(lead.id)
+                              ? '⚪ Offline'
+                              : '⚫ Status desconhecido'
+                      }
+                    />
                   </div>
                   <div className="flex-1 text-left overflow-hidden">
                     <div className="flex items-center gap-2">
