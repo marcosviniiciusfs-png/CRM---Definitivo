@@ -599,12 +599,12 @@ const Chat = () => {
                       {presenceStatus.get(lead.id)?.isOnline && (
                         <span className="text-xs text-green-600 font-medium">Online</span>
                       )}
+                      <LeadTagsBadge leadId={lead.id} />
                     </div>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Phone className="h-3 w-3" />
                       {formatPhoneNumber(lead.telefone_lead)}
                     </p>
-                    <LeadTagsBadge leadId={lead.id} />
                   </div>
                 </button>
               ))}
