@@ -70,6 +70,12 @@ serve(async (req) => {
     // Reconfigurar webhook com eventos habilitados
     console.log('🔄 Reconfigurando webhook...');
     
+    // Get webhook secret for authentication
+    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET not configured - webhooks will not be authenticated!');
+    }
+    
     const webhookConfig = {
       webhook: {
         enabled: true,
@@ -82,7 +88,13 @@ serve(async (req) => {
           'MESSAGES_UPSERT',
           'MESSAGES_UPDATE',
           'SEND_MESSAGE'
-        ]
+        ],
+        // 🔒 SEGURANÇA: Adicionar header de autenticação
+        ...(webhookSecret ? {
+          headers: {
+            'x-api-key': webhookSecret
+          }
+        } : {})
       }
     };
 
