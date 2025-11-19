@@ -34,6 +34,9 @@ const Chat = () => {
   const [leadTagsOpen, setLeadTagsOpen] = useState(false);
   const [filterOption, setFilterOption] = useState<"alphabetical" | "created" | "last_interaction" | "none">("none");
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
+  const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string; color: string }>>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [leadTagsMap, setLeadTagsMap] = useState<Map<string, string[]>>(new Map());
   const [presenceStatus, setPresenceStatus] = useState<
     Map<string, { isOnline: boolean; lastSeen?: string; status?: string; rateLimited?: boolean }>
   >(new Map());
@@ -45,6 +48,7 @@ const Chat = () => {
   // Carregar leads e configurar realtime
   useEffect(() => {
     loadLeads();
+    loadAvailableTags();
 
     // Se veio um lead selecionado da página Leads
     if (location.state?.selectedLead) {
@@ -52,7 +56,7 @@ const Chat = () => {
     }
 
     // Configurar realtime para atualizações automáticas
-    const channel = supabase
+    const leadsChannel = supabase
       .channel('leads-changes')
       .on(
         'postgres_changes',
@@ -67,8 +71,36 @@ const Chat = () => {
       )
       .subscribe();
 
+    // Configurar realtime para mudanças nas etiquetas
+    const tagsChannel = supabase
+      .channel('tags-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lead_tags'
+        },
+        () => {
+          loadAvailableTags();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lead_tag_assignments'
+        },
+        () => {
+          loadLeads();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(tagsChannel);
     };
   }, [location.state]);
 
@@ -302,6 +334,9 @@ const Chat = () => {
         }
       });
       setPresenceStatus(initialPresence);
+      
+      // Carregar etiquetas dos leads
+      await loadLeadTagsAssignments(leadsData.map(l => l.id));
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
       toast({
@@ -311,6 +346,50 @@ const Chat = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAvailableTags = async () => {
+    try {
+      const { data: orgData } = await supabase.rpc("get_user_organization_id", {
+        _user_id: user?.id,
+      });
+
+      if (!orgData) return;
+
+      const { data, error } = await supabase
+        .from("lead_tags")
+        .select("*")
+        .eq("organization_id", orgData)
+        .order("name");
+
+      if (error) throw error;
+      setAvailableTags(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar etiquetas:", error);
+    }
+  };
+
+  const loadLeadTagsAssignments = async (leadIds: string[]) => {
+    if (leadIds.length === 0) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("lead_tag_assignments")
+        .select("lead_id, tag_id")
+        .in("lead_id", leadIds);
+
+      if (error) throw error;
+
+      const tagsMap = new Map<string, string[]>();
+      data?.forEach((assignment) => {
+        const existing = tagsMap.get(assignment.lead_id) || [];
+        tagsMap.set(assignment.lead_id, [...existing, assignment.tag_id]);
+      });
+
+      setLeadTagsMap(tagsMap);
+    } catch (error) {
+      console.error("Erro ao carregar atribuições de etiquetas:", error);
     }
   };
 
@@ -502,11 +581,23 @@ const Chat = () => {
   };
 
   const filteredLeads = leads
-    .filter(
-      (lead) =>
+    .filter((lead) => {
+      // Filtro de busca por nome ou telefone
+      const matchesSearch =
         lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.telefone_lead.includes(searchQuery)
-    )
+        lead.telefone_lead.includes(searchQuery);
+
+      // Filtro por etiquetas selecionadas
+      if (selectedTagIds.length > 0) {
+        const leadTags = leadTagsMap.get(lead.id) || [];
+        const hasSelectedTag = selectedTagIds.some((tagId) =>
+          leadTags.includes(tagId)
+        );
+        return matchesSearch && hasSelectedTag;
+      }
+
+      return matchesSearch;
+    })
     .sort((a, b) => {
       switch (filterOption) {
         case "alphabetical":
@@ -535,7 +626,7 @@ const Chat = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={filterOption !== "none" ? "text-primary" : ""}
+                    className={filterOption !== "none" || selectedTagIds.length > 0 ? "text-primary" : ""}
                   >
                     <Filter className="h-4 w-4" />
                   </Button>
@@ -576,17 +667,58 @@ const Chat = () => {
                     >
                       Última interação
                     </button>
-                    {filterOption !== "none" && (
+                    
+                    {availableTags.length > 0 && (
+                      <>
+                        <div className="border-t my-2" />
+                        <h4 className="font-semibold text-sm mb-2">Filtrar por etiquetas</h4>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {availableTags.map((tag) => (
+                            <button
+                              key={tag.id}
+                              onClick={() => {
+                                setSelectedTagIds((prev) =>
+                                  prev.includes(tag.id)
+                                    ? prev.filter((id) => id !== tag.id)
+                                    : [...prev, tag.id]
+                                );
+                              }}
+                              className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted transition-colors text-sm"
+                            >
+                              <div
+                                className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                  selectedTagIds.includes(tag.id)
+                                    ? "bg-primary border-primary"
+                                    : "border-input"
+                                }`}
+                              >
+                                {selectedTagIds.includes(tag.id) && (
+                                  <Check className="w-3 h-3 text-primary-foreground" />
+                                )}
+                              </div>
+                              <div
+                                className="w-3 h-3 rounded-full shrink-0"
+                                style={{ backgroundColor: tag.color }}
+                              />
+                              <span className="flex-1 text-left truncate">{tag.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {(filterOption !== "none" || selectedTagIds.length > 0) && (
                       <>
                         <div className="border-t my-2" />
                         <button
                           onClick={() => {
                             setFilterOption("none");
+                            setSelectedTagIds([]);
                             setFilterPopoverOpen(false);
                           }}
                           className="w-full text-left p-2 rounded hover:bg-muted transition-colors text-muted-foreground"
                         >
-                          Limpar filtro
+                          Limpar todos os filtros
                         </button>
                       </>
                     )}
