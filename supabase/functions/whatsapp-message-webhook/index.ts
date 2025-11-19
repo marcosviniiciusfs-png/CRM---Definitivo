@@ -203,14 +203,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar a instância do WhatsApp no banco para obter o user_id
+    // Buscar a instância do WhatsApp no banco para obter o user_id e organization_id
     const { data: instanceData, error: instanceError } = await supabase
       .from('whatsapp_instances')
-      .select('user_id, phone_number')
+      .select('user_id, phone_number, organization_id')
       .eq('instance_name', instance)
       .maybeSingle();
-
-    let organizationId: string;
 
     if (instanceError) {
       console.error('❌ Erro ao buscar instância:', instanceError);
@@ -218,73 +216,36 @@ serve(async (req) => {
     }
 
     if (!instanceData) {
-      console.warn('⚠️ Instância não registrada:', instance);
-      
-      // SOLUÇÃO: Buscar TODAS as instâncias e usar a primeira organização encontrada
-      // Isso permite processar mensagens mesmo de instâncias não registradas
-      const { data: anyInstance, error: anyInstanceError } = await supabase
-        .from('whatsapp_instances')
-        .select('user_id')
-        .limit(1)
-        .maybeSingle();
-
-      if (anyInstanceError || !anyInstance) {
-        console.error('❌ Nenhuma instância encontrada no sistema');
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Nenhuma instância WhatsApp configurada no sistema. Configure uma instância primeiro.',
-            instance_received: instance
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-        );
-      }
-
-      // Usar a organização da primeira instância encontrada
-      const { data: orgData, error: orgError } = await supabase
-        .rpc('get_user_organization_id', { _user_id: anyInstance.user_id });
-
-      if (orgError || !orgData) {
-        console.error('❌ Erro ao buscar organização fallback:', orgError);
-        throw new Error('Organização não encontrada');
-      }
-
-      organizationId = orgData;
-      console.log('⚠️ Usando organização fallback:', organizationId);
-      
-      // Auto-registrar a instância desconhecida
-      await supabase
-        .from('whatsapp_instances')
-        .insert({
-          instance_name: instance,
-          user_id: anyInstance.user_id,
-          status: 'CONNECTED',
-          connected_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      console.log('✅ Instância auto-registrada:', instance);
-    } else {
-      console.log('✅ Instância encontrada:', JSON.stringify(instanceData));
-
-      // Buscar a organization_id do usuário usando service role
-      const { data: orgData, error: orgError } = await supabase
-        .rpc('get_user_organization_id', { _user_id: instanceData.user_id });
-
-      if (orgError) {
-        console.error('❌ Erro ao buscar organização:', orgError);
-        throw orgError;
-      }
-
-      if (!orgData) {
-        console.error('❌ Organization não encontrada para user:', instanceData.user_id);
-        throw new Error('Organization não encontrada');
-      }
-
-      organizationId = orgData;
-      console.log('✅ Organization ID:', organizationId);
+      console.error('❌ Instância não registrada:', instance);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Instância WhatsApp não encontrada. Por favor, reconecte o WhatsApp.',
+          instance_received: instance,
+          solution: 'Vá em Configurações > Integração e reconecte o WhatsApp'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
     }
+
+    console.log('✅ Instância encontrada:', JSON.stringify(instanceData));
+
+    // Usar organization_id diretamente da instância
+    const organizationId = instanceData.organization_id;
+    
+    if (!organizationId) {
+      console.error('❌ Organization não encontrada para a instância:', instance);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Organização não encontrada para esta instância. Por favor, reconecte o WhatsApp.',
+          instance: instance
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
+    }
+
+    console.log('✅ Organization ID:', organizationId);
 
     // Extrair informações da mensagem com logs detalhados
     console.log('📦 Data structure:', JSON.stringify(data, null, 2));
