@@ -14,6 +14,7 @@ import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
@@ -84,6 +85,7 @@ const Chat = () => {
   const [loadingPresence, setLoadingPresence] = useState(false);
   const [removeTagsDialogOpen, setRemoveTagsDialogOpen] = useState(false);
   const [leadToRemoveTags, setLeadToRemoveTags] = useState<string | null>(null);
+  const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
@@ -536,9 +538,9 @@ const Chat = () => {
 
   // Função para abrir dialog de confirmação de remoção de etiquetas
   const handleRemoveAllTags = (leadId: string) => {
-    const leadTags = leadTagsMap.get(leadId) || [];
+    const leadTagIds = leadTagsMap.get(leadId) || [];
     
-    if (leadTags.length === 0) {
+    if (leadTagIds.length === 0) {
       toast({
         title: "Nenhuma etiqueta",
         description: "Este lead não possui etiquetas para remover",
@@ -547,24 +549,35 @@ const Chat = () => {
     }
 
     setLeadToRemoveTags(leadId);
+    setSelectedTagsToRemove(leadTagIds); // Inicialmente, todas as tags estão selecionadas
     setRemoveTagsDialogOpen(true);
   };
 
-  // Função para confirmar remoção de todas as etiquetas
+  // Função para alternar seleção de tag para remoção
+  const toggleTagSelection = (tagId: string) => {
+    setSelectedTagsToRemove(prev => 
+      prev.includes(tagId) 
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
+  // Função para confirmar remoção das etiquetas selecionadas
   const confirmRemoveAllTags = async () => {
-    if (!leadToRemoveTags) return;
+    if (!leadToRemoveTags || selectedTagsToRemove.length === 0) return;
 
     try {
       const { error } = await supabase
         .from('lead_tag_assignments')
         .delete()
-        .eq('lead_id', leadToRemoveTags);
+        .eq('lead_id', leadToRemoveTags)
+        .in('tag_id', selectedTagsToRemove);
 
       if (error) throw error;
 
       toast({
         title: "Etiquetas removidas",
-        description: "Todas as etiquetas foram removidas com sucesso",
+        description: `${selectedTagsToRemove.length} etiqueta(s) removida(s) com sucesso`,
       });
     } catch (error) {
       console.error('Error removing tags:', error);
@@ -576,6 +589,7 @@ const Chat = () => {
     } finally {
       setRemoveTagsDialogOpen(false);
       setLeadToRemoveTags(null);
+      setSelectedTagsToRemove([]);
     }
   };
 
@@ -1489,15 +1503,56 @@ const Chat = () => {
       <AlertDialog open={removeTagsDialogOpen} onOpenChange={setRemoveTagsDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover todas as etiquetas?</AlertDialogTitle>
+            <AlertDialogTitle>Remover etiquetas</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover todas as etiquetas deste lead? Esta ação não pode ser desfeita.
+              Selecione as etiquetas que deseja remover deste lead.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-4 space-y-2 max-h-[300px] overflow-y-auto">
+            {leadToRemoveTags && availableTags
+              .filter(tag => leadTagsMap.get(leadToRemoveTags)?.includes(tag.id))
+              .map(tag => (
+                <div
+                  key={tag.id}
+                  className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted cursor-pointer"
+                  onClick={() => toggleTagSelection(tag.id)}
+                >
+                  <Checkbox
+                    id={tag.id}
+                    checked={selectedTagsToRemove.includes(tag.id)}
+                    onCheckedChange={() => toggleTagSelection(tag.id)}
+                  />
+                  <label
+                    htmlFor={tag.id}
+                    className="flex items-center gap-2 cursor-pointer flex-1"
+                  >
+                    <Badge
+                      variant="secondary"
+                      style={{
+                        backgroundColor: `${tag.color}15`,
+                        color: tag.color,
+                        borderColor: tag.color,
+                      }}
+                      className="border"
+                    >
+                      {tag.name}
+                    </Badge>
+                  </label>
+                </div>
+              ))}
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoveAllTags}>
-              Remover
+            <AlertDialogCancel onClick={() => {
+              setSelectedTagsToRemove([]);
+              setLeadToRemoveTags(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmRemoveAllTags}
+              disabled={selectedTagsToRemove.length === 0}
+            >
+              Remover {selectedTagsToRemove.length > 0 && `(${selectedTagsToRemove.length})`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
