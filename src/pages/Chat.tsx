@@ -789,6 +789,7 @@ const Chat = () => {
     onAvatarClick: (url: string, name: string) => void;
     onTogglePin: (leadId: string) => void;
     onOpenTags: (leadId: string) => void;
+    onRemoveTags: (leadId: string) => void;
   }
 
   const SortableLeadItem = ({
@@ -798,6 +799,7 @@ const Chat = () => {
     onAvatarClick,
     onTogglePin,
     onOpenTags,
+    onRemoveTags,
   }: SortableLeadItemProps) => {
     const {
       attributes,
@@ -900,6 +902,12 @@ const Chat = () => {
               <Tag className="mr-2 h-4 w-4" />
               <span>Adicionar etiquetas</span>
             </ContextMenuItem>
+            {(leadTagsMap.get(lead.id)?.length || 0) > 0 && (
+              <ContextMenuItem onClick={() => onRemoveTags(lead.id)}>
+                <Tag className="mr-2 h-4 w-4" />
+                <span>Remover etiquetas</span>
+              </ContextMenuItem>
+            )}
           </ContextMenuContent>
         </ContextMenu>
       </div>
@@ -1205,6 +1213,7 @@ const Chat = () => {
                                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
                                 onTogglePin={togglePinLead}
                                 onOpenTags={openTagsManagerForLead}
+                                onRemoveTags={handleRemoveAllTags}
                               />
                             ))}
                           </div>
