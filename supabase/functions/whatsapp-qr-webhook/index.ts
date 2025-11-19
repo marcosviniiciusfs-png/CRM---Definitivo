@@ -31,6 +31,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // 🔒 VALIDAÇÃO DE AUTENTICAÇÃO
+  const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+  const authHeader = req.headers.get('x-api-key');
+
+  if (!webhookSecret || !authHeader || authHeader !== webhookSecret) {
+    console.error('❌ Unauthorized webhook access attempt');
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const payload = await req.json();
     console.log('📥 Webhook recebido:', JSON.stringify(payload, null, 2));
