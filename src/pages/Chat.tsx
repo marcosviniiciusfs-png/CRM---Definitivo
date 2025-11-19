@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -27,6 +27,23 @@ import {
 } from "@/components/ui/context-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const Chat = () => {
   const location = useLocation();
@@ -57,6 +74,18 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
+
+  // Configuração dos sensores de drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Carregar leads e configurar realtime
   useEffect(() => {
@@ -471,6 +500,25 @@ const Chat = () => {
     }
   };
 
+  // Função para lidar com o fim do drag and drop
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setPinnedLeads((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        
+        // Salvar nova ordem no localStorage
+        localStorage.setItem('pinnedLeads', JSON.stringify(newOrder));
+        
+        return newOrder;
+      });
+    }
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || !selectedLead) return;
 
@@ -656,18 +704,8 @@ const Chat = () => {
   const pinnedFilteredLeads = baseFilteredLeads
     .filter((lead) => pinnedLeads.includes(lead.id))
     .sort((a, b) => {
-      switch (filterOption) {
-        case "alphabetical":
-          return a.nome_lead.localeCompare(b.nome_lead);
-        case "created":
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case "last_interaction":
-          const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
-          const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
-          return bTime - aTime;
-        default:
-          return 0;
-      }
+      // Manter ordem de pinnedLeads para arrastar e soltar
+      return pinnedLeads.indexOf(a.id) - pinnedLeads.indexOf(b.id);
     });
 
   const unpinnedFilteredLeads = baseFilteredLeads
@@ -686,6 +724,131 @@ const Chat = () => {
           return 0;
       }
     });
+
+  // Componente de lead com suporte a arrastar e soltar
+  interface SortableLeadItemProps {
+    lead: Lead;
+    isSelected: boolean;
+    onLeadClick: (lead: Lead) => void;
+    onAvatarClick: (url: string, name: string) => void;
+    onTogglePin: (leadId: string) => void;
+    onOpenTags: (leadId: string) => void;
+  }
+
+  const SortableLeadItem = ({
+    lead,
+    isSelected,
+    onLeadClick,
+    onAvatarClick,
+    onTogglePin,
+    onOpenTags,
+  }: SortableLeadItemProps) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: lead.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <div ref={setNodeRef} style={style}>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <button
+              onClick={() => onLeadClick(lead)}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-background/60 transition-colors ${
+                isSelected ? "bg-background shadow-sm" : ""
+              }`}
+            >
+              <div
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing touch-none"
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              </div>
+              <div className="relative">
+                <Avatar
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (lead.avatar_url) {
+                      onAvatarClick(lead.avatar_url, lead.nome_lead);
+                    }
+                  }}
+                >
+                  <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {getInitials(lead.nome_lead)}
+                  </AvatarFallback>
+                </Avatar>
+                <div
+                  className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                    presenceStatus.get(lead.id)?.isOnline
+                      ? "bg-green-500 animate-pulse shadow-lg shadow-green-500/50"
+                      : presenceStatus.get(lead.id)?.lastSeen
+                      ? "bg-orange-400"
+                      : presenceStatus.get(lead.id)
+                      ? "bg-gray-400"
+                      : "bg-gray-500 opacity-30"
+                  }`}
+                  title={
+                    presenceStatus.get(lead.id)?.isOnline
+                      ? "🟢 Online agora"
+                      : presenceStatus.get(lead.id)?.lastSeen
+                      ? `🟠 Visto: ${new Date(
+                          presenceStatus.get(lead.id)!.lastSeen!
+                        ).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}`
+                      : presenceStatus.get(lead.id)
+                      ? "⚪ Offline"
+                      : "⚫ Status desconhecido"
+                  }
+                />
+              </div>
+              <div className="flex-1 text-left overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <Pin className="h-3 w-3 text-primary fill-primary" />
+                  <p className="font-medium truncate">{lead.nome_lead}</p>
+                  {presenceStatus.get(lead.id)?.isOnline && (
+                    <span className="text-xs text-green-600 font-medium">Online</span>
+                  )}
+                  <LeadTagsBadge leadId={lead.id} />
+                </div>
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {formatPhoneNumber(lead.telefone_lead)}
+                </p>
+              </div>
+            </button>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-56">
+            <ContextMenuItem onClick={() => onTogglePin(lead.id)}>
+              <PinOff className="mr-2 h-4 w-4" />
+              <span>Desafixar conversa</span>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onOpenTags(lead.id)}>
+              <Tag className="mr-2 h-4 w-4" />
+              <span>Adicionar etiquetas</span>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      </div>
+    );
+  };
 
   // Calcular quantos filtros estão ativos
   const activeFiltersCount = (filterOption !== "none" ? 1 : 0) + selectedTagIds.length;
@@ -874,90 +1037,28 @@ const Chat = () => {
                   
                   <CollapsibleContent className="space-y-1 px-2 animate-accordion-down">
                     <div className="bg-primary/5 rounded-lg p-1 space-y-1">
-                      {pinnedFilteredLeads.map((lead) => {
-                        const isPinned = true;
-                        
-                        return (
-                          <ContextMenu key={lead.id}>
-                            <ContextMenuTrigger asChild>
-                              <button
-                                onClick={() => handleLeadClick(lead)}
-                                className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-background/60 transition-colors ${
-                                  selectedLead?.id === lead.id ? "bg-background shadow-sm" : ""
-                                }`}
-                              >
-                                <div className="relative">
-                                  <Avatar 
-                                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (lead.avatar_url) {
-                                        setViewingAvatar({ url: lead.avatar_url, name: lead.nome_lead });
-                                      }
-                                    }}
-                                  >
-                                    <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
-                                    <AvatarFallback className="bg-primary/10 text-primary">
-                                      {getInitials(lead.nome_lead)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  {/* Indicador de presença */}
-                                  <div 
-                                    className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
-                                      presenceStatus.get(lead.id)?.isOnline 
-                                        ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
-                                        : presenceStatus.get(lead.id)?.lastSeen
-                                          ? 'bg-orange-400'
-                                          : presenceStatus.get(lead.id)
-                                            ? 'bg-gray-400'
-                                            : 'bg-gray-500 opacity-30'
-                                    }`}
-                                    title={
-                                      presenceStatus.get(lead.id)?.isOnline 
-                                        ? '🟢 Online agora' 
-                                        : presenceStatus.get(lead.id)?.lastSeen 
-                                          ? `🟠 Visto: ${new Date(presenceStatus.get(lead.id)!.lastSeen!).toLocaleString('pt-BR', {
-                                              day: '2-digit',
-                                              month: '2-digit',
-                                              hour: '2-digit',
-                                              minute: '2-digit'
-                                            })}`
-                                          : presenceStatus.get(lead.id)
-                                            ? '⚪ Offline'
-                                            : '⚫ Status desconhecido'
-                                    }
-                                  />
-                                </div>
-                                <div className="flex-1 text-left overflow-hidden">
-                                  <div className="flex items-center gap-2">
-                                    <Pin className="h-3 w-3 text-primary fill-primary" />
-                                    <p className="font-medium truncate">{lead.nome_lead}</p>
-                                    {presenceStatus.get(lead.id)?.isOnline && (
-                                      <span className="text-xs text-green-600 font-medium">Online</span>
-                                    )}
-                                    <LeadTagsBadge leadId={lead.id} />
-                                  </div>
-                                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                    <Phone className="h-3 w-3" />
-                                    {formatPhoneNumber(lead.telefone_lead)}
-                                  </p>
-                                </div>
-                              </button>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent className="w-56">
-                              <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
-                                <PinOff className="mr-2 h-4 w-4" />
-                                <span>Desafixar conversa</span>
-                              </ContextMenuItem>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem onClick={() => openTagsManagerForLead(lead.id)}>
-                                <Tag className="mr-2 h-4 w-4" />
-                                <span>Adicionar etiquetas</span>
-                              </ContextMenuItem>
-                            </ContextMenuContent>
-                          </ContextMenu>
-                        );
-                      })}
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={pinnedFilteredLeads.map((lead) => lead.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {pinnedFilteredLeads.map((lead) => (
+                            <SortableLeadItem
+                              key={lead.id}
+                              lead={lead}
+                              isSelected={selectedLead?.id === lead.id}
+                              onLeadClick={handleLeadClick}
+                              onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
+                              onTogglePin={togglePinLead}
+                              onOpenTags={openTagsManagerForLead}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
