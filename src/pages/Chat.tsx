@@ -13,6 +13,7 @@ import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag,
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
@@ -613,6 +614,9 @@ const Chat = () => {
       }
     });
 
+  // Calcular quantos filtros estão ativos
+  const activeFiltersCount = (filterOption !== "none" ? 1 : 0) + selectedTagIds.length;
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       {/* Lista de Leads - Coluna Esquerda */}
@@ -626,9 +630,17 @@ const Chat = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={filterOption !== "none" || selectedTagIds.length > 0 ? "text-primary" : ""}
+                    className={`relative ${activeFiltersCount > 0 ? "text-primary" : ""}`}
                   >
                     <Filter className="h-4 w-4" />
+                    {activeFiltersCount > 0 && (
+                      <Badge 
+                        variant="default" 
+                        className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full"
+                      >
+                        {activeFiltersCount}
+                      </Badge>
+                    )}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 z-[100]" align="end">
