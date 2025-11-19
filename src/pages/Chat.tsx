@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const Chat = () => {
   const location = useLocation();
@@ -31,6 +32,8 @@ const Chat = () => {
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [manageTagsOpen, setManageTagsOpen] = useState(false);
   const [leadTagsOpen, setLeadTagsOpen] = useState(false);
+  const [filterOption, setFilterOption] = useState<"alphabetical" | "created" | "last_interaction" | "none">("none");
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const [presenceStatus, setPresenceStatus] = useState<
     Map<string, { isOnline: boolean; lastSeen?: string; status?: string; rateLimited?: boolean }>
   >(new Map());
@@ -498,11 +501,26 @@ const Chat = () => {
     });
   };
 
-  const filteredLeads = leads.filter(
-    (lead) =>
-      lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.telefone_lead.includes(searchQuery)
-  );
+  const filteredLeads = leads
+    .filter(
+      (lead) =>
+        lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.telefone_lead.includes(searchQuery)
+    )
+    .sort((a, b) => {
+      switch (filterOption) {
+        case "alphabetical":
+          return a.nome_lead.localeCompare(b.nome_lead);
+        case "created":
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case "last_interaction":
+          const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+          const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+          return bTime - aTime;
+        default:
+          return 0;
+      }
+    });
 
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
@@ -511,15 +529,80 @@ const Chat = () => {
         <div className="p-4 border-b space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Conversas</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setManageTagsOpen(true)}
-              className="gap-2"
-            >
-              <Tag className="h-4 w-4" />
-              Etiquetas
-            </Button>
+            <div className="flex gap-1">
+              <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={filterOption !== "none" ? "text-primary" : ""}
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 z-[100]" align="end">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm mb-3">Ordenar por</h4>
+                    <button
+                      onClick={() => {
+                        setFilterOption("alphabetical");
+                        setFilterPopoverOpen(false);
+                      }}
+                      className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${
+                        filterOption === "alphabetical" ? "bg-muted font-medium" : ""
+                      }`}
+                    >
+                      Ordem alfabética (A-Z)
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilterOption("created");
+                        setFilterPopoverOpen(false);
+                      }}
+                      className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${
+                        filterOption === "created" ? "bg-muted font-medium" : ""
+                      }`}
+                    >
+                      Mais recentes primeiro
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilterOption("last_interaction");
+                        setFilterPopoverOpen(false);
+                      }}
+                      className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${
+                        filterOption === "last_interaction" ? "bg-muted font-medium" : ""
+                      }`}
+                    >
+                      Última interação
+                    </button>
+                    {filterOption !== "none" && (
+                      <>
+                        <div className="border-t my-2" />
+                        <button
+                          onClick={() => {
+                            setFilterOption("none");
+                            setFilterPopoverOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded hover:bg-muted transition-colors text-muted-foreground"
+                        >
+                          Limpar filtro
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setManageTagsOpen(true)}
+                className="gap-2"
+              >
+                <Tag className="h-4 w-4" />
+                Etiquetas
+              </Button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
