@@ -361,7 +361,19 @@ const Dashboard = () => {
                     dataKey="rate" 
                     radius={[4, 4, 0, 0]}
                     cursor="default"
-                    activeBar={false}
+                    activeBar={(props: any) => {
+                      const { x, y, width, height, payload } = props;
+                      return (
+                        <Rectangle
+                          x={x}
+                          y={y}
+                          width={width}
+                          height={height}
+                          fill={getBarColor(payload.rate)}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      );
+                    }}
                     shape={(props: any) => {
                       const { x, y, width, height, payload } = props;
                       return (
