@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
-import { DiagnoseWebhook } from "@/components/DiagnoseWebhook";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { WebhookLogs } from "@/components/WebhookLogs";
 import { useAuth } from "@/contexts/AuthContext";
@@ -122,7 +121,6 @@ const Settings = () => {
           {canManageIntegrations ? (
             <>
               <WhatsAppConnection />
-              <DiagnoseWebhook />
               <WebhookLogs />
             </>
           ) : (
