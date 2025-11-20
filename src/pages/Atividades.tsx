@@ -329,16 +329,16 @@ export default function Atividades() {
         </div>
 
         <Tabs defaultValue="messages" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="messages">
+          <TabsList className="inline-flex h-12 items-center justify-start rounded-lg bg-muted p-1 w-full">
+            <TabsTrigger value="messages" className="flex-1">
               <MessageSquare className="h-4 w-4 mr-2" />
               Mensagens
             </TabsTrigger>
-            <TabsTrigger value="sessions">
+            <TabsTrigger value="sessions" className="flex-1">
               <LogIn className="h-4 w-4 mr-2" />
               Conexões
             </TabsTrigger>
-            <TabsTrigger value="system">
+            <TabsTrigger value="system" className="flex-1">
               <Activity className="h-4 w-4 mr-2" />
               Outras Atividades
             </TabsTrigger>
