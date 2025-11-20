@@ -57,6 +57,7 @@ export default {
         },
         "hover-border": "hsl(var(--hover-border))",
         "new-lead-glow": "hsl(var(--new-lead-glow))",
+        "glow-green": "hsl(var(--glow-green))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

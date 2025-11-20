@@ -100,7 +100,7 @@ export default function AdminDashboard() {
 
         {/* Métricas */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Principais</CardTitle>
               <UserCheck className="h-4 w-4 text-muted-foreground" />
@@ -126,7 +126,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">E-mails Confirmados</CardTitle>
               <Shield className="h-4 w-4 text-muted-foreground" />
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabela de Usuários */}
-        <Card>
+        <Card className="glow-border">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -175,7 +175,7 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <>
-                <div className="rounded-md border">
+                <div className="rounded-md glow-border">
                   <Table>
                     <TableHeader>
                       <TableRow>
