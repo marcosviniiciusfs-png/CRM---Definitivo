@@ -376,7 +376,7 @@ export default function AdminUserDetails() {
                   size="sm"
                   onClick={() => openResetConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword || deleting}
-                  className="gap-2"
+                  className="gap-2 glass-warning"
                 >
                   <Send className="w-4 h-4" />
                   Enviar Link de Reset
@@ -386,7 +386,7 @@ export default function AdminUserDetails() {
                   size="sm"
                   onClick={() => openTempPassConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword || deleting}
-                  className="gap-2"
+                  className="gap-2 glass-destructive"
                 >
                   <KeyRound className="w-4 h-4" />
                   Gerar Senha Temporária
@@ -396,7 +396,7 @@ export default function AdminUserDetails() {
                   size="sm"
                   onClick={openDeleteConfirm}
                   disabled={resettingPassword || deleting}
-                  className="gap-2 ml-auto bg-red-500/20 backdrop-blur-md border border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-500/30 hover:border-red-500/70 transition-all duration-300 shadow-lg shadow-red-500/20"
+                  className="gap-2 ml-auto glass-destructive"
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir Conta
@@ -481,7 +481,7 @@ export default function AdminUserDetails() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="h-8 w-8 glass-warning"
                                 onClick={() => openResetConfirm(member.user_id!, member.email)}
                                 disabled={resettingPassword}
                                 title="Enviar link de reset"
@@ -491,7 +491,7 @@ export default function AdminUserDetails() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="h-8 w-8 glass-destructive"
                                 onClick={() => openTempPassConfirm(member.user_id!, member.email)}
                                 disabled={resettingPassword}
                                 title="Gerar senha temporária"
@@ -571,7 +571,7 @@ export default function AdminUserDetails() {
               </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleSendResetEmail}
-                className="bg-orange-500 hover:bg-orange-600"
+                className="glass-warning"
               >
                 Confirmar e Enviar
               </AlertDialogAction>
@@ -639,7 +639,7 @@ export default function AdminUserDetails() {
               </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleGenerateTempPassword}
-                className="bg-red-500 hover:bg-red-600"
+                className="glass-destructive"
               >
                 Sim, Gerar Senha
               </AlertDialogAction>
@@ -766,7 +766,7 @@ export default function AdminUserDetails() {
               <AlertDialogAction 
                 onClick={handleDeleteUser}
                 disabled={!adminPassword || deleting}
-                className="bg-destructive hover:bg-destructive/90"
+                className="glass-destructive"
               >
                 {deleting ? 'Excluindo...' : 'Sim, Excluir Permanentemente'}
               </AlertDialogAction>

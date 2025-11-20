@@ -155,4 +155,17 @@ All colors MUST be HSL.
     filter: drop-shadow(0 0 6px hsl(var(--glow-green) / 0.8))
             drop-shadow(0 0 12px hsl(var(--glow-green) / 0.5));
   }
+
+  /* Glassmorphism Buttons */
+  .glass-destructive {
+    @apply bg-red-500/20 backdrop-blur-md border border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-500/30 hover:border-red-500/70 transition-all duration-300 shadow-lg shadow-red-500/20;
+  }
+
+  .glass-warning {
+    @apply bg-orange-500/20 backdrop-blur-md border border-orange-500/50 text-orange-600 dark:text-orange-400 hover:bg-orange-500/30 hover:border-orange-500/70 transition-all duration-300 shadow-lg shadow-orange-500/20;
+  }
+
+  .glass-primary {
+    @apply bg-primary/20 backdrop-blur-md border border-primary/50 text-primary hover:bg-primary/30 hover:border-primary/70 transition-all duration-300 shadow-lg shadow-primary/20;
+  }
 }
