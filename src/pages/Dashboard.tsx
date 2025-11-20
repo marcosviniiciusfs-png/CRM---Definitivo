@@ -2,6 +2,8 @@ import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect } from "react";
 
 const leadSourceData = [
   { month: "Jan", emailMarketing: 1200, api: 50, vendaLeads: 5 },
@@ -17,6 +19,14 @@ const leadSourceData = [
 ];
 
 const Dashboard = () => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Simular carregamento inicial
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   const currentValue = 7580;
   const totalValue = 8000;
   const percentage = (currentValue / totalValue) * 100;
@@ -26,6 +36,22 @@ const Dashboard = () => {
     { name: "Atingido", value: currentValue, fill: "url(#goalGradient)" },
     { name: "Restante", value: remaining, fill: "hsl(0, 0%, 90%)" },
   ];
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[400px] w-full" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
