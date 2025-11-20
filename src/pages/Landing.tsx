@@ -1,7 +1,7 @@
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Zap, MessageSquare, TrendingUp } from "lucide-react";
+import { Zap, TrendingUp } from "lucide-react";
 import kairozLogo from "@/assets/kairoz-logo.png";
 
 const Landing = () => {
@@ -10,16 +10,19 @@ const Landing = () => {
   const features = [
     {
       icon: Zap,
+      type: 'lucide',
       title: "Captura Imediata de Leads",
       description: "Todos os contatos do WhatsApp são automaticamente registrados como leads no seu CRM"
     },
     {
-      icon: MessageSquare,
+      icon: null,
+      type: 'animated',
       title: "Histórico e Contexto",
       description: "Acesse todo o histórico de conversas e informações do cliente em um só lugar"
     },
     {
       icon: TrendingUp,
+      type: 'lucide',
       title: "Organização e Produtividade",
       description: "Gerencie seu funil de vendas e tarefas com eficiência máxima"
     }
@@ -57,9 +60,21 @@ const Landing = () => {
               className="group p-6 rounded-xl border border-cyan-500/20 bg-gray-900/50 backdrop-blur-sm hover:border-cyan-500/40 hover:bg-gray-900/70 transition-all duration-300"
             >
               <div className="flex justify-center mb-4">
-                <div className="p-3 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
-                  <feature.icon className="w-8 h-8" />
-                </div>
+                {feature.type === 'lucide' && feature.icon ? (
+                  <div className="p-3 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
+                    <feature.icon className="w-8 h-8" />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <animated-icon
+                      src="https://animatedicons.co/get-icon?name=chat&style=minimalistic&token=aa724904-12c8-4d99-a7a1-cca76b7ddec0"
+                      trigger="loop"
+                      attributes='{"variationThumbColour":"#536DFE","variationName":"Two Tone","variationNumber":2,"numberOfGroups":2,"backgroundIsGroup":false,"strokeWidth":1,"defaultColours":{"group-1":"#000000","group-2":"#06B9B3FF","background":"#FFFFFF"}}'
+                      height="64"
+                      width="64"
+                    />
+                  </div>
+                )}
               </div>
               <h3 className="text-xl font-semibold mb-3 text-center">
                 {feature.title}

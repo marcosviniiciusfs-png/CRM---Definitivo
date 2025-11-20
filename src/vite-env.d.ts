@@ -7,5 +7,12 @@ declare namespace JSX {
       autoplay?: boolean;
       loop?: boolean;
     };
+    'animated-icon': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+      src?: string;
+      trigger?: string;
+      attributes?: string;
+      height?: string;
+      width?: string;
+    };
   }
 }
