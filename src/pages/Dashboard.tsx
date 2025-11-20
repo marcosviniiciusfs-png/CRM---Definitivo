@@ -1,6 +1,6 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -198,7 +198,8 @@ const Dashboard = () => {
             <Skeleton key={i} className="h-24 w-full" />
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-[400px] w-full" />
           <Skeleton className="h-[400px] w-full" />
           <Skeleton className="h-[400px] w-full" />
         </div>
@@ -247,7 +248,7 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="max-w-[450px]">
           <CardHeader className="pb-3 relative">
             <div className="flex items-center justify-between w-full">
@@ -317,6 +318,25 @@ const Dashboard = () => {
                 <p className="text-xl font-bold">R${currentValue}</p>
                 <p className="text-base text-muted-foreground">de R${totalValue}</p>
                 <p className="text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Taxa de Conversão</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <div className="flex items-center justify-center mb-4">
+              <Target className="w-12 h-12" style={{ color: '#00b34c' }} />
+            </div>
+            <div className="text-center">
+              <p className="text-5xl font-bold mb-2" style={{ color: '#00b34c' }}>7.5%</p>
+              <p className="text-sm text-muted-foreground mb-4">Leads para Clientes Pagantes</p>
+              <div className="flex items-center justify-center gap-2">
+                <TrendingUp className="w-4 h-4" style={{ color: '#00b34c' }} />
+                <p className="text-xs" style={{ color: '#00b34c' }}>vs. Mês Anterior: +1.2%</p>
               </div>
             </div>
           </CardContent>
