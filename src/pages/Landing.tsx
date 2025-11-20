@@ -65,17 +65,11 @@ const Landing = () => {
             >
               <div className="flex justify-center mb-4">
                 {feature.type === 'lucide' && feature.icon ? (
-                  <div className="p-3 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
-                    <feature.icon className="w-8 h-8" />
-                  </div>
+                  <feature.icon className="w-16 h-16 text-cyan-400" />
                 ) : feature.type === 'gif' && feature.gifSrc ? (
-                  <div className="p-3 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
-                    <img src={feature.gifSrc} alt={feature.title} className="w-16 h-16 object-contain" />
-                  </div>
+                  <img src={feature.gifSrc} alt={feature.title} className="w-16 h-16 object-contain" />
                 ) : (
-                  <div className="p-3 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
-                    <AnimatedChatIcon />
-                  </div>
+                  <AnimatedChatIcon />
                 )}
               </div>
               <h3 className="text-xl font-semibold mb-3 text-center">
