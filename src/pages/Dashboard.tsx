@@ -250,7 +250,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="max-w-[450px]">
+        <Card>
           <CardHeader className="pb-3 relative">
             <div className="flex items-center justify-between w-full">
               <CardTitle className="text-lg font-semibold">Metas</CardTitle>
