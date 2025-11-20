@@ -396,7 +396,7 @@ export default function AdminUserDetails() {
                   size="sm"
                   onClick={openDeleteConfirm}
                   disabled={resettingPassword || deleting}
-                  className="gap-2 ml-auto"
+                  className="gap-2 ml-auto bg-red-500/20 backdrop-blur-md border border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-500/30 hover:border-red-500/70 transition-all duration-300 shadow-lg shadow-red-500/20"
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir Conta
