@@ -1,6 +1,6 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -96,8 +96,11 @@ const Dashboard = () => {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="max-w-[450px]">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Metas</CardTitle>
+            <button className="p-2 hover:bg-accent rounded-md transition-colors">
+              <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
+            </button>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
             <div className="relative w-full max-w-[400px] h-[220px]">
