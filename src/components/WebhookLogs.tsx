@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw, Trash2, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { RefreshCw, Trash2, AlertCircle, CheckCircle2, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -30,17 +30,32 @@ export function WebhookLogs() {
   const { toast } = useToast();
   const [logs, setLogs] = useState<WebhookLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalLogs, setTotalLogs] = useState(0);
+  const logsPerPage = 20;
 
   const loadLogs = async () => {
     if (!user) return;
     
     setLoading(true);
     try {
+      // Buscar total de logs
+      const { count, error: countError } = await supabase
+        .from('webhook_logs')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) throw countError;
+      setTotalLogs(count || 0);
+
+      // Buscar logs da página atual
+      const from = (currentPage - 1) * logsPerPage;
+      const to = from + logsPerPage - 1;
+
       const { data, error } = await supabase
         .from('webhook_logs')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(from, to);
 
       if (error) throw error;
       setLogs(data || []);
@@ -85,8 +100,12 @@ export function WebhookLogs() {
 
   useEffect(() => {
     loadLogs();
+  }, [user, currentPage]);
 
-    // Realtime subscription
+  useEffect(() => {
+    if (!user) return;
+
+    // Realtime subscription - quando novo log chegar, recarregar apenas se estiver na primeira página
     const channel = supabase
       .channel('webhook_logs_changes')
       .on(
@@ -97,7 +116,9 @@ export function WebhookLogs() {
           table: 'webhook_logs',
         },
         () => {
-          loadLogs();
+          if (currentPage === 1) {
+            loadLogs();
+          }
         }
       )
       .subscribe();
@@ -105,7 +126,7 @@ export function WebhookLogs() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, currentPage]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -155,13 +176,42 @@ export function WebhookLogs() {
         </div>
       </CardHeader>
       <CardContent>
-        {logs.length === 0 ? (
+        {logs.length === 0 && !loading ? (
           <div className="text-center py-8 text-muted-foreground">
             Nenhum log de webhook encontrado
           </div>
         ) : (
-          <ScrollArea className="h-[500px]">
-            <Table>
+          <>
+            <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Mostrando {((currentPage - 1) * logsPerPage) + 1} - {Math.min(currentPage * logsPerPage, totalLogs)} de {totalLogs} logs
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Anterior
+                </Button>
+                <span className="px-3 py-1 bg-muted rounded">
+                  {currentPage} / {Math.ceil(totalLogs / logsPerPage) || 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  disabled={currentPage >= Math.ceil(totalLogs / logsPerPage) || loading}
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+            <ScrollArea className="h-[500px]">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Data/Hora</TableHead>
@@ -224,6 +274,7 @@ export function WebhookLogs() {
               </TableBody>
             </Table>
           </ScrollArea>
+          </>
         )}
       </CardContent>
     </Card>
