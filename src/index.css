@@ -43,6 +43,7 @@ All colors MUST be HSL.
     --ring: 159 97% 37%;
     
     --hover-border: 202 100% 49%;
+    --glow-green: 142 98% 26%;
 
     --radius: 0.5rem;
 
@@ -98,6 +99,7 @@ All colors MUST be HSL.
     --ring: 159 97% 37%;
     
     --hover-border: 202 100% 49%;
+    --glow-green: 142 98% 26%;
 
     --sidebar-background: 215 28% 10%;
     --sidebar-foreground: 0 0% 90%;
@@ -137,5 +139,13 @@ All colors MUST be HSL.
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Chrome, Safari e Opera */
+  }
+
+  /* Borda verde fluorescente */
+  .glow-border {
+    border: 1px solid hsl(var(--glow-green));
+    box-shadow: 0 0 10px hsl(var(--glow-green) / 0.6),
+                0 0 20px hsl(var(--glow-green) / 0.4),
+                inset 0 0 10px hsl(var(--glow-green) / 0.2);
   }
 }
