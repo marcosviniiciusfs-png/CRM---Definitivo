@@ -378,11 +378,53 @@ const Dashboard = () => {
                   fill: 'hsl(var(--muted-foreground))',
                   fontSize: 10
                 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{
-                  backgroundColor: 'hsl(var(--popover))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '6px'
-                }} formatter={(value: number) => [`${value}%`, 'Taxa']} />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                      padding: '8px 12px'
+                    }} 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const currentRate = payload[0].value as number;
+                        const currentIndex = conversionData.findIndex(d => d.rate === currentRate);
+                        const previousRate = currentIndex > 0 ? conversionData[currentIndex - 1].rate : null;
+                        const difference = previousRate ? currentRate - previousRate : null;
+                        const percentChange = previousRate ? ((difference! / previousRate) * 100) : null;
+                        
+                        return (
+                          <div style={{
+                            backgroundColor: 'hsl(var(--popover))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            padding: '8px 12px'
+                          }}>
+                            <p style={{ margin: 0, fontWeight: 600, color: '#00b34c' }}>
+                              {currentRate}%
+                            </p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>
+                              Taxa de Conversão
+                            </p>
+                            {difference !== null && (
+                              <p style={{ 
+                                margin: '6px 0 0 0', 
+                                fontSize: '11px',
+                                color: difference >= 0 ? '#00b34c' : '#ef4444',
+                                fontWeight: 500
+                              }}>
+                                {difference >= 0 ? '+' : ''}{difference.toFixed(1)}% 
+                                <span style={{ opacity: 0.7 }}>
+                                  {' '}({percentChange! >= 0 ? '+' : ''}{percentChange!.toFixed(1)}%)
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
