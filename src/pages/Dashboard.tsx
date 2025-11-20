@@ -438,7 +438,10 @@ const Dashboard = () => {
             <Button variant="outline" onClick={() => setIsEditGoalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveGoal}>
+            <Button 
+              onClick={handleSaveGoal}
+              disabled={!editDeadline || !isDeadlineFuture()}
+            >
               Salvar
             </Button>
           </DialogFooter>
