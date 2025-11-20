@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     if (!error) {
-      navigate("/");
+      navigate("/dashboard");
     }
     
     return { error };
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     if (!error) {
-      navigate("/");
+      navigate("/dashboard");
     }
     
     return { error };

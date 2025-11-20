@@ -24,7 +24,7 @@ import logoFull from "@/assets/logo-full.png";
 import logoIcon from "@/assets/logo-icon.png";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Leads", url: "/leads", icon: Users },
   { title: "Chat", url: "/chat", icon: MessageSquare },
@@ -93,7 +93,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/"}
+                      end={item.url === "/dashboard"}
                       className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                     >
