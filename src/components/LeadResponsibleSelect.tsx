@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UserCircle } from "lucide-react";
@@ -14,6 +15,7 @@ interface Colaborador {
   user_id: string | null;
   email: string | null;
   full_name?: string | null;
+  avatar_url?: string | null;
 }
 
 interface LeadResponsibleSelectProps {
@@ -47,23 +49,26 @@ export function LeadResponsibleSelect({
 
       if (error) throw error;
 
-      // Buscar profiles para pegar os nomes completos
+      // Buscar profiles para pegar os nomes completos e avatares
       const userIds = members?.filter(m => m.user_id).map(m => m.user_id) || [];
       
-      let profilesMap: { [key: string]: string } = {};
+      let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, full_name')
+          .select('user_id, full_name, avatar_url')
           .in('user_id', userIds);
         
         if (profiles) {
           profilesMap = profiles.reduce((acc, profile) => {
-            if (profile.user_id && profile.full_name) {
-              acc[profile.user_id] = profile.full_name;
+            if (profile.user_id) {
+              acc[profile.user_id] = {
+                full_name: profile.full_name,
+                avatar_url: profile.avatar_url
+              };
             }
             return acc;
-          }, {} as { [key: string]: string });
+          }, {} as { [key: string]: { full_name: string | null; avatar_url: string | null } });
         }
       }
 
@@ -71,7 +76,8 @@ export function LeadResponsibleSelect({
       const colaboradoresWithNames = members?.map(m => ({
         user_id: m.user_id,
         email: m.email,
-        full_name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id] : null
+        full_name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id].full_name : null,
+        avatar_url: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id].avatar_url : null
       })) || [];
 
       setColaboradores(colaboradoresWithNames);
@@ -107,12 +113,18 @@ export function LeadResponsibleSelect({
     }
   };
 
-  const getCurrentValue = () => {
-    const colaborador = colaboradores.find(
-      c => c.full_name === currentResponsible || c.email === currentResponsible
-    );
-    return colaborador?.user_id || "none";
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
+
+  const currentColaborador = colaboradores.find(
+    c => c.full_name === currentResponsible || c.email === currentResponsible
+  );
 
   if (loading) {
     return (
@@ -125,19 +137,41 @@ export function LeadResponsibleSelect({
 
   return (
     <Select
-      value={getCurrentValue()}
+      value={currentColaborador?.user_id || "none"}
       onValueChange={handleResponsibleChange}
       disabled={updating}
     >
-      <SelectTrigger className="h-8 w-full max-w-[180px] border-none bg-transparent hover:bg-muted/50 text-xs focus:ring-1 focus:ring-primary/20">
+      <SelectTrigger className="h-8 w-full max-w-[200px] border-none bg-transparent hover:bg-muted/50 text-xs focus:ring-1 focus:ring-primary/20">
         <div className="flex items-center gap-2">
-          <UserCircle className="h-3 w-3 text-muted-foreground" />
-          <SelectValue placeholder="Sem responsável" />
+          {currentColaborador ? (
+            <>
+              <Avatar className="h-5 w-5">
+                {currentColaborador.avatar_url && (
+                  <AvatarImage 
+                    src={currentColaborador.avatar_url} 
+                    alt={currentColaborador.full_name || currentColaborador.email || ''} 
+                  />
+                )}
+                <AvatarFallback className="text-[10px] bg-muted">
+                  {getInitials(currentColaborador.full_name || currentColaborador.email || 'NC')}
+                </AvatarFallback>
+              </Avatar>
+              <SelectValue />
+            </>
+          ) : (
+            <>
+              <UserCircle className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Sem responsável" />
+            </>
+          )}
         </div>
       </SelectTrigger>
-      <SelectContent className="bg-background">
+      <SelectContent className="bg-background z-50">
         <SelectItem value="none" className="text-xs">
-          Sem responsável
+          <div className="flex items-center gap-2">
+            <UserCircle className="h-4 w-4 text-muted-foreground" />
+            <span>Sem responsável</span>
+          </div>
         </SelectItem>
         {colaboradores.map((colaborador) => (
           <SelectItem 
@@ -145,7 +179,20 @@ export function LeadResponsibleSelect({
             value={colaborador.user_id || "none"}
             className="text-xs"
           >
-            {colaborador.full_name || colaborador.email || "Sem nome"}
+            <div className="flex items-center gap-2">
+              <Avatar className="h-5 w-5">
+                {colaborador.avatar_url && (
+                  <AvatarImage 
+                    src={colaborador.avatar_url} 
+                    alt={colaborador.full_name || colaborador.email || ''} 
+                  />
+                )}
+                <AvatarFallback className="text-[10px] bg-muted">
+                  {getInitials(colaborador.full_name || colaborador.email || 'NC')}
+                </AvatarFallback>
+              </Avatar>
+              <span>{colaborador.full_name || colaborador.email || "Sem nome"}</span>
+            </div>
           </SelectItem>
         ))}
       </SelectContent>
