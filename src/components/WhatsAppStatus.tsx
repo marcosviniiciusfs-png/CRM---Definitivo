@@ -48,14 +48,20 @@ export const WhatsAppStatus = () => {
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Erro ao buscar organização:', error);
+        setStatus('disconnected');
         return;
       }
 
-      setOrganizationId(data.organization_id);
+      if (data?.organization_id) {
+        setOrganizationId(data.organization_id);
+      } else {
+        console.warn('Usuário sem organização vinculada');
+        setStatus('disconnected');
+      }
     } catch (error) {
       console.error('Erro ao buscar organização:', error);
     }

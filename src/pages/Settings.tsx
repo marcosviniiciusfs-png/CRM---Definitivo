@@ -28,17 +28,17 @@ const Settings = () => {
       if (!user) return;
       
       try {
-        // Get user role
+        // Get user role (app_role)
         const { data: roleData, error: roleError } = await supabase
-          .from('organization_members')
+          .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (roleError) {
           console.error('Erro ao buscar role:', roleError);
-        } else {
-          setUserRole(roleData?.role || null);
+        } else if (roleData) {
+          setUserRole(roleData.role || null);
         }
 
         // Get user profile
