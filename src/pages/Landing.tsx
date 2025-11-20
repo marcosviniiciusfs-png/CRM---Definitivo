@@ -1,8 +1,9 @@
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Zap, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import kairozLogo from "@/assets/kairoz-logo.png";
+import individualGif from "@/assets/individual.gif";
 import AnimatedChatIcon from "@/components/AnimatedChatIcon";
 
 const Landing = () => {
@@ -10,8 +11,9 @@ const Landing = () => {
 
   const features = [
     {
-      icon: Zap,
-      type: 'lucide',
+      icon: null,
+      type: 'gif',
+      gifSrc: individualGif,
       title: "Captura Imediata de Leads",
       description: "Todos os contatos do WhatsApp são automaticamente registrados como leads no seu CRM"
     },
@@ -64,6 +66,10 @@ const Landing = () => {
                 {feature.type === 'lucide' && feature.icon ? (
                   <div className="p-3 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
                     <feature.icon className="w-8 h-8" />
+                  </div>
+                ) : feature.type === 'gif' && feature.gifSrc ? (
+                  <div className="p-3 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
+                    <img src={feature.gifSrc} alt={feature.title} className="w-16 h-16 object-contain" />
                   </div>
                 ) : (
                   <div className="p-3 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
