@@ -26,16 +26,8 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-black text-white">
-      {/* Stars Background */}
-      <StarsBackground 
-        factor={0.08}
-        speed={40}
-        starColor="#22d3ee"
-      />
-
-      {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 py-12">
+    <StarsBackground className="min-h-screen bg-black text-white" speed={30} factor={0.08} starColor="#22d3ee">
+      <div className="container mx-auto px-4 py-12">
         {/* Logo */}
         <div className="flex justify-center mb-16">
           <img 
@@ -108,7 +100,7 @@ const Landing = () => {
           </Button>
         </div>
       </div>
-    </div>
+    </StarsBackground>
   );
 };
 
