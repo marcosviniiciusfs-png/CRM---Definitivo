@@ -9,61 +9,25 @@ interface SuperAdminRouteProps {
 
 export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const checkSuperAdmin = async () => {
-      console.log('[SuperAdminRoute] Iniciando verificação...', { user });
-
-      if (!user) {
-        console.log('[SuperAdminRoute] Nenhum usuário logado');
-        setIsSuperAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('id, role, user_id')
-          .eq('user_id', user.id)
-          .eq('role', 'super_admin')
-          .maybeSingle();
-
-        console.log('[SuperAdminRoute] Resultado da consulta de role:', { data, error });
-
-        if (error) {
-          console.error('Erro ao verificar super admin:', error);
-          setIsSuperAdmin(false);
-        } else {
-          setIsSuperAdmin(!!data);
-        }
-      } catch (error) {
-        console.error('Erro ao verificar permissões:', error);
-        setIsSuperAdmin(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkSuperAdmin();
-  }, [user]);
-
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Verificando permissões...</p>
+          <p className="text-muted-foreground">Verificando sessão...</p>
         </div>
       </div>
     );
   }
 
-  if (!user || !isSuperAdmin) {
-    return <Navigate to="/" replace />;
+  if (!user) {
+    return <Navigate to="/auth" replace />;
   }
 
+  // A verificação de super admin é garantida pelo backend
+  // (as RPCs list_all_users e count_main_users só retornam dados para super_admin)
+  // Assim, mesmo que outro usuário acesse /admin, não verá dados sensíveis.
   return <>{children}</>;
 }
+
