@@ -9,6 +9,7 @@ const corsHeaders = {
 interface TempPasswordRequest {
   userId: string;
   userEmail: string;
+  customMessage?: string;
 }
 
 // Gerar senha aleatória segura
@@ -74,7 +75,7 @@ serve(async (req: Request) => {
       throw new Error("Acesso negado: apenas super admins podem gerar senhas temporárias");
     }
 
-    const { userId, userEmail }: TempPasswordRequest = await req.json();
+    const { userId, userEmail, customMessage }: TempPasswordRequest = await req.json();
 
     console.log("[admin-generate-temp-password] Gerando senha temporária para:", userEmail);
 
@@ -112,6 +113,14 @@ serve(async (req: Request) => {
             <h2 style="color: #333;">Senha Temporária Gerada</h2>
             <p>Olá,</p>
             <p>O administrador do sistema gerou uma senha temporária para sua conta.</p>
+            ${customMessage ? `
+              <div style="background-color: #F3F4F6; border-left: 4px solid #4F46E5; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #374151; font-style: italic;">
+                  <strong>Mensagem do administrador:</strong><br>
+                  ${customMessage.replace(/\n/g, '<br>')}
+                </p>
+              </div>
+            ` : ''}
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <p style="margin: 0 0 10px 0; font-weight: bold;">Sua senha temporária:</p>
               <p style="font-family: 'Courier New', monospace; font-size: 18px; color: #4F46E5; margin: 0; word-break: break-all;">

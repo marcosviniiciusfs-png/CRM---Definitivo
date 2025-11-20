@@ -9,6 +9,7 @@ const corsHeaders = {
 interface ResetPasswordRequest {
   userId: string;
   userEmail: string;
+  customMessage?: string;
 }
 
 serve(async (req: Request) => {
@@ -50,7 +51,7 @@ serve(async (req: Request) => {
       throw new Error("Acesso negado: apenas super admins podem resetar senhas");
     }
 
-    const { userId, userEmail }: ResetPasswordRequest = await req.json();
+    const { userId, userEmail, customMessage }: ResetPasswordRequest = await req.json();
 
     console.log("[admin-reset-password] Gerando link de reset para:", userEmail);
 
@@ -88,6 +89,14 @@ serve(async (req: Request) => {
             <h2 style="color: #333;">Redefinição de Senha</h2>
             <p>Olá,</p>
             <p>O administrador do sistema solicitou a redefinição da sua senha.</p>
+            ${customMessage ? `
+              <div style="background-color: #F3F4F6; border-left: 4px solid #4F46E5; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #374151; font-style: italic;">
+                  <strong>Mensagem do administrador:</strong><br>
+                  ${customMessage.replace(/\n/g, '<br>')}
+                </p>
+              </div>
+            ` : ''}
             <p>Clique no botão abaixo para criar uma nova senha:</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetData.properties.action_link}" 
