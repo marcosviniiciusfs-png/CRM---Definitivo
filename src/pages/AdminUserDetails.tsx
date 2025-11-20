@@ -372,6 +372,7 @@ export default function AdminUserDetails() {
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
+                  variant="secondary"
                   size="sm"
                   onClick={() => openResetConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword || deleting}
@@ -381,6 +382,7 @@ export default function AdminUserDetails() {
                   Enviar Link de Reset
                 </Button>
                 <Button
+                  variant="secondary"
                   size="sm"
                   onClick={() => openTempPassConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword || deleting}
@@ -390,6 +392,7 @@ export default function AdminUserDetails() {
                   Gerar Senha Temporária
                 </Button>
                 <Button
+                  variant="secondary"
                   size="sm"
                   onClick={openDeleteConfirm}
                   disabled={resettingPassword || deleting}
@@ -476,6 +479,7 @@ export default function AdminUserDetails() {
                           {member.user_id ? (
                             <div className="flex gap-1">
                               <Button
+                                variant="secondary"
                                 size="icon"
                                 className="h-8 w-8 glass-warning"
                                 onClick={() => openResetConfirm(member.user_id!, member.email)}
@@ -485,6 +489,7 @@ export default function AdminUserDetails() {
                                 <Send className="w-4 h-4" />
                               </Button>
                               <Button
+                                variant="secondary"
                                 size="icon"
                                 className="h-8 w-8 glass-destructive"
                                 onClick={() => openTempPassConfirm(member.user_id!, member.email)}
