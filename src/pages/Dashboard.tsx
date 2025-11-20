@@ -4,6 +4,11 @@ import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil } f
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const leadSourceData = [
   { month: "Jan", emailMarketing: 1200, api: 50, vendaLeads: 5 },
@@ -20,6 +25,11 @@ const leadSourceData = [
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
+  const [isEditGoalOpen, setIsEditGoalOpen] = useState(false);
+  const [currentValue, setCurrentValue] = useState(7580);
+  const [totalValue, setTotalValue] = useState(8000);
+  const [editCurrentValue, setEditCurrentValue] = useState(currentValue.toString());
+  const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
 
   useEffect(() => {
     // Simular carregamento inicial
@@ -27,11 +37,40 @@ const Dashboard = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const currentValue = 7580;
-  const totalValue = 8000;
   const percentage = (currentValue / totalValue) * 100;
   const remaining = totalValue - currentValue;
   
+  const handleEditGoal = () => {
+    setEditCurrentValue(currentValue.toString());
+    setEditTotalValue(totalValue.toString());
+    setIsEditGoalOpen(true);
+  };
+
+  const handleSaveGoal = () => {
+    const newCurrentValue = parseFloat(editCurrentValue);
+    const newTotalValue = parseFloat(editTotalValue);
+
+    if (isNaN(newCurrentValue) || isNaN(newTotalValue)) {
+      toast.error("Por favor, insira valores válidos");
+      return;
+    }
+
+    if (newTotalValue <= 0) {
+      toast.error("O valor total deve ser maior que zero");
+      return;
+    }
+
+    if (newCurrentValue < 0) {
+      toast.error("O valor atual não pode ser negativo");
+      return;
+    }
+
+    setCurrentValue(newCurrentValue);
+    setTotalValue(newTotalValue);
+    setIsEditGoalOpen(false);
+    toast.success("Meta atualizada com sucesso!");
+  };
+
   const goalData = [
     { name: "Atingido", value: currentValue, fill: "url(#goalGradient)" },
     { name: "Restante", value: remaining, fill: "hsl(0, 0%, 90%)" },
@@ -98,7 +137,10 @@ const Dashboard = () => {
         <Card className="max-w-[450px]">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Metas</CardTitle>
-            <button className="p-2 hover:bg-accent rounded-md transition-colors">
+            <button 
+              onClick={handleEditGoal}
+              className="p-2 hover:bg-accent rounded-md transition-colors"
+            >
               <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
             </button>
           </CardHeader>
@@ -223,6 +265,49 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isEditGoalOpen} onOpenChange={setIsEditGoalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Meta</DialogTitle>
+            <DialogDescription>
+              Atualize os valores da sua meta. Clique em salvar quando terminar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="current-value">Valor Atual (R$)</Label>
+              <Input
+                id="current-value"
+                type="number"
+                value={editCurrentValue}
+                onChange={(e) => setEditCurrentValue(e.target.value)}
+                placeholder="0"
+                step="0.01"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="total-value">Valor Alvo (R$)</Label>
+              <Input
+                id="total-value"
+                type="number"
+                value={editTotalValue}
+                onChange={(e) => setEditTotalValue(e.target.value)}
+                placeholder="0"
+                step="0.01"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditGoalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveGoal}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
