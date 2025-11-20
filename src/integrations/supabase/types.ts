@@ -369,6 +369,62 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          direction: string | null
+          error_message: string | null
+          event_type: string
+          id: string
+          instance_name: string
+          message_content: string | null
+          message_type: string | null
+          organization_id: string
+          payload: Json | null
+          remote_jid: string | null
+          sender_name: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          direction?: string | null
+          error_message?: string | null
+          event_type: string
+          id?: string
+          instance_name: string
+          message_content?: string | null
+          message_type?: string | null
+          organization_id: string
+          payload?: Json | null
+          remote_jid?: string | null
+          sender_name?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          instance_name?: string
+          message_content?: string | null
+          message_type?: string | null
+          organization_id?: string
+          payload?: Json | null
+          remote_jid?: string | null
+          sender_name?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           connected_at: string | null

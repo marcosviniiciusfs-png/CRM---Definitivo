@@ -9,6 +9,7 @@ import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun } from "
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { DiagnoseWebhook } from "@/components/DiagnoseWebhook";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
+import { WebhookLogs } from "@/components/WebhookLogs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -122,6 +123,7 @@ const Settings = () => {
             <>
               <WhatsAppConnection />
               <DiagnoseWebhook />
+              <WebhookLogs />
             </>
           ) : (
             <WhatsAppStatus />

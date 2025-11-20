@@ -247,6 +247,39 @@ serve(async (req) => {
 
     console.log('✅ Organization ID:', organizationId);
 
+    // Função auxiliar para salvar log
+    const saveWebhookLog = async (status: string, errorMessage?: string) => {
+      try {
+        const logData: any = {
+          organization_id: organizationId,
+          instance_name: instance,
+          event_type: event,
+          status,
+          payload,
+          error_message: errorMessage,
+        };
+
+        // Adicionar dados da mensagem se disponível
+        if (data?.key?.remoteJid) logData.remote_jid = data.key.remoteJid;
+        if (data?.pushName) logData.sender_name = data.pushName;
+        if (data?.message) {
+          const msgContent = data.message?.conversation || 
+                            data.message?.extendedTextMessage?.text || 
+                            data.message?.imageMessage?.caption ||
+                            data.message?.videoMessage?.caption ||
+                            data.message?.audioMessage ? '[Áudio]' :
+                            data.message?.documentMessage ? '[Documento]' : '';
+          logData.message_content = msgContent;
+        }
+        if (data?.messageType) logData.message_type = data.messageType;
+        if (data?.key?.fromMe !== undefined) logData.direction = data.key.fromMe ? 'SENT' : 'RECEIVED';
+
+        await supabase.from('webhook_logs').insert(logData);
+      } catch (err) {
+        console.error('❌ Erro ao salvar log:', err);
+      }
+    };
+
     // Extrair informações da mensagem com logs detalhados
     console.log('📦 Data structure:', JSON.stringify(data, null, 2));
     
@@ -287,6 +320,7 @@ serve(async (req) => {
     // Se for mensagem enviada por nós, ignorar (já foi salva ao enviar)
     if (isFromMe) {
       console.log('⏭️ Mensagem enviada por nós - ignorando');
+      await saveWebhookLog('ignored', 'Mensagem enviada por nós');
       return new Response(
         JSON.stringify({ success: true, message: 'Mensagem própria ignorada' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -557,6 +591,8 @@ serve(async (req) => {
       })
       .eq('id', leadId);
 
+    await saveWebhookLog('success');
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -573,6 +609,39 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('❌ ERRO no whatsapp-message-webhook:', error);
+    
+    // Tentar salvar log de erro
+    try {
+      const payload = await req.clone().json().catch(() => ({}));
+      const instanceName = payload?.instance || 'unknown';
+      const event = payload?.event || 'unknown';
+      
+      // Buscar organization_id se possível
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: instanceData } = await supabase
+        .from('whatsapp_instances')
+        .select('organization_id')
+        .eq('instance_name', instanceName)
+        .maybeSingle();
+      
+      if (instanceData?.organization_id) {
+        await supabase.from('webhook_logs').insert({
+          organization_id: instanceData.organization_id,
+          instance_name: instanceName,
+          event_type: event,
+          status: 'error',
+          error_message: error.message || String(error),
+          payload: payload || {},
+        });
+      }
+    } catch (logError) {
+      console.error('❌ Erro ao salvar log de erro:', logError);
+    }
+    
     return new Response(
       JSON.stringify({
         success: false,
