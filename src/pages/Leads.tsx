@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LeadResponsibleSelect } from "@/components/LeadResponsibleSelect";
 import { AddLeadModal } from "@/components/AddLeadModal";
+import { EditLeadModal } from "@/components/EditLeadModal";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   NOVO: { label: "Novo", color: "bg-blue-500" },
@@ -59,6 +60,8 @@ const Leads = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
   // Carregar leads do Supabase
   useEffect(() => {
     loadLeads();
@@ -153,11 +156,8 @@ const Leads = () => {
   };
 
   const handleEditLead = (lead: Lead) => {
-    // TODO: Implementar modal de edição
-    toast({
-      title: "Em desenvolvimento",
-      description: "Funcionalidade de edição será implementada em breve",
-    });
+    setLeadToEdit(lead);
+    setShowEditModal(true);
   };
 
   const handleDeleteLead = async () => {
@@ -386,6 +386,19 @@ const Leads = () => {
         onClose={() => setShowAddModal(false)}
         onSuccess={loadLeads}
       />
+
+      {/* Modal de editar lead */}
+      {leadToEdit && (
+        <EditLeadModal 
+          open={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setLeadToEdit(null);
+          }}
+          onUpdate={loadLeads}
+          lead={leadToEdit}
+        />
+      )}
     </div>
   );
 };
