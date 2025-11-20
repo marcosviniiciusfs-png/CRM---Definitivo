@@ -21,13 +21,18 @@ export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
       }
 
       try {
-        const { data, error } = await supabase.rpc('is_super_admin');
-        
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('role', 'super_admin')
+          .maybeSingle();
+
         if (error) {
           console.error('Erro ao verificar super admin:', error);
           setIsSuperAdmin(false);
         } else {
-          setIsSuperAdmin(data || false);
+          setIsSuperAdmin(!!data);
         }
       } catch (error) {
         console.error('Erro ao verificar permissões:', error);
