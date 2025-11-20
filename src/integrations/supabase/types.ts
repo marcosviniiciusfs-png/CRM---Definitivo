@@ -502,6 +502,35 @@ export type Database = {
     }
     Functions: {
       count_main_users: { Args: never; Returns: number }
+      get_organization_members: {
+        Args: { _organization_id: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          email: string
+          full_name: string
+          last_sign_in_at: string
+          member_id: string
+          role: string
+          user_id: string
+        }[]
+      }
+      get_user_details: {
+        Args: { _target_user_id: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          email: string
+          email_confirmed_at: string
+          full_name: string
+          job_title: string
+          last_sign_in_at: string
+          organization_id: string
+          organization_name: string
+          user_id: string
+          user_role: string
+        }[]
+      }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       get_user_organization_role: {
         Args: { _user_id: string }

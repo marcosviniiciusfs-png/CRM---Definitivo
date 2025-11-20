@@ -165,7 +165,11 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {users.map((user) => (
-                      <TableRow key={user.id}>
+                      <TableRow 
+                        key={user.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => window.location.href = `/admin/user/${user.id}`}
+                      >
                         <TableCell className="font-medium">{user.email}</TableCell>
                         <TableCell>
                           {user.last_sign_in_at ? (
