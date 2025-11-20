@@ -103,7 +103,7 @@ export default function AdminDashboard() {
           <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Users className="h-4 w-4 glow-icon" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalUsers}</div>
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
           <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Principais</CardTitle>
-              <UserCheck className="h-4 w-4 text-muted-foreground" />
+              <UserCheck className="h-4 w-4 glow-icon" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{mainUsersCount}</div>
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
           <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">E-mails Confirmados</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
+              <Shield className="h-4 w-4 glow-icon" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{confirmedUsers}</div>
@@ -142,7 +142,7 @@ export default function AdminDashboard() {
           <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <Activity className="h-4 w-4 glow-icon" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{activeUsers}</div>
