@@ -369,6 +369,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       webhook_logs: {
         Row: {
           created_at: string
@@ -480,6 +501,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_main_users: { Args: never; Returns: number }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       get_user_organization_role: {
         Args: { _user_id: string }
@@ -488,12 +510,31 @@ export type Database = {
           role: Database["public"]["Enums"]["organization_role"]
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_same_organization: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      is_super_admin: { Args: never; Returns: boolean }
+      list_all_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          email_confirmed_at: string
+          id: string
+          last_sign_in_at: string
+        }[]
+      }
     }
     Enums: {
+      app_role: "super_admin" | "owner" | "admin" | "member"
       organization_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
@@ -622,6 +663,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["super_admin", "owner", "admin", "member"],
       organization_role: ["owner", "admin", "member"],
     },
   },
