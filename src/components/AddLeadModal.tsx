@@ -35,6 +35,47 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   const [stage, setStage] = useState("NOVO");
   const [isSaving, setIsSaving] = useState(false);
 
+  const formatPhoneNumber = (value: string) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, '');
+    
+    // Aplica a máscara
+    if (numbers.length <= 2) {
+      return `+${numbers}`;
+    } else if (numbers.length <= 4) {
+      return `+${numbers.slice(0, 2)} ${numbers.slice(2)}`;
+    } else if (numbers.length <= 9) {
+      return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4)}`;
+    } else if (numbers.length <= 13) {
+      return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 9)}-${numbers.slice(9)}`;
+    }
+    // Limita a 13 dígitos (55 + DDD + 9 dígitos)
+    return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 9)}-${numbers.slice(9, 13)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setTelefone(formatted);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Remove tudo que não é número
+    const numbers = phone.replace(/\D/g, '');
+    
+    // Valida se tem 13 dígitos (55 + DDD com 2 dígitos + número com 9 dígitos)
+    // ou 12 dígitos (55 + DDD com 2 dígitos + número com 8 dígitos para telefone fixo)
+    if (numbers.length < 12 || numbers.length > 13) {
+      return false;
+    }
+    
+    // Valida se começa com +55
+    if (!numbers.startsWith('55')) {
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleClose = () => {
     setNome("");
     setTelefone("");
@@ -55,6 +96,11 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
 
     if (!telefone.trim()) {
       toast.error("O telefone do lead é obrigatório");
+      return;
+    }
+
+    if (!validatePhone(telefone)) {
+      toast.error("Telefone inválido. Use o formato: +55 XX XXXXX-XXXX");
       return;
     }
 
@@ -122,10 +168,13 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
             <Input
               id="telefone"
               value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
+              onChange={handlePhoneChange}
               placeholder="+55 11 99999-9999"
               required
             />
+            <p className="text-xs text-muted-foreground">
+              Formato: +55 XX XXXXX-XXXX
+            </p>
           </div>
 
           <div className="space-y-2">
