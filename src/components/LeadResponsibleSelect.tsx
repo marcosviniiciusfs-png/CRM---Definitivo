@@ -142,29 +142,29 @@ export function LeadResponsibleSelect({
       disabled={updating}
     >
       <SelectTrigger className="h-8 w-full max-w-[200px] border-none bg-transparent hover:bg-muted/50 text-xs focus:ring-1 focus:ring-primary/20">
-        <div className="flex items-center gap-2">
-          {currentColaborador ? (
-            <>
-              <Avatar className="h-5 w-5">
-                {currentColaborador.avatar_url && (
-                  <AvatarImage 
-                    src={currentColaborador.avatar_url} 
-                    alt={currentColaborador.full_name || currentColaborador.email || ''} 
-                  />
-                )}
-                <AvatarFallback className="text-[10px] bg-muted">
-                  {getInitials(currentColaborador.full_name || currentColaborador.email || 'NC')}
-                </AvatarFallback>
-              </Avatar>
-              <SelectValue />
-            </>
-          ) : (
-            <>
-              <UserCircle className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder="Sem responsável" />
-            </>
-          )}
-        </div>
+        {currentColaborador ? (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-5 w-5">
+              {currentColaborador.avatar_url && (
+                <AvatarImage 
+                  src={currentColaborador.avatar_url} 
+                  alt={currentColaborador.full_name || currentColaborador.email || ''} 
+                />
+              )}
+              <AvatarFallback className="text-[10px] bg-muted">
+                {getInitials(currentColaborador.full_name || currentColaborador.email || 'NC')}
+              </AvatarFallback>
+            </Avatar>
+            <span className="truncate">
+              {currentColaborador.full_name || currentColaborador.email}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <UserCircle className="h-4 w-4 text-muted-foreground" />
+            <span>Sem responsável</span>
+          </div>
+        )}
       </SelectTrigger>
       <SelectContent className="bg-background z-50">
         <SelectItem value="none" className="text-xs">
