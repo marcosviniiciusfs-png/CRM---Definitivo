@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const leadSourceData = [
   { month: "Jan", emailMarketing: 1200, api: 50, vendaLeads: 5 },
@@ -24,18 +26,85 @@ const leadSourceData = [
 ];
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isEditGoalOpen, setIsEditGoalOpen] = useState(false);
   const [currentValue, setCurrentValue] = useState(7580);
   const [totalValue, setTotalValue] = useState(8000);
+  const [goalId, setGoalId] = useState<string | null>(null);
   const [editCurrentValue, setEditCurrentValue] = useState(currentValue.toString());
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
 
   useEffect(() => {
-    // Simular carregamento inicial
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+    loadGoal();
+  }, [user]);
+
+  const loadGoal = async () => {
+    try {
+      setLoading(true);
+      
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // Buscar organization_id do usuário
+      const { data: orgMember, error: orgError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (orgError || !orgMember) {
+        console.error('Erro ao buscar organização:', orgError);
+        setLoading(false);
+        return;
+      }
+
+      // Buscar meta do usuário
+      const { data: goals, error } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (goals && goals.length > 0) {
+        // Meta encontrada
+        const goal = goals[0];
+        setGoalId(goal.id);
+        setCurrentValue(Number(goal.current_value));
+        setTotalValue(Number(goal.target_value));
+      } else {
+        // Criar meta padrão
+        const { data: newGoal, error: createError } = await supabase
+          .from('goals')
+          .insert({
+            user_id: user.id,
+            organization_id: orgMember.organization_id,
+            current_value: 7580,
+            target_value: 8000
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+
+        if (newGoal) {
+          setGoalId(newGoal.id);
+          setCurrentValue(Number(newGoal.current_value));
+          setTotalValue(Number(newGoal.target_value));
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar meta:', error);
+      toast.error('Erro ao carregar meta');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const percentage = (currentValue / totalValue) * 100;
   const remaining = totalValue - currentValue;
@@ -46,7 +115,7 @@ const Dashboard = () => {
     setIsEditGoalOpen(true);
   };
 
-  const handleSaveGoal = () => {
+  const handleSaveGoal = async () => {
     const newCurrentValue = parseFloat(editCurrentValue);
     const newTotalValue = parseFloat(editTotalValue);
 
@@ -65,10 +134,31 @@ const Dashboard = () => {
       return;
     }
 
-    setCurrentValue(newCurrentValue);
-    setTotalValue(newTotalValue);
-    setIsEditGoalOpen(false);
-    toast.success("Meta atualizada com sucesso!");
+    try {
+      if (!goalId || !user) {
+        toast.error("Meta não encontrada");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('goals')
+        .update({
+          current_value: newCurrentValue,
+          target_value: newTotalValue
+        })
+        .eq('id', goalId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setCurrentValue(newCurrentValue);
+      setTotalValue(newTotalValue);
+      setIsEditGoalOpen(false);
+      toast.success("Meta atualizada com sucesso!");
+    } catch (error) {
+      console.error('Erro ao salvar meta:', error);
+      toast.error("Erro ao salvar meta");
+    }
   };
 
   const goalData = [
