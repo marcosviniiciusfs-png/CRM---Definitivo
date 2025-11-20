@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +17,7 @@ interface ActivityData {
   tipo: 'mensagem' | 'lead_criado' | 'lead_atualizado';
   colaborador_email: string;
   colaborador_id: string | null;
+  colaborador_avatar?: string | null;
   lead_nome: string;
   lead_id: string;
   lead_telefone: string;
@@ -93,12 +94,27 @@ export default function Atividades() {
 
       if (leadsError) throw leadsError;
 
+      // Buscar avatars dos colaboradores
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, avatar_url');
+
+      const avatarMap: Record<string, string | null> = {};
+      if (profiles) {
+        profiles.forEach(profile => {
+          if (profile.user_id) {
+            avatarMap[profile.user_id] = profile.avatar_url;
+          }
+        });
+      }
+
       // Combinar atividades
       const messageActivities: ActivityData[] = (messages || []).map((msg: any) => ({
         id: `msg-${msg.id}`,
         tipo: 'mensagem' as const,
         colaborador_email: 'Sistema',
         colaborador_id: null,
+        colaborador_avatar: null,
         lead_nome: msg.leads?.nome_lead || 'Lead desconhecido',
         lead_id: msg.id_lead,
         lead_telefone: msg.leads?.telefone_lead || '',
@@ -113,6 +129,7 @@ export default function Atividades() {
         tipo: 'lead_criado' as const,
         colaborador_email: 'Sistema',
         colaborador_id: null,
+        colaborador_avatar: null,
         lead_nome: lead.nome_lead,
         lead_id: lead.id,
         lead_telefone: lead.telefone_lead,
@@ -348,6 +365,12 @@ export default function Atividades() {
                       className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                     >
                       <Avatar className="h-10 w-10">
+                        {activity.colaborador_avatar && (
+                          <AvatarImage 
+                            src={activity.colaborador_avatar} 
+                            alt={activity.colaborador_email} 
+                          />
+                        )}
                         <AvatarFallback className={getActivityColor(activity.tipo)}>
                           {getActivityIcon(activity.tipo)}
                         </AvatarFallback>
