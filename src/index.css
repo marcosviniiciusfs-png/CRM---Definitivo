@@ -158,14 +158,20 @@ All colors MUST be HSL.
 
   /* Glassmorphism Buttons */
   .glass-destructive {
-    @apply bg-red-500/20 backdrop-blur-md border border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-500/30 hover:border-red-500/70 transition-all duration-300 shadow-lg shadow-red-500/20;
+    @apply bg-red-500/20 backdrop-blur-md border border-red-500/50 text-red-600 dark:text-red-400 
+           hover:bg-red-500/30 hover:border-red-500/70 hover:text-red-600 dark:hover:text-red-400
+           transition-all duration-300 shadow-lg shadow-red-500/20;
   }
 
   .glass-warning {
-    @apply bg-orange-500/20 backdrop-blur-md border border-orange-500/50 text-orange-600 dark:text-orange-400 hover:bg-orange-500/30 hover:border-orange-500/70 transition-all duration-300 shadow-lg shadow-orange-500/20;
+    @apply bg-orange-500/20 backdrop-blur-md border border-orange-500/50 text-orange-600 dark:text-orange-400 
+           hover:bg-orange-500/30 hover:border-orange-500/70 hover:text-orange-600 dark:hover:text-orange-400
+           transition-all duration-300 shadow-lg shadow-orange-500/20;
   }
 
   .glass-primary {
-    @apply bg-primary/20 backdrop-blur-md border border-primary/50 text-primary hover:bg-primary/30 hover:border-primary/70 transition-all duration-300 shadow-lg shadow-primary/20;
+    @apply bg-primary/20 backdrop-blur-md border border-primary/50 text-primary 
+           hover:bg-primary/30 hover:border-primary/70 hover:text-primary
+           transition-all duration-300 shadow-lg shadow-primary/20;
   }
 }
