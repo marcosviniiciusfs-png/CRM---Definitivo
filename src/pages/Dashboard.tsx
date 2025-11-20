@@ -268,7 +268,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
             {deadline && (
-              <div className="text-center -mb-4">
+              <div className="text-center -mb-8">
                 <p className="text-sm text-muted-foreground">Prazo para bater a meta</p>
                 <p className="text-2xl font-bold">
                   {getDaysRemaining() !== null && getDaysRemaining()! > 0 
