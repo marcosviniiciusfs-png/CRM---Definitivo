@@ -302,7 +302,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border mb-0 ml-0 mt-0 mr-0 pl-0 rounded-none shadow-lg">
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Taxa de Conversão</CardTitle>
           </CardHeader>
