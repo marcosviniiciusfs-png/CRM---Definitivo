@@ -1,9 +1,9 @@
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp } from "lucide-react";
 import kairozLogo from "@/assets/kairoz-logo.png";
 import individualGif from "@/assets/individual.gif";
+import checkBoardGif from "@/assets/check_board.gif";
 import AnimatedChatIcon from "@/components/AnimatedChatIcon";
 
 const Landing = () => {
@@ -24,8 +24,9 @@ const Landing = () => {
       description: "Acesse todo o histórico de conversas e informações do cliente em um só lugar"
     },
     {
-      icon: TrendingUp,
-      type: 'lucide',
+      icon: null,
+      type: 'gif',
+      gifSrc: checkBoardGif,
       title: "Organização e Produtividade",
       description: "Gerencie seu funil de vendas e tarefas com eficiência máxima"
     }
