@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ interface User {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [mainUsersCount, setMainUsersCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -168,7 +170,7 @@ export default function AdminDashboard() {
                       <TableRow 
                         key={user.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => window.location.href = `/admin/user/${user.id}`}
+                        onClick={() => navigate(`/admin/user/${user.id}`)}
                       >
                         <TableCell className="font-medium">{user.email}</TableCell>
                         <TableCell>
