@@ -148,4 +148,11 @@ All colors MUST be HSL.
                 0 0 20px hsl(var(--glow-green) / 0.4),
                 inset 0 0 10px hsl(var(--glow-green) / 0.2);
   }
+
+  /* Ícone fluorescente */
+  .glow-icon {
+    color: hsl(var(--glow-green));
+    filter: drop-shadow(0 0 6px hsl(var(--glow-green) / 0.8))
+            drop-shadow(0 0 12px hsl(var(--glow-green) / 0.5));
+  }
 }
