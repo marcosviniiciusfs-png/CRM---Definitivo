@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Zap, TrendingUp } from "lucide-react";
 import kairozLogo from "@/assets/kairoz-logo.png";
+import AnimatedChatIcon from "@/components/AnimatedChatIcon";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -65,14 +66,8 @@ const Landing = () => {
                     <feature.icon className="w-8 h-8" />
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center">
-                    <animated-icon
-                      src="https://animatedicons.co/get-icon?name=chat&style=minimalistic&token=aa724904-12c8-4d99-a7a1-cca76b7ddec0"
-                      trigger="loop"
-                      attributes='{"variationThumbColour":"#536DFE","variationName":"Two Tone","variationNumber":2,"numberOfGroups":2,"backgroundIsGroup":false,"strokeWidth":1,"defaultColours":{"group-1":"#000000","group-2":"#06B9B3FF","background":"#FFFFFF"}}'
-                      height="64"
-                      width="64"
-                    />
+                  <div className="p-3 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
+                    <AnimatedChatIcon />
                   </div>
                 )}
               </div>
