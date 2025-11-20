@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send } from "lucide-react";
 import { format } from "date-fns";
@@ -51,6 +53,7 @@ export default function AdminUserDetails() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showTempPassConfirm, setShowTempPassConfirm] = useState(false);
   const [targetUser, setTargetUser] = useState<{ id: string; email: string } | null>(null);
+  const [customMessage, setCustomMessage] = useState("");
 
   useEffect(() => {
     if (userId) {
@@ -95,12 +98,14 @@ export default function AdminUserDetails() {
   // Abrir diálogo de confirmação para reset
   const openResetConfirm = (targetUserId: string, targetEmail: string) => {
     setTargetUser({ id: targetUserId, email: targetEmail });
+    setCustomMessage("");
     setShowResetConfirm(true);
   };
 
   // Abrir diálogo de confirmação para senha temporária
   const openTempPassConfirm = (targetUserId: string, targetEmail: string) => {
     setTargetUser({ id: targetUserId, email: targetEmail });
+    setCustomMessage("");
     setShowTempPassConfirm(true);
   };
 
@@ -113,7 +118,11 @@ export default function AdminUserDetails() {
     
     try {
       const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-        body: { userId: targetUser.id, userEmail: targetUser.email }
+        body: { 
+          userId: targetUser.id, 
+          userEmail: targetUser.email,
+          customMessage: customMessage.trim() || undefined
+        }
       });
 
       if (error) throw error;
@@ -125,6 +134,7 @@ export default function AdminUserDetails() {
     } finally {
       setResettingPassword(false);
       setTargetUser(null);
+      setCustomMessage("");
     }
   };
 
@@ -137,7 +147,11 @@ export default function AdminUserDetails() {
     
     try {
       const { data, error } = await supabase.functions.invoke('admin-generate-temp-password', {
-        body: { userId: targetUser.id, userEmail: targetUser.email }
+        body: { 
+          userId: targetUser.id, 
+          userEmail: targetUser.email,
+          customMessage: customMessage.trim() || undefined
+        }
       });
 
       if (error) throw error;
@@ -158,6 +172,7 @@ export default function AdminUserDetails() {
     } finally {
       setResettingPassword(false);
       setTargetUser(null);
+      setCustomMessage("");
     }
   };
 
@@ -451,14 +466,14 @@ export default function AdminUserDetails() {
 
         {/* Dialog de Confirmação - Enviar Link de Reset */}
         <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-w-2xl">
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-orange-500" />
                 Confirmar Envio de Link de Reset
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <p>
                     Você está prestes a enviar um link de redefinição de senha para:
                   </p>
@@ -470,6 +485,24 @@ export default function AdminUserDetails() {
                       <strong>⚠️ Atenção:</strong> O usuário receberá um email com um link válido por 1 hora para criar uma nova senha.
                     </p>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-message" className="text-sm font-medium">
+                      Mensagem Personalizada (Opcional)
+                    </Label>
+                    <Textarea
+                      id="reset-message"
+                      placeholder="Digite uma mensagem opcional para incluir no email..."
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      className="min-h-[100px]"
+                      maxLength={500}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {customMessage.length}/500 caracteres
+                    </p>
+                  </div>
+
                   <p className="text-sm text-muted-foreground">
                     Deseja continuar?
                   </p>
@@ -477,7 +510,10 @@ export default function AdminUserDetails() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setTargetUser(null)}>
+              <AlertDialogCancel onClick={() => {
+                setTargetUser(null);
+                setCustomMessage("");
+              }}>
                 Cancelar
               </AlertDialogCancel>
               <AlertDialogAction 
@@ -492,14 +528,14 @@ export default function AdminUserDetails() {
 
         {/* Dialog de Confirmação - Gerar Senha Temporária */}
         <AlertDialog open={showTempPassConfirm} onOpenChange={setShowTempPassConfirm}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-w-2xl">
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 <KeyRound className="w-5 h-5 text-red-500" />
                 Confirmar Geração de Senha Temporária
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <p>
                     Você está prestes a gerar uma senha temporária para:
                   </p>
@@ -517,6 +553,24 @@ export default function AdminUserDetails() {
                       <li>Exigir que o usuário troque a senha no próximo login</li>
                     </ul>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="temp-message" className="text-sm font-medium">
+                      Mensagem Personalizada (Opcional)
+                    </Label>
+                    <Textarea
+                      id="temp-message"
+                      placeholder="Digite uma mensagem opcional para incluir no email..."
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      className="min-h-[100px]"
+                      maxLength={500}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {customMessage.length}/500 caracteres
+                    </p>
+                  </div>
+
                   <p className="text-sm text-muted-foreground font-medium">
                     Tem certeza que deseja continuar?
                   </p>
@@ -524,7 +578,10 @@ export default function AdminUserDetails() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setTargetUser(null)}>
+              <AlertDialogCancel onClick={() => {
+                setTargetUser(null);
+                setCustomMessage("");
+              }}>
                 Cancelar
               </AlertDialogCancel>
               <AlertDialogAction 
