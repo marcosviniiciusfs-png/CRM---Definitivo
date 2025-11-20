@@ -181,9 +181,13 @@ const Dashboard = () => {
     return selectedDate >= today;
   };
 
+  // Limitar o gráfico a 100% mesmo se ultrapassar a meta
+  const displayValue = Math.min(currentValue, totalValue);
+  const displayRemaining = Math.max(0, totalValue - currentValue);
+  
   const goalData = [
-    { name: "Atingido", value: currentValue, fill: "url(#goalGradient)" },
-    { name: "Restante", value: remaining, fill: "hsl(0, 0%, 90%)" },
+    { name: "Atingido", value: displayValue, fill: "url(#goalGradient)" },
+    { name: "Restante", value: displayRemaining, fill: "hsl(0, 0%, 90%)" },
   ];
 
   if (loading) {
