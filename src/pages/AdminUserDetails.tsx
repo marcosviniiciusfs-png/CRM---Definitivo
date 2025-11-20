@@ -46,6 +46,11 @@ export default function AdminUserDetails() {
   const [showTempPasswordDialog, setShowTempPasswordDialog] = useState(false);
   const [tempPasswordData, setTempPasswordData] = useState<{ password: string; email: string } | null>(null);
   const [resettingPassword, setResettingPassword] = useState(false);
+  
+  // Estados para confirmação
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showTempPassConfirm, setShowTempPassConfirm] = useState(false);
+  const [targetUser, setTargetUser] = useState<{ id: string; email: string } | null>(null);
 
   useEffect(() => {
     if (userId) {
@@ -87,41 +92,64 @@ export default function AdminUserDetails() {
     }
   };
 
-  const handleSendResetEmail = async (targetUserId: string, targetEmail: string) => {
+  // Abrir diálogo de confirmação para reset
+  const openResetConfirm = (targetUserId: string, targetEmail: string) => {
+    setTargetUser({ id: targetUserId, email: targetEmail });
+    setShowResetConfirm(true);
+  };
+
+  // Abrir diálogo de confirmação para senha temporária
+  const openTempPassConfirm = (targetUserId: string, targetEmail: string) => {
+    setTargetUser({ id: targetUserId, email: targetEmail });
+    setShowTempPassConfirm(true);
+  };
+
+  // Executar reset após confirmação
+  const handleSendResetEmail = async () => {
+    if (!targetUser) return;
+    
     setResettingPassword(true);
+    setShowResetConfirm(false);
+    
     try {
       const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-        body: { userId: targetUserId, userEmail: targetEmail }
+        body: { userId: targetUser.id, userEmail: targetUser.email }
       });
 
       if (error) throw error;
 
-      toast.success(`Email de redefinição enviado para ${targetEmail}`);
+      toast.success(`Email de redefinição enviado para ${targetUser.email}`);
     } catch (error: any) {
       console.error('Erro ao enviar email:', error);
       toast.error(error.message || 'Erro ao enviar email de redefinição');
     } finally {
       setResettingPassword(false);
+      setTargetUser(null);
     }
   };
 
-  const handleGenerateTempPassword = async (targetUserId: string, targetEmail: string) => {
+  // Executar geração de senha temporária após confirmação
+  const handleGenerateTempPassword = async () => {
+    if (!targetUser) return;
+    
     setResettingPassword(true);
+    setShowTempPassConfirm(false);
+    
     try {
       const { data, error } = await supabase.functions.invoke('admin-generate-temp-password', {
-        body: { userId: targetUserId, userEmail: targetEmail }
+        body: { userId: targetUser.id, userEmail: targetUser.email }
       });
 
       if (error) throw error;
 
       if (data?.tempPassword) {
-        setTempPasswordData({ password: data.tempPassword, email: targetEmail });
+        setTempPasswordData({ password: data.tempPassword, email: targetUser.email });
         setShowTempPasswordDialog(true);
         
         if (data.emailError) {
           toast.warning('Senha gerada, mas falha ao enviar email. Copie a senha do diálogo.');
         } else {
-          toast.success(`Senha temporária gerada e enviada para ${targetEmail}`);
+          toast.success(`Senha temporária gerada e enviada para ${targetUser.email}`);
         }
       }
     } catch (error: any) {
@@ -129,6 +157,7 @@ export default function AdminUserDetails() {
       toast.error(error.message || 'Erro ao gerar senha temporária');
     } finally {
       setResettingPassword(false);
+      setTargetUser(null);
     }
   };
 
@@ -287,7 +316,7 @@ export default function AdminUserDetails() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleSendResetEmail(userDetails.user_id, userDetails.email)}
+                  onClick={() => openResetConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword}
                   className="gap-2"
                 >
@@ -297,7 +326,7 @@ export default function AdminUserDetails() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleGenerateTempPassword(userDetails.user_id, userDetails.email)}
+                  onClick={() => openTempPassConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword}
                   className="gap-2"
                 >
@@ -385,7 +414,7 @@ export default function AdminUserDetails() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
-                                onClick={() => handleSendResetEmail(member.user_id!, member.email)}
+                                onClick={() => openResetConfirm(member.user_id!, member.email)}
                                 disabled={resettingPassword}
                                 title="Enviar link de reset"
                               >
@@ -395,7 +424,7 @@ export default function AdminUserDetails() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
-                                onClick={() => handleGenerateTempPassword(member.user_id!, member.email)}
+                                onClick={() => openTempPassConfirm(member.user_id!, member.email)}
                                 disabled={resettingPassword}
                                 title="Gerar senha temporária"
                               >
@@ -420,7 +449,95 @@ export default function AdminUserDetails() {
           </Card>
         )}
 
-        {/* Dialog de Senha Temporária */}
+        {/* Dialog de Confirmação - Enviar Link de Reset */}
+        <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-orange-500" />
+                Confirmar Envio de Link de Reset
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    Você está prestes a enviar um link de redefinição de senha para:
+                  </p>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <p className="font-medium">{targetUser?.email}</p>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+                    <p className="text-sm text-orange-800 dark:text-orange-200">
+                      <strong>⚠️ Atenção:</strong> O usuário receberá um email com um link válido por 1 hora para criar uma nova senha.
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Deseja continuar?
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setTargetUser(null)}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleSendResetEmail}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                Confirmar e Enviar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog de Confirmação - Gerar Senha Temporária */}
+        <AlertDialog open={showTempPassConfirm} onOpenChange={setShowTempPassConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-red-500" />
+                Confirmar Geração de Senha Temporária
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    Você está prestes a gerar uma senha temporária para:
+                  </p>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <p className="font-medium">{targetUser?.email}</p>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                    <p className="text-sm text-red-800 dark:text-red-200">
+                      <strong>🔒 Ação Sensível:</strong> Esta ação irá:
+                    </p>
+                    <ul className="text-sm text-red-800 dark:text-red-200 mt-2 ml-4 list-disc space-y-1">
+                      <li>Substituir a senha atual do usuário imediatamente</li>
+                      <li>Gerar uma senha temporária aleatória</li>
+                      <li>Enviar a senha por email</li>
+                      <li>Exigir que o usuário troque a senha no próximo login</li>
+                    </ul>
+                  </div>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Tem certeza que deseja continuar?
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setTargetUser(null)}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleGenerateTempPassword}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                Sim, Gerar Senha
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog de Senha Temporária Gerada */}
         <AlertDialog open={showTempPasswordDialog} onOpenChange={setShowTempPasswordDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
