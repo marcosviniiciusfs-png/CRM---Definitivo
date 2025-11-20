@@ -1,7 +1,7 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -81,6 +81,24 @@ const conversionData = [{
   month: "Out",
   rate: 7.5
 }];
+
+// Função para calcular a cor da barra baseada no valor
+const getBarColor = (value: number) => {
+  const minRate = 5.2;
+  const maxRate = 7.5;
+  const normalized = (value - minRate) / (maxRate - minRate);
+  
+  // Verde escuro (#006928) para valores baixos
+  // Verde claro/brilhante (#00ff6a) para valores altos
+  const darkGreen = { r: 0, g: 105, b: 40 };
+  const brightGreen = { r: 0, g: 255, b: 106 };
+  
+  const r = Math.round(darkGreen.r + (brightGreen.r - darkGreen.r) * normalized);
+  const g = Math.round(darkGreen.g + (brightGreen.g - darkGreen.g) * normalized);
+  const b = Math.round(darkGreen.b + (brightGreen.b - darkGreen.b) * normalized);
+  
+  return `rgb(${r}, ${g}, ${b})`;
+};
 const Dashboard = () => {
   const {
     user
@@ -339,7 +357,23 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground mb-2">Evolução (últimos 6 meses)</p>
               <ResponsiveContainer width="100%" height={120}>
                 <BarChart data={conversionData} className="rounded-sm shadow px-0 py-0 pr-0 mx-0 mr-0 mb-0 mt-[100px]">
-                  <Bar dataKey="rate" fill="#00b34c" radius={[4, 4, 0, 0]} />
+                  <Bar 
+                    dataKey="rate" 
+                    radius={[4, 4, 0, 0]}
+                    shape={(props: any) => {
+                      const { x, y, width, height, payload } = props;
+                      return (
+                        <Rectangle
+                          x={x}
+                          y={y}
+                          width={width}
+                          height={height}
+                          fill={getBarColor(payload.rate)}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      );
+                    }}
+                  />
                   <XAxis dataKey="month" tick={{
                   fill: 'hsl(var(--muted-foreground))',
                   fontSize: 10
