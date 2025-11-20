@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const currentSessionIdRef = useRef<string | null>(null);
+
+  const logUserSession = async (userId: string, isLogin: boolean) => {
+    try {
+      // Buscar organização do usuário
+      const { data: memberData } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!memberData?.organization_id) return;
+
+      if (isLogin) {
+        // Criar nova sessão
+        const { data, error } = await supabase
+          .from('user_sessions')
+          .insert({
+            user_id: userId,
+            organization_id: memberData.organization_id,
+            login_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+
+        if (!error && data) {
+          currentSessionIdRef.current = data.id;
+        }
+      } else {
+        // Atualizar sessão com logout
+        if (currentSessionIdRef.current) {
+          const { data: sessionData } = await supabase
+            .from('user_sessions')
+            .select('login_at')
+            .eq('id', currentSessionIdRef.current)
+            .single();
+
+          if (sessionData) {
+            const loginTime = new Date(sessionData.login_at);
+            const logoutTime = new Date();
+            const durationMinutes = Math.round((logoutTime.getTime() - loginTime.getTime()) / 60000);
+
+            await supabase
+              .from('user_sessions')
+              .update({
+                logout_at: logoutTime.toISOString(),
+                duration_minutes: durationMinutes
+              })
+              .eq('id', currentSessionIdRef.current);
+          }
+
+          currentSessionIdRef.current = null;
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao registrar sessão:', error);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -27,6 +85,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Registrar login/logout de forma assíncrona
+        if (event === 'SIGNED_IN' && session?.user) {
+          setTimeout(() => logUserSession(session.user.id, true), 0);
+        } else if (event === 'SIGNED_OUT') {
+          setTimeout(() => {
+            if (user?.id) {
+              logUserSession(user.id, false);
+            }
+          }, 0);
+        }
       }
     );
 
@@ -35,6 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Se já tem sessão, registrar login
+      if (session?.user) {
+        setTimeout(() => logUserSession(session.user.id, true), 0);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -75,6 +149,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (user?.id) {
+      await logUserSession(user.id, false);
+    }
     await supabase.auth.signOut();
     navigate("/auth");
   };
