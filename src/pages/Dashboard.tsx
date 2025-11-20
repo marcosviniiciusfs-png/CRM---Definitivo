@@ -31,9 +31,10 @@ const Dashboard = () => {
   const [isEditGoalOpen, setIsEditGoalOpen] = useState(false);
   const [currentValue, setCurrentValue] = useState(7580);
   const [totalValue, setTotalValue] = useState(8000);
+  const [deadline, setDeadline] = useState<Date | null>(null);
   const [goalId, setGoalId] = useState<string | null>(null);
-  const [editCurrentValue, setEditCurrentValue] = useState(currentValue.toString());
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
+  const [editDeadline, setEditDeadline] = useState<string>("");
 
   useEffect(() => {
     loadGoal();
@@ -77,6 +78,7 @@ const Dashboard = () => {
         setGoalId(goal.id);
         setCurrentValue(Number(goal.current_value));
         setTotalValue(Number(goal.target_value));
+        setDeadline(goal.deadline ? new Date(goal.deadline) : null);
       } else {
         // Criar meta padrão
         const { data: newGoal, error: createError } = await supabase
@@ -96,6 +98,7 @@ const Dashboard = () => {
           setGoalId(newGoal.id);
           setCurrentValue(Number(newGoal.current_value));
           setTotalValue(Number(newGoal.target_value));
+          setDeadline(newGoal.deadline ? new Date(newGoal.deadline) : null);
         }
       }
     } catch (error) {
@@ -110,27 +113,26 @@ const Dashboard = () => {
   const remaining = totalValue - currentValue;
   
   const handleEditGoal = () => {
-    setEditCurrentValue(currentValue.toString());
     setEditTotalValue(totalValue.toString());
+    setEditDeadline(deadline ? deadline.toISOString().split('T')[0] : "");
     setIsEditGoalOpen(true);
   };
 
   const handleSaveGoal = async () => {
-    const newCurrentValue = parseFloat(editCurrentValue);
     const newTotalValue = parseFloat(editTotalValue);
 
-    if (isNaN(newCurrentValue) || isNaN(newTotalValue)) {
-      toast.error("Por favor, insira valores válidos");
+    if (isNaN(newTotalValue)) {
+      toast.error("Por favor, insira um valor válido");
       return;
     }
 
     if (newTotalValue <= 0) {
-      toast.error("O valor total deve ser maior que zero");
+      toast.error("O valor da meta deve ser maior que zero");
       return;
     }
 
-    if (newCurrentValue < 0) {
-      toast.error("O valor atual não pode ser negativo");
+    if (!editDeadline) {
+      toast.error("Por favor, selecione um prazo");
       return;
     }
 
@@ -143,22 +145,31 @@ const Dashboard = () => {
       const { error } = await supabase
         .from('goals')
         .update({
-          current_value: newCurrentValue,
-          target_value: newTotalValue
+          target_value: newTotalValue,
+          deadline: editDeadline
         })
         .eq('id', goalId)
         .eq('user_id', user.id);
 
       if (error) throw error;
 
-      setCurrentValue(newCurrentValue);
       setTotalValue(newTotalValue);
+      setDeadline(new Date(editDeadline));
       setIsEditGoalOpen(false);
       toast.success("Meta atualizada com sucesso!");
     } catch (error) {
       console.error('Erro ao salvar meta:', error);
       toast.error("Erro ao salvar meta");
     }
+  };
+
+  const getDaysRemaining = () => {
+    if (!deadline) return null;
+    const now = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   const goalData = [
@@ -235,6 +246,18 @@ const Dashboard = () => {
             </button>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
+            {deadline && (
+              <div className="text-center mb-4">
+                <p className="text-sm text-muted-foreground">Prazo para bater a meta</p>
+                <p className="text-2xl font-bold">
+                  {getDaysRemaining() !== null && getDaysRemaining()! > 0 
+                    ? `${getDaysRemaining()} dias restantes`
+                    : getDaysRemaining() === 0
+                    ? "Hoje é o prazo!"
+                    : "Prazo expirado"}
+                </p>
+              </div>
+            )}
             <div className="relative w-full max-w-[400px] h-[220px]">
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
@@ -361,23 +384,12 @@ const Dashboard = () => {
           <DialogHeader>
             <DialogTitle>Editar Meta</DialogTitle>
             <DialogDescription>
-              Atualize os valores da sua meta. Clique em salvar quando terminar.
+              Defina sua meta e o prazo para atingi-la.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="current-value">Valor Atual (R$)</Label>
-              <Input
-                id="current-value"
-                type="number"
-                value={editCurrentValue}
-                onChange={(e) => setEditCurrentValue(e.target.value)}
-                placeholder="0"
-                step="0.01"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="total-value">Valor Alvo (R$)</Label>
+              <Label htmlFor="total-value">Meta (R$)</Label>
               <Input
                 id="total-value"
                 type="number"
@@ -385,6 +397,15 @@ const Dashboard = () => {
                 onChange={(e) => setEditTotalValue(e.target.value)}
                 placeholder="0"
                 step="0.01"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="deadline">Prazo para bater a meta</Label>
+              <Input
+                id="deadline"
+                type="date"
+                value={editDeadline}
+                onChange={(e) => setEditDeadline(e.target.value)}
               />
             </div>
           </div>

@@ -45,6 +45,7 @@ export type Database = {
         Row: {
           created_at: string
           current_value: number
+          deadline: string | null
           id: string
           organization_id: string
           target_value: number
@@ -54,6 +55,7 @@ export type Database = {
         Insert: {
           created_at?: string
           current_value?: number
+          deadline?: string | null
           id?: string
           organization_id: string
           target_value?: number
@@ -63,6 +65,7 @@ export type Database = {
         Update: {
           created_at?: string
           current_value?: number
+          deadline?: string | null
           id?: string
           organization_id?: string
           target_value?: number
