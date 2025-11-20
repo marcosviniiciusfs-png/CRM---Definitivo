@@ -245,24 +245,26 @@ const Dashboard = () => {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="max-w-[450px]">
-          <CardHeader className="pb-3 flex flex-row items-center justify-center relative">
-            <div className="flex items-center gap-3">
-              {deadline && (
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none">
-                  <style>{`@keyframes rotate{0%{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
-                  <rect width="16" height="16" x="4" y="4" stroke="currentColor" strokeWidth="1.5" rx="8" className="text-muted-foreground"/>
-                  <path stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" d="M12.021 12l2.325 2.325" className="text-muted-foreground"/>
-                  <path stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12.021 12V6.84" style={{animation: 'rotate 2s linear infinite both', transformOrigin: 'center'}}/>
-                </svg>
-              )}
-              <CardTitle className="text-lg font-semibold">Metas</CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                {deadline && (
+                  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none">
+                    <style>{`@keyframes rotate{0%{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+                    <rect width="16" height="16" x="4" y="4" stroke="currentColor" strokeWidth="1.5" rx="8" className="text-muted-foreground"/>
+                    <path stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" d="M12.021 12l2.325 2.325" className="text-muted-foreground"/>
+                    <path stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12.021 12V6.84" style={{animation: 'rotate 2s linear infinite both', transformOrigin: 'center'}}/>
+                  </svg>
+                )}
+                <CardTitle className="text-lg font-semibold">Metas</CardTitle>
+              </div>
+              <button 
+                onClick={handleEditGoal}
+                className="p-2 hover:bg-accent rounded-md transition-colors"
+              >
+                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
+              </button>
             </div>
-            <button 
-              onClick={handleEditGoal}
-              className="absolute right-6 p-2 hover:bg-accent rounded-md transition-colors"
-            >
-              <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
-            </button>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
             {deadline && (
