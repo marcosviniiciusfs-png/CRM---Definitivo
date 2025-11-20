@@ -5,8 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -42,6 +43,9 @@ export default function AdminUserDetails() {
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTempPasswordDialog, setShowTempPasswordDialog] = useState(false);
+  const [tempPasswordData, setTempPasswordData] = useState<{ password: string; email: string } | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -81,6 +85,56 @@ export default function AdminUserDetails() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSendResetEmail = async (targetUserId: string, targetEmail: string) => {
+    setResettingPassword(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: { userId: targetUserId, userEmail: targetEmail }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Email de redefinição enviado para ${targetEmail}`);
+    } catch (error: any) {
+      console.error('Erro ao enviar email:', error);
+      toast.error(error.message || 'Erro ao enviar email de redefinição');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const handleGenerateTempPassword = async (targetUserId: string, targetEmail: string) => {
+    setResettingPassword(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-generate-temp-password', {
+        body: { userId: targetUserId, userEmail: targetEmail }
+      });
+
+      if (error) throw error;
+
+      if (data?.tempPassword) {
+        setTempPasswordData({ password: data.tempPassword, email: targetEmail });
+        setShowTempPasswordDialog(true);
+        
+        if (data.emailError) {
+          toast.warning('Senha gerada, mas falha ao enviar email. Copie a senha do diálogo.');
+        } else {
+          toast.success(`Senha temporária gerada e enviada para ${targetEmail}`);
+        }
+      }
+    } catch (error: any) {
+      console.error('Erro ao gerar senha:', error);
+      toast.error(error.message || 'Erro ao gerar senha temporária');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Senha copiada para a área de transferência!');
   };
 
   if (loading) {
@@ -225,11 +279,32 @@ export default function AdminUserDetails() {
               </div>
             </div>
 
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t space-y-3">
               <p className="text-sm text-muted-foreground">
-                <strong>Nota de Segurança:</strong> As senhas são criptografadas e não podem ser visualizadas por questões de segurança. 
-                Se necessário, você pode resetar a senha do usuário através das ferramentas de administração.
+                <strong>Nota de Segurança:</strong> As senhas são criptografadas e não podem ser visualizadas por questões de segurança.
               </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSendResetEmail(userDetails.user_id, userDetails.email)}
+                  disabled={resettingPassword}
+                  className="gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  Enviar Link de Reset
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleGenerateTempPassword(userDetails.user_id, userDetails.email)}
+                  disabled={resettingPassword}
+                  className="gap-2"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  Gerar Senha Temporária
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -256,6 +331,7 @@ export default function AdminUserDetails() {
                       <TableHead>Função</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Membro desde</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -302,6 +378,34 @@ export default function AdminUserDetails() {
                             <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </TableCell>
+                        <TableCell>
+                          {member.user_id ? (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleSendResetEmail(member.user_id!, member.email)}
+                                disabled={resettingPassword}
+                                title="Enviar link de reset"
+                              >
+                                <Send className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleGenerateTempPassword(member.user_id!, member.email)}
+                                disabled={resettingPassword}
+                                title="Gerar senha temporária"
+                              >
+                                <KeyRound className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Convite pendente</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -315,6 +419,54 @@ export default function AdminUserDetails() {
             </CardContent>
           </Card>
         )}
+
+        {/* Dialog de Senha Temporária */}
+        <AlertDialog open={showTempPasswordDialog} onOpenChange={setShowTempPasswordDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-primary" />
+                Senha Temporária Gerada
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <p>
+                    A senha temporária foi gerada para <strong>{tempPasswordData?.email}</strong>
+                  </p>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-2">Senha Temporária:</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-lg font-mono bg-background px-3 py-2 rounded border">
+                        {tempPasswordData?.password}
+                      </code>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(tempPasswordData?.password || '')}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                      <strong>⚠️ Importante:</strong> O usuário deve trocar esta senha no primeiro login. 
+                      Um email foi enviado com as instruções.
+                    </p>
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => {
+                setShowTempPasswordDialog(false);
+                setTempPasswordData(null);
+              }}>
+                Entendi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
