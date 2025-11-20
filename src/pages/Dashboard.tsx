@@ -1,6 +1,6 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -170,6 +170,15 @@ const Dashboard = () => {
     const diffTime = deadlineDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const isDeadlineFuture = () => {
+    if (!editDeadline) return null;
+    const selectedDate = new Date(editDeadline);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    return selectedDate >= today;
   };
 
   const goalData = [
@@ -406,7 +415,23 @@ const Dashboard = () => {
                 type="date"
                 value={editDeadline}
                 onChange={(e) => setEditDeadline(e.target.value)}
+                className={editDeadline ? (isDeadlineFuture() ? "border-green-500" : "border-red-500") : ""}
               />
+              {editDeadline && (
+                <div className={`flex items-center gap-2 text-sm ${isDeadlineFuture() ? "text-green-600" : "text-red-600"}`}>
+                  {isDeadlineFuture() ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Data futura válida</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      <span>Data no passado - selecione uma data futura</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
