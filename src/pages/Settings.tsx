@@ -18,6 +18,7 @@ const Settings = () => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [orgRole, setOrgRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -28,7 +29,7 @@ const Settings = () => {
       if (!user) return;
       
       try {
-        // Get user role (app_role)
+        // Get user app role
         const { data: roleData, error: roleError } = await supabase
           .from('user_roles')
           .select('role')
@@ -39,6 +40,19 @@ const Settings = () => {
           console.error('Erro ao buscar role:', roleError);
         } else if (roleData) {
           setUserRole(roleData.role || null);
+        }
+
+        // Get organization role
+        const { data: orgRoleData, error: orgRoleError } = await supabase
+          .from('organization_members')
+          .select('role')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (orgRoleError) {
+          console.error('Erro ao buscar role organizacional:', orgRoleError);
+        } else if (orgRoleData) {
+          setOrgRole(orgRoleData.role || null);
         }
 
         // Get user profile
@@ -88,8 +102,8 @@ const Settings = () => {
     }
   };
 
-  // Owners e admins podem gerenciar integrações completas
-  const canManageIntegrations = userRole === 'owner' || userRole === 'admin';
+  // Super admins, owners e admins organizacionais podem gerenciar integrações
+  const canManageIntegrations = userRole === 'super_admin' || orgRole === 'owner' || orgRole === 'admin';
 
   if (loading) {
     return (
