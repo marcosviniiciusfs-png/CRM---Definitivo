@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { LeadResponsibleSelect } from "@/components/LeadResponsibleSelect";
+import { AddLeadModal } from "@/components/AddLeadModal";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   NOVO: { label: "Novo", color: "bg-blue-500" },
@@ -57,6 +58,7 @@ const Leads = () => {
   const [sortColumn, setSortColumn] = useState<SortColumn>("nome_lead");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   // Carregar leads do Supabase
   useEffect(() => {
     loadLeads();
@@ -193,7 +195,10 @@ const Leads = () => {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Gerenciamento de Leads</h1>
           <p className="text-muted-foreground">Gerencie todos os seus leads em um só lugar</p>
         </div>
-        <Button className="gap-2 bg-primary hover:bg-primary/90">
+        <Button 
+          className="gap-2 bg-primary hover:bg-primary/90"
+          onClick={() => setShowAddModal(true)}
+        >
           <Plus className="h-4 w-4" />
           Adicionar Lead
         </Button>
@@ -374,6 +379,13 @@ const Leads = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de adicionar lead */}
+      <AddLeadModal 
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={loadLeads}
+      />
     </div>
   );
 };
