@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AvatarUpload } from "@/components/AvatarUpload";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ const Settings = () => {
         } else if (profileData) {
           setFullName(profileData.full_name || "");
           setJobTitle(profileData.job_title || "");
+          setAvatarUrl(profileData.avatar_url || null);
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
@@ -165,7 +168,14 @@ const Settings = () => {
                 Perfil do Usuário
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              <AvatarUpload 
+                avatarUrl={avatarUrl}
+                userId={user?.id || ""}
+                userName={fullName || user?.email || ""}
+                onAvatarUpdate={(url) => setAvatarUrl(url)}
+              />
+              
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome</Label>
