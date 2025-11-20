@@ -1,7 +1,7 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -23,6 +23,15 @@ const leadSourceData = [
   { month: "Ago", emailMarketing: 6800, api: 300, vendaLeads: 23 },
   { month: "Set", emailMarketing: 7200, api: 315, vendaLeads: 24 },
   { month: "Oct", emailMarketing: 7896, api: 325, vendaLeads: 24 },
+];
+
+const conversionData = [
+  { month: "Mai", rate: 5.2 },
+  { month: "Jun", rate: 5.8 },
+  { month: "Jul", rate: 6.1 },
+  { month: "Ago", rate: 6.5 },
+  { month: "Set", rate: 7.0 },
+  { month: "Out", rate: 7.5 },
 ];
 
 const Dashboard = () => {
@@ -323,21 +332,52 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Taxa de Conversão</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <div className="flex items-center justify-center mb-4">
-              <Target className="w-12 h-12" style={{ color: '#00b34c' }} />
-            </div>
-            <div className="text-center">
-              <p className="text-5xl font-bold mb-2" style={{ color: '#00b34c' }}>7.5%</p>
-              <p className="text-sm text-muted-foreground mb-4">Leads para Clientes Pagantes</p>
-              <div className="flex items-center justify-center gap-2">
-                <TrendingUp className="w-4 h-4" style={{ color: '#00b34c' }} />
-                <p className="text-xs" style={{ color: '#00b34c' }}>vs. Mês Anterior: +1.2%</p>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(0, 179, 76, 0.1)' }}>
+                  <Target className="w-8 h-8" style={{ color: '#00b34c' }} />
+                </div>
+                <div>
+                  <p className="text-4xl font-bold" style={{ color: '#00b34c' }}>7.5%</p>
+                  <p className="text-xs text-muted-foreground">Leads → Clientes</p>
+                </div>
               </div>
+              <div className="flex items-center gap-1 px-2 py-1 rounded" style={{ backgroundColor: 'rgba(0, 179, 76, 0.1)' }}>
+                <TrendingUp className="w-3 h-3" style={{ color: '#00b34c' }} />
+                <span className="text-xs font-medium" style={{ color: '#00b34c' }}>+1.2%</span>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Evolução (últimos 6 meses)</p>
+              <ResponsiveContainer width="100%" height={120}>
+                <BarChart data={conversionData}>
+                  <Bar 
+                    dataKey="rate" 
+                    fill="#00b34c"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                    formatter={(value: number) => [`${value}%`, 'Taxa']}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
