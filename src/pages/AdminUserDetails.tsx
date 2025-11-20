@@ -8,8 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send } from "lucide-react";
+import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -52,8 +53,11 @@ export default function AdminUserDetails() {
   // Estados para confirmação
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showTempPassConfirm, setShowTempPassConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [targetUser, setTargetUser] = useState<{ id: string; email: string } | null>(null);
   const [customMessage, setCustomMessage] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -179,6 +183,45 @@ export default function AdminUserDetails() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success('Senha copiada para a área de transferência!');
+  };
+
+  // Abrir diálogo de confirmação para exclusão
+  const openDeleteConfirm = () => {
+    setAdminPassword("");
+    setShowDeleteConfirm(true);
+  };
+
+  // Executar exclusão após confirmação
+  const handleDeleteUser = async () => {
+    if (!adminPassword || !userDetails) return;
+    
+    setDeleting(true);
+    setShowDeleteConfirm(false);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { 
+          target_user_id: userDetails.user_id,
+          admin_password: adminPassword
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Usuário e organização excluídos com sucesso. ${data?.deleted_users || 0} usuário(s) removido(s).`);
+      
+      // Redirecionar para o dashboard admin após 2 segundos
+      setTimeout(() => {
+        navigate("/admin");
+      }, 2000);
+    } catch (error: any) {
+      console.error('Erro ao excluir usuário:', error);
+      toast.error(error.message || 'Erro ao excluir usuário');
+      setShowDeleteConfirm(true); // Reabrir o diálogo em caso de erro
+    } finally {
+      setDeleting(false);
+      setAdminPassword("");
+    }
   };
 
   if (loading) {
@@ -332,7 +375,7 @@ export default function AdminUserDetails() {
                   variant="outline"
                   size="sm"
                   onClick={() => openResetConfirm(userDetails.user_id, userDetails.email)}
-                  disabled={resettingPassword}
+                  disabled={resettingPassword || deleting}
                   className="gap-2"
                 >
                   <Send className="w-4 h-4" />
@@ -342,11 +385,21 @@ export default function AdminUserDetails() {
                   variant="outline"
                   size="sm"
                   onClick={() => openTempPassConfirm(userDetails.user_id, userDetails.email)}
-                  disabled={resettingPassword}
+                  disabled={resettingPassword || deleting}
                   className="gap-2"
                 >
                   <KeyRound className="w-4 h-4" />
                   Gerar Senha Temporária
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={openDeleteConfirm}
+                  disabled={resettingPassword || deleting}
+                  className="gap-2 ml-auto"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir Conta
                 </Button>
               </div>
             </div>
@@ -637,6 +690,85 @@ export default function AdminUserDetails() {
                 setTempPasswordData(null);
               }}>
                 Entendi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog de Confirmação - Excluir Usuário */}
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-destructive" />
+                Confirmar Exclusão de Conta
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <p>
+                    Você está prestes a <strong className="text-destructive">EXCLUIR PERMANENTEMENTE</strong> a conta:
+                  </p>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <p className="font-medium">{userDetails?.full_name || userDetails?.email}</p>
+                    <p className="text-sm text-muted-foreground">{userDetails?.email}</p>
+                    {userDetails?.organization_name && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Organização: {userDetails.organization_name}
+                      </p>
+                    )}
+                  </div>
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                    <p className="text-sm text-destructive font-semibold mb-2">
+                      ⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL!
+                    </p>
+                    <p className="text-sm text-destructive mb-2">
+                      Esta ação irá:
+                    </p>
+                    <ul className="text-sm text-destructive ml-4 list-disc space-y-1">
+                      <li>Excluir permanentemente a conta do usuário</li>
+                      <li>Deletar a organização associada</li>
+                      <li>Remover TODOS os colaboradores da organização</li>
+                      <li>Apagar todos os leads, mensagens e dados relacionados</li>
+                      <li>Excluir todas as configurações e históricos</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-password" className="text-sm font-medium">
+                      Digite sua senha de Super Admin para confirmar
+                    </Label>
+                    <Input
+                      id="admin-password"
+                      type="password"
+                      placeholder="Sua senha de super admin"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      className="border-destructive/50 focus-visible:ring-destructive"
+                      autoComplete="current-password"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Por segurança, precisamos confirmar sua identidade antes de prosseguir.
+                    </p>
+                  </div>
+
+                  <p className="text-sm font-medium text-destructive">
+                    Tem ABSOLUTA certeza que deseja continuar?
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setAdminPassword("");
+              }}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteUser}
+                disabled={!adminPassword || deleting}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {deleting ? 'Excluindo...' : 'Sim, Excluir Permanentemente'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
