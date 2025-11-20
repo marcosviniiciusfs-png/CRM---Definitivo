@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { ChatEmptyAnimation } from "@/components/ChatEmptyAnimation";
 import { Lead, Message } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1633,12 +1634,7 @@ const Chat = () => {
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <div className="text-center">
-              <dotlottie-wc 
-                src="https://lottie.host/275eef1d-4c13-4223-8981-403004707f38/abtipdWBBb.lottie" 
-                style={{ width: '300px', height: '300px', margin: '0 auto' }}
-                autoplay
-                loop
-              ></dotlottie-wc>
+              <ChatEmptyAnimation />
               <p className="mt-4">Selecione um contato para iniciar a conversa</p>
             </div>
           </div>
