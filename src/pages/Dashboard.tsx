@@ -360,6 +360,8 @@ const Dashboard = () => {
                   <Bar 
                     dataKey="rate" 
                     radius={[4, 4, 0, 0]}
+                    cursor="default"
+                    activeBar={false}
                     shape={(props: any) => {
                       const { x, y, width, height, payload } = props;
                       return (
