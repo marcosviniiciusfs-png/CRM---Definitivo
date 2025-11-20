@@ -1633,8 +1633,13 @@ const Chat = () => {
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <div className="text-center">
-              <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Selecione um contato para iniciar a conversa</p>
+              <dotlottie-wc 
+                src="https://lottie.host/275eef1d-4c13-4223-8981-403004707f38/abtipdWBBb.lottie" 
+                style={{ width: '300px', height: '300px', margin: '0 auto' }}
+                autoplay
+                loop
+              ></dotlottie-wc>
+              <p className="mt-4">Selecione um contato para iniciar a conversa</p>
             </div>
           </div>
         )}
