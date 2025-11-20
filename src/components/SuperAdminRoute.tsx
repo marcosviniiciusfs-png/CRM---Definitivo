@@ -14,7 +14,10 @@ export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
 
   useEffect(() => {
     const checkSuperAdmin = async () => {
+      console.log('[SuperAdminRoute] Iniciando verificação...', { user });
+
       if (!user) {
+        console.log('[SuperAdminRoute] Nenhum usuário logado');
         setIsSuperAdmin(false);
         setLoading(false);
         return;
@@ -23,10 +26,12 @@ export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
       try {
         const { data, error } = await supabase
           .from('user_roles')
-          .select('id')
+          .select('id, role, user_id')
           .eq('user_id', user.id)
           .eq('role', 'super_admin')
           .maybeSingle();
+
+        console.log('[SuperAdminRoute] Resultado da consulta de role:', { data, error });
 
         if (error) {
           console.error('Erro ao verificar super admin:', error);
