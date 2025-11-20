@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, UserCheck, Shield, Activity } from "lucide-react";
+import { Users, UserCheck, Shield, Activity, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [mainUsersCount, setMainUsersCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadData();
@@ -72,6 +75,16 @@ export default function AdminDashboard() {
   const totalUsers = users.length;
   const confirmedUsers = users.filter(u => u.email_confirmed_at).length;
   const activeUsers = users.filter(u => u.last_sign_in_at).length;
+
+  // Paginação
+  const totalPages = Math.ceil(totalUsers / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentUsers = users.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -143,30 +156,45 @@ export default function AdminDashboard() {
         {/* Tabela de Usuários */}
         <Card>
           <CardHeader>
-            <CardTitle>Lista de Usuários</CardTitle>
-            <CardDescription>
-              Informações detalhadas de todos os usuários cadastrados no sistema
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Lista de Usuários</CardTitle>
+                <CardDescription>
+                  Informações detalhadas de todos os usuários cadastrados no sistema
+                </CardDescription>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Mostrando {startIndex + 1}-{Math.min(endIndex, totalUsers)} de {totalUsers} usuários
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : (
-              <ScrollArea className="h-[600px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Data de Cadastro</TableHead>
-                      <TableHead>Último Login</TableHead>
-                      <TableHead>E-mail Confirmado</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => (
+              <>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>E-mail</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Data de Cadastro</TableHead>
+                        <TableHead>Último Login</TableHead>
+                        <TableHead>E-mail Confirmado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {currentUsers.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            Nenhum usuário encontrado
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        currentUsers.map((user) => (
                       <TableRow 
                         key={user.id}
                         className="cursor-pointer hover:bg-muted/50"
@@ -214,12 +242,85 @@ export default function AdminDashboard() {
                               Pendente
                             </Badge>
                           )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Controles de Paginação */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(1)}
+                        disabled={currentPage === 1}
+                      >
+                        Primeira
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      
+                      {/* Números de página */}
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNumber;
+                          if (totalPages <= 5) {
+                            pageNumber = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNumber = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNumber = totalPages - 4 + i;
+                          } else {
+                            pageNumber = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNumber}
+                              variant={currentPage === pageNumber ? "default" : "outline"}
+                              size="icon"
+                              onClick={() => goToPage(pageNumber)}
+                            >
+                              {pageNumber}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Última
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
