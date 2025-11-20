@@ -257,6 +257,12 @@ const Dashboard = () => {
           <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
             {deadline && (
               <div className="text-center mb-4">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" className="mb-2 mx-auto">
+                  <style>{`@keyframes rotate{0%{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+                  <rect width="16" height="16" x="4" y="4" stroke="currentColor" strokeWidth="1.5" rx="8" className="text-muted-foreground"/>
+                  <path stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" d="M12.021 12l2.325 2.325" className="text-muted-foreground"/>
+                  <path stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12.021 12V6.84" style={{animation: 'rotate 2s linear infinite both', transformOrigin: 'center'}}/>
+                </svg>
                 <p className="text-sm text-muted-foreground">Prazo para bater a meta</p>
                 <p className="text-2xl font-bold">
                   {getDaysRemaining() !== null && getDaysRemaining()! > 0 
