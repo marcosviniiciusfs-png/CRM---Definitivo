@@ -254,9 +254,9 @@ const Dashboard = () => {
               <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
             </button>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
+          <CardContent className="flex flex-col items-center justify-center pb-8 pt-0">
             {deadline && (
-              <div className="text-center mb-4">
+              <div className="text-center mb-6 -mt-2">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" className="mb-2 mx-auto">
                   <style>{`@keyframes rotate{0%{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
                   <rect width="16" height="16" x="4" y="4" stroke="currentColor" strokeWidth="1.5" rx="8" className="text-muted-foreground"/>
