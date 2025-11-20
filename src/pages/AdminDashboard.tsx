@@ -29,20 +29,39 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
+      console.log('[AdminDashboard] Iniciando carregamento de dados...');
+
       // Buscar contagem de usuários principais
+      console.log('[AdminDashboard] Chamando count_main_users...');
       const { data: countData, error: countError } = await supabase.rpc('count_main_users');
       
-      if (countError) throw countError;
+      console.log('[AdminDashboard] Resultado count_main_users:', { countData, countError });
+      
+      if (countError) {
+        console.error('[AdminDashboard] Erro em count_main_users:', countError);
+        throw countError;
+      }
       setMainUsersCount(countData || 0);
 
       // Buscar todos os usuários
+      console.log('[AdminDashboard] Chamando list_all_users...');
       const { data: usersData, error: usersError } = await supabase.rpc('list_all_users');
       
-      if (usersError) throw usersError;
+      console.log('[AdminDashboard] Resultado list_all_users:', { usersData, usersError });
+      
+      if (usersError) {
+        console.error('[AdminDashboard] Erro em list_all_users:', usersError);
+        throw usersError;
+      }
       setUsers(usersData || []);
+      
+      console.log('[AdminDashboard] Dados carregados com sucesso!', { 
+        totalUsers: usersData?.length || 0,
+        mainUsers: countData || 0 
+      });
     } catch (error: any) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados do dashboard');
+      console.error('[AdminDashboard] Erro ao carregar dados:', error);
+      toast.error(`Erro ao carregar dados: ${error.message}`);
     } finally {
       setLoading(false);
     }
