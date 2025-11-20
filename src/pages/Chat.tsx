@@ -1634,7 +1634,7 @@ const Chat = () => {
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <div className="text-center">
               <dotlottie-wc 
-                src="https://lottie.host/275eef1d-4c13-4223-8981-403004707f38/abtipdWBBb.lottie" 
+                src="https://lottie.host/4e790ff6-4755-4288-966f-316fb6c4ef27/aj6gFtlr3H.lottie" 
                 style={{ width: '300px', height: '300px', margin: '0 auto' }}
                 autoplay
                 loop
