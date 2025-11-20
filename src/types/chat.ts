@@ -12,6 +12,7 @@ export interface Lead {
   valor?: number;
   position?: number;
   avatar_url?: string;
+  responsavel?: string;
 }
 
 export interface Message {

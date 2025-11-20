@@ -34,6 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { LeadResponsibleSelect } from "@/components/LeadResponsibleSelect";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   NOVO: { label: "Novo", color: "bg-blue-500" },
@@ -42,7 +43,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   PERDIDO: { label: "Perdido", color: "bg-red-500" },
 };
 
-type SortColumn = "nome_lead" | "email" | "telefone_lead" | "empresa" | "stage" | "source" | "valor";
+type SortColumn = "nome_lead" | "email" | "telefone_lead" | "stage" | "source" | "valor";
 type SortOrder = "asc" | "desc";
 
 const Leads = () => {
@@ -117,8 +118,7 @@ const Leads = () => {
       const matchesSearch =
         lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.telefone_lead.includes(searchQuery) ||
-        (lead.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (lead.empresa || "").toLowerCase().includes(searchQuery.toLowerCase());
+        (lead.email || "").toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
       const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
@@ -204,7 +204,7 @@ const Leads = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Buscar por nome, email ou empresa..." 
+            placeholder="Buscar por nome, email ou telefone..." 
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -260,7 +260,7 @@ const Leads = () => {
                 </TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Telefone</TableHead>
-                <TableHead>Empresa</TableHead>
+                <TableHead>Colaborador</TableHead>
                 <TableHead 
                   className="cursor-pointer select-none"
                   onClick={() => handleSort("stage")}
@@ -308,7 +308,13 @@ const Leads = () => {
                       <TableCell className="font-medium">{lead.nome_lead}</TableCell>
                       <TableCell className="text-muted-foreground">{lead.email || "-"}</TableCell>
                       <TableCell className="text-primary">{formatPhoneNumber(lead.telefone_lead)}</TableCell>
-                      <TableCell className="text-muted-foreground">{lead.empresa || "-"}</TableCell>
+                      <TableCell>
+                        <LeadResponsibleSelect
+                          leadId={lead.id}
+                          currentResponsible={lead.responsavel}
+                          onUpdate={loadLeads}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Badge className={`${statusInfo.color} text-white border-none`}>
                           {statusInfo.label}
