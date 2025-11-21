@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Package, Briefcase, Download } from "lucide-react";
+import { Edit, Trash2, Package, Briefcase, Download, LucideIcon } from "lucide-react";
 import { Item } from "@/pages/Producao";
 import {
   AlertDialog,
@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import * as Icons from "lucide-react";
 
 interface ItemCardProps {
   item: Item;
@@ -44,7 +45,16 @@ export function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
   };
 
   const typeConfig = getItemTypeConfig(item.item_type);
-  const TypeIcon = typeConfig.icon;
+  
+  // Use custom icon if available, otherwise use type default icon
+  const getDisplayIcon = (): LucideIcon => {
+    if (item.icon && item.icon in Icons) {
+      return Icons[item.icon as keyof typeof Icons] as LucideIcon;
+    }
+    return typeConfig.icon;
+  };
+  
+  const DisplayIcon = getDisplayIcon();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -65,7 +75,7 @@ export function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
         <div className="flex justify-between items-start">
           <div className="flex items-start gap-3 flex-1">
             <div className={`p-2 rounded-lg ${typeConfig.color}`}>
-              <TypeIcon className="h-5 w-5" />
+              <DisplayIcon className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
               <CardTitle className="text-lg truncate">{item.name}</CardTitle>

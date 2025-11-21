@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Item } from "@/pages/Producao";
+import { IconPicker } from "@/components/IconPicker";
 
 interface AddEditItemModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
   const [stockQuantity, setStockQuantity] = useState("");
   const [duration, setDuration] = useState("");
   const [resource, setResource] = useState("");
+  const [icon, setIcon] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -37,6 +39,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
       setStockQuantity(item.stock_quantity?.toString() || "");
       setDuration(item.duration || "");
       setResource(item.resource || "");
+      setIcon(item.icon || null);
     } else {
       resetForm();
     }
@@ -51,6 +54,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
     setStockQuantity("");
     setDuration("");
     setResource("");
+    setIcon(null);
   };
 
   const calculateProfitMargin = () => {
@@ -83,6 +87,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
         item_type: itemType,
         sale_price: parseFloat(salePrice) || 0,
         cost_price: parseFloat(costPrice) || 0,
+        icon: icon || null,
       };
 
       if (itemType === 'physical') {
@@ -193,6 +198,12 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
               rows={3}
             />
           </div>
+
+          <IconPicker
+            value={icon}
+            onChange={setIcon}
+            label="Ícone Personalizado"
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">

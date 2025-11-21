@@ -19,6 +19,7 @@ export interface Item {
   stock_quantity: number | null;
   duration: string | null;
   resource: string | null;
+  icon: string | null;
   created_at: string;
   updated_at: string;
 }
