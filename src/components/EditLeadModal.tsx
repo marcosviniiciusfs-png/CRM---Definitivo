@@ -2045,24 +2045,76 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       onClick={() => !isAdded && handleAddItem(item)}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-1">
                               {itemIcon || <FileText className="h-5 w-5 text-primary" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-medium truncate">{item.name}</h4>
-                              <p className="text-sm text-muted-foreground truncate">
-                                {item.description || "Sem descrição"}
-                              </p>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium truncate">{item.name}</h4>
+                                <Badge variant="outline" className="text-xs shrink-0">
+                                  {item.item_type === 'product' ? 'Produto' : 'Serviço'}
+                                </Badge>
+                              </div>
+                              
+                              {item.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                  {item.description}
+                                </p>
+                              )}
+                              
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2">
+                                <div>
+                                  <span className="text-muted-foreground">Preço de venda:</span>
+                                  <p className="font-medium text-green-600">R$ {item.sale_price.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Preço de custo:</span>
+                                  <p className="font-medium">R$ {item.cost_price.toFixed(2)}</p>
+                                </div>
+                                
+                                {item.profit_margin !== null && (
+                                  <div>
+                                    <span className="text-muted-foreground">Margem:</span>
+                                    <p className="font-medium">{item.profit_margin.toFixed(1)}%</p>
+                                  </div>
+                                )}
+                                
+                                {item.duration && (
+                                  <div>
+                                    <span className="text-muted-foreground">Duração:</span>
+                                    <p className="font-medium">{item.duration}</p>
+                                  </div>
+                                )}
+                                
+                                {item.stock_quantity !== null && (
+                                  <div>
+                                    <span className="text-muted-foreground">Estoque:</span>
+                                    <p className="font-medium">{item.stock_quantity} un.</p>
+                                  </div>
+                                )}
+                                
+                                {item.resource && (
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Recurso:</span>
+                                    <p className="font-medium">{item.resource}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right ml-4">
-                            <p className="font-semibold">
-                              R$ {item.sale_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                            {isAdded && (
-                              <Badge variant="secondary" className="mt-1">Adicionado</Badge>
+                          
+                          <div className="shrink-0">
+                            {isAdded ? (
+                              <Badge variant="secondary" className="gap-1">
+                                <Check className="h-3 w-3" />
+                                Adicionado
+                              </Badge>
+                            ) : (
+                              <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground">
+                                +
+                              </div>
                             )}
                           </div>
                         </div>
