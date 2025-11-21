@@ -111,6 +111,29 @@ const Dashboard = () => {
   const [goalId, setGoalId] = useState<string | null>(null);
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
   const [editDeadline, setEditDeadline] = useState<string>("");
+  
+  // Função para tocar som sutil ao passar o mouse
+  const playHoverSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800; // Frequência em Hz (tom agudo e sutil)
+      oscillator.type = 'sine'; // Tipo de onda
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Volume baixo
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1); // Duração de 0.1 segundos
+    } catch (error) {
+      console.log('Audio context not supported');
+    }
+  };
   useEffect(() => {
     loadGoal();
   }, [user]);
@@ -370,6 +393,7 @@ const Dashboard = () => {
                     dataKey="rate" 
                     radius={[4, 4, 0, 0]}
                     cursor="default"
+                    onMouseEnter={playHoverSound}
                     activeBar={(props: any) => {
                       const { x, y, width, height, payload } = props;
                       const centerX = x + width / 2;
