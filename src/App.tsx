@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Colaboradores from "./pages/Colaboradores";
 import Equipes from "./pages/Equipes";
 import Atividades from "./pages/Atividades";
+import Producao from "./pages/Producao";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUserDetails from "./pages/AdminUserDetails";
 import NotFound from "./pages/NotFound";
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LeadDetails /></DashboardLayout></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><DashboardLayout><Chat /></DashboardLayout></ProtectedRoute>} />
             <Route path="/administrativo/colaboradores" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />
+            <Route path="/administrativo/producao" element={<ProtectedRoute><Producao /></ProtectedRoute>} />
             <Route path="/administrativo/equipes" element={<ProtectedRoute><Equipes /></ProtectedRoute>} />
             <Route path="/administrativo/atividades" element={<ProtectedRoute><Atividades /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><Tasks /></DashboardLayout></ProtectedRoute>} />
