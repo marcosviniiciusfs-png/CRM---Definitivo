@@ -117,7 +117,7 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
           </div>
         </div>
         
-        <div className="space-y-0.5 pl-10">
+        <div className="space-y-0.5 pl-2">
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Phone className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{phone}</span>
