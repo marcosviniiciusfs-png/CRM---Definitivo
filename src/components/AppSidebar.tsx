@@ -32,7 +32,7 @@ const items = [
 
 const administrativoItems = [
   { title: "Colaboradores", url: "/administrativo/colaboradores", icon: UserCircle },
-  { title: "Produções", url: "/administrativo/producoes", icon: Layers },
+  { title: "Produção", url: "/administrativo/producao", icon: Layers },
   { title: "Equipes", url: "/administrativo/equipes", icon: Users },
   { title: "Atividades", url: "/administrativo/atividades", icon: Activity },
 ];

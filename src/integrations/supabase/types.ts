@@ -82,6 +82,62 @@ export type Database = {
           },
         ]
       }
+      items: {
+        Row: {
+          cost_price: number
+          created_at: string
+          description: string | null
+          duration: string | null
+          id: string
+          item_type: string
+          name: string
+          organization_id: string
+          profit_margin: number | null
+          resource: string | null
+          sale_price: number
+          stock_quantity: number | null
+          updated_at: string
+        }
+        Insert: {
+          cost_price?: number
+          created_at?: string
+          description?: string | null
+          duration?: string | null
+          id?: string
+          item_type: string
+          name: string
+          organization_id: string
+          profit_margin?: number | null
+          resource?: string | null
+          sale_price?: number
+          stock_quantity?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cost_price?: number
+          created_at?: string
+          description?: string | null
+          duration?: string | null
+          id?: string
+          item_type?: string
+          name?: string
+          organization_id?: string
+          profit_margin?: number | null
+          resource?: string | null
+          sale_price?: number
+          stock_quantity?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_activities: {
         Row: {
           activity_type: string
