@@ -70,11 +70,19 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     full_name?: string;
   }>>([]);
 
+  // Estados para produtos/serviços
+  const [availableItems, setAvailableItems] = useState<any[]>([]);
+  const [leadItems, setLeadItems] = useState<any[]>([]);
+  const [showItemsDialog, setShowItemsDialog] = useState(false);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+
   useEffect(() => {
     if (open) {
       fetchActivities();
       fetchColaboradores();
       loadDadosNegocio();
+      fetchAvailableItems();
+      fetchLeadItems();
     }
   }, [open]);
 
@@ -198,6 +206,123 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       }
     } catch (error) {
       console.error("Erro ao carregar colaboradores:", error);
+    }
+  };
+
+  const fetchAvailableItems = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: leadData } = await supabase
+        .from("leads")
+        .select("organization_id")
+        .eq("id", lead.id)
+        .single();
+
+      if (!leadData?.organization_id) return;
+
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("organization_id", leadData.organization_id)
+        .order("name");
+
+      if (error) throw error;
+      setAvailableItems(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar produtos:", error);
+    }
+  };
+
+  const fetchLeadItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("lead_items")
+        .select(`
+          *,
+          items (*)
+        `)
+        .eq("lead_id", lead.id);
+
+      if (error) throw error;
+      setLeadItems(data || []);
+      
+      // Calcular valor total
+      const total = (data || []).reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+      setEditedValue(total.toString());
+    } catch (error) {
+      console.error("Erro ao carregar itens do lead:", error);
+    }
+  };
+
+  const handleAddItem = async (item: any) => {
+    setIsLoadingItems(true);
+    try {
+      const { error } = await supabase
+        .from("lead_items")
+        .insert({
+          lead_id: lead.id,
+          item_id: item.id,
+          quantity: 1,
+          unit_price: item.sale_price,
+          total_price: item.sale_price
+        });
+
+      if (error) {
+        // Se já existe, mostra mensagem
+        if (error.code === '23505') {
+          toast.error("Este produto já foi adicionado ao lead");
+        } else {
+          throw error;
+        }
+      } else {
+        toast.success("Produto adicionado com sucesso!");
+        await fetchLeadItems();
+      }
+    } catch (error) {
+      console.error("Erro ao adicionar item:", error);
+      toast.error("Erro ao adicionar produto");
+    } finally {
+      setIsLoadingItems(false);
+    }
+  };
+
+  const handleRemoveItem = async (leadItemId: string) => {
+    try {
+      const { error } = await supabase
+        .from("lead_items")
+        .delete()
+        .eq("id", leadItemId);
+
+      if (error) throw error;
+
+      toast.success("Produto removido com sucesso!");
+      await fetchLeadItems();
+    } catch (error) {
+      console.error("Erro ao remover item:", error);
+      toast.error("Erro ao remover produto");
+    }
+  };
+
+  const handleUpdateQuantity = async (leadItemId: string, newQuantity: number, unitPrice: number) => {
+    if (newQuantity < 1) return;
+    
+    try {
+      const { error } = await supabase
+        .from("lead_items")
+        .update({
+          quantity: newQuantity,
+          total_price: newQuantity * unitPrice
+        })
+        .eq("id", leadItemId);
+
+      if (error) throw error;
+
+      await fetchLeadItems();
+    } catch (error) {
+      console.error("Erro ao atualizar quantidade:", error);
+      toast.error("Erro ao atualizar quantidade");
     }
   };
 
@@ -1324,10 +1449,55 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Produtos e serviços</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Nenhum produto ou serviço foi adicionado a este negócio
-                    </p>
-                    <Button variant="link" className="text-primary p-0 h-auto text-sm">
+                    {leadItems.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum produto ou serviço foi adicionado a este negócio
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {leadItems.map((leadItem: any) => (
+                          <div key={leadItem.id} className="flex items-center justify-between gap-2 p-2 bg-background rounded-md">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{leadItem.items?.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {leadItem.quantity}x R$ {leadItem.unit_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleUpdateQuantity(leadItem.id, leadItem.quantity - 1, leadItem.unit_price)}
+                              >
+                                <span className="text-lg">−</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleUpdateQuantity(leadItem.id, leadItem.quantity + 1, leadItem.unit_price)}
+                              >
+                                <span className="text-lg">+</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleRemoveItem(leadItem.id)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button 
+                      variant="link" 
+                      className="text-primary p-0 h-auto text-sm"
+                      onClick={() => setShowItemsDialog(true)}
+                    >
                       + Adicionar produtos/serviços
                     </Button>
                   </div>
@@ -1811,6 +1981,67 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           </div>
         </div>
       </DialogContent>
+
+      {/* Dialog de Produtos/Serviços */}
+      <Dialog open={showItemsDialog} onOpenChange={setShowItemsDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Produtos/Serviços</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {isLoadingItems ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : availableItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Nenhum produto/serviço disponível</p>
+                <p className="text-sm mt-2">Crie produtos na página de Produção primeiro</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 p-4">
+                {availableItems.map((item) => {
+                  const isAdded = leadItems.some((li: any) => li.item_id === item.id);
+                  return (
+                    <Card 
+                      key={item.id} 
+                      className={cn(
+                        "cursor-pointer transition-all hover:shadow-md",
+                        isAdded && "opacity-50 cursor-not-allowed"
+                      )}
+                      onClick={() => !isAdded && handleAddItem(item)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+                              {item.icon && <span className="text-xl">{item.icon}</span>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium truncate">{item.name}</h4>
+                              <p className="text-sm text-muted-foreground truncate">
+                                {item.description || "Sem descrição"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="font-semibold">
+                              R$ {item.sale_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                            {isAdded && (
+                              <Badge variant="secondary" className="mt-1">Adicionado</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
