@@ -17,6 +17,12 @@ import {
   Headphones, Megaphone, Leaf, Flower2, Trees, Dog, Cat
 } from "lucide-react";
 import { Search } from "lucide-react";
+import { FaTooth } from "react-icons/fa";
+
+// Wrapper para ícones do react-icons compatível com lucide
+const ToothIcon: React.FC<{ size?: number; color?: string; className?: string }> = ({ size = 24, color, className }) => (
+  <FaTooth size={size} color={color} className={className} />
+);
 
 const AVAILABLE_ICONS: { name: string; icon: LucideIcon }[] = [
   { name: "Package", icon: Package },
@@ -86,6 +92,7 @@ const AVAILABLE_ICONS: { name: string; icon: LucideIcon }[] = [
   { name: "Trees", icon: Trees },
   { name: "Dog", icon: Dog },
   { name: "Cat", icon: Cat },
+  { name: "Tooth", icon: ToothIcon as any },
 ];
 
 interface IconPickerProps {
