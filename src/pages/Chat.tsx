@@ -91,6 +91,7 @@ const Chat = () => {
   const [removeTagsDialogOpen, setRemoveTagsDialogOpen] = useState(false);
   const [leadToRemoveTags, setLeadToRemoveTags] = useState<string | null>(null);
   const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
+  const [currentUserName, setCurrentUserName] = useState<string>("Atendente");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const firstSearchResultRef = useRef<HTMLDivElement>(null);
   const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
@@ -108,6 +109,58 @@ const Chat = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Carregar nome do usuário atual do perfil
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao carregar perfil do usuário:', error);
+          return;
+        }
+
+        if (profileData?.full_name) {
+          setCurrentUserName(profileData.full_name);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar perfil:', error);
+      }
+    };
+
+    loadUserProfile();
+
+    // Configurar realtime para atualizar quando o perfil mudar
+    const profileChannel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user?.id}`
+        },
+        (payload) => {
+          console.log('Perfil atualizado:', payload);
+          if (payload.new?.full_name) {
+            setCurrentUserName(payload.new.full_name);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+    };
+  }, [user?.id]);
 
   // Carregar leads e configurar realtime
   useEffect(() => {
@@ -712,11 +765,8 @@ const Chat = () => {
         status: instanceData.status
       });
 
-      // Nome do usuário logado ou fallback para "Atendente"
-      const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || "Atendente";
-      
-      // Formatar mensagem: *Nome:* com quebra de linha
-      const messageForEvolution = `*${userName}:*\n${text.trim()}`;
+      // Formatar mensagem com o nome do usuário atual do perfil
+      const messageForEvolution = `*${currentUserName}:*\n${text.trim()}`;
 
       console.log('📤 Enviando mensagem:', {
         instance: instanceData.instance_name,
