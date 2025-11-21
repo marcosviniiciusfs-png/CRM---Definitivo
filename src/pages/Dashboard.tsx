@@ -450,43 +450,103 @@ const Dashboard = () => {
                     contentStyle={{
                       backgroundColor: 'hsl(var(--popover))',
                       border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                      padding: '8px 12px'
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                     }} 
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const currentRate = payload[0].value as number;
                         const currentIndex = conversionData.findIndex(d => d.rate === currentRate);
+                        const currentMonth = conversionData[currentIndex]?.month;
                         const previousRate = currentIndex > 0 ? conversionData[currentIndex - 1].rate : null;
                         const difference = previousRate ? currentRate - previousRate : null;
                         const percentChange = previousRate ? ((difference! / previousRate) * 100) : null;
+                        
+                        // Calcular média móvel dos últimos 3 meses
+                        const startIndex = Math.max(0, currentIndex - 2);
+                        const movingAverageData = conversionData.slice(startIndex, currentIndex + 1);
+                        const movingAverage = movingAverageData.reduce((sum, d) => sum + d.rate, 0) / movingAverageData.length;
+                        
+                        // Calcular tendência (comparar com média)
+                        const trend = currentRate - movingAverage;
+                        const trendPercent = (trend / movingAverage) * 100;
                         
                         return (
                           <div style={{
                             backgroundColor: 'hsl(var(--popover))',
                             border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px',
-                            padding: '8px 12px'
+                            borderRadius: '8px',
+                            padding: '12px 14px',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                            minWidth: '200px'
                           }}>
-                            <p style={{ margin: 0, fontWeight: 600, color: '#00b34c' }}>
-                              {currentRate}%
-                            </p>
-                            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>
-                              Taxa de Conversão
-                            </p>
+                            {/* Cabeçalho */}
+                            <div style={{ borderBottom: '1px solid hsl(var(--border))', paddingBottom: '8px', marginBottom: '8px' }}>
+                              <p style={{ margin: 0, fontSize: '10px', color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {currentMonth}
+                              </p>
+                              <p style={{ margin: '2px 0 0 0', fontWeight: 700, fontSize: '20px', color: '#00b34c' }}>
+                                {currentRate}%
+                              </p>
+                              <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>
+                                Taxa de Conversão
+                              </p>
+                            </div>
+                            
+                            {/* Comparação com mês anterior */}
                             {difference !== null && (
+                              <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid hsl(var(--border))' }}>
+                                <p style={{ margin: '0 0 4px 0', fontSize: '10px', color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  vs. Mês Anterior
+                                </p>
+                                <p style={{ 
+                                  margin: 0, 
+                                  fontSize: '13px',
+                                  color: difference >= 0 ? '#00b34c' : '#ef4444',
+                                  fontWeight: 600,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{difference.toFixed(1)}% 
+                                  <span style={{ opacity: 0.7, fontSize: '11px', fontWeight: 400 }}>
+                                    ({percentChange! >= 0 ? '+' : ''}{percentChange!.toFixed(1)}%)
+                                  </span>
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* Média Móvel (3 meses) */}
+                            <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid hsl(var(--border))' }}>
+                              <p style={{ margin: '0 0 4px 0', fontSize: '10px', color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Média Móvel (3 meses)
+                              </p>
+                              <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}>
+                                {movingAverage.toFixed(2)}%
+                              </p>
+                            </div>
+                            
+                            {/* Tendência */}
+                            <div>
+                              <p style={{ margin: '0 0 4px 0', fontSize: '10px', color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Tendência
+                              </p>
                               <p style={{ 
-                                margin: '6px 0 0 0', 
-                                fontSize: '11px',
-                                color: difference >= 0 ? '#00b34c' : '#ef4444',
-                                fontWeight: 500
+                                margin: 0, 
+                                fontSize: '13px',
+                                color: trend >= 0 ? '#00b34c' : '#ef4444',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                {difference >= 0 ? '+' : ''}{difference.toFixed(1)}% 
-                                <span style={{ opacity: 0.7 }}>
-                                  {' '}({percentChange! >= 0 ? '+' : ''}{percentChange!.toFixed(1)}%)
+                                {trend >= 0 ? '📈' : '📉'} {trend >= 0 ? 'Acima' : 'Abaixo'} da média
+                                <span style={{ opacity: 0.7, fontSize: '11px', fontWeight: 400 }}>
+                                  ({trendPercent >= 0 ? '+' : ''}{trendPercent.toFixed(1)}%)
                                 </span>
                               </p>
-                            )}
+                            </div>
                           </div>
                         );
                       }
