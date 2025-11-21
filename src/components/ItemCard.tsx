@@ -40,7 +40,7 @@ export function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
         color: 'bg-purple-500/10 text-purple-500 border-purple-500/20'
       }
     };
-    return configs[type as keyof typeof configs];
+    return configs[type as keyof typeof configs] || configs.physical;
   };
 
   const typeConfig = getItemTypeConfig(item.item_type);
