@@ -63,10 +63,11 @@ serve(async (req) => {
       )
     }
 
-    // Only owners and admins can add members
+    // Only owners and admins can add members - members cannot invite other users
     if (memberData.role !== 'owner' && memberData.role !== 'admin') {
+      console.log(`❌ Usuário ${user.id} com role '${memberData.role}' tentou adicionar membro - NEGADO`);
       return new Response(
-        JSON.stringify({ error: 'Apenas proprietários e administradores podem adicionar membros' }),
+        JSON.stringify({ error: 'Acesso negado: apenas proprietários e administradores podem adicionar colaboradores à organização' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
       )
     }
