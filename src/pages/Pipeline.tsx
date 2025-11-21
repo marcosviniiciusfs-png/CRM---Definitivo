@@ -292,17 +292,8 @@ const Pipeline = () => {
   const getLeadsByStage = (stageId: string) => {
     const filtered = leads.filter((lead) => (lead.stage || "NOVO") === stageId);
     
-    // Se for stage NOVO, ordenar por created_at DESC (mais recentes primeiro)
-    // Outros stages mantêm ordenação por position
-    if (stageId === "NOVO") {
-      filtered.sort((a, b) => {
-        const dateA = new Date(a.created_at || 0).getTime();
-        const dateB = new Date(b.created_at || 0).getTime();
-        return dateB - dateA; // Mais recentes primeiro
-      });
-    } else {
-      filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
-    }
+    // Ordenar por position para todos os stages
+    filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
     
     console.log(`Leads no stage ${stageId}:`, filtered.length);
     return filtered;
