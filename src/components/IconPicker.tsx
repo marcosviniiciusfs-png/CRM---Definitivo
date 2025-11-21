@@ -10,7 +10,8 @@ import {
   Wrench, Paintbrush, Scissors, Hammer, Settings, Gift, Heart,
   Star, Crown, Sparkles, Zap, Trophy, Target, Flag, Tag,
   Box, Archive, Boxes, Container, Layers, Package2, PackageCheck,
-  ShoppingBag, Store, Warehouse, FileBox, FolderOpen, LucideIcon
+  ShoppingBag, Store, Warehouse, FileBox, FolderOpen, LucideIcon,
+  Bike, Scale, PillBottle
 } from "lucide-react";
 import { Search } from "lucide-react";
 
@@ -30,6 +31,7 @@ const AVAILABLE_ICONS: { name: string; icon: LucideIcon }[] = [
   { name: "Tv", icon: Tv },
   { name: "Watch", icon: Watch },
   { name: "Car", icon: Car },
+  { name: "Bike", icon: Bike },
   { name: "Home", icon: Home },
   { name: "Wrench", icon: Wrench },
   { name: "Paintbrush", icon: Paintbrush },
@@ -58,6 +60,8 @@ const AVAILABLE_ICONS: { name: string; icon: LucideIcon }[] = [
   { name: "Warehouse", icon: Warehouse },
   { name: "FileBox", icon: FileBox },
   { name: "FolderOpen", icon: FolderOpen },
+  { name: "Scale", icon: Scale },
+  { name: "PillBottle", icon: PillBottle },
 ];
 
 interface IconPickerProps {
