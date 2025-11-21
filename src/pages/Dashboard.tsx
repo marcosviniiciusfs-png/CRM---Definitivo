@@ -357,6 +357,15 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground mb-2">Evolução (últimos 6 meses)</p>
               <ResponsiveContainer width="100%" height={120}>
                 <BarChart data={conversionData} className="rounded-sm shadow px-0 py-0 pr-0 mx-0 mr-0 mb-0 mt-[100px]">
+                  <defs>
+                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                      <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </defs>
                   <Bar 
                     dataKey="rate" 
                     radius={[4, 4, 0, 0]}
@@ -377,6 +386,7 @@ const Dashboard = () => {
                           height={newHeight}
                           fill={getBarColor(payload.rate)}
                           radius={[4, 4, 0, 0]}
+                          filter="url(#glow)"
                           style={{ transition: 'all 0.2s ease' }}
                         />
                       );
