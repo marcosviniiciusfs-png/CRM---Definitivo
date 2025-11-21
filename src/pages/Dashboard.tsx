@@ -111,6 +111,14 @@ const Dashboard = () => {
   const [goalId, setGoalId] = useState<string | null>(null);
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
   const [editDeadline, setEditDeadline] = useState<string>("");
+  const [animateChart, setAnimateChart] = useState(false);
+  
+  // Acionar animação após carregamento
+  useEffect(() => {
+    if (!loading) {
+      setTimeout(() => setAnimateChart(true), 100);
+    }
+  }, [loading]);
   
   // Função para tocar som sutil ao passar o mouse
   const playHoverSound = () => {
@@ -394,6 +402,10 @@ const Dashboard = () => {
                     radius={[4, 4, 0, 0]}
                     cursor="default"
                     onMouseEnter={playHoverSound}
+                    isAnimationActive={animateChart}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
                     activeBar={(props: any) => {
                       const { x, y, width, height, payload } = props;
                       const centerX = x + width / 2;
@@ -416,7 +428,9 @@ const Dashboard = () => {
                       );
                     }}
                     shape={(props: any) => {
-                      const { x, y, width, height, payload } = props;
+                      const { x, y, width, height, payload, index } = props;
+                      const barDelay = index * 100; // 100ms de delay entre cada barra
+                      
                       return (
                         <Rectangle
                           x={x}
@@ -425,6 +439,9 @@ const Dashboard = () => {
                           height={height}
                           fill={getBarColor(payload.rate)}
                           radius={[4, 4, 0, 0]}
+                          style={{ 
+                            animation: animateChart ? `slideUp 0.5s ease-out ${barDelay}ms both` : 'none',
+                          }}
                         />
                       );
                     }}
