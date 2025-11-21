@@ -363,14 +363,21 @@ const Dashboard = () => {
                     cursor="default"
                     activeBar={(props: any) => {
                       const { x, y, width, height, payload } = props;
+                      const centerX = x + width / 2;
+                      const newWidth = width * 1.1;
+                      const newHeight = height * 1.05;
+                      const newX = centerX - newWidth / 2;
+                      const newY = y - (newHeight - height);
+                      
                       return (
                         <Rectangle
-                          x={x}
-                          y={y}
-                          width={width}
-                          height={height}
+                          x={newX}
+                          y={newY}
+                          width={newWidth}
+                          height={newHeight}
                           fill={getBarColor(payload.rate)}
                           radius={[4, 4, 0, 0]}
+                          style={{ transition: 'all 0.2s ease' }}
                         />
                       );
                     }}
