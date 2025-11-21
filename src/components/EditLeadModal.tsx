@@ -17,13 +17,25 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check, LucideIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import * as Icons from "lucide-react";
+import { FaTooth } from "react-icons/fa";
+
+// Wrapper para ícone do react-icons
+const ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <FaTooth className={className} />
+);
+
+// Mapa de ícones customizados (não-lucide)
+const customIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  Tooth: ToothIcon,
+};
 
 interface EditLeadModalProps {
   lead: Lead;
@@ -324,6 +336,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       console.error("Erro ao atualizar quantidade:", error);
       toast.error("Erro ao atualizar quantidade");
     }
+  };
+
+  // Função para renderizar ícone
+  const getItemIcon = (iconName: string | null) => {
+    if (!iconName) return null;
+    
+    // Verificar ícones customizados primeiro
+    if (iconName in customIcons) {
+      const CustomIcon = customIcons[iconName];
+      return <CustomIcon className="h-5 w-5 text-primary" />;
+    }
+    
+    // Verificar ícones do Lucide
+    if (iconName in Icons) {
+      const LucideIcon = Icons[iconName as keyof typeof Icons] as LucideIcon;
+      return <LucideIcon className="h-5 w-5 text-primary" />;
+    }
+    
+    return null;
   };
 
   const fetchActivities = async () => {
@@ -2002,6 +2033,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
               <div className="grid gap-3 p-4">
                 {availableItems.map((item) => {
                   const isAdded = leadItems.some((li: any) => li.item_id === item.id);
+                  const itemIcon = getItemIcon(item.icon);
+                  
                   return (
                     <Card 
                       key={item.id} 
@@ -2015,7 +2048,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 flex-1">
                             <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
-                              {item.icon && <span className="text-xl">{item.icon}</span>}
+                              {itemIcon || <FileText className="h-5 w-5 text-primary" />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium truncate">{item.name}</h4>
