@@ -141,18 +141,6 @@ All colors MUST be HSL.
     display: none;  /* Chrome, Safari e Opera */
   }
 
-  /* Animação de entrada das barras em cascata */
-  @keyframes slideUp {
-    0% {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-    100% {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
   /* Borda verde fluorescente */
   .glow-border {
     border: 1px solid hsl(var(--glow-green));

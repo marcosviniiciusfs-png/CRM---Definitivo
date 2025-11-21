@@ -83,15 +83,9 @@ const conversionData = [{
 }];
 
 // Função para calcular a cor da barra baseada no valor
-const getBarColor = (value: number, historyData: typeof conversionData) => {
-  if (historyData.length === 0) return '#00b34c';
-  
-  const rates = historyData.map(d => d.rate);
-  const minRate = Math.min(...rates);
-  const maxRate = Math.max(...rates);
-  
-  if (minRate === maxRate) return '#00b34c';
-  
+const getBarColor = (value: number) => {
+  const minRate = 5.2;
+  const maxRate = 7.5;
   const normalized = (value - minRate) / (maxRate - minRate);
   
   // Verde escuro (#006928) para valores baixos
@@ -117,97 +111,6 @@ const Dashboard = () => {
   const [goalId, setGoalId] = useState<string | null>(null);
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
   const [editDeadline, setEditDeadline] = useState<string>("");
-  const [animateChart, setAnimateChart] = useState(false);
-  const [conversionRate, setConversionRate] = useState(7.5);
-  const [conversionTrend, setConversionTrend] = useState("+1.2%");
-  const [conversionHistory, setConversionHistory] = useState(conversionData);
-  
-  // Acionar animação após carregamento
-  useEffect(() => {
-    if (!loading) {
-      setTimeout(() => setAnimateChart(true), 100);
-    }
-  }, [loading]);
-
-  // Carregar dados de conversão
-  useEffect(() => {
-    loadConversionData();
-  }, [user]);
-
-  const loadConversionData = async () => {
-    try {
-      if (!user) return;
-
-      // Buscar organization_id
-      const { data: orgMember } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!orgMember) return;
-
-      // Buscar todos os leads da organização
-      const { data: leads, error } = await supabase
-        .from('leads')
-        .select('stage, created_at')
-        .eq('organization_id', orgMember.organization_id);
-
-      if (error) throw error;
-      if (!leads || leads.length === 0) return;
-
-      // Calcular taxa de conversão atual
-      // Considerando leads com stage diferente de "NOVO" como leads trabalhados
-      // e leads com stage "GANHO" ou que tenham data_conclusao como convertidos
-      const totalLeads = leads.length;
-      const convertedLeads = leads.filter(lead => 
-        lead.stage === 'GANHO' || lead.stage === 'CONCLUIDO'
-      ).length;
-      
-      const currentRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
-      setConversionRate(Number(currentRate.toFixed(1)));
-
-      // Calcular histórico dos últimos 6 meses
-      const now = new Date();
-      const monthlyData = [];
-      
-      for (let i = 5; i >= 0; i--) {
-        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const nextMonthDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-        
-        const monthLeads = leads.filter(lead => {
-          const leadDate = new Date(lead.created_at);
-          return leadDate >= monthDate && leadDate < nextMonthDate;
-        });
-
-        const monthConverted = monthLeads.filter(lead => 
-          lead.stage === 'GANHO' || lead.stage === 'CONCLUIDO'
-        ).length;
-
-        const monthRate = monthLeads.length > 0 
-          ? (monthConverted / monthLeads.length) * 100 
-          : 0;
-
-        monthlyData.push({
-          month: monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
-          rate: Number(monthRate.toFixed(1))
-        });
-      }
-
-      setConversionHistory(monthlyData);
-
-      // Calcular tendência (comparar com mês anterior)
-      if (monthlyData.length >= 2) {
-        const currentMonth = monthlyData[monthlyData.length - 1].rate;
-        const previousMonth = monthlyData[monthlyData.length - 2].rate;
-        const diff = currentMonth - previousMonth;
-        setConversionTrend(diff >= 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`);
-      }
-
-    } catch (error) {
-      console.error('Erro ao carregar dados de conversão:', error);
-    }
-  };
   
   // Função para tocar som sutil ao passar o mouse
   const playHoverSound = () => {
@@ -457,7 +360,7 @@ const Dashboard = () => {
                 <div>
                   <p className="text-4xl font-bold" style={{
                   color: '#00b34c'
-                }}>{conversionRate}%</p>
+                }}>7.5%</p>
                   <p className="text-xs text-muted-foreground">Leads → Clientes</p>
                 </div>
               </div>
@@ -469,14 +372,14 @@ const Dashboard = () => {
               }} />
                 <span className="text-xs font-medium" style={{
                 color: '#00b34c'
-              }}>{conversionTrend}</span>
+              }}>+1.2%</span>
               </div>
             </div>
             
             <div>
               <p className="text-xs text-muted-foreground mb-2">Evolução (últimos 6 meses)</p>
               <ResponsiveContainer width="100%" height={120}>
-                <BarChart data={conversionHistory} className="rounded-sm shadow px-0 py-0 pr-0 mx-0 mr-0 mb-0 mt-[100px]">
+                <BarChart data={conversionData} className="rounded-sm shadow px-0 py-0 pr-0 mx-0 mr-0 mb-0 mt-[100px]">
                   <defs>
                     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
                       <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
@@ -491,10 +394,6 @@ const Dashboard = () => {
                     radius={[4, 4, 0, 0]}
                     cursor="default"
                     onMouseEnter={playHoverSound}
-                    isAnimationActive={animateChart}
-                    animationBegin={0}
-                    animationDuration={800}
-                    animationEasing="ease-out"
                     activeBar={(props: any) => {
                       const { x, y, width, height, payload } = props;
                       const centerX = x + width / 2;
@@ -509,7 +408,7 @@ const Dashboard = () => {
                           y={newY}
                           width={newWidth}
                           height={newHeight}
-                          fill={getBarColor(payload.rate, conversionHistory)}
+                          fill={getBarColor(payload.rate)}
                           radius={[4, 4, 0, 0]}
                           filter="url(#glow)"
                           style={{ transition: 'all 0.2s ease' }}
@@ -517,20 +416,15 @@ const Dashboard = () => {
                       );
                     }}
                     shape={(props: any) => {
-                      const { x, y, width, height, payload, index } = props;
-                      const barDelay = index * 100; // 100ms de delay entre cada barra
-                      
+                      const { x, y, width, height, payload } = props;
                       return (
                         <Rectangle
                           x={x}
                           y={y}
                           width={width}
                           height={height}
-                          fill={getBarColor(payload.rate, conversionHistory)}
+                          fill={getBarColor(payload.rate)}
                           radius={[4, 4, 0, 0]}
-                          style={{ 
-                            animation: animateChart ? `slideUp 0.5s ease-out ${barDelay}ms both` : 'none',
-                          }}
                         />
                       );
                     }}
@@ -550,8 +444,8 @@ const Dashboard = () => {
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const currentRate = payload[0].value as number;
-                        const currentIndex = conversionHistory.findIndex(d => d.rate === currentRate);
-                        const previousRate = currentIndex > 0 ? conversionHistory[currentIndex - 1].rate : null;
+                        const currentIndex = conversionData.findIndex(d => d.rate === currentRate);
+                        const previousRate = currentIndex > 0 ? conversionData[currentIndex - 1].rate : null;
                         const difference = previousRate ? currentRate - previousRate : null;
                         const percentChange = previousRate ? ((difference! / previousRate) * 100) : null;
                         
