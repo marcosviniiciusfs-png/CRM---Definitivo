@@ -33,6 +33,7 @@ const Colaboradores = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [stats, setStats] = useState({
     ativos: 0,
     novos: 0,
@@ -98,9 +99,11 @@ const Colaboradores = () => {
       }
 
       const orgId = memberData.organization_id;
+      const userCurrentRole = memberData.role;
       setOrganizationId(orgId);
+      setUserRole(userCurrentRole);
       
-      console.log('🏢 Organização carregada:', orgId);
+      console.log('🏢 Organização carregada:', orgId, 'Role:', userCurrentRole);
       
       // Load all members of the organization
       const { data: members, error: membersError } = await supabase
@@ -193,6 +196,16 @@ const Colaboradores = () => {
 
   const handleAddColaborador = async () => {
     try {
+      // Check if user has permission
+      if (userRole !== 'owner' && userRole !== 'admin') {
+        toast({
+          title: "Acesso negado",
+          description: "Apenas proprietários e administradores podem adicionar colaboradores",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Validate all fields
       const validationResult = emailSchema.safeParse(newColaborador.email);
       
@@ -348,15 +361,19 @@ const Colaboradores = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <Button 
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => setIsDialogOpen(true)}
-            >
-              Novo Colaborador
-            </Button>
-            <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
-              Lote de Colaboradores
-            </Button>
+            {(userRole === 'owner' || userRole === 'admin') && (
+              <>
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  Novo Colaborador
+                </Button>
+                <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
+                  Lote de Colaboradores
+                </Button>
+              </>
+            )}
             <Button variant="secondary">
               Ver Inativos
             </Button>
