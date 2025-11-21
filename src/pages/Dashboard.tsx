@@ -1,6 +1,7 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle } from "lucide-react";
+import outcomeGif from "@/assets/outcome.gif";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -354,9 +355,11 @@ const Dashboard = () => {
                 <div className="p-2 rounded-lg" style={{
                 backgroundColor: 'rgba(0, 179, 76, 0.1)'
               }}>
-                  <Target className="w-8 h-8" style={{
-                  color: '#00b34c'
-                }} />
+                  <img 
+                    src={outcomeGif} 
+                    alt="Taxa de Conversão" 
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div>
                   <p className="text-4xl font-bold" style={{
