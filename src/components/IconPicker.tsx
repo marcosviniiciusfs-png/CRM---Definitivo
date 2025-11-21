@@ -11,7 +11,10 @@ import {
   Star, Crown, Sparkles, Zap, Trophy, Target, Flag, Tag,
   Box, Archive, Boxes, Container, Layers, Package2, PackageCheck,
   ShoppingBag, Store, Warehouse, FileBox, FolderOpen, LucideIcon,
-  Bike, Scale, PillBottle
+  Bike, Scale, PillBottle, Stethoscope, Syringe, Activity, Pill,
+  GraduationCap, Building2, Plane, Truck, Utensils, ChefHat,
+  Dumbbell, Scissors as ScissorsIcon, Palette, Pencil, Calculator,
+  Headphones, Megaphone, Leaf, Flower2, Trees, Dog, Cat
 } from "lucide-react";
 import { Search } from "lucide-react";
 
@@ -35,7 +38,7 @@ const AVAILABLE_ICONS: { name: string; icon: LucideIcon }[] = [
   { name: "Home", icon: Home },
   { name: "Wrench", icon: Wrench },
   { name: "Paintbrush", icon: Paintbrush },
-  { name: "Scissors", icon: Scissors },
+  { name: "Scissors", icon: ScissorsIcon },
   { name: "Hammer", icon: Hammer },
   { name: "Settings", icon: Settings },
   { name: "Gift", icon: Gift },
@@ -62,6 +65,27 @@ const AVAILABLE_ICONS: { name: string; icon: LucideIcon }[] = [
   { name: "FolderOpen", icon: FolderOpen },
   { name: "Scale", icon: Scale },
   { name: "PillBottle", icon: PillBottle },
+  { name: "Stethoscope", icon: Stethoscope },
+  { name: "Syringe", icon: Syringe },
+  { name: "Activity", icon: Activity },
+  { name: "Pill", icon: Pill },
+  { name: "GraduationCap", icon: GraduationCap },
+  { name: "Building2", icon: Building2 },
+  { name: "Plane", icon: Plane },
+  { name: "Truck", icon: Truck },
+  { name: "Utensils", icon: Utensils },
+  { name: "ChefHat", icon: ChefHat },
+  { name: "Dumbbell", icon: Dumbbell },
+  { name: "Palette", icon: Palette },
+  { name: "Pencil", icon: Pencil },
+  { name: "Calculator", icon: Calculator },
+  { name: "Headphones", icon: Headphones },
+  { name: "Megaphone", icon: Megaphone },
+  { name: "Leaf", icon: Leaf },
+  { name: "Flower2", icon: Flower2 },
+  { name: "Trees", icon: Trees },
+  { name: "Dog", icon: Dog },
+  { name: "Cat", icon: Cat },
 ];
 
 interface IconPickerProps {
