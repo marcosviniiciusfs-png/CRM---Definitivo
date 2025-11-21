@@ -351,12 +351,33 @@ const Dashboard = () => {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg" style={{
+                <div className="p-2 rounded-lg relative overflow-visible" style={{
                 backgroundColor: 'rgba(0, 179, 76, 0.1)'
               }}>
-                  <Target className="w-8 h-8" style={{
+                  <Target className="w-8 h-8 animate-[shake_0.5s_ease-in-out_3s_1]" style={{
                   color: '#00b34c'
                 }} />
+                  {/* Flecha animada */}
+                  <svg 
+                    className="absolute w-5 h-5 animate-[arrow-hit_3s_ease-out_forwards]" 
+                    style={{
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      pointerEvents: 'none'
+                    }}
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path 
+                      d="M5 12h14m-7-7l7 7-7 7" 
+                      stroke="#00b34c" 
+                      strokeWidth="2.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </div>
                 <div>
                   <p className="text-4xl font-bold" style={{

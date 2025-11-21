@@ -106,11 +106,38 @@ export default {
             boxShadow: "0 0 16px -6px hsl(var(--new-lead-glow) / 0.5)",
           },
         },
+        "arrow-hit": {
+          "0%": {
+            transform: "translate(-200%, -200%) scale(0.5)",
+            opacity: "0",
+          },
+          "70%": {
+            transform: "translate(-50%, -50%) scale(1)",
+            opacity: "1",
+          },
+          "100%": {
+            transform: "translate(-50%, -50%) scale(1)",
+            opacity: "1",
+          },
+        },
+        "shake": {
+          "0%, 100%": {
+            transform: "translateX(0) rotate(0deg)",
+          },
+          "10%, 30%, 50%, 70%, 90%": {
+            transform: "translateX(-2px) rotate(-2deg)",
+          },
+          "20%, 40%, 60%, 80%": {
+            transform: "translateX(2px) rotate(2deg)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "glow-pulse": "glow-pulse 5s ease-in-out infinite",
+        "arrow-hit": "arrow-hit 3s ease-out forwards",
+        "shake": "shake 0.5s ease-in-out",
       },
     },
   },
