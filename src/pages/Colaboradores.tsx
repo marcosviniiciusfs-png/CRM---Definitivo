@@ -34,6 +34,9 @@ const Colaboradores = () => {
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [colaboradorToDelete, setColaboradorToDelete] = useState<Colaborador | null>(null);
   const [stats, setStats] = useState({
     ativos: 0,
     novos: 0,
@@ -102,6 +105,7 @@ const Colaboradores = () => {
       const userCurrentRole = memberData.role;
       setOrganizationId(orgId);
       setUserRole(userCurrentRole);
+      setCurrentUserId(user.id);
       
       console.log('🏢 Organização carregada:', orgId, 'Role:', userCurrentRole);
       
@@ -319,6 +323,64 @@ const Colaboradores = () => {
     }
   };
 
+  const handleDeleteColaborador = (colaborador: Colaborador) => {
+    // Verificar se é owner
+    if (userRole !== 'owner') {
+      toast({
+        title: "Acesso negado",
+        description: "Apenas o proprietário da organização pode excluir colaboradores",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Impedir auto-exclusão
+    if (colaborador.user_id === currentUserId) {
+      toast({
+        title: "Ação não permitida",
+        description: "Você não pode excluir sua própria conta",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setColaboradorToDelete(colaborador);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteColaborador = async () => {
+    if (!colaboradorToDelete) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('organization_members')
+        .delete()
+        .eq('id', colaboradorToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Colaborador removido",
+        description: `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi removido da organização`,
+      });
+
+      // Recarregar dados
+      await loadOrganizationData();
+      setDeleteDialogOpen(false);
+      setColaboradorToDelete(null);
+    } catch (error: any) {
+      console.error('Erro ao excluir colaborador:', error);
+      toast({
+        title: "Erro ao excluir",
+        description: error.message || "Não foi possível excluir o colaborador",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredColaboradores = colaboradores.filter((colab) =>
     colab.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
   );
@@ -488,18 +550,19 @@ const Colaboradores = () => {
                     <TableHead className="font-semibold">CARGO</TableHead>
                     <TableHead className="font-semibold">STATUS</TableHead>
                     <TableHead className="font-semibold">CRIAÇÃO</TableHead>
+                    {userRole === 'owner' && <TableHead className="font-semibold">AÇÕES</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">
+                      <TableCell colSpan={userRole === 'owner' ? 5 : 4} className="text-center py-8">
                         <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
                       </TableCell>
                     </TableRow>
                   ) : filteredColaboradores.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={userRole === 'owner' ? 5 : 4} className="text-center py-8 text-muted-foreground">
                         Nenhum colaborador encontrado
                       </TableCell>
                     </TableRow>
@@ -550,6 +613,24 @@ const Colaboradores = () => {
                         <TableCell className="text-gray-600">
                           {new Date(colab.created_at).toLocaleDateString('pt-BR')}
                         </TableCell>
+                        {userRole === 'owner' && (
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteColaborador(colab)}
+                              disabled={colab.user_id === currentUserId}
+                              className={
+                                colab.user_id === currentUserId
+                                  ? "text-muted-foreground cursor-not-allowed"
+                                  : "text-red-600 hover:text-red-700 hover:bg-red-50"
+                              }
+                            >
+                              <UserX className="h-4 w-4 mr-1" />
+                              Excluir
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
@@ -640,6 +721,69 @@ const Colaboradores = () => {
                   </>
                 ) : (
                   "Criar Colaborador"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de confirmação de exclusão */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Confirmar Exclusão</DialogTitle>
+              <DialogDescription>
+                Tem certeza que deseja remover este colaborador da organização?
+              </DialogDescription>
+            </DialogHeader>
+            {colaboradorToDelete && (
+              <div className="py-4">
+                <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                  <Avatar className="h-12 w-12">
+                    {colaboradorToDelete.avatar_url && (
+                      <AvatarImage src={colaboradorToDelete.avatar_url} />
+                    )}
+                    <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
+                      {getInitials(colaboradorToDelete.full_name || colaboradorToDelete.email || 'NC')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">
+                      {colaboradorToDelete.full_name || 'Nome não cadastrado'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {colaboradorToDelete.email}
+                    </p>
+                    <Badge className={getRoleColor(colaboradorToDelete.role)}>
+                      {getRoleLabel(colaboradorToDelete.role)}
+                    </Badge>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Esta ação não pode ser desfeita. O colaborador perderá acesso à organização.
+                </p>
+              </div>
+            )}
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={confirmDeleteColaborador}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Excluindo...
+                  </>
+                ) : (
+                  "Confirmar Exclusão"
                 )}
               </Button>
             </DialogFooter>
