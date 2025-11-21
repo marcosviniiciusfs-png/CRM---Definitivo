@@ -1,8 +1,8 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,19 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
+import { supabase } from "@/integrations/supabase/client";
+import * as Icons from "lucide-react";
+import { FaTooth } from "react-icons/fa";
+
+// Wrapper para ícone do react-icons
+const ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <FaTooth className={className} />
+);
+
+// Mapa de ícones customizados (não-lucide)
+const customIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  Tooth: ToothIcon,
+};
 
 interface LeadCardProps {
   id: string;
@@ -30,6 +43,8 @@ interface LeadCardProps {
 export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, createdAt, onUpdate, onEdit }: LeadCardProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [leadItems, setLeadItems] = useState<any[]>([]);
+  const [totalValue, setTotalValue] = useState<number>(0);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
@@ -63,6 +78,51 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
   };
 
   const hasRedBorder = isNewLead();
+
+  // Buscar produtos/serviços atribuídos ao lead
+  useEffect(() => {
+    const fetchLeadItems = async () => {
+      const { data, error } = await supabase
+        .from('lead_items')
+        .select(`
+          *,
+          items:item_id (
+            id,
+            name,
+            icon,
+            sale_price
+          )
+        `)
+        .eq('lead_id', id);
+
+      if (!error && data) {
+        setLeadItems(data);
+        const total = data.reduce((sum, item) => sum + (item.total_price || 0), 0);
+        setTotalValue(total);
+      }
+    };
+
+    fetchLeadItems();
+  }, [id]);
+
+  // Função para renderizar ícone
+  const getItemIcon = (iconName: string | null, size: string = "h-4 w-4") => {
+    if (!iconName) return null;
+    
+    // Verificar ícones customizados primeiro
+    if (iconName in customIcons) {
+      const CustomIcon = customIcons[iconName];
+      return <CustomIcon className={size} />;
+    }
+    
+    // Verificar ícones do Lucide
+    if (iconName in Icons) {
+      const LucideIcon = Icons[iconName as keyof typeof Icons] as LucideIcon;
+      return <LucideIcon className={size} />;
+    }
+    
+    return null;
+  };
 
   return (
     <Card
@@ -127,6 +187,36 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
             <span>{date}</span>
           </div>
         </div>
+
+        {/* Valor e ícones dos produtos */}
+        {leadItems.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-between pl-2 pr-1">
+              <div className="text-[11px]">
+                <span className="text-muted-foreground">Valor: </span>
+                <span className="font-semibold text-green-600">
+                  R$ {totalValue.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {leadItems.slice(0, 3).map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center"
+                    title={item.items?.name}
+                  >
+                    {getItemIcon(item.items?.icon, "h-3 w-3 text-primary")}
+                  </div>
+                ))}
+                {leadItems.length > 3 && (
+                  <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary">
+                    +{leadItems.length - 3}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Faixa verde lateral com ícone de olho - desliza da direita na entrada */}
