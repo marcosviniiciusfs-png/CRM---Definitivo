@@ -393,6 +393,7 @@ const Dashboard = () => {
                   fontSize: 10
                 }} axisLine={false} tickLine={false} />
                   <Tooltip 
+                    cursor={{ fill: 'transparent' }}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--popover))',
                       border: '1px solid hsl(var(--border))',
