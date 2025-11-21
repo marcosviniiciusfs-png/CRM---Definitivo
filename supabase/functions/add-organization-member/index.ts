@@ -102,6 +102,26 @@ serve(async (req) => {
 
     // If user doesn't exist, create new user
     if (!userId) {
+      // IMPORTANTE: Inserir em organization_members ANTES de criar o usuário
+      // Isso permite que o trigger handle_new_user detecte que o usuário foi convidado
+      const { error: preInsertError } = await supabaseClient
+        .from('organization_members')
+        .insert({
+          organization_id: organizationId,
+          user_id: null, // Será atualizado pelo trigger após criar o usuário
+          role: role,
+          email: emailLower
+        })
+
+      if (preInsertError) {
+        console.error('Error pre-inserting member:', preInsertError)
+        return new Response(
+          JSON.stringify({ error: 'Não foi possível preparar o convite' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
+
+      // Agora cria o usuário - o trigger handle_new_user detectará o email e atualizará o user_id
       const { data: newUser, error: signUpError } = await supabaseClient.auth.admin.createUser({
         email: emailLower,
         password: password,
@@ -113,6 +133,12 @@ serve(async (req) => {
 
       if (signUpError) {
         console.error('Error creating user:', signUpError)
+        // Remove o registro pré-inserido
+        await supabaseClient
+          .from('organization_members')
+          .delete()
+          .match({ email: emailLower, organization_id: organizationId })
+        
         return new Response(
           JSON.stringify({ error: `Erro ao criar usuário: ${signUpError.message}` }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -120,6 +146,12 @@ serve(async (req) => {
       }
 
       if (!newUser.user) {
+        // Remove o registro pré-inserido
+        await supabaseClient
+          .from('organization_members')
+          .delete()
+          .match({ email: emailLower, organization_id: organizationId })
+        
         return new Response(
           JSON.stringify({ error: 'Não foi possível criar o usuário' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -128,25 +160,26 @@ serve(async (req) => {
 
       userId = newUser.user.id
       console.log('Created new user:', userId)
+    } else {
+      // Se o usuário já existe, apenas adiciona à organização
+      const { error: memberError } = await supabaseClient
+        .from('organization_members')
+        .insert({
+          organization_id: organizationId,
+          user_id: userId,
+          role: role,
+          email: emailLower
+        })
+
+      if (memberError) {
+        console.error('Error adding existing member:', memberError)
+        return new Response(
+          JSON.stringify({ error: 'Não foi possível adicionar o colaborador à organização' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
     }
 
-    // Add user to organization
-    const { error: memberError } = await supabaseClient
-      .from('organization_members')
-      .insert({
-        organization_id: organizationId,
-        user_id: userId,
-        role: role,
-        email: emailLower
-      })
-
-    if (memberError) {
-      console.error('Error adding member:', memberError)
-      return new Response(
-        JSON.stringify({ error: 'Não foi possível adicionar o colaborador à organização' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
-    }
 
     return new Response(
       JSON.stringify({ 
