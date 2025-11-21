@@ -1,7 +1,6 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle } from "lucide-react";
-import outcomeGif from "@/assets/outcome.gif";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -113,6 +112,29 @@ const Dashboard = () => {
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
   const [editDeadline, setEditDeadline] = useState<string>("");
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
+  
+  // Função para tocar som sutil ao passar o mouse
+  const playHoverSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800; // Frequência em Hz (tom agudo e sutil)
+      oscillator.type = 'sine'; // Tipo de onda
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Volume baixo
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1); // Duração de 0.1 segundos
+    } catch (error) {
+      console.log('Audio context not supported');
+    }
+  };
   useEffect(() => {
     loadGoal();
   }, [user]);
@@ -332,11 +354,9 @@ const Dashboard = () => {
                 <div className="p-2 rounded-lg" style={{
                 backgroundColor: 'rgba(0, 179, 76, 0.1)'
               }}>
-                  <img 
-                    src={outcomeGif} 
-                    alt="Taxa de Conversão" 
-                    className="w-12 h-12 object-contain"
-                  />
+                  <Target className="w-8 h-8" style={{
+                  color: '#00b34c'
+                }} />
                 </div>
                 <div>
                   <p className="text-4xl font-bold" style={{
@@ -375,6 +395,7 @@ const Dashboard = () => {
                     radius={[4, 4, 0, 0]}
                     cursor="default"
                     onMouseEnter={(data, index) => {
+                      playHoverSound();
                       setHoveredBarIndex(index);
                     }}
                     onMouseLeave={() => {
