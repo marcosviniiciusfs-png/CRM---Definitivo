@@ -1,6 +1,7 @@
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import kairozLogo from "@/assets/kairoz-logo.png";
 import individualGif from "@/assets/individual.gif";
 import checkBoardGif from "@/assets/check_board.gif";
@@ -8,6 +9,15 @@ import AnimatedChatIcon from "@/components/AnimatedChatIcon";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleStartClick = () => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate('/auth');
+    }
+  };
 
   const features = [
     {
@@ -103,7 +113,7 @@ const Landing = () => {
         {/* CTA Button */}
         <div className="flex justify-center">
           <Button 
-            onClick={() => navigate('/auth')}
+            onClick={handleStartClick}
             size="lg"
             className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-lg px-12 py-6 h-auto rounded-full shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all duration-300"
           >
