@@ -111,6 +111,7 @@ const Dashboard = () => {
   const [goalId, setGoalId] = useState<string | null>(null);
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
   const [editDeadline, setEditDeadline] = useState<string>("");
+  const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   
   // Função para tocar som sutil ao passar o mouse
   const playHoverSound = () => {
@@ -393,7 +394,13 @@ const Dashboard = () => {
                     dataKey="rate" 
                     radius={[4, 4, 0, 0]}
                     cursor="default"
-                    onMouseEnter={playHoverSound}
+                    onMouseEnter={(data, index) => {
+                      playHoverSound();
+                      setHoveredBarIndex(index);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredBarIndex(null);
+                    }}
                     activeBar={(props: any) => {
                       const { x, y, width, height, payload } = props;
                       const centerX = x + width / 2;
@@ -416,7 +423,10 @@ const Dashboard = () => {
                       );
                     }}
                     shape={(props: any) => {
-                      const { x, y, width, height, payload } = props;
+                      const { x, y, width, height, payload, index } = props;
+                      const isOtherBarHovered = hoveredBarIndex !== null && hoveredBarIndex !== index;
+                      const opacity = isOtherBarHovered ? 0.3 : 1;
+                      
                       return (
                         <Rectangle
                           x={x}
@@ -425,6 +435,8 @@ const Dashboard = () => {
                           height={height}
                           fill={getBarColor(payload.rate)}
                           radius={[4, 4, 0, 0]}
+                          opacity={opacity}
+                          style={{ transition: 'opacity 0.2s ease' }}
                         />
                       );
                     }}
