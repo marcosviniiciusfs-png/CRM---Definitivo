@@ -37,6 +37,10 @@ export const FacebookLeadsConnection = () => {
       window.history.replaceState({}, '', window.location.pathname);
       // Show form selector after successful connection
       setTimeout(() => fetchLeadForms(), 1000);
+    } else if (urlParams.get('facebook') === 'error') {
+      const errorMessage = urlParams.get('message') || 'Erro ao conectar com Facebook';
+      toast.error(errorMessage);
+      window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
