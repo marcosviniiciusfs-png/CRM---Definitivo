@@ -52,6 +52,8 @@ export type Database = {
           page_access_token: string | null
           page_id: string | null
           page_name: string | null
+          selected_form_id: string | null
+          selected_form_name: string | null
           updated_at: string
           user_id: string
           webhook_verified: boolean | null
@@ -66,6 +68,8 @@ export type Database = {
           page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
+          selected_form_id?: string | null
+          selected_form_name?: string | null
           updated_at?: string
           user_id: string
           webhook_verified?: boolean | null
@@ -80,6 +84,8 @@ export type Database = {
           page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
+          selected_form_id?: string | null
+          selected_form_name?: string | null
           updated_at?: string
           user_id?: string
           webhook_verified?: boolean | null

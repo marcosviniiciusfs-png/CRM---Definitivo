@@ -2,9 +2,17 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Facebook, CheckCircle, AlertCircle, Copy, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Facebook, CheckCircle, AlertCircle, Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface LeadForm {
+  id: string;
+  name: string;
+  status: string;
+  leads_count: number;
+}
 
 export const FacebookLeadsConnection = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -13,6 +21,10 @@ export const FacebookLeadsConnection = () => {
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showFormSelector, setShowFormSelector] = useState(false);
+  const [leadForms, setLeadForms] = useState<LeadForm[]>([]);
+  const [loadingForms, setLoadingForms] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
     checkConnection();
@@ -20,10 +32,11 @@ export const FacebookLeadsConnection = () => {
     // Check if returning from successful OAuth
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('facebook') === 'success') {
-      setShowSuccess(true);
       toast.success('Facebook conectado com sucesso!');
       // Clean URL
       window.history.replaceState({}, '', window.location.pathname);
+      // Show form selector after successful connection
+      setTimeout(() => fetchLeadForms(), 1000);
     }
   }, []);
 
@@ -115,6 +128,59 @@ export const FacebookLeadsConnection = () => {
     }
   };
 
+  const fetchLeadForms = async () => {
+    if (!integration || !integration.page_id || !integration.page_access_token) {
+      toast.error('Dados de integração incompletos');
+      return;
+    }
+
+    setLoadingForms(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('facebook-list-lead-forms', {
+        body: {
+          page_id: integration.page_id,
+          page_access_token: integration.page_access_token,
+        },
+      });
+
+      if (error) throw error;
+
+      setLeadForms(data.forms);
+      setShowFormSelector(true);
+    } catch (error) {
+      console.error('Error fetching lead forms:', error);
+      toast.error('Erro ao buscar formulários de lead');
+    } finally {
+      setLoadingForms(false);
+    }
+  };
+
+  const handleFormSelect = async (form: LeadForm) => {
+    setSubscribing(true);
+    try {
+      const { error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
+        body: {
+          form_id: form.id,
+          form_name: form.name,
+          page_access_token: integration.page_access_token,
+          integration_id: integration.id,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Webhook inscrito para "${form.name}"!`);
+      setShowFormSelector(false);
+      setShowSuccess(true);
+      await checkConnection();
+    } catch (error) {
+      console.error('Error subscribing webhook:', error);
+      toast.error('Erro ao inscrever webhook');
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   const copyToClipboard = async (text: string, type: 'webhook' | 'token') => {
     try {
       await navigator.clipboard.writeText(text);
@@ -164,18 +230,30 @@ export const FacebookLeadsConnection = () => {
               <p className="text-sm text-muted-foreground">
                 {isConnected ? `Conectado - ${integration?.page_name || 'Página configurada'}` : 'Não conectado'}
               </p>
+              {isConnected && integration?.selected_form_name && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Formulário: {integration.selected_form_name}
+                </p>
+              )}
             </div>
           </div>
-          {isConnected ? (
-            <Button variant="destructive" onClick={handleDisconnect}>
-              Desconectar
-            </Button>
-          ) : (
-            <Button onClick={handleConnect} disabled={loading} className="gap-2">
-              <Facebook className="h-4 w-4" />
-              {loading ? 'Conectando...' : 'Conectar ao Facebook'}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isConnected && !integration?.selected_form_id && (
+              <Button onClick={fetchLeadForms} disabled={loadingForms} variant="outline">
+                {loadingForms ? 'Carregando...' : 'Selecionar Formulário'}
+              </Button>
+            )}
+            {isConnected ? (
+              <Button variant="destructive" onClick={handleDisconnect}>
+                Desconectar
+              </Button>
+            ) : (
+              <Button onClick={handleConnect} disabled={loading} className="gap-2">
+                <Facebook className="h-4 w-4" />
+                {loading ? 'Conectando...' : 'Conectar ao Facebook'}
+              </Button>
+            )}
+          </div>
         </div>
 
         {!isConnected && (
@@ -190,10 +268,10 @@ export const FacebookLeadsConnection = () => {
           </div>
         )}
 
-        {isConnected && integration && (
+        {isConnected && integration && integration.selected_form_id && (
           <div className="space-y-4">
             <div className="p-4 border rounded-lg bg-primary/5 space-y-3">
-              <p className="font-medium text-sm">📋 Passo 1: Configuração do Webhook no Facebook</p>
+              <p className="font-medium text-sm">📋 Informações do Webhook</p>
               
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">
@@ -234,27 +312,66 @@ export const FacebookLeadsConnection = () => {
               </div>
             </div>
 
-            <div className="p-4 border rounded-lg bg-muted/50 space-y-2">
-              <p className="font-medium text-sm">📝 Passo 2: Configurar no Facebook</p>
-              <ol className="text-xs text-muted-foreground space-y-2 ml-4 list-decimal">
-                <li>Acesse o <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Facebook Developers</a></li>
-                <li>Vá em <strong>Produtos → Webhooks</strong></li>
-                <li>Selecione <strong>Página</strong> como objeto</li>
-                <li>Clique em <strong>Assinar este objeto</strong></li>
-                <li>Cole a URL do Webhook e o Token de Verificação</li>
-                <li>Marque o campo <strong>leadgen</strong></li>
-                <li>Clique em <strong>Verificar e Salvar</strong></li>
-              </ol>
-            </div>
-
             <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-              <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Pronto!</p>
+              <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Tudo Configurado!</p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                Após configurar, todos os leads dos seus formulários do Facebook aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
+                Os leads do formulário <strong>"{integration.selected_form_name}"</strong> aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
               </p>
             </div>
           </div>
         )}
+
+        {/* Form Selection Dialog */}
+        <Dialog open={showFormSelector} onOpenChange={setShowFormSelector}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Selecione o Formulário de Lead</DialogTitle>
+              <DialogDescription>
+                Escolha qual formulário do Facebook você deseja monitorar para receber leads automaticamente
+              </DialogDescription>
+            </DialogHeader>
+            
+            {loadingForms ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : leadForms.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <p>Nenhum formulário de lead encontrado nesta página.</p>
+                <p className="text-sm mt-2">Crie um formulário no Facebook Ads Manager primeiro.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {leadForms.map((form) => (
+                  <button
+                    key={form.id}
+                    onClick={() => handleFormSelect(form)}
+                    disabled={subscribing}
+                    className="w-full p-4 border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium">{form.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
+                            {form.status}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {form.leads_count || 0} leads
+                          </span>
+                        </div>
+                      </div>
+                      {subscribing && (
+                        <Loader2 className="h-5 w-5 animate-spin text-primary ml-4" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
