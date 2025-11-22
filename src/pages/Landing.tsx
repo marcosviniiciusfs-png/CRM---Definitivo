@@ -12,8 +12,6 @@ const Landing = () => {
   const { user, loading } = useAuth();
 
   const handleStartClick = () => {
-    if (loading) return; // Previne clique durante carregamento
-    
     if (user) {
       navigate('/dashboard');
     } else {
@@ -116,11 +114,10 @@ const Landing = () => {
         <div className="flex justify-center">
           <Button 
             onClick={handleStartClick}
-            disabled={loading}
             size="lg"
-            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-lg px-12 py-6 h-auto rounded-full shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-lg px-12 py-6 h-auto rounded-full shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all duration-300"
           >
-            {loading ? 'Carregando...' : 'Começar agora'}
+            Começar agora
           </Button>
         </div>
       </div>
