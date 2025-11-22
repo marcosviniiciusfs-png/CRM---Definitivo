@@ -10,8 +10,10 @@ import AnimatedChatIcon from "@/components/AnimatedChatIcon";
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-
+ 
   const handleStartClick = () => {
+    if (loading) return; // Evita navegação incorreta durante o carregamento do estado de autenticação
+
     if (user) {
       navigate('/dashboard');
     } else {
