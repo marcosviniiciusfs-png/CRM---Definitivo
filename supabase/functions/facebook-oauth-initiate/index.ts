@@ -18,8 +18,11 @@ Deno.serve(async (req) => {
     const FACEBOOK_APP_ID = Deno.env.get('FACEBOOK_APP_ID');
     const REDIRECT_URI = `${Deno.env.get('SUPABASE_URL')}/functions/v1/facebook-oauth-callback`;
 
-    // Create state parameter with user info
-    const state = btoa(JSON.stringify({ user_id, organization_id }));
+    // Get the origin from the request for proper redirect after OAuth
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');
+    
+    // Create state parameter with user info and origin for redirect
+    const state = btoa(JSON.stringify({ user_id, organization_id, origin }));
 
     // Required permissions for Facebook Leads
     const scopes = [
