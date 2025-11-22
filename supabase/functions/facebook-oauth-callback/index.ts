@@ -58,6 +58,14 @@ Deno.serve(async (req) => {
       `https://graph.facebook.com/v18.0/me/accounts?access_token=${longLivedTokenData.access_token}`
     );
     const pagesData = await pagesResponse.json();
+    
+    console.log('Facebook pages response:', JSON.stringify(pagesData, null, 2));
+
+    // Check if user has pages
+    if (!pagesData.data || pagesData.data.length === 0) {
+      console.error('No Facebook pages found for user');
+      throw new Error('Nenhuma página do Facebook encontrada. Você precisa ter uma página do Facebook para usar esta integração.');
+    }
 
     // Store in database
     const supabase = createClient(
@@ -100,12 +108,23 @@ Deno.serve(async (req) => {
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Redirect to settings page with error message
+    const url = new URL(req.url);
+    const state = url.searchParams.get('state');
+    let redirectOrigin = url.origin;
+    
+    try {
+      if (state) {
+        const stateData = JSON.parse(atob(state));
+        redirectOrigin = stateData.origin || redirectOrigin;
       }
+    } catch (e) {
+      console.error('Failed to parse state:', e);
+    }
+    
+    return Response.redirect(
+      `${redirectOrigin}/settings?tab=integracoes&facebook=error&message=${encodeURIComponent(errorMessage)}`,
+      302
     );
   }
 });
