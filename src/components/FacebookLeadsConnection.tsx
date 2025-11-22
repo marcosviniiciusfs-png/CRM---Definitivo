@@ -56,8 +56,12 @@ export const FacebookLeadsConnection = () => {
         return;
       }
 
-      if (data) {
+      if (data && data.page_id && data.page_access_token) {
         setIsConnected(true);
+        setIntegration(data);
+      } else if (data) {
+        // Integração existente, mas sem token de página válido
+        setIsConnected(false);
         setIntegration(data);
       }
     } catch (error) {
