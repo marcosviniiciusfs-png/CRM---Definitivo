@@ -79,20 +79,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
 
         // Registrar login/logout de forma assíncrona
         if (event === 'SIGNED_IN' && session?.user) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
         } else if (event === 'SIGNED_OUT') {
+          const currentUserId = session?.user?.id;
           setTimeout(() => {
-            if (user?.id) {
-              logUserSession(user.id, false);
+            if (currentUserId) {
+              logUserSession(currentUserId, false);
             }
           }, 0);
         }
@@ -100,18 +104,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!mounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
 
-      // Se já tem sessão, registrar login
-      if (session?.user) {
-        setTimeout(() => logUserSession(session.user.id, true), 0);
-      }
-    });
+        // Se já tem sessão, registrar login
+        if (session?.user) {
+          setTimeout(() => logUserSession(session.user.id, true), 0);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
