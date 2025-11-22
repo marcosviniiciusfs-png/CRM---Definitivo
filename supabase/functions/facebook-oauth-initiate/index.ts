@@ -28,6 +28,9 @@ Deno.serve(async (req) => {
     const scopes = [
       'leads_retrieval',
       'pages_manage_ads',
+      'pages_show_list',
+      'pages_read_engagement',
+      'pages_manage_metadata',
     ].join(',');
 
 
