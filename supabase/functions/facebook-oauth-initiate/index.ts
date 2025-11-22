@@ -23,12 +23,10 @@ Deno.serve(async (req) => {
 
     // Required permissions for Facebook Leads
     const scopes = [
-      'pages_manage_ads',
-      'pages_manage_metadata',
       'leads_retrieval',
-      'pages_read_engagement',
-      'pages_show_list',
+      'pages_manage_ads',
     ].join(',');
+
 
     // Generate OAuth URL
     const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
