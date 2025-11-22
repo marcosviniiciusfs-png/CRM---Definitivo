@@ -154,8 +154,8 @@ export const FacebookLeadsConnection = () => {
             <p className="font-medium text-sm">Configuração do Webhook:</p>
             <div className="space-y-1 text-xs text-muted-foreground">
               <p><strong>URL do Webhook:</strong></p>
-              <code className="block p-2 bg-background rounded">
-                {`${window.location.origin}/functions/v1/facebook-leads-webhook`}
+              <code className="block p-2 bg-background rounded break-all">
+                https://uvwanpztskkhzdqifbai.supabase.co/functions/v1/facebook-leads-webhook
               </code>
               <p className="mt-2"><strong>Token de Verificação:</strong></p>
               <code className="block p-2 bg-background rounded">
