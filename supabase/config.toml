@@ -26,3 +26,12 @@ verify_jwt = true
 
 [functions.cleanup-invalid-instances]
 verify_jwt = true
+
+[functions.facebook-leads-webhook]
+verify_jwt = false
+
+[functions.facebook-oauth-callback]
+verify_jwt = false
+
+[functions.facebook-oauth-initiate]
+verify_jwt = true
