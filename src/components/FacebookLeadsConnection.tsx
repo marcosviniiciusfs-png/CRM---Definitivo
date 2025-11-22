@@ -129,8 +129,13 @@ export const FacebookLeadsConnection = () => {
   };
 
   const fetchLeadForms = async () => {
-    if (!integration || !integration.page_id || !integration.page_access_token) {
-      toast.error('Dados de integração incompletos');
+    if (!integration) {
+      toast.error('Integração não encontrada. Reconecte ao Facebook.');
+      return;
+    }
+    
+    if (!integration.page_id || !integration.page_access_token) {
+      toast.error('Token de acesso expirado. Por favor, reconecte ao Facebook.');
       return;
     }
 

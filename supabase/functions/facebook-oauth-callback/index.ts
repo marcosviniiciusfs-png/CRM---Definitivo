@@ -68,9 +68,10 @@ Deno.serve(async (req) => {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + (longLivedTokenData.expires_in || 5184000)); // 60 days default
 
+    // Use upsert to update existing integration or create new one
     const { error: dbError } = await supabase
       .from('facebook_integrations')
-      .insert({
+      .upsert({
         user_id,
         organization_id,
         access_token: longLivedTokenData.access_token,
@@ -78,6 +79,8 @@ Deno.serve(async (req) => {
         page_id: pagesData.data?.[0]?.id || null,
         page_name: pagesData.data?.[0]?.name || null,
         page_access_token: pagesData.data?.[0]?.access_token || null,
+      }, {
+        onConflict: 'user_id,organization_id'
       });
 
     if (dbError) {
