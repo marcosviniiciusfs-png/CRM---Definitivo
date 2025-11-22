@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun } from "lucide-react";
+import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, Facebook } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { WebhookLogs } from "@/components/WebhookLogs";
@@ -138,6 +138,40 @@ const Settings = () => {
           {canManageIntegrations ? (
             <>
               <WhatsAppConnection />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Facebook className="h-5 w-5 text-primary" />
+                    Facebook Leads
+                  </CardTitle>
+                  <CardDescription>
+                    Conecte sua conta do Facebook para receber leads automaticamente das suas campanhas de anúncios
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                    <div>
+                      <p className="font-medium">Status da Conexão</p>
+                      <p className="text-sm text-muted-foreground">Não conectado</p>
+                    </div>
+                    <Button className="gap-2">
+                      <Facebook className="h-4 w-4" />
+                      Conectar ao Facebook
+                    </Button>
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p className="font-medium">Como funciona:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Conecte sua conta do Facebook Business</li>
+                      <li>Selecione as páginas e formulários de lead</li>
+                      <li>Leads serão automaticamente importados para o CRM</li>
+                      <li>Receba notificações em tempo real de novos leads</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+              
               <WebhookLogs />
             </>
           ) : (
