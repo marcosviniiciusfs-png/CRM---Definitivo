@@ -41,6 +41,59 @@ export type Database = {
         }
         Relationships: []
       }
+      facebook_integrations: {
+        Row: {
+          access_token: string
+          ad_account_id: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          organization_id: string
+          page_access_token: string | null
+          page_id: string | null
+          page_name: string | null
+          updated_at: string
+          user_id: string
+          webhook_verified: boolean | null
+        }
+        Insert: {
+          access_token: string
+          ad_account_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          organization_id: string
+          page_access_token?: string | null
+          page_id?: string | null
+          page_name?: string | null
+          updated_at?: string
+          user_id: string
+          webhook_verified?: boolean | null
+        }
+        Update: {
+          access_token?: string
+          ad_account_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          organization_id?: string
+          page_access_token?: string | null
+          page_id?: string | null
+          page_name?: string | null
+          updated_at?: string
+          user_id?: string
+          webhook_verified?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facebook_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           created_at: string
