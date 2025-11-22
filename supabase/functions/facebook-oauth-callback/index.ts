@@ -19,9 +19,9 @@ Deno.serve(async (req) => {
       throw new Error('Missing code or state parameter');
     }
 
-    // Parse state to get user_id and organization_id
+    // Parse state to get user_id, organization_id and origin
     const stateData = JSON.parse(atob(state));
-    const { user_id, organization_id } = stateData;
+    const { user_id, organization_id, origin } = stateData;
 
     const FACEBOOK_APP_ID = Deno.env.get('FACEBOOK_APP_ID');
     const FACEBOOK_APP_SECRET = Deno.env.get('FACEBOOK_APP_SECRET');
@@ -85,9 +85,10 @@ Deno.serve(async (req) => {
       throw dbError;
     }
 
-    // Redirect back to settings page with success
+    // Redirect back to settings page with success using the app origin
+    const redirectUrl = origin || url.origin;
     return Response.redirect(
-      `${url.origin}/settings?tab=integracoes&facebook=success`,
+      `${redirectUrl}/settings?tab=integracoes&facebook=success`,
       302
     );
 
