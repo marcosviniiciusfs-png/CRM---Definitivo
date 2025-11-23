@@ -113,17 +113,33 @@ Deno.serve(async (req) => {
               leadInfo[field.name] = field.values?.[0] || '';
             });
 
-            // Create lead in database
+            // Build description with ALL form fields
+            let allFieldsDescription = 'Lead capturado via Facebook Ads\n\n';
+            allFieldsDescription += `Formulário: ${leadData.form_id}\n`;
+            allFieldsDescription += `Campanha: ${leadData.ad_id || 'N/A'}\n\n`;
+            allFieldsDescription += '=== INFORMAÇÕES DO FORMULÁRIO ===\n';
+            
+            // Add all fields to description
+            fieldData.forEach((field: any) => {
+              const fieldName = field.name;
+              const fieldValue = field.values?.[0] || '';
+              if (fieldValue) {
+                allFieldsDescription += `${fieldName}: ${fieldValue}\n`;
+              }
+            });
+
+            // Create lead in database with all available information
             const { data: newLead, error: leadError } = await supabase
               .from('leads')
               .insert({
-                nome_lead: leadInfo.full_name || leadInfo.first_name || 'Lead do Facebook',
-                telefone_lead: leadInfo.phone_number || leadInfo.phone || '',
+                nome_lead: leadInfo.full_name || leadInfo.first_name || leadInfo.name || 'Lead do Facebook',
+                telefone_lead: leadInfo.phone_number || leadInfo.phone || leadInfo.telefone || '',
                 email: leadInfo.email || null,
+                empresa: leadInfo.company_name || leadInfo.company || leadInfo.empresa || null,
                 organization_id: integration.organization_id,
                 source: 'Facebook Leads',
                 stage: 'NOVO',
-                descricao_negocio: `Lead capturado via Facebook Ads\n\nFormulário: ${leadData.form_id}\nCampanha: ${leadData.ad_id || 'N/A'}`,
+                descricao_negocio: allFieldsDescription,
               })
               .select()
               .single();
