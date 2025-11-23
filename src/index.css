@@ -17,7 +17,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 20% 15%;
 
-    --primary: 159 97% 37%;
+    --primary: 179 77% 43%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 25% 95%;
@@ -26,13 +26,13 @@ All colors MUST be HSL.
     --muted: 215 20% 96%;
     --muted-foreground: 215 15% 50%;
 
-    --accent: 159 97% 37%;
+    --accent: 179 77% 43%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 159 97% 37%;
+    --success: 179 77% 43%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
@@ -40,7 +40,7 @@ All colors MUST be HSL.
 
     --border: 215 20% 90%;
     --input: 215 20% 90%;
-    --ring: 159 97% 37%;
+    --ring: 179 77% 43%;
     
     --hover-border: 202 100% 49%;
     --glow-green: 142 98% 26%;
@@ -49,14 +49,14 @@ All colors MUST be HSL.
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 215 20% 20%;
-    --sidebar-primary: 159 97% 37%;
+    --sidebar-primary: 179 77% 43%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 159 97% 96%;
+    --sidebar-accent: 179 90% 96%;
     --sidebar-accent-foreground: 215 20% 20%;
     --sidebar-border: 215 20% 85%;
-    --sidebar-ring: 159 97% 37%;
+    --sidebar-ring: 179 77% 43%;
 
-    --chart-1: 159 97% 37%;
+    --chart-1: 179 77% 43%;
     --chart-2: 200 70% 55%;
     --chart-3: 38 92% 50%;
     --chart-4: 142 71% 45%;
@@ -73,7 +73,7 @@ All colors MUST be HSL.
     --popover: 215 28% 17%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 159 97% 37%;
+    --primary: 179 77% 43%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 28% 22%;
@@ -82,13 +82,13 @@ All colors MUST be HSL.
     --muted: 215 28% 22%;
     --muted-foreground: 215 15% 65%;
 
-    --accent: 159 97% 37%;
+    --accent: 179 77% 43%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 159 97% 37%;
+    --success: 179 77% 43%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
@@ -96,21 +96,21 @@ All colors MUST be HSL.
 
     --border: 215 28% 22%;
     --input: 215 28% 22%;
-    --ring: 159 97% 37%;
+    --ring: 179 77% 43%;
     
     --hover-border: 202 100% 49%;
     --glow-green: 142 98% 26%;
 
     --sidebar-background: 215 28% 10%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 159 97% 37%;
+    --sidebar-primary: 179 77% 43%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 28% 18%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 215 28% 20%;
-    --sidebar-ring: 159 97% 37%;
+    --sidebar-ring: 179 77% 43%;
 
-    --chart-1: 159 97% 37%;
+    --chart-1: 179 77% 43%;
     --chart-2: 200 70% 55%;
     --chart-3: 38 92% 50%;
     --chart-4: 142 71% 45%;
