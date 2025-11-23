@@ -284,48 +284,6 @@ export const FacebookLeadsConnection = () => {
 
         {isConnected && integration && integration.selected_form_id && (
           <div className="space-y-4">
-            <div className="p-4 border rounded-lg bg-primary/5 space-y-3">
-              <p className="font-medium text-sm">📋 Informações do Webhook</p>
-              
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  <strong>URL do Webhook:</strong>
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 p-2 bg-background rounded text-xs break-all">
-                    https://uvwanpztskkhzdqifbai.functions.supabase.co/facebook-leads-webhook
-                  </code>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0"
-                    onClick={() => copyToClipboard('https://uvwanpztskkhzdqifbai.functions.supabase.co/facebook-leads-webhook', 'webhook')}
-                  >
-                    {copiedWebhook ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  <strong>Token de Verificação:</strong>
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 p-2 bg-background rounded text-xs">
-                    kairoz_webhook_verify_token
-                  </code>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0"
-                    onClick={() => copyToClipboard('kairoz_webhook_verify_token', 'token')}
-                  >
-                    {copiedToken ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
             <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
               <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Tudo Configurado!</p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">
