@@ -56,6 +56,8 @@ export const PipelineColumn = ({ id, title, count, color, leads, isEmpty, onLead
                 stage={lead.stage}
                 value={lead.valor}
                 createdAt={lead.created_at}
+                source={lead.source}
+                description={lead.descricao_negocio}
                 onUpdate={onLeadUpdate}
                 onEdit={() => onEdit?.(lead)}
               />

@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { DollarSign, FileText, Clock, User, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { FacebookFormData } from "@/components/FacebookFormData";
 
 interface LeadDetailsDialogProps {
   open: boolean;
@@ -136,6 +137,14 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
 
             <Separator />
 
+            {/* Dados do Formulário Facebook (se existir) */}
+            {details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') && (
+              <>
+                <FacebookFormData description={details.descricao_negocio} />
+                <Separator />
+              </>
+            )}
+
             {/* Dados do Negócio */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -161,12 +170,15 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                   </div>
                 )}
                 
-                <div>
-                  <span className="text-muted-foreground">Descrição:</span>
-                  <p className="font-medium whitespace-pre-wrap">
-                    {details?.descricao_negocio || "Sem descrição"}
-                  </p>
-                </div>
+                {/* Mostrar descrição apenas se NÃO for lead do Facebook */}
+                {!details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') && (
+                  <div>
+                    <span className="text-muted-foreground">Descrição:</span>
+                    <p className="font-medium whitespace-pre-wrap">
+                      {details?.descricao_negocio || "Sem descrição"}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
