@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
             const leadgenData = change.value;
             const pageId = leadgenData.page_id;
             const leadgenId = leadgenData.leadgen_id;
+            let logId: string | null = null;
 
             // Get the integration for this page
             const { data: integration } = await supabase
@@ -55,8 +56,36 @@ Deno.serve(async (req) => {
 
             if (!integration) {
               console.log(`No integration found for page ${pageId}`);
+              
+              // Log the failed webhook
+              await supabase.from('facebook_webhook_logs').insert({
+                event_type: 'leadgen',
+                payload: body,
+                status: 'error',
+                error_message: `No integration found for page ${pageId}`,
+                page_id: pageId,
+                facebook_lead_id: leadgenId,
+                organization_id: '00000000-0000-0000-0000-000000000000', // placeholder
+              });
+              
               continue;
             }
+
+            // Create initial log entry
+            const { data: logEntry } = await supabase
+              .from('facebook_webhook_logs')
+              .insert({
+                organization_id: integration.organization_id,
+                event_type: 'leadgen',
+                payload: body,
+                status: 'processing',
+                page_id: pageId,
+                facebook_lead_id: leadgenId,
+              })
+              .select()
+              .single();
+            
+            logId = logEntry?.id || null;
 
             // Fetch lead data from Facebook
             const leadResponse = await fetch(
@@ -73,7 +102,7 @@ Deno.serve(async (req) => {
             });
 
             // Create lead in database
-            const { error: leadError } = await supabase
+            const { data: newLead, error: leadError } = await supabase
               .from('leads')
               .insert({
                 nome_lead: leadInfo.full_name || leadInfo.first_name || 'Lead do Facebook',
@@ -83,12 +112,37 @@ Deno.serve(async (req) => {
                 source: 'Facebook Leads',
                 stage: 'NOVO',
                 descricao_negocio: `Lead capturado via Facebook Ads\n\nFormulário: ${leadData.form_id}\nCampanha: ${leadData.ad_id || 'N/A'}`,
-              });
+              })
+              .select()
+              .single();
 
             if (leadError) {
               console.error('Error creating lead:', leadError);
+              
+              // Update log with error
+              if (logId) {
+                await supabase
+                  .from('facebook_webhook_logs')
+                  .update({
+                    status: 'error',
+                    error_message: leadError.message,
+                  })
+                  .eq('id', logId);
+              }
             } else {
               console.log('Lead created successfully from Facebook');
+              
+              // Update log with success
+              if (logId) {
+                await supabase
+                  .from('facebook_webhook_logs')
+                  .update({
+                    status: 'success',
+                    lead_id: newLead?.id,
+                    form_id: leadData.form_id,
+                  })
+                  .eq('id', logId);
+              }
             }
           }
         }

@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun } from "lucide-react";
+import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { WebhookLogs } from "@/components/WebhookLogs";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AvatarUpload } from "@/components/AvatarUpload";
@@ -19,6 +20,7 @@ import { AvatarUpload } from "@/components/AvatarUpload";
 const Settings = () => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [orgRole, setOrgRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,6 +142,29 @@ const Settings = () => {
             <>
               <WhatsAppConnection />
               <FacebookLeadsConnection />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Logs de Integrações
+                  </CardTitle>
+                  <CardDescription>
+                    Visualize e monitore os logs das integrações do Facebook e WhatsApp
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/facebook-webhook-logs')}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Ver Logs do Facebook Webhook
+                  </Button>
+                </CardContent>
+              </Card>
+              
               <WebhookLogs />
             </>
           ) : (
