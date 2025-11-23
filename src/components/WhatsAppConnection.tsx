@@ -877,24 +877,6 @@ const WhatsAppConnection = () => {
           ) : instances.some(instance => instance.status === 'CONNECTED') ? (
             /* Botões de ação - exibidos apenas quando há instância conectada */
             <div className="flex gap-2 justify-center">
-              <Button
-                onClick={fixWebhookConfig}
-                disabled={fixingWebhook}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                size="sm"
-              >
-                {fixingWebhook ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                    Reconfigurando...
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare className="h-3 w-3 mr-2" />
-                    Reconfigurar Webhook
-                  </>
-                )}
-              </Button>
               {instances
                 .filter(instance => instance.status === 'CONNECTED')
                 .map((instance) => (
