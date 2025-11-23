@@ -293,13 +293,13 @@ export const FacebookLeadsConnection = () => {
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 p-2 bg-background rounded text-xs break-all">
-                    https://uvwanpztskkhzdqifbai.supabase.co/functions/v1/facebook-leads-webhook
+                    https://uvwanpztskkhzdqifbai.functions.supabase.co/facebook-leads-webhook
                   </code>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="shrink-0"
-                    onClick={() => copyToClipboard('https://uvwanpztskkhzdqifbai.supabase.co/functions/v1/facebook-leads-webhook', 'webhook')}
+                    onClick={() => copyToClipboard('https://uvwanpztskkhzdqifbai.functions.supabase.co/facebook-leads-webhook', 'webhook')}
                   >
                     {copiedWebhook ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
