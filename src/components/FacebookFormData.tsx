@@ -94,17 +94,17 @@ export const FacebookFormData = ({ description }: FacebookFormDataProps) => {
         <Card className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
           <div className="space-y-1.5 text-xs">
             {formIdMatch && (
-              <div className="flex items-center gap-2">
-                <FileText className="h-3.5 w-3.5 text-blue-600" />
-                <span className="text-muted-foreground">Formulário:</span>
-                <span className="font-mono font-medium">{formIdMatch[1]}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <FileText className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                <span className="text-muted-foreground flex-shrink-0">Formulário:</span>
+                <span className="font-medium break-words">{formIdMatch[1]}</span>
               </div>
             )}
             {campaignMatch && (
-              <div className="flex items-center gap-2">
-                <Hash className="h-3.5 w-3.5 text-blue-600" />
-                <span className="text-muted-foreground">Campanha:</span>
-                <span className="font-medium">{campaignMatch[1]}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                <span className="text-muted-foreground flex-shrink-0">Campanha:</span>
+                <span className="font-medium break-words">{campaignMatch[1]}</span>
               </div>
             )}
           </div>
@@ -123,7 +123,7 @@ export const FacebookFormData = ({ description }: FacebookFormDataProps) => {
                 {field.icon}
               </div>
               <div className="flex-1 min-w-0 space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">
+                <p className="text-xs text-muted-foreground font-medium break-words">
                   {field.name}
                 </p>
                 <p className="text-sm font-semibold text-foreground break-words">

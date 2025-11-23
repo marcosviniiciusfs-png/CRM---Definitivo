@@ -105,6 +105,38 @@ Deno.serve(async (req) => {
             );
             const leadData = await leadResponse.json();
 
+            // Fetch form name
+            let formName = leadData.form_id;
+            try {
+              const formResponse = await fetch(
+                `https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${integration.page_access_token}`
+              );
+              const formData = await formResponse.json();
+              if (formData.name) {
+                formName = formData.name;
+              }
+            } catch (error) {
+              console.log('Could not fetch form name:', error);
+            }
+
+            // Fetch ad/campaign name
+            let campaignName = leadData.ad_id || 'N/A';
+            try {
+              if (leadData.ad_id) {
+                const adResponse = await fetch(
+                  `https://graph.facebook.com/v18.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${integration.page_access_token}`
+                );
+                const adData = await adResponse.json();
+                if (adData.campaign?.name) {
+                  campaignName = adData.campaign.name;
+                } else if (adData.name) {
+                  campaignName = adData.name;
+                }
+              }
+            } catch (error) {
+              console.log('Could not fetch campaign name:', error);
+            }
+
             // Parse field data
             const fieldData = leadData.field_data || [];
             const leadInfo: any = {};
@@ -115,8 +147,8 @@ Deno.serve(async (req) => {
 
             // Build description with ALL form fields
             let allFieldsDescription = 'Lead capturado via Facebook Ads\n\n';
-            allFieldsDescription += `Formulário: ${leadData.form_id}\n`;
-            allFieldsDescription += `Campanha: ${leadData.ad_id || 'N/A'}\n\n`;
+            allFieldsDescription += `Formulário: ${formName}\n`;
+            allFieldsDescription += `Campanha: ${campaignName}\n\n`;
             allFieldsDescription += '=== INFORMAÇÕES DO FORMULÁRIO ===\n';
             
             // Add all fields to description
