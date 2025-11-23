@@ -176,6 +176,7 @@ export const FacebookLeadsConnection = () => {
           form_id: form.id,
           form_name: form.name,
           page_access_token: integration.page_access_token,
+          page_id: integration.page_id,
           integration_id: integration.id,
         },
       });
