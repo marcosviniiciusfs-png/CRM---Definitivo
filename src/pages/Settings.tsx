@@ -8,7 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
-import { WebhookLogs } from "@/components/WebhookLogs";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -162,10 +161,16 @@ const Settings = () => {
                     <FileText className="mr-2 h-4 w-4" />
                     Ver Logs do Facebook Webhook
                   </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/whatsapp-webhook-logs')}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Ver Logs do WhatsApp Webhook
+                  </Button>
                 </CardContent>
               </Card>
-              
-              <WebhookLogs />
             </>
           ) : (
             <WhatsAppStatus />

@@ -21,22 +21,24 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface FacebookWebhookLog {
+interface WhatsAppWebhookLog {
   id: string;
   event_type: string;
   status: string;
   error_message: string | null;
-  lead_id: string | null;
-  facebook_lead_id: string | null;
-  page_id: string | null;
-  form_id: string | null;
+  instance_name: string;
+  remote_jid: string | null;
+  sender_name: string | null;
+  message_type: string | null;
+  message_content: string | null;
+  direction: string | null;
   payload: any;
   created_at: string;
 }
 
-export default function FacebookWebhookLogs() {
+export default function WhatsAppWebhookLogs() {
   const navigate = useNavigate();
-  const [logs, setLogs] = useState<FacebookWebhookLog[]>([]);
+  const [logs, setLogs] = useState<WhatsAppWebhookLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function FacebookWebhookLogs() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from("facebook_webhook_logs")
+        .from("webhook_logs")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(100);
@@ -65,7 +67,7 @@ export default function FacebookWebhookLogs() {
 
     try {
       const { error } = await supabase
-        .from("facebook_webhook_logs")
+        .from("webhook_logs")
         .delete()
         .eq("id", selectedLog);
 
@@ -84,7 +86,7 @@ export default function FacebookWebhookLogs() {
   const handleClearAllLogs = async () => {
     try {
       const { error } = await supabase
-        .from("facebook_webhook_logs")
+        .from("webhook_logs")
         .delete()
         .neq("id", "00000000-0000-0000-0000-000000000000");
 
@@ -103,13 +105,13 @@ export default function FacebookWebhookLogs() {
 
     // Subscribe to real-time updates
     const channel = supabase
-      .channel("facebook_webhook_logs")
+      .channel("webhook_logs")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "facebook_webhook_logs",
+          table: "webhook_logs",
         },
         () => {
           loadLogs();
@@ -163,9 +165,9 @@ export default function FacebookWebhookLogs() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
-            <h1 className="text-3xl font-bold">Logs do Webhook Facebook</h1>
+            <h1 className="text-3xl font-bold">Logs do Webhook WhatsApp</h1>
             <p className="text-muted-foreground mt-2">
-              Monitore e diagnostique o recebimento de leads do Facebook
+              Monitore e diagnostique o recebimento de mensagens do WhatsApp
             </p>
           </div>
           <div className="flex gap-2">
@@ -229,41 +231,56 @@ export default function FacebookWebhookLogs() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    {log.facebook_lead_id && (
+                    <div>
+                      <span className="text-muted-foreground">
+                        Instância:
+                      </span>
+                      <p className="font-mono text-xs">{log.instance_name}</p>
+                    </div>
+                    {log.remote_jid && (
                       <div>
                         <span className="text-muted-foreground">
-                          Lead ID (Facebook):
+                          Telefone:
                         </span>
-                        <p className="font-mono text-xs break-all">
-                          {log.facebook_lead_id}
-                        </p>
+                        <p className="font-mono text-xs">{log.remote_jid}</p>
                       </div>
                     )}
-                    {log.page_id && (
+                    {log.sender_name && (
                       <div>
                         <span className="text-muted-foreground">
-                          Página ID:
+                          Remetente:
                         </span>
-                        <p className="font-mono text-xs">{log.page_id}</p>
+                        <p className="text-xs">{log.sender_name}</p>
                       </div>
                     )}
-                    {log.form_id && (
+                    {log.direction && (
                       <div>
                         <span className="text-muted-foreground">
-                          Formulário ID:
+                          Direção:
                         </span>
-                        <p className="font-mono text-xs">{log.form_id}</p>
+                        <p className="text-xs capitalize">{log.direction}</p>
                       </div>
                     )}
-                    {log.lead_id && (
+                    {log.message_type && (
                       <div>
                         <span className="text-muted-foreground">
-                          Lead Criado:
+                          Tipo:
                         </span>
-                        <p className="font-mono text-xs">{log.lead_id}</p>
+                        <p className="text-xs">{log.message_type}</p>
                       </div>
                     )}
                   </div>
+
+                  {log.message_content && (
+                    <div className="bg-muted/50 border rounded-lg p-3">
+                      <p className="text-sm font-medium mb-1">
+                        Conteúdo da Mensagem:
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {log.message_content}
+                      </p>
+                    </div>
+                  )}
 
                   {log.error_message && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">

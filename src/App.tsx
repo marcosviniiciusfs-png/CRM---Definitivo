@@ -23,6 +23,7 @@ import Producao from "./pages/Producao";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUserDetails from "./pages/AdminUserDetails";
 import FacebookWebhookLogs from "./pages/FacebookWebhookLogs";
+import WhatsAppWebhookLogs from "./pages/WhatsAppWebhookLogs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><Tasks /></DashboardLayout></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
             <Route path="/facebook-webhook-logs" element={<ProtectedRoute><FacebookWebhookLogs /></ProtectedRoute>} />
+            <Route path="/whatsapp-webhook-logs" element={<ProtectedRoute><WhatsAppWebhookLogs /></ProtectedRoute>} />
             <Route path="/admin" element={<SuperAdminRoute><AdminDashboard /></SuperAdminRoute>} />
             <Route path="/admin/user/:userId" element={<SuperAdminRoute><AdminUserDetails /></SuperAdminRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
