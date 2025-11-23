@@ -56,8 +56,20 @@ Deno.serve(async (req) => {
 
             if (!integration) {
               console.log(`No integration found for page ${pageId}`);
-              
-              // Log the failed webhook
+
+              // Try to find any organization to attach the log to so it appears in the UI
+              let fallbackOrgId: string | null = null;
+              const { data: anyIntegration } = await supabase
+                .from('facebook_integrations')
+                .select('organization_id')
+                .limit(1)
+                .single();
+
+              if (anyIntegration?.organization_id) {
+                fallbackOrgId = anyIntegration.organization_id;
+              }
+
+              // Log the failed webhook (using a fallback org if available)
               await supabase.from('facebook_webhook_logs').insert({
                 event_type: 'leadgen',
                 payload: body,
@@ -65,7 +77,7 @@ Deno.serve(async (req) => {
                 error_message: `No integration found for page ${pageId}`,
                 page_id: pageId,
                 facebook_lead_id: leadgenId,
-                organization_id: '00000000-0000-0000-0000-000000000000', // placeholder
+                organization_id: fallbackOrgId || '00000000-0000-0000-0000-000000000000',
               });
               
               continue;
