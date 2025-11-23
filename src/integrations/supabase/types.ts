@@ -100,6 +100,63 @@ export type Database = {
           },
         ]
       }
+      facebook_webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string
+          facebook_lead_id: string | null
+          form_id: string | null
+          id: string
+          lead_id: string | null
+          organization_id: string
+          page_id: string | null
+          payload: Json | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          facebook_lead_id?: string | null
+          form_id?: string | null
+          id?: string
+          lead_id?: string | null
+          organization_id: string
+          page_id?: string | null
+          payload?: Json | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          facebook_lead_id?: string | null
+          form_id?: string | null
+          id?: string
+          lead_id?: string | null
+          organization_id?: string
+          page_id?: string | null
+          payload?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facebook_webhook_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facebook_webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           created_at: string
