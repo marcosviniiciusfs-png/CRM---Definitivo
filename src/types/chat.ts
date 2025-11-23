@@ -13,6 +13,7 @@ export interface Lead {
   position?: number;
   avatar_url?: string;
   responsavel?: string;
+  descricao_negocio?: string;
 }
 
 export interface Message {
