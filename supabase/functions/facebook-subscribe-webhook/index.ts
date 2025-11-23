@@ -11,17 +11,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { form_id, form_name, page_access_token, integration_id } = await req.json();
+    const { form_id, form_name, page_access_token, integration_id, page_id } = await req.json();
 
-    if (!form_id || !page_access_token || !integration_id) {
+    if (!form_id || !page_access_token || !integration_id || !page_id) {
       throw new Error('Missing required parameters');
     }
 
-    console.log('Subscribing webhook for form:', form_id);
+    console.log('Subscribing webhook for page:', page_id, 'form:', form_id);
 
-    // Subscribe to leadgen webhook for this specific form
+    // Subscribe to leadgen webhook on the PAGE (not the form)
     const response = await fetch(
-      `https://graph.facebook.com/v18.0/${form_id}/subscribed_apps`,
+      `https://graph.facebook.com/v18.0/${page_id}/subscribed_apps`,
       {
         method: 'POST',
         headers: {
