@@ -1028,18 +1028,20 @@ const Chat = () => {
                   }
                 />
               </div>
-              <div className="flex-1 text-left overflow-hidden">
-                <div className="flex items-center gap-2">
-                  <Pin className="h-3 w-3 text-primary fill-primary" />
-                  <p className="font-medium truncate">{lead.nome_lead}</p>
+              <div className="flex-1 text-left overflow-hidden min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Pin className="h-3 w-3 text-primary fill-primary flex-shrink-0" />
+                  <p className="font-medium truncate flex-1 min-w-0">{lead.nome_lead}</p>
                   {presenceStatus.get(lead.id)?.isOnline && (
-                    <span className="text-xs text-green-600 font-medium">Online</span>
+                    <span className="text-xs text-green-600 font-medium flex-shrink-0 whitespace-nowrap">Online</span>
                   )}
-                  <LeadTagsBadge leadId={lead.id} />
+                  <div className="flex-shrink-0">
+                    <LeadTagsBadge leadId={lead.id} />
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {formatPhoneNumber(lead.telefone_lead)}
+                <p className="text-sm text-muted-foreground flex items-center gap-1 truncate">
+                  <Phone className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{formatPhoneNumber(lead.telefone_lead)}</span>
                 </p>
               </div>
             </button>
@@ -1294,17 +1296,19 @@ const Chat = () => {
                                       }
                                     />
                                   </div>
-                                  <div className="flex-1 text-left overflow-hidden">
-                                    <div className="flex items-center gap-2">
-                                      <p className="font-medium truncate">{lead.nome_lead}</p>
+                                  <div className="flex-1 text-left overflow-hidden min-w-0">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <p className="font-medium truncate flex-1 min-w-0">{lead.nome_lead}</p>
                                       {presenceStatus.get(lead.id)?.isOnline && (
-                                        <span className="text-xs text-green-600 font-medium">Online</span>
+                                        <span className="text-xs text-green-600 font-medium flex-shrink-0 whitespace-nowrap">Online</span>
                                       )}
-                                      <LeadTagsBadge leadId={lead.id} />
+                                      <div className="flex-shrink-0">
+                                        <LeadTagsBadge leadId={lead.id} />
+                                      </div>
                                     </div>
-                                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                      <Phone className="h-3 w-3" />
-                                      {formatPhoneNumber(lead.telefone_lead)}
+                                    <p className="text-sm text-muted-foreground flex items-center gap-1 truncate">
+                                      <Phone className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate">{formatPhoneNumber(lead.telefone_lead)}</span>
                                     </p>
                                   </div>
                                 </button>
