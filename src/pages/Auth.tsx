@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { StarsBackground } from "@/components/ui/stars-background";
+import kairozLogo from "@/assets/kairoz-logo-full.png";
 import "./Auth.css";
 
 const Auth = () => {
@@ -127,7 +128,7 @@ const Auth = () => {
     <StarsBackground className="min-h-screen" speed={30} factor={0.08}>
       <div className="auth-wrapper">
         <div className="auth-header">
-          <h1>CRM</h1>
+          <img src={kairozLogo} alt="KairoZ" className="w-64 h-auto mx-auto" />
         </div>
         
         <div className="flip-card-container">
