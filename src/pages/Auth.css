@@ -1,10 +1,10 @@
 .auth-wrapper {
-  --input-focus: #10b981;
-  --font-color: #10b981;
-  --font-color-sub: #059669;
+  --input-focus: hsl(179 77% 43%);
+  --font-color: hsl(179 77% 43%);
+  --font-color-sub: hsl(179 65% 38%);
   --bg-color: #fff;
-  --bg-color-alt: #10b981;
-  --main-color: #10b981;
+  --bg-color-alt: hsl(179 77% 43%);
+  --main-color: hsl(179 77% 43%);
   
   /* Layout principal, centralizando o conteúdo */
   min-height: 100vh;
@@ -227,7 +227,7 @@
 .auth-header h1 {
   font-size: 3rem;
   font-weight: bold;
-  color: #10b981;
+  color: hsl(179 77% 43%);
   margin-bottom: 0.5rem;
 }
 
