@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Facebook, CheckCircle, AlertCircle, Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FacebookSetupGuide } from "./FacebookSetupGuide";
+
 
 interface LeadForm {
   id: string;
@@ -213,10 +213,7 @@ export const FacebookLeadsConnection = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <FacebookSetupGuide />
-      
-      <Card>
+    <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Facebook className="h-5 w-5 text-primary" />
@@ -350,6 +347,5 @@ export const FacebookLeadsConnection = () => {
         </Dialog>
       </CardContent>
     </Card>
-    </div>
   );
 };
