@@ -723,6 +723,13 @@ const Chat = () => {
     if (!text.trim() || !selectedLead) return;
 
     setSending(true);
+    
+    // Criar um timeout para a operação
+    const timeoutDuration = 30000; // 30 segundos
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout: A operação demorou muito. Verifique sua conexão.')), timeoutDuration);
+    });
+
     try {
       // Buscar a organização do usuário
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -774,8 +781,8 @@ const Chat = () => {
         message: messageForEvolution
       });
 
-      // Call edge function to send message via Evolution API
-      const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
+      // Call edge function com timeout usando Promise.race
+      const invokePromise = supabase.functions.invoke('send-whatsapp-message', {
         body: {
           instance_name: instanceData.instance_name,
           remoteJid: selectedLead.telefone_lead,
@@ -784,8 +791,15 @@ const Chat = () => {
         },
       });
 
+      const response = await Promise.race([invokePromise, timeoutPromise]) as { data: any; error: any };
+      const { data, error } = response;
+
       if (error) {
         console.error('❌ Erro na invocação da função:', error);
+        // Tratamento especial para erros de conexão
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+          throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
+        }
         throw error;
       }
 
@@ -818,6 +832,8 @@ const Chat = () => {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
+      } else if (error.name === 'AbortError' || error.message?.includes('Timeout')) {
+        errorMessage = "A operação demorou muito. Verifique sua conexão e tente novamente.";
       }
       
       toast({
