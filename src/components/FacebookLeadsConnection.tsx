@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Facebook, CheckCircle, AlertCircle, Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { FacebookSetupGuide } from "./FacebookSetupGuide";
 
 interface LeadForm {
   id: string;
@@ -212,17 +213,20 @@ export const FacebookLeadsConnection = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Facebook className="h-5 w-5 text-primary" />
-          Facebook Leads
-        </CardTitle>
-        <CardDescription>
-          Conecte sua conta do Facebook para receber leads automaticamente das suas campanhas de anúncios
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-6">
+      <FacebookSetupGuide />
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Facebook className="h-5 w-5 text-primary" />
+            Facebook Leads
+          </CardTitle>
+          <CardDescription>
+            Conecte sua conta do Facebook para receber leads automaticamente das suas campanhas de anúncios
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
         {showSuccess && isConnected && (
           <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -346,5 +350,6 @@ export const FacebookLeadsConnection = () => {
         </Dialog>
       </CardContent>
     </Card>
+    </div>
   );
 };
