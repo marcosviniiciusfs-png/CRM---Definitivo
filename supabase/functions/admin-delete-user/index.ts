@@ -19,23 +19,9 @@ Deno.serve(async (req) => {
   try {
     console.log('[admin-delete-user] Iniciando processamento...')
 
-    // Criar cliente com service role para operações administrativas
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
-
-    // Criar cliente normal para validação de senha
-    const supabaseAuth = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
     // Obter o token de autorização
     const authHeader = req.headers.get('Authorization')
@@ -43,10 +29,12 @@ Deno.serve(async (req) => {
       throw new Error('Token de autorização não fornecido')
     }
 
-    // Verificar usuário autenticado
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+    // Criar um client com o token do usuário para validar a sessão
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    })
+
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
 
     if (userError || !user) {
       console.error('[admin-delete-user] Erro ao obter usuário:', userError)
@@ -54,6 +42,14 @@ Deno.serve(async (req) => {
     }
 
     console.log('[admin-delete-user] Usuário autenticado:', user.id)
+
+    // Criar cliente admin para operações privilegiadas
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
     // Verificar se é super admin
     const { data: roleData, error: roleError } = await supabaseAdmin
@@ -78,6 +74,9 @@ Deno.serve(async (req) => {
     }
 
     console.log('[admin-delete-user] Validando senha do super admin...')
+
+    // Criar cliente para validação de senha
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey)
 
     // Validar senha do super admin
     const { error: passwordError } = await supabaseAuth.auth.signInWithPassword({
