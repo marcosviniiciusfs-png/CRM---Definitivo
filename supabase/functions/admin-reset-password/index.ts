@@ -95,7 +95,7 @@ serve(async (req: Request) => {
         "Authorization": `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: "CRM <onboarding@resend.dev>",
+        from: "CRM Kairoz <noreply@kairozspace.com.br>",
         to: [userEmail],
         subject: "Redefinição de Senha - Solicitado pelo Administrador",
         html: `
