@@ -31,12 +31,16 @@ serve(async (req: Request) => {
       throw new Error("Token de autorização ausente");
     }
 
+    // Extrair o token (remover "Bearer " se presente)
+    const token = authHeader.replace("Bearer ", "");
+
     // Criar um client com o token do usuário para validar a sessão
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false }
     });
 
-    const { data: { user: adminUser }, error: authError } = await supabaseUser.auth.getUser();
+    const { data: { user: adminUser }, error: authError } = await supabaseUser.auth.getUser(token);
 
     if (authError || !adminUser) {
       console.error("[admin-reset-password] Erro de autenticação:", authError);

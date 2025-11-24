@@ -29,12 +29,16 @@ Deno.serve(async (req) => {
       throw new Error('Token de autorização não fornecido')
     }
 
+    // Extrair o token (remover "Bearer " se presente)
+    const token = authHeader.replace('Bearer ', '')
+
     // Criar um client com o token do usuário para validar a sessão
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false }
     })
 
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token)
 
     if (userError || !user) {
       console.error('[admin-delete-user] Erro ao obter usuário:', userError)
