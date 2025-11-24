@@ -165,6 +165,51 @@ serve(async (req) => {
     
     console.log('🔗 URL limpa da Evolution API:', cleanBaseUrl);
     
+    // VERIFICAR STATUS REAL NA EVOLUTION API ANTES DE ENVIAR
+    const connectionStateUrl = `${cleanBaseUrl}/instance/connectionState/${instance_name}`;
+    console.log('🔍 Verificando status real na Evolution API:', connectionStateUrl);
+    
+    try {
+      const stateResponse = await fetch(connectionStateUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': evolutionApiKey,
+        },
+      });
+      
+      if (stateResponse.ok) {
+        const stateData = await stateResponse.json();
+        console.log('📊 Status da conexão:', stateData);
+        
+        // Verificar se está realmente conectado
+        if (stateData.instance?.state !== 'open' && stateData.state !== 'open') {
+          console.error('❌ Instância não está aberta:', stateData);
+          
+          // Atualizar status no banco
+          await supabase
+            .from('whatsapp_instances')
+            .update({ status: 'DISCONNECTED' })
+            .eq('instance_name', instance_name);
+          
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'WhatsApp desconectado. Por favor, reconecte o WhatsApp nas Configurações escaneando o QR Code novamente.',
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200,
+            },
+          );
+        }
+      } else {
+        console.warn('⚠️ Não foi possível verificar status da instância, continuando com envio...');
+      }
+    } catch (statusError) {
+      console.warn('⚠️ Erro ao verificar status (continuando):', statusError);
+      // Continua mesmo se não conseguir verificar o status
+    }
+    
     // Construir endpoint correto para envio de mensagem
     const sendMessageUrl = `${cleanBaseUrl}/message/sendText/${instance_name}`;
     
@@ -252,6 +297,19 @@ serve(async (req) => {
           }
         } else if (errorJson.message) {
           friendlyError = errorJson.message;
+        }
+        
+        // Verificar se é "Connection Closed"
+        if (friendlyError.includes('Connection Closed')) {
+          friendlyError = 'WhatsApp desconectado. Por favor, reconecte o WhatsApp nas Configurações escaneando o QR Code novamente.';
+          
+          // Atualizar status no banco para DISCONNECTED
+          await supabase
+            .from('whatsapp_instances')
+            .update({ status: 'DISCONNECTED' })
+            .eq('instance_name', instance_name);
+          
+          console.log('🔄 Status da instância atualizado para DISCONNECTED devido a Connection Closed');
         }
       } catch {
         friendlyError = errorText || friendlyError;
