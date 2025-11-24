@@ -45,23 +45,32 @@ serve(async (req: Request) => {
   try {
     console.log("[admin-generate-temp-password] Iniciando processamento");
 
-    // Criar cliente Supabase com service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verificar autenticação
+    // Verificar autenticação usando o token do usuário
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       throw new Error("Token de autorização ausente");
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user: adminUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Criar um client com o token do usuário para validar a sessão
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user: adminUser }, error: authError } = await supabaseUser.auth.getUser();
 
     if (authError || !adminUser) {
+      console.error("[admin-generate-temp-password] Erro de autenticação:", authError);
       throw new Error("Não autorizado");
     }
+
+    console.log("[admin-generate-temp-password] Usuário autenticado:", adminUser.id);
+
+    // Criar cliente admin para operações privilegiadas
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verificar se é super admin
     const { data: roleData, error: roleError } = await supabaseAdmin
@@ -72,6 +81,7 @@ serve(async (req: Request) => {
       .single();
 
     if (roleError || !roleData) {
+      console.error("[admin-generate-temp-password] Usuário não é super admin:", roleError);
       throw new Error("Acesso negado: apenas super admins podem gerar senhas temporárias");
     }
 
