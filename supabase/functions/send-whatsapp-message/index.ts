@@ -144,35 +144,93 @@ serve(async (req) => {
       id: instanceCheck.id
     });
 
-    // Limpar URL base de forma mais agressiva
-    let cleanBaseUrl = evolutionApiUrl
-      .replace(/\/+$/, '')           // Remove barras finais
-      .replace(/\/manager\/?/g, '')  // Remove /manager/ ou /manager
-      .replace(/\/\//g, '/');        // Remove barras duplas
+    // Limpar URL base - garantir que está no formato correto
+    let cleanBaseUrl = evolutionApiUrl.trim();
     
-    // Se a URL terminar com protocolo:/, adiciona a segunda barra
-    cleanBaseUrl = cleanBaseUrl.replace(/:\/$/, '://');
+    // Remover barras finais
+    cleanBaseUrl = cleanBaseUrl.replace(/\/+$/, '');
+    
+    // Remover /manager se existir
+    cleanBaseUrl = cleanBaseUrl.replace(/\/manager\/?$/i, '');
+    
+    // Garantir que tem protocolo correto
+    if (!cleanBaseUrl.startsWith('http://') && !cleanBaseUrl.startsWith('https://')) {
+      cleanBaseUrl = 'https://' + cleanBaseUrl;
+    }
+    
+    // Remover barras duplas EXCETO no protocolo (https:// ou http://)
+    cleanBaseUrl = cleanBaseUrl.replace(/(https?:\/\/)|(\/\/)/g, (match) => {
+      return match.includes('://') ? match : '/';
+    });
+    
+    console.log('🔗 URL limpa da Evolution API:', cleanBaseUrl);
     
     // Construir endpoint correto para envio de mensagem
     const sendMessageUrl = `${cleanBaseUrl}/message/sendText/${instance_name}`;
     
     console.log(`🔄 Chamando Evolution API: ${sendMessageUrl}`);
     
-    const evolutionResponse = await fetch(sendMessageUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': evolutionApiKey,
-      },
-      body: JSON.stringify({
-        number: cleanNumber,
-        text: message_text,
-      }),
-    });
+    // Criar AbortController para timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 segundos de timeout
+    
+    let evolutionResponse;
+    try {
+      evolutionResponse = await fetch(sendMessageUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionApiKey,
+        },
+        body: JSON.stringify({
+          number: cleanNumber,
+          text: message_text,
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      console.error('❌ Erro ao fazer fetch para Evolution API:', fetchError);
+      
+      // Tratamento especial para timeout
+      if (fetchError.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Timeout: A Evolution API não respondeu a tempo. Verifique se o serviço está funcionando.',
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        );
+      }
+      
+      // Outros erros de conexão
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Erro de conexão com Evolution API: ${fetchError.message}`,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     // Verificar resposta da Evolution API
     if (!evolutionResponse.ok) {
-      const errorText = await evolutionResponse.text();
+      let errorText = '';
+      try {
+        errorText = await evolutionResponse.text();
+      } catch (readError) {
+        console.error('❌ Erro ao ler resposta de erro:', readError);
+        errorText = 'Não foi possível ler a resposta de erro';
+      }
+      
       console.error('❌ Erro da Evolution API:', {
         status: evolutionResponse.status,
         statusText: evolutionResponse.statusText,
@@ -192,6 +250,8 @@ serve(async (req) => {
           } else {
             friendlyError = messages;
           }
+        } else if (errorJson.message) {
+          friendlyError = errorJson.message;
         }
       } catch {
         friendlyError = errorText || friendlyError;
@@ -222,8 +282,23 @@ serve(async (req) => {
       );
     }
 
-    const evolutionData = await evolutionResponse.json();
-    console.log('✅ Resposta da Evolution API:', evolutionData);
+    let evolutionData;
+    try {
+      evolutionData = await evolutionResponse.json();
+      console.log('✅ Resposta da Evolution API:', evolutionData);
+    } catch (jsonError) {
+      console.error('❌ Erro ao fazer parse da resposta JSON:', jsonError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Erro ao processar resposta da Evolution API. A API pode estar offline ou retornando dados inválidos.',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      );
+    }
 
     // Extrair messageId da resposta
     const messageId = evolutionData.key?.id || evolutionData.messageId || null;
