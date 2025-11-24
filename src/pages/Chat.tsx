@@ -1074,7 +1074,7 @@ const Chat = () => {
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       {/* Lista de Leads - Coluna Esquerda */}
-      <Card className="w-80 flex flex-col">
+      <Card className="w-80 flex flex-col overflow-hidden h-full">
         <div className="p-4 border-b space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Conversas</h2>
@@ -1213,7 +1213,7 @@ const Chat = () => {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <TabsList className="mx-4 mt-2 grid w-[calc(100%-2rem)] grid-cols-2">
             <TabsTrigger value="all" className="text-sm">
               Tudo
@@ -1235,7 +1235,7 @@ const Chat = () => {
           ) : (
             <>
               {/* Aba: Tudo */}
-              <TabsContent value="all" className="flex-1 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <TabsContent value="all" className="flex-1 mt-0 min-h-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col">
                 <ScrollArea className="flex-1">
                   {pinnedFilteredLeads.length === 0 && unpinnedFilteredLeads.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">
@@ -1338,7 +1338,7 @@ const Chat = () => {
               </TabsContent>
 
               {/* Aba: Fixados */}
-              <TabsContent value="pinned" className="flex-1 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <TabsContent value="pinned" className="flex-1 mt-0 min-h-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col">
                 <ScrollArea className="flex-1">
                   {pinnedFilteredLeads.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
