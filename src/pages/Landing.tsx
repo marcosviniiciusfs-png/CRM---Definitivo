@@ -115,7 +115,7 @@ const Landing = () => {
           <Button 
             onClick={handleStartClick}
             size="lg"
-            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-lg px-12 py-6 h-auto rounded-full shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all duration-300"
+            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-lg px-12 py-6 h-auto rounded-full shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 transform"
           >
             Começar agora
           </Button>
