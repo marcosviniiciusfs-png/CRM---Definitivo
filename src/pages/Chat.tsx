@@ -256,67 +256,45 @@ const Chat = () => {
           table: 'mensagens_chat',
           filter: `id_lead=eq.${selectedLead.id}`
         },
-        (payload) => {
-          console.log('📨 INSERT event recebido:', payload);
-          const newMessage = payload.new as Message;
-          
-          // Adicionar nova mensagem ao estado sem recarregar tudo
-          setMessages(prev => {
-            // VERIFICAÇÃO TRIPLA ANTI-DUPLICAÇÃO
+          (payload) => {
+            console.log('📨 INSERT event recebido:', payload);
+            const newMessage = payload.new as Message;
             
-            // 1. Verificar por ID exato
-            if (prev.some(msg => msg.id === newMessage.id)) {
-              console.log('❌ DUPLICATA BLOQUEADA (ID):', newMessage.id);
-              return prev;
-            }
-            
-            // 2. Verificar por evolution_message_id
-            if (newMessage.evolution_message_id && prev.some(msg => 
-              msg.evolution_message_id === newMessage.evolution_message_id
-            )) {
-              console.log('❌ DUPLICATA BLOQUEADA (evolution_message_id):', newMessage.evolution_message_id);
-              return prev;
-            }
-            
-            // 3. Verificar por conteúdo + timestamp exato (para mensagens sem IDs únicos)
-            const exactMatch = prev.find(msg => 
-              msg.corpo_mensagem === newMessage.corpo_mensagem &&
-              msg.id_lead === newMessage.id_lead &&
-              msg.direcao === newMessage.direcao &&
-              msg.data_hora === newMessage.data_hora
-            );
-            
-            if (exactMatch) {
-              console.log('❌ DUPLICATA BLOQUEADA (conteúdo + timestamp):', newMessage.corpo_mensagem.substring(0, 30));
-              return prev;
-            }
-            
-            // Remover mensagens otimistas correspondentes
-            const newMessageTime = new Date(newMessage.created_at).getTime();
-            const filtered = prev.filter(msg => {
-              if (!msg.isOptimistic) return true;
-                
-              const isSameContent = msg.corpo_mensagem === newMessage.corpo_mensagem &&
-                                   msg.id_lead === newMessage.id_lead &&
-                                   msg.direcao === newMessage.direcao;
-              
-              if (!isSameContent) return true;
-              
-              const optimisticTime = new Date(msg.created_at).getTime();
-              const isCloseInTime = Math.abs(newMessageTime - optimisticTime) < 5000;
-              
-              if (isCloseInTime) {
-                console.log('🗑️ Removendo mensagem otimista');
-                return false;
+            setMessages(prev => {
+              // VERIFICAÇÃO 1: Verificar por evolution_message_id PRIMEIRO (mais confiável)
+              if (newMessage.evolution_message_id) {
+                const existsByEvolutionId = prev.some(msg => 
+                  msg.evolution_message_id === newMessage.evolution_message_id
+                );
+                if (existsByEvolutionId) {
+                  console.log('❌ DUPLICATA BLOQUEADA (evolution_message_id já existe):', newMessage.evolution_message_id);
+                  return prev;
+                }
               }
               
-              return true;
+              // VERIFICAÇÃO 2: Verificar por ID exato do banco
+              if (prev.some(msg => msg.id === newMessage.id)) {
+                console.log('❌ DUPLICATA BLOQUEADA (ID do banco já existe):', newMessage.id);
+                return prev;
+              }
+              
+              // VERIFICAÇÃO 3: Verificar por conteúdo + timestamp exato
+              const exactMatch = prev.find(msg => 
+                msg.corpo_mensagem === newMessage.corpo_mensagem &&
+                msg.id_lead === newMessage.id_lead &&
+                msg.direcao === newMessage.direcao &&
+                msg.data_hora === newMessage.data_hora
+              );
+              
+              if (exactMatch) {
+                console.log('❌ DUPLICATA BLOQUEADA (conteúdo + timestamp)');
+                return prev;
+              }
+              
+              console.log('✅ ADICIONANDO mensagem nova do banco:', newMessage.id);
+              return [...prev, newMessage];
             });
-            
-            console.log('✅ ADICIONANDO mensagem:', newMessage.id);
-            return [...filtered, newMessage];
-          });
-        }
+          }
       )
       .on(
         'postgres_changes',
@@ -892,11 +870,14 @@ const Chat = () => {
         evolutionData: data.evolutionData
       });
 
-      // Marcar mensagem como enviada com sucesso (não otimista mais)
-      // Isso evita o "piscar" das mensagens
+      // Atualizar mensagem otimista com o evolution_message_id para permitir deduplicação
       setMessages(prev => prev.map(msg => 
         msg.id === optimisticMessageId 
-          ? { ...msg, isOptimistic: false, status_entrega: 'SENT' }
+          ? { 
+              ...msg, 
+              evolution_message_id: data.messageId,
+              status_entrega: 'SENT' as const
+            }
           : msg
       ));
 
