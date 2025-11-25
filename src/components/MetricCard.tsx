@@ -23,20 +23,22 @@ export function MetricCard({ title, value, subtitle, icon: Icon, iconColor, tren
         <Icon className={`h-4 w-4 ${iconColor || "text-muted-foreground"}`} />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">
-          <AnimatedNumber value={value} />
+        <div className="flex items-center gap-3">
+          <div className="text-2xl font-bold">
+            <AnimatedNumber value={value} />
+          </div>
+          {trend && (
+            <div className={`flex items-center gap-1 text-xs ${trend.positive ? "text-green-600" : "text-red-600"}`}>
+              {trend.positive ? (
+                <ArrowUpIcon className="h-3 w-3" />
+              ) : (
+                <ArrowDownIcon className="h-3 w-3" />
+              )}
+              <span className="font-medium">{trend.value}</span>
+            </div>
+          )}
         </div>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-        {trend && (
-          <div className={`flex items-center gap-1 text-xs mt-1 ${trend.positive ? "text-green-600" : "text-red-600"}`}>
-            {trend.positive ? (
-              <ArrowUpIcon className="h-3 w-3" />
-            ) : (
-              <ArrowDownIcon className="h-3 w-3" />
-            )}
-            <span className="font-medium">{trend.value}</span>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
