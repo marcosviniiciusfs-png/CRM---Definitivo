@@ -365,12 +365,15 @@ serve(async (req) => {
     // Se leadId foi fornecido, salvar no banco de dados
     if (leadId) {
       try {
+        // Remover asteriscos da assinatura para salvar no CRM
+        const messageForCRM = message_text.replace(/^\*([^*]+):\*\n/, '$1:\n');
+        
         const { error: dbError } = await supabase
           .from('mensagens_chat')
           .insert({
             id_lead: leadId,
             direcao: 'SAIDA',
-            corpo_mensagem: message_text,
+            corpo_mensagem: messageForCRM,
             evolution_message_id: messageId,
             status_entrega: 'SENT',
           });
