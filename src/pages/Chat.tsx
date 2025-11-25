@@ -1696,15 +1696,16 @@ const Chat = () => {
             {/* Área de Mensagens */}
             <div className="flex-1 relative overflow-hidden">
               <div 
-                className="absolute inset-0 pointer-events-none"
+                className="absolute inset-0 pointer-events-none transition-opacity duration-300"
                 style={{
+                  backgroundColor: theme === 'dark' ? '#0C1317' : '#ECE5DD',
                   backgroundImage: theme === 'dark' 
                     ? 'url(/chat-pattern-dark.png)' 
                     : 'url(/chat-pattern.png)',
                   backgroundRepeat: 'repeat',
-                  backgroundColor: theme === 'dark' ? '#0C1317' : '#ECE5DD',
                   backgroundSize: '200px',
-                  opacity: 0.3
+                  opacity: 0.3,
+                  willChange: 'opacity'
                 }}
               />
               <ScrollArea className="h-full p-4 relative z-10">
