@@ -106,7 +106,7 @@ const LeadMetrics = () => {
       if (!orgMember) return;
 
       // Obter período selecionado
-      const { startDate } = getDateRange();
+      const { startDate, endDate } = getDateRange();
 
       // Buscar leads do Facebook
       const { data: facebookLeads } = await supabase
@@ -115,6 +115,7 @@ const LeadMetrics = () => {
         .eq('organization_id', orgMember.organization_id)
         .eq('source', 'Facebook Leads')
         .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
         .order('created_at', { ascending: true });
 
       // Buscar leads do WhatsApp
@@ -124,12 +125,13 @@ const LeadMetrics = () => {
         .eq('organization_id', orgMember.organization_id)
         .eq('source', 'WhatsApp')
         .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
         .order('created_at', { ascending: true });
 
       // Processar dados do Facebook
       if (facebookLeads && facebookLeads.length > 0) {
         setFacebookMetrics(processMetrics(facebookLeads));
-        await loadFacebookAdvancedMetrics(orgMember.organization_id, startDate);
+        await loadFacebookAdvancedMetrics(orgMember.organization_id, startDate, endDate);
       } else {
         // Sem dados no período, zerar métricas
         setFacebookMetrics({
@@ -149,7 +151,7 @@ const LeadMetrics = () => {
       // Processar dados do WhatsApp
       if (whatsappLeads && whatsappLeads.length > 0) {
         setWhatsappMetrics(processMetrics(whatsappLeads));
-        await loadWhatsAppAdvancedMetrics(orgMember.organization_id, startDate);
+        await loadWhatsAppAdvancedMetrics(orgMember.organization_id, startDate, endDate);
       } else {
         // Sem dados no período, zerar métricas
         setWhatsappMetrics({
@@ -173,7 +175,7 @@ const LeadMetrics = () => {
     }
   };
 
-  const loadFacebookAdvancedMetrics = async (organizationId: string, startDate: Date) => {
+  const loadFacebookAdvancedMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
     try {
       // Buscar leads do Facebook no período selecionado
       const { data: allLeads } = await supabase
@@ -181,7 +183,8 @@ const LeadMetrics = () => {
         .select('id, stage, created_at')
         .eq('organization_id', organizationId)
         .eq('source', 'Facebook Leads')
-        .gte('created_at', startDate.toISOString());
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
 
       if (!allLeads || allLeads.length === 0) {
         // Se não há dados no período, zerar métricas
@@ -213,6 +216,7 @@ const LeadMetrics = () => {
         .select('form_id, lead_id, created_at')
         .eq('organization_id', organizationId)
         .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
         .in('lead_id', leadIds)
         .not('form_id', 'is', null);
 
@@ -241,7 +245,7 @@ const LeadMetrics = () => {
     }
   };
 
-  const loadWhatsAppAdvancedMetrics = async (organizationId: string, startDate: Date) => {
+  const loadWhatsAppAdvancedMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
     try {
       // Buscar leads do WhatsApp no período selecionado
       const { data: whatsappLeads } = await supabase
@@ -249,7 +253,8 @@ const LeadMetrics = () => {
         .select('id, stage, created_at')
         .eq('organization_id', organizationId)
         .eq('source', 'WhatsApp')
-        .gte('created_at', startDate.toISOString());
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
 
       if (!whatsappLeads || whatsappLeads.length === 0) {
         // Se não há dados no período, zerar métricas
