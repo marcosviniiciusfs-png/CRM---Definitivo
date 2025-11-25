@@ -227,35 +227,13 @@ const Chat = () => {
       )
       .subscribe();
 
-    // Configurar realtime para todas as mensagens (não só do lead selecionado)
-    const allMessagesChannel = supabase
-      .channel('all-messages-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'mensagens_chat'
-        },
-        (payload) => {
-          console.log('Nova mensagem recebida em qualquer conversa:', payload);
-          const newMessage = payload.new as any;
-          const leadId = newMessage.id_lead;
-          
-          // Atualizar APENAS o last_message_at do lead específico, sem recarregar tudo
-          setLeads(prevLeads => prevLeads.map(lead => 
-            lead.id === leadId 
-              ? { ...lead, last_message_at: newMessage.data_hora }
-              : lead
-          ));
-        }
-      )
-      .subscribe();
+    // REMOVIDO: Canal geral de mensagens que causava duplicação
+    // O canal específico do lead já lida com as mensagens recebidas
+    // e atualiza automaticamente o last_message_at através do banco
 
     return () => {
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(tagsChannel);
-      supabase.removeChannel(allMessagesChannel);
     };
   }, [location.state]);
 
