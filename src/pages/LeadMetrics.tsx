@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format, subDays, differenceInMinutes, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 interface ChartDataPoint {
   date: string;
@@ -40,8 +41,6 @@ interface WhatsAppAdvancedMetrics {
   avgResponseTimeMinutes: number;
 }
 
-type PeriodOption = '7' | '30' | '90' | 'custom';
-
 const LeadMetrics = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -49,30 +48,30 @@ const LeadMetrics = () => {
   const [whatsappMetrics, setWhatsappMetrics] = useState<MetricsData | null>(null);
   const [facebookAdvanced, setFacebookAdvanced] = useState<FacebookAdvancedMetrics | null>(null);
   const [whatsappAdvanced, setWhatsappAdvanced] = useState<WhatsAppAdvancedMetrics | null>(null);
-  const [periodOption, setPeriodOption] = useState<PeriodOption>('30');
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 30),
+    to: new Date()
+  });
 
   useEffect(() => {
-    if (user) {
+    if (user && dateRange?.from && dateRange?.to) {
       loadMetrics();
     }
-  }, [user, periodOption, customStartDate, customEndDate]);
+  }, [user, dateRange]);
 
   const getDateRange = () => {
-    if (periodOption === 'custom' && customStartDate && customEndDate) {
+    if (!dateRange?.from || !dateRange?.to) {
       return {
-        startDate: startOfDay(customStartDate),
-        endDate: endOfDay(customEndDate),
-        days: Math.ceil((customEndDate.getTime() - customStartDate.getTime()) / (1000 * 60 * 60 * 24))
+        startDate: subDays(new Date(), 30),
+        endDate: new Date(),
+        days: 30
       };
     }
     
-    const days = parseInt(periodOption);
     return {
-      startDate: subDays(new Date(), days),
-      endDate: new Date(),
-      days
+      startDate: startOfDay(dateRange.from),
+      endDate: endOfDay(dateRange.to),
+      days: Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
     };
   };
 
@@ -350,98 +349,84 @@ const LeadMetrics = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Filtros de Período */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                variant={periodOption === '7' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPeriodOption('7')}
-              >
-                7 dias
-              </Button>
-              <Button
-                variant={periodOption === '30' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPeriodOption('30')}
-              >
-                30 dias
-              </Button>
-              <Button
-                variant={periodOption === '90' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPeriodOption('90')}
-              >
-                90 dias
-              </Button>
-              <Button
-                variant={periodOption === 'custom' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPeriodOption('custom')}
-              >
-                Personalizado
-              </Button>
-            </div>
-
-            {periodOption === 'custom' && (
-              <div className="flex gap-2 items-center flex-wrap">
-                <Popover>
-                  <PopoverTrigger asChild>
+          {/* Seletor de Intervalo de Datas */}
+          <div className="flex gap-2 items-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "justify-start text-left font-normal min-w-[260px]",
+                    !dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "dd 'de' MMM", { locale: ptBR })} - {format(dateRange.to, "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
+                      </>
+                    ) : (
+                      format(dateRange.from, "dd 'de' MMM 'de' yyyy", { locale: ptBR })
+                    )
+                  ) : (
+                    <span>Selecione o período</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="flex">
+                  {/* Atalhos rápidos */}
+                  <div className="flex flex-col gap-1 border-r p-2">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className={cn(
-                        "justify-start text-left font-normal",
-                        !customStartDate && "text-muted-foreground"
-                      )}
+                      className="justify-start font-normal"
+                      onClick={() => setDateRange({
+                        from: subDays(new Date(), 7),
+                        to: new Date()
+                      })}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {customStartDate ? format(customStartDate, "dd/MM/yyyy") : "Data início"}
+                      Últimos 7 dias
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={customStartDate}
-                      onSelect={setCustomStartDate}
-                      disabled={(date) => date > new Date()}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-
-                <span className="text-muted-foreground">até</span>
-
-                <Popover>
-                  <PopoverTrigger asChild>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className={cn(
-                        "justify-start text-left font-normal",
-                        !customEndDate && "text-muted-foreground"
-                      )}
+                      className="justify-start font-normal"
+                      onClick={() => setDateRange({
+                        from: subDays(new Date(), 30),
+                        to: new Date()
+                      })}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {customEndDate ? format(customEndDate, "dd/MM/yyyy") : "Data fim"}
+                      Últimos 30 dias
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={customEndDate}
-                      onSelect={setCustomEndDate}
-                      disabled={(date) => 
-                        date > new Date() || (customStartDate ? date < customStartDate : false)
-                      }
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="justify-start font-normal"
+                      onClick={() => setDateRange({
+                        from: subDays(new Date(), 90),
+                        to: new Date()
+                      })}
+                    >
+                      Últimos 90 dias
+                    </Button>
+                  </div>
+                  
+                  {/* Calendário */}
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className="pointer-events-auto"
+                    locale={ptBR}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
