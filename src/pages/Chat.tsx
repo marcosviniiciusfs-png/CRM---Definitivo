@@ -841,7 +841,7 @@ const Chat = () => {
 
     // Criar mensagem otimista IMEDIATAMENTE
     const optimisticMessageId = `optimistic-${Date.now()}`;
-    const messageForEvolution = `*${currentUserName}:*\n${text.trim()}`;
+    const messageForEvolution = `${currentUserName}:\n${text.trim()}`;
     
     const optimisticMessage: Message = {
       id: optimisticMessageId,
@@ -1801,19 +1801,52 @@ const Chat = () => {
                           )
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">
-                            {messageSearchQuery.trim() ? (
-                              message.corpo_mensagem.split(new RegExp(`(${messageSearchQuery})`, 'gi')).map((part, index) => 
-                                part.toLowerCase() === messageSearchQuery.toLowerCase() ? (
-                                  <mark key={index} className="bg-yellow-300 dark:bg-yellow-600 rounded px-0.5">
-                                    {part}
-                                  </mark>
-                                ) : (
-                                  part
+                            {(() => {
+                              const messageText = message.corpo_mensagem;
+                              // Detectar assinatura do colaborador no início da mensagem de saída
+                              const signatureMatch = message.direcao === "SAIDA" && 
+                                messageText.match(/^([^:]+):\n/);
+                              
+                              if (signatureMatch) {
+                                const signature = signatureMatch[1];
+                                const content = messageText.substring(signatureMatch[0].length);
+                                
+                                return (
+                                  <>
+                                    <strong className="font-semibold">{signature}:</strong>
+                                    {"\n"}
+                                    {messageSearchQuery.trim() ? (
+                                      content.split(new RegExp(`(${messageSearchQuery})`, 'gi')).map((part, index) => 
+                                        part.toLowerCase() === messageSearchQuery.toLowerCase() ? (
+                                          <mark key={index} className="bg-yellow-300 dark:bg-yellow-600 rounded px-0.5">
+                                            {part}
+                                          </mark>
+                                        ) : (
+                                          part
+                                        )
+                                      )
+                                    ) : (
+                                      content
+                                    )}
+                                  </>
+                                );
+                              }
+                              
+                              // Mensagem normal sem assinatura
+                              return messageSearchQuery.trim() ? (
+                                messageText.split(new RegExp(`(${messageSearchQuery})`, 'gi')).map((part, index) => 
+                                  part.toLowerCase() === messageSearchQuery.toLowerCase() ? (
+                                    <mark key={index} className="bg-yellow-300 dark:bg-yellow-600 rounded px-0.5">
+                                      {part}
+                                    </mark>
+                                  ) : (
+                                    part
+                                  )
                                 )
-                              )
-                            ) : (
-                              message.corpo_mensagem
-                            )}
+                              ) : (
+                                messageText
+                              );
+                            })()}
                           </p>
                         )}
                         <div
