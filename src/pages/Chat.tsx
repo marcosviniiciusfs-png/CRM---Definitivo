@@ -281,11 +281,23 @@ const Chat = () => {
             
             // Adicionar nova mensagem ao estado sem recarregar tudo
             setMessages(prev => {
-              // Verificar se já existe essa mensagem real (evitar duplicatas)
+              // VERIFICAÇÃO 1: Verificar se já existe essa mensagem real pelo ID
               const exists = prev.some(msg => msg.id === newMessage.id);
               if (exists) {
-                console.log('Mensagem já existe, ignorando duplicata');
+                console.log('⚠️ Mensagem já existe (ID duplicado), ignorando:', newMessage.id);
                 return prev;
+              }
+              
+              // VERIFICAÇÃO 2: Verificar se existe mensagem com mesmo evolution_message_id
+              if (newMessage.evolution_message_id) {
+                const existsByEvolutionId = prev.some(msg => 
+                  msg.evolution_message_id === newMessage.evolution_message_id && 
+                  msg.evolution_message_id !== null
+                );
+                if (existsByEvolutionId) {
+                  console.log('⚠️ Mensagem já existe (evolution_message_id duplicado), ignorando:', newMessage.evolution_message_id);
+                  return prev;
+                }
               }
               
               // Encontrar e remover TODAS as mensagens otimistas correspondentes
@@ -310,7 +322,7 @@ const Chat = () => {
                 
                 // Se tem mesmo conteúdo E foi criada próximo no tempo, é a mesma mensagem
                 if (isCloseInTime) {
-                  console.log('Removendo mensagem otimista duplicada');
+                  console.log('✅ Removendo mensagem otimista duplicada');
                   return false; // Remove a otimista
                 }
                 
@@ -318,7 +330,7 @@ const Chat = () => {
               });
               
               // Adicionar a nova mensagem real
-              console.log('Adicionando nova mensagem do banco');
+              console.log('✅ Adicionando nova mensagem do banco:', newMessage.id);
               return [...filtered, newMessage];
             });
           }
