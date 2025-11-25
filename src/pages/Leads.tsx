@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 import {
   Table,
   TableBody,
@@ -243,12 +244,7 @@ const Leads = () => {
 
       {/* Tabela de Leads */}
       {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-12 w-full" />
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
-        </div>
+        <LoadingAnimation text="Carregando leads..." />
       ) : (
         <div className="rounded-lg border bg-card">
           <Table>

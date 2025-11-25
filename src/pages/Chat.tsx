@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw } from "lucide-react";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -1390,9 +1391,7 @@ const Chat = () => {
           </TabsList>
 
           {loading && !selectedLead ? (
-            <div className="flex items-center justify-center p-8 flex-1">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
+            <LoadingAnimation text="Carregando leads..." />
           ) : (
             <>
               {/* Aba: Tudo */}
@@ -1711,9 +1710,7 @@ const Chat = () => {
               />
               <ScrollArea className="h-full p-4 relative z-10">
               {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
+                <LoadingAnimation text="Carregando mensagens..." />
               ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
                   <p>Nenhuma mensagem ainda. Inicie a conversa!</p>
