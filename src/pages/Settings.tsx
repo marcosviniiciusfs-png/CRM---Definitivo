@@ -27,6 +27,7 @@ const Settings = () => {
   const [jobTitle, setJobTitle] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
 
   useEffect(() => {
     const getUserData = async () => {
@@ -72,6 +73,7 @@ const Settings = () => {
           setFullName(profileData.full_name || "");
           setJobTitle(profileData.job_title || "");
           setAvatarUrl(profileData.avatar_url || null);
+          setNotificationSoundEnabled(profileData.notification_sound_enabled ?? true);
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
@@ -104,6 +106,27 @@ const Settings = () => {
       toast.error("Erro ao salvar perfil. Tente novamente.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleNotificationSound = async (enabled: boolean) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          notification_sound_enabled: enabled,
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setNotificationSoundEnabled(enabled);
+      toast.success(enabled ? "Som de notificação ativado" : "Som de notificação desativado");
+    } catch (error) {
+      console.error('Erro ao atualizar preferência:', error);
+      toast.error("Erro ao atualizar preferência. Tente novamente.");
     }
   };
 
@@ -307,28 +330,23 @@ const Settings = () => {
                 <Bell className="h-5 w-5 text-primary" />
                 Notificações
               </CardTitle>
+              <CardDescription>
+                Configure suas preferências de notificação
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Notificações de Email</p>
-                  <p className="text-sm text-muted-foreground">Receba atualizações por email</p>
+                <div className="space-y-0.5">
+                  <Label htmlFor="notification-sound" className="text-base">Som de Notificação</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Reproduzir som quando novas mensagens chegarem
+                  </p>
                 </div>
-                <Button variant="outline">Ativado</Button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Alertas de Tarefas Vencidas</p>
-                  <p className="text-sm text-muted-foreground">Notificação quando uma tarefa vence</p>
-                </div>
-                <Button variant="outline">Ativado</Button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Leads sem Atividade</p>
-                  <p className="text-sm text-muted-foreground">Alerta para leads inativos por 7 dias</p>
-                </div>
-                <Button variant="outline">Ativado</Button>
+                <Switch
+                  id="notification-sound"
+                  checked={notificationSoundEnabled}
+                  onCheckedChange={handleToggleNotificationSound}
+                />
               </div>
             </CardContent>
           </Card>

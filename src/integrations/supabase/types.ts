@@ -657,6 +657,7 @@ export type Database = {
           full_name: string | null
           id: string
           job_title: string | null
+          notification_sound_enabled: boolean | null
           updated_at: string
           user_id: string
         }
@@ -666,6 +667,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           job_title?: string | null
+          notification_sound_enabled?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -675,6 +677,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           job_title?: string | null
+          notification_sound_enabled?: boolean | null
           updated_at?: string
           user_id?: string
         }
