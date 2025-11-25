@@ -253,7 +253,7 @@ const LeadMetrics = () => {
   };
 
   const processMetrics = (leads: any[]): MetricsData => {
-    const { days } = getDateRange();
+    const { startDate, endDate, days } = getDateRange();
     
     // Agrupar por dia
     const groupedByDay = leads.reduce((acc, lead) => {
@@ -264,26 +264,28 @@ const LeadMetrics = () => {
 
     // Criar array de dados para o gráfico baseado no período selecionado
     const chartData: ChartDataPoint[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      const dateKey = format(date, 'dd/MMM', { locale: ptBR });
+    
+    // Iterar do startDate até endDate
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateKey = format(currentDate, 'dd/MMM', { locale: ptBR });
       chartData.push({
         date: dateKey,
         count: groupedByDay[dateKey] || 0
       });
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Calcular semana atual e anterior
-    const sevenDaysAgo = subDays(new Date(), 7);
-    const fourteenDaysAgo = subDays(new Date(), 14);
-
+    // Calcular semana atual e anterior dentro do período selecionado
+    const periodMidpoint = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
+    
     const thisWeekLeads = leads.filter(lead => 
-      new Date(lead.created_at) >= sevenDaysAgo
+      new Date(lead.created_at) >= periodMidpoint
     );
     
     const lastWeekLeads = leads.filter(lead => {
       const createdAt = new Date(lead.created_at);
-      return createdAt >= fourteenDaysAgo && createdAt < sevenDaysAgo;
+      return createdAt < periodMidpoint;
     });
 
     const thisWeekTotal = thisWeekLeads.length;
@@ -494,7 +496,7 @@ const LeadMetrics = () => {
                 <TooltipTrigger asChild>
                   <div>
                     <MetricCard
-                      title="Leads desta Semana"
+                      title="Segunda Metade do Período"
                       value={facebookMetrics?.thisWeekTotal || 0}
                       icon={TrendingUp}
                       iconColor="text-green-500"
@@ -507,7 +509,7 @@ const LeadMetrics = () => {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="font-semibold mb-1">Como é calculado:</p>
-                  <p className="text-sm">Total de leads recebidos nos últimos 7 dias. A taxa de crescimento compara com a semana anterior: ((Leads esta semana - Leads semana anterior) / Leads semana anterior) × 100</p>
+                  <p className="text-sm">Total de leads recebidos na segunda metade do período selecionado. A taxa de crescimento compara com a primeira metade.</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -515,7 +517,7 @@ const LeadMetrics = () => {
                 <TooltipTrigger asChild>
                   <div>
                     <MetricCard
-                      title="Leads Semana Anterior"
+                      title="Primeira Metade do Período"
                       value={facebookMetrics?.lastWeekTotal || 0}
                       icon={Facebook}
                       iconColor="text-blue-600"
@@ -524,7 +526,7 @@ const LeadMetrics = () => {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="font-semibold mb-1">Como é calculado:</p>
-                  <p className="text-sm">Total de leads recebidos entre 14 e 7 dias atrás, usado como base de comparação para calcular o crescimento.</p>
+                  <p className="text-sm">Total de leads recebidos na primeira metade do período selecionado, usado como base de comparação.</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -653,7 +655,7 @@ const LeadMetrics = () => {
                 <TooltipTrigger asChild>
                   <div>
                     <MetricCard
-                      title="Leads desta Semana"
+                      title="Segunda Metade do Período"
                       value={whatsappMetrics?.thisWeekTotal || 0}
                       icon={TrendingUp}
                       iconColor="text-green-500"
@@ -666,7 +668,7 @@ const LeadMetrics = () => {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="font-semibold mb-1">Como é calculado:</p>
-                  <p className="text-sm">Total de leads recebidos nos últimos 7 dias. A taxa de crescimento compara com a semana anterior: ((Leads esta semana - Leads semana anterior) / Leads semana anterior) × 100</p>
+                  <p className="text-sm">Total de leads recebidos na segunda metade do período selecionado. A taxa de crescimento compara com a primeira metade.</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -674,7 +676,7 @@ const LeadMetrics = () => {
                 <TooltipTrigger asChild>
                   <div>
                     <MetricCard
-                      title="Leads Semana Anterior"
+                      title="Primeira Metade do Período"
                       value={whatsappMetrics?.lastWeekTotal || 0}
                       icon={MessageCircle}
                       iconColor="text-green-600"
@@ -683,7 +685,7 @@ const LeadMetrics = () => {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="font-semibold mb-1">Como é calculado:</p>
-                  <p className="text-sm">Total de leads recebidos entre 14 e 7 dias atrás, usado como base de comparação para calcular o crescimento.</p>
+                  <p className="text-sm">Total de leads recebidos na primeira metade do período selecionado, usado como base de comparação.</p>
                 </TooltipContent>
               </Tooltip>
             </div>
