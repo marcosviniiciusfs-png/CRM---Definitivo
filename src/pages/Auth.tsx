@@ -8,20 +8,13 @@ import kairozLogo from "@/assets/kairoz-logo-full.png";
 import "./Auth.css";
 
 const Auth = () => {
-  const { signUp, signIn, user, loading: authLoading } = useAuth();
+  const { signIn, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-
-  // Signup form state
-  const [signupName, setSignupName] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
 
   // Redirect if already logged in
   if (user && !authLoading) {
@@ -60,61 +53,6 @@ const Auth = () => {
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!signupName || !signupEmail || !signupPassword || !signupConfirmPassword) {
-      toast({
-        title: "Erro",
-        description: "Por favor, preencha todos os campos",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (signupPassword !== signupConfirmPassword) {
-      toast({
-        title: "Erro",
-        description: "As senhas não coincidem",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (signupPassword.length < 6) {
-      toast({
-        title: "Erro",
-        description: "A senha deve ter pelo menos 6 caracteres",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
-    setLoading(false);
-
-    if (error) {
-      if (error.message.includes("already registered")) {
-        toast({
-          title: "Erro ao criar conta",
-          description: "Este email já está cadastrado. Tente fazer login.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Erro ao criar conta",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } else {
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "Você já pode acessar o CRM",
-      });
-    }
-  };
 
   if (authLoading) {
     return (
@@ -129,23 +67,13 @@ const Auth = () => {
       <div className="auth-wrapper">
         <div className="auth-header">
           <img src={kairozLogo} alt="KairoZ" className="w-64 h-auto mx-auto" />
+          <p className="text-muted-foreground text-sm mt-4">
+            Para criar uma conta, entre em contato com o administrador da sua organização
+          </p>
         </div>
         
         <div className="flip-card-container">
-          <div className="switch">
-            <input 
-              type="checkbox" 
-              id="toggle" 
-              className="toggle"
-              checked={isSignUp}
-              onChange={(e) => setIsSignUp(e.target.checked)}
-            />
-            <label htmlFor="toggle" className="slider"></label>
-            <label htmlFor="toggle" className="card-side"></label>
-          </div>
-          
-          <div className={`flip-card__inner ${isSignUp ? 'flipped' : ''}`}>
-            {/* Login Card (Front) */}
+          <div className="flip-card__inner">
             <div className="flip-card__front">
               <form onSubmit={handleLogin} className="flip-card__form">
                 <h2 className="title">Login</h2>
@@ -173,56 +101,6 @@ const Auth = () => {
                   disabled={loading}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Entrar"}
-                </button>
-              </form>
-            </div>
-
-            {/* Sign Up Card (Back) */}
-            <div className="flip-card__back">
-              <form onSubmit={handleSignup} className="flip-card__form">
-                <h2 className="title">Cadastro</h2>
-                <input
-                  type="text"
-                  placeholder="Nome"
-                  className="flip-card__input"
-                  value={signupName}
-                  onChange={(e) => setSignupName(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="flip-card__input"
-                  value={signupEmail}
-                  onChange={(e) => setSignupEmail(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Senha"
-                  className="flip-card__input"
-                  value={signupPassword}
-                  onChange={(e) => setSignupPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Confirmar Senha"
-                  className="flip-card__input"
-                  value={signupConfirmPassword}
-                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <button 
-                  type="submit" 
-                  className="flip-card__btn"
-                  disabled={loading}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Inscrever-se"}
                 </button>
               </form>
             </div>
