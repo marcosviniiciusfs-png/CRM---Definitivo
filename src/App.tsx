@@ -13,6 +13,7 @@ import Auth from "./pages/Auth";
 import Pipeline from "./pages/Pipeline";
 import Leads from "./pages/Leads";
 import LeadDetails from "./pages/LeadDetails";
+import LeadMetrics from "./pages/LeadMetrics";
 import Chat from "./pages/Chat";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
             <Route path="/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
             <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LeadDetails /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/lead-metrics" element={<ProtectedRoute><DashboardLayout><LeadMetrics /></DashboardLayout></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><DashboardLayout><Chat /></DashboardLayout></ProtectedRoute>} />
             <Route path="/administrativo/colaboradores" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />
             <Route path="/administrativo/producao" element={<ProtectedRoute><Producao /></ProtectedRoute>} />

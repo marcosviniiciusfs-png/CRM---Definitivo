@@ -1,4 +1,4 @@
-import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity } from "lucide-react";
+import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Leads", url: "/leads", icon: Users },
+  { title: "Métricas", url: "/lead-metrics", icon: BarChart3 },
   { title: "Chat", url: "/chat", icon: MessageSquare },
 ];
 
