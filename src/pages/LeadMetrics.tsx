@@ -44,6 +44,7 @@ interface WhatsAppAdvancedMetrics {
 const LeadMetrics = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [facebookMetrics, setFacebookMetrics] = useState<MetricsData | null>(null);
   const [whatsappMetrics, setWhatsappMetrics] = useState<MetricsData | null>(null);
   const [facebookAdvanced, setFacebookAdvanced] = useState<FacebookAdvancedMetrics | null>(null);
@@ -80,7 +81,12 @@ const LeadMetrics = () => {
 
   const loadMetrics = async () => {
     try {
-      setLoading(true);
+      // Se já carregou antes, apenas mostrar indicador de atualização
+      if (!loading) {
+        setUpdating(true);
+      } else {
+        setLoading(true);
+      }
 
       // Buscar organization_id do usuário
       const { data: orgMember } = await supabase
@@ -127,6 +133,7 @@ const LeadMetrics = () => {
       console.error('Erro ao carregar métricas:', error);
     } finally {
       setLoading(false);
+      setUpdating(false);
     }
   };
 
@@ -461,9 +468,9 @@ const LeadMetrics = () => {
                           setShouldLoadMetrics(true);
                         }
                       }}
-                      disabled={!dateRange?.from || !dateRange?.to}
+                      disabled={!dateRange?.from || !dateRange?.to || updating}
                     >
-                      Atualizar
+                      {updating ? 'Atualizando...' : 'Atualizar'}
                     </Button>
                   </div>
                 </div>
@@ -474,7 +481,7 @@ const LeadMetrics = () => {
 
         <TabsContent value="facebook" className="space-y-6">
           <TooltipProvider>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -531,7 +538,7 @@ const LeadMetrics = () => {
               </Tooltip>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -574,7 +581,7 @@ const LeadMetrics = () => {
             <CardHeader>
               <CardTitle>Tendência de Leads - Meta Ads</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="transition-all duration-500">
               <ResponsiveContainer width="100%" height={400}>
                 <AreaChart data={facebookMetrics?.chartData || []}>
                   <defs>
@@ -600,6 +607,8 @@ const LeadMetrics = () => {
                     stroke="#3b82f6"
                     strokeWidth={2}
                     fill="url(#facebookGradient)"
+                    animationDuration={800}
+                    animationEasing="ease-in-out"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -610,7 +619,7 @@ const LeadMetrics = () => {
             <CardHeader>
               <CardTitle>Volume de Leads por Formulário</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="transition-all duration-500">
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={facebookAdvanced?.leadsByForm || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -624,7 +633,13 @@ const LeadMetrics = () => {
                     axisLine={{ stroke: 'hsl(var(--border))' }}
                   />
                   <RechartsTooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                  <Bar 
+                    dataKey="count" 
+                    fill="#3b82f6" 
+                    radius={[8, 8, 0, 0]}
+                    animationDuration={800}
+                    animationEasing="ease-in-out"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -633,7 +648,7 @@ const LeadMetrics = () => {
 
         <TabsContent value="whatsapp" className="space-y-6">
           <TooltipProvider>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -690,7 +705,7 @@ const LeadMetrics = () => {
               </Tooltip>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -751,7 +766,7 @@ const LeadMetrics = () => {
             <CardHeader>
               <CardTitle>Tendência de Leads - WhatsApp</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="transition-all duration-500">
               <ResponsiveContainer width="100%" height={400}>
                 <AreaChart data={whatsappMetrics?.chartData || []}>
                   <defs>
@@ -777,6 +792,8 @@ const LeadMetrics = () => {
                     stroke="#10b981"
                     strokeWidth={2}
                     fill="url(#whatsappGradient)"
+                    animationDuration={800}
+                    animationEasing="ease-in-out"
                   />
                 </AreaChart>
               </ResponsiveContainer>
