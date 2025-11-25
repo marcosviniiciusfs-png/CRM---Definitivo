@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 const leadSourceData = [{
   month: "Jan",
   emailMarketing: 1200,
@@ -248,16 +249,11 @@ const Dashboard = () => {
     fill: "hsl(0, 0%, 90%)"
   }];
   if (loading) {
-    return <div className="space-y-6">
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-[400px] w-full" />
-          <Skeleton className="h-[400px] w-full" />
-          <Skeleton className="h-[400px] w-full" />
-        </div>
-      </div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingAnimation text="Carregando dashboard..." />
+      </div>
+    );
   }
   return <div className="space-y-6">
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
