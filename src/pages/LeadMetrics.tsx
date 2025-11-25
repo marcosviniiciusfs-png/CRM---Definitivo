@@ -336,9 +336,21 @@ const LeadMetrics = () => {
         </p>
       </div>
 
-      {/* Filtros de Período */}
-      <Card>
-        <CardContent className="pt-6">
+
+      <Tabs defaultValue="facebook" className="space-y-6">
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="facebook" className="flex items-center gap-2">
+              <Facebook className="h-4 w-4" />
+              Meta Ads
+            </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Filtros de Período */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="flex gap-2 flex-wrap">
               <Button
@@ -431,20 +443,7 @@ const LeadMetrics = () => {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="facebook" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="facebook" className="flex items-center gap-2">
-            <Facebook className="h-4 w-4" />
-            Meta Ads
-          </TabsTrigger>
-          <TabsTrigger value="whatsapp" className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" />
-            WhatsApp
-          </TabsTrigger>
-        </TabsList>
+        </div>
 
         <TabsContent value="facebook" className="space-y-6">
           <TooltipProvider>
