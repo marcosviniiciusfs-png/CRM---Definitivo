@@ -1637,7 +1637,7 @@ const Chat = () => {
                       <div
                         className={`max-w-[70%] rounded-lg p-3 ${
                           message.direcao === "SAIDA"
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-chat-bubble text-chat-bubble-foreground"
                             : "bg-muted"
                         }`}
                       >
@@ -1682,7 +1682,7 @@ const Chat = () => {
                         <div
                           className={`flex items-center gap-1 mt-1 text-xs ${
                             message.direcao === "SAIDA"
-                              ? "text-primary-foreground/70"
+                              ? "text-chat-bubble-foreground/70"
                               : "text-muted-foreground"
                           }`}
                         >
