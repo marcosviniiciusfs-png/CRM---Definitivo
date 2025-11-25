@@ -97,6 +97,7 @@ const Chat = () => {
   const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -858,6 +859,12 @@ const Chat = () => {
     // Adicionar mensagem otimista IMEDIATAMENTE ao estado
     setMessages(prev => [...prev, optimisticMessage]);
     setNewMessage(""); // Limpar input imediatamente
+    
+    // Retornar foco ao input para permitir digitação contínua
+    setTimeout(() => {
+      messageInputRef.current?.focus();
+    }, 0);
+    
     setSending(true);
     
     // Criar um timeout para a operação
@@ -962,6 +969,9 @@ const Chat = () => {
         title: "Mensagem enviada",
         description: "Sua mensagem foi enviada via WhatsApp",
       });
+      
+      // Garantir foco no input após envio bem-sucedido
+      messageInputRef.current?.focus();
     } catch (error: any) {
       console.error("❌ Erro ao enviar mensagem:", error);
       
@@ -988,6 +998,9 @@ const Chat = () => {
         description: errorMessage,
         variant: "destructive",
       });
+      
+      // Retornar foco ao input mesmo em caso de erro
+      messageInputRef.current?.focus();
     } finally {
       setSending(false);
     }
@@ -1858,6 +1871,7 @@ const Chat = () => {
               className="p-4 border-t flex gap-2"
             >
               <Input
+                ref={messageInputRef}
                 placeholder="Digite sua mensagem..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
