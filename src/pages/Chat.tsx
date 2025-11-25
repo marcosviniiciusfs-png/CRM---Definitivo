@@ -186,8 +186,8 @@ const Chat = () => {
     
     loadNotificationPreference();
     
-    // Pré-carregar o áudio de notificação
-    notificationAudioRef.current = new Audio('/notification.mp3');
+    // Pré-carregar o áudio de notificação com cache-busting
+    notificationAudioRef.current = new Audio(`/notification.mp3?v=${Date.now()}`);
 
     // Carregar leads fixados do localStorage
     const savedPinnedLeads = localStorage.getItem('pinnedLeads');
