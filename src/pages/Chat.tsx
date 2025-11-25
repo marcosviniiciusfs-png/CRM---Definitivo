@@ -188,11 +188,46 @@ const Chat = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'leads'
+        },
+        (payload) => {
+          console.log('📝 Lead atualizado via realtime:', payload);
+          const updatedLead = payload.new as Lead;
+          
+          // Atualizar apenas o lead específico no estado, sem recarregar tudo
+          setLeads(prev => prev.map(lead => 
+            lead.id === updatedLead.id ? updatedLead : lead
+          ));
+          
+          // Se o lead atualizado é o selecionado, atualizar também
+          setSelectedLead(prev => 
+            prev?.id === updatedLead.id ? updatedLead : prev
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
           schema: 'public',
           table: 'leads'
         },
         () => {
+          console.log('➕ Novo lead criado, recarregando lista');
+          loadLeads();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'leads'
+        },
+        () => {
+          console.log('🗑️ Lead deletado, recarregando lista');
           loadLeads();
         }
       )
