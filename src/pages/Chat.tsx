@@ -97,6 +97,8 @@ const Chat = () => {
   const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Configuração dos sensores de drag and drop
   const sensors = useSensors(
@@ -166,6 +168,26 @@ const Chat = () => {
   useEffect(() => {
     loadLeads();
     loadAvailableTags();
+
+    // Carregar preferência de som de notificação
+    const loadNotificationPreference = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('notification_sound_enabled')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (data) {
+        setNotificationSoundEnabled(data.notification_sound_enabled ?? true);
+      }
+    };
+    
+    loadNotificationPreference();
+    
+    // Pré-carregar o áudio de notificação
+    notificationAudioRef.current = new Audio('/notification.mp3');
 
     // Carregar leads fixados do localStorage
     const savedPinnedLeads = localStorage.getItem('pinnedLeads');
@@ -294,6 +316,13 @@ const Chat = () => {
           (payload) => {
             console.log('📨 INSERT event recebido:', payload);
             const newMessage = payload.new as Message;
+            
+            // Tocar som de notificação se for mensagem recebida (ENTRADA = recebida do lead)
+            if (newMessage.direcao === 'ENTRADA' && notificationSoundEnabled) {
+              notificationAudioRef.current?.play().catch(err => {
+                console.log('Erro ao tocar som de notificação:', err);
+              });
+            }
             
             setMessages(prev => {
               // VERIFICAÇÃO 1: Se tem evolution_message_id, procurar mensagem otimista para SUBSTITUIR
