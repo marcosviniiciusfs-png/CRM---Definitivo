@@ -52,12 +52,15 @@ const LeadMetrics = () => {
     from: subDays(new Date(), 30),
     to: new Date()
   });
+  const [shouldLoadMetrics, setShouldLoadMetrics] = useState(true);
 
   useEffect(() => {
-    if (user && dateRange?.from && dateRange?.to) {
+    // Só carregar métricas quando o flag estiver ativo e ambas as datas estiverem selecionadas
+    if (user && dateRange?.from && dateRange?.to && shouldLoadMetrics) {
       loadMetrics();
+      setShouldLoadMetrics(false); // Resetar o flag após carregar
     }
-  }, [user, dateRange]);
+  }, [user, shouldLoadMetrics]);
 
   const getDateRange = () => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -382,10 +385,13 @@ const LeadMetrics = () => {
                       variant="ghost"
                       size="sm"
                       className="justify-start font-normal"
-                      onClick={() => setDateRange({
-                        from: subDays(new Date(), 7),
-                        to: new Date()
-                      })}
+                      onClick={() => {
+                        setDateRange({
+                          from: subDays(new Date(), 7),
+                          to: new Date()
+                        });
+                        setShouldLoadMetrics(true);
+                      }}
                     >
                       Últimos 7 dias
                     </Button>
@@ -393,10 +399,13 @@ const LeadMetrics = () => {
                       variant="ghost"
                       size="sm"
                       className="justify-start font-normal"
-                      onClick={() => setDateRange({
-                        from: subDays(new Date(), 30),
-                        to: new Date()
-                      })}
+                      onClick={() => {
+                        setDateRange({
+                          from: subDays(new Date(), 30),
+                          to: new Date()
+                        });
+                        setShouldLoadMetrics(true);
+                      }}
                     >
                       Últimos 30 dias
                     </Button>
@@ -404,10 +413,13 @@ const LeadMetrics = () => {
                       variant="ghost"
                       size="sm"
                       className="justify-start font-normal"
-                      onClick={() => setDateRange({
-                        from: subDays(new Date(), 90),
-                        to: new Date()
-                      })}
+                      onClick={() => {
+                        setDateRange({
+                          from: subDays(new Date(), 90),
+                          to: new Date()
+                        });
+                        setShouldLoadMetrics(true);
+                      }}
                     >
                       Últimos 90 dias
                     </Button>
@@ -417,7 +429,13 @@ const LeadMetrics = () => {
                   <Calendar
                     mode="range"
                     selected={dateRange}
-                    onSelect={setDateRange}
+                    onSelect={(newDateRange) => {
+                      setDateRange(newDateRange);
+                      // Só disparar carregamento quando ambas as datas estiverem selecionadas
+                      if (newDateRange?.from && newDateRange?.to) {
+                        setShouldLoadMetrics(true);
+                      }
+                    }}
                     numberOfMonths={2}
                     disabled={(date) => date > new Date()}
                     initialFocus
