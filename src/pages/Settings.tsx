@@ -28,6 +28,10 @@ const Settings = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     const getUserData = async () => {
@@ -127,6 +131,64 @@ const Settings = () => {
     } catch (error) {
       console.error('Erro ao atualizar preferência:', error);
       toast.error("Erro ao atualizar preferência. Tente novamente.");
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!user?.email) {
+      toast.error("Erro ao identificar usuário");
+      return;
+    }
+
+    // Validações
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("A nova senha e a confirmação não coincidem");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error("A nova senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      // Primeiro, verificar se a senha atual está correta tentando fazer login
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        toast.error("Senha atual incorreta");
+        setChangingPassword(false);
+        return;
+      }
+
+      // Se a senha atual está correta, atualizar para a nova senha
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) throw updateError;
+
+      // Limpar os campos
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      
+      toast.success("Senha atualizada com sucesso!");
+    } catch (error: any) {
+      console.error('Erro ao atualizar senha:', error);
+      toast.error(error.message || "Erro ao atualizar senha. Tente novamente.");
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -308,17 +370,37 @@ const Settings = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="current-password">Senha Atual</Label>
-                <Input id="current-password" type="password" />
+                <Input 
+                  id="current-password" 
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Digite sua senha atual"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nova Senha</Label>
-                <Input id="new-password" type="password" />
+                <Input 
+                  id="new-password" 
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Digite a nova senha (mín. 6 caracteres)"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-                <Input id="confirm-password" type="password" />
+                <Input 
+                  id="confirm-password" 
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirme a nova senha"
+                />
               </div>
-              <Button>Atualizar Senha</Button>
+              <Button onClick={handleChangePassword} disabled={changingPassword}>
+                {changingPassword ? "Atualizando..." : "Atualizar Senha"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
