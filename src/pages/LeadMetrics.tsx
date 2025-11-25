@@ -127,15 +127,43 @@ const LeadMetrics = () => {
         .order('created_at', { ascending: true });
 
       // Processar dados do Facebook
-      if (facebookLeads) {
+      if (facebookLeads && facebookLeads.length > 0) {
         setFacebookMetrics(processMetrics(facebookLeads));
         await loadFacebookAdvancedMetrics(orgMember.organization_id, startDate);
+      } else {
+        // Sem dados no período, zerar métricas
+        setFacebookMetrics({
+          total: 0,
+          growthRate: '0',
+          chartData: [],
+          lastWeekTotal: 0,
+          thisWeekTotal: 0
+        });
+        setFacebookAdvanced({
+          mqlConversionRate: 0,
+          discardRate: 0,
+          leadsByForm: []
+        });
       }
 
       // Processar dados do WhatsApp
-      if (whatsappLeads) {
+      if (whatsappLeads && whatsappLeads.length > 0) {
         setWhatsappMetrics(processMetrics(whatsappLeads));
         await loadWhatsAppAdvancedMetrics(orgMember.organization_id, startDate);
+      } else {
+        // Sem dados no período, zerar métricas
+        setWhatsappMetrics({
+          total: 0,
+          growthRate: '0',
+          chartData: [],
+          lastWeekTotal: 0,
+          thisWeekTotal: 0
+        });
+        setWhatsappAdvanced({
+          responseRate: 0,
+          pipelineConversionRate: 0,
+          avgResponseTimeMinutes: 0
+        });
       }
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
