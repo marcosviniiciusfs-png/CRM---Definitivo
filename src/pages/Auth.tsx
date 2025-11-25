@@ -108,7 +108,7 @@ const Auth = () => {
         </div>
         
         <div className="flip-card-container">
-          <div className={`flip-card__inner ${!isLogin ? 'flip-card--flipped' : ''}`}>
+          <div className={`flip-card__inner ${!isLogin ? 'flipped' : ''}`}>
             <div className="flip-card__front">
               <form onSubmit={handleLogin} className="flip-card__form">
                 <h2 className="title">Login</h2>
