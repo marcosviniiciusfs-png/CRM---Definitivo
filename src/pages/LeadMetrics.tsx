@@ -378,70 +378,92 @@ const LeadMetrics = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
-                <div className="flex">
-                  {/* Atalhos rápidos */}
-                  <div className="flex flex-col gap-1 border-r p-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="justify-start font-normal"
-                      onClick={() => {
-                        setDateRange({
-                          from: subDays(new Date(), 7),
-                          to: new Date()
-                        });
-                        setShouldLoadMetrics(true);
+                <div className="flex flex-col">
+                  <div className="flex">
+                    {/* Atalhos rápidos */}
+                    <div className="flex flex-col gap-1 border-r p-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start font-normal"
+                        onClick={() => {
+                          setDateRange({
+                            from: subDays(new Date(), 7),
+                            to: new Date()
+                          });
+                        }}
+                      >
+                        Últimos 7 dias
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start font-normal"
+                        onClick={() => {
+                          setDateRange({
+                            from: subDays(new Date(), 30),
+                            to: new Date()
+                          });
+                        }}
+                      >
+                        Últimos 30 dias
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start font-normal"
+                        onClick={() => {
+                          setDateRange({
+                            from: subDays(new Date(), 90),
+                            to: new Date()
+                          });
+                        }}
+                      >
+                        Últimos 90 dias
+                      </Button>
+                    </div>
+                    
+                    {/* Calendário */}
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(newDateRange) => {
+                        setDateRange(newDateRange);
                       }}
-                    >
-                      Últimos 7 dias
-                    </Button>
+                      numberOfMonths={2}
+                      disabled={(date) => date > new Date()}
+                      initialFocus
+                      className="pointer-events-auto"
+                      locale={ptBR}
+                    />
+                  </div>
+                  
+                  {/* Botão Atualizar */}
+                  <div className="border-t p-3 flex justify-end gap-2">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="justify-start font-normal"
                       onClick={() => {
                         setDateRange({
                           from: subDays(new Date(), 30),
                           to: new Date()
                         });
-                        setShouldLoadMetrics(true);
                       }}
                     >
-                      Últimos 30 dias
+                      Resetar
                     </Button>
                     <Button
-                      variant="ghost"
                       size="sm"
-                      className="justify-start font-normal"
                       onClick={() => {
-                        setDateRange({
-                          from: subDays(new Date(), 90),
-                          to: new Date()
-                        });
-                        setShouldLoadMetrics(true);
+                        if (dateRange?.from && dateRange?.to) {
+                          setShouldLoadMetrics(true);
+                        }
                       }}
+                      disabled={!dateRange?.from || !dateRange?.to}
                     >
-                      Últimos 90 dias
+                      Atualizar
                     </Button>
                   </div>
-                  
-                  {/* Calendário */}
-                  <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={(newDateRange) => {
-                      setDateRange(newDateRange);
-                      // Só disparar carregamento quando ambas as datas estiverem selecionadas
-                      if (newDateRange?.from && newDateRange?.to) {
-                        setShouldLoadMetrics(true);
-                      }
-                    }}
-                    numberOfMonths={2}
-                    disabled={(date) => date > new Date()}
-                    initialFocus
-                    className="pointer-events-auto"
-                    locale={ptBR}
-                  />
                 </div>
               </PopoverContent>
             </Popover>
