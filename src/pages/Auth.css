@@ -221,17 +221,18 @@
 
 .flip-card__btn--secondary {
   margin: 5px 0 10px 0;
-  width: 120px;
+  width: 150px;
   height: 40px;
   border-radius: 5px;
   border: 2px solid var(--main-color);
   background-color: var(--main-color);
   box-shadow: 4px 4px var(--main-color);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   color: #fff;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .flip-card__btn--secondary:active {
