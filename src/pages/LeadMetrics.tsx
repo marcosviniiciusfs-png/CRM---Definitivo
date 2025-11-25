@@ -3,13 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock } from "lucide-react";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, subDays, differenceInMinutes } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, subDays, differenceInMinutes, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface ChartDataPoint {
   date: string;
@@ -36,6 +40,8 @@ interface WhatsAppAdvancedMetrics {
   avgResponseTimeMinutes: number;
 }
 
+type PeriodOption = '7' | '30' | '90' | 'custom';
+
 const LeadMetrics = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -43,12 +49,32 @@ const LeadMetrics = () => {
   const [whatsappMetrics, setWhatsappMetrics] = useState<MetricsData | null>(null);
   const [facebookAdvanced, setFacebookAdvanced] = useState<FacebookAdvancedMetrics | null>(null);
   const [whatsappAdvanced, setWhatsappAdvanced] = useState<WhatsAppAdvancedMetrics | null>(null);
+  const [periodOption, setPeriodOption] = useState<PeriodOption>('30');
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     if (user) {
       loadMetrics();
     }
-  }, [user]);
+  }, [user, periodOption, customStartDate, customEndDate]);
+
+  const getDateRange = () => {
+    if (periodOption === 'custom' && customStartDate && customEndDate) {
+      return {
+        startDate: startOfDay(customStartDate),
+        endDate: endOfDay(customEndDate),
+        days: Math.ceil((customEndDate.getTime() - customStartDate.getTime()) / (1000 * 60 * 60 * 24))
+      };
+    }
+    
+    const days = parseInt(periodOption);
+    return {
+      startDate: subDays(new Date(), days),
+      endDate: new Date(),
+      days
+    };
+  };
 
   const loadMetrics = async () => {
     try {
@@ -63,8 +89,8 @@ const LeadMetrics = () => {
 
       if (!orgMember) return;
 
-      // Últimos 30 dias
-      const thirtyDaysAgo = subDays(new Date(), 30);
+      // Obter período selecionado
+      const { startDate } = getDateRange();
 
       // Buscar leads do Facebook
       const { data: facebookLeads } = await supabase
@@ -72,7 +98,7 @@ const LeadMetrics = () => {
         .select('created_at')
         .eq('organization_id', orgMember.organization_id)
         .eq('source', 'Facebook Leads')
-        .gte('created_at', thirtyDaysAgo.toISOString())
+        .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
 
       // Buscar leads do WhatsApp
@@ -81,7 +107,7 @@ const LeadMetrics = () => {
         .select('created_at')
         .eq('organization_id', orgMember.organization_id)
         .eq('source', 'WhatsApp')
-        .gte('created_at', thirtyDaysAgo.toISOString())
+        .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
 
       // Processar dados do Facebook
@@ -225,6 +251,8 @@ const LeadMetrics = () => {
   };
 
   const processMetrics = (leads: any[]): MetricsData => {
+    const { days } = getDateRange();
+    
     // Agrupar por dia
     const groupedByDay = leads.reduce((acc, lead) => {
       const date = format(new Date(lead.created_at), 'dd/MMM', { locale: ptBR });
@@ -232,9 +260,9 @@ const LeadMetrics = () => {
       return acc;
     }, {} as Record<string, number>);
 
-    // Criar array de dados para o gráfico (últimos 30 dias)
+    // Criar array de dados para o gráfico baseado no período selecionado
     const chartData: ChartDataPoint[] = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
       const date = subDays(new Date(), i);
       const dateKey = format(date, 'dd/MMM', { locale: ptBR });
       chartData.push({
@@ -308,6 +336,104 @@ const LeadMetrics = () => {
         </p>
       </div>
 
+      {/* Filtros de Período */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={periodOption === '7' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodOption('7')}
+              >
+                7 dias
+              </Button>
+              <Button
+                variant={periodOption === '30' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodOption('30')}
+              >
+                30 dias
+              </Button>
+              <Button
+                variant={periodOption === '90' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodOption('90')}
+              >
+                90 dias
+              </Button>
+              <Button
+                variant={periodOption === 'custom' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodOption('custom')}
+              >
+                Personalizado
+              </Button>
+            </div>
+
+            {periodOption === 'custom' && (
+              <div className="flex gap-2 items-center flex-wrap">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "justify-start text-left font-normal",
+                        !customStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, "dd/MM/yyyy") : "Data início"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={setCustomStartDate}
+                      disabled={(date) => date > new Date()}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <span className="text-muted-foreground">até</span>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "justify-start text-left font-normal",
+                        !customEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, "dd/MM/yyyy") : "Data fim"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={setCustomEndDate}
+                      disabled={(date) => 
+                        date > new Date() || (customStartDate ? date < customStartDate : false)
+                      }
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="facebook" className="space-y-6">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="facebook" className="flex items-center gap-2">
@@ -326,17 +452,17 @@ const LeadMetrics = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-                    <MetricCard
-                      title="Total de Leads (30 dias)"
-                      value={facebookMetrics?.total || 0}
-                      icon={Users}
-                      iconColor="text-blue-500"
-                    />
+            <MetricCard
+              title={`Total de Leads (${getDateRange().days} dias)`}
+              value={facebookMetrics?.total || 0}
+              icon={Users}
+              iconColor="text-blue-500"
+            />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="font-semibold mb-1">Como é calculado:</p>
-                  <p className="text-sm">Contagem total de todos os leads recebidos via Facebook Leads nos últimos 30 dias.</p>
+                  <p className="text-sm">Contagem total de todos os leads recebidos via Facebook Leads no período selecionado.</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -485,17 +611,17 @@ const LeadMetrics = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-                    <MetricCard
-                      title="Total de Leads (30 dias)"
-                      value={whatsappMetrics?.total || 0}
-                      icon={Users}
-                      iconColor="text-green-500"
-                    />
+            <MetricCard
+              title={`Total de Leads (${getDateRange().days} dias)`}
+              value={whatsappMetrics?.total || 0}
+              icon={Users}
+              iconColor="text-green-500"
+            />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="font-semibold mb-1">Como é calculado:</p>
-                  <p className="text-sm">Contagem total de todos os leads recebidos via WhatsApp nos últimos 30 dias.</p>
+                  <p className="text-sm">Contagem total de todos os leads recebidos via WhatsApp no período selecionado.</p>
                 </TooltipContent>
               </Tooltip>
 
