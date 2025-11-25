@@ -261,105 +261,109 @@ const Chat = () => {
 
   // Carregar mensagens quando um lead é selecionado e configurar realtime
   useEffect(() => {
-    if (selectedLead) {
-      loadMessages(selectedLead.id);
+    if (!selectedLead) return;
+    
+    console.log('🔧 Configurando canal de mensagens para lead:', selectedLead.id);
+    loadMessages(selectedLead.id);
 
-      // Configurar realtime para mensagens do lead selecionado
-      const messagesChannel = supabase
-        .channel(`messages-${selectedLead.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'mensagens_chat',
-            filter: `id_lead=eq.${selectedLead.id}`
-          },
-          (payload) => {
-            console.log('Mensagem recebida em realtime:', payload);
-            const newMessage = payload.new as Message;
+    // Configurar realtime para mensagens do lead selecionado
+    const channelName = `messages-${selectedLead.id}-${Date.now()}`;
+    const messagesChannel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensagens_chat',
+          filter: `id_lead=eq.${selectedLead.id}`
+        },
+        (payload) => {
+          console.log('📨 INSERT event recebido:', payload);
+          const newMessage = payload.new as Message;
+          
+          // Adicionar nova mensagem ao estado sem recarregar tudo
+          setMessages(prev => {
+            // VERIFICAÇÃO TRIPLA ANTI-DUPLICAÇÃO
             
-            // Adicionar nova mensagem ao estado sem recarregar tudo
-            setMessages(prev => {
-              // VERIFICAÇÃO 1: Verificar se já existe essa mensagem real pelo ID
-              const exists = prev.some(msg => msg.id === newMessage.id);
-              if (exists) {
-                console.log('⚠️ Mensagem já existe (ID duplicado), ignorando:', newMessage.id);
-                return prev;
+            // 1. Verificar por ID exato
+            if (prev.some(msg => msg.id === newMessage.id)) {
+              console.log('❌ DUPLICATA BLOQUEADA (ID):', newMessage.id);
+              return prev;
+            }
+            
+            // 2. Verificar por evolution_message_id
+            if (newMessage.evolution_message_id && prev.some(msg => 
+              msg.evolution_message_id === newMessage.evolution_message_id
+            )) {
+              console.log('❌ DUPLICATA BLOQUEADA (evolution_message_id):', newMessage.evolution_message_id);
+              return prev;
+            }
+            
+            // 3. Verificar por conteúdo + timestamp exato (para mensagens sem IDs únicos)
+            const exactMatch = prev.find(msg => 
+              msg.corpo_mensagem === newMessage.corpo_mensagem &&
+              msg.id_lead === newMessage.id_lead &&
+              msg.direcao === newMessage.direcao &&
+              msg.data_hora === newMessage.data_hora
+            );
+            
+            if (exactMatch) {
+              console.log('❌ DUPLICATA BLOQUEADA (conteúdo + timestamp):', newMessage.corpo_mensagem.substring(0, 30));
+              return prev;
+            }
+            
+            // Remover mensagens otimistas correspondentes
+            const newMessageTime = new Date(newMessage.created_at).getTime();
+            const filtered = prev.filter(msg => {
+              if (!msg.isOptimistic) return true;
+                
+              const isSameContent = msg.corpo_mensagem === newMessage.corpo_mensagem &&
+                                   msg.id_lead === newMessage.id_lead &&
+                                   msg.direcao === newMessage.direcao;
+              
+              if (!isSameContent) return true;
+              
+              const optimisticTime = new Date(msg.created_at).getTime();
+              const isCloseInTime = Math.abs(newMessageTime - optimisticTime) < 5000;
+              
+              if (isCloseInTime) {
+                console.log('🗑️ Removendo mensagem otimista');
+                return false;
               }
               
-              // VERIFICAÇÃO 2: Verificar se existe mensagem com mesmo evolution_message_id
-              if (newMessage.evolution_message_id) {
-                const existsByEvolutionId = prev.some(msg => 
-                  msg.evolution_message_id === newMessage.evolution_message_id && 
-                  msg.evolution_message_id !== null
-                );
-                if (existsByEvolutionId) {
-                  console.log('⚠️ Mensagem já existe (evolution_message_id duplicado), ignorando:', newMessage.evolution_message_id);
-                  return prev;
-                }
-              }
-              
-              // Encontrar e remover TODAS as mensagens otimistas correspondentes
-              // Comparar pelo conteúdo E timestamp próximo (dentro de 5 segundos)
-              const newMessageTime = new Date(newMessage.created_at).getTime();
-              
-              const filtered = prev.filter(msg => {
-                // Se não é otimista, sempre manter
-                if (!msg.isOptimistic) return true;
-                
-                // Se é otimista, verificar se corresponde à mensagem real
-                const isSameContent = msg.corpo_mensagem === newMessage.corpo_mensagem &&
-                                     msg.id_lead === newMessage.id_lead &&
-                                     msg.direcao === newMessage.direcao;
-                
-                if (!isSameContent) return true;
-                
-                // Verificar se foi criada em até 5 segundos de diferença
-                const optimisticTime = new Date(msg.created_at).getTime();
-                const timeDiff = Math.abs(newMessageTime - optimisticTime);
-                const isCloseInTime = timeDiff < 5000; // 5 segundos
-                
-                // Se tem mesmo conteúdo E foi criada próximo no tempo, é a mesma mensagem
-                if (isCloseInTime) {
-                  console.log('✅ Removendo mensagem otimista duplicada');
-                  return false; // Remove a otimista
-                }
-                
-                return true; // Mantém se não corresponder
-              });
-              
-              // Adicionar a nova mensagem real
-              console.log('✅ Adicionando nova mensagem do banco:', newMessage.id);
-              return [...filtered, newMessage];
+              return true;
             });
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'mensagens_chat',
-            filter: `id_lead=eq.${selectedLead.id}`
-          },
-          (payload) => {
-            console.log('Mensagem atualizada em realtime:', payload);
-            const updatedMessage = payload.new as Message;
             
-            // Atualizar mensagem existente no estado
-            setMessages(prev => prev.map(msg => 
-              msg.id === updatedMessage.id ? updatedMessage : msg
-            ));
-          }
-        )
-        .subscribe();
+            console.log('✅ ADICIONANDO mensagem:', newMessage.id);
+            return [...filtered, newMessage];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'mensagens_chat',
+          filter: `id_lead=eq.${selectedLead.id}`
+        },
+        (payload) => {
+          console.log('📝 UPDATE event recebido:', payload);
+          const updatedMessage = payload.new as Message;
+          
+          setMessages(prev => prev.map(msg => 
+            msg.id === updatedMessage.id ? updatedMessage : msg
+          ));
+        }
+      )
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(messagesChannel);
-      };
-    }
-  }, [selectedLead]);
+    return () => {
+      console.log('🧹 Removendo canal:', channelName);
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [selectedLead?.id]);
 
   // Atualiza presença em tempo quase em tempo real para o lead selecionado
   useEffect(() => {
