@@ -56,7 +56,7 @@ const LeadMetrics = () => {
         .from('leads')
         .select('created_at')
         .eq('organization_id', orgMember.organization_id)
-        .eq('source', 'Facebook')
+        .eq('source', 'Facebook Leads')
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true });
 
