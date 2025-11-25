@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Player } from '@lottiefiles/react-lottie-player';
 
 interface LoadingAnimationProps {
   className?: string;
@@ -7,15 +8,14 @@ interface LoadingAnimationProps {
 
 export const LoadingAnimation = ({ className, text = "Carregando" }: LoadingAnimationProps) => {
   return (
-    <div className={cn("flex min-h-[200px] items-center justify-center", className)}>
-      <div className="hourglass-container">
-        <div className="hourglass">
-          <div className="hourglass-sand"></div>
-          <div className="hourglass-sand" style={{ animationDelay: '0.3s' }}></div>
-          <div className="hourglass-sand" style={{ animationDelay: '0.6s' }}></div>
-        </div>
-        <p className="loading-text-label">{text}</p>
-      </div>
+    <div className={cn("flex flex-col items-center justify-center gap-4 min-h-[200px]", className)}>
+      <Player
+        autoplay
+        loop
+        src="https://lottie.host/dbafd91b-4c8a-42aa-9d76-a1051150c2db/tbNwiszRn4.lottie"
+        style={{ width: '200px', height: '200px' }}
+      />
+      <p className="text-lg font-semibold text-foreground animate-pulse">{text}</p>
     </div>
   );
 };
