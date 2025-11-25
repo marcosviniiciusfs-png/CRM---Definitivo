@@ -1875,10 +1875,9 @@ const Chat = () => {
                 placeholder="Digite sua mensagem..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                disabled={sending}
                 className="flex-1"
               />
-              <Button type="submit" disabled={sending || !newMessage.trim()}>
+              <Button type="submit" disabled={!newMessage.trim()}>
                 {sending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
