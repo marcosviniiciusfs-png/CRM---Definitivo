@@ -5,25 +5,16 @@ interface LoadingAnimationProps {
   text?: string;
 }
 
-export const LoadingAnimation = ({ className, text = "LOADING" }: LoadingAnimationProps) => {
-  const letters = text.split('');
-  
+export const LoadingAnimation = ({ className, text = "Carregando" }: LoadingAnimationProps) => {
   return (
     <div className={cn("flex min-h-[200px] items-center justify-center", className)}>
-      <div className="loading-container">
-        <div className="loading-text">
-          {letters.map((letter, index) => (
-            <span
-              key={index}
-              className="loading-letter"
-              style={{
-                animationDelay: `calc(70ms * ${index})`
-              }}
-            >
-              {letter}
-            </span>
-          ))}
+      <div className="hourglass-container">
+        <div className="hourglass">
+          <div className="hourglass-sand"></div>
+          <div className="hourglass-sand" style={{ animationDelay: '0.3s' }}></div>
+          <div className="hourglass-sand" style={{ animationDelay: '0.6s' }}></div>
         </div>
+        <p className="loading-text-label">{text}</p>
       </div>
     </div>
   );
