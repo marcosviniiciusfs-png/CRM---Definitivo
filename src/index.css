@@ -44,6 +44,9 @@ All colors MUST be HSL.
     
     --hover-border: 202 100% 49%;
     --glow-green: 142 98% 26%;
+    
+    --chat-bubble: 179 84% 21%;
+    --chat-bubble-foreground: 0 0% 100%;
 
     --radius: 0.5rem;
 
@@ -100,6 +103,9 @@ All colors MUST be HSL.
     
     --hover-border: 202 100% 49%;
     --glow-green: 142 98% 26%;
+    
+    --chat-bubble: 179 84% 21%;
+    --chat-bubble-foreground: 0 0% 100%;
 
     --sidebar-background: 215 28% 10%;
     --sidebar-foreground: 0 0% 90%;
