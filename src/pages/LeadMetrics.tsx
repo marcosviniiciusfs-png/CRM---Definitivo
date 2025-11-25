@@ -15,6 +15,7 @@ import { format, subDays, differenceInMinutes, startOfDay, endOfDay } from "date
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 interface ChartDataPoint {
   date: string;
@@ -399,12 +400,8 @@ const LeadMetrics = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
-        <div>
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <Skeleton className="h-[500px] w-full" />
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingAnimation text="CARREGANDO" />
       </div>
     );
   }
