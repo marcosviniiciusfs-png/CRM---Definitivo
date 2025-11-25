@@ -214,6 +214,8 @@ serve(async (req) => {
     const sendMessageUrl = `${cleanBaseUrl}/message/sendText/${instance_name}`;
     
     console.log(`🔄 Chamando Evolution API: ${sendMessageUrl}`);
+    console.log(`📝 Texto da mensagem sendo enviado para Evolution API:`, message_text);
+    console.log(`📝 Primeira linha da mensagem:`, message_text.split('\n')[0]);
     
     // Criar AbortController para timeout
     const controller = new AbortController();
