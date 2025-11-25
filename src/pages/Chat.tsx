@@ -841,13 +841,14 @@ const Chat = () => {
 
     // Criar mensagem otimista IMEDIATAMENTE
     const optimisticMessageId = `optimistic-${Date.now()}`;
-    const messageForEvolution = `${currentUserName}:\n${text.trim()}`;
+    const messageForCRM = `${currentUserName}:\n${text.trim()}`;
+    const messageForEvolution = `*${currentUserName}:*\n${text.trim()}`;
     
     const optimisticMessage: Message = {
       id: optimisticMessageId,
       id_lead: selectedLead.id,
       direcao: 'SAIDA',
-      corpo_mensagem: messageForEvolution,
+      corpo_mensagem: messageForCRM,
       data_hora: new Date().toISOString(),
       evolution_message_id: null,
       status_entrega: null,
