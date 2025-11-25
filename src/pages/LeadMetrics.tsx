@@ -282,21 +282,32 @@ const LeadMetrics = () => {
       const pipelineLeads = whatsappLeads.filter(lead => lead.stage && lead.stage !== 'NOVO');
       const pipelineConversionRate = total > 0 ? (pipelineLeads.length / total) * 100 : 0;
 
-      // Tempo Médio para Primeira Resposta
+      // Tempo Médio para Primeira Resposta - OTIMIZADO
       const responseTimes: number[] = [];
       
-      for (const lead of whatsappLeads) {
-        const { data: firstResponse } = await supabase
-          .from('mensagens_chat')
-          .select('data_hora')
-          .eq('id_lead', lead.id)
-          .eq('direcao', 'saida')
-          .order('data_hora', { ascending: true })
-          .limit(1);
+      // Buscar TODAS as primeiras mensagens de saída de uma vez
+      const leadIds = whatsappLeads.map(l => l.id);
+      const { data: allOutgoingMessages } = await supabase
+        .from('mensagens_chat')
+        .select('id_lead, data_hora')
+        .in('id_lead', leadIds)
+        .eq('direcao', 'saida')
+        .order('data_hora', { ascending: true });
 
-        if (firstResponse && firstResponse.length > 0) {
+      // Criar um mapa com a primeira mensagem de cada lead
+      const firstResponseByLead = new Map<string, string>();
+      allOutgoingMessages?.forEach(msg => {
+        if (!firstResponseByLead.has(msg.id_lead)) {
+          firstResponseByLead.set(msg.id_lead, msg.data_hora);
+        }
+      });
+
+      // Calcular tempos de resposta
+      for (const lead of whatsappLeads) {
+        const firstResponseTime = firstResponseByLead.get(lead.id);
+        if (firstResponseTime) {
           const responseTime = differenceInMinutes(
-            new Date(firstResponse[0].data_hora),
+            new Date(firstResponseTime),
             new Date(lead.created_at)
           );
           if (responseTime >= 0) {
