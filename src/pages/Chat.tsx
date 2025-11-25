@@ -239,8 +239,15 @@ const Chat = () => {
         },
         (payload) => {
           console.log('Nova mensagem recebida em qualquer conversa:', payload);
-          // Recarregar leads para atualizar last_message_at
-          loadLeads();
+          const newMessage = payload.new as any;
+          const leadId = newMessage.id_lead;
+          
+          // Atualizar APENAS o last_message_at do lead específico, sem recarregar tudo
+          setLeads(prevLeads => prevLeads.map(lead => 
+            lead.id === leadId 
+              ? { ...lead, last_message_at: newMessage.data_hora }
+              : lead
+          ));
         }
       )
       .subscribe();
