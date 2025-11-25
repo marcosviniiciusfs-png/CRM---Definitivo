@@ -47,8 +47,16 @@ const LeadMetrics = () => {
   const [updating, setUpdating] = useState(false);
   const [facebookMetrics, setFacebookMetrics] = useState<MetricsData | null>(null);
   const [whatsappMetrics, setWhatsappMetrics] = useState<MetricsData | null>(null);
-  const [facebookAdvanced, setFacebookAdvanced] = useState<FacebookAdvancedMetrics | null>(null);
-  const [whatsappAdvanced, setWhatsappAdvanced] = useState<WhatsAppAdvancedMetrics | null>(null);
+  const [facebookAdvanced, setFacebookAdvanced] = useState<FacebookAdvancedMetrics>({
+    mqlConversionRate: 0,
+    discardRate: 0,
+    leadsByForm: []
+  });
+  const [whatsappAdvanced, setWhatsappAdvanced] = useState<WhatsAppAdvancedMetrics>({
+    responseRate: 0,
+    pipelineConversionRate: 0,
+    avgResponseTimeMinutes: 0
+  });
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
     to: new Date()
@@ -563,7 +571,7 @@ const LeadMetrics = () => {
                   <div>
                     <MetricCard
                       title="Taxa de Conversão MQL"
-                      value={`${facebookAdvanced?.mqlConversionRate || 0}%`}
+                      value={`${facebookAdvanced.mqlConversionRate}%`}
                       subtitle="Porcentagem de leads que passaram para o primeiro estágio de qualificação"
                       icon={Target}
                       iconColor="text-green-500"
@@ -581,7 +589,7 @@ const LeadMetrics = () => {
                   <div>
                     <MetricCard
                       title="Taxa de Descarte"
-                      value={`${facebookAdvanced?.discardRate || 0}%`}
+                      value={`${facebookAdvanced.discardRate}%`}
                       subtitle="Leads descartados/perdidos"
                       icon={Trash2}
                       iconColor="text-red-500"
@@ -640,7 +648,7 @@ const LeadMetrics = () => {
             </CardHeader>
             <CardContent className="transition-all duration-500">
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={facebookAdvanced?.leadsByForm || []}>
+                <BarChart data={facebookAdvanced.leadsByForm}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis
                     dataKey="formName"
@@ -730,7 +738,7 @@ const LeadMetrics = () => {
                   <div>
                     <MetricCard
                       title="Taxa de Resposta Inicial"
-                      value={`${whatsappAdvanced?.responseRate || 0}%`}
+                      value={`${whatsappAdvanced.responseRate}%`}
                       subtitle="Conversas respondidas pelo agente"
                       icon={MessageCircle}
                       iconColor="text-blue-500"
@@ -748,7 +756,7 @@ const LeadMetrics = () => {
                   <div>
                     <MetricCard
                       title="Taxa de Conversão p/ Pipeline"
-                      value={`${whatsappAdvanced?.pipelineConversionRate || 0}%`}
+                      value={`${whatsappAdvanced.pipelineConversionRate}%`}
                       subtitle="Leads movidos para vendas"
                       icon={Target}
                       iconColor="text-purple-500"
@@ -766,7 +774,7 @@ const LeadMetrics = () => {
                   <div>
                     <MetricCard
                       title="Tempo Médio de Resposta"
-                      value={`${whatsappAdvanced?.avgResponseTimeMinutes || 0}min`}
+                      value={`${whatsappAdvanced.avgResponseTimeMinutes}min`}
                       subtitle="Primeira resposta do agente"
                       icon={Clock}
                       iconColor="text-orange-500"
