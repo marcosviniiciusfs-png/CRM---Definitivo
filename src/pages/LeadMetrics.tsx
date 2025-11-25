@@ -349,7 +349,7 @@ const LeadMetrics = () => {
             <MetricCard
               title="Taxa de Conversão MQL"
               value={`${facebookAdvanced?.mqlConversionRate || 0}%`}
-              subtitle="Leads qualificados vs. total"
+              subtitle="Porcentagem de leads que passaram para o primeiro estágio de qualificação"
               icon={Target}
               iconColor="text-green-500"
             />
