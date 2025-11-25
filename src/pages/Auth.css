@@ -117,7 +117,7 @@
 /* --- Card Flip --- */ 
 .flip-card__inner {
   width: 300px; /* Deve ser igual ao flip-card-container width */
-  height: 380px;
+  height: 480px;
   position: relative;
   background-color: transparent;
   perspective: 1000px;
@@ -158,12 +158,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   width: 100%;
 }
 
 .title {
-  margin: 10px 0 10px 0; /* Margem ajustada */
+  margin: 5px 0 10px 0;
   font-size: 25px;
   font-weight: 900;
   text-align: center;
@@ -200,7 +200,7 @@
 }
 
 .flip-card__btn {
-  margin: 15px 0 15px 0; /* Margem ajustada */
+  margin: 10px 0 10px 0;
   width: 120px;
   height: 40px;
   border-radius: 5px;
@@ -220,7 +220,7 @@
 }
 
 .flip-card__btn--secondary {
-  margin: 15px 0 15px 0;
+  margin: 5px 0 10px 0;
   width: 120px;
   height: 40px;
   border-radius: 5px;
