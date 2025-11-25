@@ -263,15 +263,55 @@ const Chat = () => {
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
             table: 'mensagens_chat',
             filter: `id_lead=eq.${selectedLead.id}`
           },
           (payload) => {
             console.log('Mensagem recebida em realtime:', payload);
-            // Recarregar mensagens
-            loadMessages(selectedLead.id);
+            const newMessage = payload.new as Message;
+            
+            // Adicionar nova mensagem ao estado sem recarregar tudo
+            // Remove mensagens otimistas duplicadas
+            setMessages(prev => {
+              // Verificar se já existe essa mensagem (evitar duplicatas)
+              const exists = prev.some(msg => msg.id === newMessage.id);
+              if (exists) return prev;
+              
+              // Remover mensagens otimistas que correspondem a esta mensagem real
+              const filtered = prev.filter(msg => {
+                // Se não é otimista, manter
+                if (!msg.isOptimistic) return true;
+                
+                // Se é otimista e tem corpo igual, remover (é duplicata)
+                const isSameContent = msg.corpo_mensagem === newMessage.corpo_mensagem &&
+                                     msg.id_lead === newMessage.id_lead &&
+                                     msg.direcao === newMessage.direcao;
+                return !isSameContent;
+              });
+              
+              // Adicionar a nova mensagem
+              return [...filtered, newMessage];
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'mensagens_chat',
+            filter: `id_lead=eq.${selectedLead.id}`
+          },
+          (payload) => {
+            console.log('Mensagem atualizada em realtime:', payload);
+            const updatedMessage = payload.new as Message;
+            
+            // Atualizar mensagem existente no estado
+            setMessages(prev => prev.map(msg => 
+              msg.id === updatedMessage.id ? updatedMessage : msg
+            ));
           }
         )
         .subscribe();
@@ -831,9 +871,13 @@ const Chat = () => {
         evolutionData: data.evolutionData
       });
 
-      // Substituir mensagem otimista pela real do banco
-      // O realtime vai adicionar a mensagem real, então removemos a otimista
-      setMessages(prev => prev.filter(msg => msg.id !== optimisticMessageId));
+      // Marcar mensagem como enviada com sucesso (não otimista mais)
+      // Isso evita o "piscar" das mensagens
+      setMessages(prev => prev.map(msg => 
+        msg.id === optimisticMessageId 
+          ? { ...msg, isOptimistic: false, status_entrega: 'SENT' }
+          : msg
+      ));
 
       toast({
         title: "Mensagem enviada",
