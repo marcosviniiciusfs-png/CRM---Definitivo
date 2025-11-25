@@ -121,13 +121,13 @@ const LeadMetrics = () => {
       // Processar dados do Facebook
       if (facebookLeads) {
         setFacebookMetrics(processMetrics(facebookLeads));
-        await loadFacebookAdvancedMetrics(orgMember.organization_id);
+        await loadFacebookAdvancedMetrics(orgMember.organization_id, startDate);
       }
 
       // Processar dados do WhatsApp
       if (whatsappLeads) {
         setWhatsappMetrics(processMetrics(whatsappLeads));
-        await loadWhatsAppAdvancedMetrics(orgMember.organization_id);
+        await loadWhatsAppAdvancedMetrics(orgMember.organization_id, startDate);
       }
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
@@ -137,16 +137,25 @@ const LeadMetrics = () => {
     }
   };
 
-  const loadFacebookAdvancedMetrics = async (organizationId: string) => {
+  const loadFacebookAdvancedMetrics = async (organizationId: string, startDate: Date) => {
     try {
-      // Buscar todos os leads do Facebook
+      // Buscar leads do Facebook no período selecionado
       const { data: allLeads } = await supabase
         .from('leads')
-        .select('id, stage')
+        .select('id, stage, created_at')
         .eq('organization_id', organizationId)
-        .eq('source', 'Facebook Leads');
+        .eq('source', 'Facebook Leads')
+        .gte('created_at', startDate.toISOString());
 
-      if (!allLeads) return;
+      if (!allLeads || allLeads.length === 0) {
+        // Se não há dados no período, zerar métricas
+        setFacebookAdvanced({
+          mqlConversionRate: 0,
+          discardRate: 0,
+          leadsByForm: []
+        });
+        return;
+      }
 
       const total = allLeads.length;
       
@@ -160,11 +169,15 @@ const LeadMetrics = () => {
       );
       const discardRate = total > 0 ? (discardedLeads.length / total) * 100 : 0;
 
-      // Volume de leads por formulário
+      // Volume de leads por formulário (filtrado por período através dos lead_ids)
+      const leadIds = allLeads.map(l => l.id);
+      
       const { data: webhookLogs } = await supabase
         .from('facebook_webhook_logs')
-        .select('form_id, lead_id')
+        .select('form_id, lead_id, created_at')
         .eq('organization_id', organizationId)
+        .gte('created_at', startDate.toISOString())
+        .in('lead_id', leadIds)
         .not('form_id', 'is', null);
 
       const formCounts: Record<string, number> = {};
@@ -192,19 +205,25 @@ const LeadMetrics = () => {
     }
   };
 
-  const loadWhatsAppAdvancedMetrics = async (organizationId: string) => {
+  const loadWhatsAppAdvancedMetrics = async (organizationId: string, startDate: Date) => {
     try {
-      // Buscar todos os leads do WhatsApp nos últimos 30 dias
-      const thirtyDaysAgo = subDays(new Date(), 30);
-      
+      // Buscar leads do WhatsApp no período selecionado
       const { data: whatsappLeads } = await supabase
         .from('leads')
         .select('id, stage, created_at')
         .eq('organization_id', organizationId)
         .eq('source', 'WhatsApp')
-        .gte('created_at', thirtyDaysAgo.toISOString());
+        .gte('created_at', startDate.toISOString());
 
-      if (!whatsappLeads) return;
+      if (!whatsappLeads || whatsappLeads.length === 0) {
+        // Se não há dados no período, zerar métricas
+        setWhatsappAdvanced({
+          responseRate: 0,
+          pipelineConversionRate: 0,
+          avgResponseTimeMinutes: 0
+        });
+        return;
+      }
 
       const total = whatsappLeads.length;
 
