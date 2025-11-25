@@ -1803,7 +1803,9 @@ const Chat = () => {
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">
                             {(() => {
-                              const messageText = message.corpo_mensagem;
+                              // Remove asteriscos da assinatura para mensagens antigas
+                              let messageText = message.corpo_mensagem.replace(/^\*([^*]+):\*\n/, '$1:\n');
+                              
                               // Detectar assinatura do colaborador no início da mensagem de saída
                               const signatureMatch = message.direcao === "SAIDA" && 
                                 messageText.match(/^([^:]+):\n/);
