@@ -219,6 +219,31 @@
   cursor: not-allowed;
 }
 
+.flip-card__btn--secondary {
+  margin: 15px 0 15px 0;
+  width: 120px;
+  height: 40px;
+  border-radius: 5px;
+  border: 2px solid var(--main-color);
+  background-color: var(--main-color);
+  box-shadow: 4px 4px var(--main-color);
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.flip-card__btn--secondary:active {
+  box-shadow: 0px 0px var(--main-color);
+  transform: translate(3px, 3px);
+}
+
+.flip-card__btn--secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .auth-header {
   text-align: center;
   color: var(--font-color);
