@@ -273,25 +273,45 @@ const Chat = () => {
             const newMessage = payload.new as Message;
             
             // Adicionar nova mensagem ao estado sem recarregar tudo
-            // Remove mensagens otimistas duplicadas
             setMessages(prev => {
-              // Verificar se já existe essa mensagem (evitar duplicatas)
+              // Verificar se já existe essa mensagem real (evitar duplicatas)
               const exists = prev.some(msg => msg.id === newMessage.id);
-              if (exists) return prev;
+              if (exists) {
+                console.log('Mensagem já existe, ignorando duplicata');
+                return prev;
+              }
               
-              // Remover mensagens otimistas que correspondem a esta mensagem real
+              // Encontrar e remover TODAS as mensagens otimistas correspondentes
+              // Comparar pelo conteúdo E timestamp próximo (dentro de 5 segundos)
+              const newMessageTime = new Date(newMessage.created_at).getTime();
+              
               const filtered = prev.filter(msg => {
-                // Se não é otimista, manter
+                // Se não é otimista, sempre manter
                 if (!msg.isOptimistic) return true;
                 
-                // Se é otimista e tem corpo igual, remover (é duplicata)
+                // Se é otimista, verificar se corresponde à mensagem real
                 const isSameContent = msg.corpo_mensagem === newMessage.corpo_mensagem &&
                                      msg.id_lead === newMessage.id_lead &&
                                      msg.direcao === newMessage.direcao;
-                return !isSameContent;
+                
+                if (!isSameContent) return true;
+                
+                // Verificar se foi criada em até 5 segundos de diferença
+                const optimisticTime = new Date(msg.created_at).getTime();
+                const timeDiff = Math.abs(newMessageTime - optimisticTime);
+                const isCloseInTime = timeDiff < 5000; // 5 segundos
+                
+                // Se tem mesmo conteúdo E foi criada próximo no tempo, é a mesma mensagem
+                if (isCloseInTime) {
+                  console.log('Removendo mensagem otimista duplicada');
+                  return false; // Remove a otimista
+                }
+                
+                return true; // Mantém se não corresponder
               });
               
-              // Adicionar a nova mensagem
+              // Adicionar a nova mensagem real
+              console.log('Adicionando nova mensagem do banco');
               return [...filtered, newMessage];
             });
           }
