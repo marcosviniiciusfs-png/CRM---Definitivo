@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -722,6 +722,26 @@ const Chat = () => {
   const sendMessage = async (text: string) => {
     if (!text.trim() || !selectedLead) return;
 
+    // Criar mensagem otimista IMEDIATAMENTE
+    const optimisticMessageId = `optimistic-${Date.now()}`;
+    const messageForEvolution = `*${currentUserName}:*\n${text.trim()}`;
+    
+    const optimisticMessage: Message = {
+      id: optimisticMessageId,
+      id_lead: selectedLead.id,
+      direcao: 'SAIDA',
+      corpo_mensagem: messageForEvolution,
+      data_hora: new Date().toISOString(),
+      evolution_message_id: null,
+      status_entrega: null,
+      created_at: new Date().toISOString(),
+      isOptimistic: true,
+      sendError: false,
+    };
+
+    // Adicionar mensagem otimista IMEDIATAMENTE ao estado
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage(""); // Limpar input imediatamente
     setSending(true);
     
     // Criar um timeout para a operação
@@ -772,9 +792,6 @@ const Chat = () => {
         status: instanceData.status
       });
 
-      // Formatar mensagem com o nome do usuário atual do perfil
-      const messageForEvolution = `*${currentUserName}:*\n${text.trim()}`;
-
       console.log('📤 Enviando mensagem:', {
         instance: instanceData.instance_name,
         to: selectedLead.telefone_lead,
@@ -814,9 +831,9 @@ const Chat = () => {
         evolutionData: data.evolutionData
       });
 
-      // Reload messages after sending
-      await loadMessages(selectedLead.id);
-      setNewMessage("");
+      // Substituir mensagem otimista pela real do banco
+      // O realtime vai adicionar a mensagem real, então removemos a otimista
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticMessageId));
 
       toast({
         title: "Mensagem enviada",
@@ -835,6 +852,13 @@ const Chat = () => {
       } else if (error.name === 'AbortError' || error.message?.includes('Timeout')) {
         errorMessage = "A operação demorou muito. Verifique sua conexão e tente novamente.";
       }
+
+      // Marcar mensagem otimista com erro
+      setMessages(prev => prev.map(msg => 
+        msg.id === optimisticMessageId 
+          ? { ...msg, sendError: true, errorMessage }
+          : msg
+      ));
       
       toast({
         title: "Erro ao enviar",
@@ -1664,9 +1688,35 @@ const Chat = () => {
                         >
                           <span>{formatTime(message.data_hora)}</span>
                           {message.direcao === "SAIDA" && (
-                            <span className="ml-1">
-                              {getStatusIcon(message.status_entrega)}
-                            </span>
+                            <>
+                              {message.sendError ? (
+                                <div className="flex items-center gap-1 ml-1">
+                                  <span title={message.errorMessage}>
+                                    <AlertCircle className="h-3 w-3 text-red-500" />
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      const messageText = message.corpo_mensagem;
+                                      setNewMessage(messageText);
+                                      // Remover mensagem com erro
+                                      setMessages(prev => prev.filter(m => m.id !== message.id));
+                                    }}
+                                    className="hover:opacity-70 transition-opacity"
+                                    title="Clique para reenviar"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : message.isOptimistic ? (
+                                <span title="Enviando...">
+                                  <Clock className="h-3 w-3 ml-1 animate-pulse" />
+                                </span>
+                              ) : (
+                                <span className="ml-1">
+                                  {getStatusIcon(message.status_entrega)}
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
