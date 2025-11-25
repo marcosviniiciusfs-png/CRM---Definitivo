@@ -28,4 +28,8 @@ export interface Message {
   media_url?: string | null;
   media_type?: string | null;
   media_metadata?: any;
+  // Campos para envio otimista
+  isOptimistic?: boolean;
+  sendError?: boolean;
+  errorMessage?: string;
 }
