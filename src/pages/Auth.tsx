@@ -8,13 +8,19 @@ import kairozLogo from "@/assets/kairoz-logo-full.png";
 import "./Auth.css";
 
 const Auth = () => {
-  const { signIn, user, loading: authLoading } = useAuth();
+  const { signUp, signIn, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+
+  // Signup form state
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
 
   // Redirect if already logged in
   if (user && !authLoading) {
@@ -53,6 +59,38 @@ const Auth = () => {
     }
   };
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!signupEmail || !signupPassword || !signupName) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signUp(signupEmail, signupPassword, signupName);
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Erro ao criar conta",
+        description: error.message === "User already registered" 
+          ? "Email já cadastrado" 
+          : error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Bem-vindo ao CRM",
+      });
+    }
+  };
+
 
   if (authLoading) {
     return (
@@ -67,13 +105,10 @@ const Auth = () => {
       <div className="auth-wrapper">
         <div className="auth-header">
           <img src={kairozLogo} alt="KairoZ" className="w-64 h-auto mx-auto" />
-          <p className="text-muted-foreground text-sm mt-4">
-            Para criar uma conta, entre em contato com o administrador da sua organização
-          </p>
         </div>
         
         <div className="flip-card-container">
-          <div className="flip-card__inner">
+          <div className={`flip-card__inner ${!isLogin ? 'flip-card--flipped' : ''}`}>
             <div className="flip-card__front">
               <form onSubmit={handleLogin} className="flip-card__form">
                 <h2 className="title">Login</h2>
@@ -101,6 +136,61 @@ const Auth = () => {
                   disabled={loading}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Entrar"}
+                </button>
+                <button
+                  type="button"
+                  className="flip-card__btn--secondary"
+                  onClick={() => setIsLogin(false)}
+                  disabled={loading}
+                >
+                  Criar Conta
+                </button>
+              </form>
+            </div>
+            <div className="flip-card__back">
+              <form onSubmit={handleSignup} className="flip-card__form">
+                <h2 className="title">Cadastro</h2>
+                <input
+                  type="text"
+                  placeholder="Nome Completo"
+                  className="flip-card__input"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="flip-card__input"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Senha"
+                  className="flip-card__input"
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <button 
+                  type="submit" 
+                  className="flip-card__btn"
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Cadastrar"}
+                </button>
+                <button
+                  type="button"
+                  className="flip-card__btn--secondary"
+                  onClick={() => setIsLogin(true)}
+                  disabled={loading}
+                >
+                  Voltar ao Login
                 </button>
               </form>
             </div>
