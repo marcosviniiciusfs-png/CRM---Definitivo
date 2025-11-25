@@ -261,12 +261,24 @@ const Chat = () => {
             const newMessage = payload.new as Message;
             
             setMessages(prev => {
-              // VERIFICAÇÃO 1: Verificar por evolution_message_id PRIMEIRO (mais confiável)
+              // VERIFICAÇÃO 1: Se tem evolution_message_id, procurar mensagem otimista para SUBSTITUIR
               if (newMessage.evolution_message_id) {
-                const existsByEvolutionId = prev.some(msg => 
-                  msg.evolution_message_id === newMessage.evolution_message_id
+                const optimisticIndex = prev.findIndex(msg => 
+                  msg.evolution_message_id === newMessage.evolution_message_id && msg.isOptimistic
                 );
-                if (existsByEvolutionId) {
+                
+                if (optimisticIndex !== -1) {
+                  console.log('🔄 SUBSTITUINDO mensagem otimista pela real:', newMessage.evolution_message_id);
+                  const updated = [...prev];
+                  updated[optimisticIndex] = newMessage; // Substitui a otimista pela real
+                  return updated;
+                }
+                
+                // Se encontrou uma mensagem NÃO otimista com mesmo evolution_message_id, bloqueia duplicação
+                const existsNonOptimistic = prev.some(msg => 
+                  msg.evolution_message_id === newMessage.evolution_message_id && !msg.isOptimistic
+                );
+                if (existsNonOptimistic) {
                   console.log('❌ DUPLICATA BLOQUEADA (evolution_message_id já existe):', newMessage.evolution_message_id);
                   return prev;
                 }
@@ -283,7 +295,8 @@ const Chat = () => {
                 msg.corpo_mensagem === newMessage.corpo_mensagem &&
                 msg.id_lead === newMessage.id_lead &&
                 msg.direcao === newMessage.direcao &&
-                msg.data_hora === newMessage.data_hora
+                msg.data_hora === newMessage.data_hora &&
+                !msg.isOptimistic
               );
               
               if (exactMatch) {
