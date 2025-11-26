@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw, Image as ImageIcon, FileText, Download } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
@@ -1792,6 +1792,70 @@ const Chat = () => {
                                   ({Math.floor(message.media_metadata.seconds)}s)
                                 </span>
                               )}
+                              <span className="text-xs opacity-50 italic">
+                                - Mídia indisponível
+                              </span>
+                            </div>
+                          )
+                        ) : message.media_type === 'image' ? (
+                          /* Renderizar imagem */
+                          message.media_url ? (
+                            <div className="space-y-2">
+                              <img 
+                                src={message.media_url} 
+                                alt="Imagem enviada"
+                                className="rounded-lg max-w-full max-h-96 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(message.media_url, '_blank')}
+                                loading="lazy"
+                              />
+                              {message.corpo_mensagem && message.corpo_mensagem !== 'Imagem' && (
+                                <p className="text-sm whitespace-pre-wrap">
+                                  {message.corpo_mensagem}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-sm">
+                              <ImageIcon className="h-4 w-4 opacity-70" />
+                              <span className="opacity-70">Imagem</span>
+                              <span className="text-xs opacity-50 italic">
+                                - Mídia indisponível
+                              </span>
+                            </div>
+                          )
+                        ) : message.media_type === 'document' || message.media_type === 'application' ? (
+                          /* Renderizar documento */
+                          message.media_url ? (
+                            <div className="space-y-2">
+                              <a 
+                                href={message.media_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background/70 transition-colors"
+                              >
+                                <FileText className="h-8 w-8 flex-shrink-0 opacity-70" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {message.media_metadata?.fileName || 'Documento'}
+                                  </p>
+                                  {message.media_metadata?.fileLength && (
+                                    <p className="text-xs opacity-50">
+                                      {(message.media_metadata.fileLength / 1024).toFixed(1)} KB
+                                    </p>
+                                  )}
+                                </div>
+                                <Download className="h-4 w-4 flex-shrink-0 opacity-70" />
+                              </a>
+                              {message.corpo_mensagem && message.corpo_mensagem !== 'Documento' && (
+                                <p className="text-sm whitespace-pre-wrap">
+                                  {message.corpo_mensagem}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-sm">
+                              <FileText className="h-4 w-4 opacity-70" />
+                              <span className="opacity-70">Documento</span>
                               <span className="text-xs opacity-50 italic">
                                 - Mídia indisponível
                               </span>
