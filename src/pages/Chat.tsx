@@ -1972,25 +1972,25 @@ const Chat = () => {
             <div className="flex-1 relative overflow-hidden flex flex-col">
               {/* Mensagens Fixadas - Minimalista como WhatsApp */}
               {pinnedMessages.size > 0 && (
-                <div className="sticky top-0 z-20 bg-accent/50 backdrop-blur-sm border-b border-border/50">
+                <div className="sticky top-0 z-20 backdrop-blur-sm border-b border-border/50" style={{ backgroundColor: '#1f5f61' }}>
                   {messages
                     .filter(msg => pinnedMessages.has(msg.id))
                     .slice(0, 1)
                     .map(message => (
                       <div
                         key={message.id}
-                        className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-accent/70 transition-colors group"
+                        className="flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors group hover:bg-black/10"
                         onClick={() => {
                           const messageEl = document.getElementById(`message-${message.id}`);
                           messageEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }}
                       >
-                        <Pin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                        <Pin className="h-3.5 w-3.5 text-white flex-shrink-0" />
                         <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
-                          <span className="text-xs font-medium text-foreground/80 flex-shrink-0">
+                          <span className="text-xs font-medium text-white/90 flex-shrink-0">
                             {message.direcao === "ENTRADA" ? selectedLead?.nome_lead : "Você"}:
                           </span>
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className="text-xs text-white/70 truncate">
                             {message.media_type === 'image' ? '🖼️ Imagem' :
                              message.media_type === 'audio' ? '🎵 Áudio' :
                              message.media_type === 'document' ? '📄 Documento' :
@@ -2002,7 +2002,7 @@ const Chat = () => {
                             e.stopPropagation();
                             setShowPinnedMessages(!showPinnedMessages);
                           }}
-                          className="flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-white"
                           title={showPinnedMessages ? 'Ocultar' : 'Ver todas'}
                         >
                           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showPinnedMessages ? 'rotate-180' : ''}`} />
@@ -2012,7 +2012,7 @@ const Chat = () => {
                             e.stopPropagation();
                             togglePinMessage(message);
                           }}
-                          className="flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/50 rounded"
+                          className="flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 rounded text-white"
                           title="Desfixar"
                         >
                           <PinOff className="h-3.5 w-3.5" />
@@ -2022,14 +2022,14 @@ const Chat = () => {
                   
                   {/* Mensagens fixadas adicionais (quando expandido) */}
                   {showPinnedMessages && pinnedMessages.size > 1 && (
-                    <div className="border-t border-border/50 bg-accent/30">
+                    <div className="border-t border-border/50" style={{ backgroundColor: '#1f5f61' }}>
                       {messages
                         .filter(msg => pinnedMessages.has(msg.id))
                         .slice(1, 3)
                         .map(message => (
                           <div
                             key={message.id}
-                            className="flex items-center gap-2 px-4 py-1.5 cursor-pointer hover:bg-accent/70 transition-colors group"
+                            className="flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-colors group hover:bg-black/10"
                             onClick={() => {
                               const messageEl = document.getElementById(`message-${message.id}`);
                               messageEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2037,10 +2037,10 @@ const Chat = () => {
                           >
                             <div className="w-3.5 flex-shrink-0" />
                             <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
-                              <span className="text-xs font-medium text-foreground/70 flex-shrink-0">
+                              <span className="text-xs font-medium text-white/80 flex-shrink-0">
                                 {message.direcao === "ENTRADA" ? selectedLead?.nome_lead : "Você"}:
                               </span>
-                              <p className="text-xs text-muted-foreground truncate">
+                              <p className="text-xs text-white/60 truncate">
                                 {message.media_type === 'image' ? '🖼️ Imagem' :
                                  message.media_type === 'audio' ? '🎵 Áudio' :
                                  message.media_type === 'document' ? '📄 Documento' :
@@ -2052,7 +2052,7 @@ const Chat = () => {
                                 e.stopPropagation();
                                 togglePinMessage(message);
                               }}
-                              className="flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/50 rounded"
+                              className="flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 rounded text-white"
                               title="Desfixar"
                             >
                               <PinOff className="h-3.5 w-3.5" />
