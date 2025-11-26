@@ -116,6 +116,14 @@ serve(async (req) => {
       evolutionApiUrl = "https://evolution01.kairozspace.com.br";
     }
 
+    // Normalizar emoji - garantir que seja um único emoji sem caracteres extras
+    const rawEmoji = (emoji || "").trim();
+    const cleanedEmoji = rawEmoji.replace(/[^\p{Extended_Pictographic}]/gu, "");
+
+    if (!cleanedEmoji) {
+      throw new Error("Invalid emoji for reaction");
+    }
+
     // Montar payload de reação
     const reactionPayload = {
       key: {
@@ -123,7 +131,7 @@ serve(async (req) => {
         id: message.evolution_message_id,
         fromMe: false,
       },
-      reaction: emoji, // Evolution API espera apenas a string do emoji
+      reaction: cleanedEmoji, // Evolution API espera apenas a string do emoji
     };
 
     console.log("Sending reaction to Evolution API:", {
