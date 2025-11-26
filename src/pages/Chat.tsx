@@ -1969,24 +1969,10 @@ const Chat = () => {
             </div>
 
             {/* Área de Mensagens */}
-            <div className="flex-1 relative overflow-hidden">
-              <div 
-                className="absolute inset-0 pointer-events-none transition-opacity duration-300"
-                style={{
-                  backgroundColor: theme === 'dark' ? '#0C1317' : '#ECE5DD',
-                  backgroundImage: theme === 'dark' 
-                    ? 'url(/chat-pattern-dark.png)' 
-                    : 'url(/chat-pattern.png)',
-                  backgroundRepeat: 'repeat',
-                  backgroundSize: '200px',
-                  opacity: 0.3,
-                  willChange: 'opacity'
-                }}
-              />
-              <ScrollArea className="h-full p-4 relative z-10">
-              {/* Mensagens Fixadas */}
+            <div className="flex-1 relative overflow-hidden flex flex-col">
+              {/* Mensagens Fixadas - Fixas no topo */}
               {pinnedMessages.size > 0 && (
-                <div className="mb-4 bg-card border rounded-lg p-3 shadow-sm">
+                <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b p-3 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Pin className="h-4 w-4 text-primary" />
@@ -2044,6 +2030,23 @@ const Chat = () => {
                   )}
                 </div>
               )}
+              
+              {/* Background pattern e ScrollArea */}
+              <div className="flex-1 relative overflow-hidden">
+                <div 
+                  className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+                  style={{
+                    backgroundColor: theme === 'dark' ? '#0C1317' : '#ECE5DD',
+                    backgroundImage: theme === 'dark' 
+                      ? 'url(/chat-pattern-dark.png)' 
+                      : 'url(/chat-pattern.png)',
+                    backgroundRepeat: 'repeat',
+                    backgroundSize: '200px',
+                    opacity: 0.3,
+                    willChange: 'opacity'
+                  }}
+                />
+                <ScrollArea className="h-full p-4 relative z-10">
               
               {loading ? (
                 <LoadingAnimation text="Carregando mensagens..." />
@@ -2120,19 +2123,6 @@ const Chat = () => {
                             : "bg-muted"
                         }`}
                       >
-                        {/* Botão de fixar - aparece no hover */}
-                        <button
-                          onClick={() => togglePinMessage(message)}
-                          className={`absolute -top-2 ${message.direcao === "SAIDA" ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background shadow-sm`}
-                          title={pinnedMessages.has(message.id) ? 'Desfixar mensagem' : 'Fixar mensagem'}
-                        >
-                          {pinnedMessages.has(message.id) ? (
-                            <PinOff className="h-3 w-3" />
-                          ) : (
-                            <Pin className="h-3 w-3" />
-                          )}
-                        </button>
-                        
                         {/* Renderizar player de áudio se for mensagem de áudio */}
                         {message.media_type === 'audio' ? (
                           message.media_url ? (
@@ -2423,7 +2413,8 @@ const Chat = () => {
                   <div ref={messagesEndRef} />
                 </div>
               )}
-            </ScrollArea>
+                </ScrollArea>
+              </div>
             </div>
 
             {/* Input de Mensagem */}
