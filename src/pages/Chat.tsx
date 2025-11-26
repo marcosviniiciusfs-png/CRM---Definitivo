@@ -881,7 +881,9 @@ const Chat = () => {
 
     try {
       const currentReactions = messageReactions.get(messageId) || [];
-      const userReaction = currentReactions.find(r => r.user_id === user.id && r.emoji === emoji);
+      const userReaction = currentReactions.find(
+        (r) => r.user_id === user.id && r.emoji === emoji,
+      );
 
       if (userReaction) {
         // Remover reação
@@ -893,7 +895,7 @@ const Chat = () => {
         if (error) throw error;
 
         // Atualizar estado local
-        const updated = currentReactions.filter(r => r.id !== userReaction.id);
+        const updated = currentReactions.filter((r) => r.id !== userReaction.id);
         const newMap = new Map(messageReactions);
         if (updated.length === 0) {
           newMap.delete(messageId);
@@ -915,42 +917,29 @@ const Chat = () => {
 
         if (error) throw error;
 
-        // Atualizar estado local
+        // Atualizar estado local (o realtime também vai atualizar, mas isso deixa mais rápido)
         const newMap = new Map(messageReactions);
         newMap.set(messageId, [...currentReactions, data as MessageReaction]);
         setMessageReactions(newMap);
 
         // Enviar reação para o WhatsApp via Edge Function
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.access_token) throw new Error("No session token");
-
-          const response = await fetch(
+          await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp-reaction`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${session.access_token}`,
               },
               body: JSON.stringify({
                 message_id: messageId,
-                emoji: emoji,
+                emoji,
                 lead_id: selectedLead.id,
               }),
-            }
+            },
           );
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error("Erro ao enviar reação para WhatsApp:", errorData);
-            // Não mostrar erro ao usuário, apenas logar
-          } else {
-            console.log("✅ Reação enviada para WhatsApp com sucesso");
-          }
         } catch (whatsappError) {
           console.error("Erro ao enviar reação para WhatsApp:", whatsappError);
-          // Não bloquear a operação se o envio para WhatsApp falhar
         }
       }
 
