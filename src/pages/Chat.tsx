@@ -2156,6 +2156,73 @@ const Chat = () => {
                             : "bg-muted"
                         }`}
                       >
+                        {/* Menu dropdown para todas as mensagens */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
+                              <ChevronDown className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
+                            <Popover open={reactionPopoverOpen === message.id} onOpenChange={(open) => setReactionPopoverOpen(open ? message.id : null)}>
+                              <PopoverTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => {
+                                  e.preventDefault();
+                                  setReactionPopoverOpen(message.id);
+                                }}>
+                                  <Smile className="h-4 w-4 mr-2" />
+                                  Reagir
+                                </DropdownMenuItem>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-2 bg-background border z-[110]" align="end">
+                                <div className="flex gap-2">
+                                  {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
+                                    const reactions = messageReactions.get(message.id) || [];
+                                    const userReacted = reactions.some(r => r.user_id === user?.id && r.emoji === emoji);
+                                    return (
+                                      <button
+                                        key={emoji}
+                                        onClick={() => toggleReaction(message.id, emoji)}
+                                        className={`text-2xl p-2 rounded-lg hover:bg-accent transition-colors ${
+                                          userReacted ? 'bg-accent' : ''
+                                        }`}
+                                        title={userReacted ? 'Remover reação' : 'Reagir'}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <DropdownMenuItem onClick={() => {
+                              navigator.clipboard.writeText(message.corpo_mensagem || message.media_url || '');
+                              toast({ title: "Copiado!" });
+                            }}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copiar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              togglePinMessage(message);
+                            }}>
+                              <Pin className="h-4 w-4 mr-2" />
+                              {pinnedMessages.has(message.id) ? 'Desfixar' : 'Fixar'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              toast({ title: "Mensagem favoritada", description: "Esta funcionalidade estará disponível em breve" });
+                            }}>
+                              <Star className="h-4 w-4 mr-2" />
+                              Favoritar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => {
+                              toast({ title: "Apagar mensagem", description: "Esta funcionalidade estará disponível em breve" });
+                            }}>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Apagar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        
                         {/* Renderizar player de áudio se for mensagem de áudio */}
                         {message.media_type === 'audio' ? (
                           message.media_url ? (
@@ -2181,79 +2248,12 @@ const Chat = () => {
                           /* Renderizar imagem */
                           message.media_url ? (
                             <div className="space-y-2">
-                              <div className="relative group">
-                                <img 
-                                  src={message.media_url} 
-                                  alt="Imagem enviada"
-                                  className="rounded-lg max-w-full max-h-96 object-contain"
-                                  loading="lazy"
-                                />
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <button className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
-                                      <ChevronDown className="h-4 w-4" />
-                                    </button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
-                                    <Popover open={reactionPopoverOpen === message.id} onOpenChange={(open) => setReactionPopoverOpen(open ? message.id : null)}>
-                                      <PopoverTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => {
-                                          e.preventDefault();
-                                          setReactionPopoverOpen(message.id);
-                                        }}>
-                                          <Smile className="h-4 w-4 mr-2" />
-                                          Reagir
-                                        </DropdownMenuItem>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-2 bg-background border z-[110]" align="end">
-                                        <div className="flex gap-2">
-                                          {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
-                                            const reactions = messageReactions.get(message.id) || [];
-                                            const userReacted = reactions.some(r => r.user_id === user?.id && r.emoji === emoji);
-                                            return (
-                                              <button
-                                                key={emoji}
-                                                onClick={() => toggleReaction(message.id, emoji)}
-                                                className={`text-2xl p-2 rounded-lg hover:bg-accent transition-colors ${
-                                                  userReacted ? 'bg-accent' : ''
-                                                }`}
-                                                title={userReacted ? 'Remover reação' : 'Reagir'}
-                                              >
-                                                {emoji}
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                    <DropdownMenuItem onClick={() => {
-                                      navigator.clipboard.writeText(message.media_url || '');
-                                      toast({ title: "Link copiado!" });
-                                    }}>
-                                      <Copy className="h-4 w-4 mr-2" />
-                                      Copiar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => {
-                                      togglePinMessage(message);
-                                    }}>
-                                      <Pin className="h-4 w-4 mr-2" />
-                                      {pinnedMessages.has(message.id) ? 'Desfixar' : 'Fixar'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => {
-                                      toast({ title: "Mensagem favoritada", description: "Esta funcionalidade estará disponível em breve" });
-                                    }}>
-                                      <Star className="h-4 w-4 mr-2" />
-                                      Favoritar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-destructive" onClick={() => {
-                                      toast({ title: "Apagar mensagem", description: "Esta funcionalidade estará disponível em breve" });
-                                    }}>
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Apagar
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
+                              <img 
+                                src={message.media_url} 
+                                alt="Imagem enviada"
+                                className="rounded-lg max-w-full max-h-96 object-contain"
+                                loading="lazy"
+                              />
                               {message.corpo_mensagem && !message.corpo_mensagem.includes('[Imagem]') && message.corpo_mensagem !== 'Imagem' && (
                                 <p className="text-sm whitespace-pre-wrap">
                                   {message.corpo_mensagem}
@@ -2278,6 +2278,7 @@ const Chat = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background/70 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <FileText className="h-8 w-8 flex-shrink-0 opacity-70" />
                                 <div className="flex-1 min-w-0">
