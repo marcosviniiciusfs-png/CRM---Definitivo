@@ -116,12 +116,21 @@ serve(async (req) => {
       evolutionApiUrl = "https://evolution01.kairozspace.com.br";
     }
 
-    // Normalizar emoji - garantir que seja um único emoji sem caracteres extras
+    // Normalizar emoji - permitir apenas os emojis suportados
     const rawEmoji = (emoji || "").trim();
-    const cleanedEmoji = rawEmoji.replace(/[^\p{Extended_Pictographic}]/gu, "");
+    const allowedReactions: Record<string, string> = {
+      "👍": "👍",
+      "❤️": "❤", // enviar coração simples (sem variation selector)
+      "😂": "😂",
+      "😮": "😮",
+      "😢": "😢",
+      "🙏": "🙏",
+    };
+
+    const cleanedEmoji = allowedReactions[rawEmoji];
 
     if (!cleanedEmoji) {
-      throw new Error("Invalid emoji for reaction");
+      throw new Error(`Invalid emoji for reaction: ${rawEmoji}`);
     }
 
     // Montar payload de reação
