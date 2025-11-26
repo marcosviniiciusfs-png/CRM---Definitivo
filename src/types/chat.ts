@@ -16,6 +16,14 @@ export interface Lead {
   descricao_negocio?: string;
 }
 
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   id_lead: string;
@@ -32,4 +40,5 @@ export interface Message {
   isOptimistic?: boolean;
   sendError?: boolean;
   errorMessage?: string;
+  reactions?: MessageReaction[];
 }

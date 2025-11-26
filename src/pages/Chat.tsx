@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Lead, Message } from "@/types/chat";
+import { Lead, Message, MessageReaction } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -107,6 +107,11 @@ const Chat = () => {
   const messageInputRef = useRef<HTMLInputElement>(null);
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [messageReactions, setMessageReactions] = useState<Map<string, MessageReaction[]>>(new Map());
+  const [reactionPopoverOpen, setReactionPopoverOpen] = useState<string | null>(null);
+
+  // Emojis do WhatsApp para reações
+  const WHATSAPP_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   // Configuração dos sensores de drag and drop
   const sensors = useSensors(
@@ -400,9 +405,61 @@ const Chat = () => {
       )
       .subscribe();
 
+    // Configurar realtime para reações das mensagens
+    const reactionsChannelName = `reactions-${selectedLead.id}-${Date.now()}`;
+    const reactionsChannel = supabase
+      .channel(reactionsChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'message_reactions'
+        },
+        (payload) => {
+          console.log('➕ Reação adicionada:', payload);
+          const newReaction = payload.new as MessageReaction;
+          
+          setMessageReactions(prev => {
+            const existing = prev.get(newReaction.message_id) || [];
+            const updated = new Map(prev);
+            updated.set(newReaction.message_id, [...existing, newReaction]);
+            return updated;
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'message_reactions'
+        },
+        (payload) => {
+          console.log('➖ Reação removida:', payload);
+          const deletedReaction = payload.old as MessageReaction;
+          
+          setMessageReactions(prev => {
+            const existing = prev.get(deletedReaction.message_id) || [];
+            const filtered = existing.filter(r => r.id !== deletedReaction.id);
+            const updated = new Map(prev);
+            
+            if (filtered.length === 0) {
+              updated.delete(deletedReaction.message_id);
+            } else {
+              updated.set(deletedReaction.message_id, filtered);
+            }
+            return updated;
+          });
+        }
+      )
+      .subscribe();
+
     return () => {
       console.log('🧹 Removendo canal:', channelName);
       supabase.removeChannel(messagesChannel);
+      console.log('🧹 Removendo canal de reações:', reactionsChannelName);
+      supabase.removeChannel(reactionsChannel);
     };
   }, [selectedLead?.id]);
 
@@ -719,12 +776,17 @@ const Chat = () => {
         .from("mensagens_chat")
         .select("*")
         .eq("id_lead", leadId)
-        .order("data_hora", { ascending: true });
+        .order("data_hora", { ascending: true});
 
       if (error) throw error;
 
       // Bucket chat-media é público, então podemos usar as URLs diretamente
       setMessages(data as Message[]);
+      
+      // Carregar reações para todas as mensagens
+      if (data && data.length > 0) {
+        await loadReactions(data.map(m => m.id));
+      }
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
       toast({
@@ -734,6 +796,86 @@ const Chat = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para carregar reações das mensagens
+  const loadReactions = async (messageIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from("message_reactions")
+        .select("*")
+        .in("message_id", messageIds);
+
+      if (error) throw error;
+
+      const reactionsMap = new Map<string, MessageReaction[]>();
+      data.forEach((reaction) => {
+        const existing = reactionsMap.get(reaction.message_id) || [];
+        reactionsMap.set(reaction.message_id, [...existing, reaction as MessageReaction]);
+      });
+
+      setMessageReactions(reactionsMap);
+    } catch (error) {
+      console.error("Erro ao carregar reações:", error);
+    }
+  };
+
+  // Função para adicionar ou remover reação
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+
+    try {
+      const currentReactions = messageReactions.get(messageId) || [];
+      const userReaction = currentReactions.find(r => r.user_id === user.id && r.emoji === emoji);
+
+      if (userReaction) {
+        // Remover reação
+        const { error } = await supabase
+          .from("message_reactions")
+          .delete()
+          .eq("id", userReaction.id);
+
+        if (error) throw error;
+
+        // Atualizar estado local
+        const updated = currentReactions.filter(r => r.id !== userReaction.id);
+        const newMap = new Map(messageReactions);
+        if (updated.length === 0) {
+          newMap.delete(messageId);
+        } else {
+          newMap.set(messageId, updated);
+        }
+        setMessageReactions(newMap);
+      } else {
+        // Adicionar reação
+        const { data, error } = await supabase
+          .from("message_reactions")
+          .insert({
+            message_id: messageId,
+            user_id: user.id,
+            emoji: emoji,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Atualizar estado local
+        const newMap = new Map(messageReactions);
+        newMap.set(messageId, [...currentReactions, data as MessageReaction]);
+        setMessageReactions(newMap);
+      }
+
+      // Fechar popover
+      setReactionPopoverOpen(null);
+    } catch (error) {
+      console.error("Erro ao adicionar/remover reação:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a reação",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1820,11 +1962,38 @@ const Chat = () => {
                                       <ChevronDown className="h-4 w-4" />
                                     </button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuItem>
-                                      <Smile className="h-4 w-4 mr-2" />
-                                      Reagir
-                                    </DropdownMenuItem>
+                                  <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
+                                    <Popover open={reactionPopoverOpen === message.id} onOpenChange={(open) => setReactionPopoverOpen(open ? message.id : null)}>
+                                      <PopoverTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => {
+                                          e.preventDefault();
+                                          setReactionPopoverOpen(message.id);
+                                        }}>
+                                          <Smile className="h-4 w-4 mr-2" />
+                                          Reagir
+                                        </DropdownMenuItem>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-2 bg-background border z-[110]" align="end">
+                                        <div className="flex gap-2">
+                                          {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
+                                            const reactions = messageReactions.get(message.id) || [];
+                                            const userReacted = reactions.some(r => r.user_id === user?.id && r.emoji === emoji);
+                                            return (
+                                              <button
+                                                key={emoji}
+                                                onClick={() => toggleReaction(message.id, emoji)}
+                                                className={`text-2xl p-2 rounded-lg hover:bg-accent transition-colors ${
+                                                  userReacted ? 'bg-accent' : ''
+                                                }`}
+                                                title={userReacted ? 'Remover reação' : 'Reagir'}
+                                              >
+                                                {emoji}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
                                     <DropdownMenuItem onClick={() => {
                                       navigator.clipboard.writeText(message.media_url || '');
                                       toast({ title: "Link copiado!" });
@@ -1998,6 +2167,46 @@ const Chat = () => {
                             </>
                           )}
                         </div>
+                        
+                        {/* Reações */}
+                        {(() => {
+                          const reactions = messageReactions.get(message.id) || [];
+                          if (reactions.length === 0) return null;
+                          
+                          // Agrupar reações por emoji
+                          const emojiGroups = reactions.reduce((acc, reaction) => {
+                            if (!acc[reaction.emoji]) {
+                              acc[reaction.emoji] = [];
+                            }
+                            acc[reaction.emoji].push(reaction);
+                            return acc;
+                          }, {} as Record<string, MessageReaction[]>);
+                          
+                          return (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {Object.entries(emojiGroups).map(([emoji, emojiReactions]) => {
+                                const userReacted = emojiReactions.some(r => r.user_id === user?.id);
+                                return (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => toggleReaction(message.id, emoji)}
+                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
+                                      userReacted 
+                                        ? 'bg-primary/20 border border-primary/30' 
+                                        : 'bg-background/50 border border-border/50 hover:bg-background/70'
+                                    }`}
+                                    title={userReacted ? 'Remover sua reação' : 'Reagir também'}
+                                  >
+                                    <span>{emoji}</span>
+                                    {emojiReactions.length > 1 && (
+                                      <span className="font-medium">{emojiReactions.length}</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                       );
