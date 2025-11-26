@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Lead, Message, MessageReaction } from "@/types/chat";
+import { Lead, Message, MessageReaction, PinnedMessage } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -109,6 +109,8 @@ const Chat = () => {
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const [messageReactions, setMessageReactions] = useState<Map<string, MessageReaction[]>>(new Map());
   const [reactionPopoverOpen, setReactionPopoverOpen] = useState<string | null>(null);
+  const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
+  const [showPinnedMessages, setShowPinnedMessages] = useState(false);
 
   // Emojis do WhatsApp para reações
   const WHATSAPP_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -455,11 +457,51 @@ const Chat = () => {
       )
       .subscribe();
 
+    // Configurar realtime para mensagens fixadas
+    const pinnedChannelName = `pinned-${selectedLead.id}-${Date.now()}`;
+    const pinnedChannel = supabase
+      .channel(pinnedChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'pinned_messages',
+          filter: `lead_id=eq.${selectedLead.id}`
+        },
+        (payload) => {
+          console.log('📌 Mensagem fixada:', payload);
+          const newPinned = payload.new as PinnedMessage;
+          setPinnedMessages(prev => new Set([...prev, newPinned.message_id]));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'pinned_messages',
+          filter: `lead_id=eq.${selectedLead.id}`
+        },
+        (payload) => {
+          console.log('📌 Mensagem desafixada:', payload);
+          const deletedPinned = payload.old as PinnedMessage;
+          setPinnedMessages(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(deletedPinned.message_id);
+            return newSet;
+          });
+        }
+      )
+      .subscribe();
+
     return () => {
       console.log('🧹 Removendo canal:', channelName);
       supabase.removeChannel(messagesChannel);
       console.log('🧹 Removendo canal de reações:', reactionsChannelName);
       supabase.removeChannel(reactionsChannel);
+      console.log('🧹 Removendo canal de mensagens fixadas:', pinnedChannelName);
+      supabase.removeChannel(pinnedChannel);
     };
   }, [selectedLead?.id]);
 
@@ -787,6 +829,9 @@ const Chat = () => {
       if (data && data.length > 0) {
         await loadReactions(data.map(m => m.id));
       }
+      
+      // Carregar mensagens fixadas
+      await loadPinnedMessages(leadId);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
       toast({
@@ -874,6 +919,88 @@ const Chat = () => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar a reação",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para carregar mensagens fixadas
+  const loadPinnedMessages = async (leadId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("pinned_messages")
+        .select("message_id")
+        .eq("lead_id", leadId);
+
+      if (error) throw error;
+
+      const pinnedSet = new Set(data.map(pm => pm.message_id));
+      setPinnedMessages(pinnedSet);
+    } catch (error) {
+      console.error("Erro ao carregar mensagens fixadas:", error);
+    }
+  };
+
+  // Função para fixar/desfixar mensagem
+  const togglePinMessage = async (message: Message) => {
+    if (!user || !selectedLead) return;
+
+    try {
+      const isPinned = pinnedMessages.has(message.id);
+
+      if (isPinned) {
+        // Desfixar mensagem
+        const { error } = await supabase
+          .from("pinned_messages")
+          .delete()
+          .eq("message_id", message.id)
+          .eq("lead_id", selectedLead.id);
+
+        if (error) throw error;
+
+        setPinnedMessages(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(message.id);
+          return newSet;
+        });
+
+        toast({
+          title: "Mensagem desafixada",
+          description: "A mensagem foi removida das fixadas",
+        });
+      } else {
+        // Fixar mensagem (máximo 3 mensagens fixadas)
+        if (pinnedMessages.size >= 3) {
+          toast({
+            title: "Limite atingido",
+            description: "Você pode fixar no máximo 3 mensagens por conversa",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { error } = await supabase
+          .from("pinned_messages")
+          .insert({
+            message_id: message.id,
+            lead_id: selectedLead.id,
+            pinned_by: user.id,
+          });
+
+        if (error) throw error;
+
+        setPinnedMessages(prev => new Set([...prev, message.id]));
+
+        toast({
+          title: "Mensagem fixada",
+          description: "A mensagem foi fixada no topo do chat",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao fixar/desfixar mensagem:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a mensagem",
         variant: "destructive",
       });
     }
@@ -1857,6 +1984,67 @@ const Chat = () => {
                 }}
               />
               <ScrollArea className="h-full p-4 relative z-10">
+              {/* Mensagens Fixadas */}
+              {pinnedMessages.size > 0 && (
+                <div className="mb-4 bg-card border rounded-lg p-3 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Pin className="h-4 w-4 text-primary" />
+                      <span>{pinnedMessages.size} {pinnedMessages.size === 1 ? 'mensagem fixada' : 'mensagens fixadas'}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setShowPinnedMessages(!showPinnedMessages)}
+                    >
+                      {showPinnedMessages ? 'Ocultar' : 'Ver'}
+                    </Button>
+                  </div>
+                  
+                  {showPinnedMessages && (
+                    <div className="space-y-2 mt-2">
+                      {messages
+                        .filter(msg => pinnedMessages.has(msg.id))
+                        .slice(0, 3)
+                        .map(message => (
+                          <div
+                            key={message.id}
+                            className="flex items-start gap-2 p-2 bg-background/50 rounded hover:bg-background/70 transition-colors cursor-pointer"
+                            onClick={() => {
+                              const messageEl = document.getElementById(`message-${message.id}`);
+                              messageEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }}
+                          >
+                            <Pin className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-1" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground mb-1">
+                                {message.direcao === "ENTRADA" ? selectedLead?.nome_lead : "Você"}
+                              </p>
+                              <p className="text-sm line-clamp-2">
+                                {message.media_type === 'image' ? '🖼️ Imagem' :
+                                 message.media_type === 'audio' ? '🎵 Áudio' :
+                                 message.media_type === 'document' ? '📄 Documento' :
+                                 message.corpo_mensagem}
+                              </p>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePinMessage(message);
+                              }}
+                              className="flex-shrink-0 p-1 hover:bg-background rounded"
+                              title="Desfixar"
+                            >
+                              <PinOff className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {loading ? (
                 <LoadingAnimation text="Carregando mensagens..." />
               ) : messages.length === 0 ? (
@@ -1885,6 +2073,7 @@ const Chat = () => {
                       
                       return (
                     <div
+                      id={`message-${message.id}`}
                       key={message.id}
                       ref={(el) => {
                         if (isSearchMatch && searchResultIndex >= 0) {
@@ -1898,8 +2087,15 @@ const Chat = () => {
                         message.direcao === "SAIDA"
                           ? "justify-end"
                           : "justify-start"
-                      }`}
+                      } ${pinnedMessages.has(message.id) ? 'relative' : ''}`}
                     >
+                      {/* Indicador de mensagem fixada */}
+                      {pinnedMessages.has(message.id) && (
+                        <div className="absolute -left-2 top-0 bottom-0 flex items-center">
+                          <div className="w-1 h-full bg-primary rounded-full"></div>
+                        </div>
+                      )}
+                      
                       {/* Avatar do lead nas mensagens recebidas */}
                       {message.direcao === "ENTRADA" && selectedLead && (
                         <Avatar 
@@ -1918,12 +2114,25 @@ const Chat = () => {
                       )}
                       
                       <div
-                        className={`max-w-[70%] rounded-lg p-3 ${
+                        className={`max-w-[70%] rounded-lg p-3 relative group ${
                           message.direcao === "SAIDA"
                             ? "bg-chat-bubble text-chat-bubble-foreground"
                             : "bg-muted"
                         }`}
                       >
+                        {/* Botão de fixar - aparece no hover */}
+                        <button
+                          onClick={() => togglePinMessage(message)}
+                          className={`absolute -top-2 ${message.direcao === "SAIDA" ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background shadow-sm`}
+                          title={pinnedMessages.has(message.id) ? 'Desfixar mensagem' : 'Fixar mensagem'}
+                        >
+                          {pinnedMessages.has(message.id) ? (
+                            <PinOff className="h-3 w-3" />
+                          ) : (
+                            <Pin className="h-3 w-3" />
+                          )}
+                        </button>
+                        
                         {/* Renderizar player de áudio se for mensagem de áudio */}
                         {message.media_type === 'audio' ? (
                           message.media_url ? (
@@ -2002,10 +2211,10 @@ const Chat = () => {
                                       Copiar
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
-                                      toast({ title: "Mensagem fixada", description: "Esta funcionalidade estará disponível em breve" });
+                                      togglePinMessage(message);
                                     }}>
                                       <Pin className="h-4 w-4 mr-2" />
-                                      Fixar
+                                      {pinnedMessages.has(message.id) ? 'Desfixar' : 'Fixar'}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                       toast({ title: "Mensagem favoritada", description: "Esta funcionalidade estará disponível em breve" });
