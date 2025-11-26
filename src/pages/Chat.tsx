@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw, Image as ImageIcon, FileText, Download } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw, Image as ImageIcon, FileText, Download, Smile, Copy, Star, Trash2 } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
@@ -21,6 +21,12 @@ import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -1801,14 +1807,53 @@ const Chat = () => {
                           /* Renderizar imagem */
                           message.media_url ? (
                             <div className="space-y-2">
-                              <img 
-                                src={message.media_url} 
-                                alt="Imagem enviada"
-                                className="rounded-lg max-w-full max-h-96 object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => window.open(message.media_url, '_blank')}
-                                loading="lazy"
-                              />
-                              {message.corpo_mensagem && message.corpo_mensagem !== 'Imagem' && (
+                              <div className="relative group">
+                                <img 
+                                  src={message.media_url} 
+                                  alt="Imagem enviada"
+                                  className="rounded-lg max-w-full max-h-96 object-contain"
+                                  loading="lazy"
+                                />
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
+                                      <ChevronDown className="h-4 w-4" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem>
+                                      <Smile className="h-4 w-4 mr-2" />
+                                      Reagir
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      navigator.clipboard.writeText(message.media_url || '');
+                                      toast({ title: "Link copiado!" });
+                                    }}>
+                                      <Copy className="h-4 w-4 mr-2" />
+                                      Copiar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      toast({ title: "Mensagem fixada", description: "Esta funcionalidade estará disponível em breve" });
+                                    }}>
+                                      <Pin className="h-4 w-4 mr-2" />
+                                      Fixar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      toast({ title: "Mensagem favoritada", description: "Esta funcionalidade estará disponível em breve" });
+                                    }}>
+                                      <Star className="h-4 w-4 mr-2" />
+                                      Favoritar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive" onClick={() => {
+                                      toast({ title: "Apagar mensagem", description: "Esta funcionalidade estará disponível em breve" });
+                                    }}>
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Apagar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              {message.corpo_mensagem && !message.corpo_mensagem.includes('[Imagem]') && message.corpo_mensagem !== 'Imagem' && (
                                 <p className="text-sm whitespace-pre-wrap">
                                   {message.corpo_mensagem}
                                 </p>
