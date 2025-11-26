@@ -420,11 +420,19 @@ const Chat = () => {
           table: 'message_reactions'
         },
         (payload) => {
-          console.log('➕ Reação adicionada:', payload);
+          console.log('➕ Reação adicionada via realtime:', payload);
           const newReaction = payload.new as MessageReaction;
           
           setMessageReactions(prev => {
             const existing = prev.get(newReaction.message_id) || [];
+            
+            // Verificar se a reação já existe (evitar duplicação)
+            const alreadyExists = existing.some(r => r.id === newReaction.id);
+            if (alreadyExists) {
+              console.log('ℹ️ Reação já existe no estado, pulando duplicação');
+              return prev;
+            }
+            
             const updated = new Map(prev);
             updated.set(newReaction.message_id, [...existing, newReaction]);
             return updated;
@@ -439,7 +447,7 @@ const Chat = () => {
           table: 'message_reactions'
         },
         (payload) => {
-          console.log('➖ Reação removida:', payload);
+          console.log('➖ Reação removida via realtime:', payload);
           const deletedReaction = payload.old as MessageReaction;
           
           setMessageReactions(prev => {
@@ -869,7 +877,7 @@ const Chat = () => {
 
   // Função para adicionar ou remover reação
   const toggleReaction = async (messageId: string, emoji: string) => {
-    if (!user) return;
+    if (!user || !selectedLead) return;
 
     try {
       const currentReactions = messageReactions.get(messageId) || [];
@@ -911,10 +919,46 @@ const Chat = () => {
         const newMap = new Map(messageReactions);
         newMap.set(messageId, [...currentReactions, data as MessageReaction]);
         setMessageReactions(newMap);
+
+        // Enviar reação para o WhatsApp via Edge Function
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) throw new Error("No session token");
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp-reaction`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                message_id: messageId,
+                emoji: emoji,
+                lead_id: selectedLead.id,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Erro ao enviar reação para WhatsApp:", errorData);
+            // Não mostrar erro ao usuário, apenas logar
+          } else {
+            console.log("✅ Reação enviada para WhatsApp com sucesso");
+          }
+        } catch (whatsappError) {
+          console.error("Erro ao enviar reação para WhatsApp:", whatsappError);
+          // Não bloquear a operação se o envio para WhatsApp falhar
+        }
       }
 
-      // Fechar popover
+      // Fechar popover e dropdown
       setReactionPopoverOpen(null);
+      const newStates = new Map(dropdownOpenStates);
+      newStates.delete(messageId);
+      setDropdownOpenStates(newStates);
     } catch (error) {
       console.error("Erro ao adicionar/remover reação:", error);
       toast({
