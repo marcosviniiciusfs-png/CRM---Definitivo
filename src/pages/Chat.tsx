@@ -2180,70 +2180,88 @@ const Chat = () => {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
-                            <Popover 
-                              open={reactionPopoverOpen === message.id} 
-                              onOpenChange={(open) => {
-                                setReactionPopoverOpen(open ? message.id : null);
-                                // Fechar o dropdown quando o popover for fechado
-                                if (!open) {
-                                  const newStates = new Map(dropdownOpenStates);
-                                  newStates.delete(message.id);
-                                  setDropdownOpenStates(newStates);
-                                }
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setReactionPopoverOpen(
+                                  reactionPopoverOpen === message.id ? null : message.id
+                                );
                               }}
                             >
-                              <PopoverTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => {
-                                  e.preventDefault();
-                                  setReactionPopoverOpen(message.id);
-                                }}>
-                                  <Smile className="h-4 w-4 mr-2" />
-                                  Reagir
-                                </DropdownMenuItem>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-2 bg-background border z-[110]" align="end">
-                                <div className="flex gap-2">
-                                  {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
-                                    const reactions = messageReactions.get(message.id) || [];
-                                    const userReacted = reactions.some(r => r.user_id === user?.id && r.emoji === emoji);
-                                    return (
-                                      <button
-                                        key={emoji}
-                                        onClick={() => toggleReaction(message.id, emoji)}
-                                        className={`text-2xl p-2 rounded-lg hover:bg-accent transition-colors ${
-                                          userReacted ? 'bg-accent' : ''
-                                        }`}
-                                        title={userReacted ? 'Remover reação' : 'Reagir'}
-                                      >
-                                        {emoji}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                            <DropdownMenuItem onClick={() => {
-                              navigator.clipboard.writeText(message.corpo_mensagem || message.media_url || '');
-                              toast({ title: "Copiado!" });
-                            }}>
+                              <Smile className="h-4 w-4 mr-2" />
+                              Reagir
+                            </DropdownMenuItem>
+
+                            {reactionPopoverOpen === message.id && (
+                              <div className="px-2 pb-2 pt-1 border-t flex gap-1 flex-wrap">
+                                {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
+                                  const reactions = messageReactions.get(message.id) || [];
+                                  const userReacted = reactions.some(
+                                    (r) => r.user_id === user?.id && r.emoji === emoji
+                                  );
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => {
+                                        toggleReaction(message.id, emoji);
+                                        // Fechar seleção de reação e dropdown após escolher
+                                        setReactionPopoverOpen(null);
+                                        const newStates = new Map(dropdownOpenStates);
+                                        newStates.delete(message.id);
+                                        setDropdownOpenStates(newStates);
+                                      }}
+                                      className={`text-2xl p-1.5 rounded-lg transition-colors hover:bg-accent/60 ${
+                                        userReacted ? "bg-accent" : ""
+                                      }`}
+                                      title={userReacted ? "Remover reação" : "Reagir"}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <DropdownMenuItem
+                              onClick={() => {
+                                navigator.clipboard.writeText(
+                                  message.corpo_mensagem || message.media_url || ""
+                                );
+                                toast({ title: "Copiado!" });
+                              }}
+                            >
                               <Copy className="h-4 w-4 mr-2" />
                               Copiar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              togglePinMessage(message);
-                            }}>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                togglePinMessage(message);
+                              }}
+                            >
                               <Pin className="h-4 w-4 mr-2" />
-                              {pinnedMessages.has(message.id) ? 'Desfixar' : 'Fixar'}
+                              {pinnedMessages.has(message.id) ? "Desfixar" : "Fixar"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              toast({ title: "Mensagem favoritada", description: "Esta funcionalidade estará disponível em breve" });
-                            }}>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                toast({
+                                  title: "Mensagem favoritada",
+                                  description: "Esta funcionalidade estará disponível em breve",
+                                });
+                              }}
+                            >
                               <Star className="h-4 w-4 mr-2" />
                               Favoritar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => {
-                              toast({ title: "Apagar mensagem", description: "Esta funcionalidade estará disponível em breve" });
-                            }}>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => {
+                                toast({
+                                  title: "Apagar mensagem",
+                                  description: "Esta funcionalidade estará disponível em breve",
+                                });
+                              }}
+                            >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Apagar
                             </DropdownMenuItem>
