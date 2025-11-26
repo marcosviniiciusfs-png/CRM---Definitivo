@@ -1,7 +1,16 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 interface ReactionRequest {
   message_id: string;
@@ -9,43 +18,14 @@ interface ReactionRequest {
   lead_id: string;
 }
 
-Deno.serve(async (req) => {
-  // CORS headers
+serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-      },
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    // Verificar autenticação
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Missing authorization header");
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-
-    if (authError || !user) {
-      throw new Error("Unauthorized");
-    }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { message_id, emoji, lead_id }: ReactionRequest = await req.json();
 
@@ -53,14 +33,19 @@ Deno.serve(async (req) => {
       throw new Error("Missing required fields: message_id, emoji, lead_id");
     }
 
-    // Buscar a mensagem original
+    // Buscar a mensagem original (usando service role, sem RLS bloqueando)
     const { data: message, error: messageError } = await supabase
       .from("mensagens_chat")
       .select("evolution_message_id, id_lead")
       .eq("id", message_id)
-      .single();
+      .maybeSingle();
 
-    if (messageError || !message) {
+    if (messageError) {
+      console.error("Error loading message:", messageError);
+      throw new Error("Failed to load message");
+    }
+
+    if (!message) {
       throw new Error("Message not found");
     }
 
@@ -68,15 +53,24 @@ Deno.serve(async (req) => {
       throw new Error("Message does not have an Evolution message ID");
     }
 
-    // Buscar o lead para pegar o telefone
+    // Buscar o lead para pegar o telefone e organização
     const { data: lead, error: leadError } = await supabase
       .from("leads")
       .select("telefone_lead, organization_id")
       .eq("id", lead_id)
-      .single();
+      .maybeSingle();
 
-    if (leadError || !lead) {
+    if (leadError) {
+      console.error("Error loading lead:", leadError);
+      throw new Error("Failed to load lead");
+    }
+
+    if (!lead) {
       throw new Error("Lead not found");
+    }
+
+    if (!lead.telefone_lead) {
+      throw new Error("Lead phone number is missing");
     }
 
     // Buscar a instância do WhatsApp da organização
@@ -85,23 +79,38 @@ Deno.serve(async (req) => {
       .select("instance_name")
       .eq("organization_id", lead.organization_id)
       .eq("status", "CONNECTED")
-      .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (instanceError || !instance) {
+    if (instanceError) {
+      console.error("Error loading WhatsApp instance:", instanceError);
+      throw new Error("Failed to load WhatsApp instance");
+    }
+
+    if (!instance) {
       throw new Error("No connected WhatsApp instance found");
     }
 
-    // Enviar reação via Evolution API
+    // Normalizar número de telefone para JID do WhatsApp
+    const cleanNumber = String(lead.telefone_lead).replace(/\D/g, "");
+    const remoteJid = `${cleanNumber}@s.whatsapp.net`;
+
+    // Preparar URL da Evolution API
+    let evolutionApiUrl = EVOLUTION_API_URL || "";
+    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
+      console.log("⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.");
+      evolutionApiUrl = "https://evolution01.kairozspace.com.br";
+    }
+
+    // Montar payload de reação
     const reactionPayload = {
       key: {
-        remoteJid: `${lead.telefone_lead}@s.whatsapp.net`,
+        remoteJid,
         id: message.evolution_message_id,
-        fromMe: false, // A mensagem original pode ser do lead ou do CRM
+        fromMe: false,
       },
       reaction: {
         key: {
-          remoteJid: `${lead.telefone_lead}@s.whatsapp.net`,
+          remoteJid,
           id: message.evolution_message_id,
         },
         text: emoji,
@@ -111,19 +120,20 @@ Deno.serve(async (req) => {
     console.log("Sending reaction to Evolution API:", {
       instance: instance.instance_name,
       messageId: message.evolution_message_id,
-      emoji: emoji,
+      emoji,
+      remoteJid,
     });
 
     const evolutionResponse = await fetch(
-      `${EVOLUTION_API_URL}/message/sendReaction/${instance.instance_name}`,
+      `${evolutionApiUrl.replace(/\/+$/, "")}/message/sendReaction/${instance.instance_name}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": EVOLUTION_API_KEY || "",
+          apikey: EVOLUTION_API_KEY || "",
         },
         body: JSON.stringify(reactionPayload),
-      }
+      },
     );
 
     if (!evolutionResponse.ok) {
@@ -142,11 +152,8 @@ Deno.serve(async (req) => {
         data: evolutionData,
       }),
       {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (error) {
     console.error("Error sending WhatsApp reaction:", error);
@@ -158,11 +165,8 @@ Deno.serve(async (req) => {
       }),
       {
         status: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
