@@ -27,6 +27,21 @@ serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Verificar autenticação do usuário
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    // Validar o JWT do usuário
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      throw new Error("Unauthorized");
+    }
+
     const { message_id, emoji, lead_id }: ReactionRequest = await req.json();
 
     if (!message_id || !emoji || !lead_id) {

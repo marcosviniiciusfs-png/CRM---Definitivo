@@ -924,12 +924,19 @@ const Chat = () => {
 
         // Enviar reação para o WhatsApp via Edge Function
         try {
-          await fetch(
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) {
+            console.error("❌ Sem token de sessão");
+            return;
+          }
+
+          const response = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp-reaction`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
               },
               body: JSON.stringify({
                 message_id: messageId,
@@ -938,8 +945,16 @@ const Chat = () => {
               }),
             },
           );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("❌ Erro ao enviar reação para WhatsApp:", errorData);
+          } else {
+            const responseData = await response.json();
+            console.log("✅ Reação enviada para WhatsApp com sucesso:", responseData);
+          }
         } catch (whatsappError) {
-          console.error("Erro ao enviar reação para WhatsApp:", whatsappError);
+          console.error("❌ Erro ao enviar reação para WhatsApp:", whatsappError);
         }
       }
 
