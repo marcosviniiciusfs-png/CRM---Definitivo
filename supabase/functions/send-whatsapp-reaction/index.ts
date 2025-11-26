@@ -123,13 +123,7 @@ serve(async (req) => {
         id: message.evolution_message_id,
         fromMe: false,
       },
-      reaction: {
-        key: {
-          remoteJid,
-          id: message.evolution_message_id,
-        },
-        text: emoji,
-      },
+      reaction: emoji, // Evolution API espera apenas a string do emoji
     };
 
     console.log("Sending reaction to Evolution API:", {
