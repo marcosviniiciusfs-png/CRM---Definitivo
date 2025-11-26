@@ -109,6 +109,7 @@ const Chat = () => {
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const [messageReactions, setMessageReactions] = useState<Map<string, MessageReaction[]>>(new Map());
   const [reactionPopoverOpen, setReactionPopoverOpen] = useState<string | null>(null);
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Map<string, boolean>>(new Map());
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
 
@@ -2157,14 +2158,40 @@ const Chat = () => {
                         }`}
                       >
                         {/* Menu dropdown para todas as mensagens */}
-                        <DropdownMenu>
+                        <DropdownMenu 
+                          open={dropdownOpenStates.get(message.id) || false}
+                          onOpenChange={(open) => {
+                            // Não fechar o dropdown se o popover de reações estiver aberto
+                            if (!open && reactionPopoverOpen === message.id) {
+                              return;
+                            }
+                            const newStates = new Map(dropdownOpenStates);
+                            if (open) {
+                              newStates.set(message.id, true);
+                            } else {
+                              newStates.delete(message.id);
+                            }
+                            setDropdownOpenStates(newStates);
+                          }}
+                        >
                           <DropdownMenuTrigger asChild>
                             <button className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
                               <ChevronDown className="h-4 w-4" />
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
-                            <Popover open={reactionPopoverOpen === message.id} onOpenChange={(open) => setReactionPopoverOpen(open ? message.id : null)}>
+                            <Popover 
+                              open={reactionPopoverOpen === message.id} 
+                              onOpenChange={(open) => {
+                                setReactionPopoverOpen(open ? message.id : null);
+                                // Fechar o dropdown quando o popover for fechado
+                                if (!open) {
+                                  const newStates = new Map(dropdownOpenStates);
+                                  newStates.delete(message.id);
+                                  setDropdownOpenStates(newStates);
+                                }
+                              }}
+                            >
                               <PopoverTrigger asChild>
                                 <DropdownMenuItem onSelect={(e) => {
                                   e.preventDefault();
