@@ -682,6 +682,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pinned_messages: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          message_id: string
+          pinned_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          message_id: string
+          pinned_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          message_id?: string
+          pinned_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pinned_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pinned_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "mensagens_chat"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

@@ -24,6 +24,14 @@ export interface MessageReaction {
   created_at: string;
 }
 
+export interface PinnedMessage {
+  id: string;
+  message_id: string;
+  lead_id: string;
+  pinned_by: string;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   id_lead: string;
@@ -41,4 +49,5 @@ export interface Message {
   sendError?: boolean;
   errorMessage?: string;
   reactions?: MessageReaction[];
+  isPinned?: boolean;
 }
