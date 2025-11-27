@@ -20,7 +20,8 @@ serve(async (req) => {
       file_name,
       mime_type,
       caption,
-      leadId
+      leadId,
+      is_ptt
     } = await req.json();
 
     console.log('📥 Recebida requisição para enviar mídia:', {
@@ -117,6 +118,11 @@ serve(async (req) => {
       media: media_base64,
       fileName: finalFileName,
     };
+
+    // Se for áudio PTT (gravado), adicionar flag
+    if (media_type === 'audio' && is_ptt) {
+      payload.ptt = true;
+    }
 
     console.log('📤 Enviando mídia para Evolution API:', {
       url: `${evolutionApiUrl}/message/sendMedia/${instance_name}`,
