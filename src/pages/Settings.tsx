@@ -37,6 +37,7 @@ const Settings = () => {
   const [webhookConfig, setWebhookConfig] = useState<{ webhook_token: string; is_active: boolean; tag_id?: string | null } | null>(null);
   const [loadingWebhook, setLoadingWebhook] = useState(false);
   const [webhookTagName, setWebhookTagName] = useState("");
+  const [savingTag, setSavingTag] = useState(false);
 
   useEffect(() => {
     const getUserData = async () => {
@@ -348,6 +349,73 @@ const Settings = () => {
     toast.success("URL copiada para a área de transferência!");
   };
 
+  const handleSaveWebhookTag = async () => {
+    if (!user || !webhookTagName.trim()) {
+      toast.error("Digite um nome para a tag");
+      return;
+    }
+
+    setSavingTag(true);
+    try {
+      const { data: orgData } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!orgData) {
+        toast.error("Organização não encontrada");
+        return;
+      }
+
+      // Create or find existing tag
+      let tagId: string;
+      
+      if (webhookConfig?.tag_id) {
+        // Update existing tag name
+        const { error: updateError } = await supabase
+          .from('lead_tags')
+          .update({ name: webhookTagName })
+          .eq('id', webhookConfig.tag_id);
+        
+        if (updateError) throw updateError;
+        tagId = webhookConfig.tag_id;
+        toast.success("Tag atualizada com sucesso!");
+      } else {
+        // Create new tag
+        const { data: tagData, error: tagError } = await supabase
+          .from('lead_tags')
+          .insert({
+            name: webhookTagName,
+            organization_id: orgData.organization_id,
+            color: '#10b981'
+          })
+          .select('id')
+          .single();
+
+        if (tagError) throw tagError;
+        tagId = tagData.id;
+
+        // Associate tag with webhook
+        const { error: webhookError } = await supabase
+          .from('webhook_configs')
+          .update({ tag_id: tagId })
+          .eq('organization_id', orgData.organization_id);
+
+        if (webhookError) throw webhookError;
+
+        setWebhookConfig(prev => prev ? { ...prev, tag_id: tagId } : null);
+        toast.success("Tag criada e associada ao webhook!");
+      }
+
+    } catch (error: any) {
+      console.error('Erro ao salvar tag:', error);
+      toast.error("Erro ao salvar tag. Tente novamente.");
+    } finally {
+      setSavingTag(false);
+    }
+  };
+
   // Super admins, owners e admins organizacionais podem gerenciar integrações
   const canManageIntegrations = userRole === 'super_admin' || orgRole === 'owner' || orgRole === 'admin';
 
@@ -422,19 +490,39 @@ const Settings = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {webhookTagName && (
-                        <div className="space-y-2">
-                          <Label>Tag Associada</Label>
+                      <div className="space-y-2">
+                        <Label>Tag para Identificação dos Leads</Label>
+                        {webhookTagName ? (
                           <div className="flex items-center gap-2">
                             <Badge className="bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 border-green-200 dark:border-green-800">
                               {webhookTagName}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                              Esta tag será aplicada automaticamente aos novos leads
+                              Aplicada automaticamente aos novos leads
                             </span>
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <Input
+                                value={webhookTagName}
+                                onChange={(e) => setWebhookTagName(e.target.value)}
+                                placeholder="Ex: Landing Page, Site, Formulário"
+                                className="flex-1"
+                              />
+                              <Button 
+                                onClick={handleSaveWebhookTag}
+                                disabled={savingTag || !webhookTagName.trim()}
+                              >
+                                {savingTag ? "Salvando..." : "Salvar"}
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Configure uma tag para identificar automaticamente os leads criados por este webhook
+                            </p>
+                          </div>
+                        )}
+                      </div>
                       <div className="space-y-2">
                         <Label>URL do Webhook</Label>
                         <div className="flex gap-2">
