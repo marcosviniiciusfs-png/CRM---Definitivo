@@ -203,6 +203,27 @@ Deno.serve(async (req) => {
                   })
                   .eq('id', logId);
               }
+
+              // Processar automações (não bloqueia o retorno)
+              supabase.functions.invoke('process-automation-rules', {
+                body: {
+                  trigger_type: 'LEAD_CREATED_META_FORM',
+                  trigger_data: {
+                    lead_id: newLead.id,
+                    organization_id: integration.organization_id,
+                    form_id: leadData.form_id,
+                    form_name: formName,
+                  },
+                },
+              }).then(({ data, error }) => {
+                if (error) {
+                  console.error('⚠️ Erro ao processar automações:', error);
+                } else {
+                  console.log('✅ Automações processadas:', data);
+                }
+              }).catch(err => {
+                console.error('⚠️ Falha ao invocar process-automation-rules:', err);
+              });
             }
           }
         }
