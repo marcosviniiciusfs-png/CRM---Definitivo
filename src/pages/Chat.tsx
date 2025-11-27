@@ -1204,7 +1204,10 @@ const Chat = () => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Forçar o formato OGG/OPUS para compatibilidade com WhatsApp PTT
+      const options = { mimeType: 'audio/ogg; codecs=opus' };
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
 
       const audioChunks: Blob[] = [];
