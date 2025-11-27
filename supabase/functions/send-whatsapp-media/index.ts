@@ -85,53 +85,44 @@ serve(async (req) => {
       throw new Error('Instância WhatsApp não encontrada');
     }
 
-    // Preparar payload baseado no tipo de mídia
-    const payload: any = {
-      number: remoteJid,
-      // Alguns endpoints da Evolution exigem `mediatype` na raiz
-      mediatype: media_type === 'document' ? 'document' : media_type,
-    };
+    // Preparar payload baseado no tipo de mídia (formato plano exigido pela Evolution API)
+    let mediatype = media_type;
+    let finalFileName = file_name;
 
-    // Adicionar mídia baseado no tipo
     switch (media_type) {
       case 'image':
-        payload.mediaMessage = {
-          mediatype: 'image',
-          media: media_base64,
-          fileName: file_name || 'image.jpg',
-          caption: caption || ''
-        };
+        mediatype = 'image';
+        finalFileName = finalFileName || 'image.jpg';
         break;
       case 'video':
-        payload.mediaMessage = {
-          mediatype: 'video',
-          media: media_base64,
-          fileName: file_name || 'video.mp4',
-          caption: caption || ''
-        };
+        mediatype = 'video';
+        finalFileName = finalFileName || 'video.mp4';
         break;
       case 'audio':
-        payload.audioMessage = {
-          mediatype: 'audio',
-          audio: media_base64,
-          fileName: file_name || 'audio.ogg',
-        };
+        mediatype = 'audio';
+        finalFileName = finalFileName || 'audio.ogg';
         break;
       case 'document':
       default:
-        payload.mediaMessage = {
-          mediatype: 'document',
-          media: media_base64,
-          fileName: file_name || 'document.pdf',
-          caption: caption || ''
-        };
+        mediatype = 'document';
+        finalFileName = finalFileName || 'document.pdf';
         break;
     }
 
+    const payload: any = {
+      number: remoteJid,
+      mediatype,
+      mimetype: mime_type || 'application/octet-stream',
+      caption: caption || '',
+      media: media_base64,
+      fileName: finalFileName,
+    };
+
     console.log('📤 Enviando mídia para Evolution API:', {
       url: `${evolutionApiUrl}/message/sendMedia/${instance_name}`,
-      mediaType: media_type,
-      fileName: file_name
+      mediaType: mediatype,
+      fileName: finalFileName,
+      mimetype: payload.mimetype,
     });
 
     // Enviar mídia via Evolution API
