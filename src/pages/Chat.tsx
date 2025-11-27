@@ -1204,33 +1204,50 @@ const Chat = () => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Detectar formato de áudio suportado pelo navegador (priorizar OGG/OPUS)
-      let mimeType = 'audio/ogg; codecs=opus';
-      const supportedTypes = [
-        'audio/ogg; codecs=opus',
-        'audio/webm; codecs=opus',
-        'audio/webm',
-        'audio/ogg',
-        'audio/mp4',
-        'audio/mpeg',
-      ];
 
-      // Encontrar o primeiro formato suportado
-      for (const type of supportedTypes) {
-        if (MediaRecorder.isTypeSupported(type)) {
-          mimeType = type;
-          console.log('✅ Formato de áudio selecionado:', type);
-          break;
-        }
+      // Sempre tentamos produzir OGG/OPUS para PTT
+      let mimeType = 'audio/ogg; codecs=opus';
+
+      // Verificar suporte nativo ao MediaRecorder + OGG/OPUS
+      const hasNativeMediaRecorder = typeof MediaRecorder !== 'undefined';
+      const supportsOggOpus = hasNativeMediaRecorder && MediaRecorder.isTypeSupported(mimeType);
+
+      let mediaRecorder: MediaRecorder;
+
+      if (!hasNativeMediaRecorder || !supportsOggOpus) {
+        console.log('⚠️ MediaRecorder nativo indisponível ou sem suporte a OGG/OPUS. Usando OpusMediaRecorder.');
+
+        // Carregar encoder/wasm do opus-media-recorder para gerar OGG/OPUS
+        const workerOptions = {
+          encoderWorkerFactory: () =>
+            new Worker(new URL('opus-media-recorder/encoderWorker.umd.js', import.meta.url)),
+          OggOpusEncoderWasmPath: new URL(
+            'opus-media-recorder/OggOpusEncoder.wasm',
+            import.meta.url
+          ).toString(),
+          WebMOpusEncoderWasmPath: new URL(
+            'opus-media-recorder/WebMOpusEncoder.wasm',
+            import.meta.url
+          ).toString(),
+        } as any;
+
+        const options = {
+          mimeType,
+          audioBitsPerSecond: 64000, // 64kbps para garantir qualidade de voz
+        } as any;
+
+        // Usar OpusMediaRecorder diretamente para garantir OGG/OPUS
+        const OpusRecorder: any = (await import('opus-media-recorder')).default;
+        mediaRecorder = new OpusRecorder(stream, options, workerOptions) as MediaRecorder;
+      } else {
+        console.log('✅ Usando MediaRecorder nativo com OGG/OPUS.');
+        const options: MediaRecorderOptions = {
+          mimeType,
+          audioBitsPerSecond: 64000,
+        };
+        mediaRecorder = new MediaRecorder(stream, options);
       }
 
-      // Configurar opções com alta qualidade de áudio para PTT
-      const options = { 
-        mimeType,
-        audioBitsPerSecond: 64000 // 64kbps para garantir qualidade de voz
-      };
-      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
 
       const audioChunks: Blob[] = [];
@@ -1242,8 +1259,8 @@ const Chat = () => {
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunks, { type: mimeType });
         setAudioBlob(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-        
+        stream.getTracks().forEach((track) => track.stop());
+
         // Enviar áudio automaticamente após parar gravação
         sendAudio(audioBlob);
       };
@@ -1254,23 +1271,22 @@ const Chat = () => {
 
       // Timer da gravação
       recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
 
       toast({
-        title: "Gravando áudio",
-        description: "Clique novamente para parar e enviar",
+        title: 'Gravando áudio',
+        description: 'Clique novamente para parar e enviar',
       });
     } catch (error) {
       console.error('Erro ao acessar microfone:', error);
       toast({
-        title: "Erro ao gravar",
-        description: "Não foi possível acessar o microfone",
-        variant: "destructive",
+        title: 'Erro ao gravar',
+        description: 'Não foi possível acessar o microfone',
+        variant: 'destructive',
       });
     }
   };
-
   // Função para parar gravação
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
