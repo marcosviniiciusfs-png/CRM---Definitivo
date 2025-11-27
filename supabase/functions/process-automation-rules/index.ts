@@ -335,21 +335,35 @@ async function sendMessage(
     // Tenta enviar o efeito de digitação, mas mesmo em caso de erro ainda respeita o delay
     if (evolutionApiUrl && evolutionApiKey) {
       try {
-        console.log(`Calling Evolution API sendPresence with delay: ${typingDelay} seconds (${typingDelay * 1000}ms)`);
-        await fetch(`${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`, {
+        const sanitizedNumber = lead.telefone_lead.replace(/\D/g, '');
+        console.log('Calling Evolution API sendPresence with delay:', {
+          url: `${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`,
+          sanitizedNumber,
+          typingDelayMs: typingDelay * 1000,
+        });
+
+        const presenceResponse = await fetch(`${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': evolutionApiKey,
+            apikey: evolutionApiKey,
           },
           body: JSON.stringify({
-            number: lead.telefone_lead.replace(/\D/g, ''),
+            number: sanitizedNumber,
             options: {
               delay: typingDelay * 1000,
               presence: 'composing',
+              number: sanitizedNumber,
             },
           }),
         });
+
+        console.log('Evolution API sendPresence response status:', presenceResponse.status);
+        if (!presenceResponse.ok) {
+          const errorText = await presenceResponse.text();
+          console.error('Evolution API sendPresence failed:', errorText);
+        }
+
       } catch (presenceError) {
         console.error('Error sending presence:', presenceError);
         // Continua mesmo com erro no presence
