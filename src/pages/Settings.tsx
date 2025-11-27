@@ -85,13 +85,22 @@ const Settings = () => {
 
         // Get webhook config if user can manage integrations
         if (userRole === 'super_admin' || orgRole === 'owner' || orgRole === 'admin') {
-          const { data: webhookData } = await supabase
-            .from('webhook_configs')
-            .select('webhook_token, is_active')
+          const { data: orgData } = await supabase
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', user.id)
             .maybeSingle();
 
-          if (webhookData) {
-            setWebhookConfig(webhookData);
+          if (orgData) {
+            const { data: webhookData } = await supabase
+              .from('webhook_configs')
+              .select('webhook_token, is_active')
+              .eq('organization_id', orgData.organization_id)
+              .maybeSingle();
+
+            if (webhookData) {
+              setWebhookConfig(webhookData);
+            }
           }
         }
       } catch (error) {
@@ -223,6 +232,20 @@ const Settings = () => {
         return;
       }
 
+      // Check if webhook already exists
+      const { data: existingWebhook } = await supabase
+        .from('webhook_configs')
+        .select('webhook_token, is_active')
+        .eq('organization_id', orgData.organization_id)
+        .maybeSingle();
+
+      if (existingWebhook) {
+        setWebhookConfig(existingWebhook);
+        toast.success("Webhook já existe!");
+        return;
+      }
+
+      // Create new webhook only if it doesn't exist
       const { data, error } = await supabase
         .from('webhook_configs')
         .insert({ organization_id: orgData.organization_id })
