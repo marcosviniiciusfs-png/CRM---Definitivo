@@ -119,9 +119,10 @@ serve(async (req) => {
       fileName: finalFileName,
     };
 
-    // Se for áudio PTT (gravado), adicionar flag
+    // Se for áudio PTT (gravado), adicionar flags para simular áudio de voz do WhatsApp
     if (media_type === 'audio' && is_ptt) {
       payload.ptt = true;
+      payload.isVoice = true; // Parâmetro para forçar formato PTT nativo
     }
 
     console.log('📤 Enviando mídia para Evolution API:', {
