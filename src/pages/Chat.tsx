@@ -1205,8 +1205,27 @@ const Chat = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Forçar o formato OGG/OPUS para compatibilidade com WhatsApp PTT
-      const options = { mimeType: 'audio/ogg; codecs=opus' };
+      // Detectar formato de áudio suportado pelo navegador
+      let mimeType = 'audio/ogg; codecs=opus';
+      const supportedTypes = [
+        'audio/ogg; codecs=opus',
+        'audio/webm; codecs=opus',
+        'audio/webm',
+        'audio/ogg',
+        'audio/mp4',
+        'audio/mpeg',
+      ];
+
+      // Encontrar o primeiro formato suportado
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          console.log('✅ Formato de áudio selecionado:', type);
+          break;
+        }
+      }
+
+      const options = { mimeType };
       const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
 
@@ -1217,7 +1236,7 @@ const Chat = () => {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
         setAudioBlob(audioBlob);
         stream.getTracks().forEach(track => track.stop());
         
