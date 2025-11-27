@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.admin-delete-user]
 verify_jwt = false
+
+[functions.send-whatsapp-media]
+verify_jwt = true
+
+[functions.send-whatsapp-reaction]
+verify_jwt = true
