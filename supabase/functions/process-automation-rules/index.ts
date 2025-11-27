@@ -329,8 +329,14 @@ async function sendMessage(
   // Se tiver delay configurado, enviar presença "digitando..." e aguardar
   if (typingDelay > 0) {
     console.log(`Applying typing delay of ${typingDelay} seconds`);
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+
+    // Normaliza URL da Evolution (mesma lógica usada em outras funções)
+    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
+      console.warn('EVOLUTION_API_URL inválida em process-automation-rules. Usando URL padrão.');
+      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+    }
 
     // Tenta enviar o efeito de digitação, mas mesmo em caso de erro ainda respeita o delay
     if (evolutionApiUrl && evolutionApiKey) {
