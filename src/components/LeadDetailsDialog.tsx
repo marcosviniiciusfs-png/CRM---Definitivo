@@ -6,6 +6,7 @@ import { DollarSign, FileText, Clock, User, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
+import type { Json } from "@/integrations/supabase/types";
 
 interface LeadDetailsDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface LeadDetails {
   responsavel: string | null;
   data_inicio: string | null;
   data_conclusao: string | null;
+  additional_data: Json | null;
 }
 
 interface Activity {
@@ -54,7 +56,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor")
+        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data")
         .eq("id", leadId)
         .single();
 
@@ -141,6 +143,31 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
             {details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') && (
               <>
                 <FacebookFormData description={details.descricao_negocio} />
+                <Separator />
+              </>
+            )}
+
+            {/* Dados Adicionais do Webhook (se existir) */}
+            {details?.additional_data && typeof details.additional_data === 'object' && !Array.isArray(details.additional_data) && Object.keys(details.additional_data).length > 0 && (
+              <>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    <h3 className="font-semibold text-sm">Informações do Formulário</h3>
+                  </div>
+                  <div className="grid gap-3">
+                    {Object.entries(details.additional_data as Record<string, any>).map(([key, value]) => (
+                      <div key={key} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                        <span className="text-xs font-medium text-muted-foreground block mb-1">
+                          {key}
+                        </span>
+                        <p className="text-sm font-medium">
+                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <Separator />
               </>
             )}
