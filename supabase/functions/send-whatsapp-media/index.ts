@@ -89,10 +89,16 @@ serve(async (req) => {
     let finalMimeType = mime_type;
 
     if (media_type === 'audio' && is_ptt) {
-      // Forçar o formato OGG/OPUS para áudio de voz PTT
+      // Tentar usar OGG/OPUS se disponível, caso contrário usar o mime_type recebido
       mediatype = 'audio';
-      finalMimeType = 'audio/ogg; codecs=opus';
+      finalMimeType = mime_type.includes('ogg') ? 'audio/ogg; codecs=opus' : mime_type;
       finalFileName = finalFileName || 'audio.ogg';
+      
+      console.log('🎤 Áudio PTT detectado:', {
+        originalMimeType: mime_type,
+        finalMimeType,
+        fileName: finalFileName
+      });
     } else {
       // Lógica de fallback para outros tipos de mídia
       switch (media_type) {
