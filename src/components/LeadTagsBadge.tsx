@@ -1,12 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Tag } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface LeadTag {
   id: string;
@@ -76,36 +70,21 @@ export function LeadTagsBadge({ leadId }: LeadTagsBadgeProps) {
   if (tags.length === 0) return null;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="flex gap-1 items-center">
-        {tags.map((tag) => (
-          <Tooltip key={tag.id}>
-            <TooltipTrigger asChild>
-              <div className="cursor-help transition-transform hover:scale-110">
-                <Tag
-                  className="w-3.5 h-3.5 shrink-0"
-                  style={{ 
-                    color: tag.color,
-                    fill: tag.color,
-                  }}
-                  strokeWidth={2}
-                />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              className="animate-in fade-in-0 zoom-in-95"
-              style={{
-                backgroundColor: tag.color,
-                color: "white",
-                borderColor: tag.color,
-              }}
-            >
-              <p className="font-medium text-xs">{tag.name}</p>
-            </TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
-    </TooltipProvider>
+    <div className="flex gap-1 items-center flex-wrap">
+      {tags.map((tag) => (
+        <Badge 
+          key={tag.id}
+          variant="secondary" 
+          className="w-fit text-[9px] px-1.5 py-0 h-4"
+          style={{
+            backgroundColor: `${tag.color}15`,
+            color: tag.color,
+            borderColor: `${tag.color}40`,
+          }}
+        >
+          {tag.name}
+        </Badge>
+      ))}
+    </div>
   );
 }
