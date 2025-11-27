@@ -31,7 +31,8 @@ serve(async (req) => {
       file_name,
       mime_type,
       caption,
-      leadId
+      leadId,
+      is_ptt
     });
 
     // Validar campos obrigatórios
@@ -62,13 +63,9 @@ serve(async (req) => {
     // Validar e normalizar URL da Evolution API
     try {
       const parsed = new URL(evolutionApiUrl);
-      // Mantém apenas protocolo + host para evitar caminhos estranhos
       evolutionApiUrl = `${parsed.protocol}//${parsed.host}`;
     } catch (e) {
-      console.warn('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.', {
-        evolutionApiUrl,
-        error: e instanceof Error ? e.message : String(e),
-      });
+      console.warn('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.', { evolutionApiUrl });
       evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
     }
 
@@ -86,50 +83,63 @@ serve(async (req) => {
       throw new Error('Instância WhatsApp não encontrada');
     }
 
-    // Preparar payload baseado no tipo de mídia (formato plano exigido pela Evolution API)
+    // Lógica de correção PTT/Áudio de Voz
     let mediatype = media_type;
     let finalFileName = file_name;
+    let finalMimeType = mime_type;
 
-    switch (media_type) {
-      case 'image':
-        mediatype = 'image';
-        finalFileName = finalFileName || 'image.jpg';
-        break;
-      case 'video':
-        mediatype = 'video';
-        finalFileName = finalFileName || 'video.mp4';
-        break;
-      case 'audio':
-        mediatype = 'audio';
-        finalFileName = finalFileName || 'audio.ogg';
-        break;
-      case 'document':
-      default:
-        mediatype = 'document';
-        finalFileName = finalFileName || 'document.pdf';
-        break;
+    if (media_type === 'audio' && is_ptt) {
+      // Forçar o formato OGG/OPUS para áudio de voz PTT
+      mediatype = 'audio';
+      finalMimeType = 'audio/ogg; codecs=opus';
+      finalFileName = finalFileName || 'audio.ogg';
+    } else {
+      // Lógica de fallback para outros tipos de mídia
+      switch (media_type) {
+        case 'image':
+          mediatype = 'image';
+          finalFileName = finalFileName || 'image.jpg';
+          break;
+        case 'video':
+          mediatype = 'video';
+          finalFileName = finalFileName || 'video.mp4';
+          break;
+        case 'audio':
+          mediatype = 'audio';
+          finalFileName = finalFileName || 'audio.mp3';
+          break;
+        case 'document':
+        default:
+          mediatype = 'document';
+          finalFileName = finalFileName || 'document.pdf';
+          break;
+      }
+      finalMimeType = finalMimeType || 'application/octet-stream';
     }
 
     const payload: any = {
       number: remoteJid,
       mediatype,
-      mimetype: mime_type || 'application/octet-stream',
+      mimetype: finalMimeType,
       caption: caption || '',
       media: media_base64,
       fileName: finalFileName,
     };
 
-    // Se for áudio PTT (gravado), adicionar flags para simular áudio de voz do WhatsApp
+    // Flags para forçar o áudio de voz na Evolution API
     if (media_type === 'audio' && is_ptt) {
       payload.ptt = true;
-      payload.isVoice = true; // Parâmetro para forçar formato PTT nativo
+      payload.isVoice = true;
     }
 
     console.log('📤 Enviando mídia para Evolution API:', {
       url: `${evolutionApiUrl}/message/sendMedia/${instance_name}`,
       mediaType: mediatype,
       fileName: finalFileName,
-      mimetype: payload.mimetype,
+      mimetype: finalMimeType,
+      isPTT: is_ptt,
+      pttFlag: payload.ptt,
+      isVoiceFlag: payload.isVoice
     });
 
     // Enviar mídia via Evolution API
@@ -161,14 +171,14 @@ serve(async (req) => {
     // Salvar mensagem no banco de dados
     const messageId = evolutionData.key?.id || `media-${Date.now()}`;
     
-    // Preparar corpo da mensagem (vazio para imagens, nome do arquivo para outros tipos)
+    // Preparar corpo da mensagem
     let messageBody = '';
     if (media_type === 'image') {
-      messageBody = caption || ''; // Só a legenda para imagens, se houver
+      messageBody = caption || '';
     } else if (media_type === 'video') {
       messageBody = caption ? `${caption}` : '[Vídeo]';
     } else if (media_type === 'audio') {
-      messageBody = '[Áudio]';
+      messageBody = is_ptt ? '[Áudio de Voz]' : '[Áudio]';
     } else {
       messageBody = caption ? `${caption}` : `[${file_name}]`;
     }
@@ -184,8 +194,8 @@ serve(async (req) => {
         media_type: media_type,
         media_url: evolutionData.message?.imageMessage?.url || evolutionData.message?.videoMessage?.url || evolutionData.message?.documentMessage?.url || null,
         media_metadata: {
-          fileName: file_name,
-          mimeType: mime_type,
+          fileName: finalFileName,
+          mimeType: finalMimeType,
           fileSize: media_base64.length
         }
       });
