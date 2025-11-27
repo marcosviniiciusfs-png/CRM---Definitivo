@@ -225,7 +225,12 @@ async function executeAction(
 ): Promise<any> {
   switch (action.type) {
     case 'SEND_PREDEFINED_MESSAGE':
-      return await sendMessage(action.config.message, triggerData, supabase);
+      return await sendMessage(
+        action.config.message, 
+        triggerData, 
+        supabase,
+        action.config.typing_delay || 0
+      );
 
     case 'CHANGE_FUNNEL_STAGE':
       if (!triggerData.lead_id) throw new Error('Lead ID required for stage change');
@@ -274,7 +279,8 @@ async function executeAction(
 async function sendMessage(
   message: string,
   triggerData: any,
-  supabase: any
+  supabase: any,
+  typingDelay: number = 0
 ): Promise<any> {
   if (!triggerData.lead_id) throw new Error('Lead ID required to send message');
 
@@ -298,6 +304,38 @@ async function sendMessage(
   if (!instance) {
     console.log('No connected WhatsApp instance found, skipping message send');
     return { skipped: true, reason: 'No connected instance' };
+  }
+
+  // Se tiver delay configurado, enviar presença "digitando..."
+  if (typingDelay > 0) {
+    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+    
+    if (evolutionApiUrl && evolutionApiKey) {
+      try {
+        // Chamar sendPresence com composing
+        await fetch(`${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': evolutionApiKey,
+          },
+          body: JSON.stringify({
+            number: lead.telefone_lead.replace(/\D/g, ''),
+            options: {
+              delay: typingDelay * 1000,
+              presence: 'composing'
+            }
+          }),
+        });
+        
+        // Aguardar o delay antes de enviar a mensagem
+        await new Promise(resolve => setTimeout(resolve, typingDelay * 1000));
+      } catch (presenceError) {
+        console.error('Error sending presence:', presenceError);
+        // Continuar mesmo com erro no presence
+      }
+    }
   }
 
   // Enviar mensagem via edge function
