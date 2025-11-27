@@ -154,11 +154,23 @@ serve(async (req) => {
     // Salvar mensagem no banco de dados
     const messageId = evolutionData.key?.id || `media-${Date.now()}`;
     
+    // Preparar corpo da mensagem (vazio para imagens, nome do arquivo para outros tipos)
+    let messageBody = '';
+    if (media_type === 'image') {
+      messageBody = caption || ''; // Só a legenda para imagens, se houver
+    } else if (media_type === 'video') {
+      messageBody = caption ? `${caption}` : '[Vídeo]';
+    } else if (media_type === 'audio') {
+      messageBody = '[Áudio]';
+    } else {
+      messageBody = caption ? `${caption}` : `[${file_name}]`;
+    }
+    
     const { error: insertError } = await supabase
       .from('mensagens_chat')
       .insert({
         id_lead: leadId,
-        corpo_mensagem: caption ? `*${caption}*\n[${media_type === 'image' ? 'Imagem' : media_type === 'video' ? 'Vídeo' : media_type === 'audio' ? 'Áudio' : 'Arquivo'}]` : `[${media_type === 'image' ? 'Imagem' : media_type === 'video' ? 'Vídeo' : media_type === 'audio' ? 'Áudio' : 'Arquivo'}]`,
+        corpo_mensagem: messageBody,
         direcao: 'SAIDA',
         evolution_message_id: messageId,
         status_entrega: 'SENT',
