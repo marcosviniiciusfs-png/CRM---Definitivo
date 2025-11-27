@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { MessageCircle, Globe, FileText, Tag as TagIcon } from "lucide-react";
 
 interface LeadTag {
   id: string;
@@ -67,24 +68,47 @@ export function LeadTagsBadge({ leadId }: LeadTagsBadgeProps) {
     }
   };
 
+  // Função para obter o ícone baseado no nome da tag
+  const getTagIcon = (tagName: string) => {
+    const name = tagName.toLowerCase();
+    
+    if (name.includes('whatsapp')) {
+      return MessageCircle;
+    }
+    if (name.includes('landing') || name.includes('site')) {
+      return Globe;
+    }
+    if (name.includes('formulário') || name.includes('formulario') || name.includes('form')) {
+      return FileText;
+    }
+    
+    // Ícone padrão
+    return TagIcon;
+  };
+
   if (tags.length === 0) return null;
 
   return (
     <div className="flex gap-1 items-center flex-wrap">
-      {tags.map((tag) => (
-        <Badge 
-          key={tag.id}
-          variant="secondary" 
-          className="w-fit text-[9px] px-1.5 py-0 h-4"
-          style={{
-            backgroundColor: `${tag.color}15`,
-            color: tag.color,
-            borderColor: `${tag.color}40`,
-          }}
-        >
-          {tag.name}
-        </Badge>
-      ))}
+      {tags.map((tag) => {
+        const IconComponent = getTagIcon(tag.name);
+        
+        return (
+          <Badge 
+            key={tag.id}
+            variant="secondary" 
+            className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5"
+            style={{
+              backgroundColor: `${tag.color}15`,
+              color: tag.color,
+              borderColor: `${tag.color}40`,
+            }}
+          >
+            <IconComponent className="h-2.5 w-2.5" />
+            {tag.name}
+          </Badge>
+        );
+      })}
     </div>
   );
 }
