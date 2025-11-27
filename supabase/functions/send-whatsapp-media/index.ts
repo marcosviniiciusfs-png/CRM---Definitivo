@@ -49,26 +49,18 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Buscar configuração da URL da Evolution API
-    const { data: configData, error: configError } = await supabase
-      .from('app_config')
-      .select('config_value')
-      .eq('config_key', 'evolution_api_url')
-      .maybeSingle();
+    // Buscar configurações do ambiente (secrets)
+    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution01.kairozspace.com.br';
+    const apiKey = Deno.env.get('EVOLUTION_API_KEY');
 
-    if (configError) {
-      console.error('❌ Erro ao buscar configuração:', configError);
-      throw new Error('Erro ao buscar configuração da Evolution API');
-    }
-
-    let evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
-    if (configData?.config_value) {
-      evolutionApiUrl = configData.config_value;
+    if (!apiKey) {
+      console.error('❌ API Key não encontrada');
+      throw new Error('API Key da Evolution não configurada');
     }
 
     console.log('🌐 URL da Evolution API:', evolutionApiUrl);
 
-    // Buscar API Key da instância
+    // Buscar instância para validação
     const { data: instanceData, error: instanceError } = await supabase
       .from('whatsapp_instances')
       .select('id')
@@ -79,20 +71,6 @@ serve(async (req) => {
       console.error('❌ Instância não encontrada:', instance_name);
       throw new Error('Instância WhatsApp não encontrada');
     }
-
-    // Buscar API Key do app_config
-    const { data: apiKeyData, error: apiKeyError } = await supabase
-      .from('app_config')
-      .select('config_value')
-      .eq('config_key', 'evolution_api_key')
-      .maybeSingle();
-
-    if (apiKeyError || !apiKeyData) {
-      console.error('❌ API Key não encontrada');
-      throw new Error('API Key da Evolution não configurada');
-    }
-
-    const apiKey = apiKeyData.config_value;
 
     // Preparar payload baseado no tipo de mídia
     const payload: any = {
