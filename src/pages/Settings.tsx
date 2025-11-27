@@ -53,22 +53,24 @@ const Settings = () => {
 
         if (roleError) {
           console.error('Erro ao buscar role:', roleError);
-        } else if (roleData) {
-          setUserRole(roleData.role || null);
         }
+        
+        const currentUserRole = roleData?.role || null;
+        setUserRole(currentUserRole);
 
         // Get organization role
         const { data: orgRoleData, error: orgRoleError } = await supabase
           .from('organization_members')
-          .select('role')
+          .select('role, organization_id')
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (orgRoleError) {
           console.error('Erro ao buscar role organizacional:', orgRoleError);
-        } else if (orgRoleData) {
-          setOrgRole(orgRoleData.role || null);
         }
+        
+        const currentOrgRole = orgRoleData?.role || null;
+        setOrgRole(currentOrgRole);
 
         // Get user profile
         const { data: profileData, error: profileError } = await supabase
@@ -87,34 +89,31 @@ const Settings = () => {
         }
 
         // Get webhook config if user can manage integrations
-        if (userRole === 'super_admin' || orgRole === 'owner' || orgRole === 'admin') {
-          const { data: orgData } = await supabase
-            .from('organization_members')
-            .select('organization_id')
-            .eq('user_id', user.id)
+        // Use the data directly from queries instead of state variables
+        const canManageWebhook = currentUserRole === 'super_admin' || 
+                                  currentOrgRole === 'owner' || 
+                                  currentOrgRole === 'admin';
+        
+        if (canManageWebhook && orgRoleData?.organization_id) {
+          const { data: webhookData } = await supabase
+            .from('webhook_configs')
+            .select('webhook_token, is_active, tag_id')
+            .eq('organization_id', orgRoleData.organization_id)
             .maybeSingle();
 
-          if (orgData) {
-            const { data: webhookData } = await supabase
-              .from('webhook_configs')
-              .select('webhook_token, is_active, tag_id')
-              .eq('organization_id', orgData.organization_id)
-              .maybeSingle();
-
-            if (webhookData) {
-              setWebhookConfig(webhookData);
+          if (webhookData) {
+            setWebhookConfig(webhookData);
+            
+            // Load tag name if tag_id exists
+            if (webhookData.tag_id) {
+              const { data: tagData } = await supabase
+                .from('lead_tags')
+                .select('name')
+                .eq('id', webhookData.tag_id)
+                .single();
               
-              // Load tag name if tag_id exists
-              if (webhookData.tag_id) {
-                const { data: tagData } = await supabase
-                  .from('lead_tags')
-                  .select('name')
-                  .eq('id', webhookData.tag_id)
-                  .single();
-                
-                if (tagData) {
-                  setWebhookTagName(tagData.name);
-                }
+              if (tagData) {
+                setWebhookTagName(tagData.name);
               }
             }
           }
