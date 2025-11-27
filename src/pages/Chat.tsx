@@ -1234,18 +1234,18 @@ const Chat = () => {
           to: selectedLead.telefone_lead
         });
 
-        // Criar mensagem otimista
+        // Criar mensagem otimista (sem texto no corpo, só a mídia)
         const optimisticMessageId = `optimistic-file-${Date.now()}`;
         const optimisticMessage: Message = {
           id: optimisticMessageId,
           id_lead: selectedLead.id,
           direcao: 'SAIDA',
-          corpo_mensagem: `${currentUserName}:\n[Arquivo: ${file.name}]`,
+          corpo_mensagem: file.type.startsWith('image/') ? '' : `[${file.name}]`,
           data_hora: new Date().toISOString(),
           evolution_message_id: null,
           status_entrega: null,
           created_at: new Date().toISOString(),
-          media_type: file.type.startsWith('image/') ? 'image' : 'document',
+          media_type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : 'document',
           media_url: URL.createObjectURL(file),
           isOptimistic: true,
           sendError: false,
@@ -1264,7 +1264,7 @@ const Chat = () => {
             mediaType = 'audio';
           }
 
-          // Enviar arquivo via edge function
+          // Enviar arquivo via edge function (sem caption extra para imagens)
           const { data, error } = await supabase.functions.invoke('send-whatsapp-media', {
             body: {
               instance_name: instanceData.instance_name,
@@ -1273,7 +1273,7 @@ const Chat = () => {
               media_type: mediaType,
               file_name: file.name,
               mime_type: file.type,
-              caption: `${currentUserName}`,
+              caption: '', // Sem caption extra, deixar a imagem falar por si
               leadId: selectedLead.id,
             },
           });
