@@ -419,8 +419,10 @@ const Chat = () => {
               ? {
                   ...msg,
                   ...updatedMessage,
-                  // Preserva a URL da mídia já exibida se a atualização vier sem media_url
+                  // Preserva informações de mídia se o UPDATE vier sem elas
                   media_url: updatedMessage.media_url || msg.media_url,
+                  media_type: updatedMessage.media_type || msg.media_type,
+                  media_metadata: updatedMessage.media_metadata || msg.media_metadata,
                 }
               : msg
           ));
