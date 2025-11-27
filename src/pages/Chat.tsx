@@ -354,7 +354,16 @@ const Chat = () => {
                 if (optimisticIndex !== -1) {
                   console.log('🔄 SUBSTITUINDO mensagem otimista pela real:', newMessage.evolution_message_id);
                   const updated = [...prev];
-                  updated[optimisticIndex] = newMessage; // Substitui a otimista pela real
+                  const optimisticMessage = prev[optimisticIndex];
+                  updated[optimisticIndex] = {
+                    ...optimisticMessage,
+                    ...newMessage,
+                    // Se a mensagem real não tiver media_url (caso comum logo após o envio),
+                    // preserva a URL local da mensagem otimista para manter a pré-visualização
+                    media_url: newMessage.media_url || optimisticMessage.media_url,
+                    isOptimistic: false,
+                    sendError: false,
+                  };
                   return updated;
                 }
                 
