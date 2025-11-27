@@ -473,6 +473,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          additional_data: Json | null
           avatar_url: string | null
           created_at: string
           data_conclusao: string | null
@@ -495,6 +496,7 @@ export type Database = {
           valor: number | null
         }
         Insert: {
+          additional_data?: Json | null
           avatar_url?: string | null
           created_at?: string
           data_conclusao?: string | null
@@ -517,6 +519,7 @@ export type Database = {
           valor?: number | null
         }
         Update: {
+          additional_data?: Json | null
           avatar_url?: string | null
           created_at?: string
           data_conclusao?: string | null

@@ -141,9 +141,71 @@ Deno.serve(async (req) => {
 
     console.log('📦 Payload recebido (campos):', Object.keys(payload));
 
-    // Validar campos obrigatórios com suporte a múltiplos formatos
-    const nome = (payload.nome || payload.name || payload.nome_lead || '').toString().trim();
-    const telefone = (payload.telefone || payload.phone || payload.telefone_lead || '').toString().trim();
+    // Mapear campos longos para campos padrão
+    const fieldMappings: Record<string, string> = {
+      // Nome
+      'nome': 'nome',
+      'name': 'nome',
+      'nome_lead': 'nome',
+      'Nome Completo': 'nome',
+      'nome completo': 'nome',
+      'Nome': 'nome',
+      
+      // Telefone
+      'telefone': 'telefone',
+      'phone': 'telefone',
+      'telefone_lead': 'telefone',
+      'WhatsApp': 'telefone',
+      'whatsapp': 'telefone',
+      'WhatsApp para contato': 'telefone',
+      
+      // Email
+      'email': 'email',
+      'e-mail': 'email',
+      'Email': 'email',
+      
+      // Empresa
+      'empresa': 'empresa',
+      'company': 'empresa',
+      'Empresa': 'empresa',
+      
+      // Valor
+      'valor': 'valor',
+      'value': 'valor',
+      'Valor Pretendido (R$)': 'valor',
+      'valor_pretendido': 'valor',
+    };
+
+    // Extrair campos mapeados
+    let nome = '';
+    let telefone = '';
+    let email = '';
+    let empresa = '';
+    let valor = 0;
+    const additionalData: Record<string, any> = {};
+
+    // Processar payload
+    for (const [key, value] of Object.entries(payload)) {
+      const mappedKey = fieldMappings[key] || fieldMappings[key.toLowerCase()];
+      
+      if (mappedKey === 'nome') {
+        nome = String(value || '').trim();
+      } else if (mappedKey === 'telefone') {
+        telefone = String(value || '').trim();
+      } else if (mappedKey === 'email') {
+        email = String(value || '').trim();
+      } else if (mappedKey === 'empresa') {
+        empresa = String(value || '').trim();
+      } else if (mappedKey === 'valor') {
+        valor = Number(value) || 0;
+      } else {
+        // Todos os outros campos vão para additional_data
+        additionalData[key] = value;
+      }
+    }
+
+    console.log('📋 Campos mapeados:', { nome, telefone, email, empresa, valor });
+    console.log('📝 Dados adicionais:', additionalData);
 
     // Validate data
     const validation = validateLeadData(nome, telefone);
@@ -181,14 +243,16 @@ Deno.serve(async (req) => {
 
     // Preparar dados do lead com sanitização
     const leadData = {
-      nome_lead: nome.substring(0, 200), // Limit length
-      telefone_lead: telefone.substring(0, 20), // Limit length
-      email: payload.email ? String(payload.email).trim().substring(0, 255) : null,
-      empresa: payload.empresa || payload.company ? String(payload.empresa || payload.company).trim().substring(0, 200) : null,
-      valor: payload.valor ? Number(payload.valor) || 0 : 0,
+      nome_lead: nome.substring(0, 200),
+      telefone_lead: telefone.substring(0, 20),
+      email: email ? email.substring(0, 255) : null,
+      empresa: empresa ? empresa.substring(0, 200) : null,
+      valor: valor,
       stage: 'NOVO',
       source: 'Webhook',
       organization_id: webhookConfig.organization_id,
+      // Salvar dados adicionais como JSON
+      additional_data: Object.keys(additionalData).length > 0 ? additionalData : null,
     };
 
     console.log('💾 Criando lead para organização:', webhookConfig.organization_id);
