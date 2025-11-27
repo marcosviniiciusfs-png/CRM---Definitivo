@@ -225,6 +225,8 @@ async function executeAction(
 ): Promise<any> {
   switch (action.type) {
     case 'SEND_PREDEFINED_MESSAGE':
+      console.log('Action config:', JSON.stringify(action.config));
+      console.log('Typing delay:', action.config.typing_delay);
       return await sendMessage(
         action.config.message, 
         triggerData, 
@@ -306,13 +308,17 @@ async function sendMessage(
     return { skipped: true, reason: 'No connected instance' };
   }
 
+  console.log(`Sending message with typing delay: ${typingDelay} seconds`);
+  
   // Se tiver delay configurado, enviar presença "digitando..."
   if (typingDelay > 0) {
+    console.log(`Applying typing delay of ${typingDelay} seconds`);
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
     
     if (evolutionApiUrl && evolutionApiKey) {
       try {
+        console.log(`Calling Evolution API sendPresence with delay: ${typingDelay} seconds (${typingDelay * 1000}ms)`);
         // Chamar sendPresence com composing
         await fetch(`${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`, {
           method: 'POST',
@@ -329,8 +335,10 @@ async function sendMessage(
           }),
         });
         
+        console.log(`Waiting ${typingDelay} seconds before sending message...`);
         // Aguardar o delay antes de enviar a mensagem
         await new Promise(resolve => setTimeout(resolve, typingDelay * 1000));
+        console.log('Typing delay completed, sending message now');
       } catch (presenceError) {
         console.error('Error sending presence:', presenceError);
         // Continuar mesmo com erro no presence

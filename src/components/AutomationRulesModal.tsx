@@ -100,7 +100,8 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Rule created successfully with data:', JSON.stringify(data, null, 2));
       queryClient.invalidateQueries({ queryKey: ["automation-rules"] });
       toast.success("Regra criada com sucesso!");
       resetForm();
@@ -156,6 +157,8 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
       toast.error("Preencha os campos obrigatórios");
       return;
     }
+
+    console.log('Saving automation rule with actions:', JSON.stringify(actions, null, 2));
 
     createMutation.mutate({
       name,
