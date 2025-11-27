@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText, Link2, Copy, RefreshCw } from "lucide-react";
+import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText, Link2, Copy, RefreshCw, Pencil, X, Check } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
@@ -38,6 +38,8 @@ const Settings = () => {
   const [loadingWebhook, setLoadingWebhook] = useState(false);
   const [webhookTagName, setWebhookTagName] = useState("");
   const [savingTag, setSavingTag] = useState(false);
+  const [editingTag, setEditingTag] = useState(false);
+  const [tempTagName, setTempTagName] = useState("");
 
   useEffect(() => {
     const getUserData = async () => {
@@ -407,12 +409,23 @@ const Settings = () => {
         toast.success("Tag criada e associada ao webhook!");
       }
 
+      setEditingTag(false);
     } catch (error: any) {
       console.error('Erro ao salvar tag:', error);
       toast.error("Erro ao salvar tag. Tente novamente.");
     } finally {
       setSavingTag(false);
     }
+  };
+
+  const handleStartEditTag = () => {
+    setTempTagName(webhookTagName);
+    setEditingTag(true);
+  };
+
+  const handleCancelEditTag = () => {
+    setWebhookTagName(tempTagName);
+    setEditingTag(false);
   };
 
   // Super admins, owners e admins organizacionais podem gerenciar integrações
@@ -491,11 +504,20 @@ const Settings = () => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label>Tag para Identificação dos Leads</Label>
-                        {webhookTagName ? (
+                        {webhookTagName && !editingTag ? (
                           <div className="flex items-center gap-2">
                             <Badge className="bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 border-green-200 dark:border-green-800">
                               {webhookTagName}
                             </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={handleStartEditTag}
+                              title="Editar tag"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
                             <span className="text-xs text-muted-foreground">
                               Aplicada automaticamente aos novos leads
                             </span>
@@ -509,12 +531,35 @@ const Settings = () => {
                                 placeholder="Ex: Landing Page, Site, Formulário"
                                 className="flex-1"
                               />
-                              <Button 
-                                onClick={handleSaveWebhookTag}
-                                disabled={savingTag || !webhookTagName.trim()}
-                              >
-                                {savingTag ? "Salvando..." : "Salvar"}
-                              </Button>
+                              {editingTag ? (
+                                <>
+                                  <Button 
+                                    variant="default"
+                                    size="icon"
+                                    onClick={handleSaveWebhookTag}
+                                    disabled={savingTag || !webhookTagName.trim()}
+                                    title="Salvar"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={handleCancelEditTag}
+                                    disabled={savingTag}
+                                    title="Cancelar"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button 
+                                  onClick={handleSaveWebhookTag}
+                                  disabled={savingTag || !webhookTagName.trim()}
+                                >
+                                  {savingTag ? "Salvando..." : "Salvar"}
+                                </Button>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">
                               Configure uma tag para identificar automaticamente os leads criados por este webhook
