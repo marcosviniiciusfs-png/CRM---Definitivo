@@ -2582,7 +2582,7 @@ const Chat = () => {
               >
                 <Mic className="h-5 w-5" />
               </Button>
-              <Button type="submit" disabled={!newMessage.trim()} size="icon" className="shrink-0">
+              <Button type="submit" disabled={!newMessage.trim()} size="icon" variant="ghost" className="shrink-0">
                 {sending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
