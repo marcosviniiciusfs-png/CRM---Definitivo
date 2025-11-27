@@ -1205,49 +1205,33 @@ const Chat = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Sempre tentamos produzir OGG/OPUS para PTT
-      let mimeType = 'audio/ogg; codecs=opus';
+      // Detectar o melhor formato de áudio suportado pelo navegador
+      // Priorizar formatos com codec Opus para melhor qualidade de voz
+      let mimeType = 'audio/webm'; // fallback
+      const supportedTypes = [
+        'audio/ogg; codecs=opus',
+        'audio/webm; codecs=opus',
+        'audio/webm',
+        'audio/ogg',
+        'audio/mp4',
+        'audio/mpeg',
+      ];
 
-      // Verificar suporte nativo ao MediaRecorder + OGG/OPUS
-      const hasNativeMediaRecorder = typeof MediaRecorder !== 'undefined';
-      const supportsOggOpus = hasNativeMediaRecorder && MediaRecorder.isTypeSupported(mimeType);
-
-      let mediaRecorder: MediaRecorder;
-
-      if (!hasNativeMediaRecorder || !supportsOggOpus) {
-        console.log('⚠️ MediaRecorder nativo indisponível ou sem suporte a OGG/OPUS. Usando OpusMediaRecorder.');
-
-        // Carregar encoder/wasm do opus-media-recorder para gerar OGG/OPUS
-        const workerOptions = {
-          encoderWorkerFactory: () =>
-            new Worker(new URL('opus-media-recorder/encoderWorker.umd.js', import.meta.url)),
-          OggOpusEncoderWasmPath: new URL(
-            'opus-media-recorder/OggOpusEncoder.wasm',
-            import.meta.url
-          ).toString(),
-          WebMOpusEncoderWasmPath: new URL(
-            'opus-media-recorder/WebMOpusEncoder.wasm',
-            import.meta.url
-          ).toString(),
-        } as any;
-
-        const options = {
-          mimeType,
-          audioBitsPerSecond: 64000, // 64kbps para garantir qualidade de voz
-        } as any;
-
-        // Usar OpusMediaRecorder diretamente para garantir OGG/OPUS
-        const OpusRecorder: any = (await import('opus-media-recorder')).default;
-        mediaRecorder = new OpusRecorder(stream, options, workerOptions) as MediaRecorder;
-      } else {
-        console.log('✅ Usando MediaRecorder nativo com OGG/OPUS.');
-        const options: MediaRecorderOptions = {
-          mimeType,
-          audioBitsPerSecond: 64000,
-        };
-        mediaRecorder = new MediaRecorder(stream, options);
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          console.log('✅ Formato de áudio selecionado:', type);
+          break;
+        }
       }
 
+      // Configurar MediaRecorder com alta qualidade de áudio
+      const options: MediaRecorderOptions = {
+        mimeType,
+        audioBitsPerSecond: 64000, // 64kbps para garantir qualidade de voz
+      };
+
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
 
       const audioChunks: Blob[] = [];
