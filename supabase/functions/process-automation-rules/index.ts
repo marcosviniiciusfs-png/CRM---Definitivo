@@ -261,58 +261,53 @@ async function executeAction(
       }
 
       const sanitizedNumber = lead.telefone_lead.replace(/\D/g, '');
-      const presence = action.config?.enabled ? 'composing' : 'available';
+      const enabled = action.config?.enabled ?? true;
+      const durationSeconds = action.config?.duration_seconds || 10;
+      const durationMs = durationSeconds * 1000;
 
-      console.log('SET_TYPING_STATUS:', {
-        url: `${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`,
-        number: sanitizedNumber,
-        presence,
-      });
-
-      try {
-        const presenceResponse = await fetch(
-          `${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: evolutionApiKey,
-            },
-            body: JSON.stringify({
-              number: sanitizedNumber,
-              options: {
-                presence,
+      if (enabled) {
+        console.log(`SET_TYPING_STATUS: Sending typing with delay ${durationSeconds}s for lead ${lead.telefone_lead}`);
+        
+        try {
+          const presenceResponse = await fetch(
+            `${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                apikey: evolutionApiKey,
               },
-            }),
+              body: JSON.stringify({
+                number: sanitizedNumber,
+                options: {
+                  delay: durationMs,
+                  presence: 'composing',
+                },
+              }),
+            }
+          );
+
+          const responseBody = await presenceResponse.text();
+          console.log('Evolution API sendPresence response status:', presenceResponse.status);
+          console.log('Evolution API sendPresence response body:', responseBody);
+
+          if (!presenceResponse.ok) {
+            throw new Error(`sendPresence failed: ${responseBody}`);
           }
-        );
 
-        const responseBody = await presenceResponse.text();
-        console.log('Evolution API sendPresence response status:', presenceResponse.status);
-        console.log('Evolution API sendPresence response body:', responseBody);
+          // Aguardar o mesmo tempo para sincronizar com próxima ação
+          await new Promise(resolve => setTimeout(resolve, durationMs));
 
-        if (!presenceResponse.ok) {
-          throw new Error(`sendPresence failed: ${responseBody}`);
+          return { typing_enabled: true, duration_seconds: durationSeconds };
+        } catch (error: any) {
+          console.error('Error setting typing status:', error);
+          throw error;
         }
-
-        return { presence_set: presence };
-      } catch (error: any) {
-        console.error('Error setting typing status:', error);
-        throw error;
-      }
-    }
-
-    case 'DELAY_EXECUTION': {
-      const delaySeconds = Number(action.config?.delay_seconds || 0);
-      console.log(`DELAY_EXECUTION: waiting ${delaySeconds} seconds...`);
-      
-      if (delaySeconds > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
       }
       
-      console.log(`DELAY_EXECUTION: completed after ${delaySeconds} seconds`);
-      return { delayed_for: delaySeconds };
+      return { typing_enabled: false };
     }
+
 
     case 'SEND_PREDEFINED_MESSAGE': {
       console.log('SEND_PREDEFINED_MESSAGE:', action.config?.message);
