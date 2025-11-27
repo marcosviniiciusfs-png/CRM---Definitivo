@@ -496,18 +496,44 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                       </div>
 
                       {action.type === "SEND_PREDEFINED_MESSAGE" && (
-                        <div className="flex-1">
-                          <Label>Mensagem</Label>
-                          <Textarea
-                            value={action.config.message || ""}
-                            onChange={(e) => {
-                              const newActions = [...actions];
-                              newActions[index].config = { message: e.target.value };
-                              setActions(newActions);
-                            }}
-                            placeholder="Digite a mensagem a ser enviada"
-                          />
-                        </div>
+                        <>
+                          <div className="flex-1">
+                            <Label>Mensagem</Label>
+                            <Textarea
+                              value={action.config.message || ""}
+                              onChange={(e) => {
+                                const newActions = [...actions];
+                                newActions[index].config = { 
+                                  ...newActions[index].config,
+                                  message: e.target.value 
+                                };
+                                setActions(newActions);
+                              }}
+                              placeholder="Digite a mensagem a ser enviada"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <Label>Delay de digitação (segundos)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="30"
+                              value={action.config.typing_delay || 0}
+                              onChange={(e) => {
+                                const newActions = [...actions];
+                                newActions[index].config = { 
+                                  ...newActions[index].config,
+                                  typing_delay: parseInt(e.target.value) || 0 
+                                };
+                                setActions(newActions);
+                              }}
+                              placeholder="Ex: 3"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              O lead verá "digitando..." por este tempo
+                            </p>
+                          </div>
+                        </>
                       )}
 
                       {action.type === "CHANGE_FUNNEL_STAGE" && (
