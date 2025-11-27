@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText } from "lucide-react";
+import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText, Link2, Copy, RefreshCw } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
@@ -32,6 +32,8 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [webhookConfig, setWebhookConfig] = useState<{ webhook_token: string; is_active: boolean } | null>(null);
+  const [loadingWebhook, setLoadingWebhook] = useState(false);
 
   useEffect(() => {
     const getUserData = async () => {
@@ -78,6 +80,18 @@ const Settings = () => {
           setJobTitle(profileData.job_title || "");
           setAvatarUrl(profileData.avatar_url || null);
           setNotificationSoundEnabled(profileData.notification_sound_enabled ?? true);
+        }
+
+        // Get webhook config if user can manage integrations
+        if (userRole === 'super_admin' || orgRole === 'owner' || orgRole === 'admin') {
+          const { data: webhookData } = await supabase
+            .from('webhook_configs')
+            .select('webhook_token, is_active')
+            .maybeSingle();
+
+          if (webhookData) {
+            setWebhookConfig(webhookData);
+          }
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
@@ -192,6 +206,88 @@ const Settings = () => {
     }
   };
 
+  const handleCreateWebhook = async () => {
+    if (!user) return;
+
+    setLoadingWebhook(true);
+    try {
+      const { data: orgData } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!orgData) {
+        toast.error("Organização não encontrada");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('webhook_configs')
+        .insert({ organization_id: orgData.organization_id })
+        .select('webhook_token, is_active')
+        .single();
+
+      if (error) throw error;
+
+      setWebhookConfig(data);
+      toast.success("Webhook criado com sucesso!");
+    } catch (error: any) {
+      console.error('Erro ao criar webhook:', error);
+      toast.error("Erro ao criar webhook. Tente novamente.");
+    } finally {
+      setLoadingWebhook(false);
+    }
+  };
+
+  const handleRegenerateWebhook = async () => {
+    if (!user) return;
+
+    setLoadingWebhook(true);
+    try {
+      const { data: orgData } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!orgData) {
+        toast.error("Organização não encontrada");
+        return;
+      }
+
+      // Generate new token
+      const newToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      const { data, error } = await supabase
+        .from('webhook_configs')
+        .update({ webhook_token: newToken })
+        .eq('organization_id', orgData.organization_id)
+        .select('webhook_token, is_active')
+        .single();
+
+      if (error) throw error;
+
+      setWebhookConfig(data);
+      toast.success("Token do webhook regenerado!");
+    } catch (error: any) {
+      console.error('Erro ao regenerar webhook:', error);
+      toast.error("Erro ao regenerar webhook. Tente novamente.");
+    } finally {
+      setLoadingWebhook(false);
+    }
+  };
+
+  const handleCopyWebhookUrl = () => {
+    if (!webhookConfig) return;
+
+    const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/form-webhook/${webhookConfig.webhook_token}`;
+    navigator.clipboard.writeText(webhookUrl);
+    toast.success("URL copiada para a área de transferência!");
+  };
+
   // Super admins, owners e admins organizacionais podem gerenciar integrações
   const canManageIntegrations = userRole === 'super_admin' || orgRole === 'owner' || orgRole === 'admin';
 
@@ -226,6 +322,67 @@ const Settings = () => {
             <>
               <WhatsAppConnection />
               <FacebookLeadsConnection />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Link2 className="h-5 w-5 text-primary" />
+                    Webhook de Formulários
+                  </CardTitle>
+                  <CardDescription>
+                    Integre formulários externos (landing pages, sites) para criar leads automaticamente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!webhookConfig ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Crie um webhook para receber dados de formulários externos e criar leads automaticamente no CRM.
+                      </p>
+                      <Button 
+                        onClick={handleCreateWebhook} 
+                        disabled={loadingWebhook}
+                        className="w-full"
+                      >
+                        {loadingWebhook ? "Criando..." : "Criar Webhook"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>URL do Webhook</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/form-webhook/${webhookConfig.webhook_token}`}
+                            readOnly
+                            className="font-mono text-xs"
+                          />
+                          <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={handleCopyWebhookUrl}
+                            title="Copiar URL"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Use esta URL como destino (action) do seu formulário. Envie dados via POST com os campos: <code className="px-1 py-0.5 bg-muted rounded">nome</code> e <code className="px-1 py-0.5 bg-muted rounded">telefone</code> (obrigatórios), <code className="px-1 py-0.5 bg-muted rounded">email</code>, <code className="px-1 py-0.5 bg-muted rounded">empresa</code>, <code className="px-1 py-0.5 bg-muted rounded">valor</code> (opcionais).
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={handleRegenerateWebhook}
+                        disabled={loadingWebhook}
+                        className="w-full"
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {loadingWebhook ? "Regenerando..." : "Regenerar Token"}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
               
               <Card>
                 <CardHeader>

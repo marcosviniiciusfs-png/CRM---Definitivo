@@ -861,6 +861,41 @@ export type Database = {
           },
         ]
       }
+      webhook_configs: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          updated_at: string
+          webhook_token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          updated_at?: string
+          webhook_token?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          updated_at?: string
+          webhook_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_logs: {
         Row: {
           created_at: string
