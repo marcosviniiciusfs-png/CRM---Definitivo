@@ -87,7 +87,9 @@ serve(async (req) => {
 
     // Preparar payload baseado no tipo de mídia
     const payload: any = {
-      number: remoteJid
+      number: remoteJid,
+      // Alguns endpoints da Evolution exigem `mediatype` na raiz
+      mediatype: media_type === 'document' ? 'document' : media_type,
     };
 
     // Adicionar mídia baseado no tipo
@@ -110,7 +112,9 @@ serve(async (req) => {
         break;
       case 'audio':
         payload.audioMessage = {
-          audio: media_base64
+          mediatype: 'audio',
+          audio: media_base64,
+          fileName: file_name || 'audio.ogg',
         };
         break;
       case 'document':
