@@ -46,6 +46,8 @@ const CONDITION_TYPES = [
 ];
 
 const ACTION_TYPES = [
+  { value: "SET_TYPING_STATUS", label: "Ligar/Desligar digitação" },
+  { value: "DELAY_EXECUTION", label: "Aguardar (segundos)" },
   { value: "SEND_PREDEFINED_MESSAGE", label: "Enviar mensagem pronta" },
   { value: "CHANGE_FUNNEL_STAGE", label: "Mudar etapa do funil" },
   { value: "ASSIGN_TO_AGENT", label: "Atribuir para agente" },
@@ -498,72 +500,61 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                         </Select>
                       </div>
 
+                      {action.type === "SET_TYPING_STATUS" && (
+                        <div className="flex-1 flex items-center gap-2">
+                          <Label>Status</Label>
+                          <Switch
+                            checked={action.config?.enabled ?? true}
+                            onCheckedChange={(checked) => {
+                              const newActions = [...actions];
+                              newActions[index].config = { enabled: checked };
+                              setActions(newActions);
+                            }}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {action.config?.enabled ?? true ? "Ligar digitação" : "Desligar digitação"}
+                          </span>
+                        </div>
+                      )}
+
+                      {action.type === "DELAY_EXECUTION" && (
+                        <div className="flex-1">
+                          <Label>Tempo de espera (segundos)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="300"
+                            value={action.config?.delay_seconds || 0}
+                            onChange={(e) => {
+                              const newActions = [...actions];
+                              newActions[index].config = { 
+                                delay_seconds: parseInt(e.target.value) || 0 
+                              };
+                              setActions(newActions);
+                            }}
+                            placeholder="0"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Aguarda antes de executar a próxima ação
+                          </p>
+                        </div>
+                      )}
+
                       {action.type === "SEND_PREDEFINED_MESSAGE" && (
-                        <>
-                          <div className="flex-1">
-                            <Label>Mensagem</Label>
-                            <Textarea
-                              value={action.config.message || ""}
-                              onChange={(e) => {
-                                const newActions = [...actions];
-                                newActions[index].config = { 
-                                  ...newActions[index].config,
-                                  message: e.target.value 
-                                };
-                                setActions(newActions);
-                              }}
-                              placeholder="Digite a mensagem a ser enviada"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <Label>Delay de digitação</Label>
-                            <div className="flex gap-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                max={action.config.typing_delay_unit === "minutes" ? 5 : 300}
-                                value={action.config.typing_delay_value || 0}
-                                onChange={(e) => {
-                                  const newActions = [...actions];
-                                  const value = parseInt(e.target.value) || 0;
-                                  const unit = newActions[index].config.typing_delay_unit || "seconds";
-                                  newActions[index].config = { 
-                                    ...newActions[index].config,
-                                    typing_delay_value: value,
-                                    typing_delay: unit === "minutes" ? value * 60 : value
-                                  };
-                                  setActions(newActions);
-                                }}
-                                placeholder="0"
-                                className="flex-1"
-                              />
-                              <Select
-                                value={action.config.typing_delay_unit || "seconds"}
-                                onValueChange={(value) => {
-                                  const newActions = [...actions];
-                                  const currentValue = newActions[index].config.typing_delay_value || 0;
-                                  newActions[index].config = { 
-                                    ...newActions[index].config,
-                                    typing_delay_unit: value,
-                                    typing_delay: value === "minutes" ? currentValue * 60 : currentValue
-                                  };
-                                  setActions(newActions);
-                                }}
-                              >
-                                <SelectTrigger className="w-[120px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="seconds">Segundos</SelectItem>
-                                  <SelectItem value="minutes">Minutos</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              O lead verá "digitando..." por este tempo
-                            </p>
-                          </div>
-                        </>
+                        <div className="flex-1">
+                          <Label>Mensagem</Label>
+                          <Textarea
+                            value={action.config?.message || ""}
+                            onChange={(e) => {
+                              const newActions = [...actions];
+                              newActions[index].config = { 
+                                message: e.target.value 
+                              };
+                              setActions(newActions);
+                            }}
+                            placeholder="Digite a mensagem a ser enviada"
+                          />
+                        </div>
                       )}
 
                       {action.type === "CHANGE_FUNNEL_STAGE" && (
