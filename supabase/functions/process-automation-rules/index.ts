@@ -357,9 +357,7 @@ async function sendMessage(
           body: JSON.stringify({
             number: sanitizedNumber,
             options: {
-              delay: typingDelay * 1000,
               presence: 'composing',
-              number: sanitizedNumber,
             },
           }),
         });
