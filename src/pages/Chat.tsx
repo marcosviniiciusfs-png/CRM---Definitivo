@@ -414,8 +414,15 @@ const Chat = () => {
           console.log('📝 UPDATE event recebido:', payload);
           const updatedMessage = payload.new as Message;
           
-          setMessages(prev => prev.map(msg => 
-            msg.id === updatedMessage.id ? updatedMessage : msg
+          setMessages(prev => prev.map(msg =>
+            msg.id === updatedMessage.id
+              ? {
+                  ...msg,
+                  ...updatedMessage,
+                  // Preserva a URL da mídia já exibida se a atualização vier sem media_url
+                  media_url: updatedMessage.media_url || msg.media_url,
+                }
+              : msg
           ));
         }
       )
