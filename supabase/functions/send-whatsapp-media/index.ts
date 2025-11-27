@@ -50,7 +50,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Buscar configurações do ambiente (secrets)
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution01.kairozspace.com.br';
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution01.kairozspace.com.br';
     const apiKey = Deno.env.get('EVOLUTION_API_KEY');
 
     if (!apiKey) {
@@ -58,7 +58,20 @@ serve(async (req) => {
       throw new Error('API Key da Evolution não configurada');
     }
 
-    console.log('🌐 URL da Evolution API:', evolutionApiUrl);
+    // Validar e normalizar URL da Evolution API
+    try {
+      const parsed = new URL(evolutionApiUrl);
+      // Mantém apenas protocolo + host para evitar caminhos estranhos
+      evolutionApiUrl = `${parsed.protocol}//${parsed.host}`;
+    } catch (e) {
+      console.warn('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.', {
+        evolutionApiUrl,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+    }
+
+    console.log('🌐 URL da Evolution API (normalizada):', evolutionApiUrl);
 
     // Buscar instância para validação
     const { data: instanceData, error: instanceError } = await supabase
