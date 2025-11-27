@@ -113,6 +113,9 @@ const Chat = () => {
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Map<string, boolean>>(new Map());
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sendingFile, setSendingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Emojis do WhatsApp para reações
   const WHATSAPP_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -1159,6 +1162,188 @@ const Chat = () => {
         
         return newOrder;
       });
+    }
+  };
+
+  // Função para lidar com seleção de arquivo
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Verificar tamanho do arquivo (limite de 16MB como no WhatsApp)
+      const maxSize = 16 * 1024 * 1024; // 16MB
+      if (file.size > maxSize) {
+        toast({
+          title: "Arquivo muito grande",
+          description: "O arquivo deve ter no máximo 16MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setSelectedFile(file);
+      sendFile(file);
+    }
+  };
+
+  // Função para enviar arquivo
+  const sendFile = async (file: File) => {
+    if (!selectedLead) return;
+
+    setSendingFile(true);
+
+    try {
+      // Buscar a organização do usuário
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Usuário não autenticado');
+
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (memberError || !memberData) {
+        throw new Error('Erro ao buscar organização do usuário.');
+      }
+
+      // Buscar a instância conectada
+      const { data: instanceData, error: instanceError } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name, id, status')
+        .eq('organization_id', memberData.organization_id)
+        .eq('status', 'CONNECTED')
+        .order('connected_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (instanceError || !instanceData) {
+        throw new Error('Nenhuma instância WhatsApp conectada.');
+      }
+
+      // Converter arquivo para base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string;
+        const base64Data = base64.split(',')[1]; // Remover o prefixo data:...
+
+        console.log('📤 Enviando arquivo:', {
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          instance: instanceData.instance_name,
+          to: selectedLead.telefone_lead
+        });
+
+        // Criar mensagem otimista
+        const optimisticMessageId = `optimistic-file-${Date.now()}`;
+        const optimisticMessage: Message = {
+          id: optimisticMessageId,
+          id_lead: selectedLead.id,
+          direcao: 'SAIDA',
+          corpo_mensagem: `${currentUserName}:\n[Arquivo: ${file.name}]`,
+          data_hora: new Date().toISOString(),
+          evolution_message_id: null,
+          status_entrega: null,
+          created_at: new Date().toISOString(),
+          media_type: file.type.startsWith('image/') ? 'image' : 'document',
+          media_url: URL.createObjectURL(file),
+          isOptimistic: true,
+          sendError: false,
+        };
+
+        setMessages(prev => [...prev, optimisticMessage]);
+
+        try {
+          // Determinar o tipo de mídia
+          let mediaType = 'document';
+          if (file.type.startsWith('image/')) {
+            mediaType = 'image';
+          } else if (file.type.startsWith('video/')) {
+            mediaType = 'video';
+          } else if (file.type.startsWith('audio/')) {
+            mediaType = 'audio';
+          }
+
+          // Enviar arquivo via edge function
+          const { data, error } = await supabase.functions.invoke('send-whatsapp-media', {
+            body: {
+              instance_name: instanceData.instance_name,
+              remoteJid: selectedLead.telefone_lead,
+              media_base64: base64Data,
+              media_type: mediaType,
+              file_name: file.name,
+              mime_type: file.type,
+              caption: `${currentUserName}`,
+              leadId: selectedLead.id,
+            },
+          });
+
+          if (error || !data?.success) {
+            throw new Error(data?.error || 'Erro ao enviar arquivo');
+          }
+
+          console.log('✅ Arquivo enviado com sucesso:', data);
+
+          // Atualizar mensagem otimista
+          setMessages(prev => prev.map(msg => 
+            msg.id === optimisticMessageId 
+              ? { 
+                  ...msg, 
+                  evolution_message_id: data.messageId,
+                  status_entrega: 'SENT' as const,
+                  media_url: data.mediaUrl || msg.media_url
+                }
+              : msg
+          ));
+
+          toast({
+            title: "Arquivo enviado",
+            description: "O arquivo foi enviado via WhatsApp",
+          });
+        } catch (error) {
+          console.error('❌ Erro ao enviar arquivo:', error);
+          
+          // Marcar mensagem com erro
+          setMessages(prev => prev.map(msg =>
+            msg.id === optimisticMessageId
+              ? { ...msg, sendError: true }
+              : msg
+          ));
+
+          toast({
+            title: "Erro ao enviar arquivo",
+            description: error instanceof Error ? error.message : "Não foi possível enviar o arquivo",
+            variant: "destructive",
+          });
+        } finally {
+          setSendingFile(false);
+          setSelectedFile(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }
+      };
+
+      reader.onerror = () => {
+        toast({
+          title: "Erro ao ler arquivo",
+          description: "Não foi possível ler o arquivo selecionado",
+          variant: "destructive",
+        });
+        setSendingFile(false);
+        setSelectedFile(null);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('❌ Erro ao preparar envio de arquivo:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível enviar o arquivo",
+        variant: "destructive",
+      });
+      setSendingFile(false);
+      setSelectedFile(null);
     }
   };
 
@@ -2550,14 +2735,27 @@ const Chat = () => {
               onSubmit={handleSendMessage}
               className="p-4 border-t flex items-end gap-2"
             >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="shrink-0"
                 title="Anexar arquivo"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sendingFile}
               >
-                <Paperclip className="h-5 w-5" />
+                {sendingFile ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Paperclip className="h-5 w-5" />
+                )}
               </Button>
               <Textarea
                 ref={messageInputRef}
