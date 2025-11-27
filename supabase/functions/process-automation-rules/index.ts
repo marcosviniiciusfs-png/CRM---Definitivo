@@ -224,15 +224,27 @@ async function executeAction(
   supabase: any
 ): Promise<any> {
   switch (action.type) {
-    case 'SEND_PREDEFINED_MESSAGE':
-      console.log('Action config:', JSON.stringify(action.config));
-      console.log('Typing delay:', action.config.typing_delay);
+    case 'SEND_PREDEFINED_MESSAGE': {
+      const rawDelay =
+        action.config?.typing_delay ??
+        (action.config?.typing_delay_unit === 'minutes'
+          ? (action.config?.typing_delay_value || 0) * 60
+          : action.config?.typing_delay_value || 0);
+
+      const typingDelaySeconds = Number.isFinite(Number(rawDelay))
+        ? Math.max(0, Number(rawDelay))
+        : 0;
+
+      console.log('Action config for SEND_PREDEFINED_MESSAGE:', JSON.stringify(action.config));
+      console.log('Computed typingDelaySeconds:', typingDelaySeconds);
+
       return await sendMessage(
-        action.config.message, 
-        triggerData, 
+        action.config.message,
+        triggerData,
         supabase,
-        action.config.typing_delay || 0
+        typingDelaySeconds
       );
+    }
 
     case 'CHANGE_FUNNEL_STAGE':
       if (!triggerData.lead_id) throw new Error('Lead ID required for stage change');
@@ -282,8 +294,14 @@ async function sendMessage(
   message: string,
   triggerData: any,
   supabase: any,
-  typingDelay: number = 0
+  typingDelaySeconds: number = 0
 ): Promise<any> {
+  const typingDelay = Number.isFinite(Number(typingDelaySeconds))
+    ? Math.max(0, Number(typingDelaySeconds))
+    : 0;
+
+  console.log(`Sending message with typing delay: ${typingDelay} seconds`);
+
   if (!triggerData.lead_id) throw new Error('Lead ID required to send message');
 
   // Buscar informações do lead
@@ -308,9 +326,7 @@ async function sendMessage(
     return { skipped: true, reason: 'No connected instance' };
   }
 
-  console.log(`Sending message with typing delay: ${typingDelay} seconds`);
-  
-  // Se tiver delay configurado, enviar presença "digitando..."
+  // Se tiver delay configurado, enviar presença "digitando..." e aguardar
   if (typingDelay > 0) {
     console.log(`Applying typing delay of ${typingDelay} seconds`);
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
@@ -337,7 +353,7 @@ async function sendMessage(
         
         console.log(`Waiting ${typingDelay} seconds before sending message...`);
         // Aguardar o delay antes de enviar a mensagem
-        await new Promise(resolve => setTimeout(resolve, typingDelay * 1000));
+        await new Promise((resolve) => setTimeout(resolve, typingDelay * 1000));
         console.log('Typing delay completed, sending message now');
       } catch (presenceError) {
         console.error('Error sending presence:', presenceError);
