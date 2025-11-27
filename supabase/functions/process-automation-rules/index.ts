@@ -224,25 +224,102 @@ async function executeAction(
   supabase: any
 ): Promise<any> {
   switch (action.type) {
+    case 'SET_TYPING_STATUS': {
+      if (!triggerData.lead_id) throw new Error('Lead ID required for typing status');
+      
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('telefone_lead, organization_id')
+        .eq('id', triggerData.lead_id)
+        .single();
+
+      if (!lead) throw new Error('Lead not found');
+
+      const { data: instance } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name')
+        .eq('organization_id', lead.organization_id)
+        .eq('status', 'CONNECTED')
+        .single();
+
+      if (!instance) {
+        console.log('No connected WhatsApp instance found, skipping typing status');
+        return { skipped: true, reason: 'No connected instance' };
+      }
+
+      let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
+      const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+
+      if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
+        console.warn('EVOLUTION_API_URL inválida. Usando URL padrão.');
+        evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+      }
+
+      if (!evolutionApiKey) {
+        console.warn('EVOLUTION_API_KEY não configurada');
+        return { skipped: true, reason: 'No API key' };
+      }
+
+      const sanitizedNumber = lead.telefone_lead.replace(/\D/g, '');
+      const presence = action.config?.enabled ? 'composing' : 'available';
+
+      console.log('SET_TYPING_STATUS:', {
+        url: `${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`,
+        number: sanitizedNumber,
+        presence,
+      });
+
+      try {
+        const presenceResponse = await fetch(
+          `${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: evolutionApiKey,
+            },
+            body: JSON.stringify({
+              number: sanitizedNumber,
+              options: {
+                presence,
+              },
+            }),
+          }
+        );
+
+        const responseBody = await presenceResponse.text();
+        console.log('Evolution API sendPresence response status:', presenceResponse.status);
+        console.log('Evolution API sendPresence response body:', responseBody);
+
+        if (!presenceResponse.ok) {
+          throw new Error(`sendPresence failed: ${responseBody}`);
+        }
+
+        return { presence_set: presence };
+      } catch (error: any) {
+        console.error('Error setting typing status:', error);
+        throw error;
+      }
+    }
+
+    case 'DELAY_EXECUTION': {
+      const delaySeconds = Number(action.config?.delay_seconds || 0);
+      console.log(`DELAY_EXECUTION: waiting ${delaySeconds} seconds...`);
+      
+      if (delaySeconds > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
+      }
+      
+      console.log(`DELAY_EXECUTION: completed after ${delaySeconds} seconds`);
+      return { delayed_for: delaySeconds };
+    }
+
     case 'SEND_PREDEFINED_MESSAGE': {
-      const rawDelay =
-        action.config?.typing_delay ??
-        (action.config?.typing_delay_unit === 'minutes'
-          ? (action.config?.typing_delay_value || 0) * 60
-          : action.config?.typing_delay_value || 0);
-
-      const typingDelaySeconds = Number.isFinite(Number(rawDelay))
-        ? Math.max(0, Number(rawDelay))
-        : 0;
-
-      console.log('Action config for SEND_PREDEFINED_MESSAGE:', JSON.stringify(action.config));
-      console.log('Computed typingDelaySeconds:', typingDelaySeconds);
-
+      console.log('SEND_PREDEFINED_MESSAGE:', action.config?.message);
       return await sendMessage(
         action.config.message,
         triggerData,
-        supabase,
-        typingDelaySeconds
+        supabase
       );
     }
 
@@ -259,7 +336,6 @@ async function executeAction(
     case 'ASSIGN_TO_AGENT':
       if (!triggerData.lead_id) throw new Error('Lead ID required for agent assignment');
       
-      // Buscar o nome do agente pelo email
       const { data: member } = await supabase
         .from('organization_members')
         .select('user_id')
@@ -293,18 +369,10 @@ async function executeAction(
 async function sendMessage(
   message: string,
   triggerData: any,
-  supabase: any,
-  typingDelaySeconds: number = 0
+  supabase: any
 ): Promise<any> {
-  const typingDelay = Number.isFinite(Number(typingDelaySeconds))
-    ? Math.max(0, Number(typingDelaySeconds))
-    : 0;
-
-  console.log(`Sending message with typing delay: ${typingDelay} seconds`);
-
   if (!triggerData.lead_id) throw new Error('Lead ID required to send message');
 
-  // Buscar informações do lead
   const { data: lead } = await supabase
     .from('leads')
     .select('telefone_lead, organization_id')
@@ -313,7 +381,6 @@ async function sendMessage(
 
   if (!lead) throw new Error('Lead not found');
 
-  // Buscar instância do WhatsApp da organização
   const { data: instance } = await supabase
     .from('whatsapp_instances')
     .select('instance_name')
@@ -326,62 +393,6 @@ async function sendMessage(
     return { skipped: true, reason: 'No connected instance' };
   }
 
-  // Se tiver delay configurado, enviar presença "digitando..." e aguardar
-  if (typingDelay > 0) {
-    console.log(`Applying typing delay of ${typingDelay} seconds`);
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
-
-    // Normaliza URL da Evolution (mesma lógica usada em outras funções)
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.warn('EVOLUTION_API_URL inválida em process-automation-rules. Usando URL padrão.');
-      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
-    }
-
-    // Tenta enviar o efeito de digitação, mas mesmo em caso de erro ainda respeita o delay
-    if (evolutionApiUrl && evolutionApiKey) {
-      try {
-        const sanitizedNumber = lead.telefone_lead.replace(/\D/g, '');
-        console.log('Calling Evolution API sendPresence with delay:', {
-          url: `${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`,
-          sanitizedNumber,
-          typingDelayMs: typingDelay * 1000,
-        });
-
-        const presenceResponse = await fetch(`${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: evolutionApiKey,
-          },
-          body: JSON.stringify({
-            number: sanitizedNumber,
-            options: {
-              presence: 'composing',
-            },
-          }),
-        });
-
-        console.log('Evolution API sendPresence response status:', presenceResponse.status);
-        if (!presenceResponse.ok) {
-          const errorText = await presenceResponse.text();
-          console.error('Evolution API sendPresence failed:', errorText);
-        }
-
-      } catch (presenceError) {
-        console.error('Error sending presence:', presenceError);
-        // Continua mesmo com erro no presence
-      }
-    } else {
-      console.warn('Evolution API URL or KEY not configured, skipping presence but keeping delay');
-    }
-
-    console.log(`Waiting ${typingDelay} seconds before sending message...`);
-    await new Promise((resolve) => setTimeout(resolve, typingDelay * 1000));
-    console.log('Typing delay completed, sending message now');
-  }
-
-  // Enviar mensagem via edge function
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
     method: 'POST',
