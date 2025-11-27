@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw, Image as ImageIcon, FileText, Download, Smile, Copy, Star, Trash2, Mic, Paperclip } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw, Image as ImageIcon, FileText, Download, Smile, Copy, Star, Trash2, Mic, Paperclip, Square } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
@@ -116,6 +116,11 @@ const Chat = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Emojis do WhatsApp para reações
   const WHATSAPP_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -557,6 +562,18 @@ const Chat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Limpar intervalo de gravação ao desmontar
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, [isRecording]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1180,6 +1197,215 @@ const Chat = () => {
         
         return newOrder;
       });
+    }
+  };
+
+  // Função para iniciar gravação de áudio
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      const audioChunks: Blob[] = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+        setAudioBlob(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Enviar áudio automaticamente após parar gravação
+        sendAudio(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Timer da gravação
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+
+      toast({
+        title: "Gravando áudio",
+        description: "Clique novamente para parar e enviar",
+      });
+    } catch (error) {
+      console.error('Erro ao acessar microfone:', error);
+      toast({
+        title: "Erro ao gravar",
+        description: "Não foi possível acessar o microfone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para parar gravação
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+    }
+  };
+
+  // Função para enviar áudio
+  const sendAudio = async (audioBlob: Blob) => {
+    if (!selectedLead) return;
+
+    setSendingFile(true);
+
+    try {
+      // Buscar a organização do usuário
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Usuário não autenticado');
+
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (memberError || !memberData) {
+        throw new Error('Erro ao buscar organização do usuário.');
+      }
+
+      // Buscar a instância conectada
+      const { data: instanceData, error: instanceError } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name, id, status')
+        .eq('organization_id', memberData.organization_id)
+        .eq('status', 'CONNECTED')
+        .order('connected_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (instanceError || !instanceData) {
+        throw new Error('Nenhuma instância WhatsApp conectada.');
+      }
+
+      // Converter áudio para base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string;
+        const base64Data = base64.split(',')[1];
+
+        console.log('📤 Enviando áudio:', {
+          duration: recordingTime,
+          instance: instanceData.instance_name,
+          to: selectedLead.telefone_lead
+        });
+
+        // Criar mensagem otimista
+        const optimisticMessageId = `optimistic-audio-${Date.now()}`;
+        const optimisticMessage: Message = {
+          id: optimisticMessageId,
+          id_lead: selectedLead.id,
+          direcao: 'SAIDA',
+          corpo_mensagem: '',
+          data_hora: new Date().toISOString(),
+          evolution_message_id: null,
+          status_entrega: null,
+          created_at: new Date().toISOString(),
+          media_type: 'audio',
+          media_url: URL.createObjectURL(audioBlob),
+          media_metadata: { seconds: recordingTime },
+          isOptimistic: true,
+          sendError: false,
+        };
+
+        setMessages(prev => [...prev, optimisticMessage]);
+
+        try {
+          // Enviar áudio via edge function
+          const { data, error } = await supabase.functions.invoke('send-whatsapp-media', {
+            body: {
+              instance_name: instanceData.instance_name,
+              remoteJid: selectedLead.telefone_lead,
+              media_base64: base64Data,
+              media_type: 'audio',
+              file_name: `audio-${Date.now()}.ogg`,
+              mime_type: 'audio/ogg; codecs=opus',
+              caption: '',
+              leadId: selectedLead.id,
+            },
+          });
+
+          if (error || !data?.success) {
+            throw new Error(data?.error || 'Erro ao enviar áudio');
+          }
+
+          console.log('✅ Áudio enviado com sucesso:', data);
+
+          // Atualizar mensagem otimista
+          setMessages(prev => prev.map(msg => 
+            msg.id === optimisticMessageId 
+              ? { 
+                  ...msg, 
+                  evolution_message_id: data.messageId,
+                  status_entrega: 'SENT' as const,
+                  media_url: data.mediaUrl || msg.media_url
+                }
+              : msg
+          ));
+
+          toast({
+            title: "Áudio enviado",
+            description: "O áudio foi enviado via WhatsApp",
+          });
+        } catch (error) {
+          console.error('❌ Erro ao enviar áudio:', error);
+          
+          // Marcar mensagem com erro
+          setMessages(prev => prev.map(msg =>
+            msg.id === optimisticMessageId
+              ? { ...msg, sendError: true }
+              : msg
+          ));
+
+          toast({
+            title: "Erro ao enviar áudio",
+            description: error instanceof Error ? error.message : "Não foi possível enviar o áudio",
+            variant: "destructive",
+          });
+        } finally {
+          setSendingFile(false);
+          setAudioBlob(null);
+          setRecordingTime(0);
+        }
+      };
+
+      reader.onerror = () => {
+        toast({
+          title: "Erro ao processar áudio",
+          description: "Não foi possível processar o áudio gravado",
+          variant: "destructive",
+        });
+        setSendingFile(false);
+        setAudioBlob(null);
+        setRecordingTime(0);
+      };
+
+      reader.readAsDataURL(audioBlob);
+    } catch (error) {
+      console.error('❌ Erro ao preparar envio de áudio:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível enviar o áudio",
+        variant: "destructive",
+      });
+      setSendingFile(false);
+      setAudioBlob(null);
+      setRecordingTime(0);
     }
   };
 
@@ -2749,63 +2975,84 @@ const Chat = () => {
             </div>
 
             {/* Input de Mensagem */}
-            <form
-              onSubmit={handleSendMessage}
-              className="p-4 border-t flex items-end gap-2"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                title="Anexar arquivo"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={sendingFile}
+            {isRecording ? (
+              /* UI de gravação ativa */
+              <div className="p-4 border-t flex items-center gap-3 bg-destructive/10">
+                <div className="flex-1 flex items-center gap-3">
+                  <div className="h-3 w-3 bg-destructive rounded-full animate-pulse" />
+                  <span className="text-sm font-medium">
+                    Gravando {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  onClick={stopRecording}
+                  size="icon"
+                  className="shrink-0 bg-destructive hover:bg-destructive/90"
+                >
+                  <Square className="h-5 w-5 fill-current" />
+                </Button>
+              </div>
+            ) : (
+              <form
+                onSubmit={handleSendMessage}
+                className="p-4 border-t flex items-end gap-2"
               >
-                {sendingFile ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Paperclip className="h-5 w-5" />
-                )}
-              </Button>
-              <Textarea
-                ref={messageInputRef}
-                placeholder="Digite sua mensagem..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(e as any);
-                  }
-                }}
-                className="flex-1 min-h-[40px] max-h-[120px] resize-none"
-                rows={1}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                title="Gravar áudio"
-              >
-                <Mic className="h-5 w-5" />
-              </Button>
-              <Button type="submit" disabled={!newMessage.trim()} size="icon" variant="ghost" className="shrink-0">
-                {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </form>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  title="Anexar arquivo"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sendingFile}
+                >
+                  {sendingFile ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Paperclip className="h-5 w-5" />
+                  )}
+                </Button>
+                <Textarea
+                  ref={messageInputRef}
+                  placeholder="Digite sua mensagem..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(e as any);
+                    }
+                  }}
+                  className="flex-1 min-h-[40px] max-h-[120px] resize-none"
+                  rows={1}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  title="Gravar áudio"
+                  onClick={startRecording}
+                >
+                  <Mic className="h-5 w-5" />
+                </Button>
+                <Button type="submit" disabled={!newMessage.trim()} size="icon" variant="ghost" className="shrink-0">
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </form>
+            )}
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
