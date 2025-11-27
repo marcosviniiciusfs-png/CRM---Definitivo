@@ -6,11 +6,12 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Lead, Message, MessageReaction, PinnedMessage } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw, Image as ImageIcon, FileText, Download, Smile, Copy, Star, Trash2 } from "lucide-react";
+import { Send, Phone, Search, Check, CheckCheck, Clock, Loader2, RefreshCw, Tag, Filter, Pin, PinOff, GripVertical, AlertCircle, RotateCcw, Image as ImageIcon, FileText, Download, Smile, Copy, Star, Trash2, Mic, Paperclip } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
@@ -104,7 +105,7 @@ const Chat = () => {
   const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const [messageReactions, setMessageReactions] = useState<Map<string, MessageReaction[]>>(new Map());
@@ -2547,16 +2548,41 @@ const Chat = () => {
             {/* Input de Mensagem */}
             <form
               onSubmit={handleSendMessage}
-              className="p-4 border-t flex gap-2"
+              className="p-4 border-t flex items-end gap-2"
             >
-              <Input
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                title="Anexar arquivo"
+              >
+                <Paperclip className="h-5 w-5" />
+              </Button>
+              <Textarea
                 ref={messageInputRef}
                 placeholder="Digite sua mensagem..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e as any);
+                  }
+                }}
+                className="flex-1 min-h-[40px] max-h-[120px] resize-none"
+                rows={1}
               />
-              <Button type="submit" disabled={!newMessage.trim()}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                title="Gravar áudio"
+              >
+                <Mic className="h-5 w-5" />
+              </Button>
+              <Button type="submit" disabled={!newMessage.trim()} size="icon" className="shrink-0">
                 {sending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
