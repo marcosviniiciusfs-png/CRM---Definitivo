@@ -22,7 +22,6 @@ import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useOpusRecorder } from "@/hooks/useOpusRecorder";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,15 +116,11 @@ const Chat = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Hook para gravação de áudio em OGG/OPUS
-  const { 
-    isRecording, 
-    recordingTime, 
-    startRecording: startOpusRecording, 
-    stopRecording: stopOpusRecording,
-    audioBlob 
-  } = useOpusRecorder();
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Emojis do WhatsApp para reações
   const WHATSAPP_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -1195,17 +1190,82 @@ const Chat = () => {
     }
   };
 
-  // Função para iniciar gravação de áudio usando OGG/OPUS
+  // Função para iniciar gravação de áudio com OGG/OPUS
   const startRecording = async () => {
     try {
-      await startOpusRecording();
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+
+      // Tentar usar OGG/OPUS primeiro (melhor para WhatsApp)
+      let mimeType = 'audio/ogg; codecs=opus';
       
+      // Se não suportar OGG/OPUS, tentar WebM/OPUS
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm; codecs=opus';
+        console.log('⚠️ OGG/OPUS não suportado, usando WebM/OPUS');
+      }
+
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm';
+        console.log('⚠️ WebM/OPUS não suportado, usando WebM genérico');
+      }
+
+      console.log('🎙️ Formato de áudio selecionado:', mimeType);
+
+      // Configurar MediaRecorder com alta qualidade (64kbps)
+      const options: MediaRecorderOptions = {
+        mimeType,
+        audioBitsPerSecond: 64000, // 64kbps para qualidade de voz
+      };
+
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+
+      const audioChunks: Blob[] = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        // Criar blob com tipo correto
+        const finalBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+        
+        console.log('✅ Áudio gravado:', {
+          size: finalBlob.size,
+          type: finalBlob.type,
+          duration: recordingTime
+        });
+        
+        setAudioBlob(finalBlob);
+        stream.getTracks().forEach((track) => track.stop());
+
+        // Enviar áudio automaticamente após parar gravação
+        sendAudio(finalBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Timer da gravação
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+
       toast({
-        title: 'Gravando áudio OGG/OPUS',
+        title: 'Gravando áudio de alta qualidade',
         description: 'Clique novamente para parar e enviar',
       });
     } catch (error) {
-      console.error('Erro ao acessar microfone:', error);
+      console.error('❌ Erro ao acessar microfone:', error);
       toast({
         title: 'Erro ao gravar',
         description: 'Não foi possível acessar o microfone',
@@ -1216,22 +1276,29 @@ const Chat = () => {
 
   // Função para parar gravação
   const stopRecording = () => {
-    if (isRecording) {
-      stopOpusRecording();
+    if (mediaRecorderRef.current && isRecording) {
+      console.log('🛑 Parando gravação...');
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
     }
   };
 
-  // Enviar áudio automaticamente quando o blob estiver pronto
+  // Limpar intervalo ao desmontar
   useEffect(() => {
-    if (audioBlob) {
-      console.log('🎵 Áudio OGG/OPUS pronto para envio:', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        duration: recordingTime
-      });
-      sendAudio(audioBlob);
-    }
-  }, [audioBlob]);
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, [isRecording]);
 
   // Função para enviar áudio
   const sendAudio = async (audioBlob: Blob) => {
@@ -1355,7 +1422,8 @@ const Chat = () => {
           });
         } finally {
           setSendingFile(false);
-          // audioBlob e recordingTime são gerenciados pelo hook useOpusRecorder
+          setAudioBlob(null);
+          setRecordingTime(0);
         }
       };
 
@@ -1366,7 +1434,8 @@ const Chat = () => {
           variant: "destructive",
         });
         setSendingFile(false);
-        // audioBlob e recordingTime são gerenciados pelo hook useOpusRecorder
+        setAudioBlob(null);
+        setRecordingTime(0);
       };
 
       reader.readAsDataURL(audioBlob);
@@ -1378,7 +1447,8 @@ const Chat = () => {
         variant: "destructive",
       });
       setSendingFile(false);
-      // audioBlob e recordingTime são gerenciados pelo hook useOpusRecorder
+      setAudioBlob(null);
+      setRecordingTime(0);
     }
   };
 
