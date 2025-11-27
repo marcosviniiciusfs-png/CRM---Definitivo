@@ -1205,7 +1205,7 @@ const Chat = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Detectar formato de áudio suportado pelo navegador
+      // Detectar formato de áudio suportado pelo navegador (priorizar OGG/OPUS)
       let mimeType = 'audio/ogg; codecs=opus';
       const supportedTypes = [
         'audio/ogg; codecs=opus',
@@ -1225,7 +1225,11 @@ const Chat = () => {
         }
       }
 
-      const options = { mimeType };
+      // Configurar opções com alta qualidade de áudio para PTT
+      const options = { 
+        mimeType,
+        audioBitsPerSecond: 64000 // 64kbps para garantir qualidade de voz
+      };
       const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
 

@@ -89,9 +89,9 @@ serve(async (req) => {
     let finalMimeType = mime_type;
 
     if (media_type === 'audio' && is_ptt) {
-      // Tentar usar OGG/OPUS se disponível, caso contrário usar o mime_type recebido
+      // Forçar OGG/OPUS para áudio de voz PTT (essencial para WhatsApp)
       mediatype = 'audio';
-      finalMimeType = mime_type.includes('ogg') ? 'audio/ogg; codecs=opus' : mime_type;
+      finalMimeType = 'audio/ogg; codecs=opus';
       finalFileName = finalFileName || 'audio.ogg';
       
       console.log('🎤 Áudio PTT detectado:', {
