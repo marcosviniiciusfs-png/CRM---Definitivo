@@ -279,10 +279,8 @@ async function executeAction(
               },
               body: JSON.stringify({
                 number: sanitizedNumber,
-                options: {
-                  delay: durationMs,
-                  presence: 'composing',
-                },
+                delay: durationMs,
+                presence: 'composing',
               }),
             }
           );

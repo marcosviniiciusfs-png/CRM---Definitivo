@@ -187,6 +187,26 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
     setActions([...actions, { type: "", config: {} }]);
   };
 
+  const handleActionTypeChange = (index: number, newType: string) => {
+    const newActions = [...actions];
+    newActions[index].type = newType;
+    
+    // Definir config padrão baseado no tipo de ação
+    if (newType === "SET_TYPING_STATUS") {
+      newActions[index].config = { enabled: true, duration_seconds: 10 };
+    } else if (newType === "SEND_PREDEFINED_MESSAGE") {
+      newActions[index].config = { message: "" };
+    } else if (newType === "CHANGE_FUNNEL_STAGE") {
+      newActions[index].config = { stage: "" };
+    } else if (newType === "ASSIGN_TO_AGENT") {
+      newActions[index].config = { agent_email: "" };
+    } else {
+      newActions[index].config = {};
+    }
+    
+    setActions(newActions);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -480,11 +500,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                         <Label>Tipo</Label>
                         <Select
                           value={action.type}
-                          onValueChange={(value) => {
-                            const newActions = [...actions];
-                            newActions[index].type = value;
-                            setActions(newActions);
-                          }}
+                          onValueChange={(value) => handleActionTypeChange(index, value)}
                         >
                           <SelectTrigger>
                             <SelectValue />
