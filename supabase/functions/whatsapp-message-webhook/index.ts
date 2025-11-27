@@ -593,6 +593,31 @@ serve(async (req) => {
 
     await saveWebhookLog('success');
 
+    // Processar automações (não bloqueia o retorno)
+    const isFirstMessage = !existingLead;
+    const triggerType = isFirstMessage ? 'WHATSAPP_FIRST_MESSAGE' : 'NEW_INCOMING_MESSAGE';
+    
+    supabase.functions.invoke('process-automation-rules', {
+      body: {
+        trigger_type: triggerType,
+        trigger_data: {
+          lead_id: leadId,
+          message_id: savedMessage.id,
+          message_content: messageContent,
+          organization_id: organizationId,
+          phone_number: phoneNumber,
+        },
+      },
+    }).then(({ data, error }) => {
+      if (error) {
+        console.error('⚠️ Erro ao processar automações:', error);
+      } else {
+        console.log('✅ Automações processadas:', data);
+      }
+    }).catch(err => {
+      console.error('⚠️ Falha ao invocar process-automation-rules:', err);
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
