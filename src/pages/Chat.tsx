@@ -22,6 +22,7 @@ import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useOpusRecorder } from "@/hooks/useOpusRecorder";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,11 +117,15 @@ const Chat = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Hook para gravação de áudio em OGG/OPUS
+  const { 
+    isRecording, 
+    recordingTime, 
+    startRecording: startOpusRecording, 
+    stopRecording: stopOpusRecording,
+    audioBlob 
+  } = useOpusRecorder();
 
   // Emojis do WhatsApp para reações
   const WHATSAPP_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -563,17 +568,7 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Limpar intervalo de gravação ao desmontar
-  useEffect(() => {
-    return () => {
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-      if (mediaRecorderRef.current && isRecording) {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, [isRecording]);
+  // useEffect removido - o hook useOpusRecorder gerencia a limpeza internamente
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1200,66 +1195,13 @@ const Chat = () => {
     }
   };
 
-  // Função para iniciar gravação de áudio
+  // Função para iniciar gravação de áudio usando OGG/OPUS
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      // Detectar o melhor formato de áudio suportado pelo navegador
-      // Priorizar formatos com codec Opus para melhor qualidade de voz
-      let mimeType = 'audio/webm'; // fallback
-      const supportedTypes = [
-        'audio/ogg; codecs=opus',
-        'audio/webm; codecs=opus',
-        'audio/webm',
-        'audio/ogg',
-        'audio/mp4',
-        'audio/mpeg',
-      ];
-
-      for (const type of supportedTypes) {
-        if (MediaRecorder.isTypeSupported(type)) {
-          mimeType = type;
-          console.log('✅ Formato de áudio selecionado:', type);
-          break;
-        }
-      }
-
-      // Configurar MediaRecorder com alta qualidade de áudio
-      const options: MediaRecorderOptions = {
-        mimeType,
-        audioBitsPerSecond: 64000, // 64kbps para garantir qualidade de voz
-      };
-
-      const mediaRecorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mediaRecorder;
-
-      const audioChunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: mimeType });
-        setAudioBlob(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
-
-        // Enviar áudio automaticamente após parar gravação
-        sendAudio(audioBlob);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      // Timer da gravação
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-
+      await startOpusRecording();
+      
       toast({
-        title: 'Gravando áudio',
+        title: 'Gravando áudio OGG/OPUS',
         description: 'Clique novamente para parar e enviar',
       });
     } catch (error) {
@@ -1271,18 +1213,25 @@ const Chat = () => {
       });
     }
   };
+
   // Função para parar gravação
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
-      }
+    if (isRecording) {
+      stopOpusRecording();
     }
   };
+
+  // Enviar áudio automaticamente quando o blob estiver pronto
+  useEffect(() => {
+    if (audioBlob) {
+      console.log('🎵 Áudio OGG/OPUS pronto para envio:', {
+        size: audioBlob.size,
+        type: audioBlob.type,
+        duration: recordingTime
+      });
+      sendAudio(audioBlob);
+    }
+  }, [audioBlob]);
 
   // Função para enviar áudio
   const sendAudio = async (audioBlob: Blob) => {
@@ -1406,8 +1355,7 @@ const Chat = () => {
           });
         } finally {
           setSendingFile(false);
-          setAudioBlob(null);
-          setRecordingTime(0);
+          // audioBlob e recordingTime são gerenciados pelo hook useOpusRecorder
         }
       };
 
@@ -1418,8 +1366,7 @@ const Chat = () => {
           variant: "destructive",
         });
         setSendingFile(false);
-        setAudioBlob(null);
-        setRecordingTime(0);
+        // audioBlob e recordingTime são gerenciados pelo hook useOpusRecorder
       };
 
       reader.readAsDataURL(audioBlob);
@@ -1431,8 +1378,7 @@ const Chat = () => {
         variant: "destructive",
       });
       setSendingFile(false);
-      setAudioBlob(null);
-      setRecordingTime(0);
+      // audioBlob e recordingTime são gerenciados pelo hook useOpusRecorder
     }
   };
 
