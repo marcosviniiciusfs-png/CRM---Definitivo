@@ -1337,6 +1337,7 @@ const Chat = () => {
               mime_type: 'audio/ogg; codecs=opus',
               caption: '',
               leadId: selectedLead.id,
+              is_ptt: true, // Marcar como áudio PTT (gravado)
             },
           });
 
