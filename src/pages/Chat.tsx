@@ -17,6 +17,7 @@ import { formatPhoneNumber } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { useOpusRecorder } from "@/hooks/useOpusRecorder";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
@@ -116,11 +117,24 @@ const Chat = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [sendingAudio, setSendingAudio] = useState(false);
+
+  // Hook para gravação em OGG/OPUS
+  const opusRecorder = useOpusRecorder({
+    onDataAvailable: (blob: Blob) => {
+      console.log('🎤 Áudio OGG/OPUS recebido do recorder:', blob.size, 'bytes');
+      setAudioBlob(blob);
+      sendAudio(blob);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao gravar áudio",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
 
   // Emojis do WhatsApp para reações
   const WHATSAPP_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -1190,82 +1204,16 @@ const Chat = () => {
     }
   };
 
-  // Função para iniciar gravação de áudio com OGG/OPUS
+  // Funções para iniciar/parar gravação com OPUS
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
-      });
-
-      // Tentar usar OGG/OPUS primeiro (melhor para WhatsApp)
-      let mimeType = 'audio/ogg; codecs=opus';
-      
-      // Se não suportar OGG/OPUS, tentar WebM/OPUS
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm; codecs=opus';
-        console.log('⚠️ OGG/OPUS não suportado, usando WebM/OPUS');
-      }
-
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm';
-        console.log('⚠️ WebM/OPUS não suportado, usando WebM genérico');
-      }
-
-      console.log('🎙️ Formato de áudio selecionado:', mimeType);
-
-      // Configurar MediaRecorder com alta qualidade (64kbps)
-      const options: MediaRecorderOptions = {
-        mimeType,
-        audioBitsPerSecond: 64000, // 64kbps para qualidade de voz
-      };
-
-      const mediaRecorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mediaRecorder;
-
-      const audioChunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        // Criar blob com tipo correto
-        const finalBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
-        
-        console.log('✅ Áudio gravado:', {
-          size: finalBlob.size,
-          type: finalBlob.type,
-          duration: recordingTime
-        });
-        
-        setAudioBlob(finalBlob);
-        stream.getTracks().forEach((track) => track.stop());
-
-        // Enviar áudio automaticamente após parar gravação
-        sendAudio(finalBlob);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      // Timer da gravação
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-
+      await opusRecorder.startRecording();
       toast({
-        title: 'Gravando áudio de alta qualidade',
+        title: 'Gravando áudio OPUS',
         description: 'Clique novamente para parar e enviar',
       });
     } catch (error) {
-      console.error('❌ Erro ao acessar microfone:', error);
+      console.error('❌ Erro ao iniciar gravação:', error);
       toast({
         title: 'Erro ao gravar',
         description: 'Não foi possível acessar o microfone',
@@ -1274,37 +1222,21 @@ const Chat = () => {
     }
   };
 
-  // Função para parar gravação
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      console.log('🛑 Parando gravação...');
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
-      }
-    }
+    opusRecorder.stopRecording();
   };
 
-  // Limpar intervalo ao desmontar
-  useEffect(() => {
-    return () => {
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-      if (mediaRecorderRef.current && isRecording) {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, [isRecording]);
-
-  // Função para enviar áudio
+  // Função para enviar áudio OGG/OPUS
   const sendAudio = async (audioBlob: Blob) => {
-    if (!selectedLead) return;
+    if (!selectedLead || sendingAudio) return;
 
-    setSendingFile(true);
+    console.log('📤 Preparando envio de áudio OGG/OPUS:', {
+      size: audioBlob.size,
+      type: audioBlob.type,
+      duration: opusRecorder.recordingTime
+    });
+
+    setSendingAudio(true);
 
     try {
       // Buscar a organização do usuário
@@ -1341,10 +1273,12 @@ const Chat = () => {
         const base64 = e.target?.result as string;
         const base64Data = base64.split(',')[1];
 
-        console.log('📤 Enviando áudio:', {
-          duration: recordingTime,
+        console.log('📤 Enviando áudio OGG/OPUS para Evolution:', {
+          duration: opusRecorder.recordingTime,
           instance: instanceData.instance_name,
-          to: selectedLead.telefone_lead
+          to: selectedLead.telefone_lead,
+          mimeType: 'audio/ogg; codecs=opus',
+          isPTT: true
         });
 
         // Criar mensagem otimista
@@ -1360,7 +1294,7 @@ const Chat = () => {
           created_at: new Date().toISOString(),
           media_type: 'audio',
           media_url: URL.createObjectURL(audioBlob),
-          media_metadata: { seconds: recordingTime },
+          media_metadata: { seconds: opusRecorder.recordingTime },
           isOptimistic: true,
           sendError: false,
         };
@@ -1421,9 +1355,8 @@ const Chat = () => {
             variant: "destructive",
           });
         } finally {
-          setSendingFile(false);
+          setSendingAudio(false);
           setAudioBlob(null);
-          setRecordingTime(0);
         }
       };
 
@@ -1433,9 +1366,8 @@ const Chat = () => {
           description: "Não foi possível processar o áudio gravado",
           variant: "destructive",
         });
-        setSendingFile(false);
+        setSendingAudio(false);
         setAudioBlob(null);
-        setRecordingTime(0);
       };
 
       reader.readAsDataURL(audioBlob);
@@ -1446,9 +1378,8 @@ const Chat = () => {
         description: error instanceof Error ? error.message : "Não foi possível enviar o áudio",
         variant: "destructive",
       });
-      setSendingFile(false);
+      setSendingAudio(false);
       setAudioBlob(null);
-      setRecordingTime(0);
     }
   };
 
@@ -3018,13 +2949,13 @@ const Chat = () => {
             </div>
 
             {/* Input de Mensagem */}
-            {isRecording ? (
+            {opusRecorder.isRecording ? (
               /* UI de gravação ativa */
               <div className="p-4 border-t flex items-center gap-3 bg-destructive/10">
                 <div className="flex-1 flex items-center gap-3">
                   <div className="h-3 w-3 bg-destructive rounded-full animate-pulse" />
                   <span className="text-sm font-medium">
-                    Gravando {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                    Gravando {Math.floor(opusRecorder.recordingTime / 60)}:{(opusRecorder.recordingTime % 60).toString().padStart(2, '0')}
                   </span>
                 </div>
                 <Button
