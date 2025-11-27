@@ -59,6 +59,18 @@ Deno.serve(async (req) => {
 
     if (webhookError || !webhookConfig) {
       console.error('❌ Webhook não encontrado:', webhookError);
+      
+      // Try to get payload for logging even on error
+      let errorPayload: WebhookPayload = {};
+      try {
+        const contentType = req.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          errorPayload = await req.json();
+        }
+      } catch {
+        // Ignore payload parsing errors for invalid webhook
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Webhook não encontrado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -101,6 +113,16 @@ Deno.serve(async (req) => {
     const telefone = payload.telefone || payload.phone || payload.telefone_lead;
 
     if (!nome || !telefone) {
+      // Log validation error
+      await supabase.from('form_webhook_logs').insert({
+        organization_id: webhookConfig.organization_id,
+        webhook_token: webhookToken,
+        event_type: 'form_submission',
+        status: 'error',
+        payload: payload,
+        error_message: 'Campos obrigatórios ausentes: nome e telefone'
+      });
+      
       return new Response(
         JSON.stringify({ 
           error: 'Campos obrigatórios ausentes', 
@@ -132,6 +154,17 @@ Deno.serve(async (req) => {
 
     if (leadError) {
       console.error('❌ Erro ao criar lead:', leadError);
+      
+      // Log failure
+      await supabase.from('form_webhook_logs').insert({
+        organization_id: webhookConfig.organization_id,
+        webhook_token: webhookToken,
+        event_type: 'form_submission',
+        status: 'error',
+        payload: payload,
+        error_message: leadError.message
+      });
+      
       return new Response(
         JSON.stringify({ error: 'Erro ao criar lead', details: leadError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -139,6 +172,16 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Lead criado com sucesso:', lead.id);
+
+    // Log success
+    await supabase.from('form_webhook_logs').insert({
+      organization_id: webhookConfig.organization_id,
+      webhook_token: webhookToken,
+      event_type: 'form_submission',
+      status: 'success',
+      payload: payload,
+      lead_id: lead.id
+    });
 
     return new Response(
       JSON.stringify({ 

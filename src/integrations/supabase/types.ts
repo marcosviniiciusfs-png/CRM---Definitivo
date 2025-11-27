@@ -157,6 +157,57 @@ export type Database = {
           },
         ]
       }
+      form_webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          lead_id: string | null
+          organization_id: string
+          payload: Json | null
+          status: string
+          webhook_token: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          organization_id: string
+          payload?: Json | null
+          status?: string
+          webhook_token: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          organization_id?: string
+          payload?: Json | null
+          status?: string
+          webhook_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_webhook_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           created_at: string
