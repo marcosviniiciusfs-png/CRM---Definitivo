@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     // Buscar configuração do webhook
     const { data: webhookConfig, error: webhookError } = await supabase
       .from('webhook_configs')
-      .select('organization_id, is_active')
+      .select('organization_id, is_active, tag_id')
       .eq('webhook_token', webhookToken)
       .single();
 
@@ -288,6 +288,23 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Lead criado com sucesso:', lead.id);
+
+    // Assign tag if webhook has one configured
+    if (webhookConfig.tag_id) {
+      const { error: tagError } = await supabase
+        .from('lead_tag_assignments')
+        .insert({
+          lead_id: lead.id,
+          tag_id: webhookConfig.tag_id
+        });
+      
+      if (tagError) {
+        console.error('⚠️ Erro ao atribuir tag ao lead:', tagError);
+        // Não falhar a requisição se a tag não puder ser atribuída
+      } else {
+        console.log('✅ Tag atribuída ao lead');
+      }
+    }
 
     // Log success
     await supabase.from('form_webhook_logs').insert({

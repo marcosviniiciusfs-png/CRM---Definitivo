@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText, Link2, Copy, RefreshCw } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
@@ -33,8 +34,9 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
-  const [webhookConfig, setWebhookConfig] = useState<{ webhook_token: string; is_active: boolean } | null>(null);
+  const [webhookConfig, setWebhookConfig] = useState<{ webhook_token: string; is_active: boolean; tag_id?: string | null } | null>(null);
   const [loadingWebhook, setLoadingWebhook] = useState(false);
+  const [webhookTagName, setWebhookTagName] = useState("");
 
   useEffect(() => {
     const getUserData = async () => {
@@ -94,12 +96,25 @@ const Settings = () => {
           if (orgData) {
             const { data: webhookData } = await supabase
               .from('webhook_configs')
-              .select('webhook_token, is_active')
+              .select('webhook_token, is_active, tag_id')
               .eq('organization_id', orgData.organization_id)
               .maybeSingle();
 
             if (webhookData) {
               setWebhookConfig(webhookData);
+              
+              // Load tag name if tag_id exists
+              if (webhookData.tag_id) {
+                const { data: tagData } = await supabase
+                  .from('lead_tags')
+                  .select('name')
+                  .eq('id', webhookData.tag_id)
+                  .single();
+                
+                if (tagData) {
+                  setWebhookTagName(tagData.name);
+                }
+              }
             }
           }
         }
@@ -219,6 +234,11 @@ const Settings = () => {
   const handleCreateWebhook = async () => {
     if (!user) return;
 
+    if (!webhookTagName.trim()) {
+      toast.error("Digite um nome para a tag do webhook");
+      return;
+    }
+
     setLoadingWebhook(true);
     try {
       const { data: orgData } = await supabase
@@ -235,7 +255,7 @@ const Settings = () => {
       // Check if webhook already exists
       const { data: existingWebhook } = await supabase
         .from('webhook_configs')
-        .select('webhook_token, is_active')
+        .select('webhook_token, is_active, tag_id')
         .eq('organization_id', orgData.organization_id)
         .maybeSingle();
 
@@ -245,17 +265,33 @@ const Settings = () => {
         return;
       }
 
-      // Create new webhook only if it doesn't exist
+      // Create tag for webhook leads
+      const { data: tagData, error: tagError } = await supabase
+        .from('lead_tags')
+        .insert({
+          name: webhookTagName,
+          organization_id: orgData.organization_id,
+          color: '#10b981' // Green color for webhook tags
+        })
+        .select('id')
+        .single();
+
+      if (tagError) throw tagError;
+
+      // Create new webhook with tag_id
       const { data, error } = await supabase
         .from('webhook_configs')
-        .insert({ organization_id: orgData.organization_id })
-        .select('webhook_token, is_active')
+        .insert({ 
+          organization_id: orgData.organization_id,
+          tag_id: tagData.id
+        })
+        .select('webhook_token, is_active, tag_id')
         .single();
 
       if (error) throw error;
 
       setWebhookConfig(data);
-      toast.success("Webhook criado com sucesso!");
+      toast.success("Webhook e tag criados com sucesso!");
     } catch (error: any) {
       console.error('Erro ao criar webhook:', error);
       toast.error("Erro ao criar webhook. Tente novamente.");
@@ -363,9 +399,22 @@ const Settings = () => {
                       <p className="text-sm text-muted-foreground">
                         Crie um webhook para receber dados de formulários externos e criar leads automaticamente no CRM.
                       </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="webhook-tag">Nome da Tag</Label>
+                        <Input
+                          id="webhook-tag"
+                          value={webhookTagName}
+                          onChange={(e) => setWebhookTagName(e.target.value)}
+                          placeholder="Ex: Landing Page, Site, Formulário"
+                          className="w-full"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Esta tag será aplicada automaticamente aos leads criados por este webhook
+                        </p>
+                      </div>
                       <Button 
                         onClick={handleCreateWebhook} 
-                        disabled={loadingWebhook}
+                        disabled={loadingWebhook || !webhookTagName.trim()}
                         className="w-full"
                       >
                         {loadingWebhook ? "Criando..." : "Criar Webhook"}
@@ -373,6 +422,19 @@ const Settings = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {webhookTagName && (
+                        <div className="space-y-2">
+                          <Label>Tag Associada</Label>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 border-green-200 dark:border-green-800">
+                              {webhookTagName}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              Esta tag será aplicada automaticamente aos novos leads
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       <div className="space-y-2">
                         <Label>URL do Webhook</Label>
                         <div className="flex gap-2">

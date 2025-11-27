@@ -921,6 +921,7 @@ export type Database = {
           id: string
           is_active: boolean
           organization_id: string
+          tag_id: string | null
           updated_at: string
           webhook_token: string
         }
@@ -929,6 +930,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           organization_id: string
+          tag_id?: string | null
           updated_at?: string
           webhook_token?: string
         }
@@ -937,6 +939,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           organization_id?: string
+          tag_id?: string | null
           updated_at?: string
           webhook_token?: string
         }
@@ -946,6 +949,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_configs_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "lead_tags"
             referencedColumns: ["id"]
           },
         ]
