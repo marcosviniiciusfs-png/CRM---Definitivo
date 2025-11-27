@@ -331,11 +331,11 @@ async function sendMessage(
     console.log(`Applying typing delay of ${typingDelay} seconds`);
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
-    
+
+    // Tenta enviar o efeito de digitação, mas mesmo em caso de erro ainda respeita o delay
     if (evolutionApiUrl && evolutionApiKey) {
       try {
         console.log(`Calling Evolution API sendPresence with delay: ${typingDelay} seconds (${typingDelay * 1000}ms)`);
-        // Chamar sendPresence com composing
         await fetch(`${evolutionApiUrl}/chat/sendPresence/${instance.instance_name}`, {
           method: 'POST',
           headers: {
@@ -346,20 +346,21 @@ async function sendMessage(
             number: lead.telefone_lead.replace(/\D/g, ''),
             options: {
               delay: typingDelay * 1000,
-              presence: 'composing'
-            }
+              presence: 'composing',
+            },
           }),
         });
-        
-        console.log(`Waiting ${typingDelay} seconds before sending message...`);
-        // Aguardar o delay antes de enviar a mensagem
-        await new Promise((resolve) => setTimeout(resolve, typingDelay * 1000));
-        console.log('Typing delay completed, sending message now');
       } catch (presenceError) {
         console.error('Error sending presence:', presenceError);
-        // Continuar mesmo com erro no presence
+        // Continua mesmo com erro no presence
       }
+    } else {
+      console.warn('Evolution API URL or KEY not configured, skipping presence but keeping delay');
     }
+
+    console.log(`Waiting ${typingDelay} seconds before sending message...`);
+    await new Promise((resolve) => setTimeout(resolve, typingDelay * 1000));
+    console.log('Typing delay completed, sending message now');
   }
 
   // Enviar mensagem via edge function
