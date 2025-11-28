@@ -117,7 +117,7 @@ const Pipeline = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("sales_funnels")
         .select("*")
         .eq("organization_id", memberData.organization_id)
@@ -127,6 +127,62 @@ const Pipeline = () => {
 
       if (error) throw error;
 
+      // Se não há funis, criar funil padrão automaticamente
+      if (!data || data.length === 0) {
+        console.log("Criando funil padrão...");
+        
+        // Criar funil padrão
+        const { data: newFunnel, error: funnelError } = await supabase
+          .from("sales_funnels")
+          .insert({
+            organization_id: memberData.organization_id,
+            name: "Funil de Vendas",
+            description: "Funil padrão de vendas",
+            is_default: true,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (funnelError) throw funnelError;
+
+        // Criar etapas padrão
+        const defaultStages = [
+          { name: "Novo", color: "#3B82F6", icon: "UserPlus", position: 0, stage_type: "new" },
+          { name: "Contato Feito", color: "#8B5CF6", icon: "Phone", position: 1, stage_type: "contacted" },
+          { name: "Qualificado", color: "#EC4899", icon: "CheckCircle", position: 2, stage_type: "qualified" },
+          { name: "Proposta", color: "#F59E0B", icon: "FileText", position: 3, stage_type: "proposal" },
+          { name: "Negociação", color: "#10B981", icon: "MessageSquare", position: 4, stage_type: "negotiation" },
+          { name: "Ganho", color: "#22C55E", icon: "Trophy", position: 5, stage_type: "won", is_final: true },
+          { name: "Perdido", color: "#EF4444", icon: "XCircle", position: 6, stage_type: "lost", is_final: true }
+        ];
+
+        const stagesInsert = defaultStages.map(stage => ({
+          funnel_id: newFunnel.id,
+          ...stage
+        }));
+
+        const { error: stagesError } = await supabase
+          .from("funnel_stages")
+          .insert(stagesInsert);
+
+        if (stagesError) throw stagesError;
+
+        // Recarregar funis
+        const { data: reloadedData, error: reloadError } = await supabase
+          .from("sales_funnels")
+          .select("*")
+          .eq("organization_id", memberData.organization_id)
+          .eq("is_active", true)
+          .order("is_default", { ascending: false })
+          .order("created_at");
+
+        if (reloadError) throw reloadError;
+        data = reloadedData;
+
+        toast.success("Funil padrão criado com sucesso!");
+      }
+
       setFunnels(data || []);
       
       // Selecionar funil padrão ou primeiro
@@ -134,7 +190,6 @@ const Pipeline = () => {
       if (defaultFunnel) {
         setActiveFunnelId(defaultFunnel.id);
       } else {
-        // Sem funis, desabilitar loading
         setLoading(false);
       }
     } catch (error) {
@@ -448,40 +503,6 @@ const Pipeline = () => {
     );
   }
 
-  // Empty state - nenhum funil criado
-  if (funnels.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-        <div className="text-center space-y-3">
-          <h2 className="text-2xl font-bold text-foreground">Nenhum Funil Criado</h2>
-          <p className="text-muted-foreground max-w-md">
-            Crie seu primeiro funil de vendas para começar a organizar seus leads em etapas personalizadas.
-          </p>
-        </div>
-        
-        {canManageAutomation ? (
-          <Button onClick={handleCreateFunnel} size="lg">
-            <Plus className="h-5 w-5 mr-2" />
-            Criar Primeiro Funil
-          </Button>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Apenas administradores podem criar funis. Entre em contato com seu administrador.
-          </p>
-        )}
-
-        <FunnelBuilderModal
-          open={showFunnelBuilder}
-          onClose={() => {
-            setShowFunnelBuilder(false);
-            setEditingFunnelId(null);
-          }}
-          onSuccess={handleFunnelSuccess}
-          funnelId={editingFunnelId}
-        />
-      </div>
-    );
-  }
 
   return (
     <>
