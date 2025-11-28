@@ -372,219 +372,6 @@ export type Database = {
           },
         ]
       }
-      funnel_automation_rules: {
-        Row: {
-          actions: Json | null
-          conditions: Json | null
-          created_at: string
-          funnel_stage_id: string
-          id: string
-          is_active: boolean
-          sequence_order: number | null
-          trigger_config: Json | null
-          trigger_type: string
-          updated_at: string
-        }
-        Insert: {
-          actions?: Json | null
-          conditions?: Json | null
-          created_at?: string
-          funnel_stage_id: string
-          id?: string
-          is_active?: boolean
-          sequence_order?: number | null
-          trigger_config?: Json | null
-          trigger_type: string
-          updated_at?: string
-        }
-        Update: {
-          actions?: Json | null
-          conditions?: Json | null
-          created_at?: string
-          funnel_stage_id?: string
-          id?: string
-          is_active?: boolean
-          sequence_order?: number | null
-          trigger_config?: Json | null
-          trigger_type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "funnel_automation_rules_funnel_stage_id_fkey"
-            columns: ["funnel_stage_id"]
-            isOneToOne: false
-            referencedRelation: "funnel_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      funnel_source_mappings: {
-        Row: {
-          created_at: string
-          funnel_id: string
-          id: string
-          source_identifier: string | null
-          source_type: string
-          target_stage_id: string
-        }
-        Insert: {
-          created_at?: string
-          funnel_id: string
-          id?: string
-          source_identifier?: string | null
-          source_type: string
-          target_stage_id: string
-        }
-        Update: {
-          created_at?: string
-          funnel_id?: string
-          id?: string
-          source_identifier?: string | null
-          source_type?: string
-          target_stage_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "funnel_source_mappings_funnel_id_fkey"
-            columns: ["funnel_id"]
-            isOneToOne: false
-            referencedRelation: "sales_funnels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "funnel_source_mappings_target_stage_id_fkey"
-            columns: ["target_stage_id"]
-            isOneToOne: false
-            referencedRelation: "funnel_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      funnel_stage_history: {
-        Row: {
-          duration_in_previous_stage: number | null
-          from_stage_id: string | null
-          funnel_id: string
-          id: string
-          lead_id: string
-          moved_at: string
-          moved_by: string | null
-          notes: string | null
-          to_stage_id: string
-        }
-        Insert: {
-          duration_in_previous_stage?: number | null
-          from_stage_id?: string | null
-          funnel_id: string
-          id?: string
-          lead_id: string
-          moved_at?: string
-          moved_by?: string | null
-          notes?: string | null
-          to_stage_id: string
-        }
-        Update: {
-          duration_in_previous_stage?: number | null
-          from_stage_id?: string | null
-          funnel_id?: string
-          id?: string
-          lead_id?: string
-          moved_at?: string
-          moved_by?: string | null
-          notes?: string | null
-          to_stage_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "funnel_stage_history_from_stage_id_fkey"
-            columns: ["from_stage_id"]
-            isOneToOne: false
-            referencedRelation: "funnel_stages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "funnel_stage_history_funnel_id_fkey"
-            columns: ["funnel_id"]
-            isOneToOne: false
-            referencedRelation: "sales_funnels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "funnel_stage_history_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "leads"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "funnel_stage_history_to_stage_id_fkey"
-            columns: ["to_stage_id"]
-            isOneToOne: false
-            referencedRelation: "funnel_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      funnel_stages: {
-        Row: {
-          color: string
-          created_at: string
-          default_value: number | null
-          description: string | null
-          funnel_id: string
-          icon: string | null
-          id: string
-          is_final: boolean
-          max_days_in_stage: number | null
-          name: string
-          position: number
-          required_fields: Json | null
-          stage_type: string
-          updated_at: string
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          default_value?: number | null
-          description?: string | null
-          funnel_id: string
-          icon?: string | null
-          id?: string
-          is_final?: boolean
-          max_days_in_stage?: number | null
-          name: string
-          position: number
-          required_fields?: Json | null
-          stage_type?: string
-          updated_at?: string
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          default_value?: number | null
-          description?: string | null
-          funnel_id?: string
-          icon?: string | null
-          id?: string
-          is_final?: boolean
-          max_days_in_stage?: number | null
-          name?: string
-          position?: number
-          required_fields?: Json | null
-          stage_type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "funnel_stages_funnel_id_fkey"
-            columns: ["funnel_id"]
-            isOneToOne: false
-            referencedRelation: "sales_funnels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       goals: {
         Row: {
           created_at: string
@@ -971,8 +758,6 @@ export type Database = {
           descricao_negocio: string | null
           email: string | null
           empresa: string | null
-          funnel_id: string | null
-          funnel_stage_id: string | null
           id: string
           is_online: boolean | null
           last_message_at: string | null
@@ -996,8 +781,6 @@ export type Database = {
           descricao_negocio?: string | null
           email?: string | null
           empresa?: string | null
-          funnel_id?: string | null
-          funnel_stage_id?: string | null
           id?: string
           is_online?: boolean | null
           last_message_at?: string | null
@@ -1021,8 +804,6 @@ export type Database = {
           descricao_negocio?: string | null
           email?: string | null
           empresa?: string | null
-          funnel_id?: string | null
-          funnel_stage_id?: string | null
           id?: string
           is_online?: boolean | null
           last_message_at?: string | null
@@ -1038,20 +819,6 @@ export type Database = {
           valor?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "leads_funnel_id_fkey"
-            columns: ["funnel_id"]
-            isOneToOne: false
-            referencedRelation: "sales_funnels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_funnel_stage_id_fkey"
-            columns: ["funnel_stage_id"]
-            isOneToOne: false
-            referencedRelation: "funnel_stages"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "leads_organization_id_fkey"
             columns: ["organization_id"]
@@ -1317,47 +1084,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      sales_funnels: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          is_default: boolean
-          name: string
-          organization_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          name: string
-          organization_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          name?: string
-          organization_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_funnels_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       system_activities: {
         Row: {
