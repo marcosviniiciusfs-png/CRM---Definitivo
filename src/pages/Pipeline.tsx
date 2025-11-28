@@ -37,15 +37,8 @@ const Pipeline = () => {
   const [allFunnels, setAllFunnels] = useState<any[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
 
-  // Carregamento inicial - apenas uma vez
+  // Inicialização de áudio e subscrição a novos leads - apenas uma vez
   useEffect(() => {
-    const initializePipeline = async () => {
-      await loadFunnel();
-      await loadLeads();
-    };
-    
-    initializePipeline();
-    
     // Inicializar áudio de notificação
     audioRef.current = new Audio("/notification.mp3");
     audioRef.current.volume = 0.5;
@@ -88,16 +81,17 @@ const Pipeline = () => {
     };
   }, []);
 
-  // Recarregar quando trocar de funil
+  // Carregamento de dados - executa na montagem inicial e quando o funil muda
   useEffect(() => {
-    if (selectedFunnelId && user) {
-      const reloadFunnelData = async () => {
-        await loadFunnel();
-        await loadLeads();
-      };
-      reloadFunnelData();
-    }
-  }, [selectedFunnelId]);
+    if (!user?.id) return;
+    
+    const loadPipelineData = async () => {
+      await loadFunnel();
+      await loadLeads();
+    };
+    
+    loadPipelineData();
+  }, [selectedFunnelId, user?.id]);
 
   const loadFunnel = async () => {
     if (!user?.id) return;
@@ -166,8 +160,8 @@ const Pipeline = () => {
       setUsingCustomFunnel(true);
       setActiveFunnel(funnelToActivate);
       
-      // Só atualizar selectedFunnelId se for diferente (evita loop)
-      if (selectedFunnelId !== funnelToActivate.id) {
+      // Inicializar selectedFunnelId apenas se for null (primeira vez)
+      if (selectedFunnelId === null) {
         setSelectedFunnelId(funnelToActivate.id);
       }
     } catch (error) {
@@ -516,11 +510,12 @@ const Pipeline = () => {
             className="w-full"
           >
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-              {allFunnels.map((funnel) => (
+              {allFunnels.map((funnel, index) => (
                 <TabsTrigger
                   key={funnel.id}
                   value={funnel.id}
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3"
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50 animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   {funnel.name}
                   {funnel.is_default && (
@@ -531,24 +526,42 @@ const Pipeline = () => {
             </TabsList>
 
             {allFunnels.map((funnel) => (
-              <TabsContent key={funnel.id} value={funnel.id} className="mt-6">
+              <TabsContent 
+                key={funnel.id} 
+                value={funnel.id} 
+                className="mt-6 animate-fade-in"
+              >
                 <div className="flex gap-3 overflow-x-auto pb-4">
-                  {stages.map((stage) => {
-                    const stageLeads = getLeadsByStage(stage.id);
-                    return (
-                      <PipelineColumn
-                        key={stage.id}
-                        id={stage.id}
-                        title={stage.title}
-                        count={stageLeads.length}
-                        color={stage.color}
-                        leads={stageLeads}
-                        isEmpty={stageLeads.length === 0}
-                        onLeadUpdate={loadLeads}
-                        onEdit={setEditingLead}
-                      />
-                    );
-                  })}
+                  {loading ? (
+                    // Skeleton loading para transições suaves
+                    Array.from({ length: stages.length }).map((_, idx) => (
+                      <div key={idx} className="min-w-[280px] h-[500px]">
+                        <Skeleton className="w-full h-full rounded-lg" />
+                      </div>
+                    ))
+                  ) : (
+                    stages.map((stage, index) => {
+                      const stageLeads = getLeadsByStage(stage.id);
+                      return (
+                        <div
+                          key={stage.id}
+                          className="animate-fade-in"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <PipelineColumn
+                            id={stage.id}
+                            title={stage.title}
+                            count={stageLeads.length}
+                            color={stage.color}
+                            leads={stageLeads}
+                            isEmpty={stageLeads.length === 0}
+                            onLeadUpdate={loadLeads}
+                            onEdit={setEditingLead}
+                          />
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </TabsContent>
             ))}
