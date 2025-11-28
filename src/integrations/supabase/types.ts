@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_distribution_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_paused: boolean
+          max_capacity: number | null
+          organization_id: string
+          pause_reason: string | null
+          pause_until: string | null
+          priority_weight: number | null
+          updated_at: string
+          user_id: string
+          working_hours: Json | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_paused?: boolean
+          max_capacity?: number | null
+          organization_id: string
+          pause_reason?: string | null
+          pause_until?: string | null
+          priority_weight?: number | null
+          updated_at?: string
+          user_id: string
+          working_hours?: Json | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_paused?: boolean
+          max_capacity?: number | null
+          organization_id?: string
+          pause_reason?: string | null
+          pause_until?: string | null
+          priority_weight?: number | null
+          updated_at?: string
+          user_id?: string
+          working_hours?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_distribution_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_config: {
         Row: {
           config_key: string
@@ -459,6 +512,104 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_distribution_configs: {
+        Row: {
+          auto_redistribute: boolean
+          created_at: string
+          distribution_method: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          redistribution_timeout_minutes: number | null
+          triggers: Json
+          updated_at: string
+        }
+        Insert: {
+          auto_redistribute?: boolean
+          created_at?: string
+          distribution_method?: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          redistribution_timeout_minutes?: number | null
+          triggers?: Json
+          updated_at?: string
+        }
+        Update: {
+          auto_redistribute?: boolean
+          created_at?: string
+          distribution_method?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          redistribution_timeout_minutes?: number | null
+          triggers?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_distribution_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_distribution_history: {
+        Row: {
+          created_at: string
+          distribution_method: string
+          from_user_id: string | null
+          id: string
+          is_redistribution: boolean
+          lead_id: string
+          organization_id: string
+          redistribution_reason: string | null
+          to_user_id: string
+          trigger_source: string
+        }
+        Insert: {
+          created_at?: string
+          distribution_method: string
+          from_user_id?: string | null
+          id?: string
+          is_redistribution?: boolean
+          lead_id: string
+          organization_id: string
+          redistribution_reason?: string | null
+          to_user_id: string
+          trigger_source: string
+        }
+        Update: {
+          created_at?: string
+          distribution_method?: string
+          from_user_id?: string | null
+          id?: string
+          is_redistribution?: boolean
+          lead_id?: string
+          organization_id?: string
+          redistribution_reason?: string | null
+          to_user_id?: string
+          trigger_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_distribution_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_distribution_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
