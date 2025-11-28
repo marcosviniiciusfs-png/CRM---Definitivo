@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,12 @@ const Leads = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
   const [userProfile, setUserProfile] = useState<{ full_name: string | null } | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const LEADS_PER_PAGE = 50;
+  
   // Carregar perfil do usuário para filtrar leads de membros
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -87,7 +93,7 @@ const Leads = () => {
 
   // Carregar leads do Supabase
   useEffect(() => {
-    loadLeads();
+    loadLeads(true);
 
     // Otimizado: debouncing em realtime para evitar recargas excessivas
     let reloadTimeout: NodeJS.Timeout;
@@ -103,7 +109,7 @@ const Leads = () => {
         () => {
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
-            loadLeads();
+            loadLeads(true);
           }, 500); // Aguardar 500ms antes de recarregar
         }
       )
@@ -114,19 +120,36 @@ const Leads = () => {
       supabase.removeChannel(channel);
     };
   }, []);
-
-  const loadLeads = async () => {
-    setLoading(true);
+  
+  const loadLeads = async (reset = false) => {
+    if (reset) {
+      setLoading(true);
+      setPage(0);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
-      // Otimizado: selecionar apenas campos necessários
+      const startRange = reset ? 0 : page * LEADS_PER_PAGE;
+      const endRange = startRange + LEADS_PER_PAGE - 1;
+      
       const { data, error } = await supabase
         .from("leads")
         .select("id, nome_lead, email, telefone_lead, responsavel, stage, source, valor, updated_at, created_at")
         .order("updated_at", { ascending: false })
-        .limit(500); // Limitar quantidade inicial
+        .range(startRange, endRange);
 
       if (error) throw error;
-      setLeads(data || []);
+      
+      if (reset) {
+        setLeads(data || []);
+      } else {
+        setLeads(prev => [...prev, ...(data || [])]);
+      }
+      
+      setHasMore((data || []).length === LEADS_PER_PAGE);
+      if (!reset) setPage(prev => prev + 1);
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
       toast({
@@ -136,8 +159,39 @@ const Leads = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
+  
+  // Função para carregar mais leads (infinite scroll)
+  const loadMoreLeads = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      loadLeads(false);
+    }
+  }, [loadingMore, hasMore, page]);
+  
+  // Intersection Observer para infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMoreLeads();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loadingMore, loadMoreLeads]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -395,6 +449,16 @@ const Leads = () => {
               )}
             </TableBody>
           </Table>
+          
+          {/* Elemento observador para infinite scroll */}
+          <div ref={observerTarget} className="h-4" />
+          
+          {/* Loading indicator para carregamento de mais leads */}
+          {loadingMore && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
         </div>
       )}
 
