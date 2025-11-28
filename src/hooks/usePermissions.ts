@@ -35,6 +35,9 @@ interface Permissions {
   // Produção/Equipes/Atividades
   canAccessAdminSection: boolean;
   
+  // Configurações de agentes
+  canManageAgentSettings: boolean;
+  
   // Role atual
   role: 'owner' | 'admin' | 'member' | null;
   loading: boolean;
@@ -57,6 +60,7 @@ export function usePermissions(): Permissions {
     canManagePipeline: false,
     canViewTeamMetrics: false,
     canAccessAdminSection: false,
+    canManageAgentSettings: false,
     role: null,
     loading: true,
   });
@@ -124,6 +128,9 @@ export function usePermissions(): Permissions {
         
         // Seção administrativa
         canAccessAdminSection: isOwner || isAdmin,
+        
+        // Configurações de agentes
+        canManageAgentSettings: isOwner || isAdmin,
         
         role,
         loading: false,

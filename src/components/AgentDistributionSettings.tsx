@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { User, Clock, Pause, Save, TrendingUp } from "lucide-react";
+import { User, Clock, Pause, Save, TrendingUp, Info } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AgentSettings {
   id?: string;
@@ -23,10 +26,20 @@ interface AgentSettings {
   working_hours?: any;
 }
 
+interface OrganizationMember {
+  user_id: string;
+  full_name: string;
+  email: string;
+}
+
 export function AgentDistributionSettings() {
   const { toast } = useToast();
+  const permissions = usePermissions();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [settings, setSettings] = useState<AgentSettings>({
     user_id: '',
     organization_id: '',
@@ -38,13 +51,21 @@ export function AgentDistributionSettings() {
   const [currentLoad, setCurrentLoad] = useState(0);
 
   useEffect(() => {
-    loadSettings();
+    loadInitialData();
   }, []);
 
-  const loadSettings = async () => {
+  useEffect(() => {
+    if (selectedMemberId) {
+      loadMemberSettings(selectedMemberId);
+    }
+  }, [selectedMemberId]);
+
+  const loadInitialData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      setCurrentUserId(user.id);
 
       const { data: member } = await supabase
         .from('organization_members')
@@ -54,28 +75,82 @@ export function AgentDistributionSettings() {
 
       if (!member) return;
 
+      // Se for admin/owner, carregar todos os membros
+      if (permissions.canManageAgentSettings) {
+        const { data: orgMembers } = await supabase
+          .from('organization_members')
+          .select('user_id, email')
+          .eq('organization_id', member.organization_id)
+          .not('user_id', 'is', null);
+
+        if (orgMembers) {
+          // Buscar nomes dos perfis
+          const memberIds = orgMembers.map(m => m.user_id).filter(Boolean) as string[];
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', memberIds);
+
+          const membersWithNames = orgMembers.map(m => {
+            const profile = profiles?.find(p => p.user_id === m.user_id);
+            return {
+              user_id: m.user_id!,
+              full_name: profile?.full_name || m.email || 'Sem nome',
+              email: m.email || '',
+            };
+          });
+
+          setMembers(membersWithNames);
+          setSelectedMemberId(user.id); // Seleciona o próprio usuário por padrão
+        }
+      } else {
+        // Se for member, carregar apenas as próprias configurações
+        setSelectedMemberId(user.id);
+      }
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMemberSettings = async (memberId: string) => {
+    try {
+      setLoading(true);
+      
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', memberId)
+        .single();
+
+      if (!member) return;
+
       const { data: existingSettings } = await supabase
         .from('agent_distribution_settings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', memberId)
         .eq('organization_id', member.organization_id)
         .single();
 
       if (existingSettings) {
         setSettings(existingSettings);
       } else {
-        setSettings(prev => ({
-          ...prev,
-          user_id: user.id,
+        setSettings({
+          user_id: memberId,
           organization_id: member.organization_id,
-        }));
+          is_active: true,
+          is_paused: false,
+          max_capacity: 50,
+          priority_weight: 1,
+        });
       }
 
       // Carregar carga atual
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
-        .eq('user_id', user.id)
+        .eq('user_id', memberId)
         .single();
 
       if (profile) {
@@ -90,7 +165,7 @@ export function AgentDistributionSettings() {
         setCurrentLoad(count || 0);
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
+      console.error('Error loading member settings:', error);
     } finally {
       setLoading(false);
     }
@@ -116,10 +191,12 @@ export function AgentDistributionSettings() {
 
       toast({
         title: "Configurações salvas",
-        description: "Suas preferências de distribuição foram atualizadas.",
+        description: permissions.canManageAgentSettings 
+          ? "As configurações do agente foram atualizadas."
+          : "Suas preferências de distribuição foram atualizadas.",
       });
 
-      loadSettings();
+      loadMemberSettings(selectedMemberId);
     } catch (error: any) {
       toast({
         title: "Erro ao salvar",
@@ -136,6 +213,7 @@ export function AgentDistributionSettings() {
   }
 
   const utilizationPercentage = (currentLoad / settings.max_capacity) * 100;
+  const isReadOnly = !permissions.canManageAgentSettings;
 
   return (
     <div className="space-y-6">
@@ -143,13 +221,51 @@ export function AgentDistributionSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Minhas Configurações de Distribuição
+            {permissions.canManageAgentSettings 
+              ? "Configurações de Distribuição dos Agentes"
+              : "Minhas Configurações (Somente Leitura)"}
           </CardTitle>
           <CardDescription>
-            Configure suas preferências para receber leads automaticamente
+            {permissions.canManageAgentSettings
+              ? "Configure as preferências de distribuição para cada membro da equipe"
+              : "Suas configurações são definidas pelos administradores"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Seletor de Membro (apenas para admins/owners) */}
+          {permissions.canManageAgentSettings && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="member-select">Selecionar Agente</Label>
+                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                  <SelectTrigger id="member-select">
+                    <SelectValue placeholder="Selecione um membro" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((member) => (
+                      <SelectItem key={member.user_id} value={member.user_id}>
+                        {member.full_name} {member.user_id === currentUserId && "(Você)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Separator />
+            </>
+          )}
+
+          {/* Mensagem informativa para members */}
+          {isReadOnly && (
+            <>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Suas configurações são definidas pelos administradores da organização.
+                </AlertDescription>
+              </Alert>
+              <Separator />
+            </>
+          )}
           {/* Status de Participação */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
@@ -162,6 +278,7 @@ export function AgentDistributionSettings() {
               id="is_active"
               checked={settings.is_active}
               onCheckedChange={(checked) => setSettings({ ...settings, is_active: checked })}
+              disabled={isReadOnly}
             />
           </div>
 
@@ -198,6 +315,7 @@ export function AgentDistributionSettings() {
               min="1"
               value={settings.max_capacity}
               onChange={(e) => setSettings({ ...settings, max_capacity: parseInt(e.target.value) })}
+              disabled={isReadOnly}
             />
             <p className="text-sm text-muted-foreground">
               Número máximo de leads ativos que você pode ter simultaneamente
@@ -216,6 +334,7 @@ export function AgentDistributionSettings() {
               max="10"
               value={settings.priority_weight}
               onChange={(e) => setSettings({ ...settings, priority_weight: parseInt(e.target.value) })}
+              disabled={isReadOnly}
             />
             <p className="text-sm text-muted-foreground">
               Peso para distribuição ponderada. Maior valor = mais leads recebidos
@@ -240,6 +359,7 @@ export function AgentDistributionSettings() {
                 id="is_paused"
                 checked={settings.is_paused}
                 onCheckedChange={(checked) => setSettings({ ...settings, is_paused: checked })}
+                disabled={isReadOnly}
               />
             </div>
 
@@ -252,6 +372,7 @@ export function AgentDistributionSettings() {
                     placeholder="Ex: Férias, reunião importante, etc."
                     value={settings.pause_reason || ''}
                     onChange={(e) => setSettings({ ...settings, pause_reason: e.target.value })}
+                    disabled={isReadOnly}
                   />
                 </div>
 
@@ -262,6 +383,7 @@ export function AgentDistributionSettings() {
                     type="datetime-local"
                     value={settings.pause_until || ''}
                     onChange={(e) => setSettings({ ...settings, pause_until: e.target.value })}
+                    disabled={isReadOnly}
                   />
                   <p className="text-xs text-muted-foreground">
                     Deixe vazio para pausar indefinidamente
@@ -271,12 +393,14 @@ export function AgentDistributionSettings() {
             )}
           </div>
 
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? "Salvando..." : "Salvar Configurações"}
-            </Button>
-          </div>
+          {!isReadOnly && (
+            <div className="flex justify-end pt-4">
+              <Button onClick={handleSave} disabled={saving}>
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? "Salvando..." : "Salvar Configurações"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
