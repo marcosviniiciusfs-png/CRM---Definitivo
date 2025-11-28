@@ -311,9 +311,9 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
         </DialogContent>
       </Dialog>
 
-      {/* Sheet de Detalhes */}
+      {/* Sheet de Detalhes - z-index maior para aparecer sobre o Dialog */}
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto !z-[100]" style={{ zIndex: 100 }}>
           <SheetHeader>
             <SheetTitle>Detalhes da Execução</SheetTitle>
             <SheetDescription>
