@@ -243,7 +243,8 @@ const Chat = () => {
       setSelectedLead(location.state.selectedLead);
     }
 
-    // Configurar realtime para atualizações automáticas
+    // Otimizado: debouncing em realtime para evitar recargas excessivas
+    let reloadTimeout: NodeJS.Timeout;
     const leadsChannel = supabase
       .channel('leads-changes')
       .on(
@@ -289,7 +290,10 @@ const Chat = () => {
         },
         () => {
           console.log('➕ Novo lead criado, recarregando lista');
-          loadLeads();
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => {
+            loadLeads();
+          }, 500);
         }
       )
       .on(
@@ -301,7 +305,10 @@ const Chat = () => {
         },
         () => {
           console.log('🗑️ Lead deletado, recarregando lista');
-          loadLeads();
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => {
+            loadLeads();
+          }, 500);
         }
       )
       .subscribe();
@@ -377,6 +384,7 @@ const Chat = () => {
     // e atualiza automaticamente o last_message_at através do banco
 
     return () => {
+      clearTimeout(reloadTimeout);
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(tagAssignmentsChannel);
@@ -834,10 +842,13 @@ const Chat = () => {
   const loadLeads = async () => {
     setLoading(true);
     try {
+      // Otimizado: selecionar apenas campos necessários
       const { data, error } = await supabase
         .from("leads")
-        .select("*")
-        .order("updated_at", { ascending: false });
+        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, created_at, updated_at")
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .order("updated_at", { ascending: false })
+        .limit(300); // Limitar para performance
 
       if (error) throw error;
       const leadsData = data || [];

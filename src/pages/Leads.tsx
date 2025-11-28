@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -89,7 +89,8 @@ const Leads = () => {
   useEffect(() => {
     loadLeads();
 
-    // Configurar realtime para atualizações automáticas
+    // Otimizado: debouncing em realtime para evitar recargas excessivas
+    let reloadTimeout: NodeJS.Timeout;
     const channel = supabase
       .channel('leads-changes')
       .on(
@@ -100,12 +101,16 @@ const Leads = () => {
           table: 'leads'
         },
         () => {
-          loadLeads();
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => {
+            loadLeads();
+          }, 500); // Aguardar 500ms antes de recarregar
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(reloadTimeout);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -113,10 +118,12 @@ const Leads = () => {
   const loadLeads = async () => {
     setLoading(true);
     try {
+      // Otimizado: selecionar apenas campos necessários
       const { data, error } = await supabase
         .from("leads")
-        .select("*")
-        .order("updated_at", { ascending: false });
+        .select("id, nome_lead, email, telefone_lead, responsavel, stage, source, valor, updated_at, created_at")
+        .order("updated_at", { ascending: false })
+        .limit(500); // Limitar quantidade inicial
 
       if (error) throw error;
       setLeads(data || []);
@@ -141,38 +148,41 @@ const Leads = () => {
     }
   };
 
-  const filteredLeads = leads
-    .filter((lead) => {
-      const matchesSearch =
-        lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.telefone_lead.includes(searchQuery) ||
-        (lead.email || "").toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
-      const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
-      
-      // Membros só veem leads onde são responsáveis
-      const matchesResponsible = permissions.canViewAllLeads || 
-        (userProfile?.full_name && lead.responsavel === userProfile.full_name);
-      
-      return matchesSearch && matchesStatus && matchesSource && matchesResponsible;
-    })
-    .sort((a, b) => {
-      let aValue: any = a[sortColumn] || "";
-      let bValue: any = b[sortColumn] || "";
-      
-      if (sortColumn === "valor") {
-        aValue = parseFloat(aValue) || 0;
-        bValue = parseFloat(bValue) || 0;
-      } else {
-        aValue = String(aValue).toLowerCase();
-        bValue = String(bValue).toLowerCase();
-      }
-      
-      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
-      return 0;
-    });
+  // Otimizado: useMemo para evitar recalcular filtros a cada render
+  const filteredLeads = useMemo(() => {
+    return leads
+      .filter((lead) => {
+        const matchesSearch =
+          lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          lead.telefone_lead.includes(searchQuery) ||
+          (lead.email || "").toLowerCase().includes(searchQuery.toLowerCase());
+        
+        const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
+        const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
+        
+        // Membros só veem leads onde são responsáveis
+        const matchesResponsible = permissions.canViewAllLeads || 
+          (userProfile?.full_name && lead.responsavel === userProfile.full_name);
+        
+        return matchesSearch && matchesStatus && matchesSource && matchesResponsible;
+      })
+      .sort((a, b) => {
+        let aValue: any = a[sortColumn] || "";
+        let bValue: any = b[sortColumn] || "";
+        
+        if (sortColumn === "valor") {
+          aValue = parseFloat(aValue) || 0;
+          bValue = parseFloat(bValue) || 0;
+        } else {
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        
+        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+  }, [leads, searchQuery, statusFilter, sourceFilter, sortColumn, sortOrder, permissions.canViewAllLeads, userProfile?.full_name]);
 
   const formatCurrency = (value: number | string) => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value;

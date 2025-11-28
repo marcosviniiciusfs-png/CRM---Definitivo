@@ -109,64 +109,42 @@ const LeadMetrics = () => {
       // Obter período selecionado
       const { startDate, endDate } = getDateRange();
 
-      // Buscar leads do Facebook
-      const { data: facebookLeads } = await supabase
-        .from('leads')
-        .select('created_at')
-        .eq('organization_id', orgMember.organization_id)
-        .eq('source', 'Facebook Leads')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: true });
+      // Otimizado: buscar ambos os canais em paralelo
+      const [facebookResult, whatsappResult] = await Promise.all([
+        supabase
+          .from('leads')
+          .select('created_at')
+          .eq('organization_id', orgMember.organization_id)
+          .eq('source', 'Facebook Leads')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('leads')
+          .select('created_at')
+          .eq('organization_id', orgMember.organization_id)
+          .eq('source', 'WhatsApp')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true })
+      ]);
 
-      // Buscar leads do WhatsApp
-      const { data: whatsappLeads } = await supabase
-        .from('leads')
-        .select('created_at')
-        .eq('organization_id', orgMember.organization_id)
-        .eq('source', 'WhatsApp')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: true });
-
-      // Processar dados do Facebook
-      if (facebookLeads && facebookLeads.length > 0) {
-        setFacebookMetrics(processMetrics(facebookLeads));
+      // Processar Facebook
+      if (facebookResult.data && facebookResult.data.length > 0) {
+        setFacebookMetrics(processMetrics(facebookResult.data));
         await loadFacebookAdvancedMetrics(orgMember.organization_id, startDate, endDate);
       } else {
-        // Sem dados no período, zerar métricas
-        setFacebookMetrics({
-          total: 0,
-          growthRate: '0',
-          chartData: [],
-          lastWeekTotal: 0,
-          thisWeekTotal: 0
-        });
-        setFacebookAdvanced({
-          mqlConversionRate: 0,
-          discardRate: 0,
-          leadsByForm: []
-        });
+        setFacebookMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
+        setFacebookAdvanced({ mqlConversionRate: 0, discardRate: 0, leadsByForm: [] });
       }
 
-      // Processar dados do WhatsApp
-      if (whatsappLeads && whatsappLeads.length > 0) {
-        setWhatsappMetrics(processMetrics(whatsappLeads));
+      // Processar WhatsApp
+      if (whatsappResult.data && whatsappResult.data.length > 0) {
+        setWhatsappMetrics(processMetrics(whatsappResult.data));
         await loadWhatsAppAdvancedMetrics(orgMember.organization_id, startDate, endDate);
       } else {
-        // Sem dados no período, zerar métricas
-        setWhatsappMetrics({
-          total: 0,
-          growthRate: '0',
-          chartData: [],
-          lastWeekTotal: 0,
-          thisWeekTotal: 0
-        });
-        setWhatsappAdvanced({
-          responseRate: 0,
-          pipelineConversionRate: 0,
-          avgResponseTimeMinutes: 0
-        });
+        setWhatsappMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
+        setWhatsappAdvanced({ responseRate: 0, pipelineConversionRate: 0, avgResponseTimeMinutes: 0 });
       }
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
