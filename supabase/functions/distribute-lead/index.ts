@@ -96,8 +96,9 @@ serve(async (req) => {
       );
     }
 
-    // 4. Buscar agentes disponíveis
-    const availableAgents = await getAvailableAgents(supabase, organization_id);
+    // 4. Buscar agentes disponíveis (filtrados pelos elegíveis da roleta)
+    const eligibleAgentIds = config.eligible_agents as string[] | null;
+    const availableAgents = await getAvailableAgents(supabase, organization_id, eligibleAgentIds);
     
     if (availableAgents.length === 0) {
       console.log('No available agents found');
@@ -175,8 +176,8 @@ serve(async (req) => {
   }
 });
 
-async function getAvailableAgents(supabase: any, organization_id: string) {
-  const { data: settings, error } = await supabase
+async function getAvailableAgents(supabase: any, organization_id: string, eligibleAgentIds?: string[] | null) {
+  let query = supabase
     .from('agent_distribution_settings')
     .select(`
       *,
@@ -192,6 +193,13 @@ async function getAvailableAgents(supabase: any, organization_id: string) {
     .eq('organization_id', organization_id)
     .eq('is_active', true)
     .eq('is_paused', false);
+
+  // Se há lista de agentes elegíveis, filtrar por ela
+  if (eligibleAgentIds && eligibleAgentIds.length > 0) {
+    query = query.in('user_id', eligibleAgentIds);
+  }
+
+  const { data: settings, error } = await query;
 
   if (error) {
     console.error('Error fetching agent settings:', error);

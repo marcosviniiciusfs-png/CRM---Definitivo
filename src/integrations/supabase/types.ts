@@ -522,6 +522,7 @@ export type Database = {
           created_at: string
           description: string | null
           distribution_method: string
+          eligible_agents: string[] | null
           id: string
           is_active: boolean
           name: string
@@ -537,6 +538,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           distribution_method?: string
+          eligible_agents?: string[] | null
           id?: string
           is_active?: boolean
           name?: string
@@ -552,6 +554,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           distribution_method?: string
+          eligible_agents?: string[] | null
           id?: string
           is_active?: boolean
           name?: string
