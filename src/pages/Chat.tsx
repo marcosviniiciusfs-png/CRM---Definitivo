@@ -320,17 +320,54 @@ const Chat = () => {
           loadAvailableTags();
         }
       )
+      .subscribe();
+
+    // Configurar realtime para mudanças nas atribuições de etiquetas
+    const tagAssignmentsChannel = supabase
+      .channel('tag-assignments-changes')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'lead_tag_assignments'
         },
-        () => {
-          console.log('Atribuição de etiqueta atualizada');
-          // Recarregar leads (que internamente já carrega as etiquetas)
-          loadLeads();
+        (payload) => {
+          console.log('➕ Etiqueta adicionada via realtime:', payload);
+          const assignment = payload.new as { lead_id: string; tag_id: string };
+          
+          // Atualizar leadTagsMap adicionando a nova tag
+          setLeadTagsMap(prev => {
+            const newMap = new Map(prev);
+            const currentTags = newMap.get(assignment.lead_id) || [];
+            if (!currentTags.includes(assignment.tag_id)) {
+              newMap.set(assignment.lead_id, [...currentTags, assignment.tag_id]);
+            }
+            return newMap;
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'lead_tag_assignments'
+        },
+        (payload) => {
+          console.log('🗑️ Etiqueta removida via realtime:', payload);
+          const assignment = payload.old as { lead_id: string; tag_id: string };
+          
+          // Atualizar leadTagsMap removendo a tag
+          setLeadTagsMap(prev => {
+            const newMap = new Map(prev);
+            const currentTags = newMap.get(assignment.lead_id) || [];
+            newMap.set(
+              assignment.lead_id,
+              currentTags.filter(tagId => tagId !== assignment.tag_id)
+            );
+            return newMap;
+          });
         }
       )
       .subscribe();
@@ -342,6 +379,7 @@ const Chat = () => {
     return () => {
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(tagsChannel);
+      supabase.removeChannel(tagAssignmentsChannel);
     };
   }, [location.state]);
 
@@ -1184,9 +1222,7 @@ const Chat = () => {
         description: `${selectedTagsToRemove.length} etiqueta(s) removida(s) com sucesso`,
       });
 
-      // Recarregar dados após remoção bem-sucedida
-      await loadLeadTagsAssignments(leads.map(l => l.id));
-      await loadAvailableTags();
+      // O realtime vai atualizar automaticamente o leadTagsMap
     } catch (error) {
       console.error('Error removing tags:', error);
       toast({
