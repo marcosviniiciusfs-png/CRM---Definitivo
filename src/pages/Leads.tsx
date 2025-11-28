@@ -38,6 +38,8 @@ import {
 import { LeadResponsibleSelect } from "@/components/LeadResponsibleSelect";
 import { AddLeadModal } from "@/components/AddLeadModal";
 import { EditLeadModal } from "@/components/EditLeadModal";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   NOVO: { label: "Novo", color: "bg-blue-500" },
@@ -52,6 +54,8 @@ type SortOrder = "asc" | "desc";
 const Leads = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const permissions = usePermissions();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,6 +67,24 @@ const Leads = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
+  const [userProfile, setUserProfile] = useState<{ full_name: string | null } | null>(null);
+  // Carregar perfil do usuário para filtrar leads de membros
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user || permissions.canViewAllLeads) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+      
+      setUserProfile(data);
+    };
+    
+    loadUserProfile();
+  }, [user, permissions.canViewAllLeads]);
+
   // Carregar leads do Supabase
   useEffect(() => {
     loadLeads();
@@ -129,7 +151,11 @@ const Leads = () => {
       const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
       const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
       
-      return matchesSearch && matchesStatus && matchesSource;
+      // Membros só veem leads onde são responsáveis
+      const matchesResponsible = permissions.canViewAllLeads || 
+        (userProfile?.full_name && lead.responsavel === userProfile.full_name);
+      
+      return matchesSearch && matchesStatus && matchesSource && matchesResponsible;
     })
     .sort((a, b) => {
       let aValue: any = a[sortColumn] || "";
@@ -196,13 +222,15 @@ const Leads = () => {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Gerenciamento de Leads</h1>
           <p className="text-muted-foreground">Gerencie todos os seus leads em um só lugar</p>
         </div>
-        <Button 
-          className="gap-2 bg-primary hover:bg-primary/90"
-          onClick={() => setShowAddModal(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Adicionar Lead
-        </Button>
+        {(permissions.canViewAllLeads) && (
+          <Button 
+            className="gap-2 bg-primary hover:bg-primary/90"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar Lead
+          </Button>
+        )}
       </div>
 
       {/* Filtros e Pesquisa */}
@@ -327,22 +355,28 @@ const Leads = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
-                          <Button 
-                            size="icon" 
-                            variant="ghost"
-                            className="h-8 w-8 text-muted-foreground hover:text-primary"
-                            onClick={() => handleEditLead(lead)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => setLeadToDelete(lead)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {permissions.canViewAllLeads && (
+                            <>
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                onClick={() => handleEditLead(lead)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              {permissions.canDeleteLeads && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setLeadToDelete(lead)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface DistributionConfig {
   id: string;
@@ -24,6 +25,7 @@ interface DistributionConfig {
 
 export function LeadDistributionList() {
   const { user } = useAuth();
+  const permissions = usePermissions();
   const queryClient = useQueryClient();
   const [editingConfig, setEditingConfig] = useState<DistributionConfig | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -195,17 +197,19 @@ export function LeadDistributionList() {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (confirm("Tem certeza que deseja excluir esta roleta?")) {
-                          deleteMutation.mutate(config.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {permissions.canDeleteRoulettes && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm("Tem certeza que deseja excluir esta roleta?")) {
+                            deleteMutation.mutate(config.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>

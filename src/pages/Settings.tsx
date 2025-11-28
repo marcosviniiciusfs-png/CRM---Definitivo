@@ -449,15 +449,20 @@ const Settings = () => {
         <p className="text-muted-foreground">Gerencie as configurações da sua conta e integrações</p>
       </div>
 
-      <Tabs defaultValue="integracoes" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
-          <TabsTrigger value="equipe">Equipe</TabsTrigger>
+      <Tabs defaultValue={canManageIntegrations ? "integracoes" : "perfil"} className="w-full">
+        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${canManageIntegrations ? 4 : 2}, 1fr)` }}>
+          {canManageIntegrations && (
+            <>
+              <TabsTrigger value="integracoes">Integrações</TabsTrigger>
+              <TabsTrigger value="equipe">Equipe</TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
           <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="integracoes" className="space-y-6 mt-6">
+        {canManageIntegrations && (
+          <TabsContent value="integracoes" className="space-y-6 mt-6">
           {canManageIntegrations ? (
             <>
               <WhatsAppConnection />
@@ -638,21 +643,23 @@ const Settings = () => {
             <WhatsAppStatus />
           )}
         </TabsContent>
+      )}
 
-
-        <TabsContent value="equipe" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Gerenciar Equipe
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Funcionalidade em desenvolvimento</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {canManageIntegrations && (
+          <TabsContent value="equipe" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Gerenciar Equipe
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Funcionalidade em desenvolvimento</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="perfil" className="space-y-6 mt-6">
           <Card>
