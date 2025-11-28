@@ -11,9 +11,10 @@ interface LeadTag {
 
 interface LeadTagsBadgeProps {
   leadId: string;
+  version?: string;
 }
 
-export function LeadTagsBadge({ leadId }: LeadTagsBadgeProps) {
+export function LeadTagsBadge({ leadId, version }: LeadTagsBadgeProps) {
   const [tags, setTags] = useState<LeadTag[]>([]);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export function LeadTagsBadge({ leadId }: LeadTagsBadgeProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [leadId]);
+  }, [leadId, version]);
 
   const loadTags = async () => {
     try {

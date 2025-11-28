@@ -1217,6 +1217,17 @@ const Chat = () => {
 
       if (error) throw error;
 
+      // Atualizar estado local imediatamente para refletir remoção
+      setLeadTagsMap(prev => {
+        const newMap = new Map(prev);
+        const current = newMap.get(leadToRemoveTags) || [];
+        newMap.set(
+          leadToRemoveTags,
+          current.filter(id => !selectedTagsToRemove.includes(id))
+        );
+        return newMap;
+      });
+
       toast({
         title: "Etiquetas removidas",
         description: `${selectedTagsToRemove.length} etiqueta(s) removida(s) com sucesso`,
@@ -1978,7 +1989,7 @@ const Chat = () => {
                     <span className="text-xs text-green-600 dark:text-green-400 font-medium flex-shrink-0 whitespace-nowrap">Online</span>
                   )}
                   <div className="flex-shrink-0 flex gap-1">
-                    <LeadTagsBadge leadId={lead.id} />
+                    <LeadTagsBadge leadId={lead.id} version={(leadTagsMap.get(lead.id) || []).join(',')} />
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1 truncate">
@@ -2243,7 +2254,7 @@ const Chat = () => {
                                         <span className="text-xs text-green-600 dark:text-green-400 font-medium flex-shrink-0 whitespace-nowrap">Online</span>
                                       )}
                                       <div className="flex-shrink-0 flex gap-1">
-                                        <LeadTagsBadge leadId={lead.id} />
+                                        <LeadTagsBadge leadId={lead.id} version={(leadTagsMap.get(lead.id) || []).join(',')} />
                                       </div>
                                     </div>
                                     <p className="text-sm text-muted-foreground flex items-center gap-1 truncate">
