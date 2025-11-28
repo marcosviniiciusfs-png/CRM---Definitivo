@@ -27,7 +27,7 @@ export default function LeadDistribution() {
           )}
           <TabsTrigger value="agent" className="flex items-center gap-2">
             <User className="h-4 w-4" />
-            Minhas Preferências
+            {permissions.canManageAgentSettings ? "Configurar Agentes" : "Minhas Preferências"}
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
