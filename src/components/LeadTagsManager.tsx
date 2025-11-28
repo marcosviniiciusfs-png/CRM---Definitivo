@@ -35,6 +35,41 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
   useEffect(() => {
     loadLeadTags();
     loadAvailableTags();
+
+    // Configurar realtime para mudanças nas etiquetas deste lead
+    const channel = supabase
+      .channel(`lead-tags-${leadId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'lead_tag_assignments',
+          filter: `lead_id=eq.${leadId}`
+        },
+        (payload) => {
+          console.log('➕ Etiqueta adicionada ao lead:', payload);
+          loadLeadTags();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'lead_tag_assignments',
+          filter: `lead_id=eq.${leadId}`
+        },
+        (payload) => {
+          console.log('🗑️ Etiqueta removida do lead:', payload);
+          loadLeadTags();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [leadId]);
 
   const loadLeadTags = async () => {
