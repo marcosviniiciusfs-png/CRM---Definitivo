@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 interface DistributionConfig {
@@ -22,6 +23,7 @@ interface DistributionConfig {
   triggers: any;
   auto_redistribute: boolean;
   redistribution_timeout_minutes?: number;
+  eligible_agents?: string[];
 }
 
 interface LeadDistributionConfigModalProps {
@@ -48,6 +50,37 @@ export function LeadDistributionConfigModal({
     triggers: ["new_lead"],
     auto_redistribute: false,
     redistribution_timeout_minutes: 60,
+    eligible_agents: [] as string[],
+  });
+
+  // Buscar membros da organização
+  const { data: members } = useQuery({
+    queryKey: ["organization-members", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data: orgMembers, error: membersError } = await supabase
+        .from("organization_members")
+        .select("user_id, email")
+        .eq("organization_id", organizationId)
+        .not("user_id", "is", null);
+      
+      if (membersError) throw membersError;
+      if (!orgMembers) return [];
+
+      // Buscar profiles separadamente
+      const userIds = orgMembers.map(m => m.user_id!);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", userIds);
+
+      // Combinar dados
+      return orgMembers.map(member => ({
+        ...member,
+        full_name: profiles?.find(p => p.user_id === member.user_id)?.full_name
+      }));
+    },
+    enabled: !!organizationId,
   });
 
   useEffect(() => {
@@ -62,6 +95,7 @@ export function LeadDistributionConfigModal({
         triggers: Array.isArray(config.triggers) ? config.triggers : ["new_lead"],
         auto_redistribute: config.auto_redistribute,
         redistribution_timeout_minutes: config.redistribution_timeout_minutes || 60,
+        eligible_agents: config.eligible_agents || [],
       });
     } else {
       setFormData({
@@ -74,6 +108,7 @@ export function LeadDistributionConfigModal({
         triggers: ["new_lead"],
         auto_redistribute: false,
         redistribution_timeout_minutes: 60,
+        eligible_agents: [],
       });
     }
   }, [config, open]);
@@ -225,6 +260,58 @@ export function LeadDistributionConfigModal({
               />
             </div>
           )}
+
+          <Separator />
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Membros Elegíveis</Label>
+              <p className="text-sm text-muted-foreground">
+                Selecione quais colaboradores podem receber leads desta roleta.
+                Se nenhum for selecionado, todos os membros ativos serão elegíveis.
+              </p>
+            </div>
+            
+            <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+              {members && members.length > 0 ? (
+                members.map((member) => (
+                  <div key={member.user_id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`member-${member.user_id}`}
+                      checked={formData.eligible_agents.includes(member.user_id!)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData({
+                            ...formData,
+                            eligible_agents: [...formData.eligible_agents, member.user_id!],
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            eligible_agents: formData.eligible_agents.filter(
+                              (id) => id !== member.user_id
+                            ),
+                          });
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`member-${member.user_id}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {member.full_name || member.email}
+                    </label>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum membro encontrado
+                </p>
+              )}
+            </div>
+          </div>
+
+          <Separator />
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
