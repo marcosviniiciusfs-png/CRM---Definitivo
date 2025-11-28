@@ -58,7 +58,7 @@ export const FunnelConfigDialog = ({
         .from("organization_members")
         .select("organization_id")
         .eq("user_id", user?.id)
-        .single();
+        .maybeSingle();
 
       if (!orgData) {
         toast.error("Organização não encontrada");
@@ -78,7 +78,8 @@ export const FunnelConfigDialog = ({
           .eq("id", funnel.id);
 
         if (error) throw error;
-        toast.success("Funil atualizado com sucesso!");
+        toast.success("Funil atualizado!");
+        onSuccess();
       } else {
         // Criar novo funil
         const { data: newFunnel, error } = await supabase
@@ -95,10 +96,9 @@ export const FunnelConfigDialog = ({
 
         if (error) throw error;
         setFunnelId(newFunnel.id);
-        toast.success("Funil criado com sucesso!");
+        toast.success("Funil criado! Agora configure as etapas.");
+        // NÃO chamar onSuccess aqui para manter o modal aberto
       }
-
-      onSuccess();
     } catch (error) {
       console.error("Erro ao salvar funil:", error);
       toast.error("Erro ao salvar funil");
@@ -116,14 +116,14 @@ export const FunnelConfigDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="info" className="w-full">
+        <Tabs defaultValue="info" className="w-full" value={funnelId ? undefined : "info"}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="info">Informações</TabsTrigger>
             <TabsTrigger value="stages" disabled={!funnelId}>
-              Etapas ({funnelId ? "configurar" : "salve primeiro"})
+              Etapas {!funnelId && "(salve primeiro)"}
             </TabsTrigger>
             <TabsTrigger value="sources" disabled={!funnelId}>
-              Origens ({funnelId ? "mapear" : "salve primeiro"})
+              Origens {!funnelId && "(salve primeiro)"}
             </TabsTrigger>
           </TabsList>
 
@@ -160,11 +160,18 @@ export const FunnelConfigDialog = ({
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
+              {funnelId && (
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Concluir
+                </Button>
+              )}
+              {!funnelId && (
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+              )}
               <Button onClick={handleSave} disabled={loading}>
-                {loading ? "Salvando..." : funnel ? "Atualizar" : "Criar Funil"}
+                {loading ? "Salvando..." : funnelId ? "Atualizar" : "Criar e Configurar"}
               </Button>
             </div>
           </TabsContent>

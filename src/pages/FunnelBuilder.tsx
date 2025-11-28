@@ -48,7 +48,7 @@ const FunnelBuilder = () => {
         .from("organization_members")
         .select("organization_id")
         .eq("user_id", user?.id)
-        .single();
+        .maybeSingle();
 
       if (!orgData) return;
 
