@@ -1933,11 +1933,11 @@ const Chat = () => {
               <div className="flex-1 text-left overflow-hidden min-w-0">
                 <div className="flex items-center gap-1.5 min-w-0 w-full">
                   <Pin className="h-3 w-3 text-primary fill-primary flex-shrink-0" />
-                  <p className="font-medium truncate flex-1 min-w-0">{lead.nome_lead}</p>
+                  <p className="font-medium truncate min-w-0 max-w-[45%]">{lead.nome_lead}</p>
                   {presenceStatus.get(lead.id)?.isOnline && (
                     <span className="text-xs text-green-600 dark:text-green-400 font-medium flex-shrink-0 whitespace-nowrap">Online</span>
                   )}
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex gap-1">
                     <LeadTagsBadge leadId={lead.id} />
                   </div>
                 </div>
@@ -2198,11 +2198,11 @@ const Chat = () => {
                                   </div>
                                   <div className="flex-1 text-left overflow-hidden min-w-0">
                                     <div className="flex items-center gap-1.5 min-w-0 w-full">
-                                      <p className="font-medium truncate flex-1 min-w-0">{lead.nome_lead}</p>
+                                      <p className="font-medium truncate min-w-0 max-w-[45%]">{lead.nome_lead}</p>
                                       {presenceStatus.get(lead.id)?.isOnline && (
                                         <span className="text-xs text-green-600 dark:text-green-400 font-medium flex-shrink-0 whitespace-nowrap">Online</span>
                                       )}
-                                      <div className="flex-shrink-0">
+                                      <div className="flex-shrink-0 flex gap-1">
                                         <LeadTagsBadge leadId={lead.id} />
                                       </div>
                                     </div>
