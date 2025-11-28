@@ -6,7 +6,9 @@ export interface Lead {
   updated_at: string;
   last_message_at?: string;
   source?: string;
-  stage?: string;
+  stage?: string; // Legado - manter por compatibilidade
+  funnel_id?: string | null;
+  funnel_stage_id?: string | null;
   email?: string;
   empresa?: string;
   valor?: number;
