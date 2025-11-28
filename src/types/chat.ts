@@ -16,6 +16,8 @@ export interface Lead {
   descricao_negocio?: string;
   is_online?: boolean | null;
   last_seen?: string | null;
+  funnel_id?: string | null;
+  funnel_stage_id?: string | null;
 }
 
 export interface MessageReaction {

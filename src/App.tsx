@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Pipeline from "./pages/Pipeline";
+import FunnelBuilder from "./pages/FunnelBuilder";
 import Leads from "./pages/Leads";
 import LeadDetails from "./pages/LeadDetails";
 import LeadMetrics from "./pages/LeadMetrics";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><FunnelBuilder /></DashboardLayout></ProtectedRoute>} />
             <Route path="/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
             <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LeadDetails /></DashboardLayout></ProtectedRoute>} />
             <Route path="/lead-metrics" element={<ProtectedRoute><DashboardLayout><LeadMetrics /></DashboardLayout></ProtectedRoute>} />
