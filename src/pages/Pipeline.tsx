@@ -148,13 +148,10 @@ const Pipeline = () => {
 
         // Criar etapas padrão
         const defaultStages = [
-          { name: "Novo", color: "#3B82F6", icon: "UserPlus", position: 0, stage_type: "new" },
-          { name: "Contato Feito", color: "#8B5CF6", icon: "Phone", position: 1, stage_type: "contacted" },
-          { name: "Qualificado", color: "#EC4899", icon: "CheckCircle", position: 2, stage_type: "qualified" },
-          { name: "Proposta", color: "#F59E0B", icon: "FileText", position: 3, stage_type: "proposal" },
-          { name: "Negociação", color: "#10B981", icon: "MessageSquare", position: 4, stage_type: "negotiation" },
-          { name: "Ganho", color: "#22C55E", icon: "Trophy", position: 5, stage_type: "won", is_final: true },
-          { name: "Perdido", color: "#EF4444", icon: "XCircle", position: 6, stage_type: "lost", is_final: true }
+          { name: "Novo lead", color: "#3B82F6", icon: "UserPlus", position: 0, stage_type: "new" },
+          { name: "Em Atendimento", color: "#8B5CF6", icon: "MessageSquare", position: 1, stage_type: "contacted" },
+          { name: "Fechamento", color: "#22C55E", icon: "Trophy", position: 2, stage_type: "won", is_final: true },
+          { name: "Perdido", color: "#EF4444", icon: "XCircle", position: 3, stage_type: "lost", is_final: true }
         ];
 
         const stagesInsert = defaultStages.map(stage => ({
