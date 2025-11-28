@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Settings2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Etapas padrão (quando não há funil customizado)
 const DEFAULT_STAGES = [
@@ -33,10 +34,11 @@ const Pipeline = () => {
   const [stages, setStages] = useState<any[]>(DEFAULT_STAGES);
   const [usingCustomFunnel, setUsingCustomFunnel] = useState(false);
   const [activeFunnel, setActiveFunnel] = useState<any>(null);
+  const [allFunnels, setAllFunnels] = useState<any[]>([]);
+  const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
 
   useEffect(() => {
     loadFunnel();
-    loadLeads();
     
     // Inicializar áudio de notificação
     audioRef.current = new Audio("/notification.mp3");
@@ -80,6 +82,18 @@ const Pipeline = () => {
     };
   }, []);
 
+  // Carregar funil quando selectedFunnelId mudar
+  useEffect(() => {
+    loadFunnel();
+  }, [selectedFunnelId]);
+
+  // Recarregar leads quando o funil ativo mudar
+  useEffect(() => {
+    if (activeFunnel) {
+      loadLeads();
+    }
+  }, [activeFunnel?.id]);
+
   const loadFunnel = async () => {
     try {
       const { data: orgData } = await supabase
@@ -90,8 +104,8 @@ const Pipeline = () => {
 
       if (!orgData) return;
 
-      // Buscar funil ativo ou padrão
-      const { data: funnel, error } = await supabase
+      // Buscar TODOS os funis ativos
+      const { data: funnels, error } = await supabase
         .from("sales_funnels")
         .select(`
           *,
@@ -100,19 +114,34 @@ const Pipeline = () => {
         .eq("organization_id", orgData.organization_id)
         .eq("is_active", true)
         .order("is_default", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
-      if (error || !funnel || !funnel.stages || funnel.stages.length === 0) {
+      if (error || !funnels || funnels.length === 0) {
         // Usar etapas padrão se não houver funil customizado
+        setStages(DEFAULT_STAGES);
+        setUsingCustomFunnel(false);
+        setActiveFunnel(null);
+        setAllFunnels([]);
+        return;
+      }
+
+      // Armazenar todos os funis
+      setAllFunnels(funnels);
+
+      // Selecionar o primeiro funil (padrão) se nenhum estiver selecionado
+      const funnelToActivate = selectedFunnelId
+        ? funnels.find((f) => f.id === selectedFunnelId) || funnels[0]
+        : funnels[0];
+
+      if (!funnelToActivate.stages || funnelToActivate.stages.length === 0) {
         setStages(DEFAULT_STAGES);
         setUsingCustomFunnel(false);
         setActiveFunnel(null);
         return;
       }
 
-      // Usar funil customizado
-      const customStages = funnel.stages
+      // Usar funil selecionado
+      const customStages = funnelToActivate.stages
         .sort((a, b) => a.position - b.position)
         .map((stage) => ({
           id: stage.id,
@@ -124,7 +153,8 @@ const Pipeline = () => {
 
       setStages(customStages);
       setUsingCustomFunnel(true);
-      setActiveFunnel(funnel);
+      setActiveFunnel(funnelToActivate);
+      setSelectedFunnelId(funnelToActivate.id);
     } catch (error) {
       console.error("Erro ao carregar funil:", error);
       setStages(DEFAULT_STAGES);
@@ -433,9 +463,7 @@ const Pipeline = () => {
               Pipeline de Vendas
             </h1>
             <p className="text-muted-foreground mt-1">
-              {usingCustomFunnel && activeFunnel
-                ? `Funil: ${activeFunnel.name} - Arraste e solte os cards`
-                : "Arraste e solte os cards para mover leads entre as etapas"}
+              Arraste e solte os cards para mover leads entre as etapas
             </p>
           </div>
           <Button
@@ -447,24 +475,72 @@ const Pipeline = () => {
           </Button>
         </div>
 
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {stages.map((stage) => {
-            const stageLeads = getLeadsByStage(stage.id);
-            return (
-              <PipelineColumn
-                key={stage.id}
-                id={stage.id}
-                title={stage.title}
-                count={stageLeads.length}
-                color={stage.color}
-                leads={stageLeads}
-                isEmpty={stageLeads.length === 0}
-                onLeadUpdate={loadLeads}
-                onEdit={setEditingLead}
-              />
-            );
-          })}
-        </div>
+        {allFunnels.length > 0 ? (
+          <Tabs
+            value={selectedFunnelId || allFunnels[0]?.id}
+            onValueChange={(value) => {
+              setSelectedFunnelId(value);
+            }}
+            className="w-full"
+          >
+            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+              {allFunnels.map((funnel) => (
+                <TabsTrigger
+                  key={funnel.id}
+                  value={funnel.id}
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3"
+                >
+                  {funnel.name}
+                  {funnel.is_default && (
+                    <span className="ml-2 text-xs text-muted-foreground">(Padrão)</span>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {allFunnels.map((funnel) => (
+              <TabsContent key={funnel.id} value={funnel.id} className="mt-6">
+                <div className="flex gap-3 overflow-x-auto pb-4">
+                  {stages.map((stage) => {
+                    const stageLeads = getLeadsByStage(stage.id);
+                    return (
+                      <PipelineColumn
+                        key={stage.id}
+                        id={stage.id}
+                        title={stage.title}
+                        count={stageLeads.length}
+                        color={stage.color}
+                        leads={stageLeads}
+                        isEmpty={stageLeads.length === 0}
+                        onLeadUpdate={loadLeads}
+                        onEdit={setEditingLead}
+                      />
+                    );
+                  })}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-4">
+            {stages.map((stage) => {
+              const stageLeads = getLeadsByStage(stage.id);
+              return (
+                <PipelineColumn
+                  key={stage.id}
+                  id={stage.id}
+                  title={stage.title}
+                  count={stageLeads.length}
+                  color={stage.color}
+                  leads={stageLeads}
+                  isEmpty={stageLeads.length === 0}
+                  onLeadUpdate={loadLeads}
+                  onEdit={setEditingLead}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <DragOverlay>
