@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { format, subDays, subHours } from "date-fns";
+import { format, subDays, subHours, startOfDay, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Activity, CheckCircle2, XCircle, AlertCircle, Eye } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   Sheet,
   SheetContent,
@@ -129,6 +130,44 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
 
   const successRate = metrics.total > 0 ? (metrics.success / metrics.total) * 100 : 0;
 
+  // Processar dados para o gráfico
+  const chartData = useMemo(() => {
+    if (!logs || logs.length === 0) return [];
+
+    const startDate = getDateFromPeriod(period);
+    const endDate = new Date();
+
+    // Criar array de todos os dias no intervalo
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
+
+    // Agrupar logs por dia
+    const logsByDay = logs.reduce((acc, log) => {
+      const day = format(startOfDay(new Date(log.created_at)), 'yyyy-MM-dd');
+      acc[day] = (acc[day] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Criar dados do gráfico
+    return days.map(day => ({
+      date: format(day, 'dd/MMM', { locale: ptBR }),
+      executions: logsByDay[format(day, 'yyyy-MM-dd')] || 0,
+    }));
+  }, [logs, period]);
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+          <p className="text-sm font-medium">{payload[0].payload.date}</p>
+          <p className="text-sm text-muted-foreground">
+            {payload[0].value} execuções
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "success":
@@ -200,6 +239,55 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
               </CardContent>
             </Card>
           </div>
+
+          {/* Gráfico de Área */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Execuções ao Longo do Tempo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="executions-gradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                    <XAxis
+                      dataKey="date"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => value.toString()}
+                    />
+                    <RechartsTooltip content={<CustomTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="executions"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill="url(#executions-gradient)"
+                      animationDuration={1000}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  Nenhum dado disponível para o período selecionado
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Filtros */}
           <div className="flex flex-wrap gap-4">
