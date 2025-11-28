@@ -181,7 +181,23 @@ export const FunnelConfigDialog = ({
           </TabsContent>
 
           <TabsContent value="sources" className="mt-4">
-            {funnelId && <FunnelSourceMapping funnelId={funnelId} />}
+            {funnelId && (
+              <div className="space-y-4">
+                <FunnelSourceMapping funnelId={funnelId} />
+                <div className="flex justify-end pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      toast.success("Funil criado com sucesso!");
+                      onSuccess();
+                      onOpenChange(false);
+                    }}
+                    size="lg"
+                  >
+                    Criar Funil
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
