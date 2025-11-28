@@ -293,9 +293,6 @@ async function executeAction(
             throw new Error(`sendPresence failed: ${responseBody}`);
           }
 
-          // Aguardar o mesmo tempo para sincronizar com próxima ação
-          await new Promise(resolve => setTimeout(resolve, durationMs));
-
           return { typing_enabled: true, duration_seconds: durationSeconds };
         } catch (error: any) {
           console.error('Error setting typing status:', error);
