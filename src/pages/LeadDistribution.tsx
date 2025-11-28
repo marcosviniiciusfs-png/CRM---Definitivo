@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LeadDistributionConfig } from "@/components/LeadDistributionConfig";
+import { LeadDistributionList } from "@/components/LeadDistributionList";
 import { AgentDistributionSettings } from "@/components/AgentDistributionSettings";
 import { DistributionHistory } from "@/components/DistributionHistory";
 import { Settings2, User, History } from "lucide-react";
@@ -18,7 +18,7 @@ export default function LeadDistribution() {
         <TabsList>
           <TabsTrigger value="config" className="flex items-center gap-2">
             <Settings2 className="h-4 w-4" />
-            Configuração Geral
+            Roletas
           </TabsTrigger>
           <TabsTrigger value="agent" className="flex items-center gap-2">
             <User className="h-4 w-4" />
@@ -31,7 +31,7 @@ export default function LeadDistribution() {
         </TabsList>
 
         <TabsContent value="config">
-          <LeadDistributionConfig />
+          <LeadDistributionList />
         </TabsContent>
 
         <TabsContent value="agent">

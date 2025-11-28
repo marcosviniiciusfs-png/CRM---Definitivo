@@ -29,22 +29,64 @@ serve(async (req) => {
 
     console.log('Distributing lead:', { lead_id, organization_id, trigger_source });
 
-    // 1. Buscar configuração da roleta
-    const { data: config, error: configError } = await supabase
+    // 1. Buscar lead para identificar o source
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('source')
+      .eq('id', lead_id)
+      .single();
+
+    if (leadError || !lead) {
+      console.log('Lead not found');
+      return new Response(
+        JSON.stringify({ success: false, message: 'Lead not found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
+    }
+
+    // 2. Buscar configuração específica da roleta baseada no source do lead
+    const leadSource = lead.source?.toLowerCase() || '';
+    let sourceType = 'all';
+    
+    if (leadSource.includes('whatsapp')) {
+      sourceType = 'whatsapp';
+    } else if (leadSource.includes('facebook')) {
+      sourceType = 'facebook';
+    } else if (leadSource.includes('webhook') || leadSource.includes('formulário')) {
+      sourceType = 'webhook';
+    }
+
+    // Tentar buscar config específica para o source, senão buscar config 'all'
+    let { data: config, error: configError } = await supabase
       .from('lead_distribution_configs')
       .select('*')
       .eq('organization_id', organization_id)
-      .single();
+      .eq('source_type', sourceType)
+      .eq('is_active', true)
+      .maybeSingle();
 
-    if (configError || !config || !config.is_active) {
-      console.log('Distribution not active or config not found');
+    // Se não encontrou config específica, buscar config 'all'
+    if (!config) {
+      const { data: allConfig } = await supabase
+        .from('lead_distribution_configs')
+        .select('*')
+        .eq('organization_id', organization_id)
+        .eq('source_type', 'all')
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      config = allConfig;
+    }
+
+    if (!config) {
+      console.log('No active distribution config found for source:', sourceType);
       return new Response(
         JSON.stringify({ success: false, message: 'Distribution not configured or not active' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 2. Verificar se o trigger_source está habilitado
+    // 3. Verificar se o trigger_source está habilitado
     const triggers = config.triggers as string[];
     if (!triggers.includes(trigger_source)) {
       console.log('Trigger source not enabled:', trigger_source);
@@ -54,7 +96,7 @@ serve(async (req) => {
       );
     }
 
-    // 3. Buscar agentes disponíveis
+    // 4. Buscar agentes disponíveis
     const availableAgents = await getAvailableAgents(supabase, organization_id);
     
     if (availableAgents.length === 0) {
@@ -65,7 +107,7 @@ serve(async (req) => {
       );
     }
 
-    // 4. Selecionar agente baseado no método de distribuição
+    // 5. Selecionar agente baseado no método de distribuição
     const selectedAgent = await selectAgent(
       supabase,
       availableAgents,
@@ -81,7 +123,7 @@ serve(async (req) => {
       );
     }
 
-    // 5. Atribuir lead ao agente
+    // 6. Atribuir lead ao agente
     const { error: updateError } = await supabase
       .from('leads')
       .update({ responsavel: selectedAgent.full_name || selectedAgent.email })
@@ -95,7 +137,7 @@ serve(async (req) => {
       );
     }
 
-    // 6. Registrar no histórico
+    // 7. Registrar no histórico
     const { error: historyError } = await supabase
       .from('lead_distribution_history')
       .insert({
