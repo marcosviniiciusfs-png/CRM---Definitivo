@@ -1,5 +1,5 @@
 import { PipelineColumn } from "@/components/PipelineColumn";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
@@ -183,9 +183,21 @@ const Pipeline = () => {
     try {
       setLoading(true);
       
+      // Otimizado: buscar apenas campos necessários
       let query = supabase
         .from("leads")
-        .select("*");
+        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, valor, updated_at, created_at");
+
+      // Filtrar apenas leads da organização do usuário
+      const { data: orgMember } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (orgMember) {
+        query = query.eq("organization_id", orgMember.organization_id);
+      }
 
       // Se estiver usando funil customizado, filtrar apenas leads desse funil ou sem funil
       if (usingCustomFunnel && activeFunnel) {
@@ -194,7 +206,8 @@ const Pipeline = () => {
 
       const { data, error } = await query
         .order("position", { ascending: true })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(200); // Limitar para performance
 
       if (error) throw error;
       
@@ -429,7 +442,8 @@ const Pipeline = () => {
       }
     };
 
-    const getLeadsByStage = (stageId: string) => {
+    // Otimizado: memoizar cálculo de leads por stage
+    const getLeadsByStage = useCallback((stageId: string) => {
     let filtered;
     
     if (usingCustomFunnel) {
@@ -445,7 +459,7 @@ const Pipeline = () => {
     
     console.log(`Leads no stage ${stageId}:`, filtered.length);
     return filtered;
-  };
+  }, [leads, usingCustomFunnel]);
 
   const activeLead = leads.find((lead) => lead.id === activeId);
 
