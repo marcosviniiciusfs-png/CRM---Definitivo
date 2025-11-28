@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Edit2, X } from "lucide-react";
+import { Plus, Trash2, Edit2, X, MessageCircle, Globe, FileText, Tag as TagIcon } from "lucide-react";
 
 interface Tag {
   id: string;
@@ -40,6 +40,24 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(DEFAULT_COLORS[0]);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
+
+  // Função para obter o ícone baseado no nome da tag
+  const getTagIcon = (tagName: string) => {
+    const name = tagName.toLowerCase();
+    
+    if (name.includes('whatsapp')) {
+      return MessageCircle;
+    }
+    if (name.includes('landing') || name.includes('site')) {
+      return Globe;
+    }
+    if (name.includes('formulário') || name.includes('formulario') || name.includes('form')) {
+      return FileText;
+    }
+    
+    // Ícone padrão
+    return TagIcon;
+  };
 
   useEffect(() => {
     if (open) {
@@ -288,15 +306,23 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
                       </>
                     ) : (
                       <>
-                        <Badge
-                          style={{
-                            backgroundColor: tag.color,
-                            color: "white",
-                          }}
-                          className="flex-1"
-                        >
-                          {tag.name}
-                        </Badge>
+                        <div className="flex-1">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-2 py-1 h-auto flex items-center gap-1.5 w-fit"
+                            style={{
+                              backgroundColor: `${tag.color}15`,
+                              color: tag.color,
+                              borderColor: `${tag.color}40`,
+                            }}
+                          >
+                            {(() => {
+                              const IconComponent = getTagIcon(tag.name);
+                              return <IconComponent className="h-3 w-3" />;
+                            })()}
+                            {tag.name}
+                          </Badge>
+                        </div>
                         <Button
                           size="sm"
                           variant="ghost"
