@@ -14,6 +14,8 @@ export interface Lead {
   avatar_url?: string;
   responsavel?: string;
   descricao_negocio?: string;
+  is_online?: boolean | null;
+  last_seen?: string | null;
 }
 
 export interface MessageReaction {

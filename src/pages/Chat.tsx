@@ -266,6 +266,18 @@ const Chat = () => {
           setSelectedLead(prev => 
             prev?.id === updatedLead.id ? updatedLead : prev
           );
+
+          // CRÍTICO: Atualizar presenceStatus quando is_online ou last_seen mudarem
+          if (updatedLead.is_online !== null || updatedLead.last_seen) {
+            setPresenceStatus(prev => {
+              const newMap = new Map(prev);
+              newMap.set(updatedLead.id, {
+                isOnline: !!updatedLead.is_online,
+                lastSeen: updatedLead.last_seen || undefined,
+              });
+              return newMap;
+            });
+          }
         }
       )
       .on(
