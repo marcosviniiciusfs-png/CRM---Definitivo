@@ -520,33 +520,45 @@ export type Database = {
         Row: {
           auto_redistribute: boolean
           created_at: string
+          description: string | null
           distribution_method: string
           id: string
           is_active: boolean
+          name: string
           organization_id: string
           redistribution_timeout_minutes: number | null
+          source_identifiers: Json | null
+          source_type: string
           triggers: Json
           updated_at: string
         }
         Insert: {
           auto_redistribute?: boolean
           created_at?: string
+          description?: string | null
           distribution_method?: string
           id?: string
           is_active?: boolean
+          name?: string
           organization_id: string
           redistribution_timeout_minutes?: number | null
+          source_identifiers?: Json | null
+          source_type?: string
           triggers?: Json
           updated_at?: string
         }
         Update: {
           auto_redistribute?: boolean
           created_at?: string
+          description?: string | null
           distribution_method?: string
           id?: string
           is_active?: boolean
+          name?: string
           organization_id?: string
           redistribution_timeout_minutes?: number | null
+          source_identifiers?: Json | null
+          source_type?: string
           triggers?: Json
           updated_at?: string
         }
@@ -554,7 +566,7 @@ export type Database = {
           {
             foreignKeyName: "lead_distribution_configs_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
