@@ -37,8 +37,14 @@ const Pipeline = () => {
   const [allFunnels, setAllFunnels] = useState<any[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
 
+  // Carregamento inicial - apenas uma vez
   useEffect(() => {
-    loadFunnel();
+    const initializePipeline = async () => {
+      await loadFunnel();
+      await loadLeads();
+    };
+    
+    initializePipeline();
     
     // Inicializar áudio de notificação
     audioRef.current = new Audio("/notification.mp3");
@@ -82,27 +88,32 @@ const Pipeline = () => {
     };
   }, []);
 
-  // Carregar funil quando selectedFunnelId mudar
+  // Recarregar quando trocar de funil
   useEffect(() => {
-    loadFunnel();
+    if (selectedFunnelId && user) {
+      const reloadFunnelData = async () => {
+        await loadFunnel();
+        await loadLeads();
+      };
+      reloadFunnelData();
+    }
   }, [selectedFunnelId]);
 
-  // Recarregar leads quando o funil ativo mudar
-  useEffect(() => {
-    if (activeFunnel) {
-      loadLeads();
-    }
-  }, [activeFunnel?.id]);
-
   const loadFunnel = async () => {
+    if (!user?.id) return;
+    
     try {
       const { data: orgData } = await supabase
         .from("organization_members")
         .select("organization_id")
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!orgData) return;
+      if (!orgData) {
+        setStages(DEFAULT_STAGES);
+        setUsingCustomFunnel(false);
+        return;
+      }
 
       // Buscar TODOS os funis ativos
       const { data: funnels, error } = await supabase
@@ -128,7 +139,7 @@ const Pipeline = () => {
       // Armazenar todos os funis
       setAllFunnels(funnels);
 
-      // Selecionar o primeiro funil (padrão) se nenhum estiver selecionado
+      // Selecionar o funil apropriado sem criar loop
       const funnelToActivate = selectedFunnelId
         ? funnels.find((f) => f.id === selectedFunnelId) || funnels[0]
         : funnels[0];
@@ -154,7 +165,11 @@ const Pipeline = () => {
       setStages(customStages);
       setUsingCustomFunnel(true);
       setActiveFunnel(funnelToActivate);
-      setSelectedFunnelId(funnelToActivate.id);
+      
+      // Só atualizar selectedFunnelId se for diferente (evita loop)
+      if (selectedFunnelId !== funnelToActivate.id) {
+        setSelectedFunnelId(funnelToActivate.id);
+      }
     } catch (error) {
       console.error("Erro ao carregar funil:", error);
       setStages(DEFAULT_STAGES);
@@ -163,7 +178,11 @@ const Pipeline = () => {
   };
 
   const loadLeads = async () => {
+    if (!user?.id) return;
+    
     try {
+      setLoading(true);
+      
       let query = supabase
         .from("leads")
         .select("*");
@@ -402,14 +421,15 @@ const Pipeline = () => {
           toast.success("Lead movido!");
         }
       }
-    } catch (error) {
-      console.error("Erro ao atualizar lead:", error);
-      toast.error("Erro ao mover lead");
-      await loadLeads();
-    }
-  };
+      } catch (error) {
+        console.error("Erro ao atualizar lead:", error);
+        toast.error("Erro ao mover lead");
+        // Recarregar em caso de erro
+        loadLeads();
+      }
+    };
 
-  const getLeadsByStage = (stageId: string) => {
+    const getLeadsByStage = (stageId: string) => {
     let filtered;
     
     if (usingCustomFunnel) {
@@ -477,10 +497,8 @@ const Pipeline = () => {
 
         {allFunnels.length > 0 ? (
           <Tabs
-            value={selectedFunnelId || allFunnels[0]?.id}
-            onValueChange={(value) => {
-              setSelectedFunnelId(value);
-            }}
+            value={selectedFunnelId || allFunnels[0]?.id || "default"}
+            onValueChange={setSelectedFunnelId}
             className="w-full"
           >
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
