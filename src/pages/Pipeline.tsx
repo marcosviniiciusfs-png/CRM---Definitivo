@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FunnelTabs } from "@/components/FunnelTabs";
 import { FunnelBuilderModal } from "@/components/FunnelBuilderModal";
 import { usePermissions } from "@/hooks/usePermissions";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface FunnelStage {
   id: string;
@@ -99,7 +101,10 @@ const Pipeline = () => {
   const loadFunnels = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data: memberData } = await supabase
         .from("organization_members")
@@ -107,7 +112,10 @@ const Pipeline = () => {
         .eq("user_id", user.id)
         .single();
 
-      if (!memberData?.organization_id) return;
+      if (!memberData?.organization_id) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("sales_funnels")
@@ -125,10 +133,14 @@ const Pipeline = () => {
       const defaultFunnel = data?.find(f => f.is_default) || data?.[0];
       if (defaultFunnel) {
         setActiveFunnelId(defaultFunnel.id);
+      } else {
+        // Sem funis, desabilitar loading
+        setLoading(false);
       }
     } catch (error) {
       console.error("Erro ao carregar funis:", error);
       toast.error("Erro ao carregar funis");
+      setLoading(false);
     }
   };
 
@@ -415,7 +427,8 @@ const Pipeline = () => {
 
   const activeLead = leads.find((lead) => lead.id === activeId);
 
-  if (loading || !activeFunnelId || funnelStages.length === 0) {
+  // Loading state
+  if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -431,6 +444,41 @@ const Pipeline = () => {
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Empty state - nenhum funil criado
+  if (funnels.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+        <div className="text-center space-y-3">
+          <h2 className="text-2xl font-bold text-foreground">Nenhum Funil Criado</h2>
+          <p className="text-muted-foreground max-w-md">
+            Crie seu primeiro funil de vendas para começar a organizar seus leads em etapas personalizadas.
+          </p>
+        </div>
+        
+        {canManageAutomation ? (
+          <Button onClick={handleCreateFunnel} size="lg">
+            <Plus className="h-5 w-5 mr-2" />
+            Criar Primeiro Funil
+          </Button>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Apenas administradores podem criar funis. Entre em contato com seu administrador.
+          </p>
+        )}
+
+        <FunnelBuilderModal
+          open={showFunnelBuilder}
+          onClose={() => {
+            setShowFunnelBuilder(false);
+            setEditingFunnelId(null);
+          }}
+          onSuccess={handleFunnelSuccess}
+          funnelId={editingFunnelId}
+        />
       </div>
     );
   }
