@@ -86,7 +86,7 @@ const Pipeline = () => {
         .from("organization_members")
         .select("organization_id")
         .eq("user_id", user?.id)
-        .single();
+        .maybeSingle();
 
       if (!orgData) return;
 
@@ -101,7 +101,7 @@ const Pipeline = () => {
         .eq("is_active", true)
         .order("is_default", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error || !funnel || !funnel.stages || funnel.stages.length === 0) {
         // Usar etapas padrão se não houver funil customizado

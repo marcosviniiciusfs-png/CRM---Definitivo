@@ -239,7 +239,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         });
 
         if (error) throw error;
-        toast.success("Etapa criada!");
+        toast.success("Etapa criada! Configure mais ou vá para Origens.");
       }
 
       resetForm();
