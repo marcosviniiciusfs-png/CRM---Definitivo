@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
 import { useState } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Sidebar,
   SidebarContent,
@@ -47,6 +48,7 @@ const bottomItems = [
 export function AppSidebar() {
   const { open, setOpen } = useSidebar();
   const { signOut, user } = useAuth();
+  const permissions = usePermissions();
   const [isLocked, setIsLocked] = useState(false);
   const [administrativoOpen, setAdministrativoOpen] = useState(false);
 
@@ -92,51 +94,60 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="truncate">{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-              
-              <Collapsible open={administrativoOpen} onOpenChange={setAdministrativoOpen} className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5">
-                      <Briefcase className="h-5 w-5 flex-shrink-0" />
-                      <span>Administrativo</span>
-                      <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+              {items.map((item) => {
+                // Ocultar "Métricas" para membros
+                if (item.url === '/lead-metrics' && !permissions.canViewTeamMetrics) {
+                  return null;
+                }
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        end
+                        className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="truncate">{item.title}</span>
+                      </NavLink>
                     </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {administrativoItems.map((subItem) => (
-                        <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink
-                              to={subItem.url}
-                              className="hover:bg-sidebar-accent text-sidebar-foreground text-sm px-3 py-2"
-                              activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
-                            >
-                              <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                              <span>{subItem.title}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+                  </SidebarMenuItem>
+                );
+              })}
+              
+              {permissions.canAccessAdminSection && (
+                <Collapsible open={administrativoOpen} onOpenChange={setAdministrativoOpen} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5">
+                        <Briefcase className="h-5 w-5 flex-shrink-0" />
+                        <span>Administrativo</span>
+                        <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {administrativoItems.map((subItem) => (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton asChild>
+                              <NavLink
+                                to={subItem.url}
+                                className="hover:bg-sidebar-accent text-sidebar-foreground text-sm px-3 py-2"
+                                activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                              >
+                                <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                                <span>{subItem.title}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
 
               {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.title}>

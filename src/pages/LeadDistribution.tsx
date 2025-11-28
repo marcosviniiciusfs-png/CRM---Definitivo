@@ -3,8 +3,11 @@ import { LeadDistributionList } from "@/components/LeadDistributionList";
 import { AgentDistributionSettings } from "@/components/AgentDistributionSettings";
 import { DistributionHistory } from "@/components/DistributionHistory";
 import { Settings2, User, History } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function LeadDistribution() {
+  const permissions = usePermissions();
+
   return (
     <div className="space-y-6">
       <div>
@@ -14,12 +17,14 @@ export default function LeadDistribution() {
         </p>
       </div>
 
-      <Tabs defaultValue="config" className="space-y-6">
+      <Tabs defaultValue={permissions.canCreateRoulettes ? "config" : "agent"} className="space-y-6">
         <TabsList>
-          <TabsTrigger value="config" className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4" />
-            Roletas
-          </TabsTrigger>
+          {permissions.canCreateRoulettes && (
+            <TabsTrigger value="config" className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4" />
+              Roletas
+            </TabsTrigger>
+          )}
           <TabsTrigger value="agent" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Minhas Preferências
@@ -30,9 +35,11 @@ export default function LeadDistribution() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="config">
-          <LeadDistributionList />
-        </TabsContent>
+        {permissions.canCreateRoulettes && (
+          <TabsContent value="config">
+            <LeadDistributionList />
+          </TabsContent>
+        )}
 
         <TabsContent value="agent">
           <AgentDistributionSettings />

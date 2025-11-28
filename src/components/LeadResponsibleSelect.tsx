@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UserCircle } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Colaborador {
   user_id: string | null;
@@ -29,6 +30,7 @@ export function LeadResponsibleSelect({
   currentResponsible, 
   onUpdate 
 }: LeadResponsibleSelectProps) {
+  const permissions = usePermissions();
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -139,7 +141,7 @@ export function LeadResponsibleSelect({
     <Select
       value={currentColaborador?.user_id || "none"}
       onValueChange={handleResponsibleChange}
-      disabled={updating}
+      disabled={updating || !permissions.canAssignLeads}
     >
       <SelectTrigger className="h-8 w-full max-w-[200px] border-none bg-transparent hover:bg-muted/50 text-xs focus:ring-1 focus:ring-primary/20">
         {currentColaborador ? (
