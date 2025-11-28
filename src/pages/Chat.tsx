@@ -1183,6 +1183,10 @@ const Chat = () => {
         title: "Etiquetas removidas",
         description: `${selectedTagsToRemove.length} etiqueta(s) removida(s) com sucesso`,
       });
+
+      // Recarregar dados após remoção bem-sucedida
+      await loadLeadTagsAssignments(leads.map(l => l.id));
+      await loadAvailableTags();
     } catch (error) {
       console.error('Error removing tags:', error);
       toast({
@@ -3113,8 +3117,7 @@ const Chat = () => {
               .map(tag => (
                 <div
                   key={tag.id}
-                  className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted cursor-pointer"
-                  onClick={() => toggleTagSelection(tag.id)}
+                  className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted"
                 >
                   <Checkbox
                     id={tag.id}
@@ -3124,6 +3127,7 @@ const Chat = () => {
                   <label
                     htmlFor={tag.id}
                     className="flex items-center gap-2 cursor-pointer flex-1"
+                    onClick={() => toggleTagSelection(tag.id)}
                   >
                     <Badge
                       variant="secondary"
