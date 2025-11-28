@@ -8,24 +8,44 @@ import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
 import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FunnelTabs } from "@/components/FunnelTabs";
+import { FunnelBuilderModal } from "@/components/FunnelBuilderModal";
+import { usePermissions } from "@/hooks/usePermissions";
 
-const stages = [
-  { id: "NOVO", title: "Novo Lead", color: "bg-blue-500" },
-  { id: "EM_ATENDIMENTO", title: "Em Atendimento", color: "bg-yellow-500" },
-  { id: "FECHADO", title: "Fechado", color: "bg-green-500" },
-  { id: "PERDIDO", title: "Perdido", color: "bg-red-500" },
-];
+interface FunnelStage {
+  id: string;
+  name: string;
+  color: string;
+  icon: string | null;
+  position: number;
+  is_final: boolean;
+}
+
+interface Funnel {
+  id: string;
+  name: string;
+  is_default: boolean;
+  is_active: boolean;
+}
 
 const Pipeline = () => {
+  const { canManageAutomation } = usePermissions();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const leadIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Estados de funis
+  const [funnels, setFunnels] = useState<Funnel[]>([]);
+  const [activeFunnelId, setActiveFunnelId] = useState<string | null>(null);
+  const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
+  const [showFunnelBuilder, setShowFunnelBuilder] = useState(false);
+  const [editingFunnelId, setEditingFunnelId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadLeads();
+    loadFunnels();
     
     // Inicializar áudio de notificação
     audioRef.current = new Audio("/notification.mp3");
@@ -69,11 +89,81 @@ const Pipeline = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeFunnelId) {
+      loadFunnelStages(activeFunnelId);
+      loadLeads();
+    }
+  }, [activeFunnelId]);
+
+  const loadFunnels = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: memberData } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!memberData?.organization_id) return;
+
+      const { data, error } = await supabase
+        .from("sales_funnels")
+        .select("*")
+        .eq("organization_id", memberData.organization_id)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .order("created_at");
+
+      if (error) throw error;
+
+      setFunnels(data || []);
+      
+      // Selecionar funil padrão ou primeiro
+      const defaultFunnel = data?.find(f => f.is_default) || data?.[0];
+      if (defaultFunnel) {
+        setActiveFunnelId(defaultFunnel.id);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar funis:", error);
+      toast.error("Erro ao carregar funis");
+    }
+  };
+
+  const loadFunnelStages = async (funnelId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("funnel_stages")
+        .select("*")
+        .eq("funnel_id", funnelId)
+        .order("position");
+
+      if (error) throw error;
+
+      setFunnelStages(data?.map(stage => ({
+        id: stage.id,
+        name: stage.name,
+        color: stage.color,
+        icon: stage.icon,
+        position: stage.position,
+        is_final: stage.is_final
+      })) || []);
+    } catch (error) {
+      console.error("Erro ao carregar etapas:", error);
+      toast.error("Erro ao carregar etapas do funil");
+    }
+  };
+
   const loadLeads = async () => {
+    if (!activeFunnelId) return;
+    
     try {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
+        .eq("funnel_id", activeFunnelId)
         .order("position", { ascending: true })
         .order("created_at", { ascending: false });
 
@@ -92,6 +182,30 @@ const Pipeline = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreateFunnel = () => {
+    if (!canManageAutomation) {
+      toast.error("Apenas administradores podem criar funis");
+      return;
+    }
+    setEditingFunnelId(null);
+    setShowFunnelBuilder(true);
+  };
+
+  const handleEditFunnel = (funnelId: string) => {
+    if (!canManageAutomation) {
+      toast.error("Apenas administradores podem editar funis");
+      return;
+    }
+    setEditingFunnelId(funnelId);
+    setShowFunnelBuilder(true);
+  };
+
+  const handleFunnelSuccess = () => {
+    loadFunnels();
+    setShowFunnelBuilder(false);
+    setEditingFunnelId(null);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -120,21 +234,21 @@ const Pipeline = () => {
     }
 
     // Determinar o stage de destino
-    const isDroppedOverStage = stages.some((s) => s.id === overId);
+    const isDroppedOverStage = funnelStages.some((s) => s.id === overId);
     const overLead = leads.find((l) => l.id === overId);
     
-    const targetStage = isDroppedOverStage ? overId : (overLead?.stage || activeLead.stage || "NOVO");
-    const activeStage = activeLead.stage || "NOVO";
+    const targetStageId = isDroppedOverStage ? overId : (overLead?.funnel_stage_id || activeLead.funnel_stage_id);
+    const activeStageId = activeLead.funnel_stage_id;
 
     console.log("Informações do drop:", { 
       isDroppedOverStage, 
-      targetStage, 
-      activeStage,
+      targetStageId, 
+      activeStageId,
       overLeadExists: !!overLead 
     });
 
     // Se for dropado no mesmo lugar, não fazer nada
-    if (targetStage === activeStage && (isDroppedOverStage || leadId === overId)) {
+    if (targetStageId === activeStageId && (isDroppedOverStage || leadId === overId)) {
       console.log("Mesma posição, nenhuma ação necessária");
       return;
     }
@@ -142,16 +256,16 @@ const Pipeline = () => {
     try {
       if (isDroppedOverStage) {
         // Dropado diretamente em uma coluna
-        const targetStageLeads = getLeadsByStage(targetStage);
+        const targetStageLeads = getLeadsByStage(targetStageId);
         const newPosition = targetStageLeads.length;
 
-        console.log("Movendo para coluna:", { targetStage, newPosition, totalLeadsInTarget: targetStageLeads.length });
+        console.log("Movendo para coluna:", { targetStageId, newPosition, totalLeadsInTarget: targetStageLeads.length });
 
         // Atualizar estado local
         setLeads((prev) =>
           prev.map((l) => 
             l.id === leadId 
-              ? { ...l, stage: targetStage, position: newPosition } 
+              ? { ...l, funnel_stage_id: targetStageId, position: newPosition } 
               : l
           )
         );
@@ -159,7 +273,7 @@ const Pipeline = () => {
         // Atualizar no banco
         const { error } = await supabase
           .from("leads")
-          .update({ stage: targetStage, position: newPosition })
+          .update({ funnel_stage_id: targetStageId, position: newPosition })
           .eq("id", leadId);
 
         if (error) throw error;
@@ -167,14 +281,14 @@ const Pipeline = () => {
 
       } else if (overLead) {
         // Dropado sobre outro lead
-        if (targetStage === activeStage) {
+        if (targetStageId === activeStageId) {
           // Reordenando dentro da mesma coluna
-          const stageLeads = getLeadsByStage(activeStage);
+          const stageLeads = getLeadsByStage(activeStageId);
           const oldIndex = stageLeads.findIndex((l) => l.id === leadId);
           const newIndex = stageLeads.findIndex((l) => l.id === overId);
 
           console.log("Reordenando na mesma coluna:", { 
-            stage: activeStage,
+            stage: activeStageId,
             oldIndex, 
             newIndex,
             totalLeads: stageLeads.length 
@@ -220,14 +334,14 @@ const Pipeline = () => {
 
         } else {
           // Movendo para outra coluna e posicionando sobre outro lead
-          const activeStageLeads = getLeadsByStage(activeStage);
-          const targetStageLeads = getLeadsByStage(targetStage);
+          const activeStageLeads = getLeadsByStage(activeStageId);
+          const targetStageLeads = getLeadsByStage(targetStageId);
           
           const newIndex = targetStageLeads.findIndex((l) => l.id === overId);
           
           console.log("Movendo para coluna diferente:", { 
-            from: activeStage,
-            to: targetStage, 
+            from: activeStageId,
+            to: targetStageId, 
             newIndex,
             activeCount: activeStageLeads.length,
             targetCount: targetStageLeads.length
@@ -245,17 +359,17 @@ const Pipeline = () => {
 
           // Adicionar na nova coluna na posição correta
           const updatedTargetStage = [...targetStageLeads];
-          updatedTargetStage.splice(newIndex, 0, { ...activeLead, stage: targetStage });
+          updatedTargetStage.splice(newIndex, 0, { ...activeLead, funnel_stage_id: targetStageId });
           const updatedTargetWithPositions = updatedTargetStage.map((lead, index) => ({
             ...lead,
             position: index,
-            stage: targetStage,
+            funnel_stage_id: targetStageId,
           }));
 
           // Combinar todos os leads
           setLeads((prev) => {
             const otherStageLeads = prev.filter(
-              (l) => (l.stage || "NOVO") !== activeStage && (l.stage || "NOVO") !== targetStage
+              (l) => l.funnel_stage_id !== activeStageId && l.funnel_stage_id !== targetStageId
             );
             return [...otherStageLeads, ...updatedActiveStage, ...updatedTargetWithPositions];
           });
@@ -273,7 +387,7 @@ const Pipeline = () => {
             ...updatedTargetWithPositions.map((lead) =>
               supabase
                 .from("leads")
-                .update({ position: lead.position, stage: lead.stage })
+                .update({ position: lead.position, funnel_stage_id: lead.funnel_stage_id })
                 .eq("id", lead.id)
             ),
           ];
@@ -290,9 +404,9 @@ const Pipeline = () => {
   };
 
   const getLeadsByStage = (stageId: string) => {
-    const filtered = leads.filter((lead) => (lead.stage || "NOVO") === stageId);
+    const filtered = leads.filter((lead) => lead.funnel_stage_id === stageId);
     
-    // Ordenar por position para todos os stages
+    // Ordenar por position
     filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
     
     console.log(`Leads no stage ${stageId}:`, filtered.length);
@@ -301,18 +415,18 @@ const Pipeline = () => {
 
   const activeLead = leads.find((lead) => lead.id === activeId);
 
-  if (loading) {
+  if (loading || !activeFunnelId || funnelStages.length === 0) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <Skeleton className="h-8 w-32" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stages.map((stage) => (
-            <div key={stage.id} className="space-y-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="space-y-4">
               <Skeleton className="h-12 w-full" />
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-32 w-full" />
+              {[...Array(3)].map((_, j) => (
+                <Skeleton key={j} className="h-32 w-full" />
               ))}
             </div>
           ))}
@@ -336,16 +450,26 @@ const Pipeline = () => {
           </p>
         </div>
 
+        {funnels.length > 0 && (
+          <FunnelTabs
+            funnels={funnels}
+            activeFunnelId={activeFunnelId}
+            onFunnelChange={setActiveFunnelId}
+            onCreateFunnel={handleCreateFunnel}
+            onEditFunnel={handleEditFunnel}
+          />
+        )}
+
         <div className="flex gap-3 overflow-x-auto pb-4">
-          {stages.map((stage) => {
+          {funnelStages.map((stage) => {
             const stageLeads = getLeadsByStage(stage.id);
             return (
               <PipelineColumn
                 key={stage.id}
                 id={stage.id}
-                title={stage.title}
+                title={stage.name}
                 count={stageLeads.length}
-                color={stage.color}
+                color={`bg-[${stage.color}]`}
                 leads={stageLeads}
                 isEmpty={stageLeads.length === 0}
                 onLeadUpdate={loadLeads}
@@ -372,7 +496,7 @@ const Pipeline = () => {
       </DragOverlay>
     </DndContext>
 
-    {/* Modal de Edição - FORA do DndContext */}
+    {/* Modal de Edição */}
     {editingLead && (
       <EditLeadModal
         lead={editingLead}
@@ -381,6 +505,17 @@ const Pipeline = () => {
         onUpdate={loadLeads}
       />
     )}
+
+    {/* Modal do Construtor de Funil */}
+    <FunnelBuilderModal
+      open={showFunnelBuilder}
+      onClose={() => {
+        setShowFunnelBuilder(false);
+        setEditingFunnelId(null);
+      }}
+      onSuccess={handleFunnelSuccess}
+      funnelId={editingFunnelId}
+    />
     </>
   );
 };
