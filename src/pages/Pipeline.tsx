@@ -8,8 +8,13 @@ import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
 import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Settings2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
-const stages = [
+// Etapas padrão (quando não há funil customizado)
+const DEFAULT_STAGES = [
   { id: "NOVO", title: "Novo Lead", color: "bg-blue-500" },
   { id: "EM_ATENDIMENTO", title: "Em Atendimento", color: "bg-yellow-500" },
   { id: "FECHADO", title: "Fechado", color: "bg-green-500" },
@@ -17,14 +22,20 @@ const stages = [
 ];
 
 const Pipeline = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const leadIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [stages, setStages] = useState<any[]>(DEFAULT_STAGES);
+  const [usingCustomFunnel, setUsingCustomFunnel] = useState(false);
+  const [activeFunnel, setActiveFunnel] = useState<any>(null);
 
   useEffect(() => {
+    loadFunnel();
     loadLeads();
     
     // Inicializar áudio de notificação
@@ -69,11 +80,70 @@ const Pipeline = () => {
     };
   }, []);
 
+  const loadFunnel = async () => {
+    try {
+      const { data: orgData } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (!orgData) return;
+
+      // Buscar funil ativo ou padrão
+      const { data: funnel, error } = await supabase
+        .from("sales_funnels")
+        .select(`
+          *,
+          stages:funnel_stages(*)
+        `)
+        .eq("organization_id", orgData.organization_id)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !funnel || !funnel.stages || funnel.stages.length === 0) {
+        // Usar etapas padrão se não houver funil customizado
+        setStages(DEFAULT_STAGES);
+        setUsingCustomFunnel(false);
+        setActiveFunnel(null);
+        return;
+      }
+
+      // Usar funil customizado
+      const customStages = funnel.stages
+        .sort((a, b) => a.position - b.position)
+        .map((stage) => ({
+          id: stage.id,
+          title: stage.name,
+          color: stage.color,
+          icon: stage.icon,
+          stageData: stage,
+        }));
+
+      setStages(customStages);
+      setUsingCustomFunnel(true);
+      setActiveFunnel(funnel);
+    } catch (error) {
+      console.error("Erro ao carregar funil:", error);
+      setStages(DEFAULT_STAGES);
+      setUsingCustomFunnel(false);
+    }
+  };
+
   const loadLeads = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("leads")
-        .select("*")
+        .select("*");
+
+      // Se estiver usando funil customizado, filtrar apenas leads desse funil ou sem funil
+      if (usingCustomFunnel && activeFunnel) {
+        query = query.or(`funnel_id.eq.${activeFunnel.id},funnel_id.is.null`);
+      }
+
+      const { data, error } = await query
         .order("position", { ascending: true })
         .order("created_at", { ascending: false });
 
@@ -192,10 +262,30 @@ const Pipeline = () => {
 
           // Reordenar array
           const reorderedLeads = arrayMove(stageLeads, oldIndex, newIndex);
-          const reorderedWithPositions = reorderedLeads.map((lead, index) => ({
-            ...lead,
-            position: index,
-          }));
+          const reorderedWithPositions = reorderedLeads.map((originalLead, index) => {
+            const lead: Lead = originalLead as Lead;
+            return {
+              id: lead.id,
+              telefone_lead: lead.telefone_lead,
+              nome_lead: lead.nome_lead,
+              created_at: lead.created_at,
+              updated_at: lead.updated_at,
+              last_message_at: lead.last_message_at,
+              source: lead.source,
+              stage: lead.stage,
+              email: lead.email,
+              empresa: lead.empresa,
+              valor: lead.valor,
+              avatar_url: lead.avatar_url,
+              responsavel: lead.responsavel,
+              descricao_negocio: lead.descricao_negocio,
+              is_online: lead.is_online,
+              last_seen: lead.last_seen,
+              funnel_id: lead.funnel_id,
+              funnel_stage_id: lead.funnel_stage_id,
+              position: index,
+            };
+          });
 
           // Atualizar estado local
           setLeads((prev) =>
@@ -290,9 +380,17 @@ const Pipeline = () => {
   };
 
   const getLeadsByStage = (stageId: string) => {
-    const filtered = leads.filter((lead) => (lead.stage || "NOVO") === stageId);
+    let filtered;
     
-    // Ordenar por position para todos os stages
+    if (usingCustomFunnel) {
+      // No funil customizado, usar funnel_stage_id
+      filtered = leads.filter((lead) => lead.funnel_stage_id === stageId);
+    } else {
+      // No funil padrão, usar stage (texto)
+      filtered = leads.filter((lead) => (lead.stage || "NOVO") === stageId);
+    }
+    
+    // Ordenar por position
     filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
     
     console.log(`Leads no stage ${stageId}:`, filtered.length);
@@ -329,11 +427,24 @@ const Pipeline = () => {
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Pipeline de Vendas</h1>
-          <p className="text-muted-foreground mt-1">
-            Arraste e solte os cards para mover leads entre as etapas do funil
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Pipeline de Vendas
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {usingCustomFunnel && activeFunnel
+                ? `Funil: ${activeFunnel.name} - Arraste e solte os cards`
+                : "Arraste e solte os cards para mover leads entre as etapas"}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/funnel-builder")}
+          >
+            <Settings2 className="h-4 w-4 mr-2" />
+            Gerenciar Funis
+          </Button>
         </div>
 
         <div className="flex gap-3 overflow-x-auto pb-4">
