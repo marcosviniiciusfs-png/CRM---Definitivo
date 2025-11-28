@@ -34,9 +34,9 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
   const [sourceType, setSourceType] = useState("whatsapp");
   const [targetStageId, setTargetStageId] = useState("");
   const [webhookConfigs, setWebhookConfigs] = useState<any[]>([]);
-  const [selectedWebhook, setSelectedWebhook] = useState("");
+  const [selectedWebhooks, setSelectedWebhooks] = useState<string[]>([]);
   const [facebookForms, setFacebookForms] = useState<any[]>([]);
-  const [selectedForm, setSelectedForm] = useState("");
+  const [selectedForms, setSelectedForms] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -90,23 +90,55 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
     }
 
     try {
-      let sourceIdentifier = null;
-      if (sourceType === "webhook" && selectedWebhook) {
-        sourceIdentifier = selectedWebhook;
-      } else if (sourceType === "facebook" && selectedForm) {
-        sourceIdentifier = selectedForm;
+      const mappingsToCreate = [];
+
+      if (sourceType === "whatsapp") {
+        // WhatsApp não precisa de identifier
+        mappingsToCreate.push({
+          funnel_id: funnelId,
+          source_type: sourceType,
+          source_identifier: null,
+          target_stage_id: targetStageId,
+        });
+      } else if (sourceType === "webhook") {
+        if (selectedWebhooks.length === 0) {
+          toast.error("Selecione pelo menos um webhook");
+          return;
+        }
+        selectedWebhooks.forEach((webhookToken) => {
+          mappingsToCreate.push({
+            funnel_id: funnelId,
+            source_type: sourceType,
+            source_identifier: webhookToken,
+            target_stage_id: targetStageId,
+          });
+        });
+      } else if (sourceType === "facebook") {
+        if (selectedForms.length === 0) {
+          toast.error("Selecione pelo menos um formulário");
+          return;
+        }
+        selectedForms.forEach((formId) => {
+          mappingsToCreate.push({
+            funnel_id: funnelId,
+            source_type: sourceType,
+            source_identifier: formId,
+            target_stage_id: targetStageId,
+          });
+        });
       }
 
-      const { error } = await supabase.from("funnel_source_mappings").insert({
-        funnel_id: funnelId,
-        source_type: sourceType,
-        source_identifier: sourceIdentifier,
-        target_stage_id: targetStageId,
-      });
+      const { error } = await supabase
+        .from("funnel_source_mappings")
+        .insert(mappingsToCreate);
 
       if (error) throw error;
 
-      toast.success("Mapeamento criado!");
+      toast.success(
+        mappingsToCreate.length === 1
+          ? "Mapeamento criado!"
+          : `${mappingsToCreate.length} mapeamentos criados!`
+      );
       resetForm();
       loadData();
     } catch (error) {
@@ -134,8 +166,8 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
   const resetForm = () => {
     setSourceType("whatsapp");
     setTargetStageId("");
-    setSelectedWebhook("");
-    setSelectedForm("");
+    setSelectedWebhooks([]);
+    setSelectedForms([]);
     setShowForm(false);
   };
 
@@ -198,37 +230,73 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
 
           {sourceType === "webhook" && (
             <div className="space-y-2">
-              <Label>Webhook</Label>
-              <Select value={selectedWebhook} onValueChange={setSelectedWebhook}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um webhook" />
-                </SelectTrigger>
-                <SelectContent>
-                  {webhookConfigs.map((webhook) => (
-                    <SelectItem key={webhook.id} value={webhook.webhook_token}>
+              <Label>Webhooks (múltipla seleção)</Label>
+              <div className="border rounded-md p-2 space-y-2 max-h-40 overflow-y-auto">
+                {webhookConfigs.map((webhook) => (
+                  <label
+                    key={webhook.id}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-accent p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedWebhooks.includes(webhook.webhook_token)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedWebhooks([...selectedWebhooks, webhook.webhook_token]);
+                        } else {
+                          setSelectedWebhooks(
+                            selectedWebhooks.filter((w) => w !== webhook.webhook_token)
+                          );
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">
                       {webhook.lead_tags?.name || "Sem tag"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </span>
+                  </label>
+                ))}
+                {webhookConfigs.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Nenhum webhook configurado
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
           {sourceType === "facebook" && (
             <div className="space-y-2">
-              <Label>Formulário Facebook</Label>
-              <Select value={selectedForm} onValueChange={setSelectedForm}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um formulário" />
-                </SelectTrigger>
-                <SelectContent>
-                  {facebookForms.map((form, idx) => (
-                    <SelectItem key={idx} value={form.selected_form_id}>
-                      {form.selected_form_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Formulários Facebook (múltipla seleção)</Label>
+              <div className="border rounded-md p-2 space-y-2 max-h-40 overflow-y-auto">
+                {facebookForms.map((form, idx) => (
+                  <label
+                    key={idx}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-accent p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedForms.includes(form.selected_form_id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedForms([...selectedForms, form.selected_form_id]);
+                        } else {
+                          setSelectedForms(
+                            selectedForms.filter((f) => f !== form.selected_form_id)
+                          );
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{form.selected_form_name}</span>
+                  </label>
+                ))}
+                {facebookForms.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Nenhum formulário configurado
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
