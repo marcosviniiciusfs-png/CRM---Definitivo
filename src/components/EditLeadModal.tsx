@@ -367,7 +367,17 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
 
-      setEditedValue(numericValue.toString());
+      // Recarregar o lead atualizado do banco
+      const { data: updatedLead } = await supabase
+        .from("leads")
+        .select("valor")
+        .eq("id", lead.id)
+        .single();
+
+      if (updatedLead) {
+        setEditedValue(updatedLead.valor?.toString() || "0");
+      }
+
       setShowItemsDialog(false);
       setQuickValue("");
       toast.success("Valor atualizado com sucesso!");
@@ -1543,8 +1553,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   <CardTitle className="text-sm font-semibold">Valor do negócio</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold">R$ {parseFloat(editedValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <div className="flex items-baseline gap-2 overflow-hidden">
+                    <span className="text-3xl font-bold break-all">
+                      R$ {parseFloat(editedValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Produtos e serviços</Label>
