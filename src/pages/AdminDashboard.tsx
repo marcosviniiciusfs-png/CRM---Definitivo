@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [mainUsersCount, setMainUsersCount] = useState(0);
   const [payingUsersCount, setPayingUsersCount] = useState(0);
+  const [mrr, setMrr] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
@@ -69,14 +70,16 @@ export default function AdminDashboard() {
       }
       setUsers(usersData || []);
 
-      // Buscar contagem de usuários pagantes e dados do gráfico em paralelo
-      console.log('[AdminDashboard] Chamando count-paying-users e subscription-growth...');
-      const [payingResult, chartResult] = await Promise.all([
+      // Buscar contagem de usuários pagantes, MRR e dados do gráfico em paralelo
+      console.log('[AdminDashboard] Chamando count-paying-users, calculate-mrr e subscription-growth...');
+      const [payingResult, mrrResult, chartResult] = await Promise.all([
         supabase.functions.invoke('count-paying-users'),
+        supabase.functions.invoke('calculate-mrr'),
         supabase.functions.invoke('subscription-growth')
       ]);
       
       console.log('[AdminDashboard] Resultado count-paying-users:', payingResult);
+      console.log('[AdminDashboard] Resultado calculate-mrr:', mrrResult);
       console.log('[AdminDashboard] Resultado subscription-growth:', chartResult);
       
       if (payingResult.error) {
@@ -84,6 +87,13 @@ export default function AdminDashboard() {
         setPayingUsersCount(0);
       } else {
         setPayingUsersCount(payingResult.data?.count || 0);
+      }
+
+      if (mrrResult.error) {
+        console.error('[AdminDashboard] Erro em calculate-mrr:', mrrResult.error);
+        setMrr(0);
+      } else {
+        setMrr(mrrResult.data?.mrr || 0);
       }
 
       if (chartResult.error) {
@@ -96,7 +106,8 @@ export default function AdminDashboard() {
       console.log('[AdminDashboard] Dados carregados com sucesso!', { 
         totalUsers: usersData?.length || 0,
         mainUsers: countData || 0,
-        payingUsers: payingResult.data?.count || 0
+        payingUsers: payingResult.data?.count || 0,
+        mrr: mrrResult.data?.mrr || 0
       });
     } catch (error: any) {
       console.error('[AdminDashboard] Erro ao carregar dados:', error);
@@ -133,7 +144,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Métricas */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
           <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Pagantes</CardTitle>
@@ -143,6 +154,24 @@ export default function AdminDashboard() {
               <div className="text-2xl font-bold">{payingUsersCount}</div>
               <p className="text-xs text-muted-foreground">
                 Com assinatura ativa no Stripe
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glow-border">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">MRR (Receita Mensal)</CardTitle>
+              <TrendingUp className="h-4 w-4 glow-icon text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(mrr)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Receita recorrente mensal
               </p>
             </CardContent>
           </Card>
