@@ -25,9 +25,9 @@ serve(async (req) => {
   try {
     logStep("Function started");
     
-    const { priceId } = await req.json();
+    const { priceId, extraCollaborators = 0 } = await req.json();
     if (!priceId) throw new Error("priceId is required");
-    logStep("Received priceId", { priceId });
+    logStep("Received priceId and extraCollaborators", { priceId, extraCollaborators });
 
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
@@ -49,15 +49,27 @@ serve(async (req) => {
       logStep("No existing customer found");
     }
 
+    // Build line items array
+    const lineItems = [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ];
+
+    // Add extra collaborators if specified
+    if (extraCollaborators > 0) {
+      lineItems.push({
+        price: "price_1SYpG5CIzFkZL7JmZq9Q7Z1a", // Colaborador Extra price
+        quantity: extraCollaborators,
+      });
+      logStep("Added extra collaborators to line items", { extraCollaborators });
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: lineItems,
       mode: "subscription",
       success_url: `${req.headers.get("origin")}/pricing?success=true`,
       cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
