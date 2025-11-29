@@ -77,6 +77,11 @@ serve(async (req) => {
     
     let totalMRR = 0;
     let activeSubscriptionsCount = 0;
+    const planCounts = {
+      basico: 0,
+      profissional: 0,
+      enterprise: 0
+    };
 
     // Para cada owner, buscar assinaturas ativas
     for (const owner of owners || []) {
@@ -123,6 +128,15 @@ serve(async (req) => {
             totalMRR += monthlyAmount;
             activeSubscriptionsCount++;
 
+            // Identificar o plano baseado no valor mensal
+            if (monthlyAmount === 20000) { // R$ 200 em centavos
+              planCounts.basico++;
+            } else if (monthlyAmount === 50000) { // R$ 500 em centavos
+              planCounts.profissional++;
+            } else if (monthlyAmount === 200000) { // R$ 2000 em centavos
+              planCounts.enterprise++;
+            }
+
             logStep("Subscription item processed", {
               email: owner.email,
               amount: amount / 100,
@@ -143,15 +157,24 @@ serve(async (req) => {
     // Converter de centavos para reais
     const mrrInReais = totalMRR / 100;
 
+    // Preparar dados do gráfico de barras
+    const planChartData = [
+      { name: 'Básico', count: planCounts.basico, color: '#FFC107' },
+      { name: 'Profissional', count: planCounts.profissional, color: '#2196F3' },
+      { name: 'Enterprise', count: planCounts.enterprise, color: '#4CAF50' }
+    ];
+
     logStep("MRR calculation complete", { 
       totalMRR: mrrInReais,
-      activeSubscriptionsCount
+      activeSubscriptionsCount,
+      planCounts
     });
 
     return new Response(
       JSON.stringify({ 
         mrr: mrrInReais,
-        activeSubscriptionsCount
+        activeSubscriptionsCount,
+        planChartData
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
