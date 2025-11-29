@@ -13,6 +13,7 @@ import { Settings2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -48,6 +49,7 @@ const Pipeline = () => {
   const [pauseRealtime, setPauseRealtime] = useState(false);
   const [leadTagsMap, setLeadTagsMap] = useState<LeadTagsMap>({});
   const [isDraggingActive, setIsDraggingActive] = useState(false);
+  const [isTabTransitioning, setIsTabTransitioning] = useState(false);
 
   // Configurar sensor com constraint de distância
   const sensors = useSensors(
@@ -534,6 +536,17 @@ const Pipeline = () => {
     setEditingLead(lead);
   }, []);
 
+  // Handler otimizado para mudança de aba com transição suave
+  const handleTabChange = useCallback(async (value: string) => {
+    setIsTabTransitioning(true);
+    setSelectedFunnelId(value);
+    
+    // Pequeno delay para mostrar a transição antes de carregar
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    setIsTabTransitioning(false);
+  }, []);
+
   const activeLead = useMemo(() => 
     leads.find((lead) => lead.id === activeId),
     [leads, activeId]
@@ -593,8 +606,8 @@ const Pipeline = () => {
         {allFunnels.length > 0 ? (
           <Tabs
             value={selectedFunnelId || allFunnels[0]?.id || "default"}
-            onValueChange={setSelectedFunnelId}
-            className="w-full"
+            onValueChange={handleTabChange}
+            className="w-full pipeline-tabs"
           >
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
               {allFunnels.map((funnel) => (
@@ -615,7 +628,13 @@ const Pipeline = () => {
               value={selectedFunnelId || allFunnels[0]?.id || "default"}
               className="mt-6"
             >
-              <div className="flex gap-3 overflow-x-auto pb-4">
+              <div 
+                className={cn(
+                  "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                  isTabTransitioning && "transitioning"
+                )}
+                data-dragging-active={isDraggingActive}
+              >
                 {loading ? (
                   // Skeleton loading para transições suaves
                   Array.from({ length: stages.length }).map((_, idx) => (
@@ -648,7 +667,13 @@ const Pipeline = () => {
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-4">
+          <div 
+            className={cn(
+              "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+              isTabTransitioning && "transitioning"
+            )}
+            data-dragging-active={isDraggingActive}
+          >
              {stages.map((stage) => {
                const stageLeads = leadsByStage.get(stage.id) || [];
                return (
