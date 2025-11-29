@@ -2,7 +2,7 @@ import { PipelineColumn } from "@/components/PipelineColumn";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type LeadItems = Record<string, any[]>;
+type LeadTagsMap = Record<string, Array<{ id: string; name: string; color: string }>>;
 
 // Etapas padrão (quando não há funil customizado)
 const DEFAULT_STAGES = [
@@ -41,6 +42,17 @@ const Pipeline = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [leadItems, setLeadItems] = useState<LeadItems>({});
   const [pauseRealtime, setPauseRealtime] = useState(false);
+  const [leadTagsMap, setLeadTagsMap] = useState<LeadTagsMap>({});
+  const [isDraggingActive, setIsDraggingActive] = useState(false);
+
+  // Configurar sensor com constraint de distância
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Previne drag acidental
+      },
+    })
+  );
 
   // Inicialização de áudio e subscrição a novos leads - apenas uma vez
   useEffect(() => {
@@ -221,8 +233,11 @@ const Pipeline = () => {
       // Armazenar IDs dos leads carregados inicialmente
       if (data) {
         leadIdsRef.current = new Set(data.map(lead => lead.id));
-        // Buscar todos lead_items de uma vez
-        await loadLeadItems(data.map(l => l.id));
+        // Buscar todos lead_items e tags de uma vez
+        await Promise.all([
+          loadLeadItems(data.map(l => l.id)),
+          loadLeadTags(data.map(l => l.id))
+        ]);
       }
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
@@ -260,15 +275,47 @@ const Pipeline = () => {
     }
   };
 
+  const loadLeadTags = async (leadIds: string[]) => {
+    if (leadIds.length === 0) return;
+    
+    const { data, error } = await supabase
+      .from('lead_tag_assignments')
+      .select(`
+        lead_id,
+        lead_tags (
+          id,
+          name,
+          color
+        )
+      `)
+      .in('lead_id', leadIds)
+      .limit(250); // 5 tags por lead * 50 leads
+
+    if (!error && data) {
+      const tagsMap: LeadTagsMap = {};
+      data.forEach((item: any) => {
+        if (item.lead_tags) {
+          if (!tagsMap[item.lead_id]) {
+            tagsMap[item.lead_id] = [];
+          }
+          tagsMap[item.lead_id].push(item.lead_tags);
+        }
+      });
+      setLeadTagsMap(tagsMap);
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     setPauseRealtime(true);
+    setIsDraggingActive(true);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
     setPauseRealtime(false);
+    setIsDraggingActive(false);
 
     if (!over) {
       return;
@@ -482,8 +529,13 @@ const Pipeline = () => {
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      sensors={sensors}
     >
-      <div className="space-y-6" style={{ touchAction: 'none' }}>
+      <div 
+        className="space-y-6" 
+        style={{ touchAction: 'none' }}
+        data-dragging-active={isDraggingActive}
+      >
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -550,6 +602,8 @@ const Pipeline = () => {
                         onLeadUpdate={loadLeads}
                         onEdit={setEditingLead}
                         leadItems={leadItems}
+                        leadTagsMap={leadTagsMap}
+                        isDraggingActive={isDraggingActive}
                       />
                     );
                   })
@@ -572,8 +626,10 @@ const Pipeline = () => {
                    isEmpty={stageLeads.length === 0}
                    onLeadUpdate={loadLeads}
                    onEdit={setEditingLead}
-                   leadItems={leadItems}
-                 />
+                    leadItems={leadItems}
+                    leadTagsMap={leadTagsMap}
+                    isDraggingActive={isDraggingActive}
+                  />
                );
              })}
           </div>
@@ -593,6 +649,7 @@ const Pipeline = () => {
               value={activeLead.valor}
               createdAt={activeLead.created_at}
               leadItems={leadItems[activeLead.id] || []}
+              leadTags={leadTagsMap[activeLead.id] || []}
             />
           </div>
         ) : null}

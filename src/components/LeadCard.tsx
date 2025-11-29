@@ -3,7 +3,7 @@ import { Phone, Calendar, Pencil, Eye, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect, CSSProperties } from "react";
+import { useState, useEffect, CSSProperties, memo } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +14,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
-import { LeadTagsBadge } from "@/components/LeadTagsBadge";
+import { LeadTagsBadgeStatic } from "@/components/LeadTagsBadgeStatic";
 import * as Icons from "lucide-react";
 import { FaTooth } from "react-icons/fa";
 
@@ -42,6 +42,8 @@ export interface BaseLeadCardProps {
   onUpdate?: () => void;
   onEdit?: () => void;
   leadItems?: any[];
+  leadTags?: Array<{ id: string; name: string; color: string }>;
+  isDraggingActive?: boolean;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -71,6 +73,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   onUpdate,
   onEdit,
   leadItems: initialLeadItems,
+  leadTags: tags = [],
   isDropdownOpen,
   setIsDropdownOpen,
   showDetailsDialog,
@@ -145,7 +148,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       {...listeners}
       data-dragging={dragging}
       className={cn(
-        "cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group",
+        "lead-card cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group",
         dragging
           ? "transition-none"
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
@@ -184,7 +187,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                       Facebook
                     </Badge>
                   )}
-                  <LeadTagsBadge leadId={id} />
+                  <LeadTagsBadgeStatic tags={tags} />
                 </div>
               </div>
               <DropdownMenu onOpenChange={setIsDropdownOpen}>
@@ -308,8 +311,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   );
 };
 
-// Componente original usado dentro das colunas (com drag & drop)
-export const SortableLeadCard: React.FC<BaseLeadCardProps> = (props) => {
+// Componente original usado dentro das colunas (com drag & drop) - Memoizado para performance
+export const SortableLeadCard = memo<BaseLeadCardProps>((props) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
@@ -340,7 +343,9 @@ export const SortableLeadCard: React.FC<BaseLeadCardProps> = (props) => {
       setNodeRef={setNodeRef}
     />
   );
-};
+});
+
+SortableLeadCard.displayName = "SortableLeadCard";
 
 // Versão sem lógica de drag, usada no DragOverlay
 export const LeadCard: React.FC<BaseLeadCardProps> = (props) => {

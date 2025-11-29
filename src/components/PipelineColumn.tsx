@@ -15,6 +15,8 @@ interface PipelineColumnProps {
   onLeadUpdate?: () => void;
   onEdit?: (lead: Lead) => void;
   leadItems: Record<string, any[]>;
+  leadTagsMap: Record<string, Array<{ id: string; name: string; color: string }>>;
+  isDraggingActive: boolean;
 }
 
 export const PipelineColumn = ({
@@ -27,6 +29,8 @@ export const PipelineColumn = ({
   onLeadUpdate,
   onEdit,
   leadItems,
+  leadTagsMap,
+  isDraggingActive,
 }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
@@ -78,6 +82,8 @@ export const PipelineColumn = ({
                 onUpdate={onLeadUpdate}
                 onEdit={() => onEdit?.(lead)}
                 leadItems={leadItems[lead.id] || []}
+                leadTags={leadTagsMap[lead.id] || []}
+                isDraggingActive={isDraggingActive}
               />
             ))
           )}
