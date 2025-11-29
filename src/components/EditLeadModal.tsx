@@ -105,7 +105,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     try {
       const { data, error } = await supabase
         .from('leads')
-        .select('responsavel, data_inicio, data_conclusao, descricao_negocio')
+        .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor')
         .eq('id', lead.id)
         .single();
 
@@ -116,6 +116,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         setDataInicio(data.data_inicio ? new Date(data.data_inicio) : new Date());
         setDataConclusao(data.data_conclusao ? new Date(data.data_conclusao) : undefined);
         setDescricao(data.descricao_negocio || '');
+        // Atualizar o valor com os dados mais recentes do banco
+        setEditedValue(data.valor?.toString() || "0");
       } else {
         // Se não tem dados, definir usuário atual como responsável
         setCurrentUserAsResponsavel();
