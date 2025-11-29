@@ -482,7 +482,6 @@ const Pipeline = () => {
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      autoScroll={{ threshold: { x: 0.2, y: 0.2 } }}
     >
       <div className="space-y-6" style={{ touchAction: 'none' }}>
         <div className="flex items-center justify-between">
