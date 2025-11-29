@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Lead } from "@/types/chat";
+import { memo } from "react";
 
 interface PipelineColumnProps {
   id: string;
@@ -19,7 +20,7 @@ interface PipelineColumnProps {
   isDraggingActive: boolean;
 }
 
-export const PipelineColumn = ({
+export const PipelineColumn = memo(({
   id,
   title,
   count,
@@ -37,7 +38,7 @@ export const PipelineColumn = ({
   });
 
   return (
-    <div className="flex flex-col w-[280px] flex-shrink-0" style={{ contain: "layout" }}>
+    <div className="flex flex-col w-[280px] flex-shrink-0" style={{ contain: "strict" }}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge
@@ -72,7 +73,7 @@ export const PipelineColumn = ({
                 id={lead.id}
                 name={lead.nome_lead}
                 phone={lead.telefone_lead}
-                date={new Date(lead.created_at).toLocaleString("pt-BR")}
+                date={(lead as any).formattedDate || new Date(lead.created_at).toLocaleString("pt-BR")}
                 avatarUrl={lead.avatar_url}
                 stage={lead.stage}
                 value={lead.valor}
@@ -91,5 +92,17 @@ export const PipelineColumn = ({
       </SortableContext>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Comparação otimizada para evitar re-renders desnecessários
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.title === nextProps.title &&
+    prevProps.count === nextProps.count &&
+    prevProps.color === nextProps.color &&
+    prevProps.isEmpty === nextProps.isEmpty &&
+    prevProps.isDraggingActive === nextProps.isDraggingActive &&
+    prevProps.leads.length === nextProps.leads.length &&
+    prevProps.leads.every((lead, i) => lead.id === nextProps.leads[i]?.id)
+  );
+});
 

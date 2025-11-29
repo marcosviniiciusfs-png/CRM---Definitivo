@@ -214,17 +214,27 @@ All colors MUST be HSL.
     transition: none !important;
   }
 
+  /* Optimized drag interactions - disable ALL transitions and animations during drag */
+  [data-dragging-active="true"] * {
+    transition: none !important;
+    animation: none !important;
+  }
+
   [data-dragging-active="true"] .lead-card:hover {
     border-color: hsl(var(--border)) !important;
     box-shadow: none !important;
   }
 
-  [data-dragging-active="true"] .animate-glow-pulse {
-    animation: none !important;
-  }
-
   /* Desabilitar transições de colunas durante drag */
   [data-dragging-active="true"] .pipeline-column {
     transition: none !important;
+  }
+
+  [data-dragging-active="true"] .pipeline-column > div {
+    pointer-events: none;
+  }
+
+  [data-dragging-active="true"] [role="button"] {
+    pointer-events: auto;
   }
 }

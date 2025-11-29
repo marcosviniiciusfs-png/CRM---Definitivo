@@ -14,6 +14,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Constantes vazias estáveis para evitar novas referências
+const EMPTY_ITEMS: any[] = [];
+const EMPTY_TAGS: Array<{ id: string; name: string; color: string }> = [];
+
 type LeadItems = Record<string, any[]>;
 type LeadTagsMap = Record<string, Array<{ id: string; name: string; color: string }>>;
 
@@ -325,13 +329,41 @@ const Pipeline = () => {
     }
   };
 
-  const handleDragStart = (event: DragStartEvent) => {
+  // Pré-calcular datas formatadas para evitar recálculo a cada render
+  const leadsWithFormattedDates = useMemo(() => {
+    return leads.map(lead => ({
+      ...lead,
+      formattedDate: new Date(lead.created_at).toLocaleString("pt-BR")
+    }));
+  }, [leads]);
+
+  // Memoizar leads por stage para evitar recálculo constante
+  const leadsByStage = useMemo(() => {
+    const map = new Map<string, Lead[]>();
+    
+    stages.forEach((stage) => {
+      let filtered;
+      
+      if (usingCustomFunnel) {
+        filtered = leadsWithFormattedDates.filter((lead) => lead.funnel_stage_id === stage.id);
+      } else {
+        filtered = leadsWithFormattedDates.filter((lead) => (lead.stage || "NOVO") === stage.id);
+      }
+      
+      filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
+      map.set(stage.id, filtered);
+    });
+    
+    return map;
+  }, [leadsWithFormattedDates, stages, usingCustomFunnel]);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     setPauseRealtime(true);
     setIsDraggingActive(true);
-  };
+  }, []);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
     setPauseRealtime(false);
@@ -496,27 +528,11 @@ const Pipeline = () => {
         // Recarregar em caso de erro
         loadLeads();
       }
-    };
+    }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel]);
 
-  // Memoizar leads por stage para evitar recálculo constante
-  const leadsByStage = useMemo(() => {
-    const map = new Map<string, Lead[]>();
-    
-    stages.forEach((stage) => {
-      let filtered;
-      
-      if (usingCustomFunnel) {
-        filtered = leads.filter((lead) => lead.funnel_stage_id === stage.id);
-      } else {
-        filtered = leads.filter((lead) => (lead.stage || "NOVO") === stage.id);
-      }
-      
-      filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
-      map.set(stage.id, filtered);
-    });
-    
-    return map;
-  }, [leads, stages, usingCustomFunnel]);
+  const handleEditLead = useCallback((lead: Lead) => {
+    setEditingLead(lead);
+  }, []);
 
   const activeLead = useMemo(() => 
     leads.find((lead) => lead.id === activeId),
@@ -644,9 +660,9 @@ const Pipeline = () => {
                    color={stage.color}
                    leads={stageLeads}
                    isEmpty={stageLeads.length === 0}
-                   onLeadUpdate={loadLeads}
-                   onEdit={setEditingLead}
-                    leadItems={leadItems}
+                    onLeadUpdate={loadLeads}
+                    onEdit={handleEditLead}
+                     leadItems={leadItems}
                     leadTagsMap={leadTagsMap}
                     isDraggingActive={isDraggingActive}
                   />
@@ -658,22 +674,20 @@ const Pipeline = () => {
 
       <DragOverlay dropAnimation={null}>
         {activeLead ? (
-          <div className="opacity-80 shadow-2xl">
-            <LeadCard
-              id={activeLead.id}
-              name={activeLead.nome_lead}
-              phone={activeLead.telefone_lead}
-              date={new Date(activeLead.created_at).toLocaleString("pt-BR")}
-              avatarUrl={activeLead.avatar_url}
-              stage={activeLead.stage}
-              value={activeLead.valor}
-              createdAt={activeLead.created_at}
-              source={activeLead.source}
-              description={activeLead.descricao_negocio}
-              leadItems={leadItems[activeLead.id] || []}
-              leadTags={leadTagsMap[activeLead.id] || []}
-            />
-          </div>
+          <LeadCard
+            id={activeLead.id}
+            name={activeLead.nome_lead}
+            phone={activeLead.telefone_lead}
+            date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
+            avatarUrl={activeLead.avatar_url}
+            stage={activeLead.stage}
+            value={activeLead.valor}
+            createdAt={activeLead.created_at}
+            source={activeLead.source}
+            description={activeLead.descricao_negocio}
+            leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
+            leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
+          />
         ) : null}
       </DragOverlay>
     </DndContext>

@@ -342,8 +342,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   );
 };
 
-// Componente original usado dentro das colunas (com drag & drop) - Memoizado para performance
-export const SortableLeadCard = memo<BaseLeadCardProps>((props) => {
+export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingActive?: boolean }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
@@ -355,9 +354,10 @@ export const SortableLeadCard = memo<BaseLeadCardProps>((props) => {
 
   const style: CSSProperties = {
     transform: DndCSS.Transform.toString(transform),
-    transition: isDragging ? undefined : transition,
+    transition: props.isDraggingActive ? "none" : transition,
     opacity: isDragging ? 0.5 : 1,
     willChange: transform ? "transform" : undefined,
+    cursor: isDragging ? "grabbing" : "grab",
   };
 
   return (
@@ -373,6 +373,20 @@ export const SortableLeadCard = memo<BaseLeadCardProps>((props) => {
       attributes={attributes}
       setNodeRef={setNodeRef}
     />
+  );
+}, (prevProps, nextProps) => {
+  // Comparação otimizada - ignorar mudanças que não afetam visual
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.name === nextProps.name &&
+    prevProps.phone === nextProps.phone &&
+    prevProps.date === nextProps.date &&
+    prevProps.avatarUrl === nextProps.avatarUrl &&
+    prevProps.value === nextProps.value &&
+    prevProps.source === nextProps.source &&
+    prevProps.isDraggingActive === nextProps.isDraggingActive &&
+    prevProps.leadItems?.length === nextProps.leadItems?.length &&
+    prevProps.leadTags?.length === nextProps.leadTags?.length
   );
 });
 
