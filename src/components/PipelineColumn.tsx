@@ -56,7 +56,7 @@ export const PipelineColumn = ({
         <div
           ref={setNodeRef}
           className={cn(
-            "space-y-2 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg scrollbar-hide",
+            "pipeline-column space-y-2 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg scrollbar-hide",
             "transition-colors duration-200",
             isOver && "bg-muted/50 ring-2 ring-primary/20"
           )}

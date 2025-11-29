@@ -638,7 +638,7 @@ const Pipeline = () => {
 
       <DragOverlay dropAnimation={null}>
         {activeLead ? (
-          <div className="opacity-80 rotate-3 scale-105 shadow-2xl">
+          <div className="opacity-80 shadow-2xl">
             <LeadCard
               id={activeLead.id}
               name={activeLead.nome_lead}

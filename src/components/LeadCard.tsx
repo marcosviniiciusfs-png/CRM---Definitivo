@@ -74,6 +74,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   onEdit,
   leadItems: initialLeadItems,
   leadTags: tags = [],
+  isDraggingActive = false,
   isDropdownOpen,
   setIsDropdownOpen,
   showDetailsDialog,
@@ -160,7 +161,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={avatarUrl || undefined} alt={name} />
+            {!isDraggingActive && <AvatarImage src={avatarUrl || undefined} alt={name} />}
             <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
               {getInitials(name)}
             </AvatarFallback>
@@ -326,7 +327,7 @@ export const SortableLeadCard = memo<BaseLeadCardProps>((props) => {
     transform: DndCSS.Transform.toString(transform),
     transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.5 : 1,
-    willChange: isDragging ? "transform" : undefined,
+    willChange: "transform",
   };
 
   return (
