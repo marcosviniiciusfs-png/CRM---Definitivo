@@ -245,8 +245,15 @@ Deno.serve(async (req) => {
     console.log('🔍 Buscando mapeamento de funil para Webhook...');
     const { data: funnelMapping } = await supabase
       .from('funnel_source_mappings')
-      .select('funnel_id, target_stage_id')
+      .select(`
+        funnel_id,
+        target_stage_id,
+        sales_funnels!inner (
+          organization_id
+        )
+      `)
       .eq('source_type', 'webhook')
+      .eq('sales_funnels.organization_id', webhookConfig.organization_id)
       .maybeSingle();
     
     let funnelId: string | null = null;
