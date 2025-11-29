@@ -341,12 +341,22 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const handleSaveQuickValue = async () => {
     try {
-      // Remove caracteres não numéricos e converte vírgula para ponto
-      const cleanValue = quickValue.replace(/[^\d,]/g, '').replace(',', '.');
+      // Remove R$, espaços e pontos de milhar, depois converte vírgula para ponto
+      const cleanValue = quickValue
+        .replace(/R\$\s?/g, '')  // Remove R$ e espaços
+        .replace(/\./g, '')       // Remove pontos de milhar
+        .replace(',', '.');       // Converte vírgula decimal para ponto
+      
       const numericValue = parseFloat(cleanValue);
       
       if (isNaN(numericValue) || numericValue <= 0) {
         toast.error("Por favor, insira um valor válido");
+        return;
+      }
+
+      // Validar limite do banco (max 99.999.999,99 - precision 10, scale 2)
+      if (numericValue >= 100000000) {
+        toast.error("Valor muito alto. Máximo: R$ 99.999.999,99");
         return;
       }
 
