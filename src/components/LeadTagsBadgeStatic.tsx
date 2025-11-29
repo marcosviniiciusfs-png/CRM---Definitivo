@@ -33,7 +33,7 @@ export const LeadTagsBadgeStatic = memo(({ tags }: LeadTagsBadgeStaticProps) => 
   if (tags.length === 0) return null;
 
   return (
-    <div className="flex gap-1 items-center flex-wrap">
+    <div className="flex gap-1 items-center flex-wrap" data-lead-tags>
       {tags.slice(0, 5).map((tag) => {
         const IconComponent = getTagIcon(tag.name);
         
