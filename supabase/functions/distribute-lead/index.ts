@@ -56,6 +56,8 @@ serve(async (req) => {
       sourceType = 'webhook';
     }
 
+    console.log(`Lead source: "${lead.source}" → mapped to sourceType: "${sourceType}"`);
+
     // Tentar buscar config específica para o source, senão buscar config 'all'
     let { data: config, error: configError } = await supabase
       .from('lead_distribution_configs')
@@ -67,6 +69,7 @@ serve(async (req) => {
 
     // Se não encontrou config específica, buscar config 'all'
     if (!config) {
+      console.log(`No specific config for "${sourceType}", trying "all"`);
       const { data: allConfig } = await supabase
         .from('lead_distribution_configs')
         .select('*')
@@ -78,6 +81,10 @@ serve(async (req) => {
       config = allConfig;
     }
 
+    if (config) {
+      console.log(`Using config: "${config.name}" (${config.distribution_method})`);
+    }
+
     if (!config) {
       console.log('No active distribution config found for source:', sourceType);
       return new Response(
@@ -86,19 +93,36 @@ serve(async (req) => {
       );
     }
 
-    // 3. Verificar se o trigger_source está habilitado
+    // 3. Mapear trigger_source para tipo de trigger correto
+    // Fontes (facebook, whatsapp, webhook) devem ser mapeadas para 'new_lead'
+    // Ações como 'manual' ou 'auto_redistribution' permanecem como estão
+    const triggerTypeMap: Record<string, string> = {
+      'facebook': 'new_lead',
+      'whatsapp': 'new_lead', 
+      'webhook': 'new_lead',
+      'manual': 'manual',
+      'auto_redistribution': 'auto_redistribution',
+      'new_lead': 'new_lead'
+    };
+    
+    const mappedTrigger = triggerTypeMap[trigger_source] || trigger_source;
+    
+    // Verificar se o trigger está habilitado
     const triggers = config.triggers as string[];
-    if (!triggers.includes(trigger_source)) {
-      console.log('Trigger source not enabled:', trigger_source);
+    if (!triggers.includes(mappedTrigger)) {
+      console.log('Trigger not enabled:', mappedTrigger, 'for trigger_source:', trigger_source);
       return new Response(
-        JSON.stringify({ success: false, message: 'Trigger source not enabled' }),
+        JSON.stringify({ success: false, message: `Trigger ${mappedTrigger} not enabled` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // 4. Buscar agentes disponíveis (filtrados pelos elegíveis da roleta)
     const eligibleAgentIds = config.eligible_agents as string[] | null;
+    console.log('Eligible agent IDs:', eligibleAgentIds);
     const availableAgents = await getAvailableAgents(supabase, organization_id, eligibleAgentIds);
+    
+    console.log(`Found ${availableAgents.length} available agents:`, availableAgents.map(a => a.full_name || a.email));
     
     if (availableAgents.length === 0) {
       console.log('No available agents found');
@@ -236,7 +260,11 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
       .neq('stage', 'PERDIDO')
       .neq('stage', 'DESCARTADO');
 
-    if (count >= agent.max_capacity) {
+    const currentLoad = count || 0;
+    console.log(`Agent ${agent.profiles?.full_name || agent.organization_members?.email}: ${currentLoad}/${agent.max_capacity} leads`);
+
+    if (currentLoad >= agent.max_capacity) {
+      console.log(`Agent at capacity, skipping`);
       continue;
     }
 
@@ -245,7 +273,7 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
       full_name: agent.profiles?.full_name,
       email: agent.organization_members?.email,
       priority_weight: agent.priority_weight,
-      current_load: count || 0,
+      current_load: currentLoad,
       max_capacity: agent.max_capacity,
     });
   }
