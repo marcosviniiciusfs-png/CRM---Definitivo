@@ -43,6 +43,10 @@ const Colaboradores = () => {
     saidas: 0,
     inativos: 0
   });
+  const [subscriptionLimits, setSubscriptionLimits] = useState<{
+    total: number;
+    current: number;
+  } | null>(null);
   
   const [newColaborador, setNewColaborador] = useState({
     name: "",
@@ -185,6 +189,15 @@ const Colaboradores = () => {
           saidas: 0,
           inativos: 0
         });
+
+        // Load subscription limits
+        const { data: subData } = await supabase.functions.invoke('check-subscription');
+        if (subData?.subscribed && subData?.total_collaborators) {
+          setSubscriptionLimits({
+            total: subData.total_collaborators,
+            current: transformedMembers.length
+          });
+        }
       }
     } catch (error) {
       console.error('Error:', error);
@@ -422,23 +435,43 @@ const Colaboradores = () => {
               <p className="text-muted-foreground mt-1">Gerencie e acompanhe todos os colaboradores ativos</p>
             </div>
           </div>
-          <div className="flex gap-3">
-            {(userRole === 'owner' || userRole === 'admin') && (
-              <>
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => setIsDialogOpen(true)}
-                >
-                  Novo Colaborador
-                </Button>
-                <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
-                  Lote de Colaboradores
-                </Button>
-              </>
+          <div className="flex flex-col gap-3">
+            {subscriptionLimits && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg border">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Colaboradores: <span className="font-semibold text-foreground">{subscriptionLimits.current}/{subscriptionLimits.total}</span>
+                </span>
+                {subscriptionLimits.current >= subscriptionLimits.total && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="ml-auto"
+                    onClick={() => window.location.href = '/pricing'}
+                  >
+                    Adicionar Mais
+                  </Button>
+                )}
+              </div>
             )}
-            <Button variant="secondary">
-              Ver Inativos
-            </Button>
+            <div className="flex gap-3">
+              {(userRole === 'owner' || userRole === 'admin') && (
+                <>
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => setIsDialogOpen(true)}
+                  >
+                    Novo Colaborador
+                  </Button>
+                  <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
+                    Lote de Colaboradores
+                  </Button>
+                </>
+              )}
+              <Button variant="secondary">
+                Ver Inativos
+              </Button>
+            </div>
           </div>
         </div>
 

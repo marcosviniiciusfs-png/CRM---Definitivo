@@ -64,13 +64,45 @@ serve(async (req) => {
     const hasActiveSub = subscriptions.data.length > 0;
     let productId = null;
     let subscriptionEnd = null;
+    let maxCollaborators = 0;
+    let extraCollaborators = 0;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      productId = subscription.items.data[0].price.product;
-      logStep("Determined subscription tier", { productId });
+      
+      // Get the main plan product
+      const mainItem = subscription.items.data.find((item: any) => 
+        item.price.product === "prod_TVqqdFt1DYCcCI" || // Básico
+        item.price.product === "prod_TVqr72myTFqI39" || // Profissional
+        item.price.product === "prod_TVqrhrzuIdUDcS"    // Enterprise
+      );
+      
+      if (mainItem) {
+        productId = mainItem.price.product as string;
+        
+        // Determine max collaborators based on plan
+        if (productId === "prod_TVqqdFt1DYCcCI") maxCollaborators = 5;       // Básico
+        else if (productId === "prod_TVqr72myTFqI39") maxCollaborators = 15; // Profissional
+        else if (productId === "prod_TVqrhrzuIdUDcS") maxCollaborators = 30; // Enterprise
+      }
+      
+      // Check for extra collaborators
+      const extraItem = subscription.items.data.find((item: any) => 
+        item.price.product === "prod_TVqy95fQXCZsWI" // Colaborador Extra
+      );
+      
+      if (extraItem) {
+        extraCollaborators = extraItem.quantity || 0;
+      }
+      
+      logStep("Determined subscription details", { 
+        productId, 
+        maxCollaborators, 
+        extraCollaborators,
+        totalCollaborators: maxCollaborators + extraCollaborators
+      });
     } else {
       logStep("No active subscription found");
     }
@@ -78,7 +110,10 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       product_id: productId,
-      subscription_end: subscriptionEnd
+      subscription_end: subscriptionEnd,
+      max_collaborators: maxCollaborators,
+      extra_collaborators: extraCollaborators,
+      total_collaborators: maxCollaborators + extraCollaborators
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

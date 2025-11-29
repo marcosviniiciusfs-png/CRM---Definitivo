@@ -1,8 +1,9 @@
+import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Plus, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface PricingTier {
+export interface PricingTier {
   name: string;
   icon: React.ReactNode;
   price: number;
@@ -10,6 +11,7 @@ interface PricingTier {
   features: string[];
   popular?: boolean;
   color: string;
+  maxCollaborators?: number;
 }
 
 interface SubscriptionInfo {
@@ -18,7 +20,19 @@ interface SubscriptionInfo {
   subscription_end: string | null;
 }
 
-function CreativePricing({
+interface CreativePricingProps {
+  tag?: string;
+  title?: string;
+  description?: string;
+  tiers: PricingTier[];
+  onSubscribe?: (planName: string, extraCollaborators?: number) => void;
+  loading?: string | null;
+  subscription?: SubscriptionInfo | null;
+  onManageSubscription?: () => void;
+  extraCollaboratorPrice?: number;
+}
+
+export function CreativePricing({
   tag = "Planos Simples",
   title = "Escolha o Plano Ideal",
   description = "Gerencie seus leads com eficiência",
@@ -27,16 +41,38 @@ function CreativePricing({
   loading,
   subscription,
   onManageSubscription,
-}: {
-  tag?: string;
-  title?: string;
-  description?: string;
-  tiers: PricingTier[];
-  onSubscribe?: (planName: string) => void;
-  loading?: string | null;
-  subscription?: SubscriptionInfo | null;
-  onManageSubscription?: () => void;
-}) {
+  extraCollaboratorPrice = 30,
+}: CreativePricingProps) {
+  const [extraCollaborators, setExtraCollaborators] = React.useState<{
+    [key: string]: number;
+  }>({});
+
+  const isCurrentPlan = (tier: PricingTier) => {
+    if (!subscription?.subscribed || !subscription.product_id) return false;
+
+    const tierName = tier.name.toLowerCase();
+    if (tierName === "básico")
+      return subscription.product_id === "prod_TVqqdFt1DYCcCI";
+    if (tierName === "profissional")
+      return subscription.product_id === "prod_TVqr72myTFqI39";
+    if (tierName === "enterprise")
+      return subscription.product_id === "prod_TVqrhrzuIdUDcS";
+
+    return false;
+  };
+
+  const handleExtraColabChange = (tierName: string, value: number) => {
+    setExtraCollaborators((prev) => ({
+      ...prev,
+      [tierName]: Math.max(0, value),
+    }));
+  };
+
+  const getTotalPrice = (tier: PricingTier) => {
+    const extras = extraCollaborators[tier.name] || 0;
+    return tier.price + extras * extraCollaboratorPrice;
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto px-4">
       <div className="text-center space-y-6 mb-16">
@@ -139,38 +175,102 @@ function CreativePricing({
                 ))}
               </div>
 
-              <Button
-                onClick={() => onSubscribe?.(tier.name)}
-                disabled={loading === tier.name}
-                className={cn(
-                  "w-full h-12 font-handwritten text-lg relative",
-                  "border-2 border-border",
-                  "transition-all duration-300",
-                  "shadow-[4px_4px_0px_0px] shadow-border",
-                  "hover:shadow-[6px_6px_0px_0px]",
-                  "hover:translate-x-[-2px] hover:translate-y-[-2px]",
-                  tier.popular
-                    ? "bg-amber-400 text-zinc-900 hover:bg-amber-300"
-                    : "bg-card hover:bg-accent"
-                )}
-              >
-                {loading === tier.name ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  "Começar Agora"
-                )}
-              </Button>
-              
-              {subscription?.subscribed && onManageSubscription && (
+              {/* Extra Collaborators Selector */}
+              {tier.maxCollaborators && (
+                <div className="mb-6 p-4 bg-muted/50 rounded-lg space-y-3 border-2 border-border">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-handwritten text-muted-foreground">
+                      Colaboradores extras:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+                          handleExtraColabChange(
+                            tier.name,
+                            (extraCollaborators[tier.name] || 0) - 1
+                          )
+                        }
+                        disabled={
+                          !extraCollaborators[tier.name] ||
+                          extraCollaborators[tier.name] === 0
+                        }
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="w-8 text-center font-handwritten font-semibold">
+                        {extraCollaborators[tier.name] || 0}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+                          handleExtraColabChange(
+                            tier.name,
+                            (extraCollaborators[tier.name] || 0) + 1
+                          )
+                        }
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {extraCollaborators[tier.name] > 0 && (
+                    <div className="text-xs font-handwritten text-muted-foreground text-right">
+                      {extraCollaborators[tier.name]} × R${" "}
+                      {extraCollaboratorPrice} = R${" "}
+                      {extraCollaborators[tier.name] * extraCollaboratorPrice}
+                    </div>
+                  )}
+                  {extraCollaborators[tier.name] > 0 && (
+                    <div className="text-sm font-handwritten font-semibold text-right pt-2 border-t">
+                      Total: R$ {getTotalPrice(tier)}/mês
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isCurrentPlan(tier) ? (
+                onManageSubscription && (
+                  <Button
+                    onClick={onManageSubscription}
+                    variant="outline"
+                    className="w-full font-handwritten"
+                  >
+                    Gerenciar Assinatura
+                  </Button>
+                )
+              ) : (
                 <Button
-                  onClick={onManageSubscription}
-                  variant="outline"
-                  className="w-full mt-3 font-handwritten"
+                  onClick={() =>
+                    onSubscribe?.(tier.name, extraCollaborators[tier.name] || 0)
+                  }
+                  disabled={loading === tier.name}
+                  className={cn(
+                    "w-full h-12 font-handwritten text-lg relative",
+                    "border-2 border-border",
+                    "transition-all duration-300",
+                    "shadow-[4px_4px_0px_0px] shadow-border",
+                    "hover:shadow-[6px_6px_0px_0px]",
+                    "hover:translate-x-[-2px] hover:translate-y-[-2px]",
+                    tier.popular
+                      ? "bg-amber-400 text-zinc-900 hover:bg-amber-300"
+                      : "bg-card hover:bg-accent"
+                  )}
                 >
-                  Gerenciar Assinatura
+                  {loading === tier.name ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    "Começar Agora"
+                  )}
                 </Button>
               )}
             </div>
@@ -186,6 +286,3 @@ function CreativePricing({
     </div>
   );
 }
-
-export { CreativePricing };
-export type { PricingTier };

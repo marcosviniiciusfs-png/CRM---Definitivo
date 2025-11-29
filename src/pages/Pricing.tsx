@@ -11,15 +11,23 @@ const STRIPE_PLANS = {
   basico: {
     priceId: "price_1SYp92CIzFkZL7Jmk8LxUPOp",
     productId: "prod_TVqqdFt1DYCcCI",
+    maxCollaborators: 5,
   },
   profissional: {
     priceId: "price_1SYp9OCIzFkZL7JmHitGK3FN",
     productId: "prod_TVqr72myTFqI39",
+    maxCollaborators: 15,
   },
   enterprise: {
     priceId: "price_1SYp9bCIzFkZL7JmvcvRhSLh",
     productId: "prod_TVqrhrzuIdUDcS",
+    maxCollaborators: 30,
   },
+  colaboradorExtra: {
+    priceId: "price_1SYpG5CIzFkZL7JmZq9Q7Z1a",
+    productId: "prod_TVqy95fQXCZsWI",
+    pricePerUnit: 30,
+  }
 };
 
 const pricingTiers: PricingTier[] = [
@@ -31,10 +39,12 @@ const pricingTiers: PricingTier[] = [
     color: "blue",
     features: [
       "Até 500 leads",
+      "5 colaboradores inclusos",
       "WhatsApp integrado",
       "Funil básico",
       "Suporte por email",
     ],
+    maxCollaborators: 5,
   },
   {
     name: "Profissional",
@@ -44,6 +54,7 @@ const pricingTiers: PricingTier[] = [
     color: "amber",
     features: [
       "Leads ilimitados",
+      "15 colaboradores inclusos",
       "Automações avançadas",
       "Múltiplos funis",
       "Facebook Leads integrado",
@@ -51,6 +62,7 @@ const pricingTiers: PricingTier[] = [
       "Suporte prioritário",
     ],
     popular: true,
+    maxCollaborators: 15,
   },
   {
     name: "Enterprise",
@@ -60,12 +72,14 @@ const pricingTiers: PricingTier[] = [
     color: "purple",
     features: [
       "Tudo do Profissional",
+      "30 colaboradores inclusos",
       "API dedicada",
       "Múltiplas organizações",
       "Suporte 24/7",
       "Treinamento personalizado",
       "Gerente de conta dedicado",
     ],
+    maxCollaborators: 30,
   },
 ];
 
@@ -95,7 +109,7 @@ export default function Pricing() {
     }
   };
 
-  const handleSubscribe = async (planName: string) => {
+  const handleSubscribe = async (planName: string, extraCollaborators: number = 0) => {
     if (!user) {
       toast.error("Faça login para assinar um plano");
       navigate("/auth");
@@ -115,7 +129,10 @@ export default function Pricing() {
       }
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId },
+        body: { 
+          priceId,
+          extraCollaborators 
+        },
       });
 
       if (error) throw error;
@@ -155,6 +172,7 @@ export default function Pricing() {
         loading={loading}
         subscription={subscription}
         onManageSubscription={handleManageSubscription}
+        extraCollaboratorPrice={STRIPE_PLANS.colaboradorExtra.pricePerUnit}
       />
     </div>
   );
