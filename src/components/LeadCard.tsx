@@ -161,7 +161,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
           <Avatar className="h-8 w-8">
-            {!isDraggingActive && <AvatarImage src={avatarUrl || undefined} alt={name} />}
+            <AvatarImage src={avatarUrl || undefined} alt={name} />
             <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
               {getInitials(name)}
             </AvatarFallback>
