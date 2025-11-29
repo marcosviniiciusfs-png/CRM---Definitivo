@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
+import { UserProfileMenu } from "@/components/UserProfileMenu";
 import { AutomationRulesModal } from "@/components/AutomationRulesModal";
 import { AutomationDashboardModal } from "@/components/AutomationDashboardModal";
 import { ReactNode, useState } from "react";
@@ -49,6 +50,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </>
               )}
               <NotificationBell />
+              <UserProfileMenu />
             </div>
           </header>
           <div className="p-6">
