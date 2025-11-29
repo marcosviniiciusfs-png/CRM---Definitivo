@@ -550,7 +550,6 @@ const Pipeline = () => {
                         onLeadUpdate={loadLeads}
                         onEdit={setEditingLead}
                         leadItems={leadItems}
-                        isDragging={!!activeId}
                       />
                     );
                   })
@@ -560,24 +559,23 @@ const Pipeline = () => {
           </Tabs>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-4">
-            {stages.map((stage) => {
-              const stageLeads = leadsByStage.get(stage.id) || [];
-              return (
-                <PipelineColumn
-                  key={stage.id}
-                  id={stage.id}
-                  title={stage.title}
-                  count={stageLeads.length}
-                  color={stage.color}
-                  leads={stageLeads}
-                  isEmpty={stageLeads.length === 0}
-                  onLeadUpdate={loadLeads}
-                  onEdit={setEditingLead}
-                  leadItems={leadItems}
-                  isDragging={!!activeId}
-                />
-              );
-            })}
+             {stages.map((stage) => {
+               const stageLeads = leadsByStage.get(stage.id) || [];
+               return (
+                 <PipelineColumn
+                   key={stage.id}
+                   id={stage.id}
+                   title={stage.title}
+                   count={stageLeads.length}
+                   color={stage.color}
+                   leads={stageLeads}
+                   isEmpty={stageLeads.length === 0}
+                   onLeadUpdate={loadLeads}
+                   onEdit={setEditingLead}
+                   leadItems={leadItems}
+                 />
+               );
+             })}
           </div>
         )}
       </div>
@@ -595,7 +593,6 @@ const Pipeline = () => {
               value={activeLead.valor}
               createdAt={activeLead.created_at}
               leadItems={leadItems[activeLead.id] || []}
-              isDragging={true}
             />
           </div>
         ) : null}

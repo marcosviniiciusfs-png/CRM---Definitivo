@@ -3,7 +3,7 @@ import { Phone, Calendar, Pencil, Eye, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
+import { useState, useEffect, CSSProperties } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,11 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
-import { supabase } from "@/integrations/supabase/client";
 import * as Icons from "lucide-react";
 import { FaTooth } from "react-icons/fa";
 
@@ -29,7 +28,7 @@ const customIcons: Record<string, React.ComponentType<{ className?: string }>> =
   Tooth: ToothIcon,
 };
 
-interface LeadCardProps {
+export interface BaseLeadCardProps {
   id: string;
   name: string;
   phone: string;
@@ -43,28 +42,46 @@ interface LeadCardProps {
   onUpdate?: () => void;
   onEdit?: () => void;
   leadItems?: any[];
-  isDragging?: boolean;
 }
 
-export const LeadCard = ({ 
-  id, name, phone, date, avatarUrl, stage, value, createdAt, source, description, 
-  onUpdate, onEdit, leadItems: initialLeadItems, isDragging: isCardDragging 
-}: LeadCardProps) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+interface LeadCardViewProps extends BaseLeadCardProps {
+  isDropdownOpen: boolean;
+  setIsDropdownOpen: (open: boolean) => void;
+  showDetailsDialog: boolean;
+  setShowDetailsDialog: (open: boolean) => void;
+  dragging: boolean;
+  style?: CSSProperties;
+  // DnD attrs são opcionais para permitir uso em overlay simples
+  listeners?: Record<string, any>;
+  attributes?: Record<string, any>;
+  setNodeRef?: (node: HTMLElement | null) => void;
+}
+
+// Componente puramente visual, sem lógica de drag
+const LeadCardView: React.FC<LeadCardViewProps> = ({
+  id,
+  name,
+  phone,
+  date,
+  avatarUrl,
+  stage,
+  createdAt,
+  source,
+  description,
+  onUpdate,
+  onEdit,
+  leadItems: initialLeadItems,
+  isDropdownOpen,
+  setIsDropdownOpen,
+  showDetailsDialog,
+  setShowDetailsDialog,
+  dragging,
+  style,
+  listeners,
+  attributes,
+  setNodeRef,
+}) => {
   const [totalValue, setTotalValue] = useState<number>(0);
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: id,
-    disabled: isDropdownOpen || showDetailsDialog,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: isDragging ? undefined : transition,
-    opacity: isDragging ? 0.5 : 1,
-    willChange: isDragging ? 'transform' : undefined,
-  };
 
   const getInitials = (fullName: string) => {
     return fullName
@@ -75,47 +92,48 @@ export const LeadCard = ({
       .slice(0, 2);
   };
 
-  // Verificar se é um lead novo (menos de 10 minutos e stage NOVO)
   const isNewLead = () => {
-    if (stage !== 'NOVO' || !createdAt) return false;
-    
+    if (stage !== "NOVO" || !createdAt) return false;
+
     const now = new Date().getTime();
     const created = new Date(createdAt).getTime();
     const diffMinutes = (now - created) / (1000 * 60);
-    
+
     return diffMinutes < 10;
   };
 
-  // Verificar se é lead do Facebook
-  const isFacebookLead = source === 'Facebook Leads' || description?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===');
+  const isFacebookLead =
+    source === "Facebook Leads" ||
+    description?.includes("=== INFORMAÇÕES DO FORMULÁRIO ===");
 
   const hasRedBorder = isNewLead();
   const leadItems = initialLeadItems || [];
 
-  // Calcular valor total dos itens
   useEffect(() => {
     if (leadItems.length > 0) {
-      const total = leadItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+      const total = leadItems.reduce(
+        (sum, item) => sum + (item.total_price || 0),
+        0
+      );
       setTotalValue(total);
+    } else {
+      setTotalValue(0);
     }
   }, [leadItems]);
 
-  // Função para renderizar ícone
   const getItemIcon = (iconName: string | null, size: string = "h-4 w-4") => {
     if (!iconName) return null;
-    
-    // Verificar ícones customizados primeiro
+
     if (iconName in customIcons) {
       const CustomIcon = customIcons[iconName];
       return <CustomIcon className={size} />;
     }
-    
-    // Verificar ícones do Lucide
+
     if (iconName in Icons) {
       const LucideIcon = Icons[iconName as keyof typeof Icons] as LucideIcon;
       return <LucideIcon className={size} />;
     }
-    
+
     return null;
   };
 
@@ -125,14 +143,14 @@ export const LeadCard = ({
       style={style}
       {...attributes}
       {...listeners}
-      data-dragging={isDragging || isCardDragging}
+      data-dragging={dragging}
       className={cn(
         "cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group",
-        (isDragging || isCardDragging) 
-          ? "transition-none" 
+        dragging
+          ? "transition-none"
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
-        hasRedBorder && !isDragging && !isCardDragging
-          ? "border-border animate-glow-pulse" 
+        hasRedBorder && !dragging
+          ? "border-border animate-glow-pulse"
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
@@ -147,15 +165,21 @@ export const LeadCard = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-1">
               <div className="flex flex-col gap-1 min-w-0">
-                <h3 className="font-semibold text-xs text-foreground leading-tight truncate">{name}</h3>
+                <h3 className="font-semibold text-xs text-foreground leading-tight truncate">
+                  {name}
+                </h3>
                 <div className="flex items-center gap-1 flex-wrap">
                   {isFacebookLead && (
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800"
                     >
-                      <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      <svg
+                        className="h-2.5 w-2.5"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                       </svg>
                       Facebook
                     </Badge>
@@ -164,16 +188,25 @@ export const LeadCard = ({
                 </div>
               </div>
               <DropdownMenu onOpenChange={setIsDropdownOpen}>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-4 w-4 -mt-0.5 flex-shrink-0">
+                <DropdownMenuTrigger
+                  asChild
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 -mt-0.5 flex-shrink-0"
+                  >
                     <Pencil className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-background z-50">
-                  <DropdownMenuItem 
+                <DropdownMenuContent
+                  align="end"
+                  className="bg-background z-50"
+                >
+                  <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log("Editar clicado para:", name);
                       if (onEdit) {
                         onEdit();
                       }
@@ -184,14 +217,24 @@ export const LeadCard = ({
                   >
                     Editar
                   </DropdownMenuItem>
-                  <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDetailsDialog(true);
+                    }}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Ver detalhes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive">
+                    Excluir
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
         </div>
-        
+
         <div className="space-y-0.5 pl-2">
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Phone className="h-3 w-3 flex-shrink-0" />
@@ -203,7 +246,6 @@ export const LeadCard = ({
           </div>
         </div>
 
-        {/* Valor e ícones dos produtos */}
         {leadItems.length > 0 && (
           <div className="mt-2 pt-2 border-t border-border">
             <div className="flex items-center justify-between pl-2 pr-1">
@@ -215,8 +257,8 @@ export const LeadCard = ({
               </div>
               <div className="flex items-center gap-1">
                 {leadItems.slice(0, 3).map((item, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center"
                     title={item.items?.name}
                   >
@@ -235,8 +277,8 @@ export const LeadCard = ({
       </div>
 
       {/* Faixa verde lateral com ícone de olho - esconder durante drag */}
-      {!isDragging && !isCardDragging && (
-        <div 
+      {!dragging && (
+        <div
           className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -249,7 +291,6 @@ export const LeadCard = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            console.log("Click no olho detectado para lead:", id);
             setShowDetailsDialog(true);
           }}
         >
@@ -258,11 +299,62 @@ export const LeadCard = ({
       )}
 
       <LeadDetailsDialog
-        open={showDetailsDialog}
-        onOpenChange={setShowDetailsDialog}
         leadId={id}
         leadName={name}
+        open={showDetailsDialog}
+        onOpenChange={setShowDetailsDialog}
       />
     </Card>
+  );
+};
+
+// Componente original usado dentro das colunas (com drag & drop)
+export const SortableLeadCard: React.FC<BaseLeadCardProps> = (props) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({
+      id: props.id,
+      disabled: isDropdownOpen || showDetailsDialog,
+    });
+
+  const style: CSSProperties = {
+    transform: DndCSS.Transform.toString(transform),
+    transition: isDragging ? undefined : transition,
+    opacity: isDragging ? 0.5 : 1,
+    willChange: isDragging ? "transform" : undefined,
+  };
+
+  return (
+    <LeadCardView
+      {...props}
+      isDropdownOpen={isDropdownOpen}
+      setIsDropdownOpen={setIsDropdownOpen}
+      showDetailsDialog={showDetailsDialog}
+      setShowDetailsDialog={setShowDetailsDialog}
+      dragging={isDragging}
+      style={style}
+      listeners={listeners}
+      attributes={attributes}
+      setNodeRef={setNodeRef}
+    />
+  );
+};
+
+// Versão sem lógica de drag, usada no DragOverlay
+export const LeadCard: React.FC<BaseLeadCardProps> = (props) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+
+  return (
+    <LeadCardView
+      {...props}
+      isDropdownOpen={isDropdownOpen}
+      setIsDropdownOpen={setIsDropdownOpen}
+      showDetailsDialog={showDetailsDialog}
+      setShowDetailsDialog={setShowDetailsDialog}
+      dragging={false}
+    />
   );
 };
