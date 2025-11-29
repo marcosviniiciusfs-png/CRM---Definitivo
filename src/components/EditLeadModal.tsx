@@ -354,9 +354,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         return;
       }
 
-      // Validar limite do banco (max 99.999.999,99 - precision 10, scale 2)
-      if (numericValue >= 100000000) {
-        toast.error("Valor muito alto. Máximo: R$ 99.999.999,99");
+      // Validar limite do banco (max R$ 9.999.999.999.999,99 - precision 15, scale 2)
+      if (numericValue >= 10000000000000) {
+        toast.error("Valor muito alto. Máximo: R$ 9.999.999.999.999,99");
         return;
       }
 
