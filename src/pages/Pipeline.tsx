@@ -628,7 +628,7 @@ const Pipeline = () => {
                     const stageLeads = leadsByStage.get(stage.id) || [];
                     return (
                       <PipelineColumn
-                        key={stage.id}
+                        key={`${selectedFunnelId}-${stage.id}`}
                         id={stage.id}
                         title={stage.title}
                         count={stageLeads.length}
@@ -653,7 +653,7 @@ const Pipeline = () => {
                const stageLeads = leadsByStage.get(stage.id) || [];
                return (
                  <PipelineColumn
-                   key={stage.id}
+                   key={`default-${stage.id}`}
                    id={stage.id}
                    title={stage.title}
                    count={stageLeads.length}

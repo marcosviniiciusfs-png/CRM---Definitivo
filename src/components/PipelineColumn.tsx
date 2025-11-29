@@ -38,7 +38,7 @@ export const PipelineColumn = memo(({
   });
 
   return (
-    <div className="flex flex-col w-[280px] flex-shrink-0" style={{ contain: "strict" }}>
+    <div className="flex flex-col w-[280px] flex-shrink-0 min-h-[500px]" style={{ contain: "content" }}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge
