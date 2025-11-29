@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import payingUsersIcon from "@/assets/paying-users-icon.gif";
-import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell } from "recharts";
 
 interface User {
   id: string;
@@ -26,6 +26,12 @@ interface ChartDataPoint {
   count: number;
 }
 
+interface PlanChartData {
+  name: string;
+  count: number;
+  color: string;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
@@ -35,6 +41,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [planChartData, setPlanChartData] = useState<PlanChartData[]>([]);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -92,8 +99,10 @@ export default function AdminDashboard() {
       if (mrrResult.error) {
         console.error('[AdminDashboard] Erro em calculate-mrr:', mrrResult.error);
         setMrr(0);
+        setPlanChartData([]);
       } else {
         setMrr(mrrResult.data?.mrr || 0);
+        setPlanChartData(mrrResult.data?.planChartData || []);
       }
 
       if (chartResult.error) {
@@ -301,6 +310,50 @@ export default function AdminDashboard() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+              )}
+
+              {/* Gráfico de Barras - Planos */}
+              {!loading && planChartData.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium mb-4 text-muted-foreground">Assinaturas por Plano</h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={planChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
+                      <RechartsTooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                <p className="text-sm font-medium">{payload[0].payload.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {payload[0].value} assinaturas
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                        {planChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
