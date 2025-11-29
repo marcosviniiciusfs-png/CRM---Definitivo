@@ -1558,7 +1558,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-baseline gap-2 overflow-hidden">
-                    <span className="text-3xl font-bold break-all">
+                    <span className="text-xl font-bold break-all">
                       R$ {parseFloat(editedValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
