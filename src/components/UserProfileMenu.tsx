@@ -7,14 +7,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { User, Settings, CreditCard, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 
+const PLAN_NAMES: { [key: string]: string } = {
+  'prod_TVqqdFt1DYCcCI': 'Básico',
+  'prod_TVqr72myTFqI39': 'Profissional',
+  'prod_TVqrhrzuIdUDcS': 'Enterprise'
+};
+
 export function UserProfileMenu() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, subscriptionData } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<{
     avatar_url: string | null;
@@ -85,7 +92,14 @@ export function UserProfileMenu() {
       <DropdownMenuContent align="end" className="w-56 bg-popover">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{profile?.full_name || "Usuário"}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium leading-none">{profile?.full_name || "Usuário"}</p>
+              {subscriptionData?.subscribed && subscriptionData.product_id && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
+                </Badge>
+              )}
+            </div>
             <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
           </div>
         </DropdownMenuLabel>
