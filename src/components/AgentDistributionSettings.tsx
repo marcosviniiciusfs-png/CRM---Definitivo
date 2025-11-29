@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 interface AgentSettings {
   id?: string;
@@ -35,7 +36,8 @@ interface OrganizationMember {
 export function AgentDistributionSettings() {
   const { toast } = useToast();
   const permissions = usePermissions();
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadingSettings, setLoadingSettings] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
@@ -101,7 +103,9 @@ export function AgentDistributionSettings() {
           });
 
           setMembers(membersWithNames);
-          setSelectedMemberId(user.id); // Seleciona o próprio usuário por padrão
+          // Aguardar um pouco antes de selecionar para garantir que o estado foi atualizado
+          await new Promise(resolve => setTimeout(resolve, 50));
+          setSelectedMemberId(user.id);
         }
       } else {
         // Se for member, carregar apenas as próprias configurações
@@ -110,13 +114,15 @@ export function AgentDistributionSettings() {
     } catch (error) {
       console.error('Error loading initial data:', error);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
   const loadMemberSettings = async (memberId: string) => {
+    if (!memberId) return;
+    
     try {
-      setLoading(true);
+      setLoadingSettings(true);
       
       const { data: member } = await supabase
         .from('organization_members')
@@ -167,7 +173,7 @@ export function AgentDistributionSettings() {
     } catch (error) {
       console.error('Error loading member settings:', error);
     } finally {
-      setLoading(false);
+      setLoadingSettings(false);
     }
   };
 
@@ -208,8 +214,8 @@ export function AgentDistributionSettings() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-8">Carregando configurações...</div>;
+  if (initialLoading) {
+    return <LoadingAnimation text="Carregando configurações" />;
   }
 
   const utilizationPercentage = (currentLoad / settings.max_capacity) * 100;
@@ -233,11 +239,15 @@ export function AgentDistributionSettings() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Seletor de Membro (apenas para admins/owners) */}
-          {permissions.canManageAgentSettings && (
+          {permissions.canManageAgentSettings && members.length > 0 && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="member-select">Selecionar Agente</Label>
-                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                <Select 
+                  value={selectedMemberId} 
+                  onValueChange={setSelectedMemberId}
+                  disabled={loadingSettings}
+                >
                   <SelectTrigger id="member-select">
                     <SelectValue placeholder="Selecione um membro" />
                   </SelectTrigger>
@@ -254,8 +264,14 @@ export function AgentDistributionSettings() {
             </>
           )}
 
+          {loadingSettings && (
+            <div className="py-8">
+              <LoadingAnimation text="Carregando dados do agente" />
+            </div>
+          )}
+
           {/* Mensagem informativa para members */}
-          {isReadOnly && (
+          {!loadingSettings && isReadOnly && (
             <>
               <Alert>
                 <Info className="h-4 w-4" />
@@ -266,8 +282,10 @@ export function AgentDistributionSettings() {
               <Separator />
             </>
           )}
+          
           {/* Status de Participação */}
-          <div className="flex items-center justify-between">
+          {!loadingSettings && (
+            <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="is_active">Participar da Roleta</Label>
               <p className="text-sm text-muted-foreground">
@@ -280,12 +298,14 @@ export function AgentDistributionSettings() {
               onCheckedChange={(checked) => setSettings({ ...settings, is_active: checked })}
               disabled={isReadOnly}
             />
-          </div>
+            </div>
+          )}
 
-          <Separator />
+          {!loadingSettings && <Separator />}
 
           {/* Carga Atual */}
-          <div className="space-y-2">
+          {!loadingSettings && (
+            <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
@@ -302,12 +322,14 @@ export function AgentDistributionSettings() {
             <p className="text-sm text-muted-foreground">
               {utilizationPercentage.toFixed(0)}% de utilização
             </p>
-          </div>
+            </div>
+          )}
 
-          <Separator />
+          {!loadingSettings && <Separator />}
 
           {/* Capacidade Máxima */}
-          <div className="space-y-2">
+          {!loadingSettings && (
+            <div className="space-y-2">
             <Label htmlFor="max_capacity">Capacidade Máxima</Label>
             <Input
               id="max_capacity"
@@ -320,12 +342,14 @@ export function AgentDistributionSettings() {
             <p className="text-sm text-muted-foreground">
               Número máximo de leads ativos que você pode ter simultaneamente
             </p>
-          </div>
+            </div>
+          )}
 
-          <Separator />
+          {!loadingSettings && <Separator />}
 
           {/* Prioridade/Peso */}
-          <div className="space-y-2">
+          {!loadingSettings && (
+            <div className="space-y-2">
             <Label htmlFor="priority_weight">Prioridade (1-10)</Label>
             <Input
               id="priority_weight"
@@ -339,12 +363,14 @@ export function AgentDistributionSettings() {
             <p className="text-sm text-muted-foreground">
               Peso para distribuição ponderada. Maior valor = mais leads recebidos
             </p>
-          </div>
+            </div>
+          )}
 
-          <Separator />
+          {!loadingSettings && <Separator />}
 
           {/* Pausa Temporária */}
-          <div className="space-y-4">
+          {!loadingSettings && (
+            <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="is_paused" className="flex items-center gap-2">
@@ -391,9 +417,10 @@ export function AgentDistributionSettings() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
 
-          {!isReadOnly && (
+          {!isReadOnly && !loadingSettings && (
             <div className="flex justify-end pt-4">
               <Button onClick={handleSave} disabled={saving}>
                 <Save className="h-4 w-4 mr-2" />
