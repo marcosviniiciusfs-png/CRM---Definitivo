@@ -29,7 +29,15 @@ interface CreativePricingProps {
   loading?: string | null;
   subscription?: SubscriptionInfo | null;
   onManageSubscription?: () => void;
+  onAddCollaborators?: (quantity: number) => Promise<void>;
+  onUpgradePlan?: (newPriceId: string) => Promise<void>;
   extraCollaboratorPrice?: number;
+  stripePlans?: {
+    [key: string]: {
+      priceId: string;
+      productId: string;
+    };
+  };
 }
 
 export function CreativePricing({
@@ -41,7 +49,10 @@ export function CreativePricing({
   loading,
   subscription,
   onManageSubscription,
+  onAddCollaborators,
+  onUpgradePlan,
   extraCollaboratorPrice = 30,
+  stripePlans = {},
 }: CreativePricingProps) {
   const [extraCollaborators, setExtraCollaborators] = React.useState<{
     [key: string]: number;
@@ -62,6 +73,25 @@ export function CreativePricing({
       return subscription.product_id === "prod_TVqrhrzuIdUDcS";
 
     return false;
+  };
+
+  const canUpgrade = (tier: PricingTier) => {
+    if (!subscription?.subscribed) return false;
+    
+    const planOrder = ["Básico", "Profissional", "Enterprise"];
+    const currentPlanIndex = planOrder.findIndex((plan) => {
+      const tierName = plan.toLowerCase();
+      if (tierName === "básico")
+        return subscription.product_id === "prod_TVqqdFt1DYCcCI";
+      if (tierName === "profissional")
+        return subscription.product_id === "prod_TVqr72myTFqI39";
+      if (tierName === "enterprise")
+        return subscription.product_id === "prod_TVqrhrzuIdUDcS";
+      return false;
+    });
+    
+    const tierIndex = planOrder.indexOf(tier.name);
+    return tierIndex > currentPlanIndex && currentPlanIndex !== -1;
   };
 
   const handleExtraColabChange = (tierName: string, value: number) => {
@@ -256,15 +286,67 @@ export function CreativePricing({
               )}
 
               {isCurrentPlan(tier) ? (
-                onManageSubscription && (
-                  <Button
-                    onClick={onManageSubscription}
-                    variant="outline"
-                    className="w-full font-handwritten"
-                  >
-                    Gerenciar Assinatura
-                  </Button>
-                )
+                <div className="space-y-2">
+                  {onAddCollaborators && (
+                    <Button
+                      onClick={() => {
+                        const quantity = extraCollaborators[tier.name] || 1;
+                        onAddCollaborators(quantity);
+                      }}
+                      variant="default"
+                      className="w-full font-handwritten"
+                      disabled={!extraCollaborators[tier.name] || extraCollaborators[tier.name] === 0}
+                    >
+                      Adicionar Colaboradores
+                    </Button>
+                  )}
+                  {onManageSubscription && (
+                    <Button
+                      onClick={onManageSubscription}
+                      variant="outline"
+                      className="w-full font-handwritten"
+                    >
+                      Gerenciar Assinatura
+                    </Button>
+                  )}
+                </div>
+              ) : canUpgrade(tier) && onUpgradePlan ? (
+                <Button
+                  onClick={() => {
+                    const planKey = tier.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const priceId = stripePlans[planKey]?.priceId;
+                    if (priceId) {
+                      onUpgradePlan(priceId);
+                    }
+                  }}
+                  disabled={loading === tier.name}
+                  className={cn(
+                    "w-full h-12 font-handwritten text-lg relative",
+                    "border-2 border-border",
+                    "transition-all duration-300",
+                    "shadow-[4px_4px_0px_0px] shadow-border",
+                    "hover:shadow-[6px_6px_0px_0px]",
+                    "hover:translate-x-[-2px] hover:translate-y-[-2px]",
+                    "bg-primary text-primary-foreground hover:bg-primary/90"
+                  )}
+                >
+                  {loading === tier.name ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    "Fazer Upgrade"
+                  )}
+                </Button>
+              ) : subscription?.subscribed ? (
+                <Button
+                  disabled
+                  variant="outline"
+                  className="w-full font-handwritten"
+                >
+                  Plano Atual ou Inferior
+                </Button>
               ) : (
                 <Button
                   onClick={() =>

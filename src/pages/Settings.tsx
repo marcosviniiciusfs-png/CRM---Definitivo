@@ -40,6 +40,9 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [addingCollaborators, setAddingCollaborators] = useState(false);
+  const [extraCollaboratorsQty, setExtraCollaboratorsQty] = useState(1);
+  const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
   const [webhookConfig, setWebhookConfig] = useState<{ webhook_token: string; is_active: boolean; tag_id?: string | null } | null>(null);
   const [loadingWebhook, setLoadingWebhook] = useState(false);
   const [webhookTagName, setWebhookTagName] = useState("");
@@ -236,6 +239,43 @@ const Settings = () => {
       toast.error(error.message || "Erro ao atualizar senha. Tente novamente.");
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleAddCollaborators = async () => {
+    if (!extraCollaboratorsQty || extraCollaboratorsQty < 1) {
+      toast.error("Quantidade inválida");
+      return;
+    }
+
+    setAddingCollaborators(true);
+
+    try {
+      toast.loading("Adicionando colaboradores...");
+      const { data, error } = await supabase.functions.invoke("update-subscription", {
+        body: {
+          action: "add_collaborators",
+          quantity: extraCollaboratorsQty,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.dismiss();
+      toast.success(data?.message || "Colaboradores adicionados com sucesso!");
+      
+      // Refresh subscription data
+      await refreshSubscription();
+      
+      // Close modal and reset
+      setShowCollaboratorModal(false);
+      setExtraCollaboratorsQty(1);
+    } catch (error) {
+      toast.dismiss();
+      console.error("Erro ao adicionar colaboradores:", error);
+      toast.error("Erro ao adicionar colaboradores. Tente novamente.");
+    } finally {
+      setAddingCollaborators(false);
     }
   };
 
@@ -760,13 +800,71 @@ const Settings = () => {
                     </div>
                   )}
                   
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/pricing')}
-                    className="w-full"
-                  >
-                    Gerenciar Assinatura
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant="default" 
+                      onClick={() => setShowCollaboratorModal(true)}
+                      className="w-full"
+                    >
+                      Adicionar Colaboradores
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => navigate('/pricing')}
+                      className="w-full"
+                    >
+                      Ver Planos
+                    </Button>
+                  </div>
+                  
+                  {/* Modal de Adicionar Colaboradores */}
+                  {showCollaboratorModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                      <div className="bg-card p-6 rounded-lg border shadow-lg w-full max-w-md space-y-4">
+                        <div>
+                          <h3 className="text-lg font-semibold">Adicionar Colaboradores</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Adicione mais colaboradores à sua equipe por R$ 30/mês cada
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="extra-qty">Quantidade de Colaboradores</Label>
+                          <Input
+                            id="extra-qty"
+                            type="number"
+                            min="1"
+                            value={extraCollaboratorsQty}
+                            onChange={(e) => setExtraCollaboratorsQty(parseInt(e.target.value) || 1)}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Total adicional: R$ {extraCollaboratorsQty * 30}/mês
+                          </p>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleAddCollaborators}
+                            disabled={addingCollaborators}
+                            className="flex-1"
+                          >
+                            {addingCollaborators ? "Processando..." : "Confirmar"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowCollaboratorModal(false);
+                              setExtraCollaboratorsQty(1);
+                            }}
+                            disabled={addingCollaborators}
+                            className="flex-1"
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-4 space-y-3">

@@ -161,6 +161,54 @@ export default function Pricing() {
     }
   };
 
+  const handleAddCollaborators = async (quantity: number) => {
+    try {
+      toast.loading("Adicionando colaboradores...");
+      const { data, error } = await supabase.functions.invoke("update-subscription", {
+        body: {
+          action: "add_collaborators",
+          quantity,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.dismiss();
+      toast.success(data?.message || "Colaboradores adicionados com sucesso!");
+      
+      // Refresh subscription data
+      await checkSubscription();
+    } catch (error) {
+      toast.dismiss();
+      console.error("Erro ao adicionar colaboradores:", error);
+      toast.error("Erro ao adicionar colaboradores. Tente novamente.");
+    }
+  };
+
+  const handleUpgradePlan = async (newPriceId: string) => {
+    try {
+      toast.loading("Processando upgrade...");
+      const { data, error } = await supabase.functions.invoke("update-subscription", {
+        body: {
+          action: "upgrade_plan",
+          newPriceId,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.dismiss();
+      toast.success(data?.message || "Plano atualizado com sucesso!");
+      
+      // Refresh subscription data
+      await checkSubscription();
+    } catch (error) {
+      toast.dismiss();
+      console.error("Erro ao fazer upgrade:", error);
+      toast.error("Erro ao atualizar plano. Tente novamente.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background py-12">
       <CreativePricing
@@ -172,7 +220,10 @@ export default function Pricing() {
         loading={loading}
         subscription={subscription}
         onManageSubscription={handleManageSubscription}
+        onAddCollaborators={handleAddCollaborators}
+        onUpgradePlan={handleUpgradePlan}
         extraCollaboratorPrice={STRIPE_PLANS.colaboradorExtra.pricePerUnit}
+        stripePlans={STRIPE_PLANS}
       />
     </div>
   );
