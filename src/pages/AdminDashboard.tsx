@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [mainUsersCount, setMainUsersCount] = useState(0);
+  const [payingUsersCount, setPayingUsersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -59,10 +60,25 @@ export default function AdminDashboard() {
         throw usersError;
       }
       setUsers(usersData || []);
+
+      // Buscar contagem de usuários pagantes
+      console.log('[AdminDashboard] Chamando count-paying-users...');
+      const { data: payingData, error: payingError } = await supabase.functions.invoke('count-paying-users');
+      
+      console.log('[AdminDashboard] Resultado count-paying-users:', { payingData, payingError });
+      
+      if (payingError) {
+        console.error('[AdminDashboard] Erro em count-paying-users:', payingError);
+        // Não falhar a operação inteira, apenas logar o erro
+        setPayingUsersCount(0);
+      } else {
+        setPayingUsersCount(payingData?.count || 0);
+      }
       
       console.log('[AdminDashboard] Dados carregados com sucesso!', { 
         totalUsers: usersData?.length || 0,
-        mainUsers: countData || 0 
+        mainUsers: countData || 0,
+        payingUsers: payingData?.count || 0
       });
     } catch (error: any) {
       console.error('[AdminDashboard] Erro ao carregar dados:', error);
@@ -99,7 +115,22 @@ export default function AdminDashboard() {
         </div>
 
         {/* Métricas */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <Card className="glow-border">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Usuários Pagantes</CardTitle>
+              <svg className="h-4 w-4 glow-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{payingUsersCount}</div>
+              <p className="text-xs text-muted-foreground">
+                Com assinatura ativa no Stripe
+              </p>
+            </CardContent>
+          </Card>
+
           <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
