@@ -216,9 +216,9 @@ const Pipeline = () => {
         query = query.eq("organization_id", orgMember.organization_id);
       }
 
-      // Se estiver usando funil customizado, filtrar apenas leads desse funil ou sem funil
+      // Se estiver usando funil customizado, filtrar apenas leads desse funil específico
       if (usingCustomFunnel && activeFunnel) {
-        query = query.or(`funnel_id.eq.${activeFunnel.id},funnel_id.is.null`);
+        query = query.eq("funnel_id", activeFunnel.id);
       }
 
       const { data, error } = await query
