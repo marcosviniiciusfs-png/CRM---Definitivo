@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AvatarUpload } from "@/components/AvatarUpload";
-import { FormWebhookLogs } from "@/components/FormWebhookLogs";
+import { GlobalFunnelMapping } from "@/components/GlobalFunnelMapping";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -607,7 +607,7 @@ const Settings = () => {
                 </CardContent>
               </Card>
 
-              <FormWebhookLogs />
+              <GlobalFunnelMapping />
               
               <Card>
                 <CardHeader>
@@ -635,6 +635,14 @@ const Settings = () => {
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     Ver Logs do WhatsApp Webhook
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/form-webhook-logs')}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Ver Logs do URL Webhook
                   </Button>
                 </CardContent>
               </Card>

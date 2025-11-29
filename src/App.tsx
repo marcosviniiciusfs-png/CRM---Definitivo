@@ -27,6 +27,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminUserDetails from "./pages/AdminUserDetails";
 import FacebookWebhookLogs from "./pages/FacebookWebhookLogs";
 import WhatsAppWebhookLogs from "./pages/WhatsAppWebhookLogs";
+import FormWebhookLogs from "./pages/FormWebhookLogs";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import DataDeletion from "./pages/DataDeletion";
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
             <Route path="/facebook-webhook-logs" element={<ProtectedRoute><FacebookWebhookLogs /></ProtectedRoute>} />
             <Route path="/whatsapp-webhook-logs" element={<ProtectedRoute><WhatsAppWebhookLogs /></ProtectedRoute>} />
+            <Route path="/form-webhook-logs" element={<ProtectedRoute><FormWebhookLogs /></ProtectedRoute>} />
             <Route path="/admin" element={<SuperAdminRoute><AdminDashboard /></SuperAdminRoute>} />
             <Route path="/admin/user/:userId" element={<SuperAdminRoute><AdminUserDetails /></SuperAdminRoute>} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
