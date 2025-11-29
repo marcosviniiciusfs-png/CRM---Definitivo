@@ -241,6 +241,49 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WEBHOOK
+    console.log('🔍 Buscando mapeamento de funil para Webhook...');
+    const { data: funnelMapping } = await supabase
+      .from('funnel_source_mappings')
+      .select('funnel_id, target_stage_id')
+      .eq('source_type', 'webhook')
+      .maybeSingle();
+    
+    let funnelId: string | null = null;
+    let funnelStageId: string | null = null;
+    
+    if (funnelMapping) {
+      console.log('✅ Mapeamento encontrado:', funnelMapping);
+      funnelId = funnelMapping.funnel_id;
+      funnelStageId = funnelMapping.target_stage_id;
+    } else {
+      console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
+      // Buscar funil padrão da organização
+      const { data: defaultFunnel } = await supabase
+        .from('sales_funnels')
+        .select('id')
+        .eq('organization_id', webhookConfig.organization_id)
+        .eq('is_default', true)
+        .maybeSingle();
+      
+      if (defaultFunnel) {
+        funnelId = defaultFunnel.id;
+        
+        // Buscar primeira etapa do funil padrão
+        const { data: firstStage } = await supabase
+          .from('funnel_stages')
+          .select('id')
+          .eq('funnel_id', defaultFunnel.id)
+          .order('position')
+          .limit(1)
+          .maybeSingle();
+        
+        if (firstStage) {
+          funnelStageId = firstStage.id;
+        }
+      }
+    }
+
     // Preparar dados do lead com sanitização
     const leadData = {
       nome_lead: nome.substring(0, 200),
@@ -250,6 +293,8 @@ Deno.serve(async (req) => {
       valor: valor,
       stage: 'NOVO',
       source: 'Webhook',
+      funnel_id: funnelId,
+      funnel_stage_id: funnelStageId,
       organization_id: webhookConfig.organization_id,
       // Salvar dados adicionais como JSON
       additional_data: Object.keys(additionalData).length > 0 ? additionalData : null,
