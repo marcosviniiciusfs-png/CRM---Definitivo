@@ -60,6 +60,9 @@ export function CreativePricing({
   const [showExtraCollaborators, setShowExtraCollaborators] = React.useState<{
     [key: string]: boolean;
   }>({});
+  const [showAddModal, setShowAddModal] = React.useState(false);
+  const [modalQuantity, setModalQuantity] = React.useState(1);
+  const [currentTier, setCurrentTier] = React.useState<PricingTier | null>(null);
 
   const isCurrentPlan = (tier: PricingTier) => {
     if (!subscription?.subscribed || !subscription.product_id) return false;
@@ -290,15 +293,14 @@ export function CreativePricing({
                   {onAddCollaborators && (
                     <Button
                       onClick={() => {
-                        const quantity = extraCollaborators[tier.name] || 1;
-                        onAddCollaborators(quantity);
+                        setCurrentTier(tier);
+                        setModalQuantity(1);
+                        setShowAddModal(true);
                       }}
                       variant="default"
                       className="w-full font-handwritten"
                     >
-                      {extraCollaborators[tier.name] && extraCollaborators[tier.name] > 0
-                        ? `Adicionar ${extraCollaborators[tier.name]} Colaborador${extraCollaborators[tier.name] > 1 ? 'es' : ''}`
-                        : 'Adicionar 1 Colaborador'}
+                      Adicionar Colaboradores
                     </Button>
                   )}
                   {onManageSubscription && (
@@ -386,6 +388,101 @@ export function CreativePricing({
           ✏️
         </div>
       </div>
+
+      {/* Modal para adicionar colaboradores */}
+      {showAddModal && currentTier && onAddCollaborators && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-card border-2 border-border rounded-lg shadow-[8px_8px_0px_0px] shadow-border max-w-md w-full p-6 space-y-4">
+            <div>
+              <h3 className="font-handwritten text-2xl text-foreground mb-2">
+                Adicionar Colaboradores
+              </h3>
+              <p className="font-handwritten text-muted-foreground">
+                Plano {currentTier.name} - R$ {extraCollaboratorPrice}/mês por colaborador
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="font-handwritten text-sm text-foreground">
+                Quantidade de colaboradores extras:
+              </label>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10"
+                  onClick={() => setModalQuantity(Math.max(1, modalQuantity - 1))}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <input
+                  type="number"
+                  min="1"
+                  value={modalQuantity}
+                  onChange={(e) => setModalQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 text-center font-handwritten text-xl font-bold border-2 border-border rounded-md px-3 py-2"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10"
+                  onClick={() => setModalQuantity(modalQuantity + 1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="p-4 bg-muted/50 border-2 border-border rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="font-handwritten text-foreground">
+                    {modalQuantity} colaborador{modalQuantity > 1 ? 'es' : ''} × R$ {extraCollaboratorPrice}
+                  </span>
+                  <span className="font-handwritten text-xl font-bold text-foreground">
+                    R$ {modalQuantity * extraCollaboratorPrice}/mês
+                  </span>
+                </div>
+                <p className="text-xs font-handwritten text-muted-foreground mt-2">
+                  Será cobrado proporcionalmente ao período atual
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={() => {
+                  onAddCollaborators(modalQuantity);
+                  setShowAddModal(false);
+                  setCurrentTier(null);
+                }}
+                className={cn(
+                  "flex-1 h-12 font-handwritten text-lg",
+                  "border-2 border-border",
+                  "shadow-[4px_4px_0px_0px] shadow-border",
+                  "hover:shadow-[6px_6px_0px_0px]",
+                  "hover:translate-x-[-2px] hover:translate-y-[-2px]"
+                )}
+              >
+                Confirmar
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setCurrentTier(null);
+                }}
+                variant="outline"
+                className={cn(
+                  "flex-1 h-12 font-handwritten text-lg",
+                  "border-2 border-border"
+                )}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
