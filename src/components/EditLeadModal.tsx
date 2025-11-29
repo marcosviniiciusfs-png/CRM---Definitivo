@@ -87,6 +87,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [leadItems, setLeadItems] = useState<any[]>([]);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [showQuickValueDialog, setShowQuickValueDialog] = useState(false);
+  const [quickValue, setQuickValue] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -338,6 +340,54 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     }
   };
 
+  const handleSaveQuickValue = async () => {
+    try {
+      // Remove caracteres não numéricos e converte vírgula para ponto
+      const cleanValue = quickValue.replace(/[^\d,]/g, '').replace(',', '.');
+      const numericValue = parseFloat(cleanValue);
+      
+      if (isNaN(numericValue) || numericValue <= 0) {
+        toast.error("Por favor, insira um valor válido");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("leads")
+        .update({ valor: numericValue })
+        .eq("id", lead.id);
+
+      if (error) throw error;
+
+      setEditedValue(numericValue.toString());
+      setShowQuickValueDialog(false);
+      setQuickValue("");
+      toast.success("Valor atualizado com sucesso!");
+      onUpdate();
+    } catch (error) {
+      console.error("Erro ao atualizar valor:", error);
+      toast.error("Erro ao atualizar valor");
+    }
+  };
+
+  const formatCurrencyInput = (value: string) => {
+    // Remove tudo exceto números e vírgula
+    const cleaned = value.replace(/[^\d,]/g, '');
+    
+    // Remove vírgulas extras, mantendo apenas a primeira
+    const parts = cleaned.split(',');
+    if (parts.length > 2) {
+      return parts[0] + ',' + parts.slice(1).join('');
+    }
+    
+    // Adiciona formatação de milhar
+    const [integers, decimals] = cleaned.split(',');
+    const formattedIntegers = integers.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    return decimals !== undefined 
+      ? `R$ ${formattedIntegers},${decimals}` 
+      : `R$ ${formattedIntegers}`;
+  };
+
   // Função para renderizar ícone
   const getItemIcon = (iconName: string | null) => {
     if (!iconName) return null;
@@ -367,7 +417,26 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setActivities(data || []);
+
+      // Buscar nomes dos usuários que criaram as atividades
+      if (data && data.length > 0) {
+        const userIds = [...new Set(data.map(a => a.user_id))];
+        
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", userIds);
+
+        // Mapear atividades com nomes de usuários
+        const activitiesWithUsers = data.map(activity => ({
+          ...activity,
+          user_name: profilesData?.find(p => p.user_id === activity.user_id)?.full_name || null
+        }));
+
+        setActivities(activitiesWithUsers);
+      } else {
+        setActivities([]);
+      }
     } catch (error) {
       console.error("Erro ao carregar atividades:", error);
     } finally {
@@ -679,23 +748,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       <DialogContent className="max-w-5xl h-[90vh] p-0 gap-0 flex flex-col">
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <DialogTitle className="text-xl">
-                {lead.nome_lead}
-              </DialogTitle>
-              <Badge className={`${getStageColor(editedStage)} text-white`}>
-                {getStageLabel(editedStage)}
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-6 w-6"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center gap-3">
+            <DialogTitle className="text-xl">
+              {lead.nome_lead}
+            </DialogTitle>
+            <Badge className={`${getStageColor(editedStage)} text-white`}>
+              {getStageLabel(editedStage)}
+            </Badge>
           </div>
         </DialogHeader>
 
@@ -1424,10 +1483,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 <div className="flex items-center gap-1.5">
                                   <Avatar className="h-5 w-5">
                                     <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
-                                      {lead.nome_lead.substring(0, 2).toUpperCase()}
+                                      {activity.user_name?.substring(0, 2).toUpperCase() || 'U'}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="text-xs font-medium">{lead.nome_lead}</span>
+                                  <span className="text-xs font-medium">{activity.user_name || 'Usuário'}</span>
                                 </div>
                               </div>
                             </div>
@@ -1524,13 +1583,23 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         ))}
                       </div>
                     )}
-                    <Button 
-                      variant="link" 
-                      className="text-primary p-0 h-auto text-sm"
-                      onClick={() => setShowItemsDialog(true)}
-                    >
-                      + Adicionar produtos/serviços
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="link" 
+                        className="text-primary p-0 h-auto text-sm"
+                        onClick={() => setShowItemsDialog(true)}
+                      >
+                        + Adicionar produtos/serviços
+                      </Button>
+                      <span className="text-muted-foreground">|</span>
+                      <Button 
+                        variant="link" 
+                        className="text-primary p-0 h-auto text-sm"
+                        onClick={() => setShowQuickValueDialog(true)}
+                      >
+                        Digitar valor
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -2125,6 +2194,52 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
               </div>
             )}
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para digitar valor rápido */}
+      <Dialog open={showQuickValueDialog} onOpenChange={setShowQuickValueDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Digitar valor do negócio</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-value">Valor em Reais (R$)</Label>
+              <Input
+                id="quick-value"
+                placeholder="R$ 0,00"
+                value={quickValue}
+                onChange={(e) => {
+                  const formatted = formatCurrencyInput(e.target.value);
+                  setQuickValue(formatted);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveQuickValue();
+                  }
+                }}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Digite o valor total do negócio. Ex: R$ 1.500,00
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowQuickValueDialog(false);
+                  setQuickValue("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveQuickValue}>
+                Salvar valor
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Dialog>
