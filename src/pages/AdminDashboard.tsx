@@ -200,8 +200,81 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Grid com Tabela e Gráfico */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Grid com Gráfico e Tabela */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+          {/* Gráfico de Crescimento de Assinaturas */}
+          <Card className="glow-border">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle>Crescimento de Assinaturas</CardTitle>
+                  <CardDescription>
+                    Evolução do número total de assinaturas nos últimos 30 dias
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  Nenhum dado de assinatura disponível
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorSubscriptions" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      allowDecimals={false}
+                    />
+                    <RechartsTooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                              <p className="text-sm font-medium">{payload[0].payload.date}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {payload[0].value} assinaturas
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorSubscriptions)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Tabela de Usuários */}
           <Card className="glow-border">
             <CardHeader>
@@ -212,236 +285,163 @@ export default function AdminDashboard() {
                 </CardDescription>
               </div>
             </CardHeader>
-          <CardContent className="space-y-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : (
-              <>
-                <div className="rounded-md glow-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>E-mail</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Data de Cadastro</TableHead>
-                        <TableHead>Último Login</TableHead>
-                        <TableHead>E-mail Confirmado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentUsers.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                            Nenhum usuário encontrado
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        currentUsers.map((user) => (
-                      <TableRow 
-                        key={user.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => navigate(`/admin/user/${user.id}`)}
-                      >
-                        <TableCell className="font-medium">{user.email}</TableCell>
-                        <TableCell>
-                          {user.last_sign_in_at ? (
-                            <Badge variant="default">Ativo</Badge>
-                          ) : (
-                            <Badge variant="secondary">Inativo</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="text-sm">
-                              {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(user.created_at), "HH:mm:ss", { locale: ptBR })}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {user.last_sign_in_at ? (
-                            <div className="flex flex-col">
-                              <span className="text-sm">
-                                {format(new Date(user.last_sign_in_at), "dd/MM/yyyy", { locale: ptBR })}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(user.last_sign_in_at), "HH:mm:ss", { locale: ptBR })}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Nunca</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {user.email_confirmed_at ? (
-                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                              Confirmado
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-                              Pendente
-                            </Badge>
-                          )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                    </TableBody>
-                  </Table>
+            <CardContent className="space-y-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 </div>
-
-                {/* Controles de Paginação */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between pt-4">
-                    <div className="text-sm text-muted-foreground">
-                      Página {currentPage} de {totalPages}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPage(1)}
-                        disabled={currentPage === 1}
-                      >
-                        Primeira
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => goToPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      
-                      {/* Números de página */}
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNumber;
-                          if (totalPages <= 5) {
-                            pageNumber = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNumber = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNumber = totalPages - 4 + i;
-                          } else {
-                            pageNumber = currentPage - 2 + i;
-                          }
-                          
-                          return (
-                            <Button
-                              key={pageNumber}
-                              variant={currentPage === pageNumber ? "default" : "outline"}
-                              size="icon"
-                              onClick={() => goToPage(pageNumber)}
+              ) : (
+                <>
+                  <div className="rounded-md glow-border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>E-mail</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Data de Cadastro</TableHead>
+                          <TableHead>Último Login</TableHead>
+                          <TableHead>E-mail Confirmado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {currentUsers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                              Nenhum usuário encontrado
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          currentUsers.map((user) => (
+                            <TableRow 
+                              key={user.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => navigate(`/admin/user/${user.id}`)}
                             >
-                              {pageNumber}
-                            </Button>
-                          );
-                        })}
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => goToPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                      >
-                        Última
-                      </Button>
-                    </div>
+                              <TableCell className="font-medium">{user.email}</TableCell>
+                              <TableCell>
+                                {user.last_sign_in_at ? (
+                                  <Badge variant="default">Ativo</Badge>
+                                ) : (
+                                  <Badge variant="secondary">Inativo</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="text-sm">
+                                    {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(user.created_at), "HH:mm:ss", { locale: ptBR })}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {user.last_sign_in_at ? (
+                                  <div className="flex flex-col">
+                                    <span className="text-sm">
+                                      {format(new Date(user.last_sign_in_at), "dd/MM/yyyy", { locale: ptBR })}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(user.last_sign_in_at), "HH:mm:ss", { locale: ptBR })}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">Nunca</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {user.email_confirmed_at ? (
+                                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                                    Confirmado
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                                    Pendente
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Gráfico de Crescimento de Assinaturas */}
-        <Card className="glow-border">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <div>
-                <CardTitle>Crescimento de Assinaturas</CardTitle>
-                <CardDescription>
-                  Evolução do número total de assinaturas nos últimos 30 dias
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center h-[300px]">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : chartData.length === 0 ? (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                Nenhum dado de assinatura disponível
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorSubscriptions" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <RechartsTooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-                            <p className="text-sm font-medium">{payload[0].payload.date}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {payload[0].value} assinaturas
-                            </p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorSubscriptions)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  {/* Controles de Paginação */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4">
+                      <div className="text-sm text-muted-foreground">
+                        Página {currentPage} de {totalPages}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(1)}
+                          disabled={currentPage === 1}
+                        >
+                          Primeira
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => goToPage(currentPage - 1)}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        
+                        {/* Números de página */}
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNumber;
+                            if (totalPages <= 5) {
+                              pageNumber = i + 1;
+                            } else if (currentPage <= 3) {
+                              pageNumber = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNumber = totalPages - 4 + i;
+                            } else {
+                              pageNumber = currentPage - 2 + i;
+                            }
+                            
+                            return (
+                              <Button
+                                key={pageNumber}
+                                variant={currentPage === pageNumber ? "default" : "outline"}
+                                size="icon"
+                                onClick={() => goToPage(pageNumber)}
+                              >
+                                {pageNumber}
+                              </Button>
+                            );
+                          })}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => goToPage(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(totalPages)}
+                          disabled={currentPage === totalPages}
+                        >
+                          Última
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
