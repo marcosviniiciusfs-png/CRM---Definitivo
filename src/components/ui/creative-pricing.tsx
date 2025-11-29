@@ -46,6 +46,9 @@ export function CreativePricing({
   const [extraCollaborators, setExtraCollaborators] = React.useState<{
     [key: string]: number;
   }>({});
+  const [showExtraCollaborators, setShowExtraCollaborators] = React.useState<{
+    [key: string]: boolean;
+  }>({});
 
   const isCurrentPlan = (tier: PricingTier) => {
     if (!subscription?.subscribed || !subscription.product_id) return false;
@@ -177,59 +180,76 @@ export function CreativePricing({
 
               {/* Extra Collaborators Selector */}
               {tier.maxCollaborators && (
-                <div className="mb-6 p-4 bg-muted/50 rounded-lg space-y-3 border-2 border-border">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-handwritten text-muted-foreground">
-                      Colaboradores extras:
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() =>
-                          handleExtraColabChange(
-                            tier.name,
-                            (extraCollaborators[tier.name] || 0) - 1
-                          )
-                        }
-                        disabled={
-                          !extraCollaborators[tier.name] ||
-                          extraCollaborators[tier.name] === 0
-                        }
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-8 text-center font-handwritten font-semibold">
-                        {extraCollaborators[tier.name] || 0}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() =>
-                          handleExtraColabChange(
-                            tier.name,
-                            (extraCollaborators[tier.name] || 0) + 1
-                          )
-                        }
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  {extraCollaborators[tier.name] > 0 && (
-                    <div className="text-xs font-handwritten text-muted-foreground text-right">
-                      {extraCollaborators[tier.name]} × R${" "}
-                      {extraCollaboratorPrice} = R${" "}
-                      {extraCollaborators[tier.name] * extraCollaboratorPrice}
-                    </div>
-                  )}
-                  {extraCollaborators[tier.name] > 0 && (
-                    <div className="text-sm font-handwritten font-semibold text-right pt-2 border-t">
-                      Total: R$ {getTotalPrice(tier)}/mês
+                <div className="mb-6">
+                  {!showExtraCollaborators[tier.name] ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowExtraCollaborators((prev) => ({
+                          ...prev,
+                          [tier.name]: true,
+                        }))
+                      }
+                      className="w-full p-3 text-center font-handwritten text-sm text-primary hover:text-primary/80 hover:bg-muted/50 rounded-lg border-2 border-dashed border-border transition-colors"
+                    >
+                      + Mais colaboradores
+                    </button>
+                  ) : (
+                    <div className="p-4 bg-muted/50 rounded-lg space-y-3 border-2 border-border">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-handwritten text-muted-foreground">
+                          Colaboradores extras:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              handleExtraColabChange(
+                                tier.name,
+                                (extraCollaborators[tier.name] || 0) - 1
+                              )
+                            }
+                            disabled={
+                              !extraCollaborators[tier.name] ||
+                              extraCollaborators[tier.name] === 0
+                            }
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="w-8 text-center font-handwritten font-semibold">
+                            {extraCollaborators[tier.name] || 0}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              handleExtraColabChange(
+                                tier.name,
+                                (extraCollaborators[tier.name] || 0) + 1
+                              )
+                            }
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {extraCollaborators[tier.name] > 0 && (
+                        <div className="text-xs font-handwritten text-muted-foreground text-right">
+                          {extraCollaborators[tier.name]} × R${" "}
+                          {extraCollaboratorPrice} = R${" "}
+                          {extraCollaborators[tier.name] * extraCollaboratorPrice}
+                        </div>
+                      )}
+                      {extraCollaborators[tier.name] > 0 && (
+                        <div className="text-sm font-handwritten font-semibold text-right pt-2 border-t">
+                          Total: R$ {getTotalPrice(tier)}/mês
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
