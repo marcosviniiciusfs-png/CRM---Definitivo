@@ -99,7 +99,7 @@ export function UserProfileMenu() {
           <span>Configurações</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => window.open("https://lovable.dev/pricing", "_blank")}
+          onClick={() => navigate("/pricing")}
           className="cursor-pointer"
         >
           <CreditCard className="mr-2 h-4 w-4" />
