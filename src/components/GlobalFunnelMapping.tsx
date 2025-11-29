@@ -27,6 +27,7 @@ export const GlobalFunnelMapping = () => {
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [mappings, setMappings] = useState<SourceMapping[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [selectedWhatsAppFunnel, setSelectedWhatsAppFunnel] = useState<string>("");
   const [selectedFacebookFunnel, setSelectedFacebookFunnel] = useState<string>("");
   const [selectedWebhookFunnel, setSelectedWebhookFunnel] = useState<string>("");
@@ -35,11 +36,13 @@ export const GlobalFunnelMapping = () => {
     loadData();
   }, [user]);
 
-  const loadData = async () => {
+  const loadData = async (isUpdate = false) => {
     if (!user) return;
 
     try {
-      setLoading(true);
+      if (!isUpdate) {
+        setLoading(true);
+      }
 
       // Get organization
       const { data: orgData } = await supabase
@@ -84,7 +87,9 @@ export const GlobalFunnelMapping = () => {
       console.error("Error loading data:", error);
       toast.error("Erro ao carregar funis");
     } finally {
-      setLoading(false);
+      if (!isUpdate) {
+        setLoading(false);
+      }
     }
   };
 
@@ -92,6 +97,7 @@ export const GlobalFunnelMapping = () => {
     if (!user) return;
 
     try {
+      setUpdating(true);
       // Get organization
       const { data: orgData } = await supabase
         .from("organization_members")
@@ -143,10 +149,12 @@ export const GlobalFunnelMapping = () => {
       }
 
       toast.success("Mapeamento atualizado com sucesso");
-      loadData();
+      await loadData(true); // Pass true to indicate it's an update
     } catch (error) {
       console.error("Error updating mapping:", error);
       toast.error("Erro ao atualizar mapeamento");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -168,7 +176,7 @@ export const GlobalFunnelMapping = () => {
           Configure para qual funil os leads de cada fonte devem ser direcionados automaticamente
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6" style={{ opacity: updating ? 0.6 : 1, transition: 'opacity 0.2s' }}>
         {/* WhatsApp */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
