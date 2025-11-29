@@ -75,6 +75,13 @@ const Pipeline = () => {
           if (pauseRealtime) return;
           
           const newLead = payload.new as Lead;
+
+          // Garantir que o lead pertence ao funil atualmente selecionado
+          if (usingCustomFunnel && activeFunnel) {
+            if (newLead.funnel_id !== activeFunnel.id) {
+              return;
+            }
+          }
           
           // Verificar se é realmente um lead novo (não carregado anteriormente)
           if (!leadIdsRef.current.has(newLead.id)) {
