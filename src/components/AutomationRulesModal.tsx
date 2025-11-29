@@ -233,7 +233,10 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                       <div>
                         <CardTitle className="flex items-center gap-2">
                           {rule.name}
-                          <Badge variant={rule.is_active ? "default" : "secondary"}>
+                          <Badge 
+                            variant={rule.is_active ? "default" : "secondary"}
+                            style={rule.is_active ? { backgroundColor: '#66ee78', color: '#000' } : undefined}
+                          >
                             {rule.is_active ? "Ativa" : "Pausada"}
                           </Badge>
                         </CardTitle>

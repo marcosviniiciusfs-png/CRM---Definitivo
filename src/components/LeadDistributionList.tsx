@@ -169,7 +169,10 @@ export function LeadDistributionList() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <CardTitle>{config.name}</CardTitle>
-                      <Badge variant={config.is_active ? "default" : "secondary"}>
+                      <Badge 
+                        variant={config.is_active ? "default" : "secondary"}
+                        style={config.is_active ? { backgroundColor: '#66ee78', color: '#000' } : undefined}
+                      >
                         {config.is_active ? "Ativa" : "Inativa"}
                       </Badge>
                       <Badge variant="outline">{getSourceTypeLabel(config.source_type)}</Badge>
