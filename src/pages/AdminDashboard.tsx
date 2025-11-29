@@ -318,7 +318,7 @@ export default function AdminDashboard() {
                 <div className="mt-6">
                   <h4 className="text-sm font-medium mb-4 text-muted-foreground">Assinaturas por Plano</h4>
                   <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={planChartData} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
+                    <BarChart data={planChartData} margin={{ top: 5, right: 20, bottom: 20, left: -20 }}>
                       <defs>
                         <filter id="planGlow" x="-50%" y="-50%" width="200%" height="200%">
                           <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
