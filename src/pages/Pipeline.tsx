@@ -36,6 +36,7 @@ const Pipeline = () => {
   const [activeFunnel, setActiveFunnel] = useState<any>(null);
   const [allFunnels, setAllFunnels] = useState<any[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Inicialização de áudio e subscrição a novos leads - apenas uma vez
   useEffect(() => {
@@ -88,6 +89,10 @@ const Pipeline = () => {
     const loadPipelineData = async () => {
       await loadFunnel();
       await loadLeads();
+      // Desabilitar animações após primeira carga
+      if (isInitialLoad) {
+        setTimeout(() => setIsInitialLoad(false), 1000);
+      }
     };
     
     loadPipelineData();
@@ -455,7 +460,10 @@ const Pipeline = () => {
     return filtered;
   }, [leads, usingCustomFunnel]);
 
-  const activeLead = leads.find((lead) => lead.id === activeId);
+  const activeLead = useMemo(() => 
+    leads.find((lead) => lead.id === activeId),
+    [leads, activeId]
+  );
 
   if (loading) {
     return (
@@ -483,6 +491,7 @@ const Pipeline = () => {
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      autoScroll={{ threshold: { x: 0.2, y: 0.2 } }}
     >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -510,12 +519,11 @@ const Pipeline = () => {
             className="w-full"
           >
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-              {allFunnels.map((funnel, index) => (
+              {allFunnels.map((funnel) => (
                 <TabsTrigger
                   key={funnel.id}
                   value={funnel.id}
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50 animate-fade-in"
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
                 >
                   {funnel.name}
                   {funnel.is_default && (
@@ -529,7 +537,7 @@ const Pipeline = () => {
               <TabsContent 
                 key={funnel.id} 
                 value={funnel.id} 
-                className="mt-6 animate-fade-in"
+                className="mt-6"
               >
                 <div className="flex gap-3 overflow-x-auto pb-4">
                   {loading ? (
@@ -540,25 +548,20 @@ const Pipeline = () => {
                       </div>
                     ))
                   ) : (
-                    stages.map((stage, index) => {
+                    stages.map((stage) => {
                       const stageLeads = getLeadsByStage(stage.id);
                       return (
-                        <div
+                        <PipelineColumn
                           key={stage.id}
-                          className="animate-fade-in"
-                          style={{ animationDelay: `${index * 50}ms` }}
-                        >
-                          <PipelineColumn
-                            id={stage.id}
-                            title={stage.title}
-                            count={stageLeads.length}
-                            color={stage.color}
-                            leads={stageLeads}
-                            isEmpty={stageLeads.length === 0}
-                            onLeadUpdate={loadLeads}
-                            onEdit={setEditingLead}
-                          />
-                        </div>
+                          id={stage.id}
+                          title={stage.title}
+                          count={stageLeads.length}
+                          color={stage.color}
+                          leads={stageLeads}
+                          isEmpty={stageLeads.length === 0}
+                          onLeadUpdate={loadLeads}
+                          onEdit={setEditingLead}
+                        />
                       );
                     })
                   )}
@@ -588,18 +591,20 @@ const Pipeline = () => {
         )}
       </div>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeLead ? (
-          <LeadCard
-            id={activeLead.id}
-            name={activeLead.nome_lead}
-            phone={activeLead.telefone_lead}
-            date={new Date(activeLead.created_at).toLocaleString("pt-BR")}
-            avatarUrl={activeLead.avatar_url}
-            stage={activeLead.stage}
-            value={activeLead.valor}
-            createdAt={activeLead.created_at}
-          />
+          <div className="opacity-80 rotate-3 scale-105 shadow-2xl">
+            <LeadCard
+              id={activeLead.id}
+              name={activeLead.nome_lead}
+              phone={activeLead.telefone_lead}
+              date={new Date(activeLead.created_at).toLocaleString("pt-BR")}
+              avatarUrl={activeLead.avatar_url}
+              stage={activeLead.stage}
+              value={activeLead.valor}
+              createdAt={activeLead.created_at}
+            />
+          </div>
         ) : null}
       </DragOverlay>
     </DndContext>

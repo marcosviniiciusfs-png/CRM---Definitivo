@@ -36,8 +36,9 @@ export const PipelineColumn = ({ id, title, count, color, leads, isEmpty, onLead
         <div
           ref={setNodeRef}
           className={cn(
-            "space-y-2 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg transition-colors scrollbar-hide",
-            isOver && "bg-muted/50"
+            "space-y-2 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg scrollbar-hide",
+            "transition-colors duration-200",
+            isOver && "bg-muted/50 ring-2 ring-primary/20"
           )}
         >
           {isEmpty ? (

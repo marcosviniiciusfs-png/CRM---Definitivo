@@ -57,8 +57,9 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0 : 1,
+    transition: transition || undefined,
+    opacity: isDragging ? 0.5 : 1,
+    willChange: 'transform',
   };
 
   const getInitials = (fullName: string) => {
@@ -138,7 +139,8 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
       {...attributes}
       {...listeners}
       className={cn(
-        "cursor-grab active:cursor-grabbing rounded-[10px] border-2 transition-all duration-500 ease-in-out bg-card overflow-hidden relative group",
+        "cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group",
+        "transition-[border-color,box-shadow] duration-200 ease-in-out",
         hasRedBorder 
           ? "border-border animate-glow-pulse" 
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
