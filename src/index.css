@@ -198,8 +198,11 @@ All colors MUST be HSL.
   }
 
   /* Otimização crítica: desabilitar transições e hover durante drag ativo */
-  [data-dragging-active="true"] .lead-card {
+  [data-dragging-active="true"] * {
     pointer-events: none !important;
+  }
+
+  [data-dragging-active="true"] .lead-card {
     transition: none !important;
   }
 
@@ -210,5 +213,10 @@ All colors MUST be HSL.
 
   [data-dragging-active="true"] .animate-glow-pulse {
     animation: none !important;
+  }
+
+  /* Desabilitar transições de colunas durante drag */
+  [data-dragging-active="true"] .pipeline-column {
+    transition: none !important;
   }
 }
