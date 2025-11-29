@@ -34,7 +34,8 @@ const Pipeline = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const leadIdsRef = useRef<Set<string>>(new Set());
@@ -44,7 +45,6 @@ const Pipeline = () => {
   const [activeFunnel, setActiveFunnel] = useState<any>(null);
   const [allFunnels, setAllFunnels] = useState<any[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [leadItems, setLeadItems] = useState<LeadItems>({});
   const [pauseRealtime, setPauseRealtime] = useState(false);
   const [leadTagsMap, setLeadTagsMap] = useState<LeadTagsMap>({});
@@ -123,10 +123,6 @@ const Pipeline = () => {
     const loadPipelineData = async () => {
       const funnelData = await loadFunnel();
       await loadLeads(funnelData);
-      // Desabilitar animações após primeira carga
-      if (isInitialLoad) {
-        setTimeout(() => setIsInitialLoad(false), 1000);
-      }
     };
     
     loadPipelineData();
@@ -213,11 +209,15 @@ const Pipeline = () => {
     }
   };
 
-  const loadLeads = async (funnelData?: { isCustom: boolean; funnel: any }) => {
+  const loadLeads = async (funnelData?: { isCustom: boolean; funnel: any }, isTabChange: boolean = false) => {
     if (!user?.id) return;
     
     try {
-      setLoading(true);
+      // Controlar estados de loading separados
+      if (!isTabChange) {
+        setInitialLoading(true);
+      }
+      setIsLoadingData(true);
       
       // Usar dados do funil passados ou estados atuais
       const isCustom = funnelData?.isCustom ?? usingCustomFunnel;
@@ -269,7 +269,9 @@ const Pipeline = () => {
       console.error("Erro ao carregar leads:", error);
       toast.error("Erro ao carregar leads");
     } finally {
-      setLoading(false);
+      setIsLoadingData(false);
+      setInitialLoading(false);
+      setIsTabTransitioning(false);
     }
   };
 
@@ -528,7 +530,7 @@ const Pipeline = () => {
         console.error("Erro ao atualizar lead:", error);
         toast.error("Erro ao mover lead");
         // Recarregar em caso de erro
-        loadLeads();
+        loadLeads(undefined, false);
       }
     }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel]);
 
@@ -537,14 +539,9 @@ const Pipeline = () => {
   }, []);
 
   // Handler otimizado para mudança de aba com transição suave
-  const handleTabChange = useCallback(async (value: string) => {
+  const handleTabChange = useCallback((value: string) => {
     setIsTabTransitioning(true);
     setSelectedFunnelId(value);
-    
-    // Pequeno delay para mostrar a transição antes de carregar
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    setIsTabTransitioning(false);
   }, []);
 
   const activeLead = useMemo(() => 
@@ -552,7 +549,7 @@ const Pipeline = () => {
     [leads, activeId]
   );
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -635,15 +632,7 @@ const Pipeline = () => {
                 )}
                 data-dragging-active={isDraggingActive}
               >
-                {loading ? (
-                  // Skeleton loading para transições suaves
-                  Array.from({ length: stages.length }).map((_, idx) => (
-                    <div key={idx} className="min-w-[280px] h-[500px]">
-                      <Skeleton className="w-full h-full rounded-lg" />
-                    </div>
-                  ))
-                ) : (
-                  stages.map((stage) => {
+                {stages.map((stage) => {
                     const stageLeads = leadsByStage.get(stage.id) || [];
                     return (
                       <PipelineColumn
@@ -654,15 +643,14 @@ const Pipeline = () => {
                         color={stage.color}
                         leads={stageLeads}
                         isEmpty={stageLeads.length === 0}
-                        onLeadUpdate={loadLeads}
+                        onLeadUpdate={() => loadLeads(undefined, false)}
                         onEdit={setEditingLead}
                         leadItems={leadItems}
                         leadTagsMap={leadTagsMap}
                         isDraggingActive={isDraggingActive}
-                      />
-                    );
-                  })
-                )}
+                    />
+                  );
+                })}
               </div>
             </TabsContent>
           </Tabs>
@@ -683,9 +671,9 @@ const Pipeline = () => {
                    title={stage.title}
                    count={stageLeads.length}
                    color={stage.color}
-                   leads={stageLeads}
-                   isEmpty={stageLeads.length === 0}
-                    onLeadUpdate={loadLeads}
+                    leads={stageLeads}
+                    isEmpty={stageLeads.length === 0}
+                    onLeadUpdate={() => loadLeads(undefined, false)}
                     onEdit={handleEditLead}
                      leadItems={leadItems}
                     leadTagsMap={leadTagsMap}
@@ -723,7 +711,7 @@ const Pipeline = () => {
         lead={editingLead}
         open={!!editingLead}
         onClose={() => setEditingLead(null)}
-        onUpdate={loadLeads}
+        onUpdate={() => loadLeads(undefined, false)}
       />
     )}
     </>
