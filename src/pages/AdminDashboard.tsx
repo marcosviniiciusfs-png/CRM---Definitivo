@@ -317,7 +317,7 @@ export default function AdminDashboard() {
               {!loading && planChartData.length > 0 && (
                 <div className="mt-6">
                   <h4 className="text-sm font-medium mb-4 text-muted-foreground">Assinaturas por Plano</h4>
-                  <ResponsiveContainer width="100%" height={200}>
+                  <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={planChartData} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
                       <defs>
                         <filter id="planGlow" x="-50%" y="-50%" width="200%" height="200%">
