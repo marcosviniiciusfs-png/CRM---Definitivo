@@ -9,6 +9,7 @@ import { Plus, Edit, Trash2, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
 import { usePermissions } from "@/hooks/usePermissions";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 interface DistributionConfig {
   id: string;
@@ -130,7 +131,7 @@ export function LeadDistributionList() {
   };
 
   if (isLoading) {
-    return <div>Carregando...</div>;
+    return <LoadingAnimation text="Carregando roletas" />;
   }
 
   return (
