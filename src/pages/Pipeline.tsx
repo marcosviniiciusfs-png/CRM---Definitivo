@@ -54,7 +54,7 @@ const Pipeline = () => {
     })
   );
 
-  // Inicialização de áudio e subscrição a novos leads - apenas uma vez
+  // Inicialização de áudio e subscrição a novos leads
   useEffect(() => {
     // Inicializar áudio de notificação
     audioRef.current = new Audio("/notification.mp3");
@@ -81,6 +81,9 @@ const Pipeline = () => {
             if (newLead.funnel_id !== activeFunnel.id) {
               return;
             }
+          } else if (!usingCustomFunnel && newLead.funnel_id !== null) {
+            // Se estamos no funil padrão, ignorar leads de funis customizados
+            return;
           }
           
           // Verificar se é realmente um lead novo (não carregado anteriormente)
@@ -105,15 +108,15 @@ const Pipeline = () => {
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [pauseRealtime, usingCustomFunnel, activeFunnel]);
 
   // Carregamento de dados - executa na montagem inicial e quando o funil muda
   useEffect(() => {
     if (!user?.id) return;
     
     const loadPipelineData = async () => {
-      await loadFunnel();
-      await loadLeads();
+      const funnelData = await loadFunnel();
+      await loadLeads(funnelData);
       // Desabilitar animações após primeira carga
       if (isInitialLoad) {
         setTimeout(() => setIsInitialLoad(false), 1000);
@@ -124,7 +127,7 @@ const Pipeline = () => {
   }, [selectedFunnelId, user?.id]);
 
   const loadFunnel = async () => {
-    if (!user?.id) return;
+    if (!user?.id) return { isCustom: false, funnel: null };
     
     try {
       const { data: orgData } = await supabase
@@ -136,7 +139,7 @@ const Pipeline = () => {
       if (!orgData) {
         setStages(DEFAULT_STAGES);
         setUsingCustomFunnel(false);
-        return;
+        return { isCustom: false, funnel: null };
       }
 
       // Buscar TODOS os funis ativos
@@ -157,7 +160,7 @@ const Pipeline = () => {
         setUsingCustomFunnel(false);
         setActiveFunnel(null);
         setAllFunnels([]);
-        return;
+        return { isCustom: false, funnel: null };
       }
 
       // Armazenar todos os funis
@@ -172,7 +175,7 @@ const Pipeline = () => {
         setStages(DEFAULT_STAGES);
         setUsingCustomFunnel(false);
         setActiveFunnel(null);
-        return;
+        return { isCustom: false, funnel: null };
       }
 
       // Usar funil selecionado
@@ -194,18 +197,25 @@ const Pipeline = () => {
       if (selectedFunnelId === null) {
         setSelectedFunnelId(funnelToActivate.id);
       }
+      
+      return { isCustom: true, funnel: funnelToActivate };
     } catch (error) {
       console.error("Erro ao carregar funil:", error);
       setStages(DEFAULT_STAGES);
       setUsingCustomFunnel(false);
+      return { isCustom: false, funnel: null };
     }
   };
 
-  const loadLeads = async () => {
+  const loadLeads = async (funnelData?: { isCustom: boolean; funnel: any }) => {
     if (!user?.id) return;
     
     try {
       setLoading(true);
+      
+      // Usar dados do funil passados ou estados atuais
+      const isCustom = funnelData?.isCustom ?? usingCustomFunnel;
+      const funnel = funnelData?.funnel ?? activeFunnel;
       
       // Otimizado: buscar apenas campos necessários (incluindo source para badges)
       let query = supabase
@@ -224,8 +234,8 @@ const Pipeline = () => {
       }
 
       // Se estiver usando funil customizado, filtrar apenas leads desse funil específico
-      if (usingCustomFunnel && activeFunnel) {
-        query = query.eq("funnel_id", activeFunnel.id);
+      if (isCustom && funnel) {
+        query = query.eq("funnel_id", funnel.id);
       } else {
         // No funil padrão (legado), mostrar apenas leads que não pertencem a nenhum funil customizado
         query = query.is("funnel_id", null);
