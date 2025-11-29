@@ -474,17 +474,22 @@ serve(async (req) => {
       
       // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WHATSAPP
       console.log('🔍 Buscando mapeamento de funil para WhatsApp...');
+      
+      // Primeiro, buscar os funis da organização
+      const { data: orgFunnels } = await supabase
+        .from('sales_funnels')
+        .select('id')
+        .eq('organization_id', organizationId);
+      
+      const funnelIds = orgFunnels?.map(f => f.id) || [];
+      console.log('🎯 Funis da organização:', funnelIds);
+      
+      // Depois, buscar o mapeamento para esses funis
       const { data: funnelMapping } = await supabase
         .from('funnel_source_mappings')
-        .select(`
-          funnel_id,
-          target_stage_id,
-          sales_funnels!inner (
-            organization_id
-          )
-        `)
+        .select('funnel_id, target_stage_id')
         .eq('source_type', 'whatsapp')
-        .eq('sales_funnels.organization_id', organizationId)
+        .in('funnel_id', funnelIds)
         .maybeSingle();
       
       let funnelId: string | null = null;
