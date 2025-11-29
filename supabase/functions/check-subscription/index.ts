@@ -69,7 +69,18 @@ serve(async (req) => {
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+      
+      // Safely handle subscription end date
+      if (subscription.current_period_end) {
+        try {
+          subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          logStep("Error parsing subscription end date", { error: errorMsg, rawValue: subscription.current_period_end });
+          subscriptionEnd = null;
+        }
+      }
+      
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
       
       // Get the main plan product
