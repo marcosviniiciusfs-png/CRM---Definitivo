@@ -162,17 +162,22 @@ Deno.serve(async (req) => {
 
             // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA FACEBOOK
             console.log('🔍 Buscando mapeamento de funil para Facebook...');
+            
+            // Primeiro, buscar os funis da organização
+            const { data: orgFunnels } = await supabase
+              .from('sales_funnels')
+              .select('id')
+              .eq('organization_id', integration.organization_id);
+            
+            const funnelIds = orgFunnels?.map(f => f.id) || [];
+            console.log('🎯 Funis da organização:', funnelIds);
+            
+            // Depois, buscar o mapeamento para esses funis
             const { data: funnelMapping } = await supabase
               .from('funnel_source_mappings')
-              .select(`
-                funnel_id,
-                target_stage_id,
-                sales_funnels!inner (
-                  organization_id
-                )
-              `)
+              .select('funnel_id, target_stage_id')
               .eq('source_type', 'facebook')
-              .eq('sales_funnels.organization_id', integration.organization_id)
+              .in('funnel_id', funnelIds)
               .maybeSingle();
             
             let funnelId: string | null = null;
