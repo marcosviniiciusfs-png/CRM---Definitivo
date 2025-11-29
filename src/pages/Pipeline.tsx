@@ -200,10 +200,10 @@ const Pipeline = () => {
     try {
       setLoading(true);
       
-      // Otimizado: buscar apenas campos necessários
+      // Otimizado: buscar apenas campos necessários (incluindo source para badges)
       let query = supabase
         .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, valor, updated_at, created_at");
+        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, valor, updated_at, created_at, source, descricao_negocio");
 
       // Filtrar apenas leads da organização do usuário
       const { data: orgMember } = await supabase
@@ -648,6 +648,8 @@ const Pipeline = () => {
               stage={activeLead.stage}
               value={activeLead.valor}
               createdAt={activeLead.created_at}
+              source={activeLead.source}
+              description={activeLead.descricao_negocio}
               leadItems={leadItems[activeLead.id] || []}
               leadTags={leadTagsMap[activeLead.id] || []}
             />
