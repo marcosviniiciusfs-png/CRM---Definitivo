@@ -14,6 +14,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+type LeadItems = Record<string, any[]>;
+
 // Etapas padrão (quando não há funil customizado)
 const DEFAULT_STAGES = [
   { id: "NOVO", title: "Novo Lead", color: "bg-blue-500" },
@@ -37,6 +39,8 @@ const Pipeline = () => {
   const [allFunnels, setAllFunnels] = useState<any[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [leadItems, setLeadItems] = useState<LeadItems>({});
+  const [pauseRealtime, setPauseRealtime] = useState(false);
 
   // Inicialização de áudio e subscrição a novos leads - apenas uma vez
   useEffect(() => {
@@ -55,13 +59,15 @@ const Pipeline = () => {
           table: 'leads'
         },
         (payload) => {
+          // Pausar processamento durante drag
+          if (pauseRealtime) return;
+          
           const newLead = payload.new as Lead;
-          console.log("Novo lead detectado:", newLead);
           
           // Verificar se é realmente um lead novo (não carregado anteriormente)
           if (!leadIdsRef.current.has(newLead.id)) {
             // Tocar som
-            audioRef.current?.play().catch(err => console.log("Erro ao tocar som:", err));
+            audioRef.current?.play().catch(() => {});
             
             // Mostrar toast
             toast.success(`Novo lead: ${newLead.nome_lead}`, {
@@ -210,12 +216,13 @@ const Pipeline = () => {
 
       if (error) throw error;
       
-      console.log("Leads carregados:", data?.length);
       setLeads(data || []);
       
       // Armazenar IDs dos leads carregados inicialmente
       if (data) {
         leadIdsRef.current = new Set(data.map(lead => lead.id));
+        // Buscar todos lead_items de uma vez
+        await loadLeadItems(data.map(l => l.id));
       }
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
@@ -225,30 +232,53 @@ const Pipeline = () => {
     }
   };
 
+  const loadLeadItems = async (leadIds: string[]) => {
+    if (leadIds.length === 0) return;
+    
+    const { data, error } = await supabase
+      .from('lead_items')
+      .select(`
+        *,
+        items:item_id (
+          id,
+          name,
+          icon,
+          sale_price
+        )
+      `)
+      .in('lead_id', leadIds);
+
+    if (!error && data) {
+      const itemsMap: LeadItems = {};
+      data.forEach((item) => {
+        if (!itemsMap[item.lead_id]) {
+          itemsMap[item.lead_id] = [];
+        }
+        itemsMap[item.lead_id].push(item);
+      });
+      setLeadItems(itemsMap);
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-    console.log("Drag iniciado:", event.active.id);
+    setPauseRealtime(true);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
+    setPauseRealtime(false);
 
     if (!over) {
-      console.log("Drag cancelado - sem alvo");
       return;
     }
 
     const leadId = active.id as string;
     const overId = over.id as string;
 
-    console.log("Drag finalizado:", { leadId, overId });
-
     const activeLead = leads.find((l) => l.id === leadId);
-    if (!activeLead) {
-      console.error("Lead ativo não encontrado:", leadId);
-      return;
-    }
+    if (!activeLead) return;
 
     // Determinar o stage de destino
     const isDroppedOverStage = stages.some((s) => s.id === overId);
@@ -257,26 +287,16 @@ const Pipeline = () => {
     const targetStage = isDroppedOverStage ? overId : (overLead?.stage || activeLead.stage || "NOVO");
     const activeStage = activeLead.stage || "NOVO";
 
-    console.log("Informações do drop:", { 
-      isDroppedOverStage, 
-      targetStage, 
-      activeStage,
-      overLeadExists: !!overLead 
-    });
-
     // Se for dropado no mesmo lugar, não fazer nada
     if (targetStage === activeStage && (isDroppedOverStage || leadId === overId)) {
-      console.log("Mesma posição, nenhuma ação necessária");
       return;
     }
 
     try {
       if (isDroppedOverStage) {
         // Dropado diretamente em uma coluna
-        const targetStageLeads = getLeadsByStage(targetStage);
+        const targetStageLeads = leadsByStage.get(targetStage) || [];
         const newPosition = targetStageLeads.length;
-
-        console.log("Movendo para coluna:", { targetStage, newPosition, totalLeadsInTarget: targetStageLeads.length });
 
         // Atualizar estado local
         setLeads((prev) =>
@@ -300,24 +320,11 @@ const Pipeline = () => {
         // Dropado sobre outro lead
         if (targetStage === activeStage) {
           // Reordenando dentro da mesma coluna
-          const stageLeads = getLeadsByStage(activeStage);
+          const stageLeads = leadsByStage.get(activeStage) || [];
           const oldIndex = stageLeads.findIndex((l) => l.id === leadId);
           const newIndex = stageLeads.findIndex((l) => l.id === overId);
 
-          console.log("Reordenando na mesma coluna:", { 
-            stage: activeStage,
-            oldIndex, 
-            newIndex,
-            totalLeads: stageLeads.length 
-          });
-
-          if (oldIndex === -1 || newIndex === -1) {
-            console.error("Índices inválidos:", { oldIndex, newIndex });
-            return;
-          }
-
-          if (oldIndex === newIndex) {
-            console.log("Mesma posição, ignorando");
+          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
             return;
           }
 
@@ -357,7 +364,6 @@ const Pipeline = () => {
           );
 
           // Atualizar posições no banco
-          console.log("Atualizando posições no banco para", reorderedWithPositions.length, "leads");
           await Promise.all(
             reorderedWithPositions.map((lead) =>
               supabase
@@ -371,23 +377,12 @@ const Pipeline = () => {
 
         } else {
           // Movendo para outra coluna e posicionando sobre outro lead
-          const activeStageLeads = getLeadsByStage(activeStage);
-          const targetStageLeads = getLeadsByStage(targetStage);
+          const activeStageLeads = leadsByStage.get(activeStage) || [];
+          const targetStageLeads = leadsByStage.get(targetStage) || [];
           
           const newIndex = targetStageLeads.findIndex((l) => l.id === overId);
           
-          console.log("Movendo para coluna diferente:", { 
-            from: activeStage,
-            to: targetStage, 
-            newIndex,
-            activeCount: activeStageLeads.length,
-            targetCount: targetStageLeads.length
-          });
-
-          if (newIndex === -1) {
-            console.error("Lead de destino não encontrado na coluna");
-            return;
-          }
+          if (newIndex === -1) return;
 
           // Remover da coluna antiga e recalcular posições
           const updatedActiveStage = activeStageLeads
@@ -412,11 +407,6 @@ const Pipeline = () => {
           });
 
           // Atualizar no banco
-          console.log("Atualizando banco:", {
-            activeStageUpdates: updatedActiveStage.length,
-            targetStageUpdates: updatedTargetWithPositions.length
-          });
-
           const updates = [
             ...updatedActiveStage.map((lead) =>
               supabase.from("leads").update({ position: lead.position }).eq("id", lead.id)
@@ -441,24 +431,25 @@ const Pipeline = () => {
       }
     };
 
-    // Otimizado: memoizar cálculo de leads por stage
-    const getLeadsByStage = useCallback((stageId: string) => {
-    let filtered;
+  // Memoizar leads por stage para evitar recálculo constante
+  const leadsByStage = useMemo(() => {
+    const map = new Map<string, Lead[]>();
     
-    if (usingCustomFunnel) {
-      // No funil customizado, usar funnel_stage_id
-      filtered = leads.filter((lead) => lead.funnel_stage_id === stageId);
-    } else {
-      // No funil padrão, usar stage (texto)
-      filtered = leads.filter((lead) => (lead.stage || "NOVO") === stageId);
-    }
+    stages.forEach((stage) => {
+      let filtered;
+      
+      if (usingCustomFunnel) {
+        filtered = leads.filter((lead) => lead.funnel_stage_id === stage.id);
+      } else {
+        filtered = leads.filter((lead) => (lead.stage || "NOVO") === stage.id);
+      }
+      
+      filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
+      map.set(stage.id, filtered);
+    });
     
-    // Ordenar por position
-    filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
-    
-    console.log(`Leads no stage ${stageId}:`, filtered.length);
-    return filtered;
-  }, [leads, usingCustomFunnel]);
+    return map;
+  }, [leads, stages, usingCustomFunnel]);
 
   const activeLead = useMemo(() => 
     leads.find((lead) => lead.id === activeId),
@@ -493,7 +484,7 @@ const Pipeline = () => {
       onDragEnd={handleDragEnd}
       autoScroll={{ threshold: { x: 0.2, y: 0.2 } }}
     >
-      <div className="space-y-6">
+      <div className="space-y-6" style={{ touchAction: 'none' }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -549,7 +540,7 @@ const Pipeline = () => {
                     ))
                   ) : (
                     stages.map((stage) => {
-                      const stageLeads = getLeadsByStage(stage.id);
+                      const stageLeads = leadsByStage.get(stage.id) || [];
                       return (
                         <PipelineColumn
                           key={stage.id}
@@ -561,6 +552,8 @@ const Pipeline = () => {
                           isEmpty={stageLeads.length === 0}
                           onLeadUpdate={loadLeads}
                           onEdit={setEditingLead}
+                          leadItems={leadItems}
+                          isDragging={!!activeId}
                         />
                       );
                     })
@@ -572,7 +565,7 @@ const Pipeline = () => {
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-4">
             {stages.map((stage) => {
-              const stageLeads = getLeadsByStage(stage.id);
+              const stageLeads = leadsByStage.get(stage.id) || [];
               return (
                 <PipelineColumn
                   key={stage.id}
@@ -584,6 +577,8 @@ const Pipeline = () => {
                   isEmpty={stageLeads.length === 0}
                   onLeadUpdate={loadLeads}
                   onEdit={setEditingLead}
+                  leadItems={leadItems}
+                  isDragging={!!activeId}
                 />
               );
             })}
@@ -603,6 +598,8 @@ const Pipeline = () => {
               stage={activeLead.stage}
               value={activeLead.valor}
               createdAt={activeLead.created_at}
+              leadItems={leadItems[activeLead.id] || []}
+              isDragging={true}
             />
           </div>
         ) : null}

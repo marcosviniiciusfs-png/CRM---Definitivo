@@ -42,12 +42,16 @@ interface LeadCardProps {
   description?: string;
   onUpdate?: () => void;
   onEdit?: () => void;
+  leadItems?: any[];
+  isDragging?: boolean;
 }
 
-export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, createdAt, source, description, onUpdate, onEdit }: LeadCardProps) => {
+export const LeadCard = ({ 
+  id, name, phone, date, avatarUrl, stage, value, createdAt, source, description, 
+  onUpdate, onEdit, leadItems: initialLeadItems, isDragging: isCardDragging 
+}: LeadCardProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [leadItems, setLeadItems] = useState<any[]>([]);
   const [totalValue, setTotalValue] = useState<number>(0);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -57,9 +61,9 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || undefined,
+    transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.5 : 1,
-    willChange: 'transform',
+    willChange: isDragging ? 'transform' : undefined,
   };
 
   const getInitials = (fullName: string) => {
@@ -86,32 +90,15 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
   const isFacebookLead = source === 'Facebook Leads' || description?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===');
 
   const hasRedBorder = isNewLead();
+  const leadItems = initialLeadItems || [];
 
-  // Buscar produtos/serviços atribuídos ao lead
+  // Calcular valor total dos itens
   useEffect(() => {
-    const fetchLeadItems = async () => {
-      const { data, error } = await supabase
-        .from('lead_items')
-        .select(`
-          *,
-          items:item_id (
-            id,
-            name,
-            icon,
-            sale_price
-          )
-        `)
-        .eq('lead_id', id);
-
-      if (!error && data) {
-        setLeadItems(data);
-        const total = data.reduce((sum, item) => sum + (item.total_price || 0), 0);
-        setTotalValue(total);
-      }
-    };
-
-    fetchLeadItems();
-  }, [id]);
+    if (leadItems.length > 0) {
+      const total = leadItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+      setTotalValue(total);
+    }
+  }, [leadItems]);
 
   // Função para renderizar ícone
   const getItemIcon = (iconName: string | null, size: string = "h-4 w-4") => {
@@ -138,10 +125,13 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
       style={style}
       {...attributes}
       {...listeners}
+      data-dragging={isDragging || isCardDragging}
       className={cn(
         "cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group",
-        "transition-[border-color,box-shadow] duration-200 ease-in-out",
-        hasRedBorder 
+        (isDragging || isCardDragging) 
+          ? "transition-none" 
+          : "transition-[border-color,box-shadow] duration-200 ease-in-out",
+        hasRedBorder && !isDragging && !isCardDragging
           ? "border-border animate-glow-pulse" 
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
@@ -244,26 +234,28 @@ export const LeadCard = ({ id, name, phone, date, avatarUrl, stage, value, creat
         )}
       </div>
 
-      {/* Faixa verde lateral com ícone de olho - desliza da direita na entrada */}
-      <div 
-        className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-        }}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-        }}
-        onTouchStart={(e) => {
-          e.stopPropagation();
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          console.log("Click no olho detectado para lead:", id);
-          setShowDetailsDialog(true);
-        }}
-      >
-        <Eye className="h-4 w-4 text-primary-foreground" />
-      </div>
+      {/* Faixa verde lateral com ícone de olho - esconder durante drag */}
+      {!isDragging && !isCardDragging && (
+        <div 
+          className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log("Click no olho detectado para lead:", id);
+            setShowDetailsDialog(true);
+          }}
+        >
+          <Eye className="h-4 w-4 text-primary-foreground" />
+        </div>
+      )}
 
       <LeadDetailsDialog
         open={showDetailsDialog}

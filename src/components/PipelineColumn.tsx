@@ -14,15 +14,17 @@ interface PipelineColumnProps {
   isEmpty?: boolean;
   onLeadUpdate?: () => void;
   onEdit?: (lead: Lead) => void;
+  leadItems: Record<string, any[]>;
+  isDragging: boolean;
 }
 
-export const PipelineColumn = ({ id, title, count, color, leads, isEmpty, onLeadUpdate, onEdit }: PipelineColumnProps) => {
+export const PipelineColumn = ({ id, title, count, color, leads, isEmpty, onLeadUpdate, onEdit, leadItems, isDragging }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
   });
 
   return (
-    <div className="flex flex-col w-[280px] flex-shrink-0">
+    <div className="flex flex-col w-[280px] flex-shrink-0" style={{ contain: 'layout' }}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge className={cn("rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs", color)}>
@@ -61,6 +63,8 @@ export const PipelineColumn = ({ id, title, count, color, leads, isEmpty, onLead
                 description={lead.descricao_negocio}
                 onUpdate={onLeadUpdate}
                 onEdit={() => onEdit?.(lead)}
+                leadItems={leadItems[lead.id] || []}
+                isDragging={isDragging}
               />
             ))
           )}
