@@ -226,6 +226,9 @@ const Pipeline = () => {
       // Se estiver usando funil customizado, filtrar apenas leads desse funil específico
       if (usingCustomFunnel && activeFunnel) {
         query = query.eq("funnel_id", activeFunnel.id);
+      } else {
+        // No funil padrão (legado), mostrar apenas leads que não pertencem a nenhum funil customizado
+        query = query.is("funnel_id", null);
       }
 
       const { data, error } = await query
