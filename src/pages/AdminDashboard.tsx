@@ -120,7 +120,7 @@ export default function AdminDashboard() {
           <Card className="glow-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Pagantes</CardTitle>
-              <img src={payingUsersIcon} alt="Paying users" className="h-4 w-4 glow-icon" />
+              <img src={payingUsersIcon} alt="Paying users" className="h-12 w-12 glow-icon" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{payingUsersCount}</div>
