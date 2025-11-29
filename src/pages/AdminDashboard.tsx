@@ -143,43 +143,22 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Métricas */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-          {/* Coluna com Usuários Pagantes e MRR empilhados */}
-          <div className="space-y-4">
-            <Card className="glow-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Usuários Pagantes</CardTitle>
-                <img src={payingUsersIcon} alt="Paying users" className="h-12 w-12 glow-icon" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{payingUsersCount}</div>
-                <p className="text-xs text-muted-foreground">
-                  Com assinatura ativa no Stripe
-                </p>
-              </CardContent>
-            </Card>
+        {/* Métricas - Primeira Linha */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <Card className="glow-border h-[140px]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Usuários Pagantes</CardTitle>
+              <img src={payingUsersIcon} alt="Paying users" className="h-12 w-12 glow-icon" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{payingUsersCount}</div>
+              <p className="text-xs text-muted-foreground">
+                Com assinatura ativa no Stripe
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card className="glow-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">MRR (Receita Mensal)</CardTitle>
-                <TrendingUp className="h-4 w-4 glow-icon text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(mrr)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Receita recorrente mensal
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="glow-border">
+          <Card className="glow-border h-[140px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
               <Users className="h-4 w-4 glow-icon" />
@@ -192,7 +171,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="glow-border">
+          <Card className="glow-border h-[140px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Principais</CardTitle>
               <UserCheck className="h-4 w-4 glow-icon" />
@@ -205,7 +184,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="glow-border">
+          <Card className="glow-border h-[140px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">E-mails Confirmados</CardTitle>
               <Shield className="h-4 w-4 glow-icon" />
@@ -218,7 +197,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="glow-border">
+          <Card className="glow-border h-[140px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
               <Activity className="h-4 w-4 glow-icon" />
@@ -232,8 +211,27 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Grid com Gráfico e Tabela */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+        {/* Card MRR - Segunda Linha */}
+        <Card className="glow-border h-[140px] lg:w-[calc(40%-0.5rem)]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">MRR (Receita Mensal)</CardTitle>
+            <TrendingUp className="h-4 w-4 glow-icon text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+              }).format(mrr)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Receita recorrente mensal
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Grid com Gráfico e Tabela - Terceira Linha */}
+        <div className="grid gap-6 lg:grid-cols-[40%_60%]">
           {/* Gráfico de Crescimento de Assinaturas */}
           <Card className="glow-border">
             <CardHeader>
