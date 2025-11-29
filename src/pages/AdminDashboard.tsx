@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, UserCheck, Shield, Activity, ChevronLeft, ChevronRight, TrendingUp } from "lucide-react";
+import { Users, UserCheck, Shield, Activity, ChevronLeft, ChevronRight, TrendingUp, DollarSign, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -38,6 +38,8 @@ export default function AdminDashboard() {
   const [mainUsersCount, setMainUsersCount] = useState(0);
   const [payingUsersCount, setPayingUsersCount] = useState(0);
   const [mrr, setMrr] = useState(0);
+  const [dailyRevenue, setDailyRevenue] = useState(0);
+  const [newUsersThisMonth, setNewUsersThisMonth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
@@ -78,16 +80,18 @@ export default function AdminDashboard() {
       }
       setUsers(usersData || []);
 
-      // Buscar contagem de usuários pagantes, MRR e dados do gráfico em paralelo
-      console.log('[AdminDashboard] Chamando count-paying-users, calculate-mrr e subscription-growth...');
-      const [payingResult, mrrResult, chartResult] = await Promise.all([
+      // Buscar contagem de usuários pagantes, MRR, receita diária e dados do gráfico em paralelo
+      console.log('[AdminDashboard] Chamando count-paying-users, calculate-mrr, calculate-daily-revenue e subscription-growth...');
+      const [payingResult, mrrResult, dailyRevenueResult, chartResult] = await Promise.all([
         supabase.functions.invoke('count-paying-users'),
         supabase.functions.invoke('calculate-mrr'),
+        supabase.functions.invoke('calculate-daily-revenue'),
         supabase.functions.invoke('subscription-growth')
       ]);
       
       console.log('[AdminDashboard] Resultado count-paying-users:', payingResult);
       console.log('[AdminDashboard] Resultado calculate-mrr:', mrrResult);
+      console.log('[AdminDashboard] Resultado calculate-daily-revenue:', dailyRevenueResult);
       console.log('[AdminDashboard] Resultado subscription-growth:', chartResult);
       
       if (payingResult.error) {
@@ -104,6 +108,13 @@ export default function AdminDashboard() {
       } else {
         setMrr(mrrResult.data?.mrr || 0);
         setPlanChartData(mrrResult.data?.planChartData || []);
+      }
+
+      if (dailyRevenueResult.error) {
+        console.error('[AdminDashboard] Erro em calculate-daily-revenue:', dailyRevenueResult.error);
+        setDailyRevenue(0);
+      } else {
+        setDailyRevenue(dailyRevenueResult.data?.dailyRevenue || 0);
       }
 
       if (chartResult.error) {
@@ -130,6 +141,14 @@ export default function AdminDashboard() {
   const totalUsers = users.length;
   const confirmedUsers = users.filter(u => u.email_confirmed_at).length;
   const activeUsers = users.filter(u => u.last_sign_in_at).length;
+  
+  // Calcular novos usuários no mês atual
+  useEffect(() => {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const usersThisMonth = users.filter(u => new Date(u.created_at) >= firstDayOfMonth);
+    setNewUsersThisMonth(usersThisMonth.length);
+  }, [users]);
 
   // Paginação
   const totalPages = Math.ceil(totalUsers / itemsPerPage);
@@ -221,24 +240,57 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Card MRR - Segunda Linha */}
-        <Card className="glow-border h-[140px] lg:w-[calc(40%-0.5rem)]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">MRR (Receita Mensal)</CardTitle>
-            <TrendingUp className="h-4 w-4 glow-icon text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-              }).format(mrr)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Receita recorrente mensal
-            </p>
-          </CardContent>
-        </Card>
+        {/* Cards MRR, Lucro do Dia, Novos Usuários - Segunda Linha */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card className="glow-border h-[140px]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">MRR (Receita Mensal)</CardTitle>
+              <TrendingUp className="h-4 w-4 glow-icon text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(mrr)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Receita recorrente mensal
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glow-border h-[140px]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Lucro do Dia</CardTitle>
+              <DollarSign className="h-4 w-4 glow-icon text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(dailyRevenue)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Receita gerada hoje
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glow-border h-[140px]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Novos Usuários (Mês)</CardTitle>
+              <UserPlus className="h-4 w-4 glow-icon text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{newUsersThisMonth}</div>
+              <p className="text-xs text-muted-foreground">
+                Cadastrados em {format(new Date(), 'MMMM', { locale: ptBR })}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Grid com Gráfico e Tabela - Terceira Linha */}
         <div className="grid gap-6 lg:grid-cols-[40%_60%]">
