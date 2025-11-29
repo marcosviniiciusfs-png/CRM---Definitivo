@@ -96,8 +96,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       loadDadosNegocio();
       fetchAvailableItems();
       fetchLeadItems();
+      // Sincronizar o valor do lead com o estado local
+      setEditedValue(lead.valor?.toString() || "0");
     }
-  }, [open]);
+  }, [open, lead.valor]);
 
   const loadDadosNegocio = async () => {
     try {
