@@ -418,7 +418,7 @@ serve(async (req) => {
     // Verificar se o lead já existe
     const { data: existingLead, error: leadSearchError } = await supabase
       .from('leads')
-      .select('id, nome_lead')
+      .select('id, nome_lead, funnel_id, funnel_stage_id')
       .eq('telefone_lead', phoneNumber)
       .eq('organization_id', organizationId)
       .maybeSingle();
@@ -448,6 +448,77 @@ serve(async (req) => {
           .eq('id', existingLead.id);
         
         leadName = pushName;
+      }
+      
+      // Se o lead existente ainda não tem funil configurado, aplicar mesma regra de mapeamento
+      if (!existingLead.funnel_id) {
+        console.log('🔄 Lead existente sem funil, aplicando mapeamento padrão de funil para WhatsApp...');
+
+        // Buscar funis da organização
+        const { data: orgFunnels } = await supabase
+          .from('sales_funnels')
+          .select('id')
+          .eq('organization_id', organizationId);
+
+        const funnelIds = orgFunnels?.map(f => f.id) || [];
+        console.log('🎯 Funis da organização (existente):', funnelIds);
+
+        let funnelId: string | null = null;
+        let funnelStageId: string | null = null;
+
+        if (funnelIds.length > 0) {
+          // Buscar mapeamento para WhatsApp
+          const { data: funnelMapping } = await supabase
+            .from('funnel_source_mappings')
+            .select('funnel_id, target_stage_id')
+            .eq('source_type', 'whatsapp')
+            .in('funnel_id', funnelIds)
+            .maybeSingle();
+
+          if (funnelMapping) {
+            console.log('✅ Mapeamento encontrado para lead existente:', funnelMapping);
+            funnelId = funnelMapping.funnel_id;
+            funnelStageId = funnelMapping.target_stage_id;
+          } else {
+            console.log('⚠️ Nenhum mapeamento encontrado para lead existente, usando funil padrão');
+            const { data: defaultFunnel } = await supabase
+              .from('sales_funnels')
+              .select('id')
+              .eq('organization_id', organizationId)
+              .eq('is_default', true)
+              .maybeSingle();
+
+            if (defaultFunnel) {
+              funnelId = defaultFunnel.id;
+
+              const { data: firstStage } = await supabase
+                .from('funnel_stages')
+                .select('id')
+                .eq('funnel_id', defaultFunnel.id)
+                .order('position')
+                .limit(1)
+                .maybeSingle();
+
+              if (firstStage) {
+                funnelStageId = firstStage.id;
+              }
+            }
+          }
+        }
+
+        if (funnelId && funnelStageId) {
+          console.log('✅ Atualizando funil do lead existente:', { funnelId, funnelStageId });
+          await supabase
+            .from('leads')
+            .update({
+              funnel_id: funnelId,
+              funnel_stage_id: funnelStageId,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingLead.id);
+        } else {
+          console.log('⚠️ Não foi possível determinar funil/etapa para o lead existente');
+        }
       }
       
       // Buscar foto de perfil do WhatsApp de forma assíncrona (não bloqueia o fluxo)
