@@ -126,15 +126,22 @@ serve(async (req) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
 
+    // Contar assinaturas que já existiam ANTES dos últimos 30 dias
+    let currentCount = subscriptionDates.filter(date => date < thirtyDaysAgo).length;
+    logStep("Base count before 30 days", { count: currentCount });
+
     // Preencher dados diários
-    let currentCount = 0;
     for (let d = new Date(thirtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
       const dateKey = d.toISOString().split('T')[0];
       
-      // Verificar se há uma assinatura neste dia
-      if (dateCountMap.has(dateKey)) {
-        currentCount = dateCountMap.get(dateKey)!;
-      }
+      // Contar quantas assinaturas foram criadas NESTE dia específico
+      const newSubsThisDay = subscriptionDates.filter(date => {
+        const subDateKey = date.toISOString().split('T')[0];
+        return subDateKey === dateKey;
+      }).length;
+
+      // Acumular
+      currentCount += newSubsThisDay;
 
       // Formatar data para exibição (dd/MMM)
       const displayDate = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
