@@ -87,7 +87,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [leadItems, setLeadItems] = useState<any[]>([]);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [showQuickValueDialog, setShowQuickValueDialog] = useState(false);
   const [quickValue, setQuickValue] = useState("");
 
   useEffect(() => {
@@ -359,7 +358,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (error) throw error;
 
       setEditedValue(numericValue.toString());
-      setShowQuickValueDialog(false);
+      setShowItemsDialog(false);
       setQuickValue("");
       toast.success("Valor atualizado com sucesso!");
       onUpdate();
@@ -1583,23 +1582,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         ))}
                       </div>
                     )}
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="link" 
-                        className="text-primary p-0 h-auto text-sm"
-                        onClick={() => setShowItemsDialog(true)}
-                      >
-                        + Adicionar produtos/serviços
-                      </Button>
-                      <span className="text-muted-foreground">|</span>
-                      <Button 
-                        variant="link" 
-                        className="text-primary p-0 h-auto text-sm"
-                        onClick={() => setShowQuickValueDialog(true)}
-                      >
-                        Digitar valor
-                      </Button>
-                    </div>
+                    <Button 
+                      variant="link" 
+                      className="text-primary p-0 h-auto text-sm"
+                      onClick={() => setShowItemsDialog(true)}
+                    >
+                      + Adicionar produtos/serviços
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -2088,7 +2077,43 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           <DialogHeader>
             <DialogTitle>Adicionar Produtos/Serviços</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
+          
+          {/* Seção para digitar valor direto */}
+          <div className="px-4 py-3 bg-muted/30 border-y space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium">Digitar valor do negócio</h4>
+                <p className="text-xs text-muted-foreground">
+                  Ou digite o valor total diretamente
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="R$ 0,00"
+                value={quickValue}
+                onChange={(e) => {
+                  const formatted = formatCurrencyInput(e.target.value);
+                  setQuickValue(formatted);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveQuickValue();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSaveQuickValue}
+                disabled={!quickValue}
+                size="sm"
+              >
+                Salvar valor
+              </Button>
+            </div>
+          </div>
+
+          <ScrollArea className="max-h-[50vh]">
             {isLoadingItems ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -2194,52 +2219,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
               </div>
             )}
           </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para digitar valor rápido */}
-      <Dialog open={showQuickValueDialog} onOpenChange={setShowQuickValueDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Digitar valor do negócio</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="quick-value">Valor em Reais (R$)</Label>
-              <Input
-                id="quick-value"
-                placeholder="R$ 0,00"
-                value={quickValue}
-                onChange={(e) => {
-                  const formatted = formatCurrencyInput(e.target.value);
-                  setQuickValue(formatted);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSaveQuickValue();
-                  }
-                }}
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                Digite o valor total do negócio. Ex: R$ 1.500,00
-              </p>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowQuickValueDialog(false);
-                  setQuickValue("");
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveQuickValue}>
-                Salvar valor
-              </Button>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
     </Dialog>
