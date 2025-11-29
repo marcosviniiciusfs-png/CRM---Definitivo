@@ -71,8 +71,8 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: lineItems,
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/pricing?success=true`,
-      cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
+      success_url: `${req.headers.get("origin")}/success`,
+      cancel_url: `${req.headers.get("origin")}/pricing`,
     });
 
     logStep("Checkout session created", { sessionId: session.id });

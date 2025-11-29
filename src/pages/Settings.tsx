@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText, Link2, Copy, RefreshCw, Pencil, X, Check } from "lucide-react";
+import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileText, Link2, Copy, RefreshCw, Pencil, X, Check, CreditCard } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
@@ -18,8 +18,14 @@ import { toast } from "sonner";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { GlobalFunnelMapping } from "@/components/GlobalFunnelMapping";
 
+const PLAN_NAMES: { [key: string]: string } = {
+  'prod_TVqqdFt1DYCcCI': 'Básico',
+  'prod_TVqr72myTFqI39': 'Profissional',
+  'prod_TVqrhrzuIdUDcS': 'Enterprise'
+};
+
 const Settings = () => {
-  const { user } = useAuth();
+  const { user, subscriptionData, refreshSubscription } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -718,6 +724,60 @@ const Settings = () => {
               <Button onClick={handleSaveProfile} disabled={saving}>
                 {saving ? "Salvando..." : "Salvar Alterações"}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Assinatura */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                Assinatura
+              </CardTitle>
+              <CardDescription>
+                Informações sobre o seu plano atual
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {subscriptionData?.subscribed && subscriptionData.product_id ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">Plano Atual</p>
+                      <Badge className="mt-1" variant="default">
+                        {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
+                      </Badge>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Colaboradores</p>
+                      <p className="text-lg font-bold">{subscriptionData.total_collaborators}</p>
+                    </div>
+                  </div>
+                  
+                  {subscriptionData.subscription_end && (
+                    <div className="text-sm text-muted-foreground">
+                      Próxima renovação: {new Date(subscriptionData.subscription_end).toLocaleDateString('pt-BR')}
+                    </div>
+                  )}
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/pricing')}
+                    className="w-full"
+                  >
+                    Gerenciar Assinatura
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-4 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Você não possui uma assinatura ativa
+                  </p>
+                  <Button onClick={() => navigate('/pricing')}>
+                    Ver Planos
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 

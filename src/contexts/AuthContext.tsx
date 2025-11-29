@@ -3,10 +3,21 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
+interface SubscriptionData {
+  subscribed: boolean;
+  product_id: string | null;
+  subscription_end: string | null;
+  max_collaborators: number;
+  extra_collaborators: number;
+  total_collaborators: number;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  subscriptionData: SubscriptionData | null;
+  refreshSubscription: () => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -18,8 +29,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const navigate = useNavigate();
   const currentSessionIdRef = useRef<string | null>(null);
+
+  const refreshSubscription = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      
+      if (error) {
+        console.error('Erro ao verificar assinatura:', error);
+        return;
+      }
+      
+      setSubscriptionData(data);
+    } catch (error) {
+      console.error('Erro ao verificar assinatura:', error);
+    }
+  };
 
   const logUserSession = async (userId: string, isLogin: boolean) => {
     try {
@@ -111,9 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
 
-        // Se já tem sessão, registrar login
+        // Se já tem sessão, registrar login e verificar assinatura
         if (session?.user) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
+          refreshSubscription();
         }
       })
       .finally(() => {
@@ -171,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, subscriptionData, refreshSubscription, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,6 +2,7 @@ import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageS
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
 import { useState } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -23,6 +24,12 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import logoFull from "@/assets/logo-full.png";
 import logoIcon from "@/assets/logo-icon.png";
+
+const PLAN_NAMES: { [key: string]: string } = {
+  'prod_TVqqdFt1DYCcCI': 'Básico',
+  'prod_TVqr72myTFqI39': 'Profissional',
+  'prod_TVqrhrzuIdUDcS': 'Enterprise'
+};
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -47,7 +54,7 @@ const bottomItems = [
 
 export function AppSidebar() {
   const { open, setOpen } = useSidebar();
-  const { signOut, user } = useAuth();
+  const { signOut, user, subscriptionData } = useAuth();
   const permissions = usePermissions();
   const [isLocked, setIsLocked] = useState(false);
   const [administrativoOpen, setAdministrativoOpen] = useState(false);
@@ -175,6 +182,13 @@ export function AppSidebar() {
               locked={isLocked}
               onToggle={setIsLocked}
             />
+            {subscriptionData?.subscribed && subscriptionData.product_id && (
+              <div className="flex items-center justify-center">
+                <Badge variant="secondary" className="text-xs">
+                  Plano {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
+                </Badge>
+              </div>
+            )}
             <p className="text-xs text-sidebar-foreground/60 truncate">
               {user?.email}
             </p>
