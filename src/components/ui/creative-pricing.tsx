@@ -297,10 +297,16 @@ export function CreativePricing({
                         setModalQuantity(1);
                         setShowAddModal(true);
                       }}
-                      variant="default"
-                      className="w-full font-handwritten"
+                      className={cn(
+                        "w-full h-12 font-handwritten text-lg",
+                        "bg-amber-400 text-zinc-900 hover:bg-amber-300",
+                        "border-2 border-border",
+                        "shadow-[4px_4px_0px_0px] shadow-border",
+                        "hover:shadow-[6px_6px_0px_0px]",
+                        "hover:translate-x-[-2px] hover:translate-y-[-2px]"
+                      )}
                     >
-                      Adicionar Colaboradores
+                      Colaboradores Extra
                     </Button>
                   )}
                   {onManageSubscription && (
@@ -421,7 +427,7 @@ export function CreativePricing({
                   min="1"
                   value={modalQuantity}
                   onChange={(e) => setModalQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-20 text-center font-handwritten text-xl font-bold border-2 border-border rounded-md px-3 py-2"
+                  className="w-20 text-center font-handwritten text-xl font-bold border-2 border-border rounded-md px-3 py-2 bg-background text-primary"
                 />
                 <Button
                   type="button"
