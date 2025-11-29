@@ -25,6 +25,16 @@ export function UserProfileMenu() {
     const loadProfile = async () => {
       if (!user?.id) return;
 
+      // Verificar cache primeiro
+      const cacheKey = `profile_${user.id}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      
+      if (cached) {
+        setProfile(JSON.parse(cached));
+        return;
+      }
+
+      // Se não houver cache, buscar do banco
       const { data } = await supabase
         .from("profiles")
         .select("avatar_url, full_name")
@@ -33,6 +43,8 @@ export function UserProfileMenu() {
 
       if (data) {
         setProfile(data);
+        // Armazenar no cache
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
       }
     };
 
@@ -50,6 +62,10 @@ export function UserProfileMenu() {
   };
 
   const handleSignOut = async () => {
+    // Limpar cache do perfil ao fazer logout
+    if (user?.id) {
+      sessionStorage.removeItem(`profile_${user.id}`);
+    }
     await signOut();
     navigate("/auth");
   };
