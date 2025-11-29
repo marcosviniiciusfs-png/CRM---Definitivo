@@ -202,6 +202,14 @@ All colors MUST be HSL.
     pointer-events: none !important;
   }
 
+  /* Garantir que tags e badges de origem sejam sempre visíveis */
+  [data-dragging-active="true"] .lead-card [data-lead-tags],
+  [data-dragging-active="true"] .lead-card [data-lead-badges] {
+    pointer-events: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
   [data-dragging-active="true"] .lead-card {
     transition: none !important;
   }

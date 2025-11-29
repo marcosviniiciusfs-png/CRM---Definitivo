@@ -172,7 +172,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                 <h3 className="font-semibold text-xs text-foreground leading-tight truncate">
                   {name}
                 </h3>
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1 flex-wrap" data-lead-badges>
                   {isFacebookLead && (
                     <Badge
                       variant="secondary"
