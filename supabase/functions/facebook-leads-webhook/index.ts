@@ -160,6 +160,49 @@ Deno.serve(async (req) => {
               }
             });
 
+            // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA FACEBOOK
+            console.log('🔍 Buscando mapeamento de funil para Facebook...');
+            const { data: funnelMapping } = await supabase
+              .from('funnel_source_mappings')
+              .select('funnel_id, target_stage_id')
+              .eq('source_type', 'facebook')
+              .maybeSingle();
+            
+            let funnelId: string | null = null;
+            let funnelStageId: string | null = null;
+            
+            if (funnelMapping) {
+              console.log('✅ Mapeamento encontrado:', funnelMapping);
+              funnelId = funnelMapping.funnel_id;
+              funnelStageId = funnelMapping.target_stage_id;
+            } else {
+              console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
+              // Buscar funil padrão da organização
+              const { data: defaultFunnel } = await supabase
+                .from('sales_funnels')
+                .select('id')
+                .eq('organization_id', integration.organization_id)
+                .eq('is_default', true)
+                .maybeSingle();
+              
+              if (defaultFunnel) {
+                funnelId = defaultFunnel.id;
+                
+                // Buscar primeira etapa do funil padrão
+                const { data: firstStage } = await supabase
+                  .from('funnel_stages')
+                  .select('id')
+                  .eq('funnel_id', defaultFunnel.id)
+                  .order('position')
+                  .limit(1)
+                  .maybeSingle();
+                
+                if (firstStage) {
+                  funnelStageId = firstStage.id;
+                }
+              }
+            }
+
             // Create lead in database with all available information
             const { data: newLead, error: leadError } = await supabase
               .from('leads')
@@ -171,6 +214,8 @@ Deno.serve(async (req) => {
                 organization_id: integration.organization_id,
                 source: 'Facebook Leads',
                 stage: 'NOVO',
+                funnel_id: funnelId,
+                funnel_stage_id: funnelStageId,
                 descricao_negocio: allFieldsDescription,
               })
               .select()

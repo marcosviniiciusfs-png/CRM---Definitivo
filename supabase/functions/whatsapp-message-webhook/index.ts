@@ -472,6 +472,49 @@ serve(async (req) => {
       // Usar pushName ou número como nome do lead
       const newLeadName = pushName || phoneNumber;
       
+      // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WHATSAPP
+      console.log('🔍 Buscando mapeamento de funil para WhatsApp...');
+      const { data: funnelMapping } = await supabase
+        .from('funnel_source_mappings')
+        .select('funnel_id, target_stage_id')
+        .eq('source_type', 'whatsapp')
+        .maybeSingle();
+      
+      let funnelId: string | null = null;
+      let funnelStageId: string | null = null;
+      
+      if (funnelMapping) {
+        console.log('✅ Mapeamento encontrado:', funnelMapping);
+        funnelId = funnelMapping.funnel_id;
+        funnelStageId = funnelMapping.target_stage_id;
+      } else {
+        console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
+        // Buscar funil padrão da organização
+        const { data: defaultFunnel } = await supabase
+          .from('sales_funnels')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .eq('is_default', true)
+          .maybeSingle();
+        
+        if (defaultFunnel) {
+          funnelId = defaultFunnel.id;
+          
+          // Buscar primeira etapa do funil padrão
+          const { data: firstStage } = await supabase
+            .from('funnel_stages')
+            .select('id')
+            .eq('funnel_id', defaultFunnel.id)
+            .order('position')
+            .limit(1)
+            .maybeSingle();
+          
+          if (firstStage) {
+            funnelStageId = firstStage.id;
+          }
+        }
+      }
+      
       const { data: newLead, error: createLeadError } = await supabase
         .from('leads')
         .insert({
@@ -480,6 +523,8 @@ serve(async (req) => {
           organization_id: organizationId,
           source: 'WhatsApp',
           stage: 'NOVO',
+          funnel_id: funnelId,
+          funnel_stage_id: funnelStageId,
           last_message_at: new Date().toISOString()
         })
         .select()
