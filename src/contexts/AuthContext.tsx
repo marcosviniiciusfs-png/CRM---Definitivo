@@ -34,19 +34,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentSessionIdRef = useRef<string | null>(null);
 
   const refreshSubscription = async () => {
-    if (!user) return;
+    console.log('[AUTH] refreshSubscription called, user:', user?.email);
+    if (!user) {
+      console.log('[AUTH] No user, skipping subscription check');
+      return;
+    }
     
     try {
+      console.log('[AUTH] Invoking check-subscription function...');
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
       if (error) {
-        console.error('Erro ao verificar assinatura:', error);
+        console.error('[AUTH] Erro ao verificar assinatura:', error);
         return;
       }
       
+      console.log('[AUTH] Subscription data received:', data);
       setSubscriptionData(data);
     } catch (error) {
-      console.error('Erro ao verificar assinatura:', error);
+      console.error('[AUTH] Erro ao verificar assinatura:', error);
     }
   };
 
@@ -112,17 +118,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (!mounted) return;
         
+        console.log('[AUTH] Auth state change:', event, 'user:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
 
         // Registrar login/logout de forma assíncrona
         if (event === 'SIGNED_IN' && session?.user) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
+          // Verificar assinatura após login
+          setTimeout(async () => {
+            console.log('[AUTH] Calling refreshSubscription after SIGNED_IN');
+            // Precisamos chamar diretamente aqui pois o user state pode não estar atualizado ainda
+            try {
+              const { data, error } = await supabase.functions.invoke('check-subscription');
+              if (error) {
+                console.error('[AUTH] Erro ao verificar assinatura após login:', error);
+                return;
+              }
+              console.log('[AUTH] Subscription data após login:', data);
+              setSubscriptionData(data);
+            } catch (error) {
+              console.error('[AUTH] Erro ao verificar assinatura após login:', error);
+            }
+          }, 500);
         } else if (event === 'SIGNED_OUT') {
           const currentUserId = session?.user?.id;
+          setSubscriptionData(null);
           setTimeout(() => {
             if (currentUserId) {
               logUserSession(currentUserId, false);
@@ -134,16 +158,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
         if (!mounted) return;
         
+        console.log('[AUTH] Initial session check, user:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
 
         // Se já tem sessão, registrar login e verificar assinatura
         if (session?.user) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
-          refreshSubscription();
+          // Verificar assinatura
+          try {
+            const { data, error } = await supabase.functions.invoke('check-subscription');
+            if (error) {
+              console.error('[AUTH] Erro ao verificar assinatura inicial:', error);
+            } else {
+              console.log('[AUTH] Subscription data inicial:', data);
+              setSubscriptionData(data);
+            }
+          } catch (error) {
+            console.error('[AUTH] Erro ao verificar assinatura inicial:', error);
+          }
         }
       })
       .finally(() => {
