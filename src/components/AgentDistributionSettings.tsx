@@ -239,17 +239,17 @@ export function AgentDistributionSettings() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Seletor de Membro (apenas para admins/owners) */}
-          {permissions.canManageAgentSettings && members.length > 0 && (
+          {permissions.canManageAgentSettings && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="member-select">Selecionar Agente</Label>
                 <Select 
                   value={selectedMemberId} 
                   onValueChange={setSelectedMemberId}
-                  disabled={loadingSettings}
+                  disabled={loadingSettings || members.length === 0}
                 >
                   <SelectTrigger id="member-select">
-                    <SelectValue placeholder="Selecione um membro" />
+                    <SelectValue placeholder={members.length === 0 ? "Carregando membros..." : "Selecione um membro"} />
                   </SelectTrigger>
                   <SelectContent>
                     {members.map((member) => (
