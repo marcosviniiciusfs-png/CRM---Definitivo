@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import payingUsersIcon from "@/assets/paying-users-icon.gif";
-import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, Rectangle } from "recharts";
 
 interface User {
   id: string;
@@ -42,6 +42,7 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [planChartData, setPlanChartData] = useState<PlanChartData[]>([]);
+  const [hoveredPlanBarIndex, setHoveredPlanBarIndex] = useState<number | null>(null);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -318,6 +319,15 @@ export default function AdminDashboard() {
                   <h4 className="text-sm font-medium mb-4 text-muted-foreground">Assinaturas por Plano</h4>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={planChartData}>
+                      <defs>
+                        <filter id="planGlow" x="-50%" y="-50%" width="200%" height="200%">
+                          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                          <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                          </feMerge>
+                        </filter>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                       <XAxis 
                         dataKey="name" 
@@ -332,13 +342,14 @@ export default function AdminDashboard() {
                         allowDecimals={false}
                       />
                       <RechartsTooltip
+                        cursor={{ fill: 'transparent' }}
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             return (
                               <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
                                 <p className="text-sm font-medium">{payload[0].payload.name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {payload[0].value} assinaturas
+                                  {payload[0].value} assinaturas ativas
                                 </p>
                               </div>
                             );
@@ -346,11 +357,56 @@ export default function AdminDashboard() {
                           return null;
                         }}
                       />
-                      <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                        {planChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Bar>
+                      <Bar 
+                        dataKey="count" 
+                        radius={[8, 8, 0, 0]}
+                        cursor="default"
+                        onMouseEnter={(data, index) => {
+                          setHoveredPlanBarIndex(index);
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredPlanBarIndex(null);
+                        }}
+                        activeBar={(props: any) => {
+                          const { x, y, width, height, payload } = props;
+                          const centerX = x + width / 2;
+                          const newWidth = width * 1.1;
+                          const newHeight = height * 1.05;
+                          const newX = centerX - newWidth / 2;
+                          const newY = y - (newHeight - height);
+                          
+                          return (
+                            <Rectangle
+                              x={newX}
+                              y={newY}
+                              width={newWidth}
+                              height={newHeight}
+                              fill={payload.color}
+                              radius={[8, 8, 0, 0]}
+                              filter="url(#planGlow)"
+                              style={{ transition: 'all 0.2s ease' }}
+                            />
+                          );
+                        }}
+                        shape={(props: any) => {
+                          const { x, y, width, height, payload, index } = props;
+                          const isOtherBarHovered = hoveredPlanBarIndex !== null && hoveredPlanBarIndex !== index;
+                          const opacity = isOtherBarHovered ? 0.3 : 1;
+                          
+                          return (
+                            <Rectangle
+                              x={x}
+                              y={y}
+                              width={width}
+                              height={height}
+                              fill={payload.color}
+                              radius={[8, 8, 0, 0]}
+                              opacity={opacity}
+                              style={{ transition: 'opacity 0.2s ease' }}
+                            />
+                          );
+                        }}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
