@@ -327,7 +327,7 @@ export const SortableLeadCard = memo<BaseLeadCardProps>((props) => {
     transform: DndCSS.Transform.toString(transform),
     transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.5 : 1,
-    willChange: "transform",
+    willChange: transform ? "transform" : undefined,
   };
 
   return (
