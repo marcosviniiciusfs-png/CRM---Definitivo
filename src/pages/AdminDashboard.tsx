@@ -512,7 +512,7 @@ export default function AdminDashboard() {
                               <TableCell className="font-medium">{user.email}</TableCell>
                               <TableCell>
                                 {user.last_sign_in_at ? (
-                                  <Badge variant="default">Ativo</Badge>
+                                  <Badge style={{ backgroundColor: '#66ee78', color: '#000' }}>Ativo</Badge>
                                 ) : (
                                   <Badge variant="secondary">Inativo</Badge>
                                 )}

@@ -170,7 +170,10 @@ const FunnelBuilder = () => {
                     {funnel.stages?.[0]?.count || 0} etapas
                   </span>
                   <span>•</span>
-                  <Badge variant={funnel.is_active ? "default" : "secondary"}>
+                  <Badge 
+                    variant={funnel.is_active ? "default" : "secondary"}
+                    style={funnel.is_active ? { backgroundColor: '#66ee78', color: '#000' } : undefined}
+                  >
                     {funnel.is_active ? "Ativo" : "Inativo"}
                   </Badge>
                 </div>

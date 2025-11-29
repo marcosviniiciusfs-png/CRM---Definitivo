@@ -634,7 +634,7 @@ const Colaboradores = () => {
                         </TableCell>
                         <TableCell>
                           {colab.user_id ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                            <Badge style={{ backgroundColor: '#66ee78', color: '#000' }}>
                               Ativo
                             </Badge>
                           ) : (
