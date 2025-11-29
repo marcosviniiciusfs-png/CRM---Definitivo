@@ -627,6 +627,23 @@ serve(async (req) => {
       leadId = newLead.id;
       leadName = newLead.nome_lead;
       
+      // ✅ DISTRIBUIR LEAD NA ROLETA (apenas para leads NOVOS)
+      supabase.functions.invoke('distribute-lead', {
+        body: {
+          lead_id: newLead.id,
+          organization_id: organizationId,
+          trigger_source: 'whatsapp',
+        },
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('⚠️ Erro ao distribuir lead:', error);
+        } else {
+          console.log('✅ Lead distribuído:', data);
+        }
+      }).catch(err => {
+        console.error('⚠️ Falha ao invocar distribute-lead:', err);
+      });
+      
       // Buscar foto de perfil do WhatsApp de forma assíncrona (não bloqueia o fluxo)
       supabase.functions.invoke('fetch-profile-picture', {
         body: {
