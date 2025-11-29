@@ -37,6 +37,9 @@ export const PipelineColumn = memo(({
     id: id,
   });
 
+  // Detecta se a cor é hex ou classe Tailwind
+  const isHexColor = (color: string) => color?.startsWith('#');
+
   return (
     <div className="flex flex-col w-[280px] flex-shrink-0 min-h-[500px]" style={{ contain: "content" }}>
       <div className="flex items-center justify-between mb-2">
@@ -44,14 +47,19 @@ export const PipelineColumn = memo(({
         <Badge
           className={cn(
             "rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs",
-            color
+            isHexColor(color) ? "text-white" : "",
+            !isHexColor(color) && color
           )}
+          style={isHexColor(color) ? { backgroundColor: color } : undefined}
         >
           {count}
         </Badge>
       </div>
 
-      <div className={cn("h-0.5 mb-3 rounded-full", color)} />
+      <div 
+        className={cn("h-0.5 mb-3 rounded-full", !isHexColor(color) && color)}
+        style={isHexColor(color) ? { backgroundColor: color } : undefined}
+      />
 
       <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
         <div
