@@ -295,9 +295,10 @@ export function CreativePricing({
                       }}
                       variant="default"
                       className="w-full font-handwritten"
-                      disabled={!extraCollaborators[tier.name] || extraCollaborators[tier.name] === 0}
                     >
-                      Adicionar Colaboradores
+                      {extraCollaborators[tier.name] && extraCollaborators[tier.name] > 0
+                        ? `Adicionar ${extraCollaborators[tier.name]} Colaborador${extraCollaborators[tier.name] > 1 ? 'es' : ''}`
+                        : 'Adicionar 1 Colaborador'}
                     </Button>
                   )}
                   {onManageSubscription && (
