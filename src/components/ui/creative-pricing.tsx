@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PricingTier {
@@ -12,16 +12,30 @@ interface PricingTier {
   color: string;
 }
 
+interface SubscriptionInfo {
+  subscribed: boolean;
+  product_id: string | null;
+  subscription_end: string | null;
+}
+
 function CreativePricing({
   tag = "Planos Simples",
   title = "Escolha o Plano Ideal",
   description = "Gerencie seus leads com eficiência",
   tiers,
+  onSubscribe,
+  loading,
+  subscription,
+  onManageSubscription,
 }: {
   tag?: string;
   title?: string;
   description?: string;
   tiers: PricingTier[];
+  onSubscribe?: (planName: string) => void;
+  loading?: string | null;
+  subscription?: SubscriptionInfo | null;
+  onManageSubscription?: () => void;
 }) {
   return (
     <div className="w-full max-w-6xl mx-auto px-4">
@@ -126,6 +140,8 @@ function CreativePricing({
               </div>
 
               <Button
+                onClick={() => onSubscribe?.(tier.name)}
+                disabled={loading === tier.name}
                 className={cn(
                   "w-full h-12 font-handwritten text-lg relative",
                   "border-2 border-border",
@@ -138,8 +154,25 @@ function CreativePricing({
                     : "bg-card hover:bg-accent"
                 )}
               >
-                Começar Agora
+                {loading === tier.name ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  "Começar Agora"
+                )}
               </Button>
+              
+              {subscription?.subscribed && onManageSubscription && (
+                <Button
+                  onClick={onManageSubscription}
+                  variant="outline"
+                  className="w-full mt-3 font-handwritten"
+                >
+                  Gerenciar Assinatura
+                </Button>
+              )}
             </div>
           </div>
         ))}

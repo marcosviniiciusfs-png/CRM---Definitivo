@@ -1,5 +1,14 @@
 project_id = "uvwanpztskkhzdqifbai"
 
+[functions.check-subscription]
+verify_jwt = true
+
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.customer-portal]
+verify_jwt = true
+
 [functions.form-webhook]
 verify_jwt = false
 
