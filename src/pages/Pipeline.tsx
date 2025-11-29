@@ -524,43 +524,40 @@ const Pipeline = () => {
               ))}
             </TabsList>
 
-            {allFunnels.map((funnel) => (
-              <TabsContent 
-                key={funnel.id} 
-                value={funnel.id} 
-                className="mt-6"
-              >
-                <div className="flex gap-3 overflow-x-auto pb-4">
-                  {loading ? (
-                    // Skeleton loading para transições suaves
-                    Array.from({ length: stages.length }).map((_, idx) => (
-                      <div key={idx} className="min-w-[280px] h-[500px]">
-                        <Skeleton className="w-full h-full rounded-lg" />
-                      </div>
-                    ))
-                  ) : (
-                    stages.map((stage) => {
-                      const stageLeads = leadsByStage.get(stage.id) || [];
-                      return (
-                        <PipelineColumn
-                          key={stage.id}
-                          id={stage.id}
-                          title={stage.title}
-                          count={stageLeads.length}
-                          color={stage.color}
-                          leads={stageLeads}
-                          isEmpty={stageLeads.length === 0}
-                          onLeadUpdate={loadLeads}
-                          onEdit={setEditingLead}
-                          leadItems={leadItems}
-                          isDragging={!!activeId}
-                        />
-                      );
-                    })
-                  )}
-                </div>
-              </TabsContent>
-            ))}
+            <TabsContent 
+              value={selectedFunnelId || allFunnels[0]?.id || "default"}
+              className="mt-6"
+            >
+              <div className="flex gap-3 overflow-x-auto pb-4">
+                {loading ? (
+                  // Skeleton loading para transições suaves
+                  Array.from({ length: stages.length }).map((_, idx) => (
+                    <div key={idx} className="min-w-[280px] h-[500px]">
+                      <Skeleton className="w-full h-full rounded-lg" />
+                    </div>
+                  ))
+                ) : (
+                  stages.map((stage) => {
+                    const stageLeads = leadsByStage.get(stage.id) || [];
+                    return (
+                      <PipelineColumn
+                        key={stage.id}
+                        id={stage.id}
+                        title={stage.title}
+                        count={stageLeads.length}
+                        color={stage.color}
+                        leads={stageLeads}
+                        isEmpty={stageLeads.length === 0}
+                        onLeadUpdate={loadLeads}
+                        onEdit={setEditingLead}
+                        leadItems={leadItems}
+                        isDragging={!!activeId}
+                      />
+                    );
+                  })
+                )}
+              </div>
+            </TabsContent>
           </Tabs>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-4">
