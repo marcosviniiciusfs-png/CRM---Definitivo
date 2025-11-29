@@ -198,7 +198,7 @@ All colors MUST be HSL.
   }
 
   /* Otimização crítica: desabilitar transições e hover durante drag ativo */
-  [data-dragging-active="true"] * {
+  [data-dragging-active="true"] .lead-card:not([data-dragging="true"]) {
     pointer-events: none !important;
   }
 
