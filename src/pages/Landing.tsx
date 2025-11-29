@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import kairozLogo from "@/assets/kairoz-logo.png";
 import individualGif from "@/assets/individual.gif";
 import checkBoardGif from "@/assets/check_board.gif";
+import conversationGif from "@/assets/conversation-icon.gif";
 import AnimatedChatIcon from "@/components/AnimatedChatIcon";
 
 const Landing = () => {
@@ -29,7 +30,8 @@ const Landing = () => {
     },
     {
       icon: null,
-      type: 'animated',
+      type: 'gif',
+      gifSrc: conversationGif,
       title: "Histórico e Contexto",
       description: "Acesse todo o histórico de conversas e informações do cliente em um só lugar"
     },
