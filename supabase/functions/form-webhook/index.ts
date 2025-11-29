@@ -351,6 +351,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Processar automações (não bloqueia o retorno)
+    supabase.functions.invoke('process-automation-rules', {
+      body: {
+        trigger_type: 'LEAD_CREATED_FORM_WEBHOOK',
+        trigger_data: {
+          lead_id: lead.id,
+          organization_id: webhookConfig.organization_id,
+          webhook_token: webhookToken,
+        },
+      },
+    }).then(({ data, error }) => {
+      if (error) {
+        console.error('⚠️ Erro ao processar automações:', error);
+      } else {
+        console.log('✅ Automações processadas:', data);
+      }
+    }).catch(err => {
+      console.error('⚠️ Falha ao invocar process-automation-rules:', err);
+    });
+
     // Log success
     await supabase.from('form_webhook_logs').insert({
       organization_id: webhookConfig.organization_id,
