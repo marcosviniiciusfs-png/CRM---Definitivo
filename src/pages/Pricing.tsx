@@ -1,5 +1,26 @@
 import { CreativePricing, PricingTier } from "@/components/ui/creative-pricing";
 import { Zap, TrendingUp, Crown } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useState, useEffect } from "react";
+
+// Mapeamento dos planos com price_id do Stripe
+const STRIPE_PLANS = {
+  basico: {
+    priceId: "price_1SYp92CIzFkZL7Jmk8LxUPOp",
+    productId: "prod_TVqqdFt1DYCcCI",
+  },
+  profissional: {
+    priceId: "price_1SYp9OCIzFkZL7JmHitGK3FN",
+    productId: "prod_TVqr72myTFqI39",
+  },
+  enterprise: {
+    priceId: "price_1SYp9bCIzFkZL7JmvcvRhSLh",
+    productId: "prod_TVqrhrzuIdUDcS",
+  },
+};
 
 const pricingTiers: PricingTier[] = [
   {
@@ -49,6 +70,80 @@ const pricingTiers: PricingTier[] = [
 ];
 
 export default function Pricing() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<{
+    subscribed: boolean;
+    product_id: string | null;
+    subscription_end: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      checkSubscription();
+    }
+  }, [user]);
+
+  const checkSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("check-subscription");
+      if (error) throw error;
+      setSubscription(data);
+    } catch (error) {
+      console.error("Erro ao verificar assinatura:", error);
+    }
+  };
+
+  const handleSubscribe = async (planName: string) => {
+    if (!user) {
+      toast.error("Faça login para assinar um plano");
+      navigate("/auth");
+      return;
+    }
+
+    setLoading(planName);
+
+    try {
+      let priceId: string;
+      if (planName === "Básico") {
+        priceId = STRIPE_PLANS.basico.priceId;
+      } else if (planName === "Profissional") {
+        priceId = STRIPE_PLANS.profissional.priceId;
+      } else {
+        priceId = STRIPE_PLANS.enterprise.priceId;
+      }
+
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error) {
+      console.error("Erro ao criar checkout:", error);
+      toast.error("Erro ao processar pagamento. Tente novamente.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error) {
+      console.error("Erro ao abrir portal:", error);
+      toast.error("Erro ao abrir portal de assinatura");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background py-12">
       <CreativePricing
@@ -56,6 +151,10 @@ export default function Pricing() {
         title="Escolha o Melhor Para Você"
         description="Gerencie seus leads e automatize vendas"
         tiers={pricingTiers}
+        onSubscribe={handleSubscribe}
+        loading={loading}
+        subscription={subscription}
+        onManageSubscription={handleManageSubscription}
       />
     </div>
   );
