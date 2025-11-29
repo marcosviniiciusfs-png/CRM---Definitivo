@@ -134,6 +134,34 @@ export function LeadDistributionConfigModal({
           .insert(payload);
         if (error) throw error;
       }
+
+      // ✅ CRIAR AUTOMATICAMENTE AGENT SETTINGS PARA AGENTES ELEGÍVEIS
+      if (formData.eligible_agents.length > 0) {
+        console.log('📝 Criando agent_distribution_settings para agentes elegíveis:', formData.eligible_agents);
+        
+        for (const agentId of formData.eligible_agents) {
+          const { error: settingsError } = await supabase
+            .from('agent_distribution_settings')
+            .upsert({
+              user_id: agentId,
+              organization_id: organizationId,
+              is_active: true,
+              is_paused: false,
+              max_capacity: 50,
+              priority_weight: 1,
+            }, { 
+              onConflict: 'user_id,organization_id',
+              ignoreDuplicates: false 
+            });
+          
+          if (settingsError) {
+            console.error('⚠️ Erro ao criar settings para agente:', agentId, settingsError);
+            // Não falhar a operação inteira por erro em um agente
+          } else {
+            console.log('✅ Settings criados/atualizados para agente:', agentId);
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });

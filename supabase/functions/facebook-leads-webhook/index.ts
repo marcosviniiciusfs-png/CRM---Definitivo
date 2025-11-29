@@ -261,6 +261,23 @@ Deno.serve(async (req) => {
                   .eq('id', logId);
               }
 
+              // ✅ DISTRIBUIR LEAD NA ROLETA
+              supabase.functions.invoke('distribute-lead', {
+                body: {
+                  lead_id: newLead.id,
+                  organization_id: integration.organization_id,
+                  trigger_source: 'facebook',
+                },
+              }).then(({ data, error }) => {
+                if (error) {
+                  console.error('⚠️ Erro ao distribuir lead:', error);
+                } else {
+                  console.log('✅ Lead distribuído:', data);
+                }
+              }).catch(err => {
+                console.error('⚠️ Falha ao invocar distribute-lead:', err);
+              });
+
               // Processar automações (não bloqueia o retorno)
               supabase.functions.invoke('process-automation-rules', {
                 body: {

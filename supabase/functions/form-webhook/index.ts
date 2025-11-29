@@ -363,6 +363,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ✅ DISTRIBUIR LEAD NA ROLETA
+    supabase.functions.invoke('distribute-lead', {
+      body: {
+        lead_id: lead.id,
+        organization_id: webhookConfig.organization_id,
+        trigger_source: 'webhook',
+      },
+    }).then(({ data, error }) => {
+      if (error) {
+        console.error('⚠️ Erro ao distribuir lead:', error);
+      } else {
+        console.log('✅ Lead distribuído:', data);
+      }
+    }).catch(err => {
+      console.error('⚠️ Falha ao invocar distribute-lead:', err);
+    });
+
     // Processar automações (não bloqueia o retorno)
     supabase.functions.invoke('process-automation-rules', {
       body: {
