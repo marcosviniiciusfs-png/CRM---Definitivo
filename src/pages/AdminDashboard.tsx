@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, UserCheck, Shield, Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, UserCheck, Shield, Activity, ChevronLeft, ChevronRight, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import payingUsersIcon from "@/assets/paying-users-icon.gif";
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 interface User {
   id: string;
@@ -20,6 +21,11 @@ interface User {
   email_confirmed_at: string | null;
 }
 
+interface ChartDataPoint {
+  date: string;
+  count: number;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
@@ -27,6 +33,7 @@ export default function AdminDashboard() {
   const [payingUsersCount, setPayingUsersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -62,24 +69,34 @@ export default function AdminDashboard() {
       }
       setUsers(usersData || []);
 
-      // Buscar contagem de usuários pagantes
-      console.log('[AdminDashboard] Chamando count-paying-users...');
-      const { data: payingData, error: payingError } = await supabase.functions.invoke('count-paying-users');
+      // Buscar contagem de usuários pagantes e dados do gráfico em paralelo
+      console.log('[AdminDashboard] Chamando count-paying-users e subscription-growth...');
+      const [payingResult, chartResult] = await Promise.all([
+        supabase.functions.invoke('count-paying-users'),
+        supabase.functions.invoke('subscription-growth')
+      ]);
       
-      console.log('[AdminDashboard] Resultado count-paying-users:', { payingData, payingError });
+      console.log('[AdminDashboard] Resultado count-paying-users:', payingResult);
+      console.log('[AdminDashboard] Resultado subscription-growth:', chartResult);
       
-      if (payingError) {
-        console.error('[AdminDashboard] Erro em count-paying-users:', payingError);
-        // Não falhar a operação inteira, apenas logar o erro
+      if (payingResult.error) {
+        console.error('[AdminDashboard] Erro em count-paying-users:', payingResult.error);
         setPayingUsersCount(0);
       } else {
-        setPayingUsersCount(payingData?.count || 0);
+        setPayingUsersCount(payingResult.data?.count || 0);
+      }
+
+      if (chartResult.error) {
+        console.error('[AdminDashboard] Erro em subscription-growth:', chartResult.error);
+        setChartData([]);
+      } else {
+        setChartData(chartResult.data?.chartData || []);
       }
       
       console.log('[AdminDashboard] Dados carregados com sucesso!', { 
         totalUsers: usersData?.length || 0,
         mainUsers: countData || 0,
-        payingUsers: payingData?.count || 0
+        payingUsers: payingResult.data?.count || 0
       });
     } catch (error: any) {
       console.error('[AdminDashboard] Erro ao carregar dados:', error);
@@ -183,21 +200,18 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Tabela de Usuários */}
-        <Card className="glow-border">
-          <CardHeader>
-            <div className="flex items-center justify-between">
+        {/* Grid com Tabela e Gráfico */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Tabela de Usuários */}
+          <Card className="glow-border">
+            <CardHeader>
               <div>
                 <CardTitle>Lista de Usuários</CardTitle>
                 <CardDescription>
-                  Informações detalhadas de todos os usuários cadastrados no sistema
+                  Mostrando {startIndex + 1}-{Math.min(endIndex, totalUsers)} de {totalUsers} usuários
                 </CardDescription>
               </div>
-              <div className="text-sm text-muted-foreground">
-                Mostrando {startIndex + 1}-{Math.min(endIndex, totalUsers)} de {totalUsers} usuários
-              </div>
-            </div>
-          </CardHeader>
+            </CardHeader>
           <CardContent className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -354,6 +368,80 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Gráfico de Crescimento de Assinaturas */}
+        <Card className="glow-border">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle>Crescimento de Assinaturas</CardTitle>
+                <CardDescription>
+                  Evolução do número total de assinaturas nos últimos 30 dias
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                Nenhum dado de assinatura disponível
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorSubscriptions" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <RechartsTooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                            <p className="text-sm font-medium">{payload[0].payload.date}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {payload[0].value} assinaturas
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorSubscriptions)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
       </div>
     </div>
   );
