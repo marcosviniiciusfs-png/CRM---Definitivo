@@ -399,12 +399,21 @@ const Pipeline = () => {
     const activeLead = leads.find((l) => l.id === leadId);
     if (!activeLead) return;
 
-    // Determinar o stage de destino
+    // Determinar o stage de destino - usar campo correto baseado no tipo de funil
     const isDroppedOverStage = stages.some((s) => s.id === overId);
     const overLead = leads.find((l) => l.id === overId);
     
-    const targetStage = isDroppedOverStage ? overId : (overLead?.stage || activeLead.stage || "NOVO");
-    const activeStage = activeLead.stage || "NOVO";
+    // Obter stage atual do lead baseado no tipo de funil
+    const activeStage = usingCustomFunnel 
+      ? (activeLead.funnel_stage_id || stages[0]?.id)
+      : (activeLead.stage || "NOVO");
+    
+    // Determinar stage de destino baseado no tipo de funil
+    const targetStage = isDroppedOverStage 
+      ? overId 
+      : usingCustomFunnel
+        ? (overLead?.funnel_stage_id || activeStage)
+        : (overLead?.stage || activeStage);
 
     // Se for dropado no mesmo lugar, não fazer nada
     if (targetStage === activeStage && (isDroppedOverStage || leadId === overId)) {
@@ -493,32 +502,12 @@ const Pipeline = () => {
             return;
           }
 
-          // Reordenar array
+          // Reordenar array - simplificado para manter TODOS os campos
           const reorderedLeads = arrayMove(stageLeads, oldIndex, newIndex);
-          const reorderedWithPositions = reorderedLeads.map((originalLead, index) => {
-            const lead: Lead = originalLead as Lead;
-            return {
-              id: lead.id,
-              telefone_lead: lead.telefone_lead,
-              nome_lead: lead.nome_lead,
-              created_at: lead.created_at,
-              updated_at: lead.updated_at,
-              last_message_at: lead.last_message_at,
-              source: lead.source,
-              stage: lead.stage,
-              email: lead.email,
-              empresa: lead.empresa,
-              valor: lead.valor,
-              avatar_url: lead.avatar_url,
-              responsavel: lead.responsavel,
-              descricao_negocio: lead.descricao_negocio,
-              is_online: lead.is_online,
-              last_seen: lead.last_seen,
-              funnel_id: lead.funnel_id,
-              funnel_stage_id: lead.funnel_stage_id,
-              position: index,
-            };
-          });
+          const reorderedWithPositions = reorderedLeads.map((lead, index) => ({
+            ...lead,
+            position: index,
+          }));
 
           // Atualizar estado local
           setLeads((prev) =>
@@ -550,10 +539,13 @@ const Pipeline = () => {
           
           if (newIndex === -1) return;
 
-          // Remover da coluna antiga e recalcular posições
+          // Remover da coluna antiga e recalcular posições (atualizar campo correto)
           const updatedActiveStage = activeStageLeads
             .filter((l) => l.id !== leadId)
-            .map((lead, index) => ({ ...lead, position: index }));
+            .map((lead, index) => usingCustomFunnel
+              ? { ...lead, position: index }
+              : { ...lead, position: index }
+            );
 
           // Adicionar na nova coluna na posição correta
           const updatedTargetStage = [...targetStageLeads];
@@ -567,12 +559,12 @@ const Pipeline = () => {
               : { ...lead, position: index, stage: targetStage }
           );
 
-          // Combinar todos os leads
+          // Combinar todos os leads - filtrar por campo correto
           setLeads((prev) => {
-            const stageFieldToCheck = usingCustomFunnel ? 'funnel_stage_id' : 'stage';
-            const otherStageLeads = prev.filter(
-              (l) => (l[stageFieldToCheck] || "NOVO") !== activeStage && (l[stageFieldToCheck] || "NOVO") !== targetStage
-            );
+            const otherStageLeads = prev.filter((l) => {
+              const leadStage = usingCustomFunnel ? l.funnel_stage_id : (l.stage || "NOVO");
+              return leadStage !== activeStage && leadStage !== targetStage;
+            });
             return [...otherStageLeads, ...updatedActiveStage, ...updatedTargetWithPositions];
           });
 
@@ -616,7 +608,11 @@ const Pipeline = () => {
     const overId = over.id as string;
     const isDroppedOverStage = stages.some((s) => s.id === overId);
     const overLead = leads.find((l) => l.id === overId);
-    const activeStage = lead.stage || "NOVO";
+    
+    // Usar campo correto baseado no tipo de funil
+    const activeStage = usingCustomFunnel 
+      ? (lead.funnel_stage_id || stages[0]?.id)
+      : (lead.stage || "NOVO");
 
     // Fechar o dialog
     setWonConfirmation({ show: false, lead: null, targetStage: '', event: null });
