@@ -1418,6 +1418,68 @@ export type Database = {
           },
         ]
       }
+      production_blocks: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_closed: boolean | null
+          month: number
+          notes: string | null
+          organization_id: string
+          previous_month_profit: number | null
+          profit_change_percentage: number | null
+          profit_change_value: number | null
+          total_cost: number | null
+          total_profit: number | null
+          total_revenue: number | null
+          total_sales: number | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_closed?: boolean | null
+          month: number
+          notes?: string | null
+          organization_id: string
+          previous_month_profit?: number | null
+          profit_change_percentage?: number | null
+          profit_change_value?: number | null
+          total_cost?: number | null
+          total_profit?: number | null
+          total_revenue?: number | null
+          total_sales?: number | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_closed?: boolean | null
+          month?: number
+          notes?: string | null
+          organization_id?: string
+          previous_month_profit?: number | null
+          profit_change_percentage?: number | null
+          profit_change_value?: number | null
+          total_cost?: number | null
+          total_profit?: number | null
+          total_revenue?: number | null
+          total_sales?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_blocks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

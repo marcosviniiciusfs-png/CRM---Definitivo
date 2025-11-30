@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Search, Factory, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddEditItemModal } from "@/components/AddEditItemModal";
 import { ItemCard } from "@/components/ItemCard";
+import { ProductionDashboard } from "@/components/ProductionDashboard";
 
 export interface Item {
   id: string;
@@ -116,56 +118,77 @@ export default function Producao() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Produção</h1>
           <p className="text-muted-foreground">
-            Gerencie seus produtos e serviços
+            Gerencie a produção e produtos da empresa
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div className="relative w-full sm:w-96">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Buscar itens..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Button onClick={handleAddItem}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Item
-          </Button>
-        </div>
+        <Tabs defaultValue="producao" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="producao" className="gap-2">
+              <Factory className="h-4 w-4" />
+              Produção
+            </TabsTrigger>
+            <TabsTrigger value="produtos" className="gap-2">
+              <Package className="h-4 w-4" />
+              Produtos da Empresa
+            </TabsTrigger>
+          </TabsList>
 
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Carregando itens...</p>
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="text-center py-12 bg-card rounded-lg border">
-            <p className="text-muted-foreground">
-              {searchTerm
-                ? "Nenhum item encontrado"
-                : "Nenhum item cadastrado ainda"}
-            </p>
-            {!searchTerm && (
-              <Button onClick={handleAddItem} className="mt-4">
-                <Plus className="h-4 w-4 mr-2" />
-                Criar primeiro item
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onEdit={handleEditItem}
-                onDelete={handleDeleteItem}
-              />
-            ))}
-          </div>
-        )}
+          <TabsContent value="producao" className="mt-6">
+            <ProductionDashboard />
+          </TabsContent>
+
+          <TabsContent value="produtos" className="mt-6">
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                <div className="relative w-full sm:w-96">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Buscar itens..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button onClick={handleAddItem}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Item
+                </Button>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Carregando itens...</p>
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-12 bg-card rounded-lg border">
+                  <p className="text-muted-foreground">
+                    {searchTerm
+                      ? "Nenhum item encontrado"
+                      : "Nenhum item cadastrado ainda"}
+                  </p>
+                  {!searchTerm && (
+                    <Button onClick={handleAddItem} className="mt-4">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar primeiro item
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredItems.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      onEdit={handleEditItem}
+                      onDelete={handleDeleteItem}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <AddEditItemModal
           isOpen={isModalOpen}
