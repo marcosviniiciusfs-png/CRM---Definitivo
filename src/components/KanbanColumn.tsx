@@ -13,6 +13,7 @@ interface Card {
   estimated_time?: number;
   position: number;
   created_at: string;
+  timer_started_at?: string;
 }
 
 interface Column {

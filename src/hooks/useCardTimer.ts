@@ -1,21 +1,21 @@
 import { useState, useEffect } from "react";
 
 interface UseCardTimerProps {
-  createdAt: string;
+  timerStartedAt?: string;
   estimatedTime?: number;
   isActive: boolean;
 }
 
-export const useCardTimer = ({ createdAt, estimatedTime, isActive }: UseCardTimerProps) => {
+export const useCardTimer = ({ timerStartedAt, estimatedTime, isActive }: UseCardTimerProps) => {
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || !timerStartedAt) return;
 
     const calculateElapsed = () => {
       const now = new Date();
-      const created = new Date(createdAt);
-      const diffMs = now.getTime() - created.getTime();
+      const started = new Date(timerStartedAt);
+      const diffMs = now.getTime() - started.getTime();
       const diffMinutes = Math.floor(diffMs / 60000);
       setElapsedMinutes(diffMinutes);
     };
@@ -24,7 +24,7 @@ export const useCardTimer = ({ createdAt, estimatedTime, isActive }: UseCardTime
     const interval = setInterval(calculateElapsed, 60000); // Atualiza a cada minuto
 
     return () => clearInterval(interval);
-  }, [createdAt, isActive]);
+  }, [timerStartedAt, isActive]);
 
   const formatTimerDisplay = () => {
     if (!estimatedTime) {

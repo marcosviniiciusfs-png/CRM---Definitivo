@@ -728,6 +728,7 @@ export type Database = {
           estimated_time: number | null
           id: string
           position: number
+          timer_started_at: string | null
           updated_at: string
         }
         Insert: {
@@ -740,6 +741,7 @@ export type Database = {
           estimated_time?: number | null
           id?: string
           position?: number
+          timer_started_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -752,6 +754,7 @@ export type Database = {
           estimated_time?: number | null
           id?: string
           position?: number
+          timer_started_at?: string | null
           updated_at?: string
         }
         Relationships: [
