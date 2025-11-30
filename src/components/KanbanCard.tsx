@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { GripVertical, Settings, X, Calendar, Clock } from "lucide-react";
+import { Settings, X, Calendar, Clock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,15 +81,15 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="bg-card border rounded-lg p-3 mb-2 group relative shadow-sm">
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className={`bg-card border rounded-lg p-3 mb-2 group relative shadow-sm ${
+        !isEditing ? "cursor-grab active:cursor-grabbing" : ""
+      }`}
+      {...(!isEditing ? { ...attributes, ...listeners } : {})}
+    >
       <div className="flex items-start gap-2">
-        <button 
-          {...attributes} 
-          {...listeners} 
-          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
-        </button>
         <div className="flex-1">
           {isEditing ? (
             <div className="space-y-3">
