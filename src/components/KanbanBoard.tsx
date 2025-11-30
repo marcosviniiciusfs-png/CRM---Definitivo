@@ -42,6 +42,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const [boardId, setBoardId] = useState<string | null>(null);
   const [columns, setColumns] = useState<Column[]>([]);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [isDraggingActive, setIsDraggingActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -257,6 +258,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     const cardId = event.active.id as string;
     const card = columns.flatMap(col => col.cards).find(c => c.id === cardId);
     setActiveCard(card || null);
+    setIsDraggingActive(true);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -295,6 +297,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveCard(null);
+    setIsDraggingActive(false);
 
     if (!over) return;
 
@@ -369,6 +372,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               onAddCard={addCard}
               onEditCard={updateCard}
               onDeleteCard={deleteCard}
+              isDraggingActive={isDraggingActive}
             />
           ))}
 

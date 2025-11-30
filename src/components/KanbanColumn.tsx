@@ -27,6 +27,7 @@ interface KanbanColumnProps {
   onAddCard: (columnId: string) => void;
   onEditCard: (columnId: string, cardId: string, updates: Partial<Card>, oldDescription?: string) => void;
   onDeleteCard: (columnId: string, cardId: string) => void;
+  isDraggingActive: boolean;
 }
 
 export const KanbanColumn = ({
@@ -36,6 +37,7 @@ export const KanbanColumn = ({
   onAddCard,
   onEditCard,
   onDeleteCard,
+  isDraggingActive,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -61,9 +63,9 @@ export const KanbanColumn = ({
 
       <div
         ref={setNodeRef}
-        className={`space-y-2 min-h-[100px] transition-colors ${
-          isOver ? "bg-accent/50 rounded-lg p-2" : ""
-        }`}
+        className={`space-y-2 min-h-[100px] ${
+          !isDraggingActive ? "transition-colors" : ""
+        } ${isOver ? "bg-accent/50 rounded-lg p-2" : ""}`}
       >
         <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {column.cards.map((card) => (
