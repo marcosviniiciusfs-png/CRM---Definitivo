@@ -424,6 +424,12 @@ const Pipeline = () => {
     // Verificar se o stage de destino é um stage de ganho (won)
     const targetStageData = stages.find(s => s.id === targetStage);
     if (targetStageData?.stageData?.stage_type === 'won' && activeStage !== targetStage) {
+      // Verificar se o lead tem valor definido
+      if (!activeLead.valor || activeLead.valor <= 0) {
+        toast.error("Este lead não possui um valor definido. Por favor, adicione um valor antes de confirmar a venda.");
+        return;
+      }
+      
       // Mostrar dialog de confirmação
       setWonConfirmation({
         show: true,
