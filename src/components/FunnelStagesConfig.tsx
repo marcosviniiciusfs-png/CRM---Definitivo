@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/card";
 import { Plus, Trash2, GripVertical, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { IconPicker } from "@/components/IconPicker";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DndContext,
@@ -119,7 +118,6 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#3B82F6");
-  const [icon, setIcon] = useState("");
   const [defaultValue, setDefaultValue] = useState("");
   const [maxDays, setMaxDays] = useState("");
   const [requiredFields, setRequiredFields] = useState("");
@@ -214,7 +212,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         name,
         description: description || null,
         color,
-        icon: icon || null,
+        icon: null,
         default_value: defaultValue ? parseFloat(defaultValue) : null,
         max_days_in_stage: maxDays ? parseInt(maxDays) : null,
         required_fields: requiredFields
@@ -270,7 +268,6 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setName("");
     setDescription("");
     setColor("#3B82F6");
-    setIcon("");
     setDefaultValue("");
     setMaxDays("");
     setRequiredFields("");
@@ -282,7 +279,6 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setName(stage.name);
     setDescription(stage.description || "");
     setColor(stage.color);
-    setIcon(stage.icon || "");
     setDefaultValue(stage.default_value?.toString() || "");
     setMaxDays(stage.max_days_in_stage?.toString() || "");
     setRequiredFields(
@@ -358,21 +354,14 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Ícone/Emoji</Label>
-              <IconPicker value={icon} onChange={setIcon} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Valor Padrão (R$)</Label>
-              <Input
-                type="number"
-                value={defaultValue}
-                onChange={(e) => setDefaultValue(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Valor Padrão (R$)</Label>
+            <Input
+              type="number"
+              value={defaultValue}
+              onChange={(e) => setDefaultValue(e.target.value)}
+              placeholder="0.00"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
