@@ -685,6 +685,117 @@ export type Database = {
           },
         ]
       }
+      kanban_boards: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_boards_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_cards: {
+        Row: {
+          column_id: string
+          content: string
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          estimated_time: number | null
+          id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          column_id: string
+          content: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          estimated_time?: number | null
+          id?: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          column_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          estimated_time?: number | null
+          id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_cards_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_columns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_columns: {
+        Row: {
+          board_id: string
+          created_at: string
+          id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          id?: string
+          position?: number
+          title: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_columns_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_activities: {
         Row: {
           activity_type: string
@@ -1145,42 +1256,58 @@ export type Database = {
       }
       notifications: {
         Row: {
+          card_id: string | null
           created_at: string
+          due_date: string | null
           from_user_id: string | null
           id: string
           lead_id: string | null
           message: string
           read: boolean
+          time_estimate: number | null
           title: string
           type: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          card_id?: string | null
           created_at?: string
+          due_date?: string | null
           from_user_id?: string | null
           id?: string
           lead_id?: string | null
           message: string
           read?: boolean
+          time_estimate?: number | null
           title: string
           type: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          card_id?: string | null
           created_at?: string
+          due_date?: string | null
           from_user_id?: string | null
           id?: string
           lead_id?: string | null
           message?: string
           read?: boolean
+          time_estimate?: number | null
           title?: string
           type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_cards"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_lead_id_fkey"
             columns: ["lead_id"]
