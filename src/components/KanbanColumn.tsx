@@ -25,7 +25,12 @@ interface KanbanColumnProps {
   onUpdateTitle: (columnId: string, title: string) => void;
   onDelete: (columnId: string) => void;
   onAddCard: (columnId: string) => void;
-  onEditCard: (columnId: string, cardId: string, updates: Partial<Card>, oldDescription?: string) => void;
+  onEditCard: (
+    columnId: string,
+    cardId: string,
+    updates: Partial<Card>,
+    oldDescription?: string
+  ) => void;
   onDeleteCard: (columnId: string, cardId: string) => void;
   isDraggingActive: boolean;
 }
@@ -63,16 +68,21 @@ export const KanbanColumn = ({
 
       <div
         ref={setNodeRef}
-        className={`space-y-2 min-h-[100px] ${
+        className={`kanban-column space-y-2 min-h-[100px] ${
           !isDraggingActive ? "transition-colors" : ""
-        } ${isOver ? "bg-accent/50 rounded-lg p-2" : ""}`}
+        } ${isOver ? "bg-accent/30" : ""}`}
       >
-        <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext
+          items={column.cards.map((c) => c.id)}
+          strategy={verticalListSortingStrategy}
+        >
           {column.cards.map((card) => (
             <KanbanCard
               key={card.id}
               card={card}
-              onEdit={(id, updates, oldDesc) => onEditCard(column.id, id, updates, oldDesc)}
+              onEdit={(id, updates, oldDesc) =>
+                onEditCard(column.id, id, updates, oldDesc)
+              }
               onDelete={(id) => onDeleteCard(column.id, id)}
             />
           ))}
