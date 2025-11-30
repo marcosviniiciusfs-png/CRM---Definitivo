@@ -540,6 +540,7 @@ export type Database = {
           name: string
           position: number
           required_fields: Json | null
+          stage_config: Json | null
           stage_type: string
           updated_at: string
         }
@@ -556,6 +557,7 @@ export type Database = {
           name: string
           position: number
           required_fields?: Json | null
+          stage_config?: Json | null
           stage_type?: string
           updated_at?: string
         }
@@ -572,6 +574,7 @@ export type Database = {
           name?: string
           position?: number
           required_fields?: Json | null
+          stage_config?: Json | null
           stage_type?: string
           updated_at?: string
         }
