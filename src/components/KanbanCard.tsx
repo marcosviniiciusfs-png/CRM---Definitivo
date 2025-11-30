@@ -55,8 +55,8 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
       card.id,
       {
         content: editContent,
-        description: editDescription,
-        due_date: editDueDate,
+        description: editDescription || undefined,
+        due_date: editDueDate || undefined,
         estimated_time: editEstimatedTime ? parseInt(editEstimatedTime) : undefined,
       },
       oldDescription

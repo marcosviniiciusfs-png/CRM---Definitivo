@@ -225,9 +225,24 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     updates: Partial<Card>,
     oldDescription?: string
   ) => {
+    // Garantir que campos vazios sejam null e valores sejam salvos corretamente
+    const dbUpdates: any = {
+      content: updates.content,
+      description: updates.description || null,
+      due_date: updates.due_date || null,
+      estimated_time: updates.estimated_time ?? null,
+    };
+
+    // Remover campos undefined do objeto
+    Object.keys(dbUpdates).forEach(key => {
+      if (dbUpdates[key] === undefined) {
+        delete dbUpdates[key];
+      }
+    });
+
     await supabase
       .from("kanban_cards")
-      .update(updates)
+      .update(dbUpdates)
       .eq("id", cardId);
 
     const column = columns.find(col => col.id === columnId);
