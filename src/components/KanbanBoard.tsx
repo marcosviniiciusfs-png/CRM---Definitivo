@@ -11,11 +11,12 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Calendar, Clock } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingAnimation } from "./LoadingAnimation";
+import { format } from "date-fns";
 
 interface Card {
   id: string;
@@ -389,7 +390,35 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         <DragOverlay>
           {activeCard ? (
             <div className="bg-card border rounded-lg p-3 shadow-lg opacity-90 w-80">
-              <div className="font-medium">{activeCard.content}</div>
+              <div className="space-y-2">
+                <div className="font-medium">{activeCard.content}</div>
+                
+                {activeCard.description && (
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">
+                    {activeCard.description}
+                  </div>
+                )}
+
+                {(activeCard.due_date || activeCard.estimated_time) && (
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {activeCard.due_date && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(activeCard.due_date), "dd/MM/yyyy")}
+                      </div>
+                    )}
+                    {activeCard.estimated_time && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded">
+                        <Clock className="h-3 w-3" />
+                        {Math.floor(activeCard.estimated_time / 60) > 0 
+                          ? `${Math.floor(activeCard.estimated_time / 60)}h${activeCard.estimated_time % 60 > 0 ? ` ${activeCard.estimated_time % 60}m` : ""}`
+                          : `${activeCard.estimated_time}m`
+                        }
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ) : null}
         </DragOverlay>
