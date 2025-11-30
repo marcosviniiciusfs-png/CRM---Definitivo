@@ -268,6 +268,16 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       // Calcular valor total
       const total = (data || []).reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
       setEditedValue(total.toString());
+      
+      // Atualizar valor no banco de dados
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update({ valor: total })
+        .eq("id", lead.id);
+      
+      if (updateError) {
+        console.error("Erro ao atualizar valor do lead:", updateError);
+      }
     } catch (error) {
       console.error("Erro ao carregar itens do lead:", error);
     }
@@ -296,6 +306,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       } else {
         toast.success("Produto adicionado com sucesso!");
         await fetchLeadItems();
+        onUpdate(); // Notificar pai para atualizar a visualização
       }
     } catch (error) {
       console.error("Erro ao adicionar item:", error);
@@ -316,6 +327,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       toast.success("Produto removido com sucesso!");
       await fetchLeadItems();
+      onUpdate(); // Notificar pai para atualizar a visualização
     } catch (error) {
       console.error("Erro ao remover item:", error);
       toast.error("Erro ao remover produto");
@@ -337,6 +349,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (error) throw error;
 
       await fetchLeadItems();
+      onUpdate(); // Notificar pai para atualizar a visualização
     } catch (error) {
       console.error("Erro ao atualizar quantidade:", error);
       toast.error("Erro ao atualizar quantidade");
