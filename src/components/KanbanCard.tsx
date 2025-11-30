@@ -178,7 +178,11 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
                     </div>
                   )}
                   {card.estimated_time && (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded">
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded ${
+                      !card.due_date 
+                        ? "bg-primary/10 text-primary" 
+                        : "bg-muted"
+                    }`}>
                       <Clock className="h-3 w-3" />
                       {formatEstimatedTime(card.estimated_time)}
                     </div>
