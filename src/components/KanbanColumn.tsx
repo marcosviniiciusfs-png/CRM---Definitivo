@@ -12,6 +12,7 @@ interface Card {
   due_date?: string;
   estimated_time?: number;
   position: number;
+  created_at: string;
 }
 
 interface Column {

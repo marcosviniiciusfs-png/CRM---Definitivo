@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MentionInput } from "./MentionInput";
 import { format } from "date-fns";
+import { useCardTimer } from "@/hooks/useCardTimer";
 
 interface Card {
   id: string;
@@ -22,6 +23,7 @@ interface Card {
   due_date?: string;
   estimated_time?: number;
   position: number;
+  created_at: string;
 }
 
 interface KanbanCardProps {
@@ -42,6 +44,13 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
   const [editEstimatedTime, setEditEstimatedTime] = useState(
     card.estimated_time?.toString() || ""
   );
+
+  const isTimerActive = card.estimated_time && !card.due_date;
+  const { formatTimerDisplay, isOvertime } = useCardTimer({
+    createdAt: card.created_at,
+    estimatedTime: card.estimated_time,
+    isActive: !!isTimerActive,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -180,11 +189,13 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
                   {card.estimated_time && (
                     <div className={`flex items-center gap-1 px-2 py-1 rounded ${
                       !card.due_date 
-                        ? "bg-primary/10 text-primary" 
+                        ? isOvertime 
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-primary/10 text-primary" 
                         : "bg-muted"
                     }`}>
                       <Clock className="h-3 w-3" />
-                      {formatEstimatedTime(card.estimated_time)}
+                      {!card.due_date ? formatTimerDisplay() : formatEstimatedTime(card.estimated_time)}
                     </div>
                   )}
                 </div>

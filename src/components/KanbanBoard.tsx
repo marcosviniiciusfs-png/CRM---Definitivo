@@ -26,6 +26,7 @@ interface Card {
   estimated_time?: number;
   position: number;
   column_id: string;
+  created_at: string;
 }
 
 interface Column {
@@ -426,7 +427,11 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
                       </div>
                     )}
                     {activeCard.estimated_time && (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded">
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded ${
+                        !activeCard.due_date 
+                          ? "bg-primary/10 text-primary" 
+                          : "bg-muted"
+                      }`}>
                         <Clock className="h-3 w-3" />
                         {Math.floor(activeCard.estimated_time / 60) > 0 
                           ? `${Math.floor(activeCard.estimated_time / 60)}h${activeCard.estimated_time % 60 > 0 ? ` ${activeCard.estimated_time % 60}m` : ""}`
