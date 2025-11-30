@@ -449,7 +449,9 @@ const Pipeline = () => {
         setLeads((prev) =>
           prev.map((l) => 
             l.id === leadId 
-              ? { ...l, stage: targetStage, position: newPosition } 
+              ? usingCustomFunnel
+                ? { ...l, funnel_stage_id: targetStage, position: newPosition }
+                : { ...l, stage: targetStage, position: newPosition }
               : l
           )
         );
@@ -555,17 +557,21 @@ const Pipeline = () => {
 
           // Adicionar na nova coluna na posição correta
           const updatedTargetStage = [...targetStageLeads];
-          updatedTargetStage.splice(newIndex, 0, { ...activeLead, stage: targetStage });
-          const updatedTargetWithPositions = updatedTargetStage.map((lead, index) => ({
-            ...lead,
-            position: index,
-            stage: targetStage,
-          }));
+          const leadToMove = usingCustomFunnel 
+            ? { ...activeLead, funnel_stage_id: targetStage }
+            : { ...activeLead, stage: targetStage };
+          updatedTargetStage.splice(newIndex, 0, leadToMove);
+          const updatedTargetWithPositions = updatedTargetStage.map((lead, index) => 
+            usingCustomFunnel
+              ? { ...lead, position: index, funnel_stage_id: targetStage }
+              : { ...lead, position: index, stage: targetStage }
+          );
 
           // Combinar todos os leads
           setLeads((prev) => {
+            const stageFieldToCheck = usingCustomFunnel ? 'funnel_stage_id' : 'stage';
             const otherStageLeads = prev.filter(
-              (l) => (l.stage || "NOVO") !== activeStage && (l.stage || "NOVO") !== targetStage
+              (l) => (l[stageFieldToCheck] || "NOVO") !== activeStage && (l[stageFieldToCheck] || "NOVO") !== targetStage
             );
             return [...otherStageLeads, ...updatedActiveStage, ...updatedTargetWithPositions];
           });
@@ -575,12 +581,12 @@ const Pipeline = () => {
             ...updatedActiveStage.map((lead) =>
               supabase.from("leads").update({ position: lead.position }).eq("id", lead.id)
             ),
-            ...updatedTargetWithPositions.map((lead) =>
-              supabase
-                .from("leads")
-                .update({ position: lead.position, stage: lead.stage })
-                .eq("id", lead.id)
-            ),
+            ...updatedTargetWithPositions.map((lead) => {
+              const updateData = usingCustomFunnel
+                ? { position: lead.position, funnel_stage_id: lead.funnel_stage_id }
+                : { position: lead.position, stage: lead.stage };
+              return supabase.from("leads").update(updateData).eq("id", lead.id);
+            }),
           ];
 
           await Promise.all(updates);
