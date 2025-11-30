@@ -14,6 +14,16 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -50,6 +60,12 @@ const Pipeline = () => {
   const [leadTagsMap, setLeadTagsMap] = useState<LeadTagsMap>({});
   const [isDraggingActive, setIsDraggingActive] = useState(false);
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
+  const [wonConfirmation, setWonConfirmation] = useState<{
+    show: boolean;
+    lead: Lead | null;
+    targetStage: string;
+    event: DragEndEvent | null;
+  }>({ show: false, lead: null, targetStage: '', event: null });
 
   // Configurar sensor com constraint de distância
   const sensors = useSensors(
@@ -395,6 +411,34 @@ const Pipeline = () => {
       return;
     }
 
+    // Verificar se o stage de destino é um stage de ganho (won)
+    const targetStageData = stages.find(s => s.id === targetStage);
+    if (targetStageData?.stageData?.stage_type === 'won' && activeStage !== targetStage) {
+      // Mostrar dialog de confirmação
+      setWonConfirmation({
+        show: true,
+        lead: activeLead,
+        targetStage,
+        event,
+      });
+      return;
+    }
+
+    // Processar movimentação normal
+    await processLeadMove(event, leadId, overId, activeLead, targetStage, activeStage, isDroppedOverStage, overLead);
+  }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel]);
+
+  const processLeadMove = async (
+    event: DragEndEvent,
+    leadId: string,
+    overId: string,
+    activeLead: Lead,
+    targetStage: string,
+    activeStage: string,
+    isDroppedOverStage: boolean,
+    overLead?: Lead
+  ) => {
+
     try {
       if (isDroppedOverStage) {
         // Dropado diretamente em uma coluna
@@ -415,6 +459,12 @@ const Pipeline = () => {
           ? { funnel_stage_id: targetStage, position: newPosition }
           : { stage: targetStage, position: newPosition };
 
+        // Se for won stage, adicionar data_conclusao
+        const targetStageData = stages.find(s => s.id === targetStage);
+        if (targetStageData?.stageData?.stage_type === 'won') {
+          updateData.data_conclusao = new Date().toISOString();
+        }
+
         const { error } = await supabase
           .from("leads")
           .update(updateData)
@@ -423,7 +473,6 @@ const Pipeline = () => {
         if (error) throw error;
 
         // Executar ações automáticas da etapa
-        const targetStageData = stages.find(s => s.id === targetStage);
         if (targetStageData?.stageData) {
           await executeStageActions(leadId, activeLead, targetStageData.stageData);
         }
@@ -538,13 +587,37 @@ const Pipeline = () => {
           toast.success("Lead movido!");
         }
       }
-      } catch (error) {
-        console.error("Erro ao atualizar lead:", error);
-        toast.error("Erro ao mover lead");
-        // Recarregar em caso de erro
-        loadLeads(undefined, false);
-      }
-    }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel]);
+    } catch (error) {
+      console.error("Erro ao atualizar lead:", error);
+      toast.error("Erro ao mover lead");
+      // Recarregar em caso de erro
+      loadLeads(undefined, false);
+    }
+  };
+
+  const handleWonConfirmation = async (confirmed: boolean) => {
+    if (!confirmed || !wonConfirmation.lead || !wonConfirmation.event) {
+      setWonConfirmation({ show: false, lead: null, targetStage: '', event: null });
+      return;
+    }
+
+    const { lead, targetStage, event } = wonConfirmation;
+    const { active, over } = event;
+    
+    if (!over) return;
+
+    const leadId = active.id as string;
+    const overId = over.id as string;
+    const isDroppedOverStage = stages.some((s) => s.id === overId);
+    const overLead = leads.find((l) => l.id === overId);
+    const activeStage = lead.stage || "NOVO";
+
+    // Fechar o dialog
+    setWonConfirmation({ show: false, lead: null, targetStage: '', event: null });
+
+    // Processar a movimentação
+    await processLeadMove(event, leadId, overId, lead, targetStage, activeStage, isDroppedOverStage, overLead);
+  };
 
   const handleEditLead = useCallback((lead: Lead) => {
     setEditingLead(lead);
@@ -849,6 +922,34 @@ const Pipeline = () => {
         onUpdate={() => loadLeads(undefined, false)}
       />
     )}
+
+    {/* Dialog de Confirmação de Venda */}
+    <AlertDialog open={wonConfirmation.show} onOpenChange={(open) => !open && handleWonConfirmation(false)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>✅ Confirmar Venda</AlertDialogTitle>
+          <AlertDialogDescription className="space-y-3 pt-2">
+            <p>
+              O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de ganho/venda.
+            </p>
+            <p className="font-semibold text-primary">
+              💰 Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
+            </p>
+            <p className="text-sm">
+              Este valor será contabilizado na produção do mês atual. Confirma que o lead realmente fechou uma negociação?
+            </p>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => handleWonConfirmation(false)}>
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={() => handleWonConfirmation(true)}>
+            Confirmar Venda
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 };
