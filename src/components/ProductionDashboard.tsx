@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { MetricCard } from "@/components/MetricCard";
-import { TrendingUp, DollarSign, ShoppingCart, TrendingDown } from "lucide-react";
 import { ProductionBlockCard } from "./ProductionBlockCard";
+import { ProductionBlockDetailModal } from "./ProductionBlockDetailModal";
 import { LoadingAnimation } from "./LoadingAnimation";
 
 interface ProductionBlock {
@@ -214,6 +213,14 @@ export function ProductionDashboard() {
     };
   };
 
+  const [selectedBlock, setSelectedBlock] = useState<ProductionBlock | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const handleBlockClick = (block: ProductionBlock) => {
+    setSelectedBlock(block);
+    setIsDetailModalOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -222,69 +229,41 @@ export function ProductionDashboard() {
     );
   }
 
-  const historicalBlocks = blocks.filter(b => 
-    !(b.month === currentBlock?.month && b.year === currentBlock?.year)
-  );
-
   return (
     <div className="space-y-8">
-      {/* Current Month Metrics */}
-      {currentBlock && (
+      {/* All Production Blocks */}
+      {blocks.length > 0 ? (
         <div>
-          <h2 className="text-2xl font-bold mb-4">
-            {new Date(currentBlock.year, currentBlock.month - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Receita Total"
-              value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBlock.total_revenue)}
-              subtitle={`${currentBlock.total_sales} vendas`}
-              icon={DollarSign}
-              iconColor="text-green-600"
-            />
-            <MetricCard
-              title="Lucro do Mês"
-              value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBlock.total_profit)}
-              icon={TrendingUp}
-              iconColor="text-primary"
-            />
-            <MetricCard
-              title="Custo Total"
-              value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBlock.total_cost)}
-              icon={ShoppingCart}
-              iconColor="text-amber-600"
-            />
-            {currentBlock.profit_change_percentage !== null && (
-              <MetricCard
-                title="vs Mês Anterior"
-                value={`${currentBlock.profit_change_percentage > 0 ? '+' : ''}${currentBlock.profit_change_percentage.toFixed(1)}%`}
-                subtitle={`${currentBlock.profit_change_value > 0 ? '+' : ''}${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBlock.profit_change_value)}`}
-                icon={currentBlock.profit_change_percentage >= 0 ? TrendingUp : TrendingDown}
-                iconColor={currentBlock.profit_change_percentage >= 0 ? "text-green-600" : "text-red-600"}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Historical Blocks */}
-      {historicalBlocks.length > 0 && (
-        <div>
-          <h3 className="text-xl font-semibold mb-4">Histórico de Produção</h3>
+          <h2 className="text-2xl font-bold mb-6">Blocos de Produção</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {historicalBlocks.map((block) => (
-              <ProductionBlockCard key={block.id} block={block} />
-            ))}
+            {blocks.map((block) => {
+              const isCurrent = block.month === currentBlock?.month && block.year === currentBlock?.year;
+              return (
+                <ProductionBlockCard 
+                  key={block.id} 
+                  block={block}
+                  isCurrent={isCurrent}
+                  onClick={() => handleBlockClick(block)}
+                />
+              );
+            })}
           </div>
         </div>
-      )}
-
-      {blocks.length === 0 && (
+      ) : (
         <div className="text-center py-12 bg-card rounded-lg border">
           <p className="text-muted-foreground">
             Nenhum bloco de produção encontrado
           </p>
         </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedBlock && (
+        <ProductionBlockDetailModal
+          block={selectedBlock}
+          open={isDetailModalOpen}
+          onOpenChange={setIsDetailModalOpen}
+        />
       )}
     </div>
   );
