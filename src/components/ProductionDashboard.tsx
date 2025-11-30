@@ -29,6 +29,60 @@ export function ProductionDashboard() {
     loadProductionBlocks();
   }, []);
 
+  // Real-time listener for lead stage changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('production-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'leads'
+        },
+        async (payload) => {
+          // Check if lead moved to a won stage
+          const updatedLead = payload.new as any;
+          
+          if (updatedLead.funnel_stage_id && updatedLead.data_conclusao) {
+            // Verify if it's a won stage
+            const { data: stage } = await supabase
+              .from('funnel_stages')
+              .select('stage_type')
+              .eq('id', updatedLead.funnel_stage_id)
+              .single();
+
+            if (stage?.stage_type === 'won') {
+              // Recalculate current month block
+              const currentDate = new Date();
+              const currentMonth = currentDate.getMonth() + 1;
+              const currentYear = currentDate.getFullYear();
+              
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) return;
+
+              const { data: memberData } = await supabase
+                .from("organization_members")
+                .select("organization_id")
+                .eq("user_id", user.id)
+                .single();
+
+              if (memberData) {
+                await recalculateBlockMetrics(memberData.organization_id, currentMonth, currentYear);
+                // Reload blocks to reflect changes
+                await loadProductionBlocks();
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const loadProductionBlocks = async () => {
     try {
       setLoading(true);
