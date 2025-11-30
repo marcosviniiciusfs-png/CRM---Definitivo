@@ -79,7 +79,6 @@ export const FunnelConfigDialog = ({
 
         if (error) throw error;
         toast.success("Funil atualizado!");
-        onSuccess();
       } else {
         // Criar novo funil
         const { data: newFunnel, error } = await supabase
@@ -96,8 +95,7 @@ export const FunnelConfigDialog = ({
 
         if (error) throw error;
         setFunnelId(newFunnel.id);
-        toast.success("Funil criado! Agora configure as etapas.");
-        // NÃO chamar onSuccess aqui para manter o modal aberto
+        toast.success("Funil salvo! Configure as etapas e origens.");
       }
     } catch (error) {
       console.error("Erro ao salvar funil:", error);
@@ -105,6 +103,12 @@ export const FunnelConfigDialog = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFinish = () => {
+    toast.success("Funil criado com sucesso!");
+    onSuccess();
+    onOpenChange(false);
   };
 
   return (
@@ -116,15 +120,11 @@ export const FunnelConfigDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="info" className="w-full" value={funnelId ? undefined : "info"}>
+        <Tabs defaultValue="info" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="info">Informações</TabsTrigger>
-            <TabsTrigger value="stages" disabled={!funnelId}>
-              Etapas {!funnelId && "(salve primeiro)"}
-            </TabsTrigger>
-            <TabsTrigger value="sources" disabled={!funnelId}>
-              Origens {!funnelId && "(salve primeiro)"}
-            </TabsTrigger>
+            <TabsTrigger value="stages">Etapas</TabsTrigger>
+            <TabsTrigger value="sources">Origens</TabsTrigger>
           </TabsList>
 
           <TabsContent value="info" className="space-y-4 mt-4">
@@ -160,42 +160,38 @@ export const FunnelConfigDialog = ({
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              {funnelId && (
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Concluir
-                </Button>
-              )}
-              {!funnelId && (
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Cancelar
-                </Button>
-              )}
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
               <Button onClick={handleSave} disabled={loading}>
-                {loading ? "Salvando..." : funnelId ? "Atualizar" : "Criar e Configurar"}
+                {loading ? "Salvando..." : "Salvar"}
               </Button>
             </div>
           </TabsContent>
 
           <TabsContent value="stages" className="mt-4">
-            {funnelId && <FunnelStagesConfig funnelId={funnelId} />}
+            {funnelId ? (
+              <FunnelStagesConfig funnelId={funnelId} />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Salve as informações básicas primeiro para configurar as etapas</p>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="sources" className="mt-4">
-            {funnelId && (
+            {funnelId ? (
               <div className="space-y-4">
                 <FunnelSourceMapping funnelId={funnelId} />
                 <div className="flex justify-end pt-4 border-t">
-                  <Button
-                    onClick={() => {
-                      toast.success("Funil criado com sucesso!");
-                      onSuccess();
-                      onOpenChange(false);
-                    }}
-                    size="lg"
-                  >
-                    Criar Funil
+                  <Button onClick={handleFinish} size="lg">
+                    Criar e Configurar
                   </Button>
                 </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Salve as informações básicas primeiro para configurar as origens</p>
               </div>
             )}
           </TabsContent>
