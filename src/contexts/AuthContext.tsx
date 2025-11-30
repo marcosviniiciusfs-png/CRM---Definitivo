@@ -35,6 +35,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshSubscription = async () => {
     console.log('[AUTH] refreshSubscription called, user:', user?.email);
+    
+    // Verificar se há sessão ativa
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession?.access_token) {
+      console.log('[AUTH] No active session, skipping subscription check');
+      return;
+    }
+    
     if (!user) {
       console.log('[AUTH] No user, skipping subscription check');
       return;
@@ -126,13 +134,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         // Registrar login/logout de forma assíncrona
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === 'SIGNED_IN' && session?.user && session?.access_token) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
           // Verificar assinatura após login
           setTimeout(async () => {
             console.log('[AUTH] Calling refreshSubscription after SIGNED_IN');
-            // Precisamos chamar diretamente aqui pois o user state pode não estar atualizado ainda
             try {
+              // Verificar se a sessão ainda está ativa antes de chamar
+              const { data: { session: currentSession } } = await supabase.auth.getSession();
+              if (!currentSession?.access_token) {
+                console.log('[AUTH] No active session, skipping subscription check');
+                return;
+              }
+              
               const { data, error } = await supabase.functions.invoke('check-subscription');
               if (error) {
                 console.error('[AUTH] Erro ao verificar assinatura após login:', error);
@@ -166,9 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         // Se já tem sessão, registrar login e verificar assinatura
-        if (session?.user) {
+        if (session?.user && session?.access_token) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
-          // Verificar assinatura
+          // Verificar assinatura apenas se temos token de acesso
           try {
             const { data, error } = await supabase.functions.invoke('check-subscription');
             if (error) {
