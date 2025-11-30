@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Settings2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -929,15 +930,22 @@ const Pipeline = () => {
     <AlertDialog open={wonConfirmation.show} onOpenChange={(open) => !open && handleWonConfirmation(false)}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>✅ Confirmar Venda</AlertDialogTitle>
+          <div className="flex items-center justify-center mb-4">
+            <img 
+              src={saleConfirmationIcon} 
+              alt="Confirmar Venda" 
+              className="w-24 h-24"
+            />
+          </div>
+          <AlertDialogTitle className="text-center text-2xl">Confirmar Venda</AlertDialogTitle>
           <AlertDialogDescription className="space-y-3 pt-2">
-            <p>
+            <p className="text-center">
               O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de ganho/venda.
             </p>
-            <p className="font-semibold text-primary">
+            <p className="font-semibold text-primary text-center text-lg">
               💰 Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
             </p>
-            <p className="text-sm">
+            <p className="text-sm text-center">
               Este valor será contabilizado na produção do mês atual. Confirma que o lead realmente fechou uma negociação?
             </p>
           </AlertDialogDescription>
