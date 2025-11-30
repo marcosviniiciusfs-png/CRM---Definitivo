@@ -24,6 +24,7 @@ interface Card {
   estimated_time?: number;
   position: number;
   created_at: string;
+  timer_started_at?: string;
 }
 
 interface KanbanCardProps {
@@ -47,7 +48,7 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
 
   const isTimerActive = card.estimated_time && !card.due_date;
   const { formatTimerDisplay, isOvertime } = useCardTimer({
-    createdAt: card.created_at,
+    timerStartedAt: card.timer_started_at,
     estimatedTime: card.estimated_time,
     isActive: !!isTimerActive,
   });

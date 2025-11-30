@@ -27,6 +27,7 @@ interface Card {
   position: number;
   column_id: string;
   created_at: string;
+  timer_started_at?: string;
 }
 
 interface Column {
@@ -233,6 +234,17 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       due_date: updates.due_date || null,
       estimated_time: updates.estimated_time ?? null,
     };
+
+    // Gerenciar timer_started_at baseado em estimated_time e due_date
+    if (updates.estimated_time !== undefined) {
+      if (updates.estimated_time && !updates.due_date) {
+        // Timer ativo: definir timer_started_at para agora
+        dbUpdates.timer_started_at = new Date().toISOString();
+      } else {
+        // Timer não ativo: limpar timer_started_at
+        dbUpdates.timer_started_at = null;
+      }
+    }
 
     // Remover campos undefined do objeto
     Object.keys(dbUpdates).forEach(key => {
