@@ -31,19 +31,22 @@ interface KanbanCardProps {
 }
 
 export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
-    id: card.id 
-  });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({
+      id: card.id,
+    });
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
   const [editDescription, setEditDescription] = useState(card.description || "");
   const [editDueDate, setEditDueDate] = useState(card.due_date || "");
-  const [editEstimatedTime, setEditEstimatedTime] = useState(card.estimated_time?.toString() || "");
+  const [editEstimatedTime, setEditEstimatedTime] = useState(
+    card.estimated_time?.toString() || ""
+  );
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transition: isDragging ? undefined : transition,
+    opacity: isDragging ? 0 : 1,
   };
 
   const handleSave = () => {
@@ -81,10 +84,10 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      className={`bg-card border rounded-lg p-3 mb-2 group relative shadow-sm ${
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`kanban-card bg-card border rounded-lg p-3 mb-2 group relative shadow-sm ${
         !isEditing ? "cursor-grab active:cursor-grabbing" : ""
       }`}
       {...(!isEditing ? { ...attributes, ...listeners } : {})}
@@ -141,14 +144,21 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
               </div>
 
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleSave}>Salvar</Button>
-                <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancelar</Button>
+                <Button size="sm" onClick={handleSave}>
+                  Salvar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
+                  Cancelar
+                </Button>
               </div>
             </div>
           ) : (
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
-                <div onClick={() => setIsEditing(true)} className="cursor-pointer flex-1 font-medium">
+                <div
+                  onClick={() => setIsEditing(true)}
+                  className="cursor-pointer flex-1 font-medium"
+                >
                   {card.content}
                 </div>
               </div>
@@ -196,7 +206,10 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
               <Settings className="h-4 w-4 mr-2" />
               Editar
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(card.id)} className="text-destructive">
+            <DropdownMenuItem
+              onClick={() => onDelete(card.id)}
+              className="text-destructive"
+            >
               <X className="h-4 w-4 mr-2" />
               Excluir
             </DropdownMenuItem>

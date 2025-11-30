@@ -355,7 +355,10 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden">
+    <div
+      className="w-full max-w-full overflow-hidden"
+      data-dragging-active={isDraggingActive}
+    >
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
