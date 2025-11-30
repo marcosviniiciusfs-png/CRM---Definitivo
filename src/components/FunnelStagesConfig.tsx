@@ -9,6 +9,13 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -35,6 +42,7 @@ interface Stage {
   icon: string | null;
   position: number;
   stage_type: string;
+  stage_config?: any;
   is_final: boolean;
   default_value: number | null;
   max_days_in_stage: number | null;
@@ -87,6 +95,16 @@ const SortableStageItem = ({
                 Final
               </Badge>
             )}
+            {!stage.is_final && stage.stage_type && stage.stage_type !== "custom" && (
+              <Badge variant="outline" className="text-xs">
+                {stage.stage_type === "won" && "🎉 Ganho"}
+                {stage.stage_type === "lost" && "❌ Perdido"}
+                {stage.stage_type === "discarded" && "🗑️ Descartado"}
+                {stage.stage_type === "send_message" && "💬 Mensagem"}
+                {stage.stage_type === "create_task" && "✅ Tarefa"}
+                {stage.stage_type === "assign_agent" && "👤 Atribuir"}
+              </Badge>
+            )}
           </div>
           {stage.description && (
             <p className="text-sm text-muted-foreground">{stage.description}</p>
@@ -118,6 +136,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#3B82F6");
+  const [stageType, setStageType] = useState("custom");
+  const [stageConfig, setStageConfig] = useState<any>({});
   const [defaultValue, setDefaultValue] = useState("");
   const [maxDays, setMaxDays] = useState("");
   const [requiredFields, setRequiredFields] = useState("");
@@ -213,12 +233,13 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         description: description || null,
         color,
         icon: null,
+        stage_type: stageType,
+        stage_config: stageConfig,
         default_value: defaultValue ? parseFloat(defaultValue) : null,
         max_days_in_stage: maxDays ? parseInt(maxDays) : null,
         required_fields: requiredFields
           ? requiredFields.split(",").map((f) => f.trim())
           : [],
-        stage_type: "custom",
         is_final: false,
       };
 
@@ -268,6 +289,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setName("");
     setDescription("");
     setColor("#3B82F6");
+    setStageType("custom");
+    setStageConfig({});
     setDefaultValue("");
     setMaxDays("");
     setRequiredFields("");
@@ -279,6 +302,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setName(stage.name);
     setDescription(stage.description || "");
     setColor(stage.color);
+    setStageType(stage.stage_type || "custom");
+    setStageConfig(stage.stage_config || {});
     setDefaultValue(stage.default_value?.toString() || "");
     setMaxDays(stage.max_days_in_stage?.toString() || "");
     setRequiredFields(
@@ -353,6 +378,103 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
               rows={2}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label>Comportamento da Etapa</Label>
+            <Select value={stageType} onValueChange={setStageType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o comportamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">
+                  <div className="flex items-center gap-2">
+                    <span>📋</span> Normal (Processo)
+                  </div>
+                </SelectItem>
+                <SelectItem value="won">
+                  <div className="flex items-center gap-2">
+                    <span>🎉</span> Ganho/Convertido
+                  </div>
+                </SelectItem>
+                <SelectItem value="lost">
+                  <div className="flex items-center gap-2">
+                    <span>❌</span> Perdido
+                  </div>
+                </SelectItem>
+                <SelectItem value="discarded">
+                  <div className="flex items-center gap-2">
+                    <span>🗑️</span> Descartado/Arquivado
+                  </div>
+                </SelectItem>
+                <SelectItem value="send_message">
+                  <div className="flex items-center gap-2">
+                    <span>💬</span> Enviar Mensagem Automática
+                  </div>
+                </SelectItem>
+                <SelectItem value="create_task">
+                  <div className="flex items-center gap-2">
+                    <span>✅</span> Criar Tarefa de Follow-up
+                  </div>
+                </SelectItem>
+                <SelectItem value="assign_agent">
+                  <div className="flex items-center gap-2">
+                    <span>👤</span> Atribuir para Agente
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {stageType === "send_message" && (
+            <div className="space-y-2 p-3 bg-muted rounded-lg">
+              <Label>Mensagem a Enviar</Label>
+              <Textarea
+                value={stageConfig.message_template || ""}
+                onChange={(e) => setStageConfig({...stageConfig, message_template: e.target.value})}
+                placeholder="Olá {{nome}}, obrigado pelo interesse..."
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use {"{{nome}}"} para incluir o nome do lead
+              </p>
+            </div>
+          )}
+
+          {stageType === "create_task" && (
+            <div className="space-y-4 p-3 bg-muted rounded-lg">
+              <div className="space-y-2">
+                <Label>Título da Tarefa</Label>
+                <Input
+                  value={stageConfig.task_title || ""}
+                  onChange={(e) => setStageConfig({...stageConfig, task_title: e.target.value})}
+                  placeholder="Ex: Follow-up com o lead"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tempo Estimado (minutos)</Label>
+                <Input
+                  type="number"
+                  value={stageConfig.estimated_time || ""}
+                  onChange={(e) => setStageConfig({...stageConfig, estimated_time: parseInt(e.target.value) || ""})}
+                  placeholder="30"
+                />
+              </div>
+            </div>
+          )}
+
+          {stageType === "assign_agent" && (
+            <div className="space-y-2 p-3 bg-muted rounded-lg">
+              <Label>Email do Agente</Label>
+              <Input
+                value={stageConfig.agent_email || ""}
+                onChange={(e) => setStageConfig({...stageConfig, agent_email: e.target.value})}
+                placeholder="vendedor@empresa.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                O lead será atribuído automaticamente para este agente
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Valor Padrão (R$)</Label>
