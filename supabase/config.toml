@@ -62,3 +62,6 @@ verify_jwt = true
 
 [functions.send-whatsapp-reaction]
 verify_jwt = true
+
+[functions.distribute-lead]
+verify_jwt = false
