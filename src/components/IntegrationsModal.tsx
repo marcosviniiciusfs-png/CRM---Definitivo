@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Mail, Video, Sheet, MessageSquare, CreditCard, Instagram, FileSpreadsheet } from "lucide-react";
+import { Calendar, Mail, Video, Sheet, MessageSquare, CreditCard, Instagram, FileSpreadsheet, Activity } from "lucide-react";
 import { useState } from "react";
 import { GoogleCalendarConnection } from "./GoogleCalendarConnection";
+import { MetaPixelConnection } from "./MetaPixelConnection";
 
 interface Integration {
   id: string;
@@ -11,7 +12,7 @@ interface Integration {
   description: string;
   icon: React.ReactNode;
   status: "available" | "coming_soon";
-  component?: React.ComponentType<{ onClose: () => void }>;
+  component?: React.ComponentType<{ onClose?: () => void; onBack?: () => void }>;
 }
 
 interface IntegrationsModalProps {
@@ -23,6 +24,14 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
 
   const integrations: Integration[] = [
+    {
+      id: "meta_pixel",
+      name: "Meta Conversions API",
+      description: "Envie eventos de conversão para o Meta Ads automaticamente",
+      icon: <Activity className="h-6 w-6 text-blue-500" />,
+      status: "available",
+      component: MetaPixelConnection,
+    },
     {
       id: "google_calendar",
       name: "Google Calendar",
@@ -94,7 +103,13 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
 
   if (selectedIntegration?.component) {
     const IntegrationComponent = selectedIntegration.component;
-    return <IntegrationComponent onClose={handleCloseIntegration} />;
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <IntegrationComponent onClose={handleCloseIntegration} onBack={handleCloseIntegration} />
+        </DialogContent>
+      </Dialog>
+    );
   }
 
   return (

@@ -1,5 +1,8 @@
 project_id = "uvwanpztskkhzdqifbai"
 
+[functions.send-meta-conversion-event]
+verify_jwt = false
+
 [functions.set-whatsapp-presence]
 verify_jwt = true
 

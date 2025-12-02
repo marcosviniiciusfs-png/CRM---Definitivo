@@ -1310,6 +1310,54 @@ export type Database = {
           },
         ]
       }
+      meta_pixel_integrations: {
+        Row: {
+          access_token: string
+          created_at: string
+          funnel_id: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          pixel_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          funnel_id: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          pixel_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          funnel_id?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          pixel_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_pixel_integrations_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "sales_funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_pixel_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           card_id: string | null

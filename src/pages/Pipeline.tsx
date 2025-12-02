@@ -729,6 +729,9 @@ const Pipeline = () => {
           }
           break;
         case "won":
+          // Enviar evento de conversão para Meta Conversions API
+          await sendMetaConversionEvent(leadId, lead);
+          break;
         case "lost":
         case "discarded":
           // Ações futuras podem ser adicionadas aqui (ex: métricas, notificações)
@@ -827,6 +830,31 @@ const Pipeline = () => {
       toast.success(`Lead atribuído para ${agentName}!`);
     } catch (error) {
       console.error("Erro ao atribuir lead:", error);
+    }
+  };
+
+  // Enviar evento de conversão para Meta Conversions API
+  const sendMetaConversionEvent = async (leadId: string, lead: Lead) => {
+    try {
+      const funnelId = lead.funnel_id;
+      if (!funnelId) return;
+
+      const { error } = await supabase.functions.invoke("send-meta-conversion-event", {
+        body: {
+          lead_id: leadId,
+          funnel_id: funnelId,
+          event_name: "Purchase",
+          value: lead.valor || 0,
+        },
+      });
+
+      if (error) {
+        console.error("Erro ao enviar evento Meta:", error);
+      } else {
+        console.log("Evento de conversão enviado para Meta");
+      }
+    } catch (error) {
+      console.error("Erro ao enviar evento Meta:", error);
     }
   };
 
