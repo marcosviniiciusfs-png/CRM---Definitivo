@@ -849,81 +849,72 @@ const WhatsAppConnection = () => {
         </DialogContent>
       </Dialog>
 
-      <Card className="border-muted max-w-xl mx-auto">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <img src={whatsappLogo} alt="WhatsApp" className="h-8 w-8" />
-              WhatsApp Business/Pessoal
-            </CardTitle>
-            {verifyingStatus && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Verificando...
-              </Badge>
-            )}
-          </div>
-          <CardDescription className="text-xs text-center pt-1">
-            Conecte seu WhatsApp para enviar e receber mensagens
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
-        <div className="text-center py-2">
-          {/* Não mostrar nada enquanto está carregando */}
-          {loading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <Card className="border-muted">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <img src={whatsappLogo} alt="WhatsApp" className="h-7 w-7 flex-shrink-0" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold">WhatsApp</h3>
+                <p className="text-xs text-muted-foreground truncate">
+                  {instances.some(i => i.status === 'CONNECTED') 
+                    ? `Conectado: ${instances.find(i => i.status === 'CONNECTED')?.phone_number || 'Ativo'}`
+                    : 'Conecte seu número'}
+                </p>
+              </div>
             </div>
-          ) : instances.some(instance => instance.status === 'CONNECTED') ? (
-            /* Botões de ação - exibidos apenas quando há instância conectada */
-            <div className="flex gap-2 justify-center">
-              {instances
-                .filter(instance => instance.status === 'CONNECTED')
-                .map((instance) => (
-                  <Button
-                    key={instance.id}
-                    onClick={() => disconnectInstance(instance.id)}
-                    disabled={disconnecting === instance.id}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    size="sm"
-                  >
-                    {disconnecting === instance.id ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                        Deletando...
-                      </>
-                    ) : (
-                      <>
-                        <LogOut className="h-3 w-3 mr-2" />
-                        Deletar Conexão
-                      </>
-                    )}
-                  </Button>
-                ))}
-            </div>
-          ) : (
-            /* Botão Conectar - exibido quando não há instância conectada */
-            <Button
-              onClick={createInstance}
-              disabled={creating}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
-            >
-              {creating ? (
-                <>
-                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                  Criando instância...
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="h-3 w-3 mr-2" />
-                  Conectar WhatsApp
-                </>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {instances.some(i => i.status === 'CONNECTED') && (
+                <Badge variant="default" className="bg-[#66ee78] text-xs">Ativo</Badge>
               )}
-            </Button>
-          )}
-        </div>
-      </CardContent>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : instances.some(instance => instance.status === 'CONNECTED') ? (
+                instances
+                  .filter(instance => instance.status === 'CONNECTED')
+                  .map((instance) => (
+                    <Button
+                      key={instance.id}
+                      onClick={() => disconnectInstance(instance.id)}
+                      disabled={disconnecting === instance.id}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      {disconnecting === instance.id ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Deletando
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="h-3 w-3 mr-1" />
+                          Deletar
+                        </>
+                      )}
+                    </Button>
+                  ))
+              ) : (
+                <Button
+                  onClick={createInstance}
+                  disabled={creating}
+                  size="sm"
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Criando
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      Conectar
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
     </Card>
     </>
   );

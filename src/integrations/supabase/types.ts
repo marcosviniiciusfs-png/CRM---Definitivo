@@ -629,6 +629,53 @@ export type Database = {
           },
         ]
       }
+      google_calendar_integrations: {
+        Row: {
+          access_token: string
+          calendar_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          calendar_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          calendar_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          refresh_token?: string
+          token_expires_at?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       items: {
         Row: {
           cost_price: number
@@ -1082,6 +1129,7 @@ export type Database = {
         Row: {
           additional_data: Json | null
           avatar_url: string | null
+          calendar_event_id: string | null
           created_at: string
           data_conclusao: string | null
           data_inicio: string | null
@@ -1107,6 +1155,7 @@ export type Database = {
         Insert: {
           additional_data?: Json | null
           avatar_url?: string | null
+          calendar_event_id?: string | null
           created_at?: string
           data_conclusao?: string | null
           data_inicio?: string | null
@@ -1132,6 +1181,7 @@ export type Database = {
         Update: {
           additional_data?: Json | null
           avatar_url?: string | null
+          calendar_event_id?: string | null
           created_at?: string
           data_conclusao?: string | null
           data_inicio?: string | null
