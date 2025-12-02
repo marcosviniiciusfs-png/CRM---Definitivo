@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { FunnelStagesConfig } from "./FunnelStagesConfig";
 import { FunnelSourceMapping } from "./FunnelSourceMapping";
+import { ColoredIconPicker } from "./ColoredIconPicker";
 
 interface FunnelConfigDialogProps {
   open: boolean;
@@ -31,6 +32,8 @@ export const FunnelConfigDialog = ({
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [funnelId, setFunnelId] = useState<string | null>(null);
+  const [icon, setIcon] = useState("");
+  const [iconColor, setIconColor] = useState("#4CA698");
 
   useEffect(() => {
     if (funnel) {
@@ -38,11 +41,15 @@ export const FunnelConfigDialog = ({
       setDescription(funnel.description || "");
       setIsActive(funnel.is_active);
       setFunnelId(funnel.id);
+      setIcon(funnel.icon || "");
+      setIconColor(funnel.icon_color || "#4CA698");
     } else {
       setName("");
       setDescription("");
       setIsActive(true);
       setFunnelId(null);
+      setIcon("");
+      setIconColor("#4CA698");
     }
   }, [funnel, open]);
 
@@ -73,6 +80,8 @@ export const FunnelConfigDialog = ({
             name,
             description,
             is_active: isActive,
+            icon: icon || null,
+            icon_color: iconColor,
             updated_at: new Date().toISOString(),
           })
           .eq("id", funnel.id);
@@ -87,6 +96,8 @@ export const FunnelConfigDialog = ({
             name,
             description,
             is_active: isActive,
+            icon: icon || null,
+            icon_color: iconColor,
             organization_id: orgData.organization_id,
             is_default: false,
           })
@@ -153,6 +164,13 @@ export const FunnelConfigDialog = ({
                 rows={3}
               />
             </div>
+
+            <ColoredIconPicker
+              iconValue={icon}
+              colorValue={iconColor}
+              onIconChange={setIcon}
+              onColorChange={setIconColor}
+            />
 
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
