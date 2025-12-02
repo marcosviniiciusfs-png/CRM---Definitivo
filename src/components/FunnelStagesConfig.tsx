@@ -153,13 +153,6 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     loadStages();
   }, [funnelId]);
 
-  useEffect(() => {
-    // Se é funil padrão e só tem etapas finais, criar etapas padrão
-    if (stages.length > 0 && !loading) {
-      checkAndCreateDefaultStages();
-    }
-  }, [stages, loading]);
-
   const loadStages = async () => {
     try {
       const { data, error } = await supabase
@@ -178,6 +171,9 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       })) as Stage[];
       
       setStages(formattedStages);
+      
+      // Após carregar, verificar se precisa criar etapas padrão
+      await checkAndCreateDefaultStages(formattedStages);
     } catch (error) {
       console.error("Erro ao carregar etapas:", error);
       toast.error("Erro ao carregar etapas");
@@ -186,7 +182,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     }
   };
 
-  const checkAndCreateDefaultStages = async () => {
+  const checkAndCreateDefaultStages = async (currentStages: Stage[]) => {
     try {
       // Verificar se é funil padrão
       const { data: funnelData } = await supabase
@@ -198,7 +194,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       if (!funnelData?.is_default) return;
 
       // Verificar se só tem etapas finais (Ganho e Perdido)
-      const customStages = stages.filter(s => !s.is_final);
+      const customStages = currentStages.filter(s => !s.is_final);
       if (customStages.length > 0) return;
 
       // Criar etapas padrão do Pipeline
@@ -229,8 +225,23 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
       if (error) throw error;
 
-      // Recarregar etapas
-      await loadStages();
+      // Recarregar etapas sem recursão
+      const { data: newData } = await supabase
+        .from("funnel_stages")
+        .select("*")
+        .eq("funnel_id", funnelId)
+        .order("position");
+
+      if (newData) {
+        const formattedStages = newData.map(stage => ({
+          ...stage,
+          required_fields: Array.isArray(stage.required_fields) 
+            ? (stage.required_fields as string[])
+            : []
+        })) as Stage[];
+        setStages(formattedStages);
+      }
+      
       toast.success("Etapas padrão criadas! Você pode configurá-las agora.");
     } catch (error) {
       console.error("Erro ao criar etapas padrão:", error);
