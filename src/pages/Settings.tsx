@@ -546,7 +546,7 @@ const Settings = () => {
                       <Button 
                         onClick={handleCreateWebhook} 
                         disabled={loadingWebhook || !webhookTagName.trim()}
-                        className="w-full rounded-xl"
+                        className="w-full"
                       >
                         {loadingWebhook ? "Criando..." : "Criar Webhook"}
                       </Button>
@@ -563,7 +563,7 @@ const Settings = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 rounded-xl"
+                              className="h-7 w-7"
                               onClick={handleStartEditTag}
                               title="Editar tag"
                             >
@@ -590,7 +590,6 @@ const Settings = () => {
                                     onClick={handleSaveWebhookTag}
                                     disabled={savingTag || !webhookTagName.trim()}
                                     title="Salvar"
-                                    className="rounded-xl"
                                   >
                                     <Check className="h-4 w-4" />
                                   </Button>
@@ -600,7 +599,6 @@ const Settings = () => {
                                     onClick={handleCancelEditTag}
                                     disabled={savingTag}
                                     title="Cancelar"
-                                    className="rounded-xl"
                                   >
                                     <X className="h-4 w-4" />
                                   </Button>
@@ -609,7 +607,6 @@ const Settings = () => {
                                 <Button 
                                   onClick={handleSaveWebhookTag}
                                   disabled={savingTag || !webhookTagName.trim()}
-                                  className="rounded-xl"
                                 >
                                   {savingTag ? "Salvando..." : "Salvar"}
                                 </Button>
@@ -634,7 +631,6 @@ const Settings = () => {
                             size="icon"
                             onClick={handleCopyWebhookUrl}
                             title="Copiar URL"
-                            className="rounded-xl"
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
@@ -647,7 +643,7 @@ const Settings = () => {
                         variant="outline" 
                         onClick={handleRegenerateWebhook}
                         disabled={loadingWebhook}
-                        className="w-full rounded-xl"
+                        className="w-full"
                       >
                         <RefreshCw className="mr-2 h-4 w-4" />
                         {loadingWebhook ? "Regenerando..." : "Regenerar Token"}
@@ -672,7 +668,7 @@ const Settings = () => {
                 <CardContent className="space-y-3">
                   <Button
                     variant="outline"
-                    className="w-full justify-start rounded-xl"
+                    className="w-full justify-start"
                     onClick={() => navigate('/facebook-webhook-logs')}
                   >
                     <FileText className="mr-2 h-4 w-4" />
@@ -680,7 +676,7 @@ const Settings = () => {
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start rounded-xl"
+                    className="w-full justify-start"
                     onClick={() => navigate('/whatsapp-webhook-logs')}
                   >
                     <FileText className="mr-2 h-4 w-4" />
@@ -688,7 +684,7 @@ const Settings = () => {
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start rounded-xl"
+                    className="w-full justify-start"
                     onClick={() => navigate('/form-webhook-logs')}
                   >
                     <FileText className="mr-2 h-4 w-4" />
@@ -765,7 +761,7 @@ const Settings = () => {
                   placeholder="Ex: Gerente de Vendas"
                 />
               </div>
-              <Button onClick={handleSaveProfile} disabled={saving} className="rounded-xl">
+              <Button onClick={handleSaveProfile} disabled={saving}>
                 {saving ? "Salvando..." : "Salvar Alterações"}
               </Button>
             </CardContent>
@@ -808,14 +804,14 @@ const Settings = () => {
                     <Button 
                       variant="default" 
                       onClick={() => setShowCollaboratorModal(true)}
-                      className="w-full rounded-xl"
+                      className="w-full"
                     >
                       Adicionar Colaboradores
                     </Button>
                     <Button 
                       variant="outline" 
                       onClick={() => navigate('/pricing')}
-                      className="w-full rounded-xl"
+                      className="w-full"
                     >
                       Ver Planos
                     </Button>
@@ -850,7 +846,7 @@ const Settings = () => {
                           <Button
                             onClick={handleAddCollaborators}
                             disabled={addingCollaborators}
-                            className="flex-1 rounded-xl"
+                            className="flex-1"
                           >
                             {addingCollaborators ? "Processando..." : "Confirmar"}
                           </Button>
@@ -861,7 +857,7 @@ const Settings = () => {
                               setExtraCollaboratorsQty(1);
                             }}
                             disabled={addingCollaborators}
-                            className="flex-1 rounded-xl"
+                            className="flex-1"
                           >
                             Cancelar
                           </Button>
@@ -875,7 +871,7 @@ const Settings = () => {
                   <p className="text-sm text-muted-foreground">
                     Você não possui uma assinatura ativa
                   </p>
-                  <Button onClick={() => navigate('/pricing')} className="rounded-xl">
+                  <Button onClick={() => navigate('/pricing')}>
                     Ver Planos
                   </Button>
                 </div>
@@ -952,7 +948,7 @@ const Settings = () => {
                   placeholder="Confirme a nova senha"
                 />
               </div>
-              <Button onClick={handleChangePassword} disabled={changingPassword} className="rounded-xl">
+              <Button onClick={handleChangePassword} disabled={changingPassword}>
                 {changingPassword ? "Atualizando..." : "Atualizar Senha"}
               </Button>
             </CardContent>
