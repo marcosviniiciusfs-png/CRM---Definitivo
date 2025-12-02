@@ -162,6 +162,10 @@ const Pipeline = () => {
   // Carregamento de dados - executa na montagem inicial e quando o funil muda
   useEffect(() => {
     if (!user?.id) return;
+    // Aguardar permissões carregarem
+    if (permissions.loading) return;
+    // Para members, aguardar userProfile carregar
+    if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
     
     const loadPipelineData = async () => {
       const funnelData = await loadFunnel();
@@ -169,7 +173,7 @@ const Pipeline = () => {
     };
     
     loadPipelineData();
-  }, [selectedFunnelId, user?.id]);
+  }, [selectedFunnelId, user?.id, permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
 
   const loadFunnel = async () => {
     if (!user?.id) return { isCustom: false, funnel: null };

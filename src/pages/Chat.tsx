@@ -274,6 +274,12 @@ const Chat = () => {
 
   // Carregar leads e configurar realtime
   useEffect(() => {
+    // Aguardar permissões carregarem
+    if (permissions.loading) return;
+    
+    // Para members, aguardar userProfile carregar
+    if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
+    
     loadLeads();
     loadAvailableTags();
 
@@ -458,7 +464,7 @@ const Chat = () => {
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(tagAssignmentsChannel);
     };
-  }, [location.state]);
+  }, [location.state, permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
 
   // Carregar mensagens quando um lead é selecionado e configurar realtime
   useEffect(() => {
