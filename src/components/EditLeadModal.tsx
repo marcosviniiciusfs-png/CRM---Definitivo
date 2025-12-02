@@ -265,19 +265,22 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (error) throw error;
       setLeadItems(data || []);
       
-      // Calcular valor total
-      const total = (data || []).reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
-      setEditedValue(total.toString());
-      
-      // Atualizar valor no banco de dados
-      const { error: updateError } = await supabase
-        .from("leads")
-        .update({ valor: total })
-        .eq("id", lead.id);
-      
-      if (updateError) {
-        console.error("Erro ao atualizar valor do lead:", updateError);
+      // SÓ atualizar valor se existirem itens (produtos/serviços)
+      if (data && data.length > 0) {
+        const total = data.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+        setEditedValue(total.toString());
+        
+        // Atualizar valor no banco de dados apenas quando há itens
+        const { error: updateError } = await supabase
+          .from("leads")
+          .update({ valor: total })
+          .eq("id", lead.id);
+        
+        if (updateError) {
+          console.error("Erro ao atualizar valor do lead:", updateError);
+        }
       }
+      // Se não há itens, manter o valor atual (não sobrescrever)
     } catch (error) {
       console.error("Erro ao carregar itens do lead:", error);
     }
