@@ -10,6 +10,7 @@ import { Settings as SettingsIcon, User, Bell, Shield, Users, Moon, Sun, FileTex
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
+import { IntegrationsHub } from "@/components/IntegrationsHub";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNavigate } from "react-router-dom";
@@ -512,6 +513,7 @@ const Settings = () => {
           {canManageIntegrations ? (
             <>
               <WhatsAppConnection />
+              <IntegrationsHub />
               <FacebookLeadsConnection />
 
               <Card>

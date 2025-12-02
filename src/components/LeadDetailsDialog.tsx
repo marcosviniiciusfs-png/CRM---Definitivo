@@ -1,8 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, FileText, Clock, User, Paperclip } from "lucide-react";
+import { DollarSign, FileText, Clock, User, Paperclip, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
@@ -117,7 +118,21 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">{leadName}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl">{leadName}</DialogTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                // TODO: Implementar modal de agendamento
+                console.log("Agendar evento para lead:", leadId);
+              }}
+            >
+              <Calendar className="h-4 w-4" />
+              Agendar
+            </Button>
+          </div>
         </DialogHeader>
 
         {loading ? (
