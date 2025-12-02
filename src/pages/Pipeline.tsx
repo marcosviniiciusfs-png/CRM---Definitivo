@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -44,6 +45,8 @@ const DEFAULT_STAGES = [
 const Pipeline = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const permissions = usePermissions();
+  const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -132,6 +135,29 @@ const Pipeline = () => {
       channel.unsubscribe();
     };
   }, [pauseRealtime, usingCustomFunnel, activeFunnel]);
+
+  // Carregar perfil do usuário
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profileData?.full_name) {
+          setUserProfile(profileData);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar perfil:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, [user?.id]);
 
   // Carregamento de dados - executa na montagem inicial e quando o funil muda
   useEffect(() => {
@@ -254,6 +280,11 @@ const Pipeline = () => {
 
       if (orgMember) {
         query = query.eq("organization_id", orgMember.organization_id);
+      }
+
+      // SEGURANÇA: Members só veem leads atribuídos a eles
+      if (!permissions.canViewAllLeads && userProfile?.full_name) {
+        query = query.eq("responsavel", userProfile.full_name);
       }
 
       // Se estiver usando funil customizado, filtrar apenas leads desse funil específico
