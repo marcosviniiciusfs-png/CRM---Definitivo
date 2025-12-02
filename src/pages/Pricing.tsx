@@ -32,7 +32,7 @@ const STRIPE_PLANS = {
 
 const pricingTiers: PricingTier[] = [
   {
-    name: "Básico",
+    name: "Star",
     icon: <Zap className="w-6 h-6" />,
     price: 200,
     description: "Ideal para começar",
@@ -47,7 +47,7 @@ const pricingTiers: PricingTier[] = [
     maxCollaborators: 5,
   },
   {
-    name: "Profissional",
+    name: "Pro",
     icon: <TrendingUp className="w-6 h-6" />,
     price: 500,
     description: "Para equipes em crescimento",
@@ -65,13 +65,13 @@ const pricingTiers: PricingTier[] = [
     maxCollaborators: 15,
   },
   {
-    name: "Enterprise",
+    name: "Elite",
     icon: <Crown className="w-6 h-6" />,
     price: 2000,
     description: "Solução completa",
     color: "purple",
     features: [
-      "Tudo do Profissional",
+      "Tudo do Pro",
       "30 colaboradores inclusos",
       "API dedicada",
       "Múltiplas organizações",
@@ -120,9 +120,9 @@ export default function Pricing() {
 
     try {
       let priceId: string;
-      if (planName === "Básico") {
+      if (planName === "Star") {
         priceId = STRIPE_PLANS.basico.priceId;
-      } else if (planName === "Profissional") {
+      } else if (planName === "Pro") {
         priceId = STRIPE_PLANS.profissional.priceId;
       } else {
         priceId = STRIPE_PLANS.enterprise.priceId;
@@ -212,7 +212,7 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-background py-12">
       <CreativePricing
-        tag="Planos Flexíveis"
+        tag="Planos"
         title="Escolha o Melhor Para Você"
         description="Gerencie seus leads e automatize vendas"
         tiers={pricingTiers}

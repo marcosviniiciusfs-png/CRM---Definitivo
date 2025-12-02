@@ -15,9 +15,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 
 const PLAN_NAMES: { [key: string]: string } = {
-  'prod_TVqqdFt1DYCcCI': 'Básico',
-  'prod_TVqr72myTFqI39': 'Profissional',
-  'prod_TVqrhrzuIdUDcS': 'Enterprise'
+  'prod_TVqqdFt1DYCcCI': 'Star',
+  'prod_TVqr72myTFqI39': 'Pro',
+  'prod_TVqrhrzuIdUDcS': 'Elite'
 };
 
 export function UserProfileMenu() {
@@ -117,7 +117,7 @@ export function UserProfileMenu() {
           className="cursor-pointer"
         >
           <CreditCard className="mr-2 h-4 w-4" />
-          <span>Preços</span>
+          <span>Planos</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
