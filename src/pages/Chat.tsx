@@ -23,6 +23,7 @@ import { LeadTagsManager } from "@/components/LeadTagsManager";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 import { ManageTagsDialog } from "@/components/ManageTagsDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,6 +73,7 @@ const Chat = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const permissions = usePermissions();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -216,6 +218,8 @@ const Chat = () => {
   );
 
   // Carregar nome do usuário atual do perfil
+  const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
+  
   useEffect(() => {
     const loadUserProfile = async () => {
       if (!user?.id) return;
@@ -234,6 +238,7 @@ const Chat = () => {
 
         if (profileData?.full_name) {
           setCurrentUserName(profileData.full_name);
+          setUserProfile(profileData);
         }
       } catch (error) {
         console.error('Erro ao buscar perfil:', error);
@@ -907,9 +912,29 @@ const Chat = () => {
     setLoading(true);
     try {
       // Otimizado: selecionar apenas campos necessários
-      const { data, error } = await supabase
+      let query = supabase
         .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, created_at, updated_at")
+        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, created_at, updated_at, organization_id");
+
+      // Filtrar apenas leads da organização do usuário
+      if (user?.id) {
+        const { data: orgMember } = await supabase
+          .from("organization_members")
+          .select("organization_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (orgMember) {
+          query = query.eq("organization_id", orgMember.organization_id);
+        }
+      }
+
+      // SEGURANÇA: Members só veem leads atribuídos a eles
+      if (!permissions.canViewAllLeads && userProfile?.full_name) {
+        query = query.eq("responsavel", userProfile.full_name);
+      }
+
+      const { data, error } = await query
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
         .limit(300); // Limitar para performance

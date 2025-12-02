@@ -201,42 +201,60 @@ serve(async (req) => {
 });
 
 async function getAvailableAgents(supabase: any, organization_id: string, eligibleAgentIds?: string[] | null) {
-  let query = supabase
+  // 1. Buscar agent_distribution_settings
+  let settingsQuery = supabase
     .from('agent_distribution_settings')
-    .select(`
-      *,
-      profiles:user_id (
-        full_name,
-        user_id
-      ),
-      organization_members!inner (
-        email,
-        user_id
-      )
-    `)
+    .select('*')
     .eq('organization_id', organization_id)
     .eq('is_active', true)
     .eq('is_paused', false);
 
   // Se há lista de agentes elegíveis, filtrar por ela
   if (eligibleAgentIds && eligibleAgentIds.length > 0) {
-    query = query.in('user_id', eligibleAgentIds);
+    settingsQuery = settingsQuery.in('user_id', eligibleAgentIds);
   }
 
-  const { data: settings, error } = await query;
+  const { data: settings, error: settingsError } = await settingsQuery;
 
-  if (error) {
-    console.error('Error fetching agent settings:', error);
+  if (settingsError || !settings || settings.length === 0) {
+    console.error('Error fetching agent settings:', settingsError);
     return [];
+  }
+
+  // 2. Buscar profiles para cada user_id
+  const userIds = settings.map((s: any) => s.user_id);
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('user_id, full_name')
+    .in('user_id', userIds);
+
+  // 3. Buscar organization_members para cada user_id
+  const { data: members } = await supabase
+    .from('organization_members')
+    .select('user_id, email')
+    .in('user_id', userIds)
+    .eq('organization_id', organization_id);
+
+  // 4. Criar mapas para fácil acesso
+  const profilesMap = new Map();
+  if (profiles) {
+    profiles.forEach((p: any) => profilesMap.set(p.user_id, p));
+  }
+
+  const membersMap = new Map();
+  if (members) {
+    members.forEach((m: any) => membersMap.set(m.user_id, m));
   }
 
   const now = new Date();
   const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
   const currentTime = now.toTimeString().slice(0, 5); // HH:MM
 
-  // Filtrar agentes disponíveis
+  // 5. Filtrar agentes disponíveis
   const available = [];
-  for (const agent of settings || []) {
+  for (const agent of settings) {
+    const profile = profilesMap.get(agent.user_id);
+    const member = membersMap.get(agent.user_id);
     // Verificar pause_until
     if (agent.pause_until && new Date(agent.pause_until) > now) {
       continue;
@@ -252,16 +270,17 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
     }
 
     // Verificar capacidade máxima
+    const agentName = profile?.full_name || member?.email;
     const { count } = await supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
-      .eq('responsavel', agent.profiles?.full_name || agent.organization_members?.email)
+      .eq('responsavel', agentName)
       .neq('stage', 'GANHO')
       .neq('stage', 'PERDIDO')
       .neq('stage', 'DESCARTADO');
 
     const currentLoad = count || 0;
-    console.log(`Agent ${agent.profiles?.full_name || agent.organization_members?.email}: ${currentLoad}/${agent.max_capacity} leads`);
+    console.log(`Agent ${agentName}: ${currentLoad}/${agent.max_capacity} leads`);
 
     if (currentLoad >= agent.max_capacity) {
       console.log(`Agent at capacity, skipping`);
@@ -270,8 +289,8 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
 
     available.push({
       user_id: agent.user_id,
-      full_name: agent.profiles?.full_name,
-      email: agent.organization_members?.email,
+      full_name: profile?.full_name,
+      email: member?.email,
       priority_weight: agent.priority_weight,
       current_load: currentLoad,
       max_capacity: agent.max_capacity,
