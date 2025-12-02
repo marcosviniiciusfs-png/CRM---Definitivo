@@ -98,6 +98,70 @@ const Chat = () => {
   >(new Map());
   const [loadingPresence, setLoadingPresence] = useState(false);
   const [removeTagsDialogOpen, setRemoveTagsDialogOpen] = useState(false);
+
+  // ========================================
+  // INTELLIGENT WHATSAPP PRESENCE MANAGEMENT
+  // ========================================
+  // Gerenciar presença do WhatsApp: online quando no Chat, offline quando sair
+  useEffect(() => {
+    let instanceName: string | null = null;
+    
+    const setPresence = async (presence: 'available' | 'unavailable') => {
+      if (!instanceName) return;
+      
+      try {
+        await supabase.functions.invoke('set-whatsapp-presence', {
+          body: { instance_name: instanceName, presence }
+        });
+        console.log(`👻 Presença WhatsApp: ${presence}`);
+      } catch (error) {
+        console.error('Erro ao definir presença:', error);
+      }
+    };
+    
+    const initPresence = async () => {
+      if (!user?.id) return;
+      
+      // Buscar instância WhatsApp conectada do usuário
+      const { data: instance } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name, status')
+        .eq('user_id', user.id)
+        .eq('status', 'CONNECTED')
+        .maybeSingle();
+      
+      if (instance?.instance_name) {
+        instanceName = instance.instance_name;
+        // Aparecer online ao entrar no Chat
+        await setPresence('available');
+      }
+    };
+    
+    // Inicializar presença ao montar o componente
+    initPresence();
+    
+    // Listener para fechar aba/navegador
+    const handleBeforeUnload = () => {
+      if (instanceName) {
+        // Usar sendBeacon para garantir envio mesmo ao fechar
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        navigator.sendBeacon(
+          `${supabaseUrl}/functions/v1/set-whatsapp-presence`,
+          JSON.stringify({ instance_name: instanceName, presence: 'unavailable' })
+        );
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Cleanup: voltar para offline ao sair do Chat
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (instanceName) {
+        setPresence('unavailable');
+      }
+    };
+  }, [user?.id]);
   const [leadToRemoveTags, setLeadToRemoveTags] = useState<string | null>(null);
   const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
   const [currentUserName, setCurrentUserName] = useState<string>("Atendente");
