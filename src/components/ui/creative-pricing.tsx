@@ -68,11 +68,11 @@ export function CreativePricing({
     if (!subscription?.subscribed || !subscription.product_id) return false;
 
     const tierName = tier.name.toLowerCase();
-    if (tierName === "básico")
+    if (tierName === "star")
       return subscription.product_id === "prod_TVqqdFt1DYCcCI";
-    if (tierName === "profissional")
+    if (tierName === "pro")
       return subscription.product_id === "prod_TVqr72myTFqI39";
-    if (tierName === "enterprise")
+    if (tierName === "elite")
       return subscription.product_id === "prod_TVqrhrzuIdUDcS";
 
     return false;
@@ -81,14 +81,14 @@ export function CreativePricing({
   const canUpgrade = (tier: PricingTier) => {
     if (!subscription?.subscribed) return false;
     
-    const planOrder = ["Básico", "Profissional", "Enterprise"];
+    const planOrder = ["Star", "Pro", "Elite"];
     const currentPlanIndex = planOrder.findIndex((plan) => {
       const tierName = plan.toLowerCase();
-      if (tierName === "básico")
+      if (tierName === "star")
         return subscription.product_id === "prod_TVqqdFt1DYCcCI";
-      if (tierName === "profissional")
+      if (tierName === "pro")
         return subscription.product_id === "prod_TVqr72myTFqI39";
-      if (tierName === "enterprise")
+      if (tierName === "elite")
         return subscription.product_id === "prod_TVqrhrzuIdUDcS";
       return false;
     });
