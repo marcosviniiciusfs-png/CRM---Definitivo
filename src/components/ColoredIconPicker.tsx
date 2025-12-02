@@ -6,26 +6,26 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const AVAILABLE_ICONS: { emoji: string; name: string; label: string }[] = [
-  { emoji: "🎯", name: "target", label: "Alvo com dardo" },
+  { emoji: "🎯", name: "target", label: "Alvo" },
   { emoji: "💼", name: "briefcase", label: "Maleta" },
   { emoji: "📓", name: "book", label: "Caderno" },
   { emoji: "🎧", name: "headphones", label: "Headset" },
-  { emoji: "🛒", name: "shopping-cart", label: "Carrinho de compras" },
+  { emoji: "🛒", name: "shopping-cart", label: "Carrinho" },
   { emoji: "🏆", name: "trophy", label: "Troféu" },
   { emoji: "⭐", name: "star", label: "Estrela" },
-  { emoji: "⚡", name: "zap", label: "Raio/Energia" },
+  { emoji: "⚡", name: "zap", label: "Raio" },
   { emoji: "👑", name: "crown", label: "Coroa" },
   { emoji: "🏠", name: "home", label: "Casa" },
   { emoji: "📦", name: "package", label: "Pacote" },
   { emoji: "🏪", name: "store", label: "Loja" },
   { emoji: "📱", name: "phone", label: "Telefone" },
-  { emoji: "💻", name: "laptop", label: "Computador" },
+  { emoji: "💻", name: "laptop", label: "Notebook" },
   { emoji: "🚗", name: "car", label: "Carro" },
   { emoji: "✈️", name: "plane", label: "Avião" },
-  { emoji: "🎓", name: "graduation-cap", label: "Formatura" },
+  { emoji: "🎓", name: "graduation-cap", label: "Estudo" },
   { emoji: "🩺", name: "stethoscope", label: "Saúde" },
-  { emoji: "🍽️", name: "utensils", label: "Restaurante" },
-  { emoji: "💪", name: "dumbbell", label: "Academia" },
+  { emoji: "🍽️", name: "utensils", label: "Gastronomia" },
+  { emoji: "💪", name: "dumbbell", label: "Fitness" },
 ];
 
 interface ColoredIconPickerProps {
@@ -70,18 +70,18 @@ export const ColoredIconPicker = ({
               value={searchIcon}
               onChange={(e) => setSearchIcon(e.target.value)}
             />
-            <ScrollArea className="h-64">
-              <div className="grid grid-cols-3 gap-2">
+            <ScrollArea className="h-64 pr-4">
+              <div className="grid grid-cols-3 gap-2 pb-2">
                 {filteredIcons.map((iconData) => (
                   <Button
                     key={iconData.name}
                     variant={iconValue === iconData.name ? "default" : "outline"}
                     size="sm"
-                    className="h-20 flex flex-col gap-1"
+                    className="h-20 flex flex-col gap-1 text-xs"
                     onClick={() => onIconChange(iconData.name)}
                   >
                     <span className="text-2xl">{iconData.emoji}</span>
-                    <span className="text-xs">{iconData.label}</span>
+                    <span className="text-[10px] leading-tight text-center px-1 break-words">{iconData.label}</span>
                   </Button>
                 ))}
               </div>
