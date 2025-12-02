@@ -1,5 +1,8 @@
 project_id = "uvwanpztskkhzdqifbai"
 
+[functions.set-whatsapp-presence]
+verify_jwt = true
+
 [functions.check-subscription]
 verify_jwt = true
 

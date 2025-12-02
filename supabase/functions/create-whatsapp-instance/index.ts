@@ -322,6 +322,30 @@ serve(async (req) => {
     }
 
     // ========================================
+    // SET PRESENCE AS UNAVAILABLE BY DEFAULT
+    // ========================================
+    console.log('👻 Definindo presença como unavailable por padrão...');
+    try {
+      const presenceResponse = await fetch(`${baseUrl}/instance/setPresence/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionApiKey,
+        },
+        body: JSON.stringify({ presence: 'unavailable' }),
+      });
+      
+      if (presenceResponse.ok) {
+        console.log('✅ Presença definida como unavailable');
+      } else {
+        console.warn('⚠️ Falha ao definir presença:', presenceResponse.status);
+      }
+    } catch (presenceError) {
+      console.warn('⚠️ Erro ao definir presença inicial:', presenceError);
+      // Não falhar a criação por causa da presença
+    }
+
+    // ========================================
     // PRIORITY: IMMEDIATE QR CODE EXTRACTION
     // ========================================
     // Extract QR Code IMMEDIATELY from Evolution API response
