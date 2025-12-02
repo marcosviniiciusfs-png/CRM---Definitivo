@@ -332,7 +332,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         <div>
           <h3 className="font-semibold">Etapas do Funil</h3>
           <p className="text-sm text-muted-foreground">
-            Arraste para reordenar. Máximo de 6 etapas customizáveis.
+            Configure o comportamento de cada etapa: enviar mensagens automáticas, criar tarefas, atribuir agentes e mais. Arraste para reordenar (máximo de 6 etapas customizáveis).
           </p>
         </div>
         {!showForm && stages.filter((s) => !s.is_final).length < 6 && (

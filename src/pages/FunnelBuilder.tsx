@@ -189,7 +189,7 @@ const FunnelBuilder = () => {
                     }}
                   >
                     <Edit className="h-4 w-4 mr-2" />
-                    Editar
+                    {funnel.is_default ? "Configurar" : "Editar"}
                   </Button>
                   {!funnel.is_default && (
                     <Button

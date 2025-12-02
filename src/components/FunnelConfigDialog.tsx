@@ -66,7 +66,7 @@ export const FunnelConfigDialog = ({
       }
 
       if (funnel) {
-        // Atualizar funil existente
+        // Atualizar funil existente (permitido para todos os funis, incluindo o padrão)
         const { error } = await supabase
           .from("sales_funnels")
           .update({
@@ -116,8 +116,13 @@ export const FunnelConfigDialog = ({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {funnel ? "Editar Funil" : "Novo Funil"}
+            {funnel ? (funnel.is_default ? "Configurar Funil Padrão" : "Editar Funil") : "Novo Funil"}
           </DialogTitle>
+          {funnel?.is_default && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Você pode personalizar completamente o funil padrão: editar informações, configurar comportamentos das etapas e definir origens de leads.
+            </p>
+          )}
         </DialogHeader>
 
         <Tabs defaultValue="info" className="w-full">
