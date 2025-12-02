@@ -25,29 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Target,
-  Briefcase,
-  Book,
-  Headphones,
-  ShoppingCart,
-  Trophy,
-  Star,
-  Zap,
-  Crown,
-  Home,
-  Package,
-  Store,
-  Phone,
-  Laptop,
-  Car,
-  Plane,
-  GraduationCap,
-  Stethoscope,
-  Utensils,
-  Dumbbell,
-  LucideIcon,
-} from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 
 // Constantes vazias estáveis para evitar novas referências
@@ -57,28 +34,28 @@ const EMPTY_TAGS: Array<{ id: string; name: string; color: string }> = [];
 type LeadItems = Record<string, any[]>;
 type LeadTagsMap = Record<string, Array<{ id: string; name: string; color: string }>>;
 
-// Mapeamento de ícones para funis
-const ICON_MAP: Record<string, LucideIcon> = {
-  Target,
-  Briefcase,
-  Book,
-  Headphones,
-  ShoppingCart,
-  Trophy,
-  Star,
-  Zap,
-  Crown,
-  Home,
-  Package,
-  Store,
-  Phone,
-  Laptop,
-  Car,
-  Plane,
-  GraduationCap,
-  Stethoscope,
-  Utensils,
-  Dumbbell,
+// Mapeamento de ícones emoji para funis
+const ICON_EMOJI_MAP: Record<string, string> = {
+  "target": "🎯",
+  "briefcase": "💼",
+  "book": "📓",
+  "headphones": "🎧",
+  "shopping-cart": "🛒",
+  "trophy": "🏆",
+  "star": "⭐",
+  "zap": "⚡",
+  "crown": "👑",
+  "home": "🏠",
+  "package": "📦",
+  "store": "🏪",
+  "phone": "📱",
+  "laptop": "💻",
+  "car": "🚗",
+  "plane": "✈️",
+  "graduation-cap": "🎓",
+  "stethoscope": "🩺",
+  "utensils": "🍽️",
+  "dumbbell": "💪",
 };
 
 // Etapas padrão (quando não há funil customizado)
@@ -923,7 +900,7 @@ const Pipeline = () => {
           >
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
               {allFunnels.map((funnel) => {
-                const IconComponent = funnel.icon ? ICON_MAP[funnel.icon] : null;
+                const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
                 return (
                   <TabsTrigger
                     key={funnel.id}
@@ -931,11 +908,8 @@ const Pipeline = () => {
                     className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-2">
-                      {IconComponent && (
-                        <IconComponent
-                          className="h-4 w-4"
-                          style={{ color: funnel.icon_color || "#4CA698" }}
-                        />
+                      {iconEmoji && (
+                        <span className="text-lg">{iconEmoji}</span>
                       )}
                       <span>{funnel.name}</span>
                       {funnel.is_default && (
