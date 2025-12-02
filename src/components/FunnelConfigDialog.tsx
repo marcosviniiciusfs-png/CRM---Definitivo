@@ -33,7 +33,6 @@ export const FunnelConfigDialog = ({
   const [isActive, setIsActive] = useState(true);
   const [funnelId, setFunnelId] = useState<string | null>(null);
   const [icon, setIcon] = useState("");
-  const [iconColor, setIconColor] = useState("#4CA698");
 
   useEffect(() => {
     if (funnel) {
@@ -42,14 +41,12 @@ export const FunnelConfigDialog = ({
       setIsActive(funnel.is_active);
       setFunnelId(funnel.id);
       setIcon(funnel.icon || "");
-      setIconColor(funnel.icon_color || "#4CA698");
     } else {
       setName("");
       setDescription("");
       setIsActive(true);
       setFunnelId(null);
       setIcon("");
-      setIconColor("#4CA698");
     }
   }, [funnel, open]);
 
@@ -81,7 +78,6 @@ export const FunnelConfigDialog = ({
             description,
             is_active: isActive,
             icon: icon || null,
-            icon_color: iconColor,
             updated_at: new Date().toISOString(),
           })
           .eq("id", funnel.id);
@@ -97,7 +93,6 @@ export const FunnelConfigDialog = ({
             description,
             is_active: isActive,
             icon: icon || null,
-            icon_color: iconColor,
             organization_id: orgData.organization_id,
             is_default: false,
           })
@@ -167,9 +162,7 @@ export const FunnelConfigDialog = ({
 
             <ColoredIconPicker
               iconValue={icon}
-              colorValue={iconColor}
               onIconChange={setIcon}
-              onColorChange={setIconColor}
             />
 
             <div className="flex items-center justify-between py-2">
