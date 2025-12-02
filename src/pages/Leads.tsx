@@ -93,6 +93,10 @@ const Leads = () => {
 
   // Carregar leads do Supabase
   useEffect(() => {
+    // Aguardar permissões e perfil carregarem
+    if (permissions.loading) return;
+    if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
+
     loadLeads(true);
 
     // Otimizado: debouncing em realtime para evitar recargas excessivas
@@ -119,7 +123,7 @@ const Leads = () => {
       clearTimeout(reloadTimeout);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
   
   const loadLeads = async (reset = false) => {
     if (reset) {
@@ -134,9 +138,16 @@ const Leads = () => {
       const startRange = reset ? 0 : page * LEADS_PER_PAGE;
       const endRange = startRange + LEADS_PER_PAGE - 1;
       
-      const { data, error } = await supabase
+      let query = supabase
         .from("leads")
-        .select("id, nome_lead, email, telefone_lead, responsavel, stage, source, valor, updated_at, created_at")
+        .select("id, nome_lead, email, telefone_lead, responsavel, stage, source, valor, updated_at, created_at");
+
+      // SEGURANÇA: Members só veem leads atribuídos a eles (filtro no backend)
+      if (!permissions.canViewAllLeads && userProfile?.full_name) {
+        query = query.eq("responsavel", userProfile.full_name);
+      }
+
+      const { data, error } = await query
         .order("updated_at", { ascending: false })
         .range(startRange, endRange);
 
