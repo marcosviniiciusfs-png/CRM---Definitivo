@@ -53,8 +53,10 @@ export function AgentDistributionSettings() {
   const [currentLoad, setCurrentLoad] = useState(0);
 
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    if (!permissions.loading) {
+      loadInitialData();
+    }
+  }, [permissions.loading]);
 
   useEffect(() => {
     if (selectedMemberId) {
