@@ -153,6 +153,13 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     loadStages();
   }, [funnelId]);
 
+  useEffect(() => {
+    // Se é funil padrão e só tem etapas finais, criar etapas padrão
+    if (stages.length > 0 && !loading) {
+      checkAndCreateDefaultStages();
+    }
+  }, [stages, loading]);
+
   const loadStages = async () => {
     try {
       const { data, error } = await supabase
@@ -176,6 +183,57 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       toast.error("Erro ao carregar etapas");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAndCreateDefaultStages = async () => {
+    try {
+      // Verificar se é funil padrão
+      const { data: funnelData } = await supabase
+        .from("sales_funnels")
+        .select("is_default")
+        .eq("id", funnelId)
+        .single();
+
+      if (!funnelData?.is_default) return;
+
+      // Verificar se só tem etapas finais (Ganho e Perdido)
+      const customStages = stages.filter(s => !s.is_final);
+      if (customStages.length > 0) return;
+
+      // Criar etapas padrão do Pipeline
+      const defaultStages = [
+        { name: "Novo Lead", color: "#3B82F6", icon: "📋", position: 0, description: "Leads recém-chegados" },
+        { name: "Em Atendimento", color: "#EAB308", icon: "💬", position: 1, description: "Leads em conversação ativa" },
+        { name: "Fechado", color: "#10B981", icon: "✅", position: 2, description: "Negociação em fase final" },
+      ];
+
+      const stagesToInsert = defaultStages.map(stage => ({
+        funnel_id: funnelId,
+        name: stage.name,
+        color: stage.color,
+        icon: stage.icon,
+        position: stage.position,
+        description: stage.description,
+        stage_type: "custom",
+        is_final: false,
+        default_value: null,
+        max_days_in_stage: null,
+        required_fields: [],
+        stage_config: {},
+      }));
+
+      const { error } = await supabase
+        .from("funnel_stages")
+        .insert(stagesToInsert);
+
+      if (error) throw error;
+
+      // Recarregar etapas
+      await loadStages();
+      toast.success("Etapas padrão criadas! Você pode configurá-las agora.");
+    } catch (error) {
+      console.error("Erro ao criar etapas padrão:", error);
     }
   };
 
