@@ -581,6 +581,10 @@ const Pipeline = () => {
           
           if (newIndex === -1) return;
 
+          // Verificar se é etapa won para adicionar data_conclusao
+          const targetStageData = stages.find(s => s.id === targetStage);
+          const isWonStage = targetStageData?.stageData?.stage_type === 'won';
+
           // Remover da coluna antiga e recalcular posições (atualizar campo correto)
           const updatedActiveStage = activeStageLeads
             .filter((l) => l.id !== leadId)
@@ -616,14 +620,26 @@ const Pipeline = () => {
               supabase.from("leads").update({ position: lead.position }).eq("id", lead.id)
             ),
             ...updatedTargetWithPositions.map((lead) => {
-              const updateData = usingCustomFunnel
+              const updateData: any = usingCustomFunnel
                 ? { position: lead.position, funnel_stage_id: lead.funnel_stage_id }
                 : { position: lead.position, stage: lead.stage };
+              
+              // Adicionar data_conclusao se for won stage e for o lead sendo movido
+              if (isWonStage && lead.id === leadId) {
+                updateData.data_conclusao = new Date().toISOString();
+              }
+              
               return supabase.from("leads").update(updateData).eq("id", lead.id);
             }),
           ];
 
           await Promise.all(updates);
+
+          // Executar ações automáticas da etapa se houver
+          if (targetStageData?.stageData) {
+            await executeStageActions(leadId, activeLead, targetStageData.stageData);
+          }
+
           toast.success("Lead movido!");
         }
       }
