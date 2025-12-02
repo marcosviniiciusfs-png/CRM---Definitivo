@@ -7,6 +7,7 @@ import { DollarSign, FileText, Clock, User, Paperclip, Calendar } from "lucide-r
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
+import { CreateEventModal } from "@/components/CreateEventModal";
 import type { Json } from "@/integrations/supabase/types";
 
 interface LeadDetailsDialogProps {
@@ -23,6 +24,7 @@ interface LeadDetails {
   data_inicio: string | null;
   data_conclusao: string | null;
   additional_data: Json | null;
+  email: string | null;
 }
 
 interface Activity {
@@ -43,6 +45,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
   const [details, setDetails] = useState<LeadDetails | null>(null);
   const [activities, setActivities] = useState<ActivityWithUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showEventModal, setShowEventModal] = useState(false);
 
   useEffect(() => {
     if (open && leadId) {
@@ -57,7 +60,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data")
+        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email")
         .eq("id", leadId)
         .single();
 
@@ -124,10 +127,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={() => {
-                // TODO: Implementar modal de agendamento
-                console.log("Agendar evento para lead:", leadId);
-              }}
+              onClick={() => setShowEventModal(true)}
             >
               <Calendar className="h-4 w-4" />
               Agendar
@@ -282,6 +282,14 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
           </div>
         )}
       </DialogContent>
+
+      <CreateEventModal
+        open={showEventModal}
+        onOpenChange={setShowEventModal}
+        leadId={leadId}
+        leadName={leadName}
+        leadEmail={details?.email || undefined}
+      />
     </Dialog>
   );
 };
