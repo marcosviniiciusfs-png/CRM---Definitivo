@@ -93,13 +93,11 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     if (open) {
       fetchActivities();
       fetchColaboradores();
-      loadDadosNegocio();
+      loadDadosNegocio(); // Já busca e seta o valor correto do banco
       fetchAvailableItems();
       fetchLeadItems();
-      // Sincronizar o valor do lead com o estado local
-      setEditedValue(lead.valor?.toString() || "0");
     }
-  }, [open, lead.valor]);
+  }, [open]);
 
   const loadDadosNegocio = async () => {
     try {
