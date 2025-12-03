@@ -11,7 +11,6 @@ import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
-import MetaConversionLogs from "@/components/MetaConversionLogs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNavigate } from "react-router-dom";
@@ -658,8 +657,6 @@ const Settings = () => {
 
               <GlobalFunnelMapping />
               
-              <MetaConversionLogs />
-              
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -667,10 +664,18 @@ const Settings = () => {
                     Logs de Integrações
                   </CardTitle>
                   <CardDescription>
-                    Visualize e monitore os logs das integrações do Facebook e WhatsApp
+                    Visualize e monitore os logs das integrações
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/meta-pixel-logs')}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Ver Logs Meta Pixel
+                  </Button>
                   <Button
                     variant="outline"
                     className="w-full justify-start"
