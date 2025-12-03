@@ -1,10 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Mail, Video, Sheet, MessageSquare, CreditCard, Instagram, FileSpreadsheet, Activity } from "lucide-react";
+import { Mail, Video, Sheet, MessageSquare, CreditCard, Instagram, FileSpreadsheet } from "lucide-react";
 import { useState } from "react";
 import { GoogleCalendarConnection } from "./GoogleCalendarConnection";
 import { MetaPixelConnection } from "./MetaPixelConnection";
+import metaPixelIcon from "@/assets/meta-pixel-icon.png";
+import googleCalendarIcon from "@/assets/google-calendar-icon.png";
 
 interface Integration {
   id: string;
@@ -28,7 +30,7 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
       id: "meta_pixel",
       name: "Meta Conversions API",
       description: "Envie eventos de conversão para o Meta Ads automaticamente",
-      icon: <Activity className="h-6 w-6 text-blue-500" />,
+      icon: <img src={metaPixelIcon} alt="Meta Pixel" className="h-6 w-6" />,
       status: "available",
       component: MetaPixelConnection,
     },
@@ -36,7 +38,7 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
       id: "google_calendar",
       name: "Google Calendar",
       description: "Agende reuniões e eventos automaticamente com leads",
-      icon: <Calendar className="h-6 w-6 text-primary" />,
+      icon: <img src={googleCalendarIcon} alt="Google Calendar" className="h-6 w-6" />,
       status: "available",
       component: GoogleCalendarConnection,
     },
