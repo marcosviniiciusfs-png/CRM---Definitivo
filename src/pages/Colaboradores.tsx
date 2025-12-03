@@ -64,6 +64,7 @@ const Colaboradores = () => {
   const loadOrganizationData = async () => {
     setIsLoading(true);
     try {
+      // Passo 1: Buscar usuário e organização em paralelo
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -76,29 +77,16 @@ const Colaboradores = () => {
         return;
       }
 
-      // Get user's organization
       const { data: memberData, error: memberError } = await supabase
         .from('organization_members')
         .select('organization_id, role')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (memberError) {
-        console.error('❌ Erro ao carregar organização:', memberError);
-        toast({
-          title: "Erro ao carregar organização",
-          description: "Não foi possível carregar os dados da organização. Faça login novamente.",
-          variant: "destructive"
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      if (!memberData || !memberData.organization_id) {
-        console.error('❌ Usuário não associado a nenhuma organização');
+      if (memberError || !memberData?.organization_id) {
         toast({
           title: "Organização não encontrada",
-          description: "Você não está associado a nenhuma organização. Entre em contato com o suporte.",
+          description: "Você não está associado a nenhuma organização.",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -106,22 +94,21 @@ const Colaboradores = () => {
       }
 
       const orgId = memberData.organization_id;
-      const userCurrentRole = memberData.role;
       setOrganizationId(orgId);
-      setUserRole(userCurrentRole);
+      setUserRole(memberData.role);
       setCurrentUserId(user.id);
-      
-      console.log('🏢 Organização carregada:', orgId, 'Role:', userCurrentRole);
-      
-      // Load all members of the organization
-      const { data: members, error: membersError } = await supabase
-        .from('organization_members')
-        .select('*')
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: false });
 
-      if (membersError) {
-        console.error('❌ Erro ao carregar membros:', membersError);
+      // Passo 2: Buscar membros e subscription em PARALELO
+      const [membersResult, subResult] = await Promise.all([
+        supabase
+          .from('organization_members')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('created_at', { ascending: false }),
+        supabase.functions.invoke('check-subscription')
+      ]);
+
+      if (membersResult.error) {
         toast({
           title: "Erro",
           description: "Não foi possível carregar os membros da organização",
@@ -131,73 +118,67 @@ const Colaboradores = () => {
         return;
       }
 
-      if (members) {
-        console.log(`✅ ${members.length} colaborador(es) carregado(s)`);
+      const members = membersResult.data || [];
+      
+      // Passo 3: Buscar profiles em paralelo (se houver membros com user_id)
+      const userIds = members.filter(m => m.user_id).map(m => m.user_id);
+      let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
+      
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
         
-        // Get user IDs that have profiles
-        const userIds = members
-          .filter(m => m.user_id)
-          .map(m => m.user_id);
-        
-        // Load profiles for these users
-        let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
-        
-        if (userIds.length > 0) {
-          const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('user_id, full_name, avatar_url')
-            .in('user_id', userIds);
-          
-          if (!profilesError && profiles) {
-            profilesMap = profiles.reduce((acc, profile) => {
-              acc[profile.user_id] = { 
-                full_name: profile.full_name,
-                avatar_url: profile.avatar_url
-              };
-              return acc;
-            }, {} as { [key: string]: { full_name: string | null; avatar_url: string | null } });
-          }
+        if (profiles) {
+          profilesMap = profiles.reduce((acc, profile) => {
+            acc[profile.user_id] = { 
+              full_name: profile.full_name,
+              avatar_url: profile.avatar_url
+            };
+            return acc;
+          }, {} as { [key: string]: { full_name: string | null; avatar_url: string | null } });
         }
-        
-        // Transform members to include full_name and avatar_url from profiles
-        const transformedMembers = members.map((member: any) => ({
-          ...member,
-          full_name: member.user_id && profilesMap[member.user_id] 
-            ? profilesMap[member.user_id].full_name 
-            : null,
-          avatar_url: member.user_id && profilesMap[member.user_id]
-            ? profilesMap[member.user_id].avatar_url
-            : null
-        }));
-        
-        setColaboradores(transformedMembers);
-        
-        // Calculate stats
-        const now = new Date();
-        const thisMonth = now.getMonth();
-        const thisYear = now.getFullYear();
-        
-        const novos = transformedMembers.filter((m: any) => {
-          const createdDate = new Date(m.created_at);
-          return createdDate.getMonth() === thisMonth && 
-                 createdDate.getFullYear() === thisYear;
-        }).length;
-        
-        setStats({
-          ativos: transformedMembers.length,
-          novos: novos,
-          saidas: 0,
-          inativos: 0
-        });
+      }
+      
+      // Transformar e setar dados
+      const transformedMembers = members.map((member: any) => ({
+        ...member,
+        full_name: member.user_id && profilesMap[member.user_id] 
+          ? profilesMap[member.user_id].full_name 
+          : null,
+        avatar_url: member.user_id && profilesMap[member.user_id]
+          ? profilesMap[member.user_id].avatar_url
+          : null
+      }));
+      
+      setColaboradores(transformedMembers);
+      
+      // Calcular stats
+      const now = new Date();
+      const thisMonth = now.getMonth();
+      const thisYear = now.getFullYear();
+      
+      const novos = transformedMembers.filter((m: any) => {
+        const createdDate = new Date(m.created_at);
+        return createdDate.getMonth() === thisMonth && 
+               createdDate.getFullYear() === thisYear;
+      }).length;
+      
+      setStats({
+        ativos: transformedMembers.length,
+        novos: novos,
+        saidas: 0,
+        inativos: 0
+      });
 
-        // Load subscription limits
-        const { data: subData } = await supabase.functions.invoke('check-subscription');
-        if (subData?.subscribed && subData?.total_collaborators) {
-          setSubscriptionLimits({
-            total: subData.total_collaborators,
-            current: transformedMembers.length
-          });
-        }
+      // Setar subscription limits
+      const subData = subResult.data;
+      if (subData?.subscribed && subData?.total_collaborators) {
+        setSubscriptionLimits({
+          total: subData.total_collaborators,
+          current: transformedMembers.length
+        });
       }
     } catch (error) {
       console.error('Error:', error);

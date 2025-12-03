@@ -69,12 +69,15 @@ const Login1 = ({
     <div className="flex min-h-screen items-center justify-center p-4 relative z-10">
       {/* Card branco com logo dentro */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-md w-full max-w-sm px-8 py-10">
-        {/* Logo dentro do card */}
-        <div className="flex justify-center mb-6">
+        {/* Logo dentro do card - otimizada para carregamento rápido */}
+        <div className="flex justify-center mb-6 h-12">
           <img
             src={logo.src}
             alt={logo.alt}
             className="h-12 w-auto"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
           />
         </div>
 
