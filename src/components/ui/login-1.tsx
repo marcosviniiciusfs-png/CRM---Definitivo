@@ -45,7 +45,7 @@ const Login1 = ({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 relative z-10">
       {/* Card branco com logo dentro */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-md w-full max-w-sm px-8 py-10">
         {/* Logo dentro do card */}
@@ -99,7 +99,7 @@ const Login1 = ({
           <div className="flex flex-col gap-3">
             <Button 
               type="submit" 
-              className="h-11 w-full bg-gray-900 hover:bg-gray-800 text-white rounded-lg"
+              className="h-11 w-full bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
               disabled={loading}
             >
               {loading ? (
@@ -112,7 +112,7 @@ const Login1 = ({
             <Button 
               type="button"
               variant="outline" 
-              className="h-11 w-full border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg"
+              className="h-11 w-full border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
               disabled={loading}
               onClick={onGoogleLogin}
             >
