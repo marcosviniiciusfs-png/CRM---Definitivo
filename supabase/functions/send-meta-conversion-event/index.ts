@@ -113,8 +113,8 @@ serve(async (req) => {
       event_name: event_name,
       event_time: eventTime,
       event_id: eventId,
-      event_source_url: supabaseUrl,
-      action_source: 'system_generated',
+      event_source_url: 'https://kairozspace.com.br',
+      action_source: 'website',
       user_data: userData,
       custom_data: {
         currency: currency,
