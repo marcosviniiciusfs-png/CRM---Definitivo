@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
 import { useState } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -78,27 +79,28 @@ export function AppSidebar() {
       onMouseLeave={handleMouseLeave}
       className="border-r border-sidebar-border shadow-sm"
     >
-      <SidebarContent className="bg-sidebar">
+      <SidebarContent className="bg-sidebar overflow-hidden">
         <div className="p-4 pb-4 flex items-center justify-center">
-          {open ? (
-            <img 
-              src={logoFull} 
-              alt="KairoZ" 
-              className="h-10 w-auto object-contain transition-all"
-            />
-          ) : (
-            <img 
-              src={logoIcon} 
-              alt="K" 
-              className="h-8 w-auto object-contain transition-all"
-            />
-          )}
+          <img 
+            src={logoFull} 
+            alt="KairoZ" 
+            className={cn(
+              "h-10 w-auto object-contain transition-all duration-200",
+              open ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+            )}
+          />
+          <img 
+            src={logoIcon} 
+            alt="K" 
+            className={cn(
+              "h-8 w-auto object-contain transition-all duration-200",
+              open ? "opacity-0 scale-75 absolute" : "opacity-100 scale-100"
+            )}
+          />
         </div>
 
         <SidebarGroup>
-          {open && (
-            <SidebarGroupLabel className="text-sidebar-foreground/60 text-sm px-3">Menu</SidebarGroupLabel>
-          )}
+          <SidebarGroupLabel className="text-sidebar-foreground/60 text-sm px-3">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {items.map((item) => {
@@ -175,57 +177,63 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4">
-        {open ? (
-          <div className="space-y-3">
-            <MenuLockToggle
-              locked={isLocked}
-              onToggle={setIsLocked}
-            />
-            {subscriptionData?.subscribed && subscriptionData.product_id && (
-              <div className="flex items-center justify-center">
-                <Badge variant="secondary" className="text-xs">
-                  Plano {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
-                </Badge>
-              </div>
+      <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4 overflow-hidden">
+        {/* Conteúdo expandido - usa CSS para visibilidade */}
+        <div className={cn(
+          "space-y-3 transition-all duration-200",
+          open ? "opacity-100 max-h-40" : "opacity-0 max-h-0 overflow-hidden pointer-events-none"
+        )}>
+          <MenuLockToggle
+            locked={isLocked}
+            onToggle={setIsLocked}
+          />
+          {subscriptionData?.subscribed && subscriptionData.product_id && (
+            <div className="flex items-center justify-center">
+              <Badge variant="secondary" className="text-xs">
+                Plano {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
+              </Badge>
+            </div>
+          )}
+          <p className="text-xs text-sidebar-foreground/60 truncate">
+            {user?.email}
+          </p>
+          <Button
+            onClick={signOut}
+            variant="outline"
+            className="w-full justify-start gap-2 bg-sidebar-accent hover:bg-sidebar-accent/80 text-sm"
+            size="sm"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
+        </div>
+
+        {/* Conteúdo colapsado - usa CSS para visibilidade */}
+        <div className={cn(
+          "space-y-2 transition-all duration-200",
+          open ? "opacity-0 max-h-0 overflow-hidden pointer-events-none absolute" : "opacity-100 max-h-20"
+        )}>
+          <Button
+            onClick={() => setIsLocked(!isLocked)}
+            variant="ghost"
+            size="icon"
+            className={cn("w-full", isLocked && "bg-sidebar-accent")}
+          >
+            {isLocked ? (
+              <Lock className="h-4 w-4" />
+            ) : (
+              <Unlock className="h-4 w-4" />
             )}
-            <p className="text-xs text-sidebar-foreground/60 truncate">
-              {user?.email}
-            </p>
-            <Button
-              onClick={signOut}
-              variant="outline"
-              className="w-full justify-start gap-2 bg-sidebar-accent hover:bg-sidebar-accent/80 text-sm"
-              size="sm"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <Button
-              onClick={() => setIsLocked(!isLocked)}
-              variant="ghost"
-              size="icon"
-              className={`w-full ${isLocked ? "bg-sidebar-accent" : ""}`}
-            >
-              {isLocked ? (
-                <Lock className="h-4 w-4" />
-              ) : (
-                <Unlock className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              onClick={signOut}
-              variant="ghost"
-              size="icon"
-              className="w-full"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+          </Button>
+          <Button
+            onClick={signOut}
+            variant="ghost"
+            size="icon"
+            className="w-full"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
