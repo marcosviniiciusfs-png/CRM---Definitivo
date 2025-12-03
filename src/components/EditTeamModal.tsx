@@ -121,7 +121,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
           name: formData.name,
           description: formData.description || null,
           color: formData.color,
-          leader_id: formData.leader_id || null,
+          leader_id: formData.leader_id && formData.leader_id !== "none" ? formData.leader_id : null,
           avatar_url: avatarUrl,
         })
         .eq('id', team.id);
@@ -129,24 +129,27 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
       if (teamError) throw teamError;
 
       // Update leader in team_members if changed
-      if (formData.leader_id !== team.leader_id) {
+      const oldLeaderId = team.leader_id;
+      const newLeaderId = formData.leader_id && formData.leader_id !== "none" ? formData.leader_id : null;
+      
+      if (newLeaderId !== oldLeaderId) {
         // Remove old leader role
-        if (team.leader_id) {
+        if (oldLeaderId) {
           await supabase
             .from('team_members')
             .update({ role: 'member' })
             .eq('team_id', team.id)
-            .eq('user_id', team.leader_id);
+            .eq('user_id', oldLeaderId);
         }
 
         // Set new leader
-        if (formData.leader_id) {
+        if (newLeaderId) {
           // Check if already a member
           const { data: existingMember } = await supabase
             .from('team_members')
             .select('id')
             .eq('team_id', team.id)
-            .eq('user_id', formData.leader_id)
+            .eq('user_id', newLeaderId)
             .maybeSingle();
 
           if (existingMember) {
@@ -159,7 +162,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
               .from('team_members')
               .insert({
                 team_id: team.id,
-                user_id: formData.leader_id,
+                user_id: newLeaderId,
                 role: 'leader',
               });
           }
@@ -294,7 +297,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
                 <SelectValue placeholder="Selecione o líder" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {members.map((member) => (
                   <SelectItem key={member.user_id} value={member.user_id}>
                     {member.full_name || member.email}
