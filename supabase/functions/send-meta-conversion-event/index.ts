@@ -87,6 +87,24 @@ serve(async (req) => {
       userData.ph = [hashedPhone];
     }
 
+    // Add first name and last name from nome_lead for better matching
+    if (lead.nome_lead) {
+      const nameParts = lead.nome_lead.trim().split(/\s+/);
+      if (nameParts.length > 0) {
+        const hashedFirstName = await sha256Hash(nameParts[0]);
+        userData.fn = [hashedFirstName];
+      }
+      if (nameParts.length > 1) {
+        const lastName = nameParts.slice(1).join(' ');
+        const hashedLastName = await sha256Hash(lastName);
+        userData.ln = [hashedLastName];
+      }
+    }
+
+    // Add external_id for cross-platform matching
+    const hashedExternalId = await sha256Hash(lead_id);
+    userData.external_id = [hashedExternalId];
+
     // Prepare event data
     const eventTime = Math.floor(Date.now() / 1000);
     const eventId = `${lead_id}_${eventTime}`;
@@ -180,19 +198,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[Meta CAPI] Unexpected error:', error);
-    
-    // Try to log exception to database
-    try {
-      await supabase.from('meta_conversion_logs').insert({
-        organization_id: 'unknown',
-        pixel_id: 'unknown',
-        event_name: 'Unknown',
-        status: 'error',
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    } catch (logError) {
-      console.error('[Meta CAPI] Failed to log error:', logError);
-    }
     
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
