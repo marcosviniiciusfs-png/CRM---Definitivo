@@ -228,29 +228,30 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {availableTags.map((tag) => (
                     <button
                       key={tag.id}
                       onClick={() => handleToggleTag(tag.id)}
-                      className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted transition-colors"
+                      className="w-full flex items-center gap-3 p-2 rounded hover:bg-muted transition-colors"
                     >
                       <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center ${
+                        className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
                           hasTag(tag.id) ? "bg-primary border-primary" : "border-input"
                         }`}
                       >
                         {hasTag(tag.id) && <Check className="w-3 h-3 text-primary-foreground" />}
                       </div>
-                      <Badge
+                      <div
+                        className="flex items-center gap-2 px-3 py-1 rounded-full border"
                         style={{
-                          backgroundColor: tag.color,
-                          color: "white",
+                          borderColor: tag.color,
+                          color: tag.color,
                         }}
-                        className="flex-1 justify-start"
                       >
-                        {tag.name}
-                      </Badge>
+                        <Tag className="w-3.5 h-3.5" />
+                        <span className="text-sm font-medium">{tag.name}</span>
+                      </div>
                     </button>
                   ))}
                 </div>
