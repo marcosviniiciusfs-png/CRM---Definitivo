@@ -106,7 +106,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
           name: formData.name,
           description: formData.description || null,
           color: formData.color,
-          leader_id: formData.leader_id || null,
+          leader_id: formData.leader_id && formData.leader_id !== "none" ? formData.leader_id : null,
           avatar_url: avatarUrl,
         })
         .select()
@@ -115,7 +115,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
       if (teamError) throw teamError;
 
       // If leader selected, add as team member with 'leader' role
-      if (formData.leader_id && team) {
+      if (formData.leader_id && formData.leader_id !== "none" && team) {
         await supabase
           .from('team_members')
           .insert({
@@ -228,7 +228,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
                 <SelectValue placeholder="Selecione o líder" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {members.map((member) => (
                   <SelectItem key={member.user_id} value={member.user_id}>
                     {member.full_name || member.email}
