@@ -28,10 +28,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { lead_id, funnel_id, event_name = 'Purchase', value, currency = 'BRL' } = await req.json() as ConversionEventRequest;
 
@@ -126,6 +127,21 @@ serve(async (req) => {
 
     if (!metaResponse.ok) {
       console.error(`[Meta CAPI] Error from Meta API:`, metaResult);
+      
+      // Log error to database
+      await supabase.from('meta_conversion_logs').insert({
+        organization_id: pixelConfig.organization_id,
+        lead_id: lead_id,
+        funnel_id: funnel_id,
+        pixel_id: pixelConfig.pixel_id,
+        event_name: event_name,
+        event_id: eventId,
+        status: 'error',
+        error_message: JSON.stringify(metaResult.error || metaResult),
+        request_payload: eventData,
+        response_payload: metaResult,
+      });
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -137,6 +153,20 @@ serve(async (req) => {
     }
 
     console.log(`[Meta CAPI] Event sent successfully:`, metaResult);
+    
+    // Log success to database
+    await supabase.from('meta_conversion_logs').insert({
+      organization_id: pixelConfig.organization_id,
+      lead_id: lead_id,
+      funnel_id: funnel_id,
+      pixel_id: pixelConfig.pixel_id,
+      event_name: event_name,
+      event_id: eventId,
+      status: 'success',
+      events_received: metaResult.events_received || 1,
+      request_payload: eventData,
+      response_payload: metaResult,
+    });
 
     return new Response(
       JSON.stringify({ 
@@ -150,6 +180,20 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[Meta CAPI] Unexpected error:', error);
+    
+    // Try to log exception to database
+    try {
+      await supabase.from('meta_conversion_logs').insert({
+        organization_id: 'unknown',
+        pixel_id: 'unknown',
+        event_name: 'Unknown',
+        status: 'error',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } catch (logError) {
+      console.error('[Meta CAPI] Failed to log error:', logError);
+    }
+    
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
