@@ -400,40 +400,6 @@ const Equipes = () => {
           onDragEnd={handleDragEnd}
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {/* Sem Equipe Column */}
-            <Card className="shadow-sm border-t-4 border-t-orange-500">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-orange-100 dark:bg-orange-500/20 p-2 rounded-lg">
-                    <UserX className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-orange-600">Sem Equipe</h3>
-                </div>
-
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-muted-foreground">Membros</span>
-                  <span className="text-sm font-semibold text-foreground">{membersWithoutTeam.length}</span>
-                </div>
-
-                <SortableContext
-                  items={membersWithoutTeam.map(m => `no-team-${m.user_id}`)}
-                  strategy={verticalListSortingStrategy}
-                  id="no-team-zone"
-                >
-                  <div className="space-y-2 min-h-[100px]" id="no-team-zone">
-                    {membersWithoutTeam.map((member) => (
-                      <DraggableMember key={member.user_id} member={member} />
-                    ))}
-                    {membersWithoutTeam.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
-                        Todos os membros estão em equipes
-                      </div>
-                    )}
-                  </div>
-                </SortableContext>
-              </CardContent>
-            </Card>
-
             {/* Team Columns */}
             {filteredTeams.map((team) => {
               const teamMembersList = getMembersInTeam(team.id);
@@ -569,6 +535,7 @@ const Equipes = () => {
               onOpenChange={setCreateModalOpen}
               organizationId={organizationId}
               members={allMembers}
+              onSuccess={loadData}
             />
             <EditTeamModal
               open={editModalOpen}
@@ -576,6 +543,7 @@ const Equipes = () => {
               team={selectedTeam}
               organizationId={organizationId}
               members={allMembers}
+              onSuccess={loadData}
             />
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
               <AlertDialogContent>

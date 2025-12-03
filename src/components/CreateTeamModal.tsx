@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Camera, Users } from "lucide-react";
@@ -23,6 +24,7 @@ interface CreateTeamModalProps {
   onOpenChange: (open: boolean) => void;
   organizationId: string;
   members: Member[];
+  onSuccess?: () => void;
 }
 
 const TEAM_COLORS = [
@@ -36,7 +38,7 @@ const TEAM_COLORS = [
   { name: "Ciano", value: "#06B6D4" },
 ];
 
-export function CreateTeamModal({ open, onOpenChange, organizationId, members }: CreateTeamModalProps) {
+export function CreateTeamModal({ open, onOpenChange, organizationId, members, onSuccess }: CreateTeamModalProps) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -45,12 +47,14 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
     color: "#3B82F6",
     leader_id: "",
   });
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
       setFormData({ name: "", description: "", color: "#3B82F6", leader_id: "" });
+      setSelectedMembers([]);
       setAvatarFile(null);
       setAvatarPreview(null);
     }
@@ -66,6 +70,14 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const toggleMember = (userId: string) => {
+    setSelectedMembers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   const handleSave = async () => {
@@ -114,7 +126,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
 
       if (teamError) throw teamError;
 
-      // If leader selected, add as team member with 'leader' role
+      // Add leader as team member with 'leader' role
       if (formData.leader_id && formData.leader_id !== "none" && team) {
         await supabase
           .from('team_members')
@@ -125,9 +137,29 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
           });
       }
 
+      // Add selected members (excluding leader if already added)
+      if (team && selectedMembers.length > 0) {
+        const membersToAdd = selectedMembers.filter(
+          memberId => memberId !== formData.leader_id
+        );
+        
+        if (membersToAdd.length > 0) {
+          await supabase
+            .from('team_members')
+            .insert(
+              membersToAdd.map(userId => ({
+                team_id: team.id,
+                user_id: userId,
+                role: 'member',
+              }))
+            );
+        }
+      }
+
       toast.success("Equipe criada com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       onOpenChange(false);
+      onSuccess?.();
     } catch (error: any) {
       console.error('Error creating team:', error);
       toast.error("Erro ao criar equipe: " + error.message);
@@ -138,7 +170,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Equipe</DialogTitle>
           <DialogDescription>
@@ -236,6 +268,41 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members }:
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Members Selection */}
+          <div className="space-y-2">
+            <Label>Membros da Equipe</Label>
+            <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+              {members.map((member) => (
+                <div 
+                  key={member.user_id}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
+                  onClick={() => toggleMember(member.user_id)}
+                >
+                  <Checkbox 
+                    checked={selectedMembers.includes(member.user_id) || formData.leader_id === member.user_id}
+                    disabled={formData.leader_id === member.user_id}
+                    onCheckedChange={() => toggleMember(member.user_id)}
+                  />
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={member.avatar_url} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                      {(member.full_name || member.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">{member.full_name || member.email}</span>
+                  {formData.leader_id === member.user_id && (
+                    <span className="text-xs text-muted-foreground ml-auto">(Líder)</span>
+                  )}
+                </div>
+              ))}
+              {members.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum membro disponível
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
