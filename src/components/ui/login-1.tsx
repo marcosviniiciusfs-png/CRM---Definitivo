@@ -43,22 +43,18 @@ const Login1 = ({
   };
 
   return (
-    <div className="flex h-full items-center justify-center p-4">
-      <div className="border-border bg-card/95 backdrop-blur-sm flex w-full max-w-sm flex-col items-center gap-y-6 rounded-xl border px-6 py-10 shadow-xl">
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-y-2">
-          <img
-            src={logo.src}
-            alt={logo.alt}
-            className="h-16 w-auto"
-          />
-        </div>
+    <div className="flex h-full flex-col items-center justify-center p-4">
+      {/* Logo acima do card */}
+      <div className="mb-8">
+        <img
+          src={logo.src}
+          alt={logo.alt}
+          className="h-16 w-auto"
+        />
+      </div>
 
-        {/* Title */}
-        <h1 className="text-2xl font-semibold text-foreground">
-          {isLogin ? "Login" : "Criar Conta"}
-        </h1>
-
+      {/* Card branco */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-md w-full max-w-sm px-8 py-10">
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-6">
           <div className={cn(
@@ -74,7 +70,7 @@ const Login1 = ({
                 onChange={(e) => setName(e.target.value)}
                 disabled={loading}
                 required={!isLogin}
-                className="h-11"
+                className="h-11 bg-white border-gray-300 rounded-lg placeholder:text-gray-400 text-gray-900 focus:border-gray-400 focus:ring-gray-400"
               />
             )}
             
@@ -85,7 +81,7 @@ const Login1 = ({
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
               required
-              className="h-11"
+              className="h-11 bg-white border-gray-300 rounded-lg placeholder:text-gray-400 text-gray-900 focus:border-gray-400 focus:ring-gray-400"
             />
             
             <Input
@@ -95,14 +91,14 @@ const Login1 = ({
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               required
-              className="h-11"
+              className="h-11 bg-white border-gray-300 rounded-lg placeholder:text-gray-400 text-gray-900 focus:border-gray-400 focus:ring-gray-400"
             />
           </div>
 
           <div className="flex flex-col gap-3">
             <Button 
               type="submit" 
-              className="h-11 w-full"
+              className="h-11 w-full bg-gray-900 hover:bg-gray-800 text-white rounded-lg"
               disabled={loading}
             >
               {loading ? (
@@ -115,7 +111,7 @@ const Login1 = ({
             <Button 
               type="button"
               variant="outline" 
-              className="h-11 w-full"
+              className="h-11 w-full border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg"
               disabled={loading}
             >
               <FcGoogle className="mr-2 size-5" />
@@ -125,13 +121,13 @@ const Login1 = ({
         </form>
 
         {/* Switch mode */}
-        <div className="text-muted-foreground flex justify-center gap-1 text-sm">
+        <div className="text-gray-500 flex justify-center gap-1 text-sm mt-6">
           <p>{isLogin ? "Não tem conta?" : "Já tem conta?"}</p>
           <button
             type="button"
             onClick={switchMode}
             disabled={loading}
-            className="text-primary font-medium hover:underline disabled:opacity-50"
+            className="text-gray-900 font-medium hover:underline disabled:opacity-50"
           >
             {isLogin ? "Criar conta" : "Fazer login"}
           </button>
