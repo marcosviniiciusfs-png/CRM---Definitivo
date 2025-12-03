@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     if (config) {
-      console.log(`Using config: "${config.name}" (${config.distribution_method})`);
+      console.log(`Using config: "${config.name}" (${config.distribution_method}), team_id: ${config.team_id || 'none'}`);
     }
 
     if (!config) {
@@ -94,8 +94,6 @@ serve(async (req) => {
     }
 
     // 3. Mapear trigger_source para tipo de trigger correto
-    // Fontes (facebook, whatsapp, webhook) devem ser mapeadas para 'new_lead'
-    // Ações como 'manual' ou 'auto_redistribution' permanecem como estão
     const triggerTypeMap: Record<string, string> = {
       'facebook': 'new_lead',
       'whatsapp': 'new_lead', 
@@ -117,8 +115,42 @@ serve(async (req) => {
       );
     }
 
-    // 4. Buscar agentes disponíveis (filtrados pelos elegíveis da roleta)
-    const eligibleAgentIds = config.eligible_agents as string[] | null;
+    // 4. Se há team_id configurado, buscar membros da equipe
+    let eligibleAgentIds = config.eligible_agents as string[] | null;
+    const teamId = config.team_id as string | null;
+
+    if (teamId) {
+      console.log(`Filtering by team_id: ${teamId}`);
+      
+      const { data: teamMembers, error: teamMembersError } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId);
+
+      if (teamMembersError) {
+        console.error('Error fetching team members:', teamMembersError);
+      } else if (teamMembers && teamMembers.length > 0) {
+        const teamMemberIds = teamMembers.map(tm => tm.user_id);
+        console.log(`Team has ${teamMemberIds.length} members:`, teamMemberIds);
+        
+        // Se já havia agentes elegíveis, fazer interseção
+        if (eligibleAgentIds && eligibleAgentIds.length > 0) {
+          eligibleAgentIds = eligibleAgentIds.filter(id => teamMemberIds.includes(id));
+        } else {
+          eligibleAgentIds = teamMemberIds;
+        }
+        
+        console.log(`Filtered eligible agents: ${eligibleAgentIds.length}`);
+      } else {
+        console.log('Team has no members');
+        return new Response(
+          JSON.stringify({ success: false, message: 'Team has no members' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // 5. Buscar agentes disponíveis
     console.log('Eligible agent IDs:', eligibleAgentIds);
     const availableAgents = await getAvailableAgents(supabase, organization_id, eligibleAgentIds);
     
@@ -132,7 +164,7 @@ serve(async (req) => {
       );
     }
 
-    // 5. Selecionar agente baseado no método de distribuição
+    // 6. Selecionar agente baseado no método de distribuição
     const selectedAgent = await selectAgent(
       supabase,
       availableAgents,
@@ -148,7 +180,7 @@ serve(async (req) => {
       );
     }
 
-    // 6. Atribuir lead ao agente
+    // 7. Atribuir lead ao agente
     const { error: updateError } = await supabase
       .from('leads')
       .update({ responsavel: selectedAgent.full_name || selectedAgent.email })
@@ -162,7 +194,7 @@ serve(async (req) => {
       );
     }
 
-    // 7. Registrar no histórico
+    // 8. Registrar no histórico
     const { error: historyError } = await supabase
       .from('lead_distribution_history')
       .insert({

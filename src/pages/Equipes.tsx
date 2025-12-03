@@ -1,39 +1,286 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, User, UserX, Crown, Search, ExternalLink, MoreVertical, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Users, User, UserX, Crown, Search, MoreVertical, Edit2, Trash2, Target } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { CreateTeamModal } from "@/components/CreateTeamModal";
+import { EditTeamModal } from "@/components/EditTeamModal";
+import { TeamGoalsCard } from "@/components/TeamGoalsCard";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-const mockSemEquipe = [
-  { id: "1", nome: "Clara Regina", avatar: "" },
-  { id: "2", nome: "Erisan Sousa", avatar: "" },
-  { id: "3", nome: "Levi Felipe", avatar: "" },
-  { id: "4", nome: "Vanessa maia", avatar: "" },
-  { id: "5", nome: "Kauã Martins", avatar: "" },
-  { id: "6", nome: "Beatriz Carvalho", avatar: "" },
-  { id: "7", nome: "João Silva", avatar: "" },
-];
+interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  leader_id?: string;
+  avatar_url?: string;
+  organization_id: string;
+}
 
-const mockEquipes = [
-  {
-    id: "1",
-    nome: "Laion",
-    lider: { id: "l1", nome: "Jonh lenon", avatar: "" },
-    membros: [
-      { id: "m1", nome: "Arthur", avatar: "" },
-      { id: "m2", nome: "Luigy Frota", avatar: "", isLider: true },
-      { id: "m3", nome: "Márcia Eduarda", avatar: "" },
-      { id: "m4", nome: "Raila Oliveira", avatar: "" },
-      { id: "m5", nome: "David bastos", avatar: "" },
-    ]
-  }
-];
+interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: string;
+}
+
+interface Member {
+  user_id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+}
+
+interface DraggableMemberProps {
+  member: Member;
+  teamId?: string;
+  isLeader?: boolean;
+}
+
+function DraggableMember({ member, teamId, isLeader }: DraggableMemberProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `${teamId || 'no-team'}-${member.user_id}`,
+    data: { member, fromTeamId: teamId },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-grab active:cursor-grabbing"
+    >
+      <div className="flex items-center gap-3">
+        <Avatar className="h-8 w-8">
+          <AvatarImage src={member.avatar_url} />
+          <AvatarFallback className="bg-gradient-to-br from-primary/60 to-primary text-primary-foreground text-xs">
+            {(member.full_name || member.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <span className="text-sm font-medium text-foreground">{member.full_name || member.email}</span>
+      </div>
+      {isLeader && <Crown className="h-4 w-4 text-yellow-500" />}
+    </div>
+  );
+}
 
 const Equipes = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<"board" | "cards">("board");
+  const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [showGoals, setShowGoals] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  useEffect(() => {
+    if (user) {
+      loadOrganization();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (organizationId) {
+      loadData();
+    }
+  }, [organizationId]);
+
+  const loadOrganization = async () => {
+    const { data } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", user?.id)
+      .single();
+
+    setOrganizationId(data?.organization_id || null);
+  };
+
+  const loadData = async () => {
+    if (!organizationId) return;
+
+    try {
+      setLoading(true);
+
+      // Load teams
+      const { data: teamsData } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("created_at");
+
+      setTeams(teamsData || []);
+
+      // Load team members
+      const teamIds = teamsData?.map(t => t.id) || [];
+      if (teamIds.length > 0) {
+        const { data: teamMembersData } = await supabase
+          .from("team_members")
+          .select("*")
+          .in("team_id", teamIds);
+
+        setTeamMembers(teamMembersData || []);
+      } else {
+        setTeamMembers([]);
+      }
+
+      // Load all organization members
+      const { data: orgMembers } = await supabase
+        .from("organization_members")
+        .select("user_id, email")
+        .eq("organization_id", organizationId)
+        .not("user_id", "is", null);
+
+      const userIds = orgMembers?.map(m => m.user_id!) || [];
+      
+      let profiles: any[] = [];
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, avatar_url")
+          .in("user_id", userIds);
+        profiles = profilesData || [];
+      }
+
+      const members: Member[] = (orgMembers || []).map(m => ({
+        user_id: m.user_id!,
+        email: m.email || '',
+        full_name: profiles.find(p => p.user_id === m.user_id)?.full_name,
+        avatar_url: profiles.find(p => p.user_id === m.user_id)?.avatar_url,
+      }));
+
+      setAllMembers(members);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMembersInTeam = (teamId: string) => {
+    const memberIds = teamMembers.filter(tm => tm.team_id === teamId).map(tm => tm.user_id);
+    return allMembers.filter(m => memberIds.includes(m.user_id));
+  };
+
+  const getMembersWithoutTeam = () => {
+    const memberIdsInTeams = teamMembers.map(tm => tm.user_id);
+    return allMembers.filter(m => !memberIdsInTeams.includes(m.user_id));
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeData = active.data.current as { member: Member; fromTeamId?: string };
+    const overIdStr = over.id as string;
+
+    // Determine target team
+    let targetTeamId: string | null = null;
+    
+    if (overIdStr.startsWith('team-')) {
+      targetTeamId = overIdStr.replace('team-', '');
+    } else if (overIdStr === 'no-team-zone') {
+      targetTeamId = null;
+    } else if (overIdStr.includes('-')) {
+      // It's a member item
+      const parts = overIdStr.split('-');
+      targetTeamId = parts[0] === 'no-team' ? null : parts[0];
+    }
+
+    const fromTeamId = activeData.fromTeamId;
+    const memberId = activeData.member.user_id;
+
+    // No change needed
+    if (fromTeamId === targetTeamId) return;
+
+    try {
+      // Remove from old team
+      if (fromTeamId) {
+        await supabase
+          .from("team_members")
+          .delete()
+          .eq("team_id", fromTeamId)
+          .eq("user_id", memberId);
+      }
+
+      // Add to new team
+      if (targetTeamId) {
+        await supabase
+          .from("team_members")
+          .insert({
+            team_id: targetTeamId,
+            user_id: memberId,
+            role: "member",
+          });
+      }
+
+      toast.success("Membro movido com sucesso!");
+      loadData();
+    } catch (error: any) {
+      console.error("Error moving member:", error);
+      toast.error("Erro ao mover membro");
+    }
+  };
+
+  const getActiveItem = () => {
+    if (!activeId) return null;
+    const parts = activeId.split('-');
+    const userId = parts[parts.length - 1];
+    return allMembers.find(m => m.user_id === userId);
+  };
+
+  const filteredTeams = teams.filter(t =>
+    t.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const membersWithoutTeam = getMembersWithoutTeam().filter(m =>
+    (m.full_name || m.email).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Metrics
+  const totalTeams = teams.length;
+  const totalMembersInTeams = new Set(teamMembers.map(tm => tm.user_id)).size;
+  const totalWithoutTeam = getMembersWithoutTeam().length;
+  const totalLeaders = teamMembers.filter(tm => tm.role === 'leader').length;
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <LoadingAnimation text="Carregando equipes..." />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -44,7 +291,7 @@ const Equipes = () => {
             <h1 className="text-3xl font-bold text-foreground">Gerenciamento de Equipes</h1>
             <p className="text-muted-foreground mt-1">Organize e gerencie suas equipes de vendas</p>
           </div>
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Button onClick={() => setCreateModalOpen(true)}>
             + Nova Equipe
           </Button>
         </div>
@@ -56,7 +303,7 @@ const Equipes = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total de Equipes</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">1</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{totalTeams}</p>
                 </div>
                 <div className="bg-blue-500 p-3 rounded-lg">
                   <Users className="h-6 w-6 text-white" />
@@ -70,7 +317,7 @@ const Equipes = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total de Membros</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">5</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{totalMembersInTeams}</p>
                 </div>
                 <div className="bg-green-500 p-3 rounded-lg">
                   <User className="h-6 w-6 text-white" />
@@ -84,7 +331,7 @@ const Equipes = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Sem Equipe</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">7</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{totalWithoutTeam}</p>
                 </div>
                 <div className="bg-orange-500 p-3 rounded-lg">
                   <UserX className="h-6 w-6 text-white" />
@@ -97,8 +344,8 @@ const Equipes = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Líderes Disponíveis</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">2</p>
+                  <p className="text-sm font-medium text-muted-foreground">Líderes</p>
+                  <p className="text-3xl font-bold text-foreground mt-2">{totalLeaders}</p>
                 </div>
                 <div className="bg-purple-500 p-3 rounded-lg">
                   <Crown className="h-6 w-6 text-white" />
@@ -108,148 +355,195 @@ const Equipes = () => {
           </Card>
         </div>
 
-        {/* Search and View Toggle */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar equipes ou líderes..."
+              placeholder="Buscar equipes ou membros..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === "board" ? "default" : "outline"}
-              onClick={() => setViewMode("board")}
-              className={viewMode === "board" ? "bg-purple-600 hover:bg-purple-700" : ""}
-            >
-              Board
-            </Button>
-            <Button
-              variant={viewMode === "cards" ? "default" : "outline"}
-              onClick={() => setViewMode("cards")}
-              className={viewMode === "cards" ? "bg-purple-600 hover:bg-purple-700" : ""}
-            >
-              Cards
-            </Button>
-          </div>
         </div>
 
-        {/* Board View */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Sem Equipe Column */}
-          <Card className="shadow-sm border-t-4 border-t-orange-500">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-orange-100 p-2 rounded-lg">
-                  <UserX className="h-5 w-5 text-orange-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-orange-600">Sem Equipe</h3>
-              </div>
-              
-              <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-muted-foreground">Membros</span>
-                <span className="text-sm font-semibold text-foreground">{mockSemEquipe.length}</span>
-              </div>
-
-              <div className="space-y-2">
-                {mockSemEquipe.slice(0, 6).map((membro) => (
-                  <div
-                    key={membro.id}
-                    className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={membro.avatar} />
-                        <AvatarFallback className="bg-gradient-to-br from-gray-400 to-gray-500 text-white text-xs">
-                          {membro.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium text-gray-700">{membro.nome}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {membro.id === "6" && (
-                        <Trash2 className="h-4 w-4 text-red-500 cursor-pointer" />
-                      )}
-                      <ExternalLink className="h-4 w-4 text-blue-500 cursor-pointer" />
-                    </div>
-                  </div>
-                ))}
-                {mockSemEquipe.length > 6 && (
-                  <div className="text-sm text-gray-500 text-center py-2">
-                    +{mockSemEquipe.length - 6} mais
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team Column */}
-          {mockEquipes.map((equipe) => (
-            <Card key={equipe.id} className="shadow-sm border-t-4 border-t-blue-500">
+        {/* Board with Drag & Drop */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Sem Equipe Column */}
+            <Card className="shadow-sm border-t-4 border-t-orange-500">
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <Users className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-blue-600">{equipe.nome}</h3>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-orange-100 dark:bg-orange-500/20 p-2 rounded-lg">
+                    <UserX className="h-5 w-5 text-orange-600" />
                   </div>
-                  <MoreVertical className="h-5 w-5 text-gray-400 cursor-pointer" />
-                </div>
-
-                {/* Líder */}
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Crown className="h-4 w-4 text-yellow-500" />
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={equipe.lider.avatar} />
-                        <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white text-xs">
-                          {equipe.lider.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium text-gray-700">{equipe.lider.nome}</span>
-                    </div>
-                    <ExternalLink className="h-4 w-4 text-blue-500 cursor-pointer" />
-                  </div>
+                  <h3 className="text-lg font-semibold text-orange-600">Sem Equipe</h3>
                 </div>
 
                 <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-muted-foreground">Membros</span>
-                  <span className="text-sm font-semibold text-foreground">{equipe.membros.length}</span>
+                  <span className="text-sm text-muted-foreground">Membros</span>
+                  <span className="text-sm font-semibold text-foreground">{membersWithoutTeam.length}</span>
                 </div>
 
-                <div className="space-y-2">
-                    {equipe.membros.map((membro) => (
-                      <div
-                        key={membro.id}
-                        className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                      >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={membro.avatar} />
-                          <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white text-xs">
-                            {membro.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium text-gray-700">{membro.nome}</span>
+                <SortableContext
+                  items={membersWithoutTeam.map(m => `no-team-${m.user_id}`)}
+                  strategy={verticalListSortingStrategy}
+                  id="no-team-zone"
+                >
+                  <div className="space-y-2 min-h-[100px]" id="no-team-zone">
+                    {membersWithoutTeam.map((member) => (
+                      <DraggableMember key={member.user_id} member={member} />
+                    ))}
+                    {membersWithoutTeam.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        Todos os membros estão em equipes
                       </div>
-                      <div className="flex items-center gap-2">
-                        {membro.isLider && (
-                          <Crown className="h-4 w-4 text-yellow-500" />
-                        )}
-                        <ExternalLink className="h-4 w-4 text-blue-500 cursor-pointer" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                </SortableContext>
               </CardContent>
             </Card>
-          ))}
-        </div>
+
+            {/* Team Columns */}
+            {filteredTeams.map((team) => {
+              const teamMembersList = getMembersInTeam(team.id);
+              const leader = allMembers.find(m => m.user_id === team.leader_id);
+
+              return (
+                <Card key={team.id} className="shadow-sm border-t-4" style={{ borderTopColor: team.color }}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={team.avatar_url} />
+                          <AvatarFallback style={{ backgroundColor: team.color }} className="text-white">
+                            <Users className="h-5 w-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <h3 className="text-lg font-semibold" style={{ color: team.color }}>{team.name}</h3>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedTeam(team);
+                            setEditModalOpen(true);
+                          }}>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setShowGoals(showGoals === team.id ? null : team.id)}>
+                            <Target className="h-4 w-4 mr-2" />
+                            Metas
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Leader */}
+                    {leader && (
+                      <div className="mb-4 p-3 rounded-lg border" style={{ backgroundColor: `${team.color}10`, borderColor: `${team.color}40` }}>
+                        <div className="flex items-center gap-3">
+                          <Crown className="h-4 w-4 text-yellow-500" />
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={leader.avatar_url} />
+                            <AvatarFallback style={{ backgroundColor: team.color }} className="text-white text-xs">
+                              {(leader.full_name || leader.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{leader.full_name || leader.email}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm text-muted-foreground">Membros</span>
+                      <span className="text-sm font-semibold text-foreground">{teamMembersList.length}</span>
+                    </div>
+
+                    <SortableContext
+                      items={teamMembersList.map(m => `${team.id}-${m.user_id}`)}
+                      strategy={verticalListSortingStrategy}
+                      id={`team-${team.id}`}
+                    >
+                      <div className="space-y-2 min-h-[100px]" id={`team-${team.id}`}>
+                        {teamMembersList.map((member) => {
+                          const isLeader = member.user_id === team.leader_id;
+                          return (
+                            <DraggableMember
+                              key={member.user_id}
+                              member={member}
+                              teamId={team.id}
+                              isLeader={isLeader}
+                            />
+                          );
+                        })}
+                        {teamMembersList.length === 0 && (
+                          <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+                            Arraste membros aqui
+                          </div>
+                        )}
+                      </div>
+                    </SortableContext>
+
+                    {/* Team Goals */}
+                    {showGoals === team.id && organizationId && (
+                      <TeamGoalsCard
+                        teamId={team.id}
+                        teamName={team.name}
+                        teamColor={team.color}
+                        organizationId={organizationId}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <DragOverlay>
+            {activeId && getActiveItem() && (
+              <div className="flex items-center gap-3 p-3 bg-background rounded-lg shadow-lg border">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={getActiveItem()?.avatar_url} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {(getActiveItem()?.full_name || getActiveItem()?.email || '').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium">{getActiveItem()?.full_name || getActiveItem()?.email}</span>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+
+        {/* Modals */}
+        {organizationId && (
+          <>
+            <CreateTeamModal
+              open={createModalOpen}
+              onOpenChange={setCreateModalOpen}
+              organizationId={organizationId}
+              members={allMembers}
+            />
+            <EditTeamModal
+              open={editModalOpen}
+              onOpenChange={setEditModalOpen}
+              team={selectedTeam}
+              organizationId={organizationId}
+              members={allMembers}
+            />
+          </>
+        )}
       </div>
     </DashboardLayout>
   );
