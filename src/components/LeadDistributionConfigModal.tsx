@@ -321,14 +321,14 @@ export function LeadDistributionConfigModal({
           <div className="space-y-2">
             <Label>Distribuir por Equipe</Label>
             <Select
-              value={formData.team_id}
-              onValueChange={(value) => setFormData({ ...formData, team_id: value })}
+              value={formData.team_id || "__all__"}
+              onValueChange={(value) => setFormData({ ...formData, team_id: value === "__all__" ? "" : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Todas as equipes (sem filtro)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as equipes (sem filtro)</SelectItem>
+                <SelectItem value="__all__">Todas as equipes (sem filtro)</SelectItem>
                 {teams?.map((team) => (
                   <SelectItem key={team.id} value={team.id}>
                     <div className="flex items-center gap-2">
