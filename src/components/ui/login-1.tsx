@@ -12,6 +12,7 @@ interface Login1Props {
   };
   onLogin: (email: string, password: string) => Promise<void>;
   onSignup: (email: string, password: string, name: string) => Promise<void>;
+  onGoogleLogin: () => Promise<void>;
   loading?: boolean;
 }
 
@@ -19,6 +20,7 @@ const Login1 = ({
   logo,
   onLogin,
   onSignup,
+  onGoogleLogin,
   loading = false,
 }: Login1Props) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -112,6 +114,7 @@ const Login1 = ({
               variant="outline" 
               className="h-11 w-full border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg"
               disabled={loading}
+              onClick={onGoogleLogin}
             >
               <FcGoogle className="mr-2 size-5" />
               {isLogin ? "Entrar com Google" : "Cadastrar com Google"}

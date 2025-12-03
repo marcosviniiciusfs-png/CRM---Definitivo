@@ -8,7 +8,7 @@ import { Login1 } from "@/components/ui/login-1";
 import kairozLogo from "@/assets/kairoz-logo-full.png";
 
 const Auth = () => {
-  const { signUp, signIn, user, loading: authLoading } = useAuth();
+  const { signUp, signIn, signInWithGoogle, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -77,6 +77,20 @@ const Auth = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const { error } = await signInWithGoogle();
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Erro ao fazer login com Google",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -94,6 +108,7 @@ const Auth = () => {
         }}
         onLogin={handleLogin}
         onSignup={handleSignup}
+        onGoogleLogin={handleGoogleLogin}
         loading={loading}
       />
     </StarsBackground>
