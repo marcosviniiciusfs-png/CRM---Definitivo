@@ -147,6 +147,7 @@ export function LeadDistributionConfigModal({
       const payload = {
         ...formData,
         organization_id: organizationId,
+        team_id: formData.team_id === "" ? null : formData.team_id,
       };
 
       if (config?.id) {
