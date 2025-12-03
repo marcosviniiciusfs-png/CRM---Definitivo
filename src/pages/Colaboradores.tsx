@@ -458,7 +458,7 @@ const Colaboradores = () => {
               {(userRole === 'owner' || userRole === 'admin') && (
                 <>
                   <Button 
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
                     onClick={() => setIsDialogOpen(true)}
                   >
                     Novo Colaborador
