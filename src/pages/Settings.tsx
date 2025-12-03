@@ -11,6 +11,7 @@ import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
+import MetaConversionLogs from "@/components/MetaConversionLogs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNavigate } from "react-router-dom";
@@ -656,6 +657,8 @@ const Settings = () => {
               </Card>
 
               <GlobalFunnelMapping />
+              
+              <MetaConversionLogs />
               
               <Card>
                 <CardHeader>

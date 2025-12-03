@@ -1310,6 +1310,76 @@ export type Database = {
           },
         ]
       }
+      meta_conversion_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_id: string | null
+          event_name: string
+          events_received: number | null
+          funnel_id: string | null
+          id: string
+          lead_id: string | null
+          organization_id: string
+          pixel_id: string
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          event_name: string
+          events_received?: number | null
+          funnel_id?: string | null
+          id?: string
+          lead_id?: string | null
+          organization_id: string
+          pixel_id: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          event_name?: string
+          events_received?: number | null
+          funnel_id?: string | null
+          id?: string
+          lead_id?: string | null
+          organization_id?: string
+          pixel_id?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_conversion_logs_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "sales_funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_conversion_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_conversion_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_pixel_integrations: {
         Row: {
           access_token: string
