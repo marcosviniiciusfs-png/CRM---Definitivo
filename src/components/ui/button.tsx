@@ -41,9 +41,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-      const audio = new Audio('/button-click.mp3');
-      audio.volume = 0.3;
-      audio.play().catch(() => {});
+      const soundEnabled = localStorage.getItem('buttonClickSoundEnabled') !== 'false';
+      if (soundEnabled) {
+        const audio = new Audio('/button-click.mp3');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      }
       onClick?.(e);
     };
     
