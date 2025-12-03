@@ -4,33 +4,21 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { StarsBackground } from "@/components/ui/stars-background";
+import { Login1 } from "@/components/ui/login-1";
 import kairozLogo from "@/assets/kairoz-logo-full.png";
-import "./Auth.css";
 
 const Auth = () => {
   const { signUp, signIn, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
-
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-
-  // Signup form state
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupName, setSignupName] = useState("");
 
   // Redirect if already logged in
   if (user && !authLoading) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!loginEmail || !loginPassword) {
+  const handleLogin = async (email: string, password: string) => {
+    if (!email || !password) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos",
@@ -40,7 +28,7 @@ const Auth = () => {
     }
 
     setLoading(true);
-    const { error } = await signIn(loginEmail, loginPassword);
+    const { error } = await signIn(email, password);
     setLoading(false);
 
     if (error) {
@@ -59,10 +47,8 @@ const Auth = () => {
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!signupEmail || !signupPassword || !signupName) {
+  const handleSignup = async (email: string, password: string, name: string) => {
+    if (!email || !password || !name) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos",
@@ -72,7 +58,7 @@ const Auth = () => {
     }
 
     setLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
+    const { error } = await signUp(email, password, name);
     setLoading(false);
 
     if (error) {
@@ -91,7 +77,6 @@ const Auth = () => {
     }
   };
 
-
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -102,101 +87,15 @@ const Auth = () => {
 
   return (
     <StarsBackground className="min-h-screen" speed={30} factor={0.08}>
-      <div className="auth-wrapper">
-        <div className="auth-header">
-          <img src={kairozLogo} alt="KairoZ" className="w-64 h-auto mx-auto" />
-        </div>
-        
-        <div className="flip-card-container">
-          <div className={`flip-card__inner ${!isLogin ? 'flipped' : ''}`}>
-            <div className="flip-card__front">
-              <form onSubmit={handleLogin} className="flip-card__form">
-                <h2 className="title">Login</h2>
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="flip-card__input"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Senha"
-                  className="flip-card__input"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <button 
-                  type="submit" 
-                  className="flip-card__btn"
-                  disabled={loading}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Entrar"}
-                </button>
-                <button
-                  type="button"
-                  className="flip-card__btn--secondary"
-                  onClick={() => setIsLogin(false)}
-                  disabled={loading}
-                >
-                  Criar Conta
-                </button>
-              </form>
-            </div>
-            <div className="flip-card__back">
-              <form onSubmit={handleSignup} className="flip-card__form">
-                <h2 className="title">Cadastro</h2>
-                <input
-                  type="text"
-                  placeholder="Nome Completo"
-                  className="flip-card__input"
-                  value={signupName}
-                  onChange={(e) => setSignupName(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="flip-card__input"
-                  value={signupEmail}
-                  onChange={(e) => setSignupEmail(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Senha"
-                  className="flip-card__input"
-                  value={signupPassword}
-                  onChange={(e) => setSignupPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <button 
-                  type="submit" 
-                  className="flip-card__btn"
-                  disabled={loading}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Cadastrar"}
-                </button>
-                <button
-                  type="button"
-                  className="flip-card__btn--secondary"
-                  onClick={() => setIsLogin(true)}
-                  disabled={loading}
-                >
-                  Voltar ao Login
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Login1
+        logo={{
+          src: kairozLogo,
+          alt: "KairoZ",
+        }}
+        onLogin={handleLogin}
+        onSignup={handleSignup}
+        loading={loading}
+      />
     </StarsBackground>
   );
 };
