@@ -24,6 +24,13 @@ interface DistributionConfig {
   auto_redistribute: boolean;
   redistribution_timeout_minutes?: number;
   eligible_agents?: string[];
+  team_id?: string;
+}
+
+interface Team {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface LeadDistributionConfigModalProps {
@@ -51,6 +58,24 @@ export function LeadDistributionConfigModal({
     auto_redistribute: false,
     redistribution_timeout_minutes: 60,
     eligible_agents: [] as string[],
+    team_id: "" as string,
+  });
+
+  // Buscar equipes da organização
+  const { data: teams } = useQuery({
+    queryKey: ["teams", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data, error } = await supabase
+        .from("teams")
+        .select("id, name, color")
+        .eq("organization_id", organizationId)
+        .order("name");
+      
+      if (error) throw error;
+      return data as Team[];
+    },
+    enabled: !!organizationId,
   });
 
   // Buscar membros da organização
@@ -96,6 +121,7 @@ export function LeadDistributionConfigModal({
         auto_redistribute: config.auto_redistribute,
         redistribution_timeout_minutes: config.redistribution_timeout_minutes || 60,
         eligible_agents: config.eligible_agents || [],
+        team_id: config.team_id || "",
       });
     } else {
       setFormData({
@@ -109,6 +135,7 @@ export function LeadDistributionConfigModal({
         auto_redistribute: false,
         redistribution_timeout_minutes: 60,
         eligible_agents: [],
+        team_id: "",
       });
     }
   }, [config, open]);
@@ -288,6 +315,37 @@ export function LeadDistributionConfigModal({
               />
             </div>
           )}
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>Distribuir por Equipe</Label>
+            <Select
+              value={formData.team_id}
+              onValueChange={(value) => setFormData({ ...formData, team_id: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todas as equipes (sem filtro)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todas as equipes (sem filtro)</SelectItem>
+                {teams?.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: team.color }}
+                      />
+                      {team.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Quando uma equipe é selecionada, apenas membros desta equipe receberão leads
+            </p>
+          </div>
 
           <Separator />
 

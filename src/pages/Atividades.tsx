@@ -267,6 +267,8 @@ export default function Atividades() {
         return <UserCheck className="h-4 w-4" />;
       case 'tag_added':
         return <Tag className="h-4 w-4" />;
+      case 'team_member_changed':
+        return <UserCheck className="h-4 w-4" />;
       default:
         return <Activity className="h-4 w-4" />;
     }
@@ -280,6 +282,8 @@ export default function Atividades() {
         return 'bg-green-500/10 text-green-600';
       case 'tag_added':
         return 'bg-purple-500/10 text-purple-600';
+      case 'team_member_changed':
+        return 'bg-orange-500/10 text-orange-600';
       default:
         return 'bg-gray-500/10 text-gray-600';
     }
