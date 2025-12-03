@@ -15,10 +15,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+
+interface Funnel {
+  id: string;
+  name: string;
+}
+
+interface Stage {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface AddLeadModalProps {
   open: boolean;
@@ -32,14 +43,19 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   const [email, setEmail] = useState("");
   const [empresa, setEmpresa] = useState("");
   const [valor, setValor] = useState("");
-  const [stage, setStage] = useState("NOVO");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Funnel and stage states
+  const [funnels, setFunnels] = useState<Funnel[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [selectedFunnelId, setSelectedFunnelId] = useState("");
+  const [selectedStageId, setSelectedStageId] = useState("");
+  const [loadingFunnels, setLoadingFunnels] = useState(false);
+  const [loadingStages, setLoadingStages] = useState(false);
+
   const formatPhoneNumber = (value: string) => {
-    // Remove tudo que não é número
     const numbers = value.replace(/\D/g, '');
     
-    // Aplica a máscara
     if (numbers.length <= 2) {
       return `+${numbers}`;
     } else if (numbers.length <= 4) {
@@ -49,7 +65,6 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     } else if (numbers.length <= 13) {
       return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 9)}-${numbers.slice(9)}`;
     }
-    // Limita a 13 dígitos (55 + DDD + 9 dígitos)
     return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 9)}-${numbers.slice(9, 13)}`;
   };
 
@@ -59,21 +74,84 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   };
 
   const validatePhone = (phone: string): boolean => {
-    // Remove tudo que não é número
     const numbers = phone.replace(/\D/g, '');
-    
-    // Valida se tem 13 dígitos (55 + DDD com 2 dígitos + número com 9 dígitos)
-    // ou 12 dígitos (55 + DDD com 2 dígitos + número com 8 dígitos para telefone fixo)
     if (numbers.length < 12 || numbers.length > 13) {
       return false;
     }
-    
-    // Valida se começa com +55
     if (!numbers.startsWith('55')) {
       return false;
     }
-    
     return true;
+  };
+
+  // Load funnels when modal opens
+  useEffect(() => {
+    if (open) {
+      loadFunnels();
+    }
+  }, [open]);
+
+  const loadFunnels = async () => {
+    setLoadingFunnels(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: orgData } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!orgData) return;
+
+      const { data: funnelsData } = await supabase
+        .from("sales_funnels")
+        .select("id, name")
+        .eq("organization_id", orgData.organization_id)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .order("name");
+
+      if (funnelsData && funnelsData.length > 0) {
+        setFunnels(funnelsData);
+        setSelectedFunnelId(funnelsData[0].id);
+      }
+    } finally {
+      setLoadingFunnels(false);
+    }
+  };
+
+  // Load stages when funnel changes
+  useEffect(() => {
+    if (selectedFunnelId) {
+      loadStages(selectedFunnelId);
+    } else {
+      setStages([]);
+      setSelectedStageId("");
+    }
+  }, [selectedFunnelId]);
+
+  const loadStages = async (funnelId: string) => {
+    setLoadingStages(true);
+    try {
+      const { data: stagesData } = await supabase
+        .from("funnel_stages")
+        .select("id, name, color")
+        .eq("funnel_id", funnelId)
+        .eq("is_final", false)
+        .order("position");
+
+      if (stagesData && stagesData.length > 0) {
+        setStages(stagesData);
+        setSelectedStageId(stagesData[0].id);
+      } else {
+        setStages([]);
+        setSelectedStageId("");
+      }
+    } finally {
+      setLoadingStages(false);
+    }
   };
 
   const handleClose = () => {
@@ -82,7 +160,9 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     setEmail("");
     setEmpresa("");
     setValor("");
-    setStage("NOVO");
+    setSelectedFunnelId("");
+    setSelectedStageId("");
+    setStages([]);
     onClose();
   };
 
@@ -104,6 +184,16 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
       return;
     }
 
+    if (!selectedFunnelId) {
+      toast.error("Selecione um funil");
+      return;
+    }
+
+    if (!selectedStageId) {
+      toast.error("Selecione uma etapa do funil");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -112,8 +202,10 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         telefone_lead: telefone.trim(),
         email: email.trim() || null,
         empresa: empresa.trim() || null,
-        stage,
         source: "Manual",
+        funnel_id: selectedFunnelId,
+        funnel_stage_id: selectedStageId,
+        stage: "NOVO",
       };
 
       if (valor.trim()) {
@@ -209,16 +301,47 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="stage">Status</Label>
-            <Select value={stage} onValueChange={setStage}>
+            <Label htmlFor="funnel">Funil</Label>
+            <Select 
+              value={selectedFunnelId} 
+              onValueChange={setSelectedFunnelId}
+              disabled={loadingFunnels}
+            >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder={loadingFunnels ? "Carregando..." : "Selecione o funil"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="NOVO">Novo</SelectItem>
-                <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                <SelectItem value="FECHADO">Fechado</SelectItem>
-                <SelectItem value="PERDIDO">Perdido</SelectItem>
+                {funnels.map((funnel) => (
+                  <SelectItem key={funnel.id} value={funnel.id}>
+                    {funnel.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="stage">Etapa</Label>
+            <Select 
+              value={selectedStageId} 
+              onValueChange={setSelectedStageId}
+              disabled={loadingStages || !selectedFunnelId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingStages ? "Carregando..." : "Selecione a etapa"} />
+              </SelectTrigger>
+              <SelectContent>
+                {stages.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.id}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full shrink-0" 
+                        style={{ backgroundColor: stage.color }}
+                      />
+                      {stage.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
