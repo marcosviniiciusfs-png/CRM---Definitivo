@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, User, UserX, Crown, Search, MoreVertical, Edit2, Trash2, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,6 +95,8 @@ const Equipes = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [showGoals, setShowGoals] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -258,6 +261,27 @@ const Equipes = () => {
     const parts = activeId.split('-');
     const userId = parts[parts.length - 1];
     return allMembers.find(m => m.user_id === userId);
+  };
+
+  const handleDeleteTeam = async () => {
+    if (!teamToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from("teams")
+        .delete()
+        .eq("id", teamToDelete.id);
+
+      if (error) throw error;
+
+      toast.success("Equipe excluída com sucesso!");
+      setDeleteDialogOpen(false);
+      setTeamToDelete(null);
+      loadData();
+    } catch (error: any) {
+      console.error("Error deleting team:", error);
+      toast.error("Erro ao excluir equipe");
+    }
   };
 
   const filteredTeams = teams.filter(t =>
@@ -446,6 +470,17 @@ const Equipes = () => {
                             <Target className="h-4 w-4 mr-2" />
                             Metas
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setTeamToDelete(team);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -542,6 +577,26 @@ const Equipes = () => {
               organizationId={organizationId}
               members={allMembers}
             />
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Equipe</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir a equipe "{teamToDelete?.name}"? 
+                    Os membros serão removidos da equipe, mas não serão excluídos da organização.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDeleteTeam}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </div>
