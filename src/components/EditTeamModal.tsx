@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ interface EditTeamModalProps {
   team: Team | null;
   organizationId: string;
   members: Member[];
+  onSuccess?: () => void;
 }
 
 const TEAM_COLORS = [
@@ -47,7 +49,7 @@ const TEAM_COLORS = [
   { name: "Ciano", value: "#06B6D4" },
 ];
 
-export function EditTeamModal({ open, onOpenChange, team, organizationId, members }: EditTeamModalProps) {
+export function EditTeamModal({ open, onOpenChange, team, organizationId, members, onSuccess }: EditTeamModalProps) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -57,6 +59,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
     color: "#3B82F6",
     leader_id: "",
   });
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
@@ -70,8 +73,20 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
       });
       setAvatarPreview(team.avatar_url || null);
       setAvatarFile(null);
+      loadTeamMembers();
     }
   }, [team, open]);
+
+  const loadTeamMembers = async () => {
+    if (!team) return;
+    const { data } = await supabase
+      .from('team_members')
+      .select('user_id')
+      .eq('team_id', team.id);
+    if (data) {
+      setSelectedMembers(data.map(m => m.user_id));
+    }
+  };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,6 +98,14 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const toggleMember = (userId: string) => {
+    setSelectedMembers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   const handleSave = async () => {
@@ -128,50 +151,26 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
 
       if (teamError) throw teamError;
 
-      // Update leader in team_members if changed
-      const oldLeaderId = team.leader_id;
       const newLeaderId = formData.leader_id && formData.leader_id !== "none" ? formData.leader_id : null;
-      
-      if (newLeaderId !== oldLeaderId) {
-        // Remove old leader role
-        if (oldLeaderId) {
-          await supabase
-            .from('team_members')
-            .update({ role: 'member' })
-            .eq('team_id', team.id)
-            .eq('user_id', oldLeaderId);
-        }
 
-        // Set new leader
-        if (newLeaderId) {
-          // Check if already a member
-          const { data: existingMember } = await supabase
-            .from('team_members')
-            .select('id')
-            .eq('team_id', team.id)
-            .eq('user_id', newLeaderId)
-            .maybeSingle();
+      // Sync team members - delete all and re-add
+      await supabase.from('team_members').delete().eq('team_id', team.id);
 
-          if (existingMember) {
-            await supabase
-              .from('team_members')
-              .update({ role: 'leader' })
-              .eq('id', existingMember.id);
-          } else {
-            await supabase
-              .from('team_members')
-              .insert({
-                team_id: team.id,
-                user_id: newLeaderId,
-                role: 'leader',
-              });
-          }
-        }
+      const membersToAdd = [...new Set([...selectedMembers, ...(newLeaderId ? [newLeaderId] : [])])];
+      if (membersToAdd.length > 0) {
+        await supabase.from('team_members').insert(
+          membersToAdd.map(userId => ({
+            team_id: team.id,
+            user_id: userId,
+            role: userId === newLeaderId ? 'leader' : 'member',
+          }))
+        );
       }
 
       toast.success("Equipe atualizada com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       onOpenChange(false);
+      onSuccess?.();
     } catch (error: any) {
       console.error('Error updating team:', error);
       toast.error("Erro ao atualizar equipe: " + error.message);
@@ -195,6 +194,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
       toast.success("Equipe excluída com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       onOpenChange(false);
+      onSuccess?.();
     } catch (error: any) {
       console.error('Error deleting team:', error);
       toast.error("Erro ao excluir equipe: " + error.message);
@@ -207,7 +207,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Equipe</DialogTitle>
           <DialogDescription>
@@ -305,6 +305,41 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Members Selection */}
+          <div className="space-y-2">
+            <Label>Membros da Equipe</Label>
+            <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+              {members.map((member) => (
+                <div 
+                  key={member.user_id}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
+                  onClick={() => toggleMember(member.user_id)}
+                >
+                  <Checkbox 
+                    checked={selectedMembers.includes(member.user_id) || formData.leader_id === member.user_id}
+                    disabled={formData.leader_id === member.user_id}
+                    onCheckedChange={() => toggleMember(member.user_id)}
+                  />
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={member.avatar_url} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                      {(member.full_name || member.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">{member.full_name || member.email}</span>
+                  {formData.leader_id === member.user_id && (
+                    <span className="text-xs text-muted-foreground ml-auto">(Líder)</span>
+                  )}
+                </div>
+              ))}
+              {members.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum membro disponível
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
