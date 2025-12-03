@@ -43,18 +43,17 @@ const Login1 = ({
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center p-4">
-      {/* Logo acima do card */}
-      <div className="mb-8">
-        <img
-          src={logo.src}
-          alt={logo.alt}
-          className="h-16 w-auto"
-        />
-      </div>
-
-      {/* Card branco */}
+    <div className="flex min-h-screen items-center justify-center p-4">
+      {/* Card branco com logo dentro */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-md w-full max-w-sm px-8 py-10">
+        {/* Logo dentro do card */}
+        <div className="flex justify-center mb-6">
+          <img
+            src={logo.src}
+            alt={logo.alt}
+            className="h-12 w-auto"
+          />
+        </div>
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-6">
           <div className={cn(
