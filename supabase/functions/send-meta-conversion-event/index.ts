@@ -6,6 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// SHA256 hash function for PII data
+async function sha256Hash(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text.toLowerCase().trim());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 interface ConversionEventRequest {
   lead_id: string;
   funnel_id: string;
@@ -59,11 +68,12 @@ serve(async (req) => {
       );
     }
 
-    // Prepare user data for matching (hashing is done by Meta)
+    // Prepare user data for matching - Meta requires SHA256 hashing of PII
     const userData: Record<string, string[]> = {};
     
     if (lead.email) {
-      userData.em = [lead.email.toLowerCase().trim()];
+      const hashedEmail = await sha256Hash(lead.email);
+      userData.em = [hashedEmail];
     }
     
     if (lead.telefone_lead) {
@@ -72,7 +82,8 @@ serve(async (req) => {
       if (!phone.startsWith('55') && phone.length <= 11) {
         phone = '55' + phone;
       }
-      userData.ph = [phone];
+      const hashedPhone = await sha256Hash(phone);
+      userData.ph = [hashedPhone];
     }
 
     // Prepare event data
