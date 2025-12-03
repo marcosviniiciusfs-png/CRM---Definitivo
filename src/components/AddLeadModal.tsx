@@ -29,6 +29,7 @@ interface Stage {
   id: string;
   name: string;
   color: string;
+  is_final: boolean;
 }
 
 interface AddLeadModalProps {
@@ -137,9 +138,8 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     try {
       const { data: stagesData } = await supabase
         .from("funnel_stages")
-        .select("id, name, color")
+        .select("id, name, color, is_final")
         .eq("funnel_id", funnelId)
-        .eq("is_final", false)
         .order("position");
 
       if (stagesData && stagesData.length > 0) {
@@ -338,7 +338,10 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
                         className="w-3 h-3 rounded-full shrink-0" 
                         style={{ backgroundColor: stage.color }}
                       />
-                      {stage.name}
+                      <span>{stage.name}</span>
+                      {stage.is_final && (
+                        <span className="text-xs text-muted-foreground">(Final)</span>
+                      )}
                     </div>
                   </SelectItem>
                 ))}
