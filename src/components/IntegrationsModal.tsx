@@ -1,12 +1,18 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Video, Sheet, MessageSquare, CreditCard, Instagram, FileSpreadsheet } from "lucide-react";
 import { useState } from "react";
 import { GoogleCalendarConnection } from "./GoogleCalendarConnection";
 import { MetaPixelConnection } from "./MetaPixelConnection";
 import metaPixelIcon from "@/assets/meta-pixel-icon.png";
 import googleCalendarIcon from "@/assets/google-calendar-icon.png";
+import gmailIcon from "@/assets/gmail-icon.png";
+import googleMeetIcon from "@/assets/google-meet-icon.png";
+import googleSheetsIcon from "@/assets/google-sheets-icon.png";
+import slackIcon from "@/assets/slack-icon.png";
+import mercadoPagoIcon from "@/assets/mercado-pago-icon.png";
+import instagramIcon from "@/assets/instagram-icon.png";
+import notionIcon from "@/assets/notion-icon.png";
 
 interface Integration {
   id: string;
@@ -46,49 +52,49 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
       id: "gmail",
       name: "Gmail",
       description: "Envie e-mails diretamente do CRM com templates",
-      icon: <Mail className="h-6 w-6" />,
+      icon: <img src={gmailIcon} alt="Gmail" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "google_meet",
       name: "Google Meet",
       description: "Gere links de reunião automaticamente",
-      icon: <Video className="h-6 w-6" />,
+      icon: <img src={googleMeetIcon} alt="Google Meet" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "google_sheets",
       name: "Google Sheets",
       description: "Exporte dados e crie relatórios personalizados",
-      icon: <Sheet className="h-6 w-6" />,
+      icon: <img src={googleSheetsIcon} alt="Google Sheets" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "slack",
       name: "Slack",
       description: "Notificações em tempo real no seu workspace",
-      icon: <MessageSquare className="h-6 w-6" />,
+      icon: <img src={slackIcon} alt="Slack" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "mercado_pago",
       name: "Mercado Pago",
       description: "Gere links de pagamento e acompanhe status",
-      icon: <CreditCard className="h-6 w-6" />,
+      icon: <img src={mercadoPagoIcon} alt="Mercado Pago" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "instagram",
       name: "Instagram Direct",
       description: "Receba mensagens do Instagram no chat",
-      icon: <Instagram className="h-6 w-6" />,
+      icon: <img src={instagramIcon} alt="Instagram" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "notion",
       name: "Notion",
       description: "Sincronize tarefas do Kanban com o Notion",
-      icon: <FileSpreadsheet className="h-6 w-6" />,
+      icon: <img src={notionIcon} alt="Notion" className="h-6 w-6" />,
       status: "coming_soon",
     },
   ];
