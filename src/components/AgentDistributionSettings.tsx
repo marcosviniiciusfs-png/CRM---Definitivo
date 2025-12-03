@@ -79,38 +79,34 @@ export function AgentDistributionSettings() {
 
       if (!member) return;
 
-      // Se for admin/owner, carregar todos os membros
+      // Se for admin/owner, carregar membros e perfis em PARALELO
       if (permissions.canManageAgentSettings) {
-        const { data: orgMembers } = await supabase
-          .from('organization_members')
-          .select('user_id, email')
-          .eq('organization_id', member.organization_id)
-          .not('user_id', 'is', null);
-
-        if (orgMembers) {
-          // Buscar nomes dos perfis
-          const memberIds = orgMembers.map(m => m.user_id).filter(Boolean) as string[];
-          const { data: profiles } = await supabase
+        const [orgMembersResult, profilesResult] = await Promise.all([
+          supabase
+            .from('organization_members')
+            .select('user_id, email')
+            .eq('organization_id', member.organization_id)
+            .not('user_id', 'is', null),
+          supabase
             .from('profiles')
             .select('user_id, full_name')
-            .in('user_id', memberIds);
+        ]);
 
-          const membersWithNames = orgMembers.map(m => {
-            const profile = profiles?.find(p => p.user_id === m.user_id);
-            return {
-              user_id: m.user_id!,
-              full_name: profile?.full_name || m.email || 'Sem nome',
-              email: m.email || '',
-            };
-          });
+        const orgMembers = orgMembersResult.data || [];
+        const profiles = profilesResult.data || [];
 
-          setMembers(membersWithNames);
-          // Aguardar um pouco antes de selecionar para garantir que o estado foi atualizado
-          await new Promise(resolve => setTimeout(resolve, 50));
-          setSelectedMemberId(user.id);
-        }
+        const membersWithNames = orgMembers.map(m => {
+          const profile = profiles.find(p => p.user_id === m.user_id);
+          return {
+            user_id: m.user_id!,
+            full_name: profile?.full_name || m.email || 'Sem nome',
+            email: m.email || '',
+          };
+        });
+
+        setMembers(membersWithNames);
+        setSelectedMemberId(user.id);
       } else {
-        // Se for member, carregar apenas as próprias configurações
         setSelectedMemberId(user.id);
       }
     } catch (error) {
@@ -126,27 +122,47 @@ export function AgentDistributionSettings() {
     try {
       setLoadingSettings(true);
       
-      const { data: member } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', memberId)
-        .single();
+      // Buscar organization_id e profile em PARALELO
+      const [memberResult, profileResult] = await Promise.all([
+        supabase
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', memberId)
+          .single(),
+        supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', memberId)
+          .single()
+      ]);
 
-      if (!member) return;
+      if (!memberResult.data) return;
 
-      const { data: existingSettings } = await supabase
-        .from('agent_distribution_settings')
-        .select('*')
-        .eq('user_id', memberId)
-        .eq('organization_id', member.organization_id)
-        .single();
+      // Buscar settings e leads count em PARALELO
+      const [settingsResult, leadsCountResult] = await Promise.all([
+        supabase
+          .from('agent_distribution_settings')
+          .select('*')
+          .eq('user_id', memberId)
+          .eq('organization_id', memberResult.data.organization_id)
+          .single(),
+        profileResult.data?.full_name 
+          ? supabase
+              .from('leads')
+              .select('id', { count: 'exact', head: true })
+              .eq('responsavel', profileResult.data.full_name)
+              .neq('stage', 'GANHO')
+              .neq('stage', 'PERDIDO')
+              .neq('stage', 'DESCARTADO')
+          : Promise.resolve({ count: 0 })
+      ]);
 
-      if (existingSettings) {
-        setSettings(existingSettings);
+      if (settingsResult.data) {
+        setSettings(settingsResult.data);
       } else {
         setSettings({
           user_id: memberId,
-          organization_id: member.organization_id,
+          organization_id: memberResult.data.organization_id,
           is_active: true,
           is_paused: false,
           max_capacity: 50,
@@ -154,24 +170,7 @@ export function AgentDistributionSettings() {
         });
       }
 
-      // Carregar carga atual
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', memberId)
-        .single();
-
-      if (profile) {
-        const { count } = await supabase
-          .from('leads')
-          .select('id', { count: 'exact', head: true })
-          .eq('responsavel', profile.full_name)
-          .neq('stage', 'GANHO')
-          .neq('stage', 'PERDIDO')
-          .neq('stage', 'DESCARTADO');
-
-        setCurrentLoad(count || 0);
-      }
+      setCurrentLoad(leadsCountResult.count || 0);
     } catch (error) {
       console.error('Error loading member settings:', error);
     } finally {
