@@ -8,7 +8,7 @@ import { Login1 } from "@/components/ui/login-1";
 import kairozLogo from "@/assets/kairoz-logo-full.png";
 
 const Auth = () => {
-  const { signUp, signIn, signInWithGoogle, user, loading: authLoading } = useAuth();
+  const { signUp, signIn, signInWithGoogle, resetPassword, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -91,6 +91,34 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (email: string) => {
+    if (!email) {
+      toast({
+        title: "Erro",
+        description: "Por favor, digite seu email",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await resetPassword(email);
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Erro ao enviar email",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Email enviado!",
+        description: "Verifique sua caixa de entrada para redefinir a senha",
+      });
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -109,6 +137,7 @@ const Auth = () => {
         onLogin={handleLogin}
         onSignup={handleSignup}
         onGoogleLogin={handleGoogleLogin}
+        onForgotPassword={handleForgotPassword}
         loading={loading}
       />
     </StarsBackground>
