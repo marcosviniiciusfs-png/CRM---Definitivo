@@ -27,6 +27,59 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Cache keys
+const SUBSCRIPTION_CACHE_KEY = "kairoz_subscription_cache";
+const SUBSCRIPTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface CachedSubscription {
+  data: SubscriptionData;
+  timestamp: number;
+  userId: string;
+}
+
+// Helper functions for cache
+const getSubscriptionCache = (userId: string): SubscriptionData | null => {
+  try {
+    const cached = sessionStorage.getItem(SUBSCRIPTION_CACHE_KEY);
+    if (!cached) return null;
+    
+    const parsed: CachedSubscription = JSON.parse(cached);
+    const isExpired = Date.now() - parsed.timestamp > SUBSCRIPTION_CACHE_TTL;
+    const isCorrectUser = parsed.userId === userId;
+    
+    if (isExpired || !isCorrectUser) {
+      sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
+      return null;
+    }
+    
+    return parsed.data;
+  } catch {
+    sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
+    return null;
+  }
+};
+
+const setSubscriptionCache = (data: SubscriptionData, userId: string) => {
+  try {
+    const cacheData: CachedSubscription = {
+      data,
+      timestamp: Date.now(),
+      userId,
+    };
+    sessionStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(cacheData));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const clearSubscriptionCache = () => {
+  try {
+    sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -34,20 +87,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const navigate = useNavigate();
   const currentSessionIdRef = useRef<string | null>(null);
+  const subscriptionFetchedRef = useRef(false);
 
-  const refreshSubscription = async () => {
-    console.log('[AUTH] refreshSubscription called, user:', user?.email);
+  const refreshSubscription = async (forceRefresh = false) => {
+    console.log('[AUTH] refreshSubscription called, user:', user?.email, 'force:', forceRefresh);
     
-    // Verificar se há sessão ativa
     const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (!currentSession?.access_token) {
-      console.log('[AUTH] No active session, skipping subscription check');
+    if (!currentSession?.access_token || !user) {
+      console.log('[AUTH] No active session or user, skipping subscription check');
       return;
     }
     
-    if (!user) {
-      console.log('[AUTH] No user, skipping subscription check');
-      return;
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cachedData = getSubscriptionCache(user.id);
+      if (cachedData) {
+        console.log('[AUTH] Using cached subscription data');
+        setSubscriptionData(cachedData);
+        return;
+      }
     }
     
     try {
@@ -61,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('[AUTH] Subscription data received:', data);
       setSubscriptionData(data);
+      setSubscriptionCache(data, user.id);
     } catch (error) {
       console.error('[AUTH] Erro ao verificar assinatura:', error);
     }
@@ -68,7 +127,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logUserSession = async (userId: string, isLogin: boolean) => {
     try {
-      // Buscar organização do usuário
       const { data: memberData } = await supabase
         .from('organization_members')
         .select('organization_id')
@@ -78,7 +136,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!memberData?.organization_id) return;
 
       if (isLogin) {
-        // Criar nova sessão
         const { data, error } = await supabase
           .from('user_sessions')
           .insert({
@@ -93,7 +150,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           currentSessionIdRef.current = data.id;
         }
       } else {
-        // Atualizar sessão com logout
         if (currentSessionIdRef.current) {
           const { data: sessionData } = await supabase
             .from('user_sessions')
@@ -126,7 +182,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -135,27 +190,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
 
-        // Registrar login/logout de forma assíncrona
         if (event === 'SIGNED_IN' && session?.user && session?.access_token) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
-          // Verificar assinatura após login
+          
+          // Check cache first for faster loading
+          const cachedData = getSubscriptionCache(session.user.id);
+          if (cachedData) {
+            console.log('[AUTH] Using cached subscription data on SIGNED_IN');
+            setSubscriptionData(cachedData);
+          }
+          
+          // Refresh in background
           setTimeout(async () => {
-            console.log('[AUTH] Calling refreshSubscription after SIGNED_IN');
+            if (!mounted) return;
             try {
-              // Verificar se a sessão ainda está ativa antes de chamar
               const { data: { session: currentSession } } = await supabase.auth.getSession();
-              if (!currentSession?.access_token) {
-                console.log('[AUTH] No active session, skipping subscription check');
-                return;
-              }
+              if (!currentSession?.access_token) return;
               
               const { data, error } = await supabase.functions.invoke('check-subscription');
-              if (error) {
-                console.error('[AUTH] Erro ao verificar assinatura após login:', error);
-                return;
+              if (!error && data && mounted) {
+                setSubscriptionData(data);
+                setSubscriptionCache(data, session.user.id);
               }
-              console.log('[AUTH] Subscription data após login:', data);
-              setSubscriptionData(data);
             } catch (error) {
               console.error('[AUTH] Erro ao verificar assinatura após login:', error);
             }
@@ -163,6 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (event === 'SIGNED_OUT') {
           const currentUserId = session?.user?.id;
           setSubscriptionData(null);
+          clearSubscriptionCache();
+          subscriptionFetchedRef.current = false;
           setTimeout(() => {
             if (currentUserId) {
               logUserSession(currentUserId, false);
@@ -172,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // THEN check for existing session
+    // Initial session check
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
         if (!mounted) return;
@@ -181,20 +239,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
 
-        // Se já tem sessão, registrar login e verificar assinatura
         if (session?.user && session?.access_token) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
-          // Verificar assinatura apenas se temos token de acesso
-          try {
-            const { data, error } = await supabase.functions.invoke('check-subscription');
-            if (error) {
+          
+          // Check cache first
+          const cachedData = getSubscriptionCache(session.user.id);
+          if (cachedData) {
+            console.log('[AUTH] Using cached subscription data on initial load');
+            setSubscriptionData(cachedData);
+            subscriptionFetchedRef.current = true;
+          }
+          
+          // Refresh in background if no cache or to update cache
+          if (!cachedData) {
+            try {
+              const { data, error } = await supabase.functions.invoke('check-subscription');
+              if (!error && data && mounted) {
+                setSubscriptionData(data);
+                setSubscriptionCache(data, session.user.id);
+                subscriptionFetchedRef.current = true;
+              }
+            } catch (error) {
               console.error('[AUTH] Erro ao verificar assinatura inicial:', error);
-            } else {
-              console.log('[AUTH] Subscription data inicial:', data);
-              setSubscriptionData(data);
             }
-          } catch (error) {
-            console.error('[AUTH] Erro ao verificar assinatura inicial:', error);
           }
         }
       })
@@ -259,6 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user?.id) {
       await logUserSession(user.id, false);
     }
+    clearSubscriptionCache();
     await supabase.auth.signOut();
     navigate("/auth");
   };
