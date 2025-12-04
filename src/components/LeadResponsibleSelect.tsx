@@ -21,12 +21,14 @@ interface Colaborador {
 
 interface LeadResponsibleSelectProps {
   leadId: string;
-  currentResponsible: string | null;
+  currentResponsibleUserId?: string | null;
+  currentResponsible?: string | null; // Mantido para compatibilidade
   onUpdate?: () => void;
 }
 
 export function LeadResponsibleSelect({ 
   leadId, 
+  currentResponsibleUserId,
   currentResponsible, 
   onUpdate 
 }: LeadResponsibleSelectProps) {
@@ -94,13 +96,17 @@ export function LeadResponsibleSelect({
     try {
       setUpdating(true);
       
-      // Buscar o email do colaborador selecionado
+      // Buscar o colaborador selecionado
       const colaborador = colaboradores.find(c => c.user_id === userId);
-      const responsibleName = colaborador?.full_name || colaborador?.email || userId;
+      const responsibleName = colaborador?.full_name || colaborador?.email || '';
 
+      // Atualizar com UUID e TEXT para compatibilidade
       const { error } = await supabase
         .from('leads')
-        .update({ responsavel: responsibleName })
+        .update({ 
+          responsavel_user_id: userId === 'none' ? null : userId,
+          responsavel: userId === 'none' ? null : responsibleName // Mantém TEXT para compatibilidade
+        })
         .eq('id', leadId);
 
       if (error) throw error;
@@ -124,8 +130,10 @@ export function LeadResponsibleSelect({
       .slice(0, 2);
   };
 
-  const currentColaborador = colaboradores.find(
-    c => c.full_name === currentResponsible || c.email === currentResponsible
+  // Buscar colaborador por UUID (prioridade) ou por nome (fallback)
+  const currentColaborador = colaboradores.find(c => 
+    (currentResponsibleUserId && c.user_id === currentResponsibleUserId) ||
+    (!currentResponsibleUserId && (c.full_name === currentResponsible || c.email === currentResponsible))
   );
 
   if (loading) {

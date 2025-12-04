@@ -180,10 +180,13 @@ serve(async (req) => {
       );
     }
 
-    // 7. Atribuir lead ao agente
+    // 7. Atribuir lead ao agente - ATUALIZADO: usar UUID + TEXT para compatibilidade
     const { error: updateError } = await supabase
       .from('leads')
-      .update({ responsavel: selectedAgent.full_name || selectedAgent.email })
+      .update({ 
+        responsavel_user_id: selectedAgent.user_id,
+        responsavel: selectedAgent.full_name || selectedAgent.email // Mantém TEXT para compatibilidade
+      })
       .eq('id', lead_id);
 
     if (updateError) {
@@ -211,12 +214,13 @@ serve(async (req) => {
       console.error('Error recording history:', historyError);
     }
 
-    console.log('Lead distributed successfully to:', selectedAgent.full_name || selectedAgent.email);
+    console.log('Lead distributed successfully to:', selectedAgent.full_name || selectedAgent.email, '(UUID:', selectedAgent.user_id, ')');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         agent: selectedAgent.full_name || selectedAgent.email,
+        agent_user_id: selectedAgent.user_id,
         method: config.distribution_method 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -282,7 +286,7 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
   const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
   const currentTime = now.toTimeString().slice(0, 5); // HH:MM
 
-  // 5. Filtrar agentes disponíveis
+  // 5. Filtrar agentes disponíveis - ATUALIZADO: usar responsavel_user_id
   const available = [];
   for (const agent of settings) {
     const profile = profilesMap.get(agent.user_id);
@@ -301,18 +305,18 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
       }
     }
 
-    // Verificar capacidade máxima
-    const agentName = profile?.full_name || member?.email;
+    // Verificar capacidade máxima - ATUALIZADO: usar responsavel_user_id (UUID)
     const { count } = await supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
-      .eq('responsavel', agentName)
+      .eq('responsavel_user_id', agent.user_id)
       .neq('stage', 'GANHO')
       .neq('stage', 'PERDIDO')
       .neq('stage', 'DESCARTADO');
 
     const currentLoad = count || 0;
-    console.log(`Agent ${agentName}: ${currentLoad}/${agent.max_capacity} leads`);
+    const agentName = profile?.full_name || member?.email;
+    console.log(`Agent ${agentName} (${agent.user_id}): ${currentLoad}/${agent.max_capacity} leads`);
 
     if (currentLoad >= agent.max_capacity) {
       console.log(`Agent at capacity, skipping`);

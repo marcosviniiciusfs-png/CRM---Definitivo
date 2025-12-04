@@ -341,13 +341,17 @@ async function executeAction(
 
         const agentName = profile?.full_name || action.config.agent_email;
 
+        // ATUALIZADO: usar UUID + TEXT para compatibilidade
         const { error: assignError } = await supabase
           .from('leads')
-          .update({ responsavel: agentName })
+          .update({ 
+            responsavel_user_id: member.user_id,
+            responsavel: agentName // Mantém TEXT para compatibilidade
+          })
           .eq('id', triggerData.lead_id);
 
         if (assignError) throw assignError;
-        return { assigned_to: agentName };
+        return { assigned_to: agentName, assigned_user_id: member.user_id };
       }
       return { assigned_to: action.config.agent_email };
 

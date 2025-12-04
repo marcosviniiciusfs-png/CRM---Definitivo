@@ -214,6 +214,7 @@ const Dashboard = () => {
           nome_lead,
           valor,
           responsavel,
+          responsavel_user_id,
           updated_at,
           created_at,
           funnel_stage_id,
@@ -243,21 +244,24 @@ const Dashboard = () => {
 
       if (!lastWonLead) return;
 
-      // Buscar dados do colaborador responsável
+      // Buscar dados do colaborador responsável - ATUALIZADO: usar UUID
       let collaboratorName = 'Não atribuído';
       let collaboratorAvatar: string | undefined;
 
-      if (lastWonLead.responsavel) {
+      if (lastWonLead.responsavel_user_id) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name, avatar_url')
-          .eq('user_id', lastWonLead.responsavel)
+          .eq('user_id', lastWonLead.responsavel_user_id)
           .single();
 
         if (profile) {
           collaboratorName = profile.full_name || 'Colaborador';
           collaboratorAvatar = profile.avatar_url || undefined;
         }
+      } else if (lastWonLead.responsavel) {
+        // Fallback para TEXT (dados antigos)
+        collaboratorName = lastWonLead.responsavel;
       }
 
       // Buscar produtos associados ao lead

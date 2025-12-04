@@ -1162,6 +1162,7 @@ export type Database = {
           organization_id: string | null
           position: number | null
           responsavel: string | null
+          responsavel_user_id: string | null
           source: string | null
           stage: string | null
           telefone_lead: string
@@ -1188,6 +1189,7 @@ export type Database = {
           organization_id?: string | null
           position?: number | null
           responsavel?: string | null
+          responsavel_user_id?: string | null
           source?: string | null
           stage?: string | null
           telefone_lead: string
@@ -1214,6 +1216,7 @@ export type Database = {
           organization_id?: string | null
           position?: number | null
           responsavel?: string | null
+          responsavel_user_id?: string | null
           source?: string | null
           stage?: string | null
           telefone_lead?: string

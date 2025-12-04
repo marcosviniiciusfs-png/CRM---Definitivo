@@ -247,11 +247,11 @@ const Leads = () => {
       
       let query = supabase
         .from("leads")
-        .select("id, nome_lead, email, telefone_lead, responsavel, stage, source, valor, updated_at, created_at, funnel_id, funnel_stage_id");
+        .select("id, nome_lead, email, telefone_lead, responsavel, responsavel_user_id, stage, source, valor, updated_at, created_at, funnel_id, funnel_stage_id");
 
-      // SEGURANÇA: Members só veem leads atribuídos a eles (filtro no backend)
-      if (!permissions.canViewAllLeads && userProfile?.full_name) {
-        query = query.eq("responsavel", userProfile.full_name);
+      // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
+      if (!permissions.canViewAllLeads && user?.id) {
+        query = query.eq("responsavel_user_id", user.id);
       }
 
       const { data, error } = await query
@@ -484,13 +484,19 @@ const Leads = () => {
     }
   };
   
-  const handleBulkAssign = async (responsibleName: string) => {
+  const handleBulkAssign = async (responsibleName: string, responsibleUserId?: string) => {
     if (selectedLeads.length === 0) return;
     
     try {
+      // ATUALIZADO: usar UUID + TEXT para compatibilidade
+      const updateData: any = { responsavel: responsibleName };
+      if (responsibleUserId) {
+        updateData.responsavel_user_id = responsibleUserId;
+      }
+      
       const { error } = await supabase
         .from("leads")
-        .update({ responsavel: responsibleName })
+        .update(updateData)
         .in("id", selectedLeads);
       
       if (error) throw error;
