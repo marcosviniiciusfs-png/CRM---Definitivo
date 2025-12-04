@@ -599,15 +599,15 @@ const Dashboard = () => {
                 </PieChart>
               </ResponsiveContainer>
               
-              {/* Valor central */}
-              <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 px-4">
-                <p className="text-base sm:text-lg md:text-xl font-bold truncate max-w-full text-center">
+              {/* Valor central - posicionado dentro do arco */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pt-16 px-2">
+                <p className="text-sm sm:text-base md:text-lg font-bold text-center leading-tight max-w-[180px] sm:max-w-[220px]">
                   R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs sm:text-sm md:text-base text-muted-foreground truncate max-w-full text-center">
+                <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground text-center max-w-[180px] sm:max-w-[220px]">
                   de R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
 
