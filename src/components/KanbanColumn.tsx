@@ -14,6 +14,8 @@ interface Card {
   position: number;
   created_at: string;
   timer_started_at?: string;
+  calendar_event_id?: string;
+  calendar_event_link?: string;
 }
 
 interface Column {
@@ -34,6 +36,7 @@ interface KanbanColumnProps {
     oldDescription?: string
   ) => void;
   onDeleteCard: (columnId: string, cardId: string) => void;
+  onSyncCalendar?: (card: Card) => void;
   isDraggingActive: boolean;
 }
 
@@ -44,6 +47,7 @@ export const KanbanColumn = ({
   onAddCard,
   onEditCard,
   onDeleteCard,
+  onSyncCalendar,
   isDraggingActive,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
@@ -86,6 +90,7 @@ export const KanbanColumn = ({
                 onEditCard(column.id, id, updates, oldDesc)
               }
               onDelete={(id) => onDeleteCard(column.id, id)}
+              onSyncCalendar={onSyncCalendar}
             />
           ))}
         </SortableContext>

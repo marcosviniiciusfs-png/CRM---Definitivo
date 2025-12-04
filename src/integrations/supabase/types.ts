@@ -769,6 +769,8 @@ export type Database = {
       }
       kanban_cards: {
         Row: {
+          calendar_event_id: string | null
+          calendar_event_link: string | null
           column_id: string
           content: string
           created_at: string
@@ -782,6 +784,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          calendar_event_id?: string | null
+          calendar_event_link?: string | null
           column_id: string
           content: string
           created_at?: string
@@ -795,6 +799,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          calendar_event_id?: string | null
+          calendar_event_link?: string | null
           column_id?: string
           content?: string
           created_at?: string

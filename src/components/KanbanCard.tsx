@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, X, Calendar, Clock } from "lucide-react";
+import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ import {
 import { MentionInput } from "./MentionInput";
 import { format } from "date-fns";
 import { useCardTimer } from "@/hooks/useCardTimer";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
 interface Card {
   id: string;
@@ -25,15 +26,18 @@ interface Card {
   position: number;
   created_at: string;
   timer_started_at?: string;
+  calendar_event_id?: string;
+  calendar_event_link?: string;
 }
 
 interface KanbanCardProps {
   card: Card;
   onEdit: (id: string, updates: Partial<Card>, oldDescription?: string) => void;
   onDelete: (id: string) => void;
+  onSyncCalendar?: (card: Card) => void;
 }
 
-export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
+export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCardProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: card.id,
@@ -179,8 +183,31 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
                 </div>
               )}
 
-              {(card.due_date || card.estimated_time) && (
+              {(card.due_date || card.estimated_time || card.calendar_event_id) && (
                 <div className="flex flex-wrap gap-2 text-xs">
+                  {card.calendar_event_id && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div 
+                            className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded cursor-pointer hover:bg-primary/20 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (card.calendar_event_link) {
+                                window.open(card.calendar_event_link, '_blank');
+                              }
+                            }}
+                          >
+                            <CalendarCheck className="h-3 w-3" />
+                            Sincronizado
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Clique para abrir no Google Calendar</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   {card.due_date && (
                     <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded">
                       <Calendar className="h-3 w-3" />
@@ -222,6 +249,22 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
               <Settings className="h-4 w-4 mr-2" />
               Editar
             </DropdownMenuItem>
+            {card.calendar_event_id ? (
+              <DropdownMenuItem
+                onClick={() => card.calendar_event_link && window.open(card.calendar_event_link, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Abrir no Calendar
+              </DropdownMenuItem>
+            ) : (
+              onSyncCalendar && (
+                <DropdownMenuItem onClick={() => onSyncCalendar(card)}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Sincronizar Calendar
+                </DropdownMenuItem>
+              )
+            )}
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => onDelete(card.id)}
               className="text-destructive"
