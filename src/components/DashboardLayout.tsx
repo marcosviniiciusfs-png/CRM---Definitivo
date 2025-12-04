@@ -8,6 +8,8 @@ import { ReactNode, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Settings, BarChart3 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import googleCalendarIcon from "@/assets/google-calendar-icon.png";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -49,6 +51,25 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Button>
                 </>
               )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => window.open('https://calendar.google.com', '_blank')}
+                    className="h-9 w-9"
+                  >
+                    <img 
+                      src={googleCalendarIcon} 
+                      alt="Google Calendar" 
+                      className="h-5 w-5"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Abrir Google Calendar</p>
+                </TooltipContent>
+              </Tooltip>
               <NotificationBell />
               <UserProfileMenu />
             </div>
