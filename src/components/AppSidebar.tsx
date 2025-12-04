@@ -215,7 +215,7 @@ export function AppSidebar() {
         )}>
           <Button
             onClick={() => setIsLocked(!isLocked)}
-            variant="ghost"
+            variant="ghostIcon"
             size="icon"
             className={cn("w-full", isLocked && "bg-sidebar-accent")}
           >
@@ -227,7 +227,7 @@ export function AppSidebar() {
           </Button>
           <Button
             onClick={signOut}
-            variant="ghost"
+            variant="ghostIcon"
             size="icon"
             className="w-full"
           >

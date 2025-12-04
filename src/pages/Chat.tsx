@@ -2490,7 +2490,7 @@ const Chat = () => {
                 </p>
               </div>
               <Button
-                variant="ghost"
+                variant="ghostIcon"
                 size="icon"
                 onClick={handleRefreshPresence}
                 disabled={loadingPresence}
@@ -2504,7 +2504,7 @@ const Chat = () => {
                 )}
               </Button>
               <Button
-                variant="ghost"
+                variant="ghostIcon"
                 size="icon"
                 onClick={() => setLeadTagsOpen(true)}
                 title="Gerenciar etiquetas"
@@ -2541,7 +2541,7 @@ const Chat = () => {
                         {currentSearchResultIndex + 1} de {totalSearchResults}
                       </span>
                       <Button
-                        variant="ghost"
+                        variant="ghostIcon"
                         size="icon"
                         className="h-7 w-7"
                         onClick={goToPreviousResult}
@@ -2551,7 +2551,7 @@ const Chat = () => {
                         <ChevronUp className="h-3.5 w-3.5" />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="ghostIcon"
                         size="icon"
                         className="h-7 w-7"
                         onClick={goToNextResult}
@@ -2578,7 +2578,7 @@ const Chat = () => {
                 </div>
               ) : (
                 <Button
-                  variant="ghost"
+                  variant="ghostIcon"
                   size="icon"
                   onClick={() => setMessageSearchExpanded(true)}
                   title="Buscar mensagens"
@@ -3150,7 +3150,7 @@ const Chat = () => {
                 />
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="ghostIcon"
                   size="icon"
                   className="shrink-0"
                   title="Anexar arquivo"
@@ -3179,7 +3179,7 @@ const Chat = () => {
                 />
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="ghostIcon"
                   size="icon"
                   className="shrink-0"
                   title="Gravar áudio"
@@ -3187,7 +3187,7 @@ const Chat = () => {
                 >
                   <Mic className="h-5 w-5" />
                 </Button>
-                <Button type="submit" disabled={!newMessage.trim()} size="icon" variant="ghost" className="shrink-0">
+                <Button type="submit" disabled={!newMessage.trim()} size="icon" variant="ghostIcon" className="shrink-0">
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (

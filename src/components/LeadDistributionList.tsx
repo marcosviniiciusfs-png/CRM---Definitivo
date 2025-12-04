@@ -184,7 +184,7 @@ export function LeadDistributionList() {
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      variant="ghost"
+                      variant="ghostIcon"
                       size="icon"
                       onClick={() => toggleActiveMutation.mutate({ configId: config.id, isActive: config.is_active })}
                     >
@@ -195,7 +195,7 @@ export function LeadDistributionList() {
                       )}
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="ghostIcon"
                       size="icon"
                       onClick={() => handleEdit(config)}
                     >
@@ -203,7 +203,7 @@ export function LeadDistributionList() {
                     </Button>
                     {permissions.canDeleteRoulettes && (
                       <Button
-                        variant="ghost"
+                        variant="ghostIcon"
                         size="icon"
                         onClick={() => {
                           if (confirm("Tem certeza que deseja excluir esta roleta?")) {

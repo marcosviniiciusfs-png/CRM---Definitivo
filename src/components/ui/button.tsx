@@ -14,6 +14,7 @@ const buttonVariants = cva(
         outline: "border-2 border-primary/20 bg-background text-primary hover:bg-primary/10 hover:border-primary/30",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
+        ghostIcon: "hover:bg-transparent focus:ring-0 focus:ring-offset-0",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
@@ -23,6 +24,13 @@ const buttonVariants = cva(
         icon: "h-10 w-10",
       },
     },
+    compoundVariants: [
+      {
+        variant: ["ghost", "ghostIcon"],
+        size: "icon",
+        className: "hover:scale-100 hover:shadow-none",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",

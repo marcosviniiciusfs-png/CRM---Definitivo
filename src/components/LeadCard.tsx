@@ -227,7 +227,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Button
-                    variant="ghost"
+                    variant="ghostIcon"
                     size="icon"
                     className="h-4 w-4 -mt-0.5 flex-shrink-0"
                   >

@@ -117,7 +117,7 @@ const FunnelBuilder = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
-            variant="ghost"
+            variant="ghostIcon"
             size="icon"
             onClick={() => navigate("/pipeline")}
           >

@@ -309,7 +309,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                       </AccordionTrigger>
                       <div className="flex gap-2 ml-4">
                         <Button
-                          variant="ghost"
+                          variant="ghostIcon"
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -320,7 +320,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="ghostIcon"
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -331,7 +331,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                           {rule.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="ghostIcon"
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -594,7 +594,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                       )}
 
                       <Button
-                        variant="ghost"
+                        variant="ghostIcon"
                         size="icon"
                         onClick={() => setConditions(conditions.filter((_, i) => i !== index))}
                       >
@@ -735,7 +735,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                       )}
 
                       <Button
-                        variant="ghost"
+                        variant="ghostIcon"
                         size="icon"
                         onClick={() => setActions(actions.filter((_, i) => i !== index))}
                       >

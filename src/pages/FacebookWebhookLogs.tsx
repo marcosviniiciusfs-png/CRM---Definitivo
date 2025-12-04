@@ -216,7 +216,7 @@ export default function FacebookWebhookLogs() {
                       </CardDescription>
                     </div>
                     <Button
-                      variant="ghost"
+                      variant="ghostIcon"
                       size="icon"
                       onClick={() => {
                         setSelectedLog(log.id);

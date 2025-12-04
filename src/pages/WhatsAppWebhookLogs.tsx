@@ -218,7 +218,7 @@ export default function WhatsAppWebhookLogs() {
                       </CardDescription>
                     </div>
                     <Button
-                      variant="ghost"
+                      variant="ghostIcon"
                       size="icon"
                       onClick={() => {
                         setSelectedLog(log.id);

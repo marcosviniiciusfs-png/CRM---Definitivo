@@ -214,7 +214,7 @@ export default function FormWebhookLogs() {
                       </CardDescription>
                     </div>
                     <Button
-                      variant="ghost"
+                      variant="ghostIcon"
                       size="icon"
                       onClick={() => {
                         setSelectedLog(log.id);

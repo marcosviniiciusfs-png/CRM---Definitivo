@@ -614,7 +614,7 @@ const Settings = () => {
                               {webhookTagName}
                             </Badge>
                             <Button
-                              variant="ghost"
+                              variant="ghostIcon"
                               size="icon"
                               className="h-7 w-7"
                               onClick={handleStartEditTag}

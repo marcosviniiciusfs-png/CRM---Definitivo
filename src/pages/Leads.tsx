@@ -877,7 +877,7 @@ const Leads = () => {
                             <>
                               <Button 
                                 size="icon" 
-                                variant="ghost"
+                                variant="ghostIcon"
                                 className="h-8 w-8 text-muted-foreground hover:text-primary"
                                 onClick={() => handleEditLead(lead)}
                               >
@@ -886,7 +886,7 @@ const Leads = () => {
                               {permissions.canDeleteLeads && (
                                 <Button 
                                   size="icon" 
-                                  variant="ghost"
+                                  variant="ghostIcon"
                                   className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                   onClick={() => setLeadToDelete(lead)}
                                 >

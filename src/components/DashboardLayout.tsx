@@ -54,10 +54,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="ghostIcon"
                     size="icon"
                     onClick={() => window.open('https://calendar.google.com', '_blank')}
-                    className="h-9 w-9 hover:bg-transparent focus:ring-0 focus:ring-offset-0"
+                    className="h-9 w-9"
                   >
                     <img 
                       src={googleCalendarIcon} 
