@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 
@@ -50,6 +50,61 @@ const defaultPermissions: Permissions = {
   loading: true,
 };
 
+// Cache keys and TTL
+const ORG_CACHE_KEY = "kairoz_org_cache";
+const ORG_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+interface CachedOrgData {
+  organizationId: string;
+  permissions: Permissions;
+  timestamp: number;
+  userId: string;
+}
+
+// Helper functions for cache
+const getOrgCache = (userId: string): CachedOrgData | null => {
+  try {
+    const cached = localStorage.getItem(ORG_CACHE_KEY);
+    if (!cached) return null;
+    
+    const parsed: CachedOrgData = JSON.parse(cached);
+    const isExpired = Date.now() - parsed.timestamp > ORG_CACHE_TTL;
+    const isCorrectUser = parsed.userId === userId;
+    
+    if (isExpired || !isCorrectUser) {
+      localStorage.removeItem(ORG_CACHE_KEY);
+      return null;
+    }
+    
+    return parsed;
+  } catch {
+    localStorage.removeItem(ORG_CACHE_KEY);
+    return null;
+  }
+};
+
+const setOrgCache = (organizationId: string, permissions: Permissions, userId: string) => {
+  try {
+    const cacheData: CachedOrgData = {
+      organizationId,
+      permissions,
+      timestamp: Date.now(),
+      userId,
+    };
+    localStorage.setItem(ORG_CACHE_KEY, JSON.stringify(cacheData));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const clearOrgCache = () => {
+  try {
+    localStorage.removeItem(ORG_CACHE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 const OrganizationContext = createContext<OrganizationContextType>({
   organizationId: null,
   permissions: defaultPermissions,
@@ -60,15 +115,31 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Permissions>(defaultPermissions);
+  const dataLoadedRef = useRef(false);
 
-  const loadOrganizationData = useCallback(async () => {
+  const loadOrganizationData = useCallback(async (forceRefresh = false) => {
     if (!user) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
+      clearOrgCache();
+      dataLoadedRef.current = false;
       return;
     }
 
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cachedData = getOrgCache(user.id);
+      if (cachedData) {
+        console.log('[ORG] Using cached organization data');
+        setOrganizationId(cachedData.organizationId);
+        setPermissions({ ...cachedData.permissions, loading: false });
+        dataLoadedRef.current = true;
+        return;
+      }
+    }
+
     try {
+      console.log('[ORG] Fetching organization data from API');
       const { data: orgMember } = await supabase
         .from('organization_members')
         .select('organization_id, role')
@@ -82,7 +153,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         const isOwner = role === 'owner';
         const isAdmin = role === 'admin';
 
-        setPermissions({
+        const newPermissions: Permissions = {
           canManageCollaborators: isOwner || isAdmin,
           canDeleteCollaborators: isOwner,
           canChangeRoles: isOwner,
@@ -101,7 +172,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           canManageAgentSettings: isOwner || isAdmin,
           role,
           loading: false,
-        });
+        };
+
+        setPermissions(newPermissions);
+        setOrgCache(orgMember.organization_id, newPermissions, user.id);
+        dataLoadedRef.current = true;
       } else {
         setPermissions(prev => ({ ...prev, loading: false }));
       }
@@ -111,15 +186,38 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  // Initial load with cache
   useEffect(() => {
-    loadOrganizationData();
+    if (!user) {
+      setPermissions(prev => ({ ...prev, loading: false }));
+      setOrganizationId(null);
+      return;
+    }
+
+    // Try to load from cache immediately for faster UI
+    const cachedData = getOrgCache(user.id);
+    if (cachedData) {
+      console.log('[ORG] Restoring from cache on mount');
+      setOrganizationId(cachedData.organizationId);
+      setPermissions({ ...cachedData.permissions, loading: false });
+      dataLoadedRef.current = true;
+      
+      // Refresh in background to ensure data is fresh
+      loadOrganizationData(true);
+    } else {
+      loadOrganizationData();
+    }
+  }, [user?.id]); // Only depend on user.id to avoid re-running on every user object change
+
+  const refresh = useCallback(async () => {
+    await loadOrganizationData(true);
   }, [loadOrganizationData]);
 
   return (
     <OrganizationContext.Provider value={{ 
       organizationId, 
       permissions, 
-      refresh: loadOrganizationData 
+      refresh 
     }}>
       {children}
     </OrganizationContext.Provider>
