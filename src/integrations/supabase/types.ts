@@ -205,6 +205,101 @@ export type Database = {
           },
         ]
       }
+      commission_configs: {
+        Row: {
+          commission_type: string
+          commission_value: number
+          created_at: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commissions: {
+        Row: {
+          commission_rate: number
+          commission_type: string
+          commission_value: number
+          created_at: string
+          id: string
+          lead_id: string | null
+          organization_id: string
+          paid_at: string | null
+          sale_value: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          commission_rate: number
+          commission_type: string
+          commission_value: number
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          organization_id: string
+          paid_at?: string | null
+          sale_value: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          commission_rate?: number
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          organization_id?: string
+          paid_at?: string | null
+          sale_value?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facebook_integrations: {
         Row: {
           access_token: string
@@ -2084,6 +2179,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          id: string
+          max_attempts: number
+          organization_id: string | null
+          payload: Json
+          processed_at: string | null
+          status: string
+          webhook_type: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          organization_id?: string | null
+          payload: Json
+          processed_at?: string | null
+          status?: string
+          webhook_type: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          organization_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          status?: string
+          webhook_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_queue_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
