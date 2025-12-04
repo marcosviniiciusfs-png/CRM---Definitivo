@@ -57,7 +57,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => window.open('https://calendar.google.com', '_blank')}
-                    className="h-9 w-9"
+                    className="h-9 w-9 hover:bg-transparent focus:ring-0 focus:ring-offset-0"
                   >
                     <img 
                       src={googleCalendarIcon} 
