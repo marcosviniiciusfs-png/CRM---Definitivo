@@ -1928,8 +1928,12 @@ const Chat = () => {
   const getAvatarUrl = (lead: Lead) => {
     if (lead.avatar_url) return lead.avatar_url;
     // Gera avatar com UI Avatars quando não há foto
-    const initials = getInitials(lead.nome_lead);
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
+    const initials = getInitials(lead.nome_lead) || 'NN';
+    try {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
+    } catch {
+      return `https://ui-avatars.com/api/?name=NN&background=random&color=fff&size=128`;
+    }
   };
 
   const getStatusIcon = (status: string | null) => {
