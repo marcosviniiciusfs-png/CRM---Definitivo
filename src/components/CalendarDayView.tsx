@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
-import { format, isSameDay, parseISO, differenceInMinutes, startOfDay, setHours, setMinutes, isToday } from 'date-fns';
+import { useMemo, useEffect, useState } from 'react';
+import { format, isSameDay, parseISO, differenceInMinutes, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import { CalendarEvent } from './GoogleCalendarModal';
 
 interface CalendarDayViewProps {
@@ -13,22 +12,22 @@ interface CalendarDayViewProps {
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-const EVENT_COLORS: Record<string, string> = {
-  '1': 'bg-blue-500',
-  '2': 'bg-green-500',
-  '3': 'bg-purple-500',
-  '4': 'bg-red-500',
-  '5': 'bg-yellow-500',
-  '6': 'bg-orange-500',
-  '7': 'bg-cyan-500',
-  '8': 'bg-gray-500',
-  '9': 'bg-indigo-500',
-  '10': 'bg-emerald-500',
-  '11': 'bg-rose-500',
-  default: 'bg-primary',
-};
+export function CalendarDayView({
+  currentDate,
+  events,
+  onEventClick,
+  onDateClick
+}: CalendarDayViewProps) {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const isTodayDate = isToday(currentDate);
 
-export function CalendarDayView({ currentDate, events, onEventClick, onDateClick }: CalendarDayViewProps) {
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const dayEvents = useMemo(() => {
     return events.filter(event => {
       const eventDate = parseISO(event.start);
@@ -39,60 +38,69 @@ export function CalendarDayView({ currentDate, events, onEventClick, onDateClick
   const allDayEvents = dayEvents.filter(e => e.allDay);
   const timedEvents = dayEvents.filter(e => !e.allDay);
 
-  const getEventColor = (event: CalendarEvent) => {
-    return EVENT_COLORS[event.colorId || 'default'] || EVENT_COLORS.default;
-  };
-
   const getEventPosition = (event: CalendarEvent) => {
     const start = parseISO(event.start);
     const end = parseISO(event.end);
-    const dayStart = startOfDay(start);
+    const startMinutes = start.getHours() * 60 + start.getMinutes();
+    const duration = differenceInMinutes(end, start);
     
-    const topMinutes = differenceInMinutes(start, dayStart);
-    const durationMinutes = differenceInMinutes(end, start);
-    
-    const top = (topMinutes / 60) * 60; // 60px per hour
-    const height = Math.max((durationMinutes / 60) * 60, 30); // minimum 30px
-    
-    return { top, height };
+    return {
+      top: `${(startMinutes / 60) * 48}px`,
+      height: `${Math.max((duration / 60) * 48, 24)}px`
+    };
   };
 
   const handleTimeSlotClick = (hour: number) => {
-    const clickedDate = setMinutes(setHours(currentDate, hour), 0);
+    const clickedDate = new Date(currentDate);
+    clickedDate.setHours(hour, 0, 0, 0);
     onDateClick(clickedDate);
   };
 
+  const getCurrentTimePosition = () => {
+    const minutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+    return `${(minutes / 60) * 48}px`;
+  };
+
+  const weekDays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="text-center py-3 border-b flex-shrink-0">
-        <div className="text-sm text-muted-foreground">
-          {format(currentDate, 'EEEE', { locale: ptBR })}
+    <div className="flex flex-col h-full">
+      {/* Header com o dia */}
+      <div className="flex border-b border-[#dadce0] bg-white sticky top-0 z-10">
+        {/* Coluna de timezone */}
+        <div className="w-[60px] flex-shrink-0 border-r border-[#dadce0]">
+          <div className="h-[72px] flex items-end justify-center pb-2">
+            <span className="text-[10px] text-[#70757a]">GMT-03</span>
+          </div>
         </div>
-        <div className={cn(
-          'text-3xl font-bold mt-1',
-          isToday(currentDate) && 'text-primary'
-        )}>
-          {format(currentDate, 'd')}
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+
+        {/* Dia */}
+        <div className="flex-1">
+          <div className="h-[72px] flex flex-col items-center justify-center">
+            <span className={`text-[11px] font-medium ${isTodayDate ? 'text-[#1a73e8]' : 'text-[#70757a]'}`}>
+              {weekDays[currentDate.getDay()]}
+            </span>
+            <div
+              className={`
+                w-[46px] h-[46px] flex items-center justify-center rounded-full text-[26px]
+                ${isTodayDate ? 'bg-[#1a73e8] text-white' : 'text-[#3c4043]'}
+              `}
+            >
+              {format(currentDate, 'd')}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* All-day events */}
+      {/* Eventos de dia inteiro */}
       {allDayEvents.length > 0 && (
-        <div className="p-2 border-b bg-muted/30 flex-shrink-0">
-          <div className="text-xs text-muted-foreground mb-1">Dia inteiro</div>
+        <div className="px-[60px] py-2 border-b border-[#dadce0] bg-[#f8f9fa]">
           <div className="space-y-1">
             {allDayEvents.map(event => (
               <div
                 key={event.id}
                 onClick={() => onEventClick(event)}
-                className={cn(
-                  'px-2 py-1 rounded text-sm text-white cursor-pointer hover:opacity-80 transition-opacity',
-                  getEventColor(event)
-                )}
+                className="bg-[#039be5] text-white text-[12px] px-3 py-1 rounded cursor-pointer hover:bg-[#0288d1] transition-colors"
               >
                 {event.title}
               </div>
@@ -101,61 +109,82 @@ export function CalendarDayView({ currentDate, events, onEventClick, onDateClick
         </div>
       )}
 
-      {/* Time grid */}
-      <div className="flex-1 overflow-auto">
-        <div className="relative min-h-[1440px]"> {/* 24 hours * 60px */}
-          {/* Time slots */}
+      {/* Grid de horas */}
+      <div className="flex flex-1 overflow-auto">
+        {/* Coluna de horas */}
+        <div className="w-[60px] flex-shrink-0">
           {HOURS.map(hour => (
-            <div key={hour} className="flex h-[60px] border-b">
-              <div className="w-20 flex-shrink-0 pr-3 text-right pt-0">
-                <span className="text-xs text-muted-foreground">
-                  {format(setHours(new Date(), hour), 'HH:00')}
+            <div
+              key={hour}
+              className="h-[48px] flex items-start justify-end pr-2 border-r border-[#dadce0]"
+            >
+              {hour > 0 && (
+                <span className="text-[10px] text-[#70757a] -mt-[6px]">
+                  {hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
                 </span>
-              </div>
-              <div
-                onClick={() => handleTimeSlotClick(hour)}
-                className="flex-1 cursor-pointer hover:bg-muted/30 transition-colors"
-              />
+              )}
             </div>
           ))}
+        </div>
 
-          {/* Events overlay */}
-          <div className="absolute inset-0 flex pointer-events-none">
-            <div className="w-20 flex-shrink-0" />
-            <div className="flex-1 relative">
-              {timedEvents.map(event => {
-                const { top, height } = getEventPosition(event);
-                return (
-                  <div
-                    key={event.id}
-                    onClick={(e) => { e.stopPropagation(); onEventClick(event); }}
-                    style={{ top: `${top}px`, height: `${height}px` }}
-                    className={cn(
-                      'absolute left-1 right-4 px-3 py-1.5 rounded text-white overflow-hidden cursor-pointer hover:opacity-80 transition-opacity pointer-events-auto shadow-sm',
-                      getEventColor(event)
-                    )}
-                  >
-                    <div className="font-medium text-sm truncate">{event.title}</div>
-                    <div className="text-xs text-white/80">
-                      {format(parseISO(event.start), 'HH:mm')} - {format(parseISO(event.end), 'HH:mm')}
-                    </div>
-                    {height > 60 && event.location && (
-                      <div className="text-xs text-white/70 truncate mt-0.5">
-                        📍 {event.location}
-                      </div>
-                    )}
-                    {height > 80 && event.description && (
-                      <div className="text-xs text-white/70 mt-1 line-clamp-2">
-                        {event.description}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        {/* Área do dia */}
+        <div className="flex-1 relative">
+          {/* Grid de horas */}
+          {HOURS.map(hour => (
+            <div
+              key={hour}
+              className="h-[48px] border-b border-[#dadce0] hover:bg-[#f1f3f4] cursor-pointer transition-colors"
+              onClick={() => handleTimeSlotClick(hour)}
+            />
+          ))}
+
+          {/* Linha vermelha do horário atual */}
+          {isTodayDate && (
+            <div
+              className="absolute left-0 right-0 z-20 pointer-events-none"
+              style={{ top: getCurrentTimePosition() }}
+            >
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-[#ea4335] -ml-[6px]" />
+                <div className="flex-1 h-[2px] bg-[#ea4335]" />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Eventos */}
+          {timedEvents.map(event => {
+            const position = getEventPosition(event);
+            return (
+              <div
+                key={event.id}
+                className="absolute left-2 right-2 bg-[#039be5] rounded px-3 py-2 cursor-pointer hover:bg-[#0288d1] transition-colors overflow-hidden z-10"
+                style={{
+                  top: position.top,
+                  height: position.height
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEventClick(event);
+                }}
+              >
+                <div className="text-white text-[12px] font-medium truncate">
+                  {event.title}
+                </div>
+                <div className="text-white/80 text-[11px] truncate">
+                  {format(parseISO(event.start), 'HH:mm')} - {format(parseISO(event.end), 'HH:mm')}
+                </div>
+                {event.location && (
+                  <div className="text-white/70 text-[10px] truncate mt-1">
+                    📍 {event.location}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
+
+export default CalendarDayView;
