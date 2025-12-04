@@ -166,18 +166,19 @@ const Dashboard = () => {
     loadGoal();
     loadLastContribution();
 
-    // Real-time subscription para atualizar última contribuição
+    // Real-time subscription para atualizar última contribuição e meta
     const channel = supabase
       .channel('dashboard-leads-updates')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'leads'
         },
         () => {
           loadLastContribution();
+          loadSalesTotal();
         }
       )
       .subscribe();
@@ -302,6 +303,81 @@ const Dashboard = () => {
       console.error('Erro ao carregar última contribuição:', error);
     }
   };
+  // Função para calcular total de vendas do período
+  const loadSalesTotal = async () => {
+    try {
+      if (!user) return;
+
+      const { data: orgMember } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!orgMember) return;
+
+      // Buscar estágios do tipo 'won'
+      const { data: wonStages } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'won');
+
+      if (!wonStages || wonStages.length === 0) {
+        setCurrentValue(0);
+        return;
+      }
+
+      const wonStageIds = wonStages.map(s => s.id);
+
+      // Calcular período baseado no deadline
+      let startDate: string | null = null;
+      if (deadline) {
+        // Se tem deadline, calcular início do mês do deadline
+        const deadlineDate = new Date(deadline);
+        startDate = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), 1).toISOString();
+      } else {
+        // Se não tem deadline, usar início do mês atual
+        const now = new Date();
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      }
+
+      // Buscar vendas do período
+      let query = supabase
+        .from('leads')
+        .select('valor, updated_at, funnel_stage_id')
+        .eq('organization_id', orgMember.organization_id)
+        .in('funnel_stage_id', wonStageIds);
+
+      if (startDate) {
+        query = query.gte('updated_at', startDate);
+      }
+      if (deadline) {
+        query = query.lte('updated_at', new Date(deadline).toISOString());
+      }
+
+      const { data: wonLeads, error } = await query;
+
+      if (error) {
+        console.error('Erro ao buscar vendas:', error);
+        return;
+      }
+
+      // Somar valores das vendas
+      const totalSales = wonLeads?.reduce((sum, lead) => sum + (lead.valor || 0), 0) || 0;
+      setCurrentValue(totalSales);
+
+      // Atualizar no banco de dados se houver goalId
+      if (goalId) {
+        await supabase
+          .from('goals')
+          .update({ current_value: totalSales })
+          .eq('id', goalId);
+      }
+    } catch (error) {
+      console.error('Erro ao calcular vendas:', error);
+    }
+  };
+
   const loadGoal = async () => {
     try {
       setLoading(true);
@@ -311,10 +387,12 @@ const Dashboard = () => {
       }
 
       // Buscar organization_id do usuário
-      const {
-        data: orgMember,
-        error: orgError
-      } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
+      const { data: orgMember, error: orgError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+        
       if (orgError || !orgMember) {
         console.error('Erro ao buscar organização:', orgError);
         setLoading(false);
@@ -322,37 +400,44 @@ const Dashboard = () => {
       }
 
       // Buscar meta do usuário
-      const {
-        data: goals,
-        error
-      } = await supabase.from('goals').select('*').eq('user_id', user.id).order('created_at', {
-        ascending: false
-      }).limit(1);
+      const { data: goals, error } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
       if (error) throw error;
+      
       if (goals && goals.length > 0) {
         // Meta encontrada
         const goal = goals[0];
         setGoalId(goal.id);
-        setCurrentValue(Number(goal.current_value));
         setTotalValue(Number(goal.target_value));
         setDeadline(goal.deadline ? new Date(goal.deadline) : null);
+        
+        // Carregar vendas reais após definir deadline
+        setTimeout(() => loadSalesTotal(), 100);
       } else {
-        // Criar meta padrão
-        const {
-          data: newGoal,
-          error: createError
-        } = await supabase.from('goals').insert({
-          user_id: user.id,
-          organization_id: orgMember.organization_id,
-          current_value: 7580,
-          target_value: 8000
-        }).select().single();
+        // Criar meta padrão com valor 0
+        const { data: newGoal, error: createError } = await supabase
+          .from('goals')
+          .insert({
+            user_id: user.id,
+            organization_id: orgMember.organization_id,
+            current_value: 0,
+            target_value: 10000
+          })
+          .select()
+          .single();
+          
         if (createError) throw createError;
+        
         if (newGoal) {
           setGoalId(newGoal.id);
-          setCurrentValue(Number(newGoal.current_value));
           setTotalValue(Number(newGoal.target_value));
           setDeadline(newGoal.deadline ? new Date(newGoal.deadline) : null);
+          setCurrentValue(0);
         }
       }
     } catch (error) {
@@ -362,6 +447,13 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+  
+  // Recarregar vendas quando deadline mudar
+  useEffect(() => {
+    if (goalId && deadline !== undefined) {
+      loadSalesTotal();
+    }
+  }, [deadline, goalId]);
   const percentage = currentValue / totalValue * 100;
   const remaining = totalValue - currentValue;
   const handleEditGoal = () => {
