@@ -600,10 +600,14 @@ const Dashboard = () => {
               </ResponsiveContainer>
               
               {/* Valor central */}
-              <div className="absolute inset-0 flex flex-col items-center justify-end pb-10">
-                <p className="text-xl font-bold">R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                <p className="text-base text-muted-foreground">de R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                <p className="text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 px-4">
+                <p className="text-base sm:text-lg md:text-xl font-bold truncate max-w-full text-center">
+                  R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground truncate max-w-full text-center">
+                  de R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
 
