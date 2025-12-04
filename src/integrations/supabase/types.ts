@@ -1498,7 +1498,7 @@ export type Database = {
         Row: {
           access_token: string
           created_at: string
-          funnel_id: string
+          funnel_id: string | null
           id: string
           is_active: boolean
           organization_id: string
@@ -1508,7 +1508,7 @@ export type Database = {
         Insert: {
           access_token: string
           created_at?: string
-          funnel_id: string
+          funnel_id?: string | null
           id?: string
           is_active?: boolean
           organization_id: string
@@ -1518,7 +1518,7 @@ export type Database = {
         Update: {
           access_token?: string
           created_at?: string
-          funnel_id?: string
+          funnel_id?: string | null
           id?: string
           is_active?: boolean
           organization_id?: string
@@ -1536,7 +1536,7 @@ export type Database = {
           {
             foreignKeyName: "meta_pixel_integrations_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
