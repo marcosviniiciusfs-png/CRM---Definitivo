@@ -600,7 +600,7 @@ const Dashboard = () => {
               </ResponsiveContainer>
               
               {/* Valor central - posicionado abaixo do arco */}
-              <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pb-2">
+              <div className="absolute inset-x-0 bottom-8 flex flex-col items-center">
                 <p className="text-sm sm:text-base font-bold text-center leading-tight">
                   R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
