@@ -838,16 +838,12 @@ const Pipeline = () => {
     }
   };
 
-  // Enviar evento de conversão para Meta Conversions API
+  // Enviar evento de conversão para Meta Conversions API (funciona para todos os funis)
   const sendMetaConversionEvent = async (leadId: string, lead: Lead) => {
     try {
-      const funnelId = lead.funnel_id;
-      if (!funnelId) return;
-
       const { error } = await supabase.functions.invoke("send-meta-conversion-event", {
         body: {
           lead_id: leadId,
-          funnel_id: funnelId,
           event_name: "Purchase",
           value: lead.valor || 0,
         },

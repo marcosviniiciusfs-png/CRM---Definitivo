@@ -3,13 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, Plus, Activity, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Trash2, Activity, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { LoadingAnimation } from "./LoadingAnimation";
 
 interface MetaPixelConnectionProps {
@@ -18,32 +17,23 @@ interface MetaPixelConnectionProps {
 
 interface PixelIntegration {
   id: string;
-  funnel_id: string;
   pixel_id: string;
   access_token: string;
   is_active: boolean;
   created_at: string;
 }
 
-interface Funnel {
-  id: string;
-  name: string;
-  icon: string | null;
-}
-
 export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [integrations, setIntegrations] = useState<PixelIntegration[]>([]);
-  const [funnels, setFunnels] = useState<Funnel[]>([]);
+  const [integration, setIntegration] = useState<PixelIntegration | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   
-  // Form state for new integration
-  const [showForm, setShowForm] = useState(false);
+  // Form state
+  const [isEditing, setIsEditing] = useState(false);
   const [pixelId, setPixelId] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [selectedFunnel, setSelectedFunnel] = useState("");
   const [showToken, setShowToken] = useState(false);
 
   useEffect(() => {
@@ -64,24 +54,19 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
       if (!orgData) return;
       setOrganizationId(orgData.organization_id);
 
-      // Load funnels
-      const { data: funnelsData } = await supabase
-        .from('sales_funnels')
-        .select('id, name, icon')
-        .eq('organization_id', orgData.organization_id)
-        .eq('is_active', true)
-        .order('name');
-
-      setFunnels(funnelsData || []);
-
-      // Load existing integrations
-      const { data: integrationsData } = await supabase
+      // Load existing integration (one per org)
+      const { data: integrationData } = await supabase
         .from('meta_pixel_integrations')
-        .select('*')
+        .select('id, pixel_id, access_token, is_active, created_at')
         .eq('organization_id', orgData.organization_id)
-        .order('created_at', { ascending: false });
+        .maybeSingle();
 
-      setIntegrations(integrationsData || []);
+      setIntegration(integrationData);
+      
+      if (integrationData) {
+        setPixelId(integrationData.pixel_id);
+        setAccessToken(integrationData.access_token);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -90,37 +75,41 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
   };
 
   const handleSave = async () => {
-    if (!organizationId || !pixelId || !accessToken || !selectedFunnel) {
+    if (!organizationId || !pixelId || !accessToken) {
       toast.error("Preencha todos os campos");
       return;
     }
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('meta_pixel_integrations')
-        .insert({
-          organization_id: organizationId,
-          funnel_id: selectedFunnel,
-          pixel_id: pixelId,
-          access_token: accessToken,
-          is_active: true,
-        });
+      if (integration) {
+        // Update existing
+        const { error } = await supabase
+          .from('meta_pixel_integrations')
+          .update({
+            pixel_id: pixelId,
+            access_token: accessToken,
+          })
+          .eq('id', integration.id);
 
-      if (error) {
-        if (error.code === '23505') {
-          toast.error("Este funil já possui um Pixel configurado");
-        } else {
-          throw error;
-        }
-        return;
+        if (error) throw error;
+        toast.success("Pixel atualizado com sucesso!");
+      } else {
+        // Create new
+        const { error } = await supabase
+          .from('meta_pixel_integrations')
+          .insert({
+            organization_id: organizationId,
+            pixel_id: pixelId,
+            access_token: accessToken,
+            is_active: true,
+          });
+
+        if (error) throw error;
+        toast.success("Pixel configurado com sucesso!");
       }
 
-      toast.success("Pixel configurado com sucesso!");
-      setShowForm(false);
-      setPixelId("");
-      setAccessToken("");
-      setSelectedFunnel("");
+      setIsEditing(false);
       loadData();
     } catch (error) {
       console.error('Error saving integration:', error);
@@ -130,7 +119,9 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
     }
   };
 
-  const handleToggleActive = async (integration: PixelIntegration) => {
+  const handleToggleActive = async () => {
+    if (!integration) return;
+    
     try {
       const { error } = await supabase
         .from('meta_pixel_integrations')
@@ -147,33 +138,26 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!integration) return;
     if (!confirm("Tem certeza que deseja remover esta integração?")) return;
 
     try {
       const { error } = await supabase
         .from('meta_pixel_integrations')
         .delete()
-        .eq('id', id);
+        .eq('id', integration.id);
 
       if (error) throw error;
 
       toast.success("Integração removida");
-      loadData();
+      setIntegration(null);
+      setPixelId("");
+      setAccessToken("");
     } catch (error) {
       console.error('Error deleting integration:', error);
       toast.error("Erro ao remover integração");
     }
-  };
-
-  const getFunnelName = (funnelId: string) => {
-    const funnel = funnels.find(f => f.id === funnelId);
-    return funnel?.name || "Funil não encontrado";
-  };
-
-  const getAvailableFunnels = () => {
-    const usedFunnelIds = integrations.map(i => i.funnel_id);
-    return funnels.filter(f => !usedFunnelIds.includes(f.id));
   };
 
   if (loading) {
@@ -213,85 +197,60 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
             <li>Selecione seu Pixel e vá em <strong>Configurações</strong></li>
             <li>Na seção <strong>Conversions API</strong>, gere um Access Token</li>
             <li>Copie o Pixel ID e Access Token para cá</li>
-            <li>Selecione qual funil disparará eventos de conversão</li>
           </ol>
+          <div className="mt-3 p-3 bg-primary/10 rounded-md border border-primary/20">
+            <p className="text-primary font-medium flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Funciona em todos os funis
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              O evento de conversão será disparado automaticamente quando um lead entrar em qualquer etapa de "Ganho" em qualquer funil.
+            </p>
+          </div>
         </div>
 
-        {/* Existing integrations */}
-        {integrations.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium">Pixels Configurados</h4>
-            {integrations.map((integration) => (
-              <div
-                key={integration.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{getFunnelName(integration.funnel_id)}</span>
-                    <Badge variant={integration.is_active ? "default" : "secondary"}>
-                      {integration.is_active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Pixel ID: {integration.pixel_id}
-                  </p>
-                </div>
+        {/* Existing integration or form */}
+        {integration && !isEditing ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <Switch
-                    checked={integration.is_active}
-                    onCheckedChange={() => handleToggleActive(integration)}
-                  />
-                  <Button
-                    variant="ghostIcon"
-                    size="icon"
-                    onClick={() => handleDelete(integration.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <span className="font-medium">Pixel Configurado</span>
+                  <Badge variant={integration.is_active ? "default" : "secondary"}>
+                    {integration.is_active ? "Ativo" : "Inativo"}
+                  </Badge>
                 </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Pixel ID: {integration.pixel_id}
+                </p>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={integration.is_active}
+                  onCheckedChange={handleToggleActive}
+                />
+                <Button
+                  variant="ghostIcon"
+                  size="icon"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditing(true)}
+              className="w-full"
+            >
+              Editar Configuração
+            </Button>
           </div>
-        )}
-
-        {/* Add new integration */}
-        {!showForm ? (
-          <Button
-            variant="outline"
-            onClick={() => setShowForm(true)}
-            disabled={getAvailableFunnels().length === 0}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {getAvailableFunnels().length === 0 
-              ? "Todos os funis já possuem Pixel configurado"
-              : "Adicionar Pixel"
-            }
-          </Button>
         ) : (
           <div className="space-y-4 border rounded-lg p-4">
-            <h4 className="font-medium">Nova Configuração</h4>
-            
-            <div className="space-y-2">
-              <Label>Funil</Label>
-              <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o funil" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAvailableFunnels().map((funnel) => (
-                    <SelectItem key={funnel.id} value={funnel.id}>
-                      {funnel.icon && <span className="mr-2">{funnel.icon}</span>}
-                      {funnel.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Eventos serão disparados quando leads entrarem na etapa "Ganho" deste funil
-              </p>
-            </div>
+            <h4 className="font-medium">
+              {integration ? "Editar Configuração" : "Nova Configuração"}
+            </h4>
 
             <div className="space-y-2">
               <Label>Pixel ID</Label>
@@ -325,18 +284,21 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
             </div>
 
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowForm(false);
-                  setPixelId("");
-                  setAccessToken("");
-                  setSelectedFunnel("");
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              {(integration || isEditing) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditing(false);
+                    if (integration) {
+                      setPixelId(integration.pixel_id);
+                      setAccessToken(integration.access_token);
+                    }
+                  }}
+                >
+                  Cancelar
+                </Button>
+              )}
+              <Button onClick={handleSave} disabled={saving} className="flex-1">
                 {saving ? "Salvando..." : "Salvar Configuração"}
               </Button>
             </div>

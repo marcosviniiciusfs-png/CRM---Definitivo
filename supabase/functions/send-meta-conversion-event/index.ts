@@ -17,7 +17,6 @@ async function sha256Hash(text: string): Promise<string> {
 
 interface ConversionEventRequest {
   lead_id: string;
-  funnel_id: string;
   event_name?: string;
   value?: number;
   currency?: string;
@@ -33,28 +32,11 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    const { lead_id, event_name = 'Purchase', value, currency = 'BRL' } = await req.json() as ConversionEventRequest;
 
-    const { lead_id, funnel_id, event_name = 'Purchase', value, currency = 'BRL' } = await req.json() as ConversionEventRequest;
+    console.log(`[Meta CAPI] Processing conversion event for lead ${lead_id}`);
 
-    console.log(`[Meta CAPI] Processing conversion event for lead ${lead_id}, funnel ${funnel_id}`);
-
-    // Get pixel configuration for this funnel
-    const { data: pixelConfig, error: pixelError } = await supabase
-      .from('meta_pixel_integrations')
-      .select('*')
-      .eq('funnel_id', funnel_id)
-      .eq('is_active', true)
-      .single();
-
-    if (pixelError || !pixelConfig) {
-      console.log(`[Meta CAPI] No active pixel configuration found for funnel ${funnel_id}`);
-      return new Response(
-        JSON.stringify({ success: false, message: 'No pixel configuration found for this funnel' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get lead data for user matching
+    // Get lead data first to get organization_id
     const { data: lead, error: leadError } = await supabase
       .from('leads')
       .select('*')
@@ -66,6 +48,22 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, message: 'Lead not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get pixel configuration for this organization (one pixel per org, works for all funnels)
+    const { data: pixelConfig, error: pixelError } = await supabase
+      .from('meta_pixel_integrations')
+      .select('*')
+      .eq('organization_id', lead.organization_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (pixelError || !pixelConfig) {
+      console.log(`[Meta CAPI] No active pixel configuration found for organization ${lead.organization_id}`);
+      return new Response(
+        JSON.stringify({ success: false, message: 'No pixel configuration found for this organization' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -146,11 +144,11 @@ serve(async (req) => {
     if (!metaResponse.ok) {
       console.error(`[Meta CAPI] Error from Meta API:`, metaResult);
       
-      // Log error to database
+      // Log error to database (include funnel_id for tracking which funnel generated the conversion)
       await supabase.from('meta_conversion_logs').insert({
         organization_id: pixelConfig.organization_id,
         lead_id: lead_id,
-        funnel_id: funnel_id,
+        funnel_id: lead.funnel_id, // Still log funnel_id for tracking purposes
         pixel_id: pixelConfig.pixel_id,
         event_name: event_name,
         event_id: eventId,
@@ -176,7 +174,7 @@ serve(async (req) => {
     await supabase.from('meta_conversion_logs').insert({
       organization_id: pixelConfig.organization_id,
       lead_id: lead_id,
-      funnel_id: funnel_id,
+      funnel_id: lead.funnel_id, // Still log funnel_id for tracking purposes
       pixel_id: pixelConfig.pixel_id,
       event_name: event_name,
       event_id: eventId,
