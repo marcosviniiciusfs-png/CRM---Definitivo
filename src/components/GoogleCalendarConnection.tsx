@@ -27,8 +27,10 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
   const [integration, setIntegration] = useState<CalendarIntegration | null>(null);
 
   useEffect(() => {
-    loadIntegration();
-  }, []);
+    if (user?.id) {
+      loadIntegration();
+    }
+  }, [user?.id]);
 
   const loadIntegration = async () => {
     try {
