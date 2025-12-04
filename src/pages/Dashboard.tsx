@@ -130,6 +130,26 @@ const Dashboard = () => {
   useEffect(() => {
     loadGoal();
     loadLastContribution();
+
+    // Real-time subscription para atualizar última contribuição
+    const channel = supabase
+      .channel('dashboard-leads-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'leads'
+        },
+        () => {
+          loadLastContribution();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const loadLastContribution = async () => {
