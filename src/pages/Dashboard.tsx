@@ -126,6 +126,7 @@ const Dashboard = () => {
   const [editDeadline, setEditDeadline] = useState<string>("");
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [lastContribution, setLastContribution] = useState<LastContribution | null>(null);
+  const [contributionKey, setContributionKey] = useState(0);
   
   useEffect(() => {
     loadGoal();
@@ -228,14 +229,22 @@ const Dashboard = () => {
         productName = (leadItems[0].items as any).name;
       }
 
-      setLastContribution({
+      const newContribution = {
         collaboratorName,
         collaboratorAvatar,
         saleValue: lastWonLead.valor || 0,
         saleDate: new Date(lastWonLead.updated_at),
         leadName: lastWonLead.nome_lead,
         productName
-      });
+      };
+
+      // Verificar se é uma nova contribuição para animar
+      if (!lastContribution || lastContribution.leadName !== newContribution.leadName || 
+          lastContribution.saleDate.getTime() !== newContribution.saleDate.getTime()) {
+        setContributionKey(prev => prev + 1);
+      }
+      
+      setLastContribution(newContribution);
     } catch (error) {
       console.error('Erro ao carregar última contribuição:', error);
     }
@@ -441,11 +450,14 @@ const Dashboard = () => {
 
             {/* Última Contribuição */}
             {lastContribution && (
-              <div className="mt-2 pt-4 border-t border-border w-full">
+              <div 
+                key={contributionKey}
+                className="mt-2 pt-4 border-t border-border w-full animate-fade-in"
+              >
                 <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Última contribuição
                 </p>
-                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <div className="bg-muted/50 rounded-lg p-3 space-y-2 transition-all duration-300">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-6 w-6">
                       <AvatarImage src={lastContribution.collaboratorAvatar} />
