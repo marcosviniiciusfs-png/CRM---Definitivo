@@ -13,12 +13,11 @@ import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { GlobalFunnelMapping } from "@/components/GlobalFunnelMapping";
-
 const PLAN_NAMES: { [key: string]: string } = {
   'prod_TVqqdFt1DYCcCI': 'Básico',
   'prod_TVqr72myTFqI39': 'Profissional',
@@ -29,6 +28,7 @@ const Settings = () => {
   const { user, subscriptionData, refreshSubscription } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [orgRole, setOrgRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +51,31 @@ const Settings = () => {
   const [savingTag, setSavingTag] = useState(false);
   const [editingTag, setEditingTag] = useState(false);
   const [tempTagName, setTempTagName] = useState("");
+
+  // Handle OAuth redirect parameters
+  useEffect(() => {
+    const integration = searchParams.get('integration');
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+
+    if (integration === 'google_calendar') {
+      if (success === 'true') {
+        toast.success("Google Calendar conectado com sucesso!");
+      } else if (error) {
+        const errorMessages: Record<string, string> = {
+          'access_denied': 'Você negou o acesso ao Google Calendar',
+          'callback_failed': 'Erro ao processar autorização. Tente novamente.',
+        };
+        toast.error(errorMessages[error] || 'Erro na conexão com Google Calendar');
+      }
+      
+      // Clear URL parameters
+      searchParams.delete('integration');
+      searchParams.delete('success');
+      searchParams.delete('error');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const getUserData = async () => {
