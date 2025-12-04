@@ -333,14 +333,24 @@ const Dashboard = () => {
       const effectiveDeadline = deadlineParam !== undefined ? deadlineParam : deadline;
 
       // Calcular período baseado no deadline
-      let startDate: string | null = null;
+      let startDate: string;
+      let endDate: string | null = null;
+      const now = new Date();
+      
       if (effectiveDeadline) {
-        // Se tem deadline, calcular início do mês do deadline
         const deadlineDate = new Date(effectiveDeadline);
-        startDate = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), 1).toISOString();
+        
+        // Se o deadline expirou, usar mês atual para cálculo
+        if (deadlineDate < now) {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+          // Sem limite superior para mês atual
+        } else {
+          // Deadline ainda válido, usar o mês do deadline
+          startDate = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), 1).toISOString();
+          endDate = deadlineDate.toISOString();
+        }
       } else {
         // Se não tem deadline, usar início do mês atual
-        const now = new Date();
         startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       }
 
@@ -349,13 +359,11 @@ const Dashboard = () => {
         .from('leads')
         .select('valor, updated_at, funnel_stage_id')
         .eq('organization_id', orgMember.organization_id)
-        .in('funnel_stage_id', wonStageIds);
+        .in('funnel_stage_id', wonStageIds)
+        .gte('updated_at', startDate);
 
-      if (startDate) {
-        query = query.gte('updated_at', startDate);
-      }
-      if (effectiveDeadline) {
-        query = query.lte('updated_at', new Date(effectiveDeadline).toISOString());
+      if (endDate) {
+        query = query.lte('updated_at', endDate);
       }
 
       const { data: wonLeads, error } = await query;
