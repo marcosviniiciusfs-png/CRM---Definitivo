@@ -2308,6 +2308,21 @@ export type Database = {
           webhook_verified: boolean
         }[]
       }
+      get_google_calendar_integrations_masked: {
+        Args: never
+        Returns: {
+          access_token: string
+          calendar_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_organization_members: {
         Args: { _organization_id: string }
         Returns: {
