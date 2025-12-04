@@ -2289,6 +2289,25 @@ export type Database = {
     }
     Functions: {
       count_main_users: { Args: never; Returns: number }
+      get_facebook_integrations_masked: {
+        Args: never
+        Returns: {
+          access_token: string
+          ad_account_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          organization_id: string
+          page_access_token: string
+          page_id: string
+          page_name: string
+          selected_form_id: string
+          selected_form_name: string
+          updated_at: string
+          user_id: string
+          webhook_verified: boolean
+        }[]
+      }
       get_organization_members: {
         Args: { _organization_id: string }
         Returns: {
