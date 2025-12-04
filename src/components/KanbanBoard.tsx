@@ -11,11 +11,12 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar, Clock } from "lucide-react";
+import { Plus, Calendar, Clock, CalendarCheck } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingAnimation } from "./LoadingAnimation";
+import { CreateTaskEventModal } from "./CreateTaskEventModal";
 import { format } from "date-fns";
 
 interface Card {
@@ -28,6 +29,8 @@ interface Card {
   column_id: string;
   created_at: string;
   timer_started_at?: string;
+  calendar_event_id?: string;
+  calendar_event_link?: string;
 }
 
 interface Column {
@@ -47,6 +50,8 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [isDraggingActive, setIsDraggingActive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [selectedCardForCalendar, setSelectedCardForCalendar] = useState<Card | null>(null);
   const { toast } = useToast();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -283,6 +288,22 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     ));
   };
 
+  const handleSyncCalendar = (card: Card) => {
+    setSelectedCardForCalendar(card);
+    setCalendarModalOpen(true);
+  };
+
+  const handleEventCreated = (cardId: string, eventId: string, eventLink: string) => {
+    setColumns(columns.map(col => ({
+      ...col,
+      cards: col.cards.map(c => 
+        c.id === cardId 
+          ? { ...c, calendar_event_id: eventId, calendar_event_link: eventLink } 
+          : c
+      )
+    })));
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const cardId = event.active.id as string;
     const card = columns.flatMap(col => col.cards).find(c => c.id === cardId);
@@ -404,6 +425,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               onAddCard={addCard}
               onEditCard={updateCard}
               onDeleteCard={deleteCard}
+              onSyncCalendar={handleSyncCalendar}
               isDraggingActive={isDraggingActive}
             />
           ))}
@@ -458,6 +480,15 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {selectedCardForCalendar && (
+        <CreateTaskEventModal
+          open={calendarModalOpen}
+          onOpenChange={setCalendarModalOpen}
+          card={selectedCardForCalendar}
+          onEventCreated={handleEventCreated}
+        />
+      )}
     </div>
   );
 };
