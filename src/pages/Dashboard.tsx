@@ -304,7 +304,7 @@ const Dashboard = () => {
     }
   };
   // Função para calcular total de vendas do período
-  const loadSalesTotal = async () => {
+  const loadSalesTotal = async (deadlineParam?: Date | null) => {
     try {
       if (!user) return;
 
@@ -329,11 +329,14 @@ const Dashboard = () => {
 
       const wonStageIds = wonStages.map(s => s.id);
 
+      // Usar parâmetro se fornecido, senão usar estado
+      const effectiveDeadline = deadlineParam !== undefined ? deadlineParam : deadline;
+
       // Calcular período baseado no deadline
       let startDate: string | null = null;
-      if (deadline) {
+      if (effectiveDeadline) {
         // Se tem deadline, calcular início do mês do deadline
-        const deadlineDate = new Date(deadline);
+        const deadlineDate = new Date(effectiveDeadline);
         startDate = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), 1).toISOString();
       } else {
         // Se não tem deadline, usar início do mês atual
@@ -351,8 +354,8 @@ const Dashboard = () => {
       if (startDate) {
         query = query.gte('updated_at', startDate);
       }
-      if (deadline) {
-        query = query.lte('updated_at', new Date(deadline).toISOString());
+      if (effectiveDeadline) {
+        query = query.lte('updated_at', new Date(effectiveDeadline).toISOString());
       }
 
       const { data: wonLeads, error } = await query;
@@ -414,10 +417,11 @@ const Dashboard = () => {
         const goal = goals[0];
         setGoalId(goal.id);
         setTotalValue(Number(goal.target_value));
-        setDeadline(goal.deadline ? new Date(goal.deadline) : null);
+        const goalDeadline = goal.deadline ? new Date(goal.deadline) : null;
+        setDeadline(goalDeadline);
         
-        // Carregar vendas reais após definir deadline
-        setTimeout(() => loadSalesTotal(), 100);
+        // Carregar vendas reais passando o deadline diretamente
+        await loadSalesTotal(goalDeadline);
       } else {
         // Criar meta padrão com valor 0
         const { data: newGoal, error: createError } = await supabase
@@ -436,8 +440,10 @@ const Dashboard = () => {
         if (newGoal) {
           setGoalId(newGoal.id);
           setTotalValue(Number(newGoal.target_value));
-          setDeadline(newGoal.deadline ? new Date(newGoal.deadline) : null);
-          setCurrentValue(0);
+          const newDeadline = newGoal.deadline ? new Date(newGoal.deadline) : null;
+          setDeadline(newDeadline);
+          // Carregar vendas do mês atual
+          await loadSalesTotal(newDeadline);
         }
       }
     } catch (error) {
