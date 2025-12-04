@@ -1,6 +1,6 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -12,6 +12,18 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface LastContribution {
+  collaboratorName: string;
+  collaboratorAvatar?: string;
+  saleValue: number;
+  saleDate: Date;
+  leadName: string;
+  productName?: string;
+}
 const leadSourceData = [{
   month: "Jan",
   emailMarketing: 1200,
@@ -113,10 +125,101 @@ const Dashboard = () => {
   const [editTotalValue, setEditTotalValue] = useState(totalValue.toString());
   const [editDeadline, setEditDeadline] = useState<string>("");
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
+  const [lastContribution, setLastContribution] = useState<LastContribution | null>(null);
   
   useEffect(() => {
     loadGoal();
+    loadLastContribution();
   }, [user]);
+
+  const loadLastContribution = async () => {
+    try {
+      if (!user) return;
+
+      // Buscar organization_id do usuário
+      const { data: orgMember, error: orgError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (orgError || !orgMember) return;
+
+      // Buscar último lead ganho (won)
+      const { data: wonLeads, error: leadsError } = await supabase
+        .from('leads')
+        .select(`
+          id,
+          nome_lead,
+          valor,
+          responsavel,
+          updated_at,
+          funnel_stage_id
+        `)
+        .eq('organization_id', orgMember.organization_id)
+        .order('updated_at', { ascending: false })
+        .limit(50);
+
+      if (leadsError || !wonLeads || wonLeads.length === 0) return;
+
+      // Buscar estágios do tipo 'won' para filtrar
+      const { data: wonStages, error: stagesError } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'won');
+
+      if (stagesError || !wonStages) return;
+
+      const wonStageIds = wonStages.map(s => s.id);
+      const lastWonLead = wonLeads.find(lead => 
+        lead.funnel_stage_id && wonStageIds.includes(lead.funnel_stage_id)
+      );
+
+      if (!lastWonLead) return;
+
+      // Buscar dados do colaborador responsável
+      let collaboratorName = 'Não atribuído';
+      let collaboratorAvatar: string | undefined;
+
+      if (lastWonLead.responsavel) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('user_id', lastWonLead.responsavel)
+          .single();
+
+        if (profile) {
+          collaboratorName = profile.full_name || 'Colaborador';
+          collaboratorAvatar = profile.avatar_url || undefined;
+        }
+      }
+
+      // Buscar produtos associados ao lead
+      let productName: string | undefined;
+      const { data: leadItems } = await supabase
+        .from('lead_items')
+        .select(`
+          items (name)
+        `)
+        .eq('lead_id', lastWonLead.id)
+        .limit(1);
+
+      if (leadItems && leadItems.length > 0 && leadItems[0].items) {
+        productName = (leadItems[0].items as any).name;
+      }
+
+      setLastContribution({
+        collaboratorName,
+        collaboratorAvatar,
+        saleValue: lastWonLead.valor || 0,
+        saleDate: new Date(lastWonLead.updated_at),
+        leadName: lastWonLead.nome_lead,
+        productName
+      });
+    } catch (error) {
+      console.error('Erro ao carregar última contribuição:', error);
+    }
+  };
   const loadGoal = async () => {
     try {
       setLoading(true);
@@ -286,7 +389,7 @@ const Dashboard = () => {
                 </svg>
               </div>}
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pb-8 pt-2">
+          <CardContent className="flex flex-col items-center justify-center pb-6 pt-2">
             {deadline && <div className="text-center -mb-8">
                 <p className="text-sm text-muted-foreground">Prazo para bater a meta</p>
                 <p className="text-2xl font-bold">
@@ -315,6 +418,42 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
+
+            {/* Última Contribuição */}
+            {lastContribution && (
+              <div className="mt-2 pt-4 border-t border-border w-full">
+                <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" /> Última contribuição
+                </p>
+                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={lastContribution.collaboratorAvatar} />
+                      <AvatarFallback className="text-xs">{lastContribution.collaboratorName[0]?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium text-sm">{lastContribution.collaboratorName}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="text-green-600 dark:text-green-400 font-semibold">
+                      R$ {lastContribution.saleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="mx-1">•</span>
+                    <span>{format(lastContribution.saleDate, "dd/MM/yyyy", { locale: ptBR })}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Lead: </span>
+                    <span className="font-medium">{lastContribution.leadName}</span>
+                  </div>
+                  {lastContribution.productName && (
+                    <div className="text-sm flex items-center gap-1">
+                      <Package className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">Produto: </span>
+                      <span className="font-medium">{lastContribution.productName}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
