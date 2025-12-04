@@ -1,7 +1,8 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package, MessageSquare, Globe, User, Facebook, Calendar, Clock, ExternalLink } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -648,32 +649,53 @@ const Dashboard = () => {
             {/* Métricas de período - layout horizontal sutil */}
             {deadline && (
               <div className="flex items-center justify-center gap-2 mt-1 text-[10px] text-muted-foreground flex-wrap">
-                {/* Vendido até o prazo - Verde */}
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
-                  <span className="text-green-600 dark:text-green-400 font-medium">
-                    R$ {salesBeforeDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                </span>
+                {/* Vendido até o prazo - Verde com Tooltip */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1 cursor-help">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">
+                        R$ {salesBeforeDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total vendido dentro do prazo da meta</p>
+                  </TooltipContent>
+                </Tooltip>
                 
                 {/* Separador */}
                 <span className="text-muted-foreground/50">•</span>
                 
-                {/* Duração da meta */}
-                <span className="text-muted-foreground">
-                  {goalDurationDays} dias
-                </span>
+                {/* Duração da meta com Tooltip */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground cursor-help">
+                      {goalDurationDays} dias
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Duração total da meta em dias</p>
+                  </TooltipContent>
+                </Tooltip>
                 
                 {/* Separador */}
                 <span className="text-muted-foreground/50">•</span>
                 
-                {/* Vendido após o prazo - Laranja */}
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
-                  <span className="text-orange-500 font-medium">
-                    R$ {salesAfterDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                </span>
+                {/* Vendido após o prazo - Laranja com Tooltip */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1 cursor-help">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
+                      <span className="text-orange-500 font-medium">
+                        R$ {salesAfterDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total vendido após o prazo da meta</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
 
@@ -934,7 +956,7 @@ const Dashboard = () => {
                   fill: 'hsl(var(--muted-foreground))',
                   fontSize: 10
                 }} axisLine={false} tickLine={false} />
-                  <Tooltip 
+                  <RechartsTooltip 
                     cursor={{ fill: 'transparent' }}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--popover))',
