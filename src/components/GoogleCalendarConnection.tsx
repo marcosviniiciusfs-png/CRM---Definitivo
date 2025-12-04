@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Calendar, CheckCircle2, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -68,7 +67,6 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
       if (error) throw error;
 
       if (data?.authUrl) {
-        // Redirecionar para a página de autorização do Google
         window.location.href = data.authUrl;
       }
     } catch (error: any) {
@@ -110,18 +108,25 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
   };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Google Calendar
-          </DialogTitle>
-          <DialogDescription>
-            Agende reuniões e eventos automaticamente com seus leads
-          </DialogDescription>
-        </DialogHeader>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Calendar className="h-5 w-5 text-primary" />
+              Google Calendar
+            </CardTitle>
+            <CardDescription>
+              Agende reuniões e eventos automaticamente com seus leads
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
 
+      <CardContent className="space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -205,7 +210,7 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
             </p>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 };
