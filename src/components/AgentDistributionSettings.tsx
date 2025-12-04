@@ -146,11 +146,12 @@ export function AgentDistributionSettings() {
           .eq('user_id', memberId)
           .eq('organization_id', memberResult.data.organization_id)
           .single(),
-        profileResult.data?.full_name 
+        // ATUALIZADO: usar responsavel_user_id (UUID) em vez de responsavel (TEXT)
+        memberId
           ? supabase
               .from('leads')
               .select('id', { count: 'exact', head: true })
-              .eq('responsavel', profileResult.data.full_name)
+              .eq('responsavel_user_id', memberId)
               .neq('stage', 'GANHO')
               .neq('stage', 'PERDIDO')
               .neq('stage', 'DESCARTADO')

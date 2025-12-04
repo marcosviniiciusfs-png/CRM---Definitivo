@@ -1730,11 +1730,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                           console.log("Colaborador selecionado:", displayName);
                                           setResponsavel(displayName || '');
                                           
-                                          // Salvar imediatamente
+                                          // Salvar imediatamente - ATUALIZADO: usar UUID + TEXT
                                           try {
                                             const { error } = await supabase
                                               .from('leads')
-                                              .update({ responsavel: displayName || '' })
+                                              .update({ 
+                                                responsavel_user_id: colab.user_id,
+                                                responsavel: displayName || '' // Mantém TEXT para compatibilidade
+                                              })
                                               .eq('id', lead.id);
 
                                             if (error) throw error;

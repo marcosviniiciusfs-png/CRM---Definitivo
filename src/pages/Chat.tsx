@@ -920,7 +920,7 @@ const Chat = () => {
       // Otimizado: selecionar apenas campos necessários
       let query = supabase
         .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, created_at, updated_at, organization_id");
+        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id");
 
       // Filtrar apenas leads da organização do usuário
       if (user?.id) {
@@ -935,9 +935,9 @@ const Chat = () => {
         }
       }
 
-      // SEGURANÇA: Members só veem leads atribuídos a eles
-      if (!permissions.canViewAllLeads && userProfile?.full_name) {
-        query = query.eq("responsavel", userProfile.full_name);
+      // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
+      if (!permissions.canViewAllLeads && user?.id) {
+        query = query.eq("responsavel_user_id", user.id);
       }
 
       const { data, error } = await query

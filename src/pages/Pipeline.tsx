@@ -297,7 +297,7 @@ const Pipeline = () => {
       // Otimizado: buscar apenas campos necessários (incluindo source para badges)
       let query = supabase
         .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, valor, updated_at, created_at, source, descricao_negocio");
+        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio");
 
       // Filtrar apenas leads da organização do usuário
       const { data: orgMember } = await supabase
@@ -310,9 +310,9 @@ const Pipeline = () => {
         query = query.eq("organization_id", orgMember.organization_id);
       }
 
-      // SEGURANÇA: Members só veem leads atribuídos a eles
-      if (!permissions.canViewAllLeads && userProfile?.full_name) {
-        query = query.eq("responsavel", userProfile.full_name);
+      // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
+      if (!permissions.canViewAllLeads && user?.id) {
+        query = query.eq("responsavel_user_id", user.id);
       }
 
       // Se estiver usando funil customizado, filtrar apenas leads desse funil específico
@@ -821,10 +821,15 @@ const Pipeline = () => {
       }
 
       const agentName = (profile as any).profiles?.full_name || agentEmail;
+      const agentUserId = profile.user_id;
 
+      // ATUALIZADO: usar UUID + TEXT para compatibilidade
       await supabase
         .from("leads")
-        .update({ responsavel: agentName })
+        .update({ 
+          responsavel_user_id: agentUserId,
+          responsavel: agentName // Mantém TEXT para compatibilidade
+        })
         .eq("id", leadId);
 
       toast.success(`Lead atribuído para ${agentName}!`);
