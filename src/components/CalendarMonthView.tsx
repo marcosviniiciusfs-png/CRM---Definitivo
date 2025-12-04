@@ -8,13 +8,15 @@ interface CalendarMonthViewProps {
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
   onDateClick: (date: Date) => void;
+  isDark?: boolean;
 }
 
 export function CalendarMonthView({
   currentDate,
   events,
   onEventClick,
-  onDateClick
+  onDateClick,
+  isDark = false
 }: CalendarMonthViewProps) {
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
@@ -47,14 +49,27 @@ export function CalendarMonthView({
     return result;
   }, [days]);
 
+  // Dynamic styles based on theme
+  const styles = {
+    bg: isDark ? 'bg-[#1e1e1e]' : 'bg-white',
+    headerBg: isDark ? 'bg-[#2d2d2d]' : 'bg-white',
+    border: isDark ? 'border-[#3c3c3c]' : 'border-[#dadce0]',
+    text: isDark ? 'text-[#e8eaed]' : 'text-[#3c4043]',
+    textSecondary: isDark ? 'text-[#9aa0a6]' : 'text-[#70757a]',
+    hover: isDark ? 'hover:bg-[#3c3c3c]' : 'hover:bg-[#f1f3f4]',
+    otherMonthBg: isDark ? 'bg-[#252525]' : 'bg-[#f8f9fa]',
+    todayText: isDark ? 'text-[#8ab4f8]' : 'text-[#1a73e8]',
+    moreLink: isDark ? 'text-[#8ab4f8]' : 'text-[#1a73e8]',
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header com dias da semana */}
-      <div className="grid grid-cols-7 border-b border-[#dadce0] bg-white sticky top-0 z-10">
+      <div className={`grid grid-cols-7 border-b ${styles.border} ${styles.headerBg} sticky top-0 z-10`}>
         {weekDays.map((day, index) => (
           <div
             key={index}
-            className="h-[20px] flex items-center justify-center text-[11px] font-medium text-[#70757a] border-r border-[#dadce0] last:border-r-0"
+            className={`h-[20px] flex items-center justify-center text-[11px] font-medium ${styles.textSecondary} border-r ${styles.border} last:border-r-0`}
           >
             {day}
           </div>
@@ -75,9 +90,9 @@ export function CalendarMonthView({
                 <div
                   key={dayIndex}
                   className={`
-                    border-r border-b border-[#dadce0] last:border-r-0 p-1
-                    ${!isCurrentMonth ? 'bg-[#f8f9fa]' : 'bg-white'}
-                    hover:bg-[#f1f3f4] cursor-pointer transition-colors
+                    border-r border-b ${styles.border} last:border-r-0 p-1
+                    ${!isCurrentMonth ? styles.otherMonthBg : styles.bg}
+                    ${styles.hover} cursor-pointer transition-colors
                   `}
                   onClick={() => onDateClick(day)}
                 >
@@ -86,7 +101,7 @@ export function CalendarMonthView({
                       className={`
                         w-[24px] h-[24px] flex items-center justify-center rounded-full text-[12px]
                         ${isTodayDate ? 'bg-[#1a73e8] text-white' : ''}
-                        ${!isCurrentMonth && !isTodayDate ? 'text-[#70757a]' : 'text-[#3c4043]'}
+                        ${!isCurrentMonth && !isTodayDate ? styles.textSecondary : styles.text}
                       `}
                     >
                       {format(day, 'd')}
@@ -108,7 +123,7 @@ export function CalendarMonthView({
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
-                      <div className="text-[11px] text-[#1a73e8] font-medium px-2 cursor-pointer hover:underline">
+                      <div className={`text-[11px] ${styles.moreLink} font-medium px-2 cursor-pointer hover:underline`}>
                         +{dayEvents.length - 3} mais
                       </div>
                     )}

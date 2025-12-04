@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Menu, Search, Settings, HelpCircle } from 'l
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks, subWeeks, addMonths, subMonths, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
+import { useTheme } from '@/contexts/ThemeContext';
 import CalendarSidebar from './CalendarSidebar';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
@@ -32,6 +33,9 @@ interface GoogleCalendarModalProps {
 type ViewMode = 'day' | 'week' | 'month';
 
 export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalProps) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -166,16 +170,29 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
     }
   };
 
+  // Dynamic styles based on theme
+  const styles = {
+    bg: isDark ? 'bg-[#1e1e1e]' : 'bg-white',
+    headerBg: isDark ? 'bg-[#2d2d2d]' : 'bg-white',
+    border: isDark ? 'border-[#3c3c3c]' : 'border-[#dadce0]',
+    text: isDark ? 'text-[#e8eaed]' : 'text-[#3c4043]',
+    textSecondary: isDark ? 'text-[#9aa0a6]' : 'text-[#5f6368]',
+    hover: isDark ? 'hover:bg-[#3c3c3c]' : 'hover:bg-[#f1f3f4]',
+    buttonBorder: isDark ? 'border-[#5f6368]' : 'border-[#dadce0]',
+    dropdownBg: isDark ? 'bg-[#2d2d2d]' : 'bg-white',
+    activeItem: isDark ? 'bg-[#394457] text-[#8ab4f8]' : 'bg-[#e8f0fe] text-[#1a73e8]',
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 gap-0 bg-white overflow-hidden border-none">
+      <DialogContent className={`max-w-[95vw] w-[95vw] h-[90vh] p-0 gap-0 ${styles.bg} overflow-hidden border-none`}>
         {/* Header Google Style */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-[#dadce0] bg-white">
+        <div className={`flex items-center justify-between px-4 py-2 border-b ${styles.border} ${styles.headerBg}`}>
           <div className="flex items-center gap-4">
             {/* Logo e título */}
             <div className="flex items-center gap-3">
-              <button className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors">
-                <Menu className="h-5 w-5 text-[#5f6368]" />
+              <button className={`p-2 rounded-full ${styles.hover} transition-colors`}>
+                <Menu className={`h-5 w-5 ${styles.textSecondary}`} />
               </button>
               <div className="flex items-center gap-2">
                 <svg viewBox="0 0 36 36" className="h-10 w-10">
@@ -183,12 +200,12 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
                   <path fill="#EA4335" d="M2 3h15v15.5H2z"/>
                   <path fill="#34A853" d="M17 18.5V33H2V18.5z"/>
                   <path fill="#FBBC05" d="M34 3v15.5H19V3z"/>
-                  <rect fill="white" x="8" y="9" width="20" height="18" rx="2"/>
-                  <text x="18" y="22" textAnchor="middle" fontSize="12" fontWeight="500" fill="#70757a">
+                  <rect fill={isDark ? "#2d2d2d" : "white"} x="8" y="9" width="20" height="18" rx="2"/>
+                  <text x="18" y="22" textAnchor="middle" fontSize="12" fontWeight="500" fill={isDark ? "#9aa0a6" : "#70757a"}>
                     {format(new Date(), 'd')}
                   </text>
                 </svg>
-                <span className="text-[22px] text-[#3c4043]">Agenda</span>
+                <span className={`text-[22px] ${styles.text}`}>Agenda</span>
               </div>
             </div>
 
@@ -196,23 +213,23 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
             <div className="flex items-center gap-2 ml-4">
               <button
                 onClick={goToToday}
-                className="px-4 py-2 text-sm font-medium text-[#3c4043] border border-[#dadce0] rounded hover:bg-[#f1f3f4] transition-colors"
+                className={`px-4 py-2 text-sm font-medium ${styles.text} border ${styles.buttonBorder} rounded ${styles.hover} transition-colors`}
               >
                 Hoje
               </button>
               <button
                 onClick={navigatePrev}
-                className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors"
+                className={`p-2 rounded-full ${styles.hover} transition-colors`}
               >
-                <ChevronLeft className="h-5 w-5 text-[#5f6368]" />
+                <ChevronLeft className={`h-5 w-5 ${styles.textSecondary}`} />
               </button>
               <button
                 onClick={navigateNext}
-                className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors"
+                className={`p-2 rounded-full ${styles.hover} transition-colors`}
               >
-                <ChevronRight className="h-5 w-5 text-[#5f6368]" />
+                <ChevronRight className={`h-5 w-5 ${styles.textSecondary}`} />
               </button>
-              <span className="text-[22px] text-[#3c4043] ml-2 capitalize">
+              <span className={`text-[22px] ${styles.text} ml-2 capitalize`}>
                 {getTitle()}
               </span>
             </div>
@@ -220,43 +237,43 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
 
           {/* Lado direito do header */}
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors">
-              <Search className="h-5 w-5 text-[#5f6368]" />
+            <button className={`p-2 rounded-full ${styles.hover} transition-colors`}>
+              <Search className={`h-5 w-5 ${styles.textSecondary}`} />
             </button>
-            <button className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors">
-              <HelpCircle className="h-5 w-5 text-[#5f6368]" />
+            <button className={`p-2 rounded-full ${styles.hover} transition-colors`}>
+              <HelpCircle className={`h-5 w-5 ${styles.textSecondary}`} />
             </button>
-            <button className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors">
-              <Settings className="h-5 w-5 text-[#5f6368]" />
+            <button className={`p-2 rounded-full ${styles.hover} transition-colors`}>
+              <Settings className={`h-5 w-5 ${styles.textSecondary}`} />
             </button>
             
             {/* Seletor de visualização */}
             <div className="relative ml-2">
               <button
                 onClick={() => setViewDropdownOpen(!viewDropdownOpen)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#3c4043] border border-[#dadce0] rounded hover:bg-[#f1f3f4] transition-colors"
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${styles.text} border ${styles.buttonBorder} rounded ${styles.hover} transition-colors`}
               >
                 {getViewLabel()}
                 <ChevronLeft className="h-4 w-4 rotate-[-90deg]" />
               </button>
               
               {viewDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-[#dadce0] rounded-lg shadow-lg py-2 z-50 min-w-[120px]">
+                <div className={`absolute right-0 top-full mt-1 ${styles.dropdownBg} border ${styles.border} rounded-lg shadow-lg py-2 z-50 min-w-[120px]`}>
                   <button
                     onClick={() => { setViewMode('day'); setViewDropdownOpen(false); }}
-                    className={`w-full px-4 py-2 text-sm text-left hover:bg-[#f1f3f4] ${viewMode === 'day' ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-[#3c4043]'}`}
+                    className={`w-full px-4 py-2 text-sm text-left ${styles.hover} ${viewMode === 'day' ? styles.activeItem : styles.text}`}
                   >
                     Dia
                   </button>
                   <button
                     onClick={() => { setViewMode('week'); setViewDropdownOpen(false); }}
-                    className={`w-full px-4 py-2 text-sm text-left hover:bg-[#f1f3f4] ${viewMode === 'week' ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-[#3c4043]'}`}
+                    className={`w-full px-4 py-2 text-sm text-left ${styles.hover} ${viewMode === 'week' ? styles.activeItem : styles.text}`}
                   >
                     Semana
                   </button>
                   <button
                     onClick={() => { setViewMode('month'); setViewDropdownOpen(false); }}
-                    className={`w-full px-4 py-2 text-sm text-left hover:bg-[#f1f3f4] ${viewMode === 'month' ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-[#3c4043]'}`}
+                    className={`w-full px-4 py-2 text-sm text-left ${styles.hover} ${viewMode === 'month' ? styles.activeItem : styles.text}`}
                   >
                     Mês
                   </button>
@@ -276,10 +293,11 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
               setViewMode('day');
             }}
             onCreateEvent={handleCreateEvent}
+            isDark={isDark}
           />
 
           {/* Área do calendário */}
-          <div className="flex-1 overflow-auto bg-white">
+          <div className={`flex-1 overflow-auto ${styles.bg}`}>
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a73e8]"></div>
@@ -296,6 +314,7 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
                     events={events}
                     onEventClick={handleEventClick}
                     onDateClick={handleDateClick}
+                    isDark={isDark}
                   />
                 )}
                 {viewMode === 'week' && (
@@ -304,6 +323,7 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
                     events={events}
                     onEventClick={handleEventClick}
                     onDateClick={handleDateClick}
+                    isDark={isDark}
                   />
                 )}
                 {viewMode === 'day' && (
@@ -312,6 +332,7 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
                     events={events}
                     onEventClick={handleEventClick}
                     onDateClick={handleDateClick}
+                    isDark={isDark}
                   />
                 )}
               </>
