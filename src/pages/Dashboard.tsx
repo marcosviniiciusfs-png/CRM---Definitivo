@@ -1,6 +1,6 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package, MessageSquare, Globe, User, Facebook, Calendar, Clock, ExternalLink } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -15,8 +15,10 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 interface LastContribution {
+  leadId: string;
   collaboratorName: string;
   collaboratorAvatar?: string;
   saleValue: number;
@@ -24,8 +26,36 @@ interface LastContribution {
   leadCreatedAt: Date;
   daysToSale: number;
   leadName: string;
+  leadSource: string;
   productName?: string;
+  leadEmail?: string;
+  leadPhone?: string;
+  leadDescription?: string;
 }
+
+// Helper para ícone da fonte
+const getSourceIcon = (source: string) => {
+  const lowerSource = source?.toLowerCase() || '';
+  if (lowerSource.includes('whatsapp')) {
+    return <MessageSquare className="w-3 h-3 text-green-600" />;
+  }
+  if (lowerSource.includes('facebook')) {
+    return <Facebook className="w-3 h-3 text-blue-600" />;
+  }
+  if (lowerSource.includes('webhook') || lowerSource.includes('url')) {
+    return <Globe className="w-3 h-3 text-purple-600" />;
+  }
+  return <User className="w-3 h-3 text-muted-foreground" />;
+};
+
+// Helper para label da fonte
+const getSourceLabel = (source: string) => {
+  const lowerSource = source?.toLowerCase() || '';
+  if (lowerSource.includes('whatsapp')) return 'WhatsApp';
+  if (lowerSource.includes('facebook')) return 'Facebook';
+  if (lowerSource.includes('webhook') || lowerSource.includes('url')) return 'Webhook';
+  return 'Manual';
+};
 const leadSourceData = [{
   month: "Jan",
   emailMarketing: 1200,
@@ -129,6 +159,8 @@ const Dashboard = () => {
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [lastContribution, setLastContribution] = useState<LastContribution | null>(null);
   const [contributionKey, setContributionKey] = useState(0);
+  const [isContributionDetailOpen, setIsContributionDetailOpen] = useState(false);
+  const navigate = useNavigate();
   
   useEffect(() => {
     loadGoal();
@@ -178,7 +210,11 @@ const Dashboard = () => {
           responsavel,
           updated_at,
           created_at,
-          funnel_stage_id
+          funnel_stage_id,
+          source,
+          email,
+          telefone_lead,
+          descricao_negocio
         `)
         .eq('organization_id', orgMember.organization_id)
         .order('updated_at', { ascending: false })
@@ -239,7 +275,8 @@ const Dashboard = () => {
         (saleDate.getTime() - leadCreatedAt.getTime()) / (1000 * 60 * 60 * 24)
       ));
 
-      const newContribution = {
+      const newContribution: LastContribution = {
+        leadId: lastWonLead.id,
         collaboratorName,
         collaboratorAvatar,
         saleValue: lastWonLead.valor || 0,
@@ -247,7 +284,11 @@ const Dashboard = () => {
         leadCreatedAt,
         daysToSale,
         leadName: lastWonLead.nome_lead,
-        productName
+        leadSource: lastWonLead.source || 'Manual',
+        productName,
+        leadEmail: lastWonLead.email || undefined,
+        leadPhone: lastWonLead.telefone_lead || undefined,
+        leadDescription: lastWonLead.descricao_negocio || undefined
       };
 
       // Verificar se é uma nova contribuição para animar
@@ -469,7 +510,10 @@ const Dashboard = () => {
                 <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Última contribuição
                 </p>
-                <div className="bg-muted/50 rounded-md p-2 space-y-1 transition-all duration-300">
+                <div 
+                  onClick={() => setIsContributionDetailOpen(true)}
+                  className="bg-muted/50 rounded-md p-2 space-y-1 transition-all duration-200 cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] border border-transparent hover:border-primary/20"
+                >
                   {/* Linha 1: Avatar + Nome + Dias até venda */}
                   <div className="flex items-center gap-1.5 text-sm">
                     <Avatar className="h-5 w-5">
@@ -485,7 +529,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                   
-                  {/* Linha 2: Valor + Lead + Produto */}
+                  {/* Linha 2: Valor + Lead + Fonte + Produto */}
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
                     <span>
                       <span className="font-medium">Valor:</span>{' '}
@@ -494,8 +538,10 @@ const Dashboard = () => {
                       </span>
                     </span>
                     <span>•</span>
-                    <span>
-                      <span className="font-medium">Lead:</span> {lastContribution.leadName}
+                    <span>{lastContribution.leadName}</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5">
+                      {getSourceIcon(lastContribution.leadSource)}
                     </span>
                     {lastContribution.productName && (
                       <>
@@ -510,6 +556,104 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
+
+            {/* Dialog de Detalhes da Última Contribuição */}
+            <Dialog open={isContributionDetailOpen} onOpenChange={setIsContributionDetailOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    Detalhes da Venda
+                  </DialogTitle>
+                </DialogHeader>
+                
+                {lastContribution && (
+                  <div className="space-y-4">
+                    {/* Informações do Colaborador */}
+                    <div className="flex items-center gap-3 pb-4 border-b">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={lastContribution.collaboratorAvatar} />
+                        <AvatarFallback>{lastContribution.collaboratorName[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">{lastContribution.collaboratorName}</p>
+                        <p className="text-sm text-muted-foreground">Responsável pela venda</p>
+                      </div>
+                    </div>
+                    
+                    {/* Grid de informações */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Valor da Venda</p>
+                        <p className="text-lg font-bold text-green-600">
+                          R$ {lastContribution.saleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Tempo até Venda</p>
+                        <p className="text-lg font-semibold">
+                          {lastContribution.daysToSale === 0 ? 'Mesmo dia' : `${lastContribution.daysToSale} dias`}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Lead</p>
+                        <p className="font-medium">{lastContribution.leadName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Fonte</p>
+                        <div className="flex items-center gap-1.5">
+                          {getSourceIcon(lastContribution.leadSource)}
+                          <span className="font-medium">{getSourceLabel(lastContribution.leadSource)}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="w-3 h-3" /> Data da Venda
+                        </p>
+                        <p className="font-medium">
+                          {format(lastContribution.saleDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Entrada no CRM
+                        </p>
+                        <p className="font-medium">
+                          {format(lastContribution.leadCreatedAt, "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Produto (se houver) */}
+                    {lastContribution.productName && (
+                      <div className="pt-4 border-t">
+                        <p className="text-xs text-muted-foreground">Produto</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Package className="w-4 h-4" />
+                          <span className="font-medium">{lastContribution.productName}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Botão para ver mais detalhes do lead */}
+                    <div className="pt-4 flex justify-end">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setIsContributionDetailOpen(false);
+                          navigate(`/leads/${lastContribution.leadId}`);
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Ver Lead Completo
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
 
