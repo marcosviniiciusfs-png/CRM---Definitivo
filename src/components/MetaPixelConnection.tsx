@@ -190,7 +190,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
+          <Button variant="ghostIcon" size="icon" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -243,7 +243,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
                     onCheckedChange={() => handleToggleActive(integration)}
                   />
                   <Button
-                    variant="ghost"
+                    variant="ghostIcon"
                     size="icon"
                     onClick={() => handleDelete(integration.id)}
                   >
@@ -314,7 +314,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
                 />
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="ghostIcon"
                   size="icon"
                   className="absolute right-0 top-0 h-full"
                   onClick={() => setShowToken(!showToken)}

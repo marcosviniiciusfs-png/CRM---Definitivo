@@ -10,7 +10,7 @@ export const StageAutomationConfig = ({ stageId, onBack }: StageAutomationConfig
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+        <Button variant="ghostIcon" size="icon" onClick={onBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>

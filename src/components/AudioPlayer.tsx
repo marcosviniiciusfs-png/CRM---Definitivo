@@ -148,7 +148,7 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
 
       <Button
         size="icon"
-        variant="ghost"
+        variant="ghostIcon"
         onClick={togglePlayPause}
         disabled={isLoading || hasError}
         className="shrink-0 h-8 w-8"
