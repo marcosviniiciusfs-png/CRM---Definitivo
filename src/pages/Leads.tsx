@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -46,6 +45,8 @@ import { AddLeadModal } from "@/components/AddLeadModal";
 import { EditLeadModal } from "@/components/EditLeadModal";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLeadsParallelQueries } from "@/hooks/useParallelQueries";
+import { useInfiniteScroll } from "@/hooks/usePagination";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   NOVO: { label: "Novo", color: "bg-blue-500" },
@@ -77,8 +78,10 @@ const Leads = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const observerTarget = useRef<HTMLDivElement>(null);
   const LEADS_PER_PAGE = 50;
+  
+  // Parallel queries hook
+  const { loadFilterData: loadFilterDataParallel } = useLeadsParallelQueries();
   
   // Fase 2: Seleção múltipla
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
@@ -115,60 +118,21 @@ const Leads = () => {
     loadUserProfile();
   }, [user, permissions.canViewAllLeads]);
   
-  // Carregar dados para filtros avançados
+  // Carregar dados para filtros avançados (OTIMIZADO: queries paralelas)
   useEffect(() => {
-    const loadFilterData = async () => {
+    const loadAllFilterData = async () => {
       try {
-        // Carregar colaboradores
-        const { data: members } = await supabase
-          .from('organization_members')
-          .select('user_id, email')
-          .order('email');
-        
-        if (members) {
-          const userIds = members.filter(m => m.user_id).map(m => m.user_id);
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, full_name')
-            .in('user_id', userIds);
-          
-          const profilesMap = profiles?.reduce((acc, p) => {
-            if (p.user_id) acc[p.user_id] = p.full_name;
-            return acc;
-          }, {} as any) || {};
-          
-          const colabsWithNames = members.map(m => ({
-            user_id: m.user_id,
-            email: m.email,
-            full_name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id] : null,
-          }));
-          
-          setColaboradores(colabsWithNames);
-        }
-        
-        // Carregar funis
-        const { data: funnelsData } = await supabase
-          .from('sales_funnels')
-          .select('id, name')
-          .eq('is_active', true)
-          .order('name');
-        
-        setFunnels(funnelsData || []);
-        
-        // Carregar tags
-        const { data: tagsData } = await supabase
-          .from('lead_tags')
-          .select('id, name, color')
-          .order('name');
-        
-        setAvailableTags(tagsData || []);
+        const result = await loadFilterDataParallel();
+        setColaboradores(result.colaboradores);
+        setFunnels(result.funnels);
+        setAvailableTags(result.tags);
       } catch (error) {
         console.error('Erro ao carregar dados de filtros:', error);
       }
     };
     
-    loadFilterData();
-  }, []);
+    loadAllFilterData();
+  }, [loadFilterDataParallel]);
 
   // Carregar etapas quando funil é selecionado
   useEffect(() => {
@@ -286,30 +250,10 @@ const Leads = () => {
     if (!loadingMore && hasMore) {
       loadLeads(false);
     }
-  }, [loadingMore, hasMore, page]);
+  }, [loadingMore, hasMore]);
   
-  // Intersection Observer para infinite scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          loadMoreLeads();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
-  }, [hasMore, loadingMore, loadMoreLeads]);
+  // Hook otimizado para infinite scroll
+  const observerTarget = useInfiniteScroll(loadMoreLeads, hasMore, loadingMore || loading);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
