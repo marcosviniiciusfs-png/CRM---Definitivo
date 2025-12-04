@@ -2302,6 +2302,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_organization_members_masked: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["organization_role"]
+          user_id: string
+        }[]
+      }
       get_user_details: {
         Args: { _target_user_id: string }
         Returns: {
