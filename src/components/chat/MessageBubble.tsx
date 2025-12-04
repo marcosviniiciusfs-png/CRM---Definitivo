@@ -1,6 +1,7 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Message, MessageReaction, Lead } from "@/types/chat";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LazyAvatar } from "@/components/ui/lazy-avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import {
   DropdownMenu,
@@ -51,20 +52,7 @@ export const MessageBubble = memo(function MessageBubble({
   messageRef,
 }: MessageBubbleProps) {
   const { toast } = useToast();
-
-  const getInitials = (name: string) => {
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  };
-
-  const getAvatarUrl = () => {
-    if (lead.avatar_url) return lead.avatar_url;
-    const initials = getInitials(lead.nome_lead) || "NN";
-    try {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
-    } catch {
-      return `https://ui-avatars.com/api/?name=NN&background=random&color=fff&size=128`;
-    }
-  };
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const getStatusIcon = (status: string | null) => {
     switch (status) {
@@ -111,19 +99,17 @@ export const MessageBubble = memo(function MessageBubble({
       )}
 
       {message.direcao === "ENTRADA" && (
-        <Avatar
-          className="h-8 w-8 flex-shrink-0 mt-1 cursor-pointer hover:opacity-80 transition-opacity"
+        <LazyAvatar
+          src={lead.avatar_url}
+          name={lead.nome_lead}
+          size="sm"
+          className="h-8 w-8 flex-shrink-0 mt-1"
           onClick={() => {
             if (lead.avatar_url) {
               onAvatarClick(lead.avatar_url, lead.nome_lead);
             }
           }}
-        >
-          <AvatarImage src={getAvatarUrl()} alt={lead.nome_lead} />
-          <AvatarFallback className="bg-primary/10 text-primary text-xs">
-            {getInitials(lead.nome_lead)}
-          </AvatarFallback>
-        </Avatar>
+        />
       )}
 
       <div
@@ -210,12 +196,21 @@ export const MessageBubble = memo(function MessageBubble({
         ) : message.media_type === "image" ? (
           message.media_url ? (
             <div className="space-y-2">
-              <img
-                src={message.media_url}
-                alt="Imagem enviada"
-                className="rounded-lg max-w-full max-h-96 object-contain"
-                loading="lazy"
-              />
+              <div className="relative">
+                {!imageLoaded && (
+                  <Skeleton className="w-48 h-48 rounded-lg" />
+                )}
+                <img
+                  src={message.media_url}
+                  alt="Imagem enviada"
+                  className={`rounded-lg max-w-full max-h-96 object-contain transition-opacity duration-200 ${
+                    imageLoaded ? "opacity-100" : "opacity-0 absolute top-0 left-0"
+                  }`}
+                  loading="lazy"
+                  decoding="async"
+                  onLoad={() => setImageLoaded(true)}
+                />
+              </div>
               {message.corpo_mensagem && !message.corpo_mensagem.includes("[Imagem]") && message.corpo_mensagem !== "Imagem" && (
                 <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formatMessageBody(message.corpo_mensagem) }} />
               )}

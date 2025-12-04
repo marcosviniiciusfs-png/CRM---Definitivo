@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Lead } from "@/types/chat";
 import { PresenceInfo } from "./types";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Phone, Pin } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
@@ -25,20 +25,6 @@ export const ChatLeadItem = memo(function ChatLeadItem({
   onClick,
   onAvatarClick,
 }: ChatLeadItemProps) {
-  const getInitials = (name: string) => {
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  };
-
-  const getAvatarUrl = () => {
-    if (lead.avatar_url) return lead.avatar_url;
-    const initials = getInitials(lead.nome_lead) || "NN";
-    try {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
-    } catch {
-      return `https://ui-avatars.com/api/?name=NN&background=random&color=fff&size=128`;
-    }
-  };
-
   return (
     <button
       onClick={onClick}
@@ -47,20 +33,18 @@ export const ChatLeadItem = memo(function ChatLeadItem({
       }`}
     >
       <div className="relative">
-        <Avatar
-          className="cursor-pointer hover:opacity-80 transition-opacity"
+        <LazyAvatar
+          src={lead.avatar_url}
+          name={lead.nome_lead}
+          size="md"
+          className="h-10 w-10"
           onClick={(e) => {
             e.stopPropagation();
             if (lead.avatar_url) {
               onAvatarClick(lead.avatar_url, lead.nome_lead);
             }
           }}
-        >
-          <AvatarImage src={getAvatarUrl()} alt={lead.nome_lead} />
-          <AvatarFallback className="bg-primary/10 text-primary">
-            {getInitials(lead.nome_lead)}
-          </AvatarFallback>
-        </Avatar>
+        />
         <div
           className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
             presenceStatus?.isOnline

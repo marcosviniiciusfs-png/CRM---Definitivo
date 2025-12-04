@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Phone, Calendar, Pencil, Eye, Globe, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, CSSProperties, memo } from "react";
 import {
@@ -87,14 +87,6 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
 }) => {
   const [totalValue, setTotalValue] = useState<number>(0);
 
-  const getInitials = (fullName: string) => {
-    return fullName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const isNewLead = () => {
     if (stage !== "NOVO" || !createdAt) return false;
@@ -166,12 +158,12 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
     >
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={avatarUrl || undefined} alt={name} />
-            <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-              {getInitials(name)}
-            </AvatarFallback>
-          </Avatar>
+          <LazyAvatar
+            src={avatarUrl}
+            name={name}
+            size="sm"
+            className="h-8 w-8"
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-1">
               <div className="flex flex-col gap-1 min-w-0">
