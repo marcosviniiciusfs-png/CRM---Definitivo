@@ -179,14 +179,13 @@ const Chat = () => {
     return () => { supabase.removeChannel(profileChannel); };
   }, [user?.id]);
 
-  // Load leads and setup realtime
+  // Load leads and setup realtime - OPTIMIZED with single parallel call
   useEffect(() => {
     if (permissions.loading) return;
     if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
 
-    loadLeads();
-    loadAvailableTags();
-    loadNotificationPreference();
+    // Single optimized call that loads leads, tags, and notification preference in parallel
+    loadAllChatData();
 
     notificationAudioRef.current = new Audio(`/notification.mp3?v=${Date.now()}`);
 
@@ -212,11 +211,11 @@ const Chat = () => {
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, () => {
         clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => loadLeads(), 500);
+        reloadTimeout = setTimeout(() => loadAllChatData(), 500);
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "leads" }, () => {
         clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => loadLeads(), 500);
+        reloadTimeout = setTimeout(() => loadAllChatData(), 500);
       })
       .subscribe();
 
@@ -352,33 +351,57 @@ const Chat = () => {
     searchResultRefs.current.get(currentSearchResultIndex)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [currentSearchResultIndex]);
 
-  // Data loading functions
-  const loadNotificationPreference = async () => {
-    if (!user) return;
-    const { data } = await supabase.from("profiles").select("notification_sound_enabled").eq("user_id", user.id).single();
-    if (data) setNotificationSoundEnabled(data.notification_sound_enabled ?? true);
-  };
-
-  const loadLeads = async () => {
+  // Data loading functions - OPTIMIZED with parallel queries
+  const loadAllChatData = async () => {
+    if (!user?.id) return;
     setLoading(true);
+    
     try {
-      let query = supabase.from("leads").select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id");
-
-      if (user?.id) {
-        const { data: orgMember } = await supabase.from("organization_members").select("organization_id").eq("user_id", user.id).maybeSingle();
-        if (orgMember) query = query.eq("organization_id", orgMember.organization_id);
+      // Get organization ID first
+      const { data: orgMember } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (!orgMember?.organization_id) {
+        setLoading(false);
+        return;
       }
 
-      if (!permissions.canViewAllLeads && user?.id) {
-        query = query.eq("responsavel_user_id", user.id);
+      // Build leads query
+      let leadsQuery = supabase
+        .from("leads")
+        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id")
+        .eq("organization_id", orgMember.organization_id)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .order("updated_at", { ascending: false })
+        .limit(300);
+
+      if (!permissions.canViewAllLeads) {
+        leadsQuery = leadsQuery.eq("responsavel_user_id", user.id);
       }
 
-      const { data, error } = await query.order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }).limit(300);
-      if (error) throw error;
+      // Execute all queries in parallel
+      const [leadsResult, tagsResult, profileResult] = await Promise.all([
+        leadsQuery,
+        supabase
+          .from("lead_tags")
+          .select("*")
+          .eq("organization_id", orgMember.organization_id)
+          .order("name"),
+        supabase
+          .from("profiles")
+          .select("notification_sound_enabled")
+          .eq("user_id", user.id)
+          .single()
+      ]);
 
-      const leadsData = data || [];
+      // Process leads
+      const leadsData = leadsResult.data || [];
       setLeads(leadsData);
 
+      // Set presence status
       const initialPresence = new Map<string, PresenceInfo>();
       leadsData.forEach((lead) => {
         if (lead.is_online !== null || lead.last_seen) {
@@ -387,7 +410,28 @@ const Chat = () => {
       });
       setPresenceStatus(initialPresence);
 
-      await loadLeadTagsAssignments(leadsData.map((l) => l.id));
+      // Set tags
+      setAvailableTags(tagsResult.data || []);
+
+      // Set notification preference
+      if (profileResult.data) {
+        setNotificationSoundEnabled(profileResult.data.notification_sound_enabled ?? true);
+      }
+
+      // Load tag assignments in parallel (after we have lead IDs)
+      if (leadsData.length > 0) {
+        const { data: tagAssignments } = await supabase
+          .from("lead_tag_assignments")
+          .select("lead_id, tag_id")
+          .in("lead_id", leadsData.map(l => l.id));
+        
+        const newMap = new Map<string, string[]>();
+        tagAssignments?.forEach((assignment) => {
+          const current = newMap.get(assignment.lead_id) || [];
+          newMap.set(assignment.lead_id, [...current, assignment.tag_id]);
+        });
+        setLeadTagsMap(newMap);
+      }
     } catch (error) {
       toast({ title: "Erro", description: "Não foi possível carregar os contatos", variant: "destructive" });
     } finally {
@@ -395,11 +439,20 @@ const Chat = () => {
     }
   };
 
+  // Keep individual functions for realtime updates
+  const loadLeads = loadAllChatData;
+
   const loadAvailableTags = async () => {
     const { data: orgData } = await supabase.rpc("get_user_organization_id", { _user_id: user?.id });
     if (!orgData) return;
     const { data } = await supabase.from("lead_tags").select("*").eq("organization_id", orgData).order("name");
     setAvailableTags(data || []);
+  };
+
+  const loadNotificationPreference = async () => {
+    if (!user) return;
+    const { data } = await supabase.from("profiles").select("notification_sound_enabled").eq("user_id", user.id).single();
+    if (data) setNotificationSoundEnabled(data.notification_sound_enabled ?? true);
   };
 
   const loadLeadTagsAssignments = async (leadIds: string[]) => {
