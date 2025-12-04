@@ -523,9 +523,10 @@ const Dashboard = () => {
                     <span className="font-medium">{lastContribution.collaboratorName}</span>
                     <span className="text-muted-foreground">•</span>
                     <span className="text-muted-foreground text-xs">
+                      <span className="font-medium">Dias até a venda:</span>{' '}
                       {lastContribution.daysToSale === 0 
                         ? 'mesmo dia' 
-                        : `${lastContribution.daysToSale} ${lastContribution.daysToSale === 1 ? 'dia' : 'dias'} até a venda`}
+                        : `${lastContribution.daysToSale} ${lastContribution.daysToSale === 1 ? 'dia' : 'dias'}`}
                     </span>
                   </div>
                   
@@ -538,10 +539,10 @@ const Dashboard = () => {
                       </span>
                     </span>
                     <span>•</span>
-                    <span>{lastContribution.leadName}</span>
+                    <span><span className="font-medium">Lead:</span> {lastContribution.leadName}</span>
                     <span>•</span>
                     <span className="flex items-center gap-0.5">
-                      {getSourceIcon(lastContribution.leadSource)}
+                      <span className="font-medium">Fonte:</span> {getSourceIcon(lastContribution.leadSource)}
                     </span>
                     {lastContribution.productName && (
                       <>
