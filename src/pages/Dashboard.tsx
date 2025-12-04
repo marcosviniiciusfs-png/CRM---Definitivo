@@ -21,6 +21,8 @@ interface LastContribution {
   collaboratorAvatar?: string;
   saleValue: number;
   saleDate: Date;
+  leadCreatedAt: Date;
+  daysToSale: number;
   leadName: string;
   productName?: string;
 }
@@ -175,6 +177,7 @@ const Dashboard = () => {
           valor,
           responsavel,
           updated_at,
+          created_at,
           funnel_stage_id
         `)
         .eq('organization_id', orgMember.organization_id)
@@ -229,11 +232,20 @@ const Dashboard = () => {
         productName = (leadItems[0].items as any).name;
       }
 
+      // Calcular dias até a venda
+      const saleDate = new Date(lastWonLead.updated_at);
+      const leadCreatedAt = new Date(lastWonLead.created_at);
+      const daysToSale = Math.max(0, Math.floor(
+        (saleDate.getTime() - leadCreatedAt.getTime()) / (1000 * 60 * 60 * 24)
+      ));
+
       const newContribution = {
         collaboratorName,
         collaboratorAvatar,
         saleValue: lastWonLead.valor || 0,
-        saleDate: new Date(lastWonLead.updated_at),
+        saleDate,
+        leadCreatedAt,
+        daysToSale,
         leadName: lastWonLead.nome_lead,
         productName
       };
@@ -448,41 +460,53 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Última Contribuição */}
+            {/* Última Contribuição - Layout Compacto */}
             {lastContribution && (
               <div 
                 key={contributionKey}
-                className="mt-2 pt-4 border-t border-border w-full animate-fade-in"
+                className="mt-2 pt-3 border-t border-border w-full animate-fade-in"
               >
-                <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Última contribuição
                 </p>
-                <div className="bg-muted/50 rounded-lg p-3 space-y-2 transition-all duration-300">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
+                <div className="bg-muted/50 rounded-md p-2 space-y-1 transition-all duration-300">
+                  {/* Linha 1: Avatar + Nome + Dias até venda */}
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Avatar className="h-5 w-5">
                       <AvatarImage src={lastContribution.collaboratorAvatar} />
-                      <AvatarFallback className="text-xs">{lastContribution.collaboratorName[0]?.toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="text-[10px]">{lastContribution.collaboratorName[0]?.toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <span className="font-medium text-sm">{lastContribution.collaboratorName}</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <span className="text-green-600 dark:text-green-400 font-semibold">
-                      R$ {lastContribution.saleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <span className="font-medium">{lastContribution.collaboratorName}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-muted-foreground text-xs">
+                      {lastContribution.daysToSale === 0 
+                        ? 'mesmo dia' 
+                        : `${lastContribution.daysToSale} ${lastContribution.daysToSale === 1 ? 'dia' : 'dias'} até a venda`}
                     </span>
-                    <span className="mx-1">•</span>
-                    <span>{format(lastContribution.saleDate, "dd/MM/yyyy", { locale: ptBR })}</span>
                   </div>
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Lead: </span>
-                    <span className="font-medium">{lastContribution.leadName}</span>
+                  
+                  {/* Linha 2: Valor + Lead + Produto */}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                    <span>
+                      <span className="font-medium">Valor:</span>{' '}
+                      <span className="text-green-600 dark:text-green-400 font-semibold">
+                        R$ {lastContribution.saleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </span>
+                    <span>•</span>
+                    <span>
+                      <span className="font-medium">Lead:</span> {lastContribution.leadName}
+                    </span>
+                    {lastContribution.productName && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-0.5">
+                          <Package className="w-3 h-3" />
+                          {lastContribution.productName}
+                        </span>
+                      </>
+                    )}
                   </div>
-                  {lastContribution.productName && (
-                    <div className="text-sm flex items-center gap-1">
-                      <Package className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Produto: </span>
-                      <span className="font-medium">{lastContribution.productName}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
