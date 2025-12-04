@@ -8,6 +8,7 @@ interface CalendarDayViewProps {
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
   onDateClick: (date: Date) => void;
+  isDark?: boolean;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -16,7 +17,8 @@ export function CalendarDayView({
   currentDate,
   events,
   onEventClick,
-  onDateClick
+  onDateClick,
+  isDark = false
 }: CalendarDayViewProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const isTodayDate = isToday(currentDate);
@@ -63,27 +65,40 @@ export function CalendarDayView({
 
   const weekDays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
+  // Dynamic styles based on theme
+  const styles = {
+    bg: isDark ? 'bg-[#1e1e1e]' : 'bg-white',
+    headerBg: isDark ? 'bg-[#2d2d2d]' : 'bg-white',
+    border: isDark ? 'border-[#3c3c3c]' : 'border-[#dadce0]',
+    text: isDark ? 'text-[#e8eaed]' : 'text-[#3c4043]',
+    textSecondary: isDark ? 'text-[#9aa0a6]' : 'text-[#70757a]',
+    hover: isDark ? 'hover:bg-[#3c3c3c]' : 'hover:bg-[#f1f3f4]',
+    allDayBg: isDark ? 'bg-[#252525]' : 'bg-[#f8f9fa]',
+    todayText: isDark ? 'text-[#8ab4f8]' : 'text-[#1a73e8]',
+    todayBg: isDark ? 'bg-[#8ab4f8]' : 'bg-[#1a73e8]',
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header com o dia */}
-      <div className="flex border-b border-[#dadce0] bg-white sticky top-0 z-10">
+      <div className={`flex border-b ${styles.border} ${styles.headerBg} sticky top-0 z-10`}>
         {/* Coluna de timezone */}
-        <div className="w-[60px] flex-shrink-0 border-r border-[#dadce0]">
+        <div className={`w-[60px] flex-shrink-0 border-r ${styles.border}`}>
           <div className="h-[72px] flex items-end justify-center pb-2">
-            <span className="text-[10px] text-[#70757a]">GMT-03</span>
+            <span className={`text-[10px] ${styles.textSecondary}`}>GMT-03</span>
           </div>
         </div>
 
         {/* Dia */}
         <div className="flex-1">
           <div className="h-[72px] flex flex-col items-center justify-center">
-            <span className={`text-[11px] font-medium ${isTodayDate ? 'text-[#1a73e8]' : 'text-[#70757a]'}`}>
+            <span className={`text-[11px] font-medium ${isTodayDate ? styles.todayText : styles.textSecondary}`}>
               {weekDays[currentDate.getDay()]}
             </span>
             <div
               className={`
                 w-[46px] h-[46px] flex items-center justify-center rounded-full text-[26px]
-                ${isTodayDate ? 'bg-[#1a73e8] text-white' : 'text-[#3c4043]'}
+                ${isTodayDate ? `${styles.todayBg} text-white` : styles.text}
               `}
             >
               {format(currentDate, 'd')}
@@ -94,7 +109,7 @@ export function CalendarDayView({
 
       {/* Eventos de dia inteiro */}
       {allDayEvents.length > 0 && (
-        <div className="px-[60px] py-2 border-b border-[#dadce0] bg-[#f8f9fa]">
+        <div className={`px-[60px] py-2 border-b ${styles.border} ${styles.allDayBg}`}>
           <div className="space-y-1">
             {allDayEvents.map(event => (
               <div
@@ -116,10 +131,10 @@ export function CalendarDayView({
           {HOURS.map(hour => (
             <div
               key={hour}
-              className="h-[48px] flex items-start justify-end pr-2 border-r border-[#dadce0]"
+              className={`h-[48px] flex items-start justify-end pr-2 border-r ${styles.border}`}
             >
               {hour > 0 && (
-                <span className="text-[10px] text-[#70757a] -mt-[6px]">
+                <span className={`text-[10px] ${styles.textSecondary} -mt-[6px]`}>
                   {hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
                 </span>
               )}
@@ -133,7 +148,7 @@ export function CalendarDayView({
           {HOURS.map(hour => (
             <div
               key={hour}
-              className="h-[48px] border-b border-[#dadce0] hover:bg-[#f1f3f4] cursor-pointer transition-colors"
+              className={`h-[48px] border-b ${styles.border} ${styles.hover} cursor-pointer transition-colors`}
               onClick={() => handleTimeSlotClick(hour)}
             />
           ))}
