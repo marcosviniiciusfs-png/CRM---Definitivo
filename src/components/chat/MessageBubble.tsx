@@ -59,7 +59,11 @@ export const MessageBubble = memo(function MessageBubble({
   const getAvatarUrl = () => {
     if (lead.avatar_url) return lead.avatar_url;
     const initials = getInitials(lead.nome_lead) || "NN";
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
+    try {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
+    } catch {
+      return `https://ui-avatars.com/api/?name=NN&background=random&color=fff&size=128`;
+    }
   };
 
   const getStatusIcon = (status: string | null) => {
