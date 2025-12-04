@@ -160,6 +160,10 @@ const Dashboard = () => {
   const [lastContribution, setLastContribution] = useState<LastContribution | null>(null);
   const [contributionKey, setContributionKey] = useState(0);
   const [isContributionDetailOpen, setIsContributionDetailOpen] = useState(false);
+  const [salesBeforeDeadline, setSalesBeforeDeadline] = useState(0);
+  const [salesAfterDeadline, setSalesAfterDeadline] = useState(0);
+  const [goalDurationDays, setGoalDurationDays] = useState(0);
+  const [goalCreatedAt, setGoalCreatedAt] = useState<Date | null>(null);
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -304,7 +308,7 @@ const Dashboard = () => {
     }
   };
   // Função para calcular total de vendas do período
-  const loadSalesTotal = async (deadlineParam?: Date | null) => {
+  const loadSalesTotal = async (deadlineParam?: Date | null, goalCreatedParam?: Date | null) => {
     try {
       if (!user) return;
 
@@ -324,6 +328,8 @@ const Dashboard = () => {
 
       if (!wonStages || wonStages.length === 0) {
         setCurrentValue(0);
+        setSalesBeforeDeadline(0);
+        setSalesAfterDeadline(0);
         return;
       }
 
@@ -331,42 +337,32 @@ const Dashboard = () => {
 
       // Usar parâmetro se fornecido, senão usar estado
       const effectiveDeadline = deadlineParam !== undefined ? deadlineParam : deadline;
+      const effectiveGoalCreated = goalCreatedParam || goalCreatedAt;
 
       // Calcular período baseado no deadline
       let startDate: string;
-      let endDate: string | null = null;
       const now = new Date();
       
-      if (effectiveDeadline) {
+      if (effectiveGoalCreated) {
+        startDate = effectiveGoalCreated.toISOString();
+      } else if (effectiveDeadline) {
         const deadlineDate = new Date(effectiveDeadline);
-        
-        // Se o deadline expirou, usar mês atual para cálculo
         if (deadlineDate < now) {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-          // Sem limite superior para mês atual
         } else {
-          // Deadline ainda válido, usar o mês do deadline
           startDate = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), 1).toISOString();
-          endDate = deadlineDate.toISOString();
         }
       } else {
-        // Se não tem deadline, usar início do mês atual
         startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       }
 
-      // Buscar vendas do período
-      let query = supabase
+      // Buscar todas as vendas desde a criação da meta
+      const { data: wonLeads, error } = await supabase
         .from('leads')
         .select('valor, updated_at, funnel_stage_id')
         .eq('organization_id', orgMember.organization_id)
         .in('funnel_stage_id', wonStageIds)
         .gte('updated_at', startDate);
-
-      if (endDate) {
-        query = query.lte('updated_at', endDate);
-      }
-
-      const { data: wonLeads, error } = await query;
 
       if (error) {
         console.error('Erro ao buscar vendas:', error);
@@ -376,6 +372,26 @@ const Dashboard = () => {
       // Somar valores das vendas
       const totalSales = wonLeads?.reduce((sum, lead) => sum + (lead.valor || 0), 0) || 0;
       setCurrentValue(totalSales);
+
+      // Separar vendas antes e depois do prazo
+      if (effectiveDeadline && wonLeads) {
+        const deadlineDate = new Date(effectiveDeadline);
+        
+        const beforeDeadline = wonLeads.filter(lead => 
+          new Date(lead.updated_at) <= deadlineDate
+        );
+        const salesBefore = beforeDeadline.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+        setSalesBeforeDeadline(salesBefore);
+
+        const afterDeadline = wonLeads.filter(lead => 
+          new Date(lead.updated_at) > deadlineDate
+        );
+        const salesAfter = afterDeadline.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+        setSalesAfterDeadline(salesAfter);
+      } else {
+        setSalesBeforeDeadline(totalSales);
+        setSalesAfterDeadline(0);
+      }
 
       // Atualizar no banco de dados se houver goalId
       if (goalId) {
@@ -426,10 +442,19 @@ const Dashboard = () => {
         setGoalId(goal.id);
         setTotalValue(Number(goal.target_value));
         const goalDeadline = goal.deadline ? new Date(goal.deadline) : null;
+        const goalCreated = new Date(goal.created_at);
         setDeadline(goalDeadline);
+        setGoalCreatedAt(goalCreated);
+        
+        // Calcular duração da meta em dias
+        if (goalDeadline) {
+          const durationMs = goalDeadline.getTime() - goalCreated.getTime();
+          const days = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+          setGoalDurationDays(Math.max(0, days));
+        }
         
         // Carregar vendas reais passando o deadline diretamente
-        await loadSalesTotal(goalDeadline);
+        await loadSalesTotal(goalDeadline, goalCreated);
       } else {
         // Criar meta padrão com valor 0
         const { data: newGoal, error: createError } = await supabase
@@ -502,7 +527,16 @@ const Dashboard = () => {
       }).eq('id', goalId).eq('user_id', user.id);
       if (error) throw error;
       setTotalValue(newTotalValue);
-      setDeadline(new Date(editDeadline));
+      const newDeadline = new Date(editDeadline);
+      setDeadline(newDeadline);
+      
+      // Recalcular duração da meta
+      if (goalCreatedAt) {
+        const durationMs = newDeadline.getTime() - goalCreatedAt.getTime();
+        const days = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+        setGoalDurationDays(Math.max(0, days));
+      }
+      
       setIsEditGoalOpen(false);
       toast.success("Meta atualizada com sucesso!");
     } catch (error) {
@@ -610,6 +644,38 @@ const Dashboard = () => {
                 <p className="text-[10px] sm:text-xs text-muted-foreground">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
+            
+            {/* Métricas de período - layout horizontal sutil */}
+            {deadline && (
+              <div className="flex items-center justify-center gap-2 mt-1 text-[10px] text-muted-foreground flex-wrap">
+                {/* Vendido até o prazo - Verde */}
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    R$ {salesBeforeDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                </span>
+                
+                {/* Separador */}
+                <span className="text-muted-foreground/50">•</span>
+                
+                {/* Duração da meta */}
+                <span className="text-muted-foreground">
+                  {goalDurationDays} dias
+                </span>
+                
+                {/* Separador */}
+                <span className="text-muted-foreground/50">•</span>
+                
+                {/* Vendido após o prazo - Laranja */}
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
+                  <span className="text-orange-500 font-medium">
+                    R$ {salesAfterDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                </span>
+              </div>
+            )}
 
             {/* Última Contribuição - Layout Compacto */}
             {lastContribution && (
