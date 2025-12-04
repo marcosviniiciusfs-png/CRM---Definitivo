@@ -4,6 +4,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { UserProfileMenu } from "@/components/UserProfileMenu";
 import { AutomationRulesModal } from "@/components/AutomationRulesModal";
 import { AutomationDashboardModal } from "@/components/AutomationDashboardModal";
+import { GoogleCalendarModal } from "@/components/GoogleCalendarModal";
 import { ReactNode, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const isOnChatPage = location.pathname === "/chat";
 
   return (
@@ -56,7 +58,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <Button
                     variant="ghostIcon"
                     size="icon"
-                    onClick={() => window.open('https://calendar.google.com', '_blank')}
+                    onClick={() => setCalendarModalOpen(true)}
                     className="h-9 w-9"
                   >
                     <img 
@@ -67,7 +69,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Abrir Google Calendar</p>
+                  <p>Meu Calendário</p>
                 </TooltipContent>
               </Tooltip>
               <NotificationBell />
@@ -86,6 +88,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <AutomationDashboardModal 
         open={dashboardModalOpen} 
         onOpenChange={setDashboardModalOpen} 
+      />
+      <GoogleCalendarModal
+        open={calendarModalOpen}
+        onOpenChange={setCalendarModalOpen}
       />
     </SidebarProvider>
   );

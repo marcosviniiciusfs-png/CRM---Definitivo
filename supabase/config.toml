@@ -15,6 +15,15 @@ verify_jwt = false
 [functions.create-calendar-event]
 verify_jwt = true
 
+[functions.list-calendar-events]
+verify_jwt = true
+
+[functions.update-calendar-event]
+verify_jwt = true
+
+[functions.delete-calendar-event]
+verify_jwt = true
+
 [functions.check-subscription]
 verify_jwt = true
 
