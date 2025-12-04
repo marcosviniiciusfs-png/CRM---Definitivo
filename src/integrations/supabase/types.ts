@@ -2323,6 +2323,19 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_meta_pixel_integrations_masked: {
+        Args: never
+        Returns: {
+          access_token: string
+          created_at: string
+          funnel_id: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          pixel_id: string
+          updated_at: string
+        }[]
+      }
       get_organization_members: {
         Args: { _organization_id: string }
         Returns: {
