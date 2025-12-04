@@ -31,6 +31,19 @@ serve(async (req) => {
 
     console.log('🔐 Iniciando OAuth para usuário:', user.id);
 
+    // Receber origin do frontend para redirect após OAuth
+    let origin = 'https://kairozspace.com.br'; // Fallback padrão
+    try {
+      const body = await req.json();
+      if (body?.origin) {
+        origin = body.origin;
+      }
+    } catch {
+      // Body vazio ou inválido, usar fallback
+    }
+
+    console.log('📍 Origin para redirect:', origin);
+
     // Buscar credenciais do Google (devem estar configuradas como secrets)
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
@@ -42,7 +55,7 @@ serve(async (req) => {
 
     // Construir URL de autorização do Google
     const scope = 'https://www.googleapis.com/auth/calendar';
-    const state = btoa(JSON.stringify({ user_id: user.id }));
+    const state = btoa(JSON.stringify({ user_id: user.id, origin }));
     
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleClientId}` +

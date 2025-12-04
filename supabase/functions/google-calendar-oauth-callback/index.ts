@@ -2,11 +2,26 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
+  // Fallback padrão para redirect
+  let redirectUrl = 'https://kairozspace.com.br';
+  
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
     const error = url.searchParams.get('error');
+
+    // Decodificar state primeiro para pegar o origin (se disponível)
+    if (state) {
+      try {
+        const stateData = JSON.parse(atob(state));
+        if (stateData.origin) {
+          redirectUrl = stateData.origin;
+        }
+      } catch {
+        // State inválido, usar fallback
+      }
+    }
 
     // Se usuário negou autorização
     if (error) {
@@ -14,7 +29,7 @@ serve(async (req) => {
       return new Response(null, {
         status: 302,
         headers: {
-          'Location': `${Deno.env.get('SUPABASE_URL')}/settings?integration=google_calendar&error=access_denied`,
+          'Location': `${redirectUrl}/settings?integration=google_calendar&error=access_denied`,
         },
       });
     }
@@ -23,9 +38,10 @@ serve(async (req) => {
       throw new Error('Código ou state ausente');
     }
 
-    // Decodificar state
-    const { user_id } = JSON.parse(atob(state));
-    console.log('🔄 Processando callback para usuário:', user_id);
+    // Decodificar state completo
+    const { user_id, origin } = JSON.parse(atob(state));
+    if (origin) redirectUrl = origin;
+    console.log('🔄 Processando callback para usuário:', user_id, 'redirect:', redirectUrl);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -99,11 +115,11 @@ serve(async (req) => {
 
     console.log('✅ Integração salva com sucesso');
 
-    // Redirecionar para a página de configurações
+    // Redirecionar para a página de configurações do frontend
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': `${Deno.env.get('SUPABASE_URL')}/settings?integration=google_calendar&success=true`,
+        'Location': `${redirectUrl}/settings?integration=google_calendar&success=true`,
       },
     });
   } catch (error) {
@@ -111,7 +127,7 @@ serve(async (req) => {
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': `${Deno.env.get('SUPABASE_URL')}/settings?integration=google_calendar&error=callback_failed`,
+        'Location': `${redirectUrl}/settings?integration=google_calendar&error=callback_failed`,
       },
     });
   }

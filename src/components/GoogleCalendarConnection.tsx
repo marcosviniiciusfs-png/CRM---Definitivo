@@ -60,7 +60,7 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
     setConnecting(true);
     try {
       const { data, error } = await supabase.functions.invoke("google-calendar-oauth-initiate", {
-        body: {},
+        body: { origin: window.location.origin },
       });
 
       if (error) throw error;
