@@ -587,8 +587,8 @@ const Dashboard = () => {
               
               {/* Valor central */}
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-10">
-                <p className="text-xl font-bold">R${currentValue}</p>
-                <p className="text-base text-muted-foreground">de R${totalValue}</p>
+                <p className="text-xl font-bold">R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-base text-muted-foreground">de R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 <p className="text-sm text-muted-foreground mt-1">{percentage.toFixed(0)}% concluído</p>
               </div>
             </div>
