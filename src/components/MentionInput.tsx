@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UserProfile {
@@ -104,10 +104,12 @@ export const MentionInput = ({ value, onChange, placeholder }: MentionInputProps
               onClick={() => insertMention(user)}
               className="w-full flex items-center gap-2 p-2 hover:bg-accent transition-colors text-left"
             >
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={user.avatar_url || ""} />
-                <AvatarFallback>{user.full_name[0]}</AvatarFallback>
-              </Avatar>
+              <LazyAvatar
+                src={user.avatar_url}
+                name={user.full_name}
+                size="xs"
+                className="h-6 w-6"
+              />
               <span className="text-sm">{user.full_name}</span>
             </button>
           ))}

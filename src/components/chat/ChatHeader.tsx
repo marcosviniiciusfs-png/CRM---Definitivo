@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Lead } from "@/types/chat";
 import { PresenceInfo } from "./types";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Phone, Search, RefreshCw, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
@@ -38,37 +38,21 @@ export const ChatHeader = memo(function ChatHeader({
   onPreviousResult,
   onAvatarClick,
 }: ChatHeaderProps) {
-  const getInitials = (name: string) => {
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  };
-
-  const getAvatarUrl = (lead: Lead) => {
-    if (lead.avatar_url) return lead.avatar_url;
-    const initials = getInitials(lead.nome_lead) || "NN";
-    try {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=128`;
-    } catch {
-      return `https://ui-avatars.com/api/?name=NN&background=random&color=fff&size=128`;
-    }
-  };
-
   return (
     <div className="p-4 border-b flex items-center justify-between">
       <div className="flex items-center gap-3">
         <div className="relative">
-          <Avatar
-            className="cursor-pointer hover:opacity-80 transition-opacity"
+          <LazyAvatar
+            src={lead.avatar_url}
+            name={lead.nome_lead}
+            size="md"
+            className="h-10 w-10"
             onClick={() => {
               if (lead.avatar_url) {
                 onAvatarClick(lead.avatar_url, lead.nome_lead);
               }
             }}
-          >
-            <AvatarImage src={getAvatarUrl(lead)} alt={lead.nome_lead} />
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {getInitials(lead.nome_lead)}
-            </AvatarFallback>
-          </Avatar>
+          />
           <div
             className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
               presenceStatus?.isOnline
