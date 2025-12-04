@@ -62,7 +62,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     <img 
                       src={googleCalendarIcon} 
                       alt="Google Calendar" 
-                      className="h-5 w-5"
+                      className="h-7 w-7"
                     />
                   </Button>
                 </TooltipTrigger>
