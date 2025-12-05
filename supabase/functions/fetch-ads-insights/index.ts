@@ -50,6 +50,40 @@ const REGISTRATION_LEAD_TYPES = [
   'omni_complete_registration',
 ];
 
+// Função para obter nome amigável do tipo de lead
+const getLeadTypeName = (leadType: string): string => {
+  if (!leadType) return '';
+  
+  // WhatsApp / Mensagens
+  if (leadType.includes('messaging') || leadType.includes('total_messaging_connection')) {
+    return 'WhatsApp';
+  }
+  
+  // Formulários Lead Ads
+  if (leadType === 'lead' || leadType === 'leadgen_grouped' || leadType.includes('lead_grouped')) {
+    return 'Formulário';
+  }
+  
+  // Pixel de Lead
+  if (leadType.includes('fb_pixel_lead') || leadType === 'omni_lead') {
+    return 'Pixel';
+  }
+  
+  // Registro completo
+  if (leadType.includes('registration')) {
+    return 'Registro';
+  }
+  
+  // Conversões customizadas
+  if (leadType.includes('offsite_conversion.custom.') || leadType.includes('omni_custom')) {
+    return 'Personalizada';
+  }
+  
+  // Para outros tipos, retornar versão simplificada
+  const simplified = leadType.split('.').pop()?.replace(/_/g, ' ') || leadType;
+  return simplified.charAt(0).toUpperCase() + simplified.slice(1);
+};
+
 // Função para calcular leads com priorização (evita dupla contagem)
 // Também verifica conversões customizadas como fallback
 const calculateLeadsFromActions = (actions: any[], conversions?: any[]): { leads: number; leadType: string } => {
@@ -57,7 +91,7 @@ const calculateLeadsFromActions = (actions: any[], conversions?: any[]): { leads
     // Se não há actions, verificar conversões customizadas
     if (conversions && conversions.length > 0) {
       const customConversion = conversions[0];
-      console.log(`Using custom conversion: ${customConversion.action_type} = ${customConversion.value}`);
+      console.log(`Using custom conversion (no actions): ${customConversion.action_type} = ${customConversion.value}`);
       return {
         leads: parseInt(customConversion.value || '0', 10),
         leadType: customConversion.action_type
@@ -106,10 +140,23 @@ const calculateLeadsFromActions = (actions: any[], conversions?: any[]): { leads
     }
   }
 
-  // Prioridade 5: Conversões customizadas (fallback)
+  // Prioridade 5: Conversões customizadas DENTRO de actions
+  // action_type começa com 'offsite_conversion.custom.' ou 'omni_custom'
+  for (const action of actions) {
+    if (action.action_type.startsWith('offsite_conversion.custom.') || 
+        action.action_type.startsWith('omni_custom')) {
+      console.log(`Found custom conversion in actions: ${action.action_type} = ${action.value}`);
+      return { 
+        leads: parseInt(action.value || '0', 10), 
+        leadType: action.action_type 
+      };
+    }
+  }
+
+  // Prioridade 6: Conversões customizadas no campo conversions (fallback final)
   if (conversions && conversions.length > 0) {
     const customConversion = conversions[0];
-    console.log(`Fallback to custom conversion: ${customConversion.action_type} = ${customConversion.value}`);
+    console.log(`Fallback to conversions field: ${customConversion.action_type} = ${customConversion.value}`);
     return {
       leads: parseInt(customConversion.value || '0', 10),
       leadType: customConversion.action_type
@@ -285,7 +332,7 @@ Deno.serve(async (req) => {
       spend: number; 
       leads: number; 
       reach: number;
-      impressions: number; // ADICIONADO
+      impressions: number;
       clicks: number;
       leadType: string;
       costPerLead: number; // CPL do Meta
@@ -304,16 +351,24 @@ Deno.serve(async (req) => {
         totalImpressions += impressions;
         totalClicks += clicks;
 
-        // DEBUG: Log detalhado por campanha
-        console.log(`Campaign "${record.campaign_name}" (${record.campaign_id}):`);
+        // DEBUG: Log detalhado por campanha com TODOS os action_types
+        console.log(`\n=== Campaign "${record.campaign_name}" (${record.campaign_id}) ===`);
+        console.log(`  Spend: ${spend}, Reach: ${reach}, Impressions: ${impressions}, Clicks: ${clicks}`);
+        
         if (record.actions && record.actions.length > 0) {
-          console.log(`  Actions:`, JSON.stringify(record.actions.slice(0, 8)));
+          console.log(`  ALL Actions (${record.actions.length} total):`);
+          record.actions.forEach((a: any) => {
+            console.log(`    - ${a.action_type}: ${a.value}`);
+          });
+        } else {
+          console.log(`  No actions found`);
         }
+        
         if (record.conversions && record.conversions.length > 0) {
-          console.log(`  Conversions (custom):`, JSON.stringify(record.conversions));
-        }
-        if (record.cost_per_action_type && record.cost_per_action_type.length > 0) {
-          console.log(`  Cost per action:`, JSON.stringify(record.cost_per_action_type.slice(0, 5)));
+          console.log(`  Custom Conversions:`);
+          record.conversions.forEach((c: any) => {
+            console.log(`    - ${c.action_type}: ${c.value}`);
+          });
         }
 
         // Calcular leads com priorização (incluindo conversões customizadas como fallback)
@@ -321,16 +376,18 @@ Deno.serve(async (req) => {
         totalLeads += leads;
 
         if (leadType) {
-          console.log(`  → Lead type: ${leadType}, Count: ${leads}`);
+          console.log(`  → SELECTED: ${leadType} = ${leads} (${getLeadTypeName(leadType)})`);
+        } else {
+          console.log(`  → No lead conversion found`);
         }
 
         // Obter CPL do Meta para o tipo de lead específico
         const costPerLead = getLeadCostFromActions(record.cost_per_action_type, leadType);
 
-        // CORRIGIDO: Agregar por campaign_id (não campaign_name) para evitar duplicação
+        // Agregar por campaign_id para evitar duplicação
         const campaignId = record.campaign_id || '';
         const campaignName = record.campaign_name || 'Unknown';
-        const campaignKey = campaignId || campaignName; // Usar ID como chave primária
+        const campaignKey = campaignId || campaignName;
         
         if (!campaignData[campaignKey]) {
           campaignData[campaignKey] = { 
@@ -351,7 +408,10 @@ Deno.serve(async (req) => {
         campaignData[campaignKey].reach += reach;
         campaignData[campaignKey].impressions += impressions;
         campaignData[campaignKey].clicks += clicks;
-        campaignData[campaignKey].leadType = leadType;
+        // Manter o leadType mais recente (ou o que tem valor)
+        if (leadType) {
+          campaignData[campaignKey].leadType = leadType;
+        }
         // Atualizar CPL do Meta se disponível
         if (costPerLead > 0) {
           campaignData[campaignKey].costPerLead = costPerLead;
@@ -381,10 +441,10 @@ Deno.serve(async (req) => {
     // Calcular métricas finais
     const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
     const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
-    // CORRIGIDO: CTR = cliques / impressões * 100 (não reach)
     const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
 
-    console.log(`Totals - Spend: ${totalSpend}, Leads: ${totalLeads}, Reach: ${totalReach}, Impressions: ${totalImpressions}, CPL: ${avgCPL}, CTR: ${avgCTR}`);
+    console.log(`\n=== TOTALS ===`);
+    console.log(`Spend: ${totalSpend}, Leads: ${totalLeads}, Reach: ${totalReach}, Impressions: ${totalImpressions}, CPL: ${avgCPL}, CTR: ${avgCTR}`);
 
     const chartData = Object.values(dailyChartData)
       .map(d => ({
@@ -393,18 +453,21 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
+    // CORRIGIDO: Filtrar por spend > 0 (mostrar todas campanhas com gasto)
     const campaignBreakdown = Object.values(campaignData)
+      .filter(c => c.spend > 0) // Mostrar todas com gasto, mesmo sem leads
       .map(c => ({
         id: c.id,
         name: c.name,
         spend: c.spend,
         leads: c.leads,
         reach: c.reach,
-        impressions: c.impressions, // ADICIONADO
+        impressions: c.impressions,
         clicks: c.clicks,
+        leadType: c.leadType,
+        leadTypeName: getLeadTypeName(c.leadType),
         // CPL: usar do Meta se disponível, senão calcular
         cpl: c.costPerLead > 0 ? c.costPerLead : (c.leads > 0 ? c.spend / c.leads : 0),
-        // CORRIGIDO: CTR = cliques / impressões * 100 (não reach)
         ctr: c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0
       }))
       .sort((a, b) => b.spend - a.spend)
