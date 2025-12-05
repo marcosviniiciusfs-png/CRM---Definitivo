@@ -72,8 +72,15 @@ export const MessageBubble = memo(function MessageBubble({
     return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
+  // Safe formatting using React JSX instead of dangerouslySetInnerHTML to prevent XSS
   const formatMessageBody = (body: string) => {
-    return body.replace(/\*([^*]+)\*/g, "<strong>$1</strong>");
+    const parts = body.split(/(\*[^*]+\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+        return <strong key={index}>{part.slice(1, -1)}</strong>;
+      }
+      return part;
+    });
   };
 
   const groupedReactions = reactions.reduce((acc, reaction) => {
@@ -212,7 +219,7 @@ export const MessageBubble = memo(function MessageBubble({
                 />
               </div>
               {message.corpo_mensagem && !message.corpo_mensagem.includes("[Imagem]") && message.corpo_mensagem !== "Imagem" && (
-                <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formatMessageBody(message.corpo_mensagem) }} />
+                <p className="text-sm whitespace-pre-wrap">{formatMessageBody(message.corpo_mensagem)}</p>
               )}
             </div>
           ) : (
@@ -234,7 +241,7 @@ export const MessageBubble = memo(function MessageBubble({
             )}
           </div>
         ) : (
-          <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formatMessageBody(message.corpo_mensagem) }} />
+          <p className="text-sm whitespace-pre-wrap">{formatMessageBody(message.corpo_mensagem)}</p>
         )}
 
         {/* Timestamp and status */}
