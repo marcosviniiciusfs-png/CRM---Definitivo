@@ -28,6 +28,7 @@ const FORM_LEAD_TYPES = [
 
 // Prioridade 2: Conversões de mensagem/WhatsApp (expandido)
 const MESSAGING_LEAD_TYPES = [
+  'onsite_conversion.total_messaging_connection', // PRINCIPAL - "Conversa por mensagem iniciada"
   'onsite_conversion.messaging_conversation_started_7d',
   'messaging_conversation_started_7d',
   'messaging_first_reply',
@@ -50,8 +51,18 @@ const REGISTRATION_LEAD_TYPES = [
 ];
 
 // Função para calcular leads com priorização (evita dupla contagem)
-const calculateLeadsFromActions = (actions: any[]): { leads: number; leadType: string } => {
+// Também verifica conversões customizadas como fallback
+const calculateLeadsFromActions = (actions: any[], conversions?: any[]): { leads: number; leadType: string } => {
   if (!actions || actions.length === 0) {
+    // Se não há actions, verificar conversões customizadas
+    if (conversions && conversions.length > 0) {
+      const customConversion = conversions[0];
+      console.log(`Using custom conversion: ${customConversion.action_type} = ${customConversion.value}`);
+      return {
+        leads: parseInt(customConversion.value || '0', 10),
+        leadType: customConversion.action_type
+      };
+    }
     return { leads: 0, leadType: '' };
   }
 
@@ -93,6 +104,16 @@ const calculateLeadsFromActions = (actions: any[]): { leads: number; leadType: s
         leadType: action.action_type 
       };
     }
+  }
+
+  // Prioridade 5: Conversões customizadas (fallback)
+  if (conversions && conversions.length > 0) {
+    const customConversion = conversions[0];
+    console.log(`Fallback to custom conversion: ${customConversion.action_type} = ${customConversion.value}`);
+    return {
+      leads: parseInt(customConversion.value || '0', 10),
+      leadType: customConversion.action_type
+    };
   }
 
   return { leads: 0, leadType: '' };
@@ -187,7 +208,10 @@ Deno.serve(async (req) => {
       'cpm',
       'ctr',
       'actions',
-      'cost_per_action_type'
+      'cost_per_action_type',
+      'conversions',           // Conversões customizadas (eventos personalizados)
+      'action_values',         // Valores de ações
+      'conversion_values'      // Valores de conversões
     ].join(',');
 
     const timeRange = JSON.stringify({ since: start_date, until: end_date });
@@ -280,56 +304,57 @@ Deno.serve(async (req) => {
         totalImpressions += impressions;
         totalClicks += clicks;
 
-        // Calcular leads com priorização
-        const { leads, leadType } = calculateLeadsFromActions(record.actions);
-        totalLeads += leads;
-
         // DEBUG: Log detalhado por campanha
+        console.log(`Campaign "${record.campaign_name}" (${record.campaign_id}):`);
         if (record.actions && record.actions.length > 0) {
-          console.log(`Campaign "${record.campaign_name}" - Actions:`, JSON.stringify(record.actions.slice(0, 5)));
+          console.log(`  Actions:`, JSON.stringify(record.actions.slice(0, 8)));
+        }
+        if (record.conversions && record.conversions.length > 0) {
+          console.log(`  Conversions (custom):`, JSON.stringify(record.conversions));
         }
         if (record.cost_per_action_type && record.cost_per_action_type.length > 0) {
-          console.log(`Campaign "${record.campaign_name}" - Cost per action:`, JSON.stringify(record.cost_per_action_type.slice(0, 5)));
+          console.log(`  Cost per action:`, JSON.stringify(record.cost_per_action_type.slice(0, 5)));
         }
 
+        // Calcular leads com priorização (incluindo conversões customizadas como fallback)
+        const { leads, leadType } = calculateLeadsFromActions(record.actions, record.conversions);
+        totalLeads += leads;
+
         if (leadType) {
-          console.log(`Campaign "${record.campaign_name}" - Lead type: ${leadType}, Count: ${leads}`);
+          console.log(`  → Lead type: ${leadType}, Count: ${leads}`);
         }
 
         // Obter CPL do Meta para o tipo de lead específico
         const costPerLead = getLeadCostFromActions(record.cost_per_action_type, leadType);
 
-        // Agregar por campanha
-        const campaignName = record.campaign_name || 'Unknown';
+        // CORRIGIDO: Agregar por campaign_id (não campaign_name) para evitar duplicação
         const campaignId = record.campaign_id || '';
+        const campaignName = record.campaign_name || 'Unknown';
+        const campaignKey = campaignId || campaignName; // Usar ID como chave primária
         
-        if (!campaignData[campaignName]) {
-          campaignData[campaignName] = { 
+        if (!campaignData[campaignKey]) {
+          campaignData[campaignKey] = { 
             id: campaignId, 
             name: campaignName, 
             spend: 0, 
             leads: 0, 
             reach: 0,
-            impressions: 0, // ADICIONADO
+            impressions: 0,
             clicks: 0,
             leadType: '',
             costPerLead: 0
           };
         }
         
-        if (!campaignData[campaignName].id && campaignId) {
-          campaignData[campaignName].id = campaignId;
-        }
-        
-        campaignData[campaignName].spend += spend;
-        campaignData[campaignName].leads += leads;
-        campaignData[campaignName].reach += reach;
-        campaignData[campaignName].impressions += impressions; // ADICIONADO
-        campaignData[campaignName].clicks += clicks;
-        campaignData[campaignName].leadType = leadType;
+        campaignData[campaignKey].spend += spend;
+        campaignData[campaignKey].leads += leads;
+        campaignData[campaignKey].reach += reach;
+        campaignData[campaignKey].impressions += impressions;
+        campaignData[campaignKey].clicks += clicks;
+        campaignData[campaignKey].leadType = leadType;
         // Atualizar CPL do Meta se disponível
         if (costPerLead > 0) {
-          campaignData[campaignName].costPerLead = costPerLead;
+          campaignData[campaignKey].costPerLead = costPerLead;
         }
       }
     }
@@ -340,7 +365,7 @@ Deno.serve(async (req) => {
     if (dailyData.data) {
       for (const record of dailyData.data) {
         const spend = parseFloat(record.spend || '0');
-        const { leads } = calculateLeadsFromActions(record.actions);
+        const { leads } = calculateLeadsFromActions(record.actions, record.conversions);
         const dateStart = record.date_start;
 
         if (dateStart) {
