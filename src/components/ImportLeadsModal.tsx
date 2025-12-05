@@ -11,7 +11,49 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { read, utils } from "xlsx";
+
+// Manual CSV parser function
+const parseCSV = (text: string): any[] => {
+  const lines = text.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2) return [];
+  
+  // Parse header - handle quoted fields
+  const parseRow = (row: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    
+    for (let i = 0; i < row.length; i++) {
+      const char = row[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if ((char === ',' || char === ';') && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+  
+  const headers = parseRow(lines[0]);
+  const data: any[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseRow(lines[i]);
+    if (values.length === headers.length) {
+      const row: any = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] || "";
+      });
+      data.push(row);
+    }
+  }
+  
+  return data;
+};
 
 interface ImportLeadsModalProps {
   open: boolean;
@@ -79,13 +121,22 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     
     try {
       let jsonData: any[] = [];
+      const fileName = uploadedFile.name.toLowerCase();
+      const isCSV = fileName.endsWith('.csv');
       
-      // Try parsing with xlsx library
-      const data = await uploadedFile.arrayBuffer();
-      const workbook = read(data, { type: "array", codepage: 65001 });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      jsonData = utils.sheet_to_json(worksheet, { defval: "" });
+      if (isCSV) {
+        // Use manual CSV parser
+        const text = await uploadedFile.text();
+        jsonData = parseCSV(text);
+      } else {
+        // Use dynamic import for xlsx (Excel files)
+        const XLSX = await import("xlsx");
+        const data = await uploadedFile.arrayBuffer();
+        const workbook = XLSX.read(data, { type: "array", codepage: 65001 });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      }
       
       if (jsonData.length === 0) {
         toast({
