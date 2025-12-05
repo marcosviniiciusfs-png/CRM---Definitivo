@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.process-webhook-queue]
 verify_jwt = false
+
+[functions.fetch-ads-insights]
+verify_jwt = true
