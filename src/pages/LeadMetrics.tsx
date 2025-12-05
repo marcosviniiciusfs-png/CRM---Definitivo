@@ -68,6 +68,8 @@ interface CampaignBreakdown {
   impressions: number;
   clicks: number;
   ctr: number;
+  leadType?: string;
+  leadTypeName?: string;
 }
 
 interface CampaignAd {
@@ -1318,7 +1320,16 @@ const LeadMetrics = () => {
                             <TableCell className="text-right">
                               {formatCurrency(campaign.spend)}
                             </TableCell>
-                            <TableCell className="text-right">{campaign.leads}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <span>{campaign.leads}</span>
+                                {campaign.leadTypeName && (
+                                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                    {campaign.leadTypeName}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-right">
                               {formatCurrency(campaign.cpl)}
                             </TableCell>
