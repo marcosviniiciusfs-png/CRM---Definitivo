@@ -79,30 +79,34 @@ export function AgentDistributionSettings() {
 
       if (!member) return;
 
-      // Se for admin/owner, carregar membros e perfis em PARALELO
+      // Se for admin/owner, carregar membros usando RPC segura
       if (permissions.canManageAgentSettings) {
-        const [orgMembersResult, profilesResult] = await Promise.all([
-          supabase
-            .from('organization_members')
-            .select('user_id, email')
-            .eq('organization_id', member.organization_id)
-            .not('user_id', 'is', null),
-          supabase
+        const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
+        
+        const userIds = (orgMembers || []).filter((m: any) => m.user_id).map((m: any) => m.user_id);
+        
+        let profilesMap: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
             .from('profiles')
             .select('user_id, full_name')
-        ]);
+            .in('user_id', userIds);
+          
+          if (profiles) {
+            profilesMap = profiles.reduce((acc, p) => {
+              acc[p.user_id] = p.full_name || '';
+              return acc;
+            }, {} as Record<string, string>);
+          }
+        }
 
-        const orgMembers = orgMembersResult.data || [];
-        const profiles = profilesResult.data || [];
-
-        const membersWithNames = orgMembers.map(m => {
-          const profile = profiles.find(p => p.user_id === m.user_id);
-          return {
+        const membersWithNames = (orgMembers || [])
+          .filter((m: any) => m.user_id)
+          .map((m: any) => ({
             user_id: m.user_id!,
-            full_name: profile?.full_name || m.email || 'Sem nome',
-            email: m.email || '',
-          };
-        });
+            full_name: profilesMap[m.user_id] || 'Sem nome',
+            email: '', // Email mascarado - não exibir
+          }));
 
         setMembers(membersWithNames);
         setSelectedMemberId(user.id);

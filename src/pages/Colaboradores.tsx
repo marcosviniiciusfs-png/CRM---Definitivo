@@ -98,13 +98,9 @@ const Colaboradores = () => {
       setUserRole(memberData.role);
       setCurrentUserId(user.id);
 
-      // Passo 2: Buscar membros e subscription em PARALELO
+      // Passo 2: Buscar membros (usando RPC segura) e subscription em PARALELO
       const [membersResult, subResult] = await Promise.all([
-        supabase
-          .from('organization_members')
-          .select('*')
-          .eq('organization_id', orgId)
-          .order('created_at', { ascending: false }),
+        supabase.rpc('get_organization_members_masked'),
         supabase.functions.invoke('check-subscription')
       ]);
 

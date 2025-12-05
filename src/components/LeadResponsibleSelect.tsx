@@ -45,16 +45,13 @@ export function LeadResponsibleSelect({
     try {
       setLoading(true);
       
-      // Buscar colaboradores da organização
-      const { data: members, error } = await supabase
-        .from('organization_members')
-        .select('user_id, email')
-        .order('email');
+      // Usar RPC segura para não expor emails
+      const { data: members, error } = await supabase.rpc('get_organization_members_masked');
 
       if (error) throw error;
 
       // Buscar profiles para pegar os nomes completos e avatares
-      const userIds = members?.filter(m => m.user_id).map(m => m.user_id) || [];
+      const userIds = members?.filter((m: any) => m.user_id).map((m: any) => m.user_id) || [];
       
       let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
       if (userIds.length > 0) {
@@ -76,10 +73,10 @@ export function LeadResponsibleSelect({
         }
       }
 
-      // Combinar dados
-      const colaboradoresWithNames = members?.map(m => ({
+      // Combinar dados (sem expor email)
+      const colaboradoresWithNames = members?.filter((m: any) => m.user_id).map((m: any) => ({
         user_id: m.user_id,
-        email: m.email,
+        email: null, // Não expor email
         full_name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id].full_name : null,
         avatar_url: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id].avatar_url : null
       })) || [];
