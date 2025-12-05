@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus, ArrowUpDown, Edit, Trash2, Loader2, Download, X, CalendarIcon, Filter } from "lucide-react";
+import { Search, Plus, ArrowUpDown, Edit, Trash2, Loader2, Download, Upload, X, CalendarIcon, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ import {
 import { LeadResponsibleSelect } from "@/components/LeadResponsibleSelect";
 import { AddLeadModal } from "@/components/AddLeadModal";
 import { EditLeadModal } from "@/components/EditLeadModal";
+import { ImportLeadsModal } from "@/components/ImportLeadsModal";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLeadsParallelQueries } from "@/hooks/useParallelQueries";
@@ -73,6 +74,7 @@ const Leads = () => {
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
   const [userProfile, setUserProfile] = useState<{ full_name: string | null } | null>(null);
   const [page, setPage] = useState(0);
@@ -517,13 +519,23 @@ const Leads = () => {
             Exportar
           </Button>
           {(permissions.canViewAllLeads) && (
-            <Button 
-              className="gap-2 bg-primary hover:bg-primary/90"
-              onClick={() => setShowAddModal(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Adicionar Lead
-            </Button>
+            <>
+              <Button 
+                variant="outline"
+                className="gap-2"
+                onClick={() => setShowImportModal(true)}
+              >
+                <Upload className="h-4 w-4" />
+                Importar
+              </Button>
+              <Button 
+                className="gap-2 bg-primary hover:bg-primary/90"
+                onClick={() => setShowAddModal(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar Lead
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -907,6 +919,12 @@ const Leads = () => {
           lead={leadToEdit}
         />
       )}
+
+      {/* Modal de importar leads */}
+      <ImportLeadsModal
+        open={showImportModal}
+        onOpenChange={setShowImportModal}
+      />
     </div>
   );
 };
