@@ -673,17 +673,6 @@ Deno.serve(async (req) => {
     console.log(`CRM: Meta=${totalLeads}, CRM=${crmLeadsCount}, Taxa=${captureRate.toFixed(1)}%`);
 
     // ============= PASSO 7: Montar resposta final =============
-    const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
-    const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
-    const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-    const avgFrequency = totalReach > 0 ? totalImpressions / totalReach : 0;
-
-    console.log(`\n========== TOTAIS ==========`);
-    console.log(`Spend: R$ ${totalSpend.toFixed(2)}`);
-    console.log(`Leads: ${totalLeads}`);
-    console.log(`CPL: R$ ${avgCPL.toFixed(2)}`);
-    console.log(`Reach: ${totalReach}`);
-
     const chartData = Object.values(dailyChartData)
       .map(d => ({
         ...d,
@@ -691,6 +680,7 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
+    // Criar campaignBreakdown PRIMEIRO (sem limite de slice)
     const campaignBreakdown = Object.values(campaignData)
       .filter(c => c.spend > 0)
       .map(c => ({
@@ -714,25 +704,54 @@ Deno.serve(async (req) => {
         objective: c.objective,
         objectiveName: c.objectiveName,
       }))
-      .sort((a, b) => b.spend - a.spend)
-      .slice(0, 20);
+      .sort((a, b) => b.spend - a.spend);
+
+    // ============= RECALCULAR TOTAIS BASEADO NO CAMPAIGN BREAKDOWN =============
+    const finalTotalSpend = campaignBreakdown.reduce((sum, c) => sum + c.spend, 0);
+    const finalTotalLeads = campaignBreakdown.reduce((sum, c) => sum + c.leads, 0);
+    const finalTotalReach = campaignBreakdown.reduce((sum, c) => sum + c.reach, 0);
+    const finalTotalImpressions = campaignBreakdown.reduce((sum, c) => sum + c.impressions, 0);
+    const finalTotalClicks = campaignBreakdown.reduce((sum, c) => sum + c.clicks, 0);
+    const finalTotalLandingPageViews = campaignBreakdown.reduce((sum, c) => sum + (c.landingPageViews || 0), 0);
+    const finalTotalOutboundClicks = campaignBreakdown.reduce((sum, c) => sum + (c.outboundClicks || 0), 0);
+    
+    const finalAvgCPL = finalTotalLeads > 0 ? finalTotalSpend / finalTotalLeads : 0;
+    const finalAvgCPC = finalTotalClicks > 0 ? finalTotalSpend / finalTotalClicks : 0;
+    const finalAvgCTR = finalTotalImpressions > 0 ? (finalTotalClicks / finalTotalImpressions) * 100 : 0;
+    const finalAvgFrequency = finalTotalReach > 0 ? finalTotalImpressions / finalTotalReach : 0;
+
+    console.log(`\n========== TOTAIS (do campaignBreakdown) ==========`);
+    console.log(`Campanhas: ${campaignBreakdown.length}`);
+    console.log(`Spend: R$ ${finalTotalSpend.toFixed(2)}`);
+    console.log(`Leads: ${finalTotalLeads}`);
+    console.log(`CPL: R$ ${finalAvgCPL.toFixed(2)}`);
+    console.log(`Reach: ${finalTotalReach}`);
+
+    // Atualizar validação CRM com os totais corretos
+    const finalCaptureRate = finalTotalLeads > 0 ? (crmLeadsCount / finalTotalLeads) * 100 : 0;
+    const finalCrmValidation = {
+      metaReportedLeads: finalTotalLeads,
+      crmReceivedLeads: crmLeadsCount,
+      captureRate: finalCaptureRate,
+      discrepancy: finalTotalLeads - crmLeadsCount
+    };
 
     const result = {
-      totalSpend,
-      totalReach,
-      totalImpressions,
-      totalClicks,
-      totalLeads,
-      avgCPL,
-      avgCPC,
-      avgCTR,
-      avgFrequency,
-      totalLandingPageViews,
-      totalOutboundClicks,
+      totalSpend: finalTotalSpend,
+      totalReach: finalTotalReach,
+      totalImpressions: finalTotalImpressions,
+      totalClicks: finalTotalClicks,
+      totalLeads: finalTotalLeads,
+      avgCPL: finalAvgCPL,
+      avgCPC: finalAvgCPC,
+      avgCTR: finalAvgCTR,
+      avgFrequency: finalAvgFrequency,
+      totalLandingPageViews: finalTotalLandingPageViews,
+      totalOutboundClicks: finalTotalOutboundClicks,
       chartData,
       campaignBreakdown,
       platformBreakdown,
-      crmValidation,
+      crmValidation: finalCrmValidation,
     };
 
     console.log(`\n✓ Processado com sucesso: ${campaignBreakdown.length} campanhas`);
