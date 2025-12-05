@@ -2,11 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon } from "lucide-react";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Line } from "recharts";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,6 +15,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface ChartDataPoint {
   date: string;
@@ -42,12 +42,28 @@ interface WhatsAppAdvancedMetrics {
   avgResponseTimeMinutes: number;
 }
 
+interface AdsMetrics {
+  totalSpend: number;
+  totalReach: number;
+  totalImpressions: number;
+  totalClicks: number;
+  totalLeads: number;
+  avgCPL: number;
+  avgCPC: number;
+  avgCTR: number;
+  chartData: { date: string; spend: number; leads: number; cpl: number }[];
+  campaignBreakdown: { name: string; spend: number; leads: number; cpl: number; reach: number; clicks: number; ctr: number }[];
+}
+
 const LeadMetrics = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [facebookMetrics, setFacebookMetrics] = useState<MetricsData | null>(null);
   const [whatsappMetrics, setWhatsappMetrics] = useState<MetricsData | null>(null);
+  const [adsMetrics, setAdsMetrics] = useState<AdsMetrics | null>(null);
+  const [adsLoading, setAdsLoading] = useState(false);
+  const [adsError, setAdsError] = useState<string | null>(null);
   const [facebookAdvanced, setFacebookAdvanced] = useState<FacebookAdvancedMetrics>({
     mqlConversionRate: 0,
     discardRate: 0,
@@ -65,10 +81,9 @@ const LeadMetrics = () => {
   const [shouldLoadMetrics, setShouldLoadMetrics] = useState(true);
 
   useEffect(() => {
-    // Só carregar métricas quando o flag estiver ativo e ambas as datas estiverem selecionadas
     if (user && dateRange?.from && dateRange?.to && shouldLoadMetrics) {
       loadMetrics();
-      setShouldLoadMetrics(false); // Resetar o flag após carregar
+      setShouldLoadMetrics(false);
     }
   }, [user, shouldLoadMetrics]);
 
@@ -90,14 +105,12 @@ const LeadMetrics = () => {
 
   const loadMetrics = async () => {
     try {
-      // Se já carregou antes, apenas mostrar indicador de atualização
       if (!loading) {
         setUpdating(true);
       } else {
         setLoading(true);
       }
 
-      // Buscar organization_id do usuário
       const { data: orgMember } = await supabase
         .from('organization_members')
         .select('organization_id')
@@ -106,10 +119,8 @@ const LeadMetrics = () => {
 
       if (!orgMember) return;
 
-      // Obter período selecionado
       const { startDate, endDate } = getDateRange();
 
-      // Otimizado: buscar ambos os canais em paralelo
       const [facebookResult, whatsappResult] = await Promise.all([
         supabase
           .from('leads')
@@ -129,7 +140,6 @@ const LeadMetrics = () => {
           .order('created_at', { ascending: true })
       ]);
 
-      // Processar Facebook
       if (facebookResult.data && facebookResult.data.length > 0) {
         setFacebookMetrics(processMetrics(facebookResult.data));
         await loadFacebookAdvancedMetrics(orgMember.organization_id, startDate, endDate);
@@ -138,7 +148,6 @@ const LeadMetrics = () => {
         setFacebookAdvanced({ mqlConversionRate: 0, discardRate: 0, leadsByForm: [] });
       }
 
-      // Processar WhatsApp
       if (whatsappResult.data && whatsappResult.data.length > 0) {
         setWhatsappMetrics(processMetrics(whatsappResult.data));
         await loadWhatsAppAdvancedMetrics(orgMember.organization_id, startDate, endDate);
@@ -146,6 +155,10 @@ const LeadMetrics = () => {
         setWhatsappMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
         setWhatsappAdvanced({ responseRate: 0, pipelineConversionRate: 0, avgResponseTimeMinutes: 0 });
       }
+
+      // Load ads metrics
+      await loadAdsMetrics(orgMember.organization_id, startDate, endDate);
+
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
     } finally {
@@ -154,9 +167,47 @@ const LeadMetrics = () => {
     }
   };
 
+  const loadAdsMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
+    try {
+      setAdsLoading(true);
+      setAdsError(null);
+
+      const { data, error } = await supabase.functions.invoke('fetch-ads-insights', {
+        body: {
+          organization_id: organizationId,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          end_date: format(endDate, 'yyyy-MM-dd')
+        }
+      });
+
+      if (error) {
+        console.error('Error fetching ads insights:', error);
+        setAdsError('Erro ao carregar métricas de anúncios');
+        setAdsMetrics(null);
+        return;
+      }
+
+      if (data?.error) {
+        console.log('Ads insights error:', data.error);
+        setAdsError(data.error);
+        setAdsMetrics(null);
+        return;
+      }
+
+      if (data?.data) {
+        setAdsMetrics(data.data);
+      }
+    } catch (error) {
+      console.error('Error loading ads metrics:', error);
+      setAdsError('Erro ao carregar métricas de anúncios');
+      setAdsMetrics(null);
+    } finally {
+      setAdsLoading(false);
+    }
+  };
+
   const loadFacebookAdvancedMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
     try {
-      // Buscar leads do Facebook no período selecionado
       const { data: allLeads } = await supabase
         .from('leads')
         .select('id, stage, created_at')
@@ -166,7 +217,6 @@ const LeadMetrics = () => {
         .lte('created_at', endDate.toISOString());
 
       if (!allLeads || allLeads.length === 0) {
-        // Se não há dados no período, zerar métricas
         setFacebookAdvanced({
           mqlConversionRate: 0,
           discardRate: 0,
@@ -177,17 +227,14 @@ const LeadMetrics = () => {
 
       const total = allLeads.length;
       
-      // Taxa de Conversão MQL (leads com stage diferente de 'NOVO')
       const qualifiedLeads = allLeads.filter(lead => lead.stage && lead.stage !== 'NOVO');
       const mqlConversionRate = total > 0 ? (qualifiedLeads.length / total) * 100 : 0;
 
-      // Taxa de Descarte (leads com stage 'DESCARTADO' ou 'PERDIDO')
       const discardedLeads = allLeads.filter(lead => 
         lead.stage === 'DESCARTADO' || lead.stage === 'PERDIDO'
       );
       const discardRate = total > 0 ? (discardedLeads.length / total) * 100 : 0;
 
-      // Volume de leads por formulário (filtrado por período através dos lead_ids)
       const leadIds = allLeads.map(l => l.id);
       
       const { data: webhookLogs } = await supabase
@@ -226,7 +273,6 @@ const LeadMetrics = () => {
 
   const loadWhatsAppAdvancedMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
     try {
-      // Buscar leads do WhatsApp no período selecionado
       const { data: whatsappLeads } = await supabase
         .from('leads')
         .select('id, stage, created_at')
@@ -236,7 +282,6 @@ const LeadMetrics = () => {
         .lte('created_at', endDate.toISOString());
 
       if (!whatsappLeads || whatsappLeads.length === 0) {
-        // Se não há dados no período, zerar métricas
         setWhatsappAdvanced({
           responseRate: 0,
           pipelineConversionRate: 0,
@@ -247,7 +292,6 @@ const LeadMetrics = () => {
 
       const total = whatsappLeads.length;
 
-      // Taxa de Resposta Inicial (leads com pelo menos uma mensagem de saída)
       const { data: respondedLeads } = await supabase
         .from('mensagens_chat')
         .select('id_lead')
@@ -257,14 +301,11 @@ const LeadMetrics = () => {
       const uniqueRespondedLeads = new Set(respondedLeads?.map(m => m.id_lead) || []);
       const responseRate = total > 0 ? (uniqueRespondedLeads.size / total) * 100 : 0;
 
-      // Taxa de Conversão para Pipeline (leads com stage diferente de 'NOVO')
       const pipelineLeads = whatsappLeads.filter(lead => lead.stage && lead.stage !== 'NOVO');
       const pipelineConversionRate = total > 0 ? (pipelineLeads.length / total) * 100 : 0;
 
-      // Tempo Médio para Primeira Resposta - OTIMIZADO
       const responseTimes: number[] = [];
       
-      // Buscar TODAS as primeiras mensagens de saída de uma vez
       const leadIds = whatsappLeads.map(l => l.id);
       const { data: allOutgoingMessages } = await supabase
         .from('mensagens_chat')
@@ -273,7 +314,6 @@ const LeadMetrics = () => {
         .eq('direcao', 'saida')
         .order('data_hora', { ascending: true });
 
-      // Criar um mapa com a primeira mensagem de cada lead
       const firstResponseByLead = new Map<string, string>();
       allOutgoingMessages?.forEach(msg => {
         if (!firstResponseByLead.has(msg.id_lead)) {
@@ -281,7 +321,6 @@ const LeadMetrics = () => {
         }
       });
 
-      // Calcular tempos de resposta
       for (const lead of whatsappLeads) {
         const firstResponseTime = firstResponseByLead.get(lead.id);
         if (firstResponseTime) {
@@ -310,19 +349,16 @@ const LeadMetrics = () => {
   };
 
   const processMetrics = (leads: any[]): MetricsData => {
-    const { startDate, endDate, days } = getDateRange();
+    const { startDate, endDate } = getDateRange();
     
-    // Agrupar por dia
     const groupedByDay = leads.reduce((acc, lead) => {
       const date = format(new Date(lead.created_at), 'dd/MMM', { locale: ptBR });
       acc[date] = (acc[date] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // Criar array de dados para o gráfico baseado no período selecionado
     const chartData: ChartDataPoint[] = [];
     
-    // Iterar do startDate até endDate
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
       const dateKey = format(currentDate, 'dd/MMM', { locale: ptBR });
@@ -333,7 +369,6 @@ const LeadMetrics = () => {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Calcular semana atual e anterior dentro do período selecionado
     const periodMidpoint = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
     
     const thisWeekLeads = leads.filter(lead => 
@@ -348,7 +383,6 @@ const LeadMetrics = () => {
     const thisWeekTotal = thisWeekLeads.length;
     const lastWeekTotal = lastWeekLeads.length;
 
-    // Calcular taxa de crescimento
     const growthRate = lastWeekTotal > 0
       ? (((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100).toFixed(1)
       : thisWeekTotal > 0 ? '100' : '0';
@@ -376,6 +410,31 @@ const LeadMetrics = () => {
     return null;
   };
 
+  const AdsTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+          <p className="text-sm font-medium">{payload[0].payload.date}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: {entry.name === 'spend' || entry.name === 'cpl' 
+                ? `R$ ${entry.value.toFixed(2)}` 
+                : entry.value}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -393,10 +452,9 @@ const LeadMetrics = () => {
         </p>
       </div>
 
-
       <Tabs defaultValue="facebook" className="space-y-6">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="facebook" className="flex items-center gap-2">
               <Facebook className="h-4 w-4" />
               Meta Ads
@@ -405,9 +463,13 @@ const LeadMetrics = () => {
               <MessageCircle className="h-4 w-4" />
               WhatsApp
             </TabsTrigger>
+            <TabsTrigger value="campaigns" className="flex items-center gap-2">
+              <Megaphone className="h-4 w-4" />
+              Campanhas
+            </TabsTrigger>
           </TabsList>
 
-          {/* Seletor de Intervalo de Datas */}
+          {/* Date Range Selector */}
           <div className="flex gap-2 items-center">
             <Popover>
               <PopoverTrigger asChild>
@@ -435,7 +497,6 @@ const LeadMetrics = () => {
               <PopoverContent className="w-auto p-0" align="end">
                 <div className="flex flex-col">
                   <div className="flex">
-                    {/* Atalhos rápidos */}
                     <div className="flex flex-col gap-1 border-r p-2">
                       <Button
                         variant="ghost"
@@ -478,7 +539,6 @@ const LeadMetrics = () => {
                       </Button>
                     </div>
                     
-                    {/* Calendário */}
                     <Calendar
                       mode="range"
                       selected={dateRange}
@@ -493,7 +553,6 @@ const LeadMetrics = () => {
                     />
                   </div>
                   
-                  {/* Botão Atualizar */}
                   <div className="border-t p-3 flex justify-end gap-2">
                     <Button
                       variant="outline"
@@ -525,18 +584,19 @@ const LeadMetrics = () => {
           </div>
         </div>
 
+        {/* Facebook Tab */}
         <TabsContent value="facebook" className="space-y-6">
           <TooltipProvider>
             <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-            <MetricCard
-              title={`Total de Leads (${getDateRange().days} dias)`}
-              value={facebookMetrics?.total || 0}
-              icon={Users}
-              iconColor="text-blue-500"
-            />
+                    <MetricCard
+                      title={`Total de Leads (${getDateRange().days} dias)`}
+                      value={facebookMetrics?.total || 0}
+                      icon={Users}
+                      iconColor="text-blue-500"
+                    />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
@@ -692,18 +752,19 @@ const LeadMetrics = () => {
           </Card>
         </TabsContent>
 
+        {/* WhatsApp Tab */}
         <TabsContent value="whatsapp" className="space-y-6">
           <TooltipProvider>
             <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-            <MetricCard
-              title={`Total de Leads (${getDateRange().days} dias)`}
-              value={whatsappMetrics?.total || 0}
-              icon={Users}
-              iconColor="text-green-500"
-            />
+                    <MetricCard
+                      title={`Total de Leads (${getDateRange().days} dias)`}
+                      value={whatsappMetrics?.total || 0}
+                      icon={Users}
+                      iconColor="text-green-500"
+                    />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
@@ -845,6 +906,272 @@ const LeadMetrics = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Campaigns Tab */}
+        <TabsContent value="campaigns" className="space-y-6">
+          {adsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingAnimation text="Carregando métricas de campanhas..." />
+            </div>
+          ) : adsError ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center text-muted-foreground">
+                  <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">Métricas de Campanhas Indisponíveis</p>
+                  <p className="text-sm">{adsError}</p>
+                  <p className="text-xs mt-2">Certifique-se de ter uma conta de anúncios vinculada ao Facebook.</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : adsMetrics ? (
+            <>
+              <TooltipProvider>
+                <div className="grid gap-4 md:grid-cols-4 transition-all duration-500">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MetricCard
+                          title="Valor Investido"
+                          value={formatCurrency(adsMetrics.totalSpend)}
+                          icon={DollarSign}
+                          iconColor="text-green-500"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">Como é calculado:</p>
+                      <p className="text-sm">Soma total do valor gasto em todas as campanhas ativas no período selecionado.</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MetricCard
+                          title="Custo por Lead (CPL)"
+                          value={formatCurrency(adsMetrics.avgCPL)}
+                          icon={Target}
+                          iconColor="text-blue-500"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">Como é calculado:</p>
+                      <p className="text-sm">Valor total investido ÷ Total de leads gerados. Indica quanto custa, em média, adquirir cada lead.</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MetricCard
+                          title="Leads Gerados"
+                          value={adsMetrics.totalLeads}
+                          icon={Users}
+                          iconColor="text-purple-500"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">Como é calculado:</p>
+                      <p className="text-sm">Total de conversões do tipo "lead" registradas pelo Meta Ads no período.</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MetricCard
+                          title="Alcance"
+                          value={adsMetrics.totalReach.toLocaleString('pt-BR')}
+                          icon={Eye}
+                          iconColor="text-orange-500"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">Como é calculado:</p>
+                      <p className="text-sm">Número de pessoas únicas que viram seus anúncios pelo menos uma vez.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MetricCard
+                          title="Impressões"
+                          value={adsMetrics.totalImpressions.toLocaleString('pt-BR')}
+                          subtitle="Total de visualizações"
+                          icon={Eye}
+                          iconColor="text-cyan-500"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">Como é calculado:</p>
+                      <p className="text-sm">Número total de vezes que seus anúncios foram exibidos na tela.</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MetricCard
+                          title="Cliques"
+                          value={adsMetrics.totalClicks.toLocaleString('pt-BR')}
+                          subtitle={`CTR: ${adsMetrics.avgCTR.toFixed(2)}%`}
+                          icon={MousePointer}
+                          iconColor="text-indigo-500"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">Como é calculado:</p>
+                      <p className="text-sm">Total de cliques nos anúncios. CTR = (Cliques ÷ Impressões) × 100.</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MetricCard
+                          title="Custo por Clique (CPC)"
+                          value={formatCurrency(adsMetrics.avgCPC)}
+                          subtitle="Média por clique"
+                          icon={DollarSign}
+                          iconColor="text-amber-500"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">Como é calculado:</p>
+                      <p className="text-sm">Valor total investido ÷ Total de cliques. Indica o custo médio de cada clique.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+
+              {/* Investment vs Leads Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Investimento vs Leads ao Longo do Tempo</CardTitle>
+                </CardHeader>
+                <CardContent className="transition-all duration-500">
+                  <ResponsiveContainer width="100%" height={400}>
+                    <ComposedChart data={adsMetrics.chartData}>
+                      <defs>
+                        <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                      />
+                      <RechartsTooltip content={<AdsTooltip />} />
+                      <Area
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="spend"
+                        name="Investimento (R$)"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        fill="url(#spendGradient)"
+                        animationDuration={800}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="leads"
+                        name="Leads"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        dot={{ fill: '#8b5cf6', r: 4 }}
+                        animationDuration={800}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Campaign Performance Table */}
+              {adsMetrics.campaignBreakdown.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Performance por Campanha</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Campanha</TableHead>
+                          <TableHead className="text-right">Investimento</TableHead>
+                          <TableHead className="text-right">Leads</TableHead>
+                          <TableHead className="text-right">CPL</TableHead>
+                          <TableHead className="text-right">Alcance</TableHead>
+                          <TableHead className="text-right">Cliques</TableHead>
+                          <TableHead className="text-right">CTR</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {adsMetrics.campaignBreakdown.map((campaign, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium max-w-[200px] truncate">
+                              {campaign.name}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(campaign.spend)}
+                            </TableCell>
+                            <TableCell className="text-right">{campaign.leads}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(campaign.cpl)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {campaign.reach.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {campaign.clicks.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {campaign.ctr.toFixed(2)}%
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center text-muted-foreground">
+                  <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">Nenhum dado de campanha</p>
+                  <p className="text-sm">Configure sua integração com o Facebook para ver métricas de campanhas.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

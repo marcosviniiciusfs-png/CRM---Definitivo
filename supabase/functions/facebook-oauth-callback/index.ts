@@ -67,6 +67,18 @@ Deno.serve(async (req) => {
       throw new Error('Nenhuma página do Facebook encontrada. Você precisa ter uma página do Facebook para usar esta integração.');
     }
 
+    // Get user's ad accounts
+    const adAccountsResponse = await fetch(
+      `https://graph.facebook.com/v18.0/me/adaccounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
+    );
+    const adAccountsData = await adAccountsResponse.json();
+    
+    console.log('Facebook ad accounts response:', JSON.stringify(adAccountsData, null, 2));
+
+    // Find first active ad account (account_status = 1 means active)
+    const activeAdAccount = adAccountsData.data?.find((acc: any) => acc.account_status === 1);
+    const adAccountId = activeAdAccount?.id || adAccountsData.data?.[0]?.id || null;
+
     // Store in database
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -87,6 +99,7 @@ Deno.serve(async (req) => {
         page_id: pagesData.data?.[0]?.id || null,
         page_name: pagesData.data?.[0]?.name || null,
         page_access_token: pagesData.data?.[0]?.access_token || null,
+        ad_account_id: adAccountId,
       }, {
         onConflict: 'user_id,organization_id'
       });
