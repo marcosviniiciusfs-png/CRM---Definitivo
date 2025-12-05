@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       throw new Error('Nenhuma página do Facebook encontrada. Você precisa ter uma página do Facebook para usar esta integração.');
     }
 
-    // Get user's ad accounts
+    // Get user's ad accounts with name
     const adAccountsResponse = await fetch(
       `https://graph.facebook.com/v18.0/me/adaccounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
     );
@@ -75,9 +75,18 @@ Deno.serve(async (req) => {
     
     console.log('Facebook ad accounts response:', JSON.stringify(adAccountsData, null, 2));
 
+    // Format all ad accounts with their details
+    const adAccounts = adAccountsData.data?.map((acc: any) => ({
+      id: acc.id,
+      name: acc.name || 'Conta sem nome',
+      status: acc.account_status
+    })) || [];
+
     // Find first active ad account (account_status = 1 means active)
-    const activeAdAccount = adAccountsData.data?.find((acc: any) => acc.account_status === 1);
-    const adAccountId = activeAdAccount?.id || adAccountsData.data?.[0]?.id || null;
+    const activeAdAccount = adAccounts.find((acc: any) => acc.status === 1);
+    const defaultAdAccountId = activeAdAccount?.id || adAccounts[0]?.id || null;
+
+    console.log(`Found ${adAccounts.length} ad accounts, default: ${defaultAdAccountId}`);
 
     // Store in database
     const supabase = createClient(
@@ -99,7 +108,8 @@ Deno.serve(async (req) => {
         page_id: pagesData.data?.[0]?.id || null,
         page_name: pagesData.data?.[0]?.name || null,
         page_access_token: pagesData.data?.[0]?.access_token || null,
-        ad_account_id: adAccountId,
+        ad_account_id: defaultAdAccountId,
+        ad_accounts: adAccounts,
       }, {
         onConflict: 'user_id,organization_id'
       });

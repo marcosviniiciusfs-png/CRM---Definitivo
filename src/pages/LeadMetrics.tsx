@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Line } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone } from "lucide-react";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ChartDataPoint {
   date: string;
@@ -55,6 +56,12 @@ interface AdsMetrics {
   campaignBreakdown: { name: string; spend: number; leads: number; cpl: number; reach: number; clicks: number; ctr: number }[];
 }
 
+interface AdAccount {
+  id: string;
+  name: string;
+  status: number;
+}
+
 const LeadMetrics = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -79,6 +86,12 @@ const LeadMetrics = () => {
     to: new Date()
   });
   const [shouldLoadMetrics, setShouldLoadMetrics] = useState(true);
+  
+  // Ad account selection states
+  const [selectedAdAccountId, setSelectedAdAccountId] = useState<string | null>(null);
+  const [availableAdAccounts, setAvailableAdAccounts] = useState<AdAccount[]>([]);
+  const [selectedAdAccountName, setSelectedAdAccountName] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && dateRange?.from && dateRange?.to && shouldLoadMetrics) {
@@ -118,6 +131,8 @@ const LeadMetrics = () => {
         .single();
 
       if (!orgMember) return;
+      
+      setOrganizationId(orgMember.organization_id);
 
       const { startDate, endDate } = getDateRange();
 
@@ -167,16 +182,17 @@ const LeadMetrics = () => {
     }
   };
 
-  const loadAdsMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
+  const loadAdsMetrics = async (orgId: string, startDate: Date, endDate: Date, adAccountId?: string) => {
     try {
       setAdsLoading(true);
       setAdsError(null);
 
       const { data, error } = await supabase.functions.invoke('fetch-ads-insights', {
         body: {
-          organization_id: organizationId,
+          organization_id: orgId,
           start_date: format(startDate, 'yyyy-MM-dd'),
-          end_date: format(endDate, 'yyyy-MM-dd')
+          end_date: format(endDate, 'yyyy-MM-dd'),
+          ad_account_id: adAccountId || selectedAdAccountId || undefined
         }
       });
 
@@ -185,6 +201,17 @@ const LeadMetrics = () => {
         setAdsError('Erro ao carregar métricas de anúncios');
         setAdsMetrics(null);
         return;
+      }
+
+      // Update available accounts from response
+      if (data?.availableAccounts) {
+        setAvailableAdAccounts(data.availableAccounts);
+      }
+
+      // Update selected account info
+      if (data?.selectedAccount) {
+        setSelectedAdAccountId(data.selectedAccount.id);
+        setSelectedAdAccountName(data.selectedAccount.name);
       }
 
       if (data?.error) {
@@ -203,6 +230,17 @@ const LeadMetrics = () => {
       setAdsMetrics(null);
     } finally {
       setAdsLoading(false);
+    }
+  };
+
+  const handleAdAccountChange = async (accountId: string) => {
+    const account = availableAdAccounts.find(a => a.id === accountId);
+    setSelectedAdAccountId(accountId);
+    setSelectedAdAccountName(account?.name || null);
+    
+    if (organizationId && dateRange?.from && dateRange?.to) {
+      const { startDate, endDate } = getDateRange();
+      await loadAdsMetrics(organizationId, startDate, endDate, accountId);
     }
   };
 
@@ -910,6 +948,32 @@ const LeadMetrics = () => {
 
         {/* Campaigns Tab */}
         <TabsContent value="campaigns" className="space-y-6">
+          {/* Ad Account Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg border">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">Conta de Anúncios</p>
+                <p className="font-medium">{selectedAdAccountName || 'Não configurada'}</p>
+              </div>
+            </div>
+            
+            {availableAdAccounts.length > 1 && (
+              <Select value={selectedAdAccountId || undefined} onValueChange={handleAdAccountChange}>
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Selecionar conta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableAdAccounts.map(account => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
           {adsLoading ? (
             <div className="flex items-center justify-center py-12">
               <LoadingAnimation text="Carregando métricas de campanhas..." />

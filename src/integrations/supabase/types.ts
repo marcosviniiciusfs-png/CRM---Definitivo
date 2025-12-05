@@ -304,6 +304,7 @@ export type Database = {
         Row: {
           access_token: string
           ad_account_id: string | null
+          ad_accounts: Json | null
           created_at: string
           expires_at: string | null
           id: string
@@ -320,6 +321,7 @@ export type Database = {
         Insert: {
           access_token: string
           ad_account_id?: string | null
+          ad_accounts?: Json | null
           created_at?: string
           expires_at?: string | null
           id?: string
@@ -336,6 +338,7 @@ export type Database = {
         Update: {
           access_token?: string
           ad_account_id?: string | null
+          ad_accounts?: Json | null
           created_at?: string
           expires_at?: string | null
           id?: string
