@@ -5,10 +5,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface AdAccount {
+  id: string;
+  name: string;
+  status: number;
+}
+
 interface AdsInsightsParams {
   organization_id: string;
   start_date: string;
   end_date: string;
+  ad_account_id?: string; // Optional - if not provided, uses default
 }
 
 Deno.serve(async (req) => {
@@ -23,7 +30,7 @@ Deno.serve(async (req) => {
     );
 
     // Parse request body
-    const { organization_id, start_date, end_date }: AdsInsightsParams = await req.json();
+    const { organization_id, start_date, end_date, ad_account_id }: AdsInsightsParams = await req.json();
 
     if (!organization_id || !start_date || !end_date) {
       throw new Error('Missing required parameters: organization_id, start_date, end_date');
@@ -31,10 +38,10 @@ Deno.serve(async (req) => {
 
     console.log(`Fetching ads insights for org ${organization_id} from ${start_date} to ${end_date}`);
 
-    // Get Facebook integration with ad_account_id
+    // Get Facebook integration with ad_account_id and ad_accounts array
     const { data: integration, error: integrationError } = await supabase
       .from('facebook_integrations')
-      .select('access_token, ad_account_id')
+      .select('access_token, ad_account_id, ad_accounts')
       .eq('organization_id', organization_id)
       .single();
 
@@ -46,15 +53,45 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!integration.ad_account_id) {
+    // Parse ad_accounts - handle both array and JSON string
+    let availableAccounts: AdAccount[] = [];
+    if (integration.ad_accounts) {
+      if (Array.isArray(integration.ad_accounts)) {
+        availableAccounts = integration.ad_accounts;
+      } else if (typeof integration.ad_accounts === 'string') {
+        try {
+          availableAccounts = JSON.parse(integration.ad_accounts);
+        } catch (e) {
+          console.error('Failed to parse ad_accounts:', e);
+        }
+      }
+    }
+
+    // Use provided ad_account_id or fall back to default
+    const selectedAccountId = ad_account_id || integration.ad_account_id;
+
+    if (!selectedAccountId) {
       console.log('No ad account configured');
       return new Response(
-        JSON.stringify({ error: 'No ad account configured', data: null }),
+        JSON.stringify({ 
+          error: 'No ad account configured', 
+          data: null,
+          availableAccounts 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    const { access_token, ad_account_id } = integration;
+    // Find the selected account details
+    const selectedAccount = availableAccounts.find(acc => acc.id === selectedAccountId) || {
+      id: selectedAccountId,
+      name: 'Conta de Anúncios',
+      status: 1
+    };
+
+    const { access_token } = integration;
+
+    console.log(`Using ad account: ${selectedAccountId} (${selectedAccount.name})`);
 
     // Fetch insights from Meta Marketing API
     const insightsFields = [
@@ -73,7 +110,7 @@ Deno.serve(async (req) => {
     const timeRange = JSON.stringify({ since: start_date, until: end_date });
 
     // Fetch campaign-level insights with daily breakdown
-    const insightsUrl = `https://graph.facebook.com/v18.0/${ad_account_id}/insights?` +
+    const insightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
       `fields=${insightsFields}` +
       `&level=campaign` +
       `&time_range=${encodeURIComponent(timeRange)}` +
@@ -87,7 +124,12 @@ Deno.serve(async (req) => {
     if (insightsData.error) {
       console.error('Meta API error:', insightsData.error);
       return new Response(
-        JSON.stringify({ error: insightsData.error.message, data: null }),
+        JSON.stringify({ 
+          error: insightsData.error.message, 
+          data: null,
+          selectedAccount,
+          availableAccounts 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
@@ -203,7 +245,12 @@ Deno.serve(async (req) => {
     console.log('Processed ads insights successfully');
 
     return new Response(
-      JSON.stringify({ data: result, error: null }),
+      JSON.stringify({ 
+        data: result, 
+        error: null,
+        selectedAccount,
+        availableAccounts 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
