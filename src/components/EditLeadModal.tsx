@@ -181,16 +181,11 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (!leadData?.organization_id) return;
 
-      const { data, error } = await supabase
-        .from("organization_members")
-        .select("id, email, user_id")
-        .eq("organization_id", leadData.organization_id);
-
-      if (error) throw error;
+      // Buscar membros usando RPC segura (sem expor emails)
+      const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
       
-      // Buscar perfis dos colaboradores
-      if (data && data.length > 0) {
-        const userIds = data.filter(m => m.user_id).map(m => m.user_id);
+      if (orgMembers && orgMembers.length > 0) {
+        const userIds = orgMembers.filter((m: any) => m.user_id).map((m: any) => m.user_id);
         
         let profilesMap: { [key: string]: { full_name: string | null } } = {};
         
@@ -208,15 +203,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           }
         }
         
-        // Adicionar full_name aos colaboradores
-        const colabsWithNames = data.map(colab => ({
-          ...colab,
-          full_name: colab.user_id && profilesMap[colab.user_id]
-            ? profilesMap[colab.user_id].full_name
-            : null
+        const colabsWithNames = orgMembers.map((colab: any) => ({
+          id: colab.id,
+          email: '', // Email mascarado
+          user_id: colab.user_id,
+          full_name: colab.user_id && profilesMap[colab.user_id]?.full_name || null
         }));
         
-        console.log("Colaboradores carregados:", colabsWithNames);
         setColaboradores(colabsWithNames);
       }
     } catch (error) {

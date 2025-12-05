@@ -152,14 +152,10 @@ const Equipes = () => {
         setTeamMembers([]);
       }
 
-      // Load all organization members
-      const { data: orgMembers } = await supabase
-        .from("organization_members")
-        .select("user_id, email")
-        .eq("organization_id", organizationId)
-        .not("user_id", "is", null);
+      // Load all organization members usando RPC segura
+      const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
 
-      const userIds = orgMembers?.map(m => m.user_id!) || [];
+      const userIds = orgMembers?.filter((m: any) => m.user_id).map((m: any) => m.user_id!) || [];
       
       let profiles: any[] = [];
       if (userIds.length > 0) {
@@ -170,12 +166,14 @@ const Equipes = () => {
         profiles = profilesData || [];
       }
 
-      const members: Member[] = (orgMembers || []).map(m => ({
-        user_id: m.user_id!,
-        email: m.email || '',
-        full_name: profiles.find(p => p.user_id === m.user_id)?.full_name,
-        avatar_url: profiles.find(p => p.user_id === m.user_id)?.avatar_url,
-      }));
+      const members: Member[] = (orgMembers || [])
+        .filter((m: any) => m.user_id)
+        .map((m: any) => ({
+          user_id: m.user_id!,
+          email: '', // Não expor email
+          full_name: profiles.find(p => p.user_id === m.user_id)?.full_name,
+          avatar_url: profiles.find(p => p.user_id === m.user_id)?.avatar_url,
+        }));
 
       setAllMembers(members);
     } catch (error) {

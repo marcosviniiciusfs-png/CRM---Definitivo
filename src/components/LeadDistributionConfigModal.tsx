@@ -78,32 +78,28 @@ export function LeadDistributionConfigModal({
     enabled: !!organizationId,
   });
 
-  // Buscar membros da organização
+  // Buscar membros da organização usando RPC segura
   const { data: members } = useQuery({
-    queryKey: ["organization-members", organizationId],
+    queryKey: ["organization-members-safe", organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      const { data: orgMembers, error: membersError } = await supabase
-        .from("organization_members")
-        .select("user_id, email")
-        .eq("organization_id", organizationId)
-        .not("user_id", "is", null);
       
-      if (membersError) throw membersError;
+      const { data: orgMembers, error } = await supabase.rpc('get_organization_members_masked');
+      if (error) throw error;
       if (!orgMembers) return [];
 
-      // Buscar profiles separadamente
-      const userIds = orgMembers.map(m => m.user_id!);
+      const userIds = orgMembers.filter((m: any) => m.user_id).map((m: any) => m.user_id!);
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, full_name")
         .in("user_id", userIds);
 
-      // Combinar dados
-      return orgMembers.map(member => ({
-        ...member,
-        full_name: profiles?.find(p => p.user_id === member.user_id)?.full_name
-      }));
+      return orgMembers
+        .filter((m: any) => m.user_id)
+        .map((member: any) => ({
+          user_id: member.user_id,
+          full_name: profiles?.find(p => p.user_id === member.user_id)?.full_name || 'Sem nome'
+        }));
     },
     enabled: !!organizationId,
   });
@@ -386,7 +382,7 @@ export function LeadDistributionConfigModal({
                       htmlFor={`member-${member.user_id}`}
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                     >
-                      {member.full_name || member.email}
+                      {member.full_name}
                     </label>
                   </div>
                 ))

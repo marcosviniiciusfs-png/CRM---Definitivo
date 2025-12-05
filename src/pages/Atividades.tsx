@@ -62,14 +62,12 @@ export default function Atividades() {
 
   const loadColaboradores = async () => {
     try {
-      const { data: members, error } = await supabase
-        .from('organization_members')
-        .select('user_id, email')
-        .order('email');
+      // Usar RPC segura para não expor emails
+      const { data: members, error } = await supabase.rpc('get_organization_members_masked');
 
       if (error) throw error;
 
-      const userIds = members?.filter(m => m.user_id).map(m => m.user_id) || [];
+      const userIds = members?.filter((m: any) => m.user_id).map((m: any) => m.user_id) || [];
       let profilesMap: { [key: string]: string } = {};
 
       if (userIds.length > 0) {
@@ -89,10 +87,10 @@ export default function Atividades() {
       }
 
       setColaboradores(
-        members?.map(m => ({
+        members?.filter((m: any) => m.user_id).map((m: any) => ({
           id: m.user_id || '',
-          name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id] : '',
-          email: m.email || ''
+          name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id] : 'Usuário',
+          email: '' // Não expor email
         })) || []
       );
     } catch (error) {
