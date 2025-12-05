@@ -98,3 +98,6 @@ verify_jwt = true
 
 [functions.fetch-campaign-ads]
 verify_jwt = true
+
+[functions.get-signed-media-url]
+verify_jwt = true

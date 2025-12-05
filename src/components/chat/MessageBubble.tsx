@@ -1,15 +1,14 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import { Message, MessageReaction, Lead } from "@/types/chat";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AudioPlayer } from "@/components/AudioPlayer";
+import { SecureImage, SecureAudio, SecureDocument } from "./SecureMediaDisplay";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, CheckCheck, Clock, ChevronDown, Pin, Copy, Star, Trash2, Smile, AlertCircle, RotateCcw, Download, FileText } from "lucide-react";
+import { Check, CheckCheck, Clock, ChevronDown, Pin, Copy, Star, Trash2, Smile, AlertCircle, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface MessageBubbleProps {
@@ -52,7 +51,6 @@ export const MessageBubble = memo(function MessageBubble({
   messageRef,
 }: MessageBubbleProps) {
   const { toast } = useToast();
-  const [imageLoaded, setImageLoaded] = useState(false);
 
   const getStatusIcon = (status: string | null) => {
     switch (status) {
@@ -188,58 +186,24 @@ export const MessageBubble = memo(function MessageBubble({
 
         {/* Message content */}
         {message.media_type === "audio" ? (
-          message.media_url ? (
-            <AudioPlayer
-              audioUrl={message.media_url}
-              mimetype={message.media_metadata?.mimetype}
-              duration={message.media_metadata?.seconds}
-            />
-          ) : (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="opacity-70">🎵 Áudio</span>
-              <span className="text-xs opacity-50 italic">- Mídia indisponível</span>
-            </div>
-          )
+          <SecureAudio
+            mediaUrl={message.media_url}
+            mimetype={message.media_metadata?.mimetype}
+            duration={message.media_metadata?.seconds}
+          />
         ) : message.media_type === "image" ? (
-          message.media_url ? (
-            <div className="space-y-2">
-              <div className="relative">
-                {!imageLoaded && (
-                  <Skeleton className="w-48 h-48 rounded-lg" />
-                )}
-                <img
-                  src={message.media_url}
-                  alt="Imagem enviada"
-                  className={`rounded-lg max-w-full max-h-96 object-contain transition-opacity duration-200 ${
-                    imageLoaded ? "opacity-100" : "opacity-0 absolute top-0 left-0"
-                  }`}
-                  loading="lazy"
-                  decoding="async"
-                  onLoad={() => setImageLoaded(true)}
-                />
-              </div>
-              {message.corpo_mensagem && !message.corpo_mensagem.includes("[Imagem]") && message.corpo_mensagem !== "Imagem" && (
-                <p className="text-sm whitespace-pre-wrap">{formatMessageBody(message.corpo_mensagem)}</p>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm opacity-70">🖼️ Imagem indisponível</div>
-          )
-        ) : message.media_type === "document" ? (
-          <div className="flex items-center gap-3 p-2 bg-background/50 rounded-lg">
-            <FileText className="h-8 w-8 text-muted-foreground" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{message.media_metadata?.fileName || "Documento"}</p>
-              {message.media_metadata?.fileSize && (
-                <p className="text-xs text-muted-foreground">{(message.media_metadata.fileSize / 1024).toFixed(1)} KB</p>
-              )}
-            </div>
-            {message.media_url && (
-              <a href={message.media_url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-muted rounded-lg transition-colors">
-                <Download className="h-4 w-4" />
-              </a>
+          <div className="space-y-2">
+            <SecureImage mediaUrl={message.media_url} alt="Imagem enviada" />
+            {message.corpo_mensagem && !message.corpo_mensagem.includes("[Imagem]") && message.corpo_mensagem !== "Imagem" && (
+              <p className="text-sm whitespace-pre-wrap">{formatMessageBody(message.corpo_mensagem)}</p>
             )}
           </div>
+        ) : message.media_type === "document" ? (
+          <SecureDocument
+            mediaUrl={message.media_url}
+            fileName={message.media_metadata?.fileName}
+            fileSize={message.media_metadata?.fileSize}
+          />
         ) : (
           <p className="text-sm whitespace-pre-wrap">{formatMessageBody(message.corpo_mensagem)}</p>
         )}
