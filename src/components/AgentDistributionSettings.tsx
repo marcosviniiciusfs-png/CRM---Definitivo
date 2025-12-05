@@ -138,25 +138,26 @@ export function AgentDistributionSettings() {
 
       if (!memberResult.data) return;
 
-      // Buscar settings e leads count em PARALELO
-      const [settingsResult, leadsCountResult] = await Promise.all([
-        supabase
-          .from('agent_distribution_settings')
-          .select('*')
-          .eq('user_id', memberId)
-          .eq('organization_id', memberResult.data.organization_id)
-          .single(),
-        // ATUALIZADO: usar responsavel_user_id (UUID) em vez de responsavel (TEXT)
-        memberId
-          ? supabase
-              .from('leads')
-              .select('id', { count: 'exact', head: true })
-              .eq('responsavel_user_id', memberId)
-              .neq('stage', 'GANHO')
-              .neq('stage', 'PERDIDO')
-              .neq('stage', 'DESCARTADO')
-          : Promise.resolve({ count: 0 })
-      ]);
+      // Buscar settings
+      const settingsResult = await supabase
+        .from('agent_distribution_settings')
+        .select('*')
+        .eq('user_id', memberId)
+        .eq('organization_id', memberResult.data.organization_id)
+        .single();
+
+      // Contar leads ativos (excluindo stage_type won/lost)
+      // Usar query com join para verificar stage_type do funil
+      const { data: activeLeads, error: leadsError } = await supabase
+        .from('leads')
+        .select(`
+          id,
+          funnel_stages!inner(stage_type)
+        `)
+        .eq('responsavel_user_id', memberId)
+        .not('funnel_stages.stage_type', 'in', '("won","lost")');
+
+      const leadsCount = leadsError ? 0 : (activeLeads?.length || 0);
 
       if (settingsResult.data) {
         setSettings(settingsResult.data);
@@ -171,7 +172,7 @@ export function AgentDistributionSettings() {
         });
       }
 
-      setCurrentLoad(leadsCountResult.count || 0);
+      setCurrentLoad(leadsCount);
     } catch (error) {
       console.error('Error loading member settings:', error);
     } finally {
