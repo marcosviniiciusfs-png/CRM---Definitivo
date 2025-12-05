@@ -26,9 +26,14 @@ const FORM_LEAD_TYPES = [
   'onsite_conversion.lead_grouped',
 ];
 
-// Prioridade 2: Conversões de mensagem/WhatsApp (usar apenas 1 para evitar dupla contagem)
+// Prioridade 2: Conversões de mensagem/WhatsApp (expandido)
 const MESSAGING_LEAD_TYPES = [
   'onsite_conversion.messaging_conversation_started_7d',
+  'messaging_conversation_started_7d',
+  'messaging_first_reply',
+  'onsite_conversion.messaging_first_reply',
+  'onsite_conversion.messaging_user_depth_2_message_send',
+  'onsite_conversion.messaging_user_depth_3_message_send',
 ];
 
 // Prioridade 3: Pixel de Lead
@@ -93,7 +98,7 @@ const calculateLeadsFromActions = (actions: any[]): { leads: number; leadType: s
   return { leads: 0, leadType: '' };
 };
 
-// Função para obter custo por lead do tipo específico
+// Função para obter custo por lead do tipo específico (usando cost_per_action_type do Meta)
 const getLeadCostFromActions = (costActions: any[], leadType: string): number => {
   if (!costActions || !leadType) return 0;
   
@@ -255,9 +260,11 @@ Deno.serve(async (req) => {
       name: string; 
       spend: number; 
       leads: number; 
-      reach: number; 
+      reach: number;
+      impressions: number; // ADICIONADO
       clicks: number;
       leadType: string;
+      costPerLead: number; // CPL do Meta
     }> = {};
 
     // Processar dados agregados para totais e breakdown de campanhas
@@ -277,9 +284,20 @@ Deno.serve(async (req) => {
         const { leads, leadType } = calculateLeadsFromActions(record.actions);
         totalLeads += leads;
 
+        // DEBUG: Log detalhado por campanha
+        if (record.actions && record.actions.length > 0) {
+          console.log(`Campaign "${record.campaign_name}" - Actions:`, JSON.stringify(record.actions.slice(0, 5)));
+        }
+        if (record.cost_per_action_type && record.cost_per_action_type.length > 0) {
+          console.log(`Campaign "${record.campaign_name}" - Cost per action:`, JSON.stringify(record.cost_per_action_type.slice(0, 5)));
+        }
+
         if (leadType) {
           console.log(`Campaign "${record.campaign_name}" - Lead type: ${leadType}, Count: ${leads}`);
         }
+
+        // Obter CPL do Meta para o tipo de lead específico
+        const costPerLead = getLeadCostFromActions(record.cost_per_action_type, leadType);
 
         // Agregar por campanha
         const campaignName = record.campaign_name || 'Unknown';
@@ -291,9 +309,11 @@ Deno.serve(async (req) => {
             name: campaignName, 
             spend: 0, 
             leads: 0, 
-            reach: 0, 
+            reach: 0,
+            impressions: 0, // ADICIONADO
             clicks: 0,
-            leadType: ''
+            leadType: '',
+            costPerLead: 0
           };
         }
         
@@ -304,8 +324,13 @@ Deno.serve(async (req) => {
         campaignData[campaignName].spend += spend;
         campaignData[campaignName].leads += leads;
         campaignData[campaignName].reach += reach;
+        campaignData[campaignName].impressions += impressions; // ADICIONADO
         campaignData[campaignName].clicks += clicks;
         campaignData[campaignName].leadType = leadType;
+        // Atualizar CPL do Meta se disponível
+        if (costPerLead > 0) {
+          campaignData[campaignName].costPerLead = costPerLead;
+        }
       }
     }
 
@@ -331,9 +356,10 @@ Deno.serve(async (req) => {
     // Calcular métricas finais
     const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
     const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
+    // CORRIGIDO: CTR = cliques / impressões * 100 (não reach)
     const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
 
-    console.log(`Totals - Spend: ${totalSpend}, Leads: ${totalLeads}, Reach: ${totalReach}, CPL: ${avgCPL}`);
+    console.log(`Totals - Spend: ${totalSpend}, Leads: ${totalLeads}, Reach: ${totalReach}, Impressions: ${totalImpressions}, CPL: ${avgCPL}, CTR: ${avgCTR}`);
 
     const chartData = Object.values(dailyChartData)
       .map(d => ({
@@ -349,9 +375,12 @@ Deno.serve(async (req) => {
         spend: c.spend,
         leads: c.leads,
         reach: c.reach,
+        impressions: c.impressions, // ADICIONADO
         clicks: c.clicks,
-        cpl: c.leads > 0 ? c.spend / c.leads : 0,
-        ctr: c.reach > 0 ? (c.clicks / c.reach) * 100 : 0
+        // CPL: usar do Meta se disponível, senão calcular
+        cpl: c.costPerLead > 0 ? c.costPerLead : (c.leads > 0 ? c.spend / c.leads : 0),
+        // CORRIGIDO: CTR = cliques / impressões * 100 (não reach)
+        ctr: c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0
       }))
       .sort((a, b) => b.spend - a.spend)
       .slice(0, 10);
