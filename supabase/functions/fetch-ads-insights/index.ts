@@ -18,68 +18,65 @@ interface AdsInsightsParams {
   ad_account_id?: string;
 }
 
-// ============= MELHORIA 2: Tipos de Leads Expandidos =============
+// ============= CORREÇÃO CRÍTICA: Mapear objetivo para tipos de lead esperados =============
+const getLeadTypesForObjective = (objective: string): string[] | null => {
+  switch (objective) {
+    // Campanhas de FORMULÁRIO
+    case 'LEAD_GENERATION':
+    case 'OUTCOME_LEADS':
+      return ['lead', 'leadgen_grouped', 'onsite_conversion.lead_grouped'];
+    
+    // Campanhas de MENSAGENS (WhatsApp, Messenger, Instagram DM)
+    case 'MESSAGES':
+      return [
+        'onsite_conversion.messaging_conversation_started_7d',
+        'messaging_conversation_started_7d',
+        'onsite_conversion.total_messaging_connection',
+        'messaging_first_reply',
+        'onsite_conversion.messaging_first_reply',
+        'onsite_conversion.messaging_user_depth_2_message_send',
+        'onsite_conversion.messaging_user_depth_3_message_send',
+      ];
+    
+    // Campanhas de CONVERSÕES (Pixel)
+    case 'CONVERSIONS':
+    case 'OUTCOME_SALES':
+      return [
+        'offsite_conversion.fb_pixel_lead',
+        'omni_lead',
+        'offsite_conversion.fb_pixel_purchase',
+        'omni_purchase',
+        'complete_registration',
+        'offsite_conversion.fb_pixel_complete_registration',
+      ];
+    
+    // Campanhas de ENGAJAMENTO podem ter mensagens ou leads
+    case 'OUTCOME_ENGAGEMENT':
+    case 'POST_ENGAGEMENT':
+      return [
+        'onsite_conversion.messaging_conversation_started_7d',
+        'lead',
+        'post_engagement',
+        'page_engagement',
+      ];
+    
+    // Campanhas de TRÁFEGO
+    case 'OUTCOME_TRAFFIC':
+    case 'LINK_CLICKS':
+      return ['link_click', 'landing_page_view'];
+    
+    default:
+      return null; // Usar priorização padrão
+  }
+};
 
-// Prioridade 1: Formulários Lead Ads
-const FORM_LEAD_TYPES = [
-  'lead',
-  'leadgen_grouped',
-  'onsite_conversion.lead_grouped',
-];
-
-// Prioridade 2: Conversões de mensagem/WhatsApp (expandido)
-const MESSAGING_LEAD_TYPES = [
-  'onsite_conversion.total_messaging_connection',
-  'onsite_conversion.messaging_conversation_started_7d',
-  'messaging_conversation_started_7d',
-  'messaging_first_reply',
-  'onsite_conversion.messaging_first_reply',
-  'onsite_conversion.messaging_user_depth_2_message_send',
-  'onsite_conversion.messaging_user_depth_3_message_send',
-];
-
-// NOVO: Tipos de mensagens de negócios expandidas
-const BUSINESS_MESSAGING_TYPES = [
-  'onsite_conversion.post_save',
-  'onsite_conversion.messaging_welcome_message_view',
-  'onsite_conversion.messaging_business_capability_acquired',
-  'instagram_profile_engagement',
-  'instagram_direct_message',
-];
-
-// Prioridade 3: Pixel de Lead
-const PIXEL_LEAD_TYPES = [
-  'offsite_conversion.fb_pixel_lead',
-  'omni_lead',
-];
-
-// Prioridade 4: Conversões de registro
-const REGISTRATION_LEAD_TYPES = [
-  'complete_registration',
-  'offsite_conversion.fb_pixel_complete_registration',
-  'omni_complete_registration',
-];
-
-// NOVO: Tipos de contato/agendamento
-const CONTACT_LEAD_TYPES = [
-  'contact',
-  'contact_total',
-  'contact_website',
-  'contact_mobile_app',
-  'schedule',
-  'submit_application',
-  'find_location',
-  'subscribe',
-  'subscribe_total',
-];
-
-// Função para obter nome amigável do tipo de lead (EXPANDIDA)
+// Função para obter nome amigável do tipo de lead
 const getLeadTypeName = (leadType: string): string => {
   if (!leadType) return '';
   
   // WhatsApp / Mensagens
   if (leadType.includes('messaging') || leadType.includes('total_messaging_connection')) {
-    return 'WhatsApp';
+    return 'Mensagem';
   }
   
   // Formulários Lead Ads
@@ -97,6 +94,11 @@ const getLeadTypeName = (leadType: string): string => {
     return 'Registro';
   }
   
+  // Conversões customizadas
+  if (leadType.includes('offsite_conversion.custom.') || leadType.includes('omni_custom')) {
+    return 'Personalizada';
+  }
+  
   // Instagram
   if (leadType.includes('instagram')) {
     return 'Instagram';
@@ -107,14 +109,9 @@ const getLeadTypeName = (leadType: string): string => {
     return 'Contato';
   }
   
-  // Aplicação/Inscrição
-  if (leadType.includes('submit_application') || leadType.includes('subscribe')) {
-    return 'Inscrição';
-  }
-  
-  // Conversões customizadas
-  if (leadType.includes('offsite_conversion.custom.') || leadType.includes('omni_custom')) {
-    return 'Personalizada';
+  // Link clicks / traffic
+  if (leadType === 'link_click' || leadType === 'landing_page_view') {
+    return 'Clique';
   }
   
   // Para outros tipos, retornar versão simplificada
@@ -122,78 +119,103 @@ const getLeadTypeName = (leadType: string): string => {
   return simplified.charAt(0).toUpperCase() + simplified.slice(1);
 };
 
-// Função para calcular leads com priorização EXPANDIDA
-const calculateLeadsFromActions = (actions: any[], conversions?: any[]): { leads: number; leadType: string } => {
+// ============= CORREÇÃO CRÍTICA: Calcular leads BASEADO NO OBJETIVO =============
+const calculateLeadsFromActions = (
+  actions: any[], 
+  conversions: any[],
+  objective: string
+): { leads: number; leadType: string } => {
   if (!actions || actions.length === 0) {
+    // Tentar em conversions se actions vazio
     if (conversions && conversions.length > 0) {
-      const customConversion = conversions[0];
+      const conv = conversions[0];
       return {
-        leads: parseInt(customConversion.value || '0', 10),
-        leadType: customConversion.action_type
+        leads: parseInt(conv.value || '0', 10),
+        leadType: conv.action_type || ''
       };
     }
     return { leads: 0, leadType: '' };
   }
 
-  // Prioridade 1: Formulários Lead Ads
-  for (const action of actions) {
-    if (FORM_LEAD_TYPES.includes(action.action_type)) {
-      return { leads: parseInt(action.value || '0', 10), leadType: action.action_type };
+  // Log todas as ações disponíveis
+  const actionSummary = actions.slice(0, 15).map((a: any) => `${a.action_type}:${a.value}`).join(', ');
+  console.log(`    [ACTIONS] Objetivo=${objective || 'N/A'}, Disponíveis: ${actionSummary}`);
+
+  // ============= PASSO 1: Tentar pelo OBJETIVO da campanha PRIMEIRO =============
+  if (objective) {
+    const expectedTypes = getLeadTypesForObjective(objective);
+    if (expectedTypes) {
+      for (const expectedType of expectedTypes) {
+        for (const action of actions) {
+          // Match exato ou por prefixo (para conversões custom)
+          if (action.action_type === expectedType || action.action_type.startsWith(expectedType)) {
+            const value = parseInt(action.value || '0', 10);
+            if (value > 0) {
+              console.log(`    [MATCH] Por objetivo ${objective}: ${action.action_type}=${value}`);
+              return { leads: value, leadType: action.action_type };
+            }
+          }
+        }
+      }
+      console.log(`    [INFO] Nenhum match para objetivo ${objective}, usando fallback...`);
     }
   }
 
-  // Prioridade 2: Conversões de mensagem/WhatsApp
-  for (const action of actions) {
-    if (MESSAGING_LEAD_TYPES.includes(action.action_type)) {
-      return { leads: parseInt(action.value || '0', 10), leadType: action.action_type };
+  // ============= PASSO 2: FALLBACK - Priorização padrão =============
+  const priorityOrder = [
+    // Formulários
+    'lead', 'leadgen_grouped', 'onsite_conversion.lead_grouped',
+    // Mensagens
+    'onsite_conversion.messaging_conversation_started_7d',
+    'messaging_conversation_started_7d',
+    'onsite_conversion.total_messaging_connection',
+    'messaging_first_reply',
+    'onsite_conversion.messaging_first_reply',
+    // Pixel
+    'offsite_conversion.fb_pixel_lead',
+    'omni_lead',
+    // Registro
+    'complete_registration',
+    'offsite_conversion.fb_pixel_complete_registration',
+    // Contato
+    'contact', 'contact_total', 'schedule', 'submit_application',
+  ];
+
+  for (const actionType of priorityOrder) {
+    for (const action of actions) {
+      if (action.action_type === actionType) {
+        const value = parseInt(action.value || '0', 10);
+        if (value > 0) {
+          console.log(`    [FALLBACK] ${action.action_type}=${value}`);
+          return { leads: value, leadType: action.action_type };
+        }
+      }
     }
   }
 
-  // Prioridade 2.5: Mensagens de negócios expandidas (Instagram, etc)
-  for (const action of actions) {
-    if (BUSINESS_MESSAGING_TYPES.includes(action.action_type)) {
-      return { leads: parseInt(action.value || '0', 10), leadType: action.action_type };
-    }
-  }
-
-  // Prioridade 3: Pixel de Lead
-  for (const action of actions) {
-    if (PIXEL_LEAD_TYPES.includes(action.action_type)) {
-      return { leads: parseInt(action.value || '0', 10), leadType: action.action_type };
-    }
-  }
-
-  // Prioridade 4: Conversões de registro
-  for (const action of actions) {
-    if (REGISTRATION_LEAD_TYPES.includes(action.action_type)) {
-      return { leads: parseInt(action.value || '0', 10), leadType: action.action_type };
-    }
-  }
-
-  // Prioridade 5: Contatos/Agendamentos
-  for (const action of actions) {
-    if (CONTACT_LEAD_TYPES.includes(action.action_type)) {
-      return { leads: parseInt(action.value || '0', 10), leadType: action.action_type };
-    }
-  }
-
-  // Prioridade 6: Conversões customizadas DENTRO de actions
+  // ============= PASSO 3: Conversões customizadas =============
   for (const action of actions) {
     if (action.action_type.startsWith('offsite_conversion.custom.') || 
         action.action_type.startsWith('omni_custom')) {
-      return { leads: parseInt(action.value || '0', 10), leadType: action.action_type };
+      const value = parseInt(action.value || '0', 10);
+      if (value > 0) {
+        console.log(`    [CUSTOM] ${action.action_type}=${value}`);
+        return { leads: value, leadType: action.action_type };
+      }
     }
   }
 
-  // Prioridade 7: Conversões customizadas no campo conversions
+  // ============= PASSO 4: Tentar em conversions =============
   if (conversions && conversions.length > 0) {
-    const customConversion = conversions[0];
-    return {
-      leads: parseInt(customConversion.value || '0', 10),
-      leadType: customConversion.action_type
-    };
+    const conv = conversions[0];
+    const value = parseInt(conv.value || '0', 10);
+    if (value > 0) {
+      console.log(`    [CONVERSIONS] ${conv.action_type}=${value}`);
+      return { leads: value, leadType: conv.action_type };
+    }
   }
 
+  console.log(`    [NONE] Nenhum lead encontrado`);
   return { leads: 0, leadType: '' };
 };
 
@@ -204,7 +226,7 @@ const getLeadCostFromActions = (costActions: any[], leadType: string): number =>
   return costAction ? parseFloat(costAction.value || '0') : 0;
 };
 
-// ============= MELHORIA 6: Mapeamento de Objetivos =============
+// Mapeamento de Objetivos para nomes amigáveis
 const objectiveToName: Record<string, string> = {
   'LEAD_GENERATION': 'Geração de Leads',
   'MESSAGES': 'Mensagens',
@@ -223,7 +245,7 @@ const objectiveToName: Record<string, string> = {
   'APP_INSTALLS': 'Instalações de App',
 };
 
-// ============= MELHORIA 3: Nome da Plataforma =============
+// Nome da Plataforma
 const getPlatformName = (platform: string): string => {
   const names: Record<string, string> = {
     'facebook': 'Facebook',
@@ -233,6 +255,41 @@ const getPlatformName = (platform: string): string => {
     'unknown': 'Desconhecido',
   };
   return names[platform?.toLowerCase()] || platform || 'Outro';
+};
+
+// ============= FUNÇÃO DE PAGINAÇÃO COMPLETA =============
+const fetchAllPages = async (baseUrl: string): Promise<any[]> => {
+  const allData: any[] = [];
+  let url: string | null = baseUrl;
+  let pageCount = 0;
+  const maxPages = 20; // Limite de segurança
+
+  while (url && pageCount < maxPages) {
+    try {
+      const fetchResponse: Response = await fetch(url);
+      const jsonData: any = await fetchResponse.json();
+
+      if (jsonData.error) {
+        console.error(`[PAGINATION] Erro na página ${pageCount + 1}:`, jsonData.error.message);
+        break;
+      }
+
+      if (jsonData.data && jsonData.data.length > 0) {
+        allData.push(...jsonData.data);
+        console.log(`[PAGINATION] Página ${pageCount + 1}: ${jsonData.data.length} registros`);
+      }
+
+      // Verificar próxima página
+      url = jsonData.paging?.next || null;
+      pageCount++;
+    } catch (err) {
+      console.error(`[PAGINATION] Erro ao buscar página ${pageCount + 1}:`, err);
+      break;
+    }
+  }
+
+  console.log(`[PAGINATION] Total: ${allData.length} registros em ${pageCount} página(s)`);
+  return allData;
 };
 
 Deno.serve(async (req) => {
@@ -252,7 +309,8 @@ Deno.serve(async (req) => {
       throw new Error('Missing required parameters: organization_id, start_date, end_date');
     }
 
-    console.log(`Fetching ads insights for org ${organization_id} from ${start_date} to ${end_date}`);
+    console.log(`\n========== FETCH ADS INSIGHTS ==========`);
+    console.log(`Org: ${organization_id}, Período: ${start_date} a ${end_date}`);
 
     const { data: integration, error: integrationError } = await supabase
       .from('facebook_integrations')
@@ -299,9 +357,9 @@ Deno.serve(async (req) => {
 
     const { access_token } = integration;
 
-    console.log(`Using ad account: ${selectedAccountId} (${selectedAccount.name})`);
+    console.log(`Conta de Anúncios: ${selectedAccountId} (${selectedAccount.name})`);
 
-    // ============= MELHORIA 5: Campos de Qualidade Expandidos =============
+    // Campos de insights
     const insightsFields = [
       'campaign_id',
       'campaign_name',
@@ -317,7 +375,6 @@ Deno.serve(async (req) => {
       'conversions',
       'action_values',
       'conversion_values',
-      // NOVOS campos de qualidade
       'outbound_clicks',
       'inline_link_clicks',
       'frequency',
@@ -328,93 +385,69 @@ Deno.serve(async (req) => {
 
     const timeRange = JSON.stringify({ since: start_date, until: end_date });
 
-    // ============= MELHORIA 1: Janela de Atribuição =============
+    // Janela de Atribuição padrão do Meta
     const attributionWindows = encodeURIComponent('["7d_click","1d_view"]');
 
-    // CHAMADA 1: Com time_increment=1 para dados diários (gráficos)
-    const dailyInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
-      `fields=${insightsFields}` +
-      `&level=campaign` +
-      `&time_range=${encodeURIComponent(timeRange)}` +
-      `&time_increment=1` +
-      `&action_attribution_windows=${attributionWindows}` +
-      `&access_token=${access_token}`;
-
-    // CHAMADA 2: Sem time_increment para totais agregados corretos
+    // ============= PASSO 1: Buscar dados AGREGADOS por campanha (com paginação) =============
     const aggregatedInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
       `fields=${insightsFields}` +
       `&level=campaign` +
       `&time_range=${encodeURIComponent(timeRange)}` +
       `&action_attribution_windows=${attributionWindows}` +
+      `&limit=500` +
       `&access_token=${access_token}`;
 
-    // ============= MELHORIA 3: Breakdown por Plataforma =============
-    const platformBreakdownUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
-      `fields=spend,reach,impressions,clicks,actions,cost_per_action_type` +
-      `&level=account` +
-      `&time_range=${encodeURIComponent(timeRange)}` +
-      `&breakdowns=publisher_platform` +
-      `&action_attribution_windows=${attributionWindows}` +
-      `&access_token=${access_token}`;
+    console.log(`\n[STEP 1] Buscando insights agregados por campanha...`);
+    const aggregatedData = await fetchAllPages(aggregatedInsightsUrl);
 
-    console.log('Fetching daily, aggregated, and platform insights from Meta API...');
-    
-    // Fazer todas as chamadas em paralelo
-    const [dailyResponse, aggregatedResponse, platformResponse] = await Promise.all([
-      fetch(dailyInsightsUrl),
-      fetch(aggregatedInsightsUrl),
-      fetch(platformBreakdownUrl)
-    ]);
-
-    const [dailyData, aggregatedData, platformData] = await Promise.all([
-      dailyResponse.json(),
-      aggregatedResponse.json(),
-      platformResponse.json()
-    ]);
-
-    if (dailyData.error) {
-      console.error('Meta API error (daily):', dailyData.error);
+    if (!aggregatedData || aggregatedData.length === 0) {
+      console.log('Nenhum dado encontrado para o período');
       return new Response(
-        JSON.stringify({ error: dailyData.error.message, data: null, selectedAccount, availableAccounts }),
+        JSON.stringify({ 
+          data: {
+            totalSpend: 0, totalReach: 0, totalImpressions: 0, totalClicks: 0, totalLeads: 0,
+            avgCPL: 0, avgCPC: 0, avgCTR: 0, avgFrequency: 0,
+            chartData: [], campaignBreakdown: [], platformBreakdown: [],
+            crmValidation: { metaReportedLeads: 0, crmReceivedLeads: 0, captureRate: 0, discrepancy: 0 }
+          },
+          error: null, selectedAccount, availableAccounts 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    if (aggregatedData.error) {
-      console.error('Meta API error (aggregated):', aggregatedData.error);
-      return new Response(
-        JSON.stringify({ error: aggregatedData.error.message, data: null, selectedAccount, availableAccounts }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
-    }
+    // ============= PASSO 2: Extrair IDs de campanhas e buscar OBJETIVOS =============
+    const campaignIds = [...new Set(aggregatedData.map((r: any) => r.campaign_id).filter(Boolean))];
+    console.log(`\n[STEP 2] Buscando objetivos de ${campaignIds.length} campanhas...`);
 
-    console.log(`Received ${dailyData.data?.length || 0} daily records and ${aggregatedData.data?.length || 0} aggregated records`);
+    const campaignObjectives: Record<string, { objective: string; optimization_goal: string }> = {};
 
-    // ============= MELHORIA 6: Buscar Objetivos das Campanhas =============
-    const campaignIds = [...new Set((aggregatedData.data || []).map((r: any) => r.campaign_id).filter(Boolean))];
-    const campaignDetails: Record<string, { objective: string; optimization_goal: string }> = {};
-
-    if (campaignIds.length > 0) {
+    // Buscar objetivos em lotes de 50 (limite da API)
+    for (let i = 0; i < campaignIds.length; i += 50) {
+      const batch = campaignIds.slice(i, i + 50);
       try {
-        const campaignsUrl = `https://graph.facebook.com/v18.0/?ids=${campaignIds.join(',')}&fields=objective,optimization_goal&access_token=${access_token}`;
+        const campaignsUrl = `https://graph.facebook.com/v18.0/?ids=${batch.join(',')}&fields=objective,optimization_goal&access_token=${access_token}`;
         const campaignsResponse = await fetch(campaignsUrl);
         const campaignsData = await campaignsResponse.json();
         
         if (!campaignsData.error) {
           for (const [id, data] of Object.entries(campaignsData)) {
-            campaignDetails[id] = {
+            campaignObjectives[id] = {
               objective: (data as any).objective || '',
               optimization_goal: (data as any).optimization_goal || ''
             };
           }
         }
-        console.log(`Fetched objectives for ${Object.keys(campaignDetails).length} campaigns`);
       } catch (e) {
-        console.error('Error fetching campaign objectives:', e);
+        console.error(`Erro ao buscar objetivos (lote ${i}):`, e);
       }
     }
 
-    // Processar dados AGREGADOS
+    console.log(`Objetivos obtidos: ${Object.keys(campaignObjectives).length} campanhas`);
+
+    // ============= PASSO 3: Processar dados agregados COM objetivos =============
+    console.log(`\n[STEP 3] Processando campanhas...`);
+
     let totalSpend = 0;
     let totalReach = 0;
     let totalImpressions = 0;
@@ -433,105 +466,145 @@ Deno.serve(async (req) => {
       clicks: number;
       leadType: string;
       costPerLead: number;
-      // MELHORIA 5: Campos de qualidade
       frequency: number;
       outboundClicks: number;
       landingPageViews: number;
       qualityRanking: string;
       engagementRanking: string;
       conversionRanking: string;
-      // MELHORIA 6: Objetivo
       objective: string;
       objectiveName: string;
     }> = {};
 
-    if (aggregatedData.data) {
-      for (const record of aggregatedData.data) {
-        const spend = parseFloat(record.spend || '0');
-        const reach = parseInt(record.reach || '0', 10);
-        const impressions = parseInt(record.impressions || '0', 10);
-        const clicks = parseInt(record.clicks || '0', 10);
-        const frequency = parseFloat(record.frequency || '0');
+    for (const record of aggregatedData) {
+      const campaignId = record.campaign_id || '';
+      const campaignName = record.campaign_name || 'Unknown';
+      const campaignKey = campaignId || campaignName;
 
-        totalSpend += spend;
-        totalReach += reach;
-        totalImpressions += impressions;
-        totalClicks += clicks;
+      // OBTER OBJETIVO DA CAMPANHA
+      const objective = campaignObjectives[campaignId]?.objective || '';
+      const objectiveName = objectiveToName[objective] || objective || 'Outro';
 
-        // Landing page views from actions
-        const lpvAction = record.actions?.find((a: any) => a.action_type === 'landing_page_view');
-        const landingPageViews = lpvAction ? parseInt(lpvAction.value || '0', 10) : 0;
-        totalLandingPageViews += landingPageViews;
+      console.log(`\n  === ${campaignName} (${campaignId}) ===`);
+      console.log(`    Objetivo: ${objective} (${objectiveName})`);
 
-        // Outbound clicks
-        const outboundClicks = record.outbound_clicks?.[0]?.value 
-          ? parseInt(record.outbound_clicks[0].value, 10) 
-          : 0;
-        totalOutboundClicks += outboundClicks;
+      const spend = parseFloat(record.spend || '0');
+      const reach = parseInt(record.reach || '0', 10);
+      const impressions = parseInt(record.impressions || '0', 10);
+      const clicks = parseInt(record.clicks || '0', 10);
+      const frequency = parseFloat(record.frequency || '0');
 
-        console.log(`\n=== Campaign "${record.campaign_name}" (${record.campaign_id}) ===`);
-        console.log(`  Spend: ${spend}, Reach: ${reach}, Frequency: ${frequency}`);
-        
-        if (record.actions && record.actions.length > 0) {
-          console.log(`  ALL Actions (${record.actions.length} total):`);
-          record.actions.slice(0, 10).forEach((a: any) => {
-            console.log(`    - ${a.action_type}: ${a.value}`);
-          });
+      // Landing page views from actions
+      const lpvAction = record.actions?.find((a: any) => a.action_type === 'landing_page_view');
+      const landingPageViews = lpvAction ? parseInt(lpvAction.value || '0', 10) : 0;
+
+      // Outbound clicks
+      const outboundClicks = record.outbound_clicks?.[0]?.value 
+        ? parseInt(record.outbound_clicks[0].value, 10) 
+        : 0;
+
+      // ============= CALCULAR LEADS USANDO O OBJETIVO =============
+      const { leads, leadType } = calculateLeadsFromActions(
+        record.actions || [], 
+        record.conversions || [],
+        objective // <-- PASSANDO O OBJETIVO
+      );
+
+      const costPerLead = getLeadCostFromActions(record.cost_per_action_type, leadType);
+
+      // Agregar totais
+      totalSpend += spend;
+      totalReach += reach;
+      totalImpressions += impressions;
+      totalClicks += clicks;
+      totalLeads += leads;
+      totalLandingPageViews += landingPageViews;
+      totalOutboundClicks += outboundClicks;
+
+      // Agregar por campanha
+      if (!campaignData[campaignKey]) {
+        campaignData[campaignKey] = { 
+          id: campaignId, 
+          name: campaignName, 
+          spend: 0, 
+          leads: 0, 
+          reach: 0,
+          impressions: 0,
+          clicks: 0,
+          leadType: '',
+          costPerLead: 0,
+          frequency: 0,
+          outboundClicks: 0,
+          landingPageViews: 0,
+          qualityRanking: record.quality_ranking || 'N/A',
+          engagementRanking: record.engagement_rate_ranking || 'N/A',
+          conversionRanking: record.conversion_rate_ranking || 'N/A',
+          objective: objective,
+          objectiveName: objectiveName,
+        };
+      }
+      
+      campaignData[campaignKey].spend += spend;
+      campaignData[campaignKey].leads += leads;
+      campaignData[campaignKey].reach += reach;
+      campaignData[campaignKey].impressions += impressions;
+      campaignData[campaignKey].clicks += clicks;
+      campaignData[campaignKey].outboundClicks += outboundClicks;
+      campaignData[campaignKey].landingPageViews += landingPageViews;
+      if (frequency > 0) campaignData[campaignKey].frequency = frequency;
+      if (leadType) campaignData[campaignKey].leadType = leadType;
+      if (costPerLead > 0) campaignData[campaignKey].costPerLead = costPerLead;
+    }
+
+    // ============= PASSO 4: Dados DIÁRIOS para gráficos =============
+    console.log(`\n[STEP 4] Buscando dados diários para gráficos...`);
+
+    const dailyInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
+      `fields=spend,actions,conversions` +
+      `&level=campaign` +
+      `&time_range=${encodeURIComponent(timeRange)}` +
+      `&time_increment=1` +
+      `&action_attribution_windows=${attributionWindows}` +
+      `&limit=500` +
+      `&access_token=${access_token}`;
+
+    const dailyData = await fetchAllPages(dailyInsightsUrl);
+
+    const dailyChartData: Record<string, { date: string; spend: number; leads: number; cpl: number }> = {};
+
+    for (const record of dailyData) {
+      const spend = parseFloat(record.spend || '0');
+      const dateStart = record.date_start;
+      const campaignId = record.campaign_id || '';
+      
+      // Usar objetivo da campanha para calcular leads
+      const objective = campaignObjectives[campaignId]?.objective || '';
+      const { leads } = calculateLeadsFromActions(
+        record.actions || [], 
+        record.conversions || [],
+        objective
+      );
+
+      if (dateStart) {
+        if (!dailyChartData[dateStart]) {
+          dailyChartData[dateStart] = { date: dateStart, spend: 0, leads: 0, cpl: 0 };
         }
-
-        const { leads, leadType } = calculateLeadsFromActions(record.actions, record.conversions);
-        totalLeads += leads;
-
-        if (leadType) {
-          console.log(`  → SELECTED: ${leadType} = ${leads} (${getLeadTypeName(leadType)})`);
-        }
-
-        const costPerLead = getLeadCostFromActions(record.cost_per_action_type, leadType);
-
-        const campaignId = record.campaign_id || '';
-        const campaignName = record.campaign_name || 'Unknown';
-        const campaignKey = campaignId || campaignName;
-
-        // Obter objetivo da campanha
-        const campaignObjective = campaignDetails[campaignId]?.objective || '';
-        const objectiveName = objectiveToName[campaignObjective] || campaignObjective || 'Outro';
-        
-        if (!campaignData[campaignKey]) {
-          campaignData[campaignKey] = { 
-            id: campaignId, 
-            name: campaignName, 
-            spend: 0, 
-            leads: 0, 
-            reach: 0,
-            impressions: 0,
-            clicks: 0,
-            leadType: '',
-            costPerLead: 0,
-            frequency: 0,
-            outboundClicks: 0,
-            landingPageViews: 0,
-            qualityRanking: record.quality_ranking || 'N/A',
-            engagementRanking: record.engagement_rate_ranking || 'N/A',
-            conversionRanking: record.conversion_rate_ranking || 'N/A',
-            objective: campaignObjective,
-            objectiveName: objectiveName,
-          };
-        }
-        
-        campaignData[campaignKey].spend += spend;
-        campaignData[campaignKey].leads += leads;
-        campaignData[campaignKey].reach += reach;
-        campaignData[campaignKey].impressions += impressions;
-        campaignData[campaignKey].clicks += clicks;
-        campaignData[campaignKey].outboundClicks += outboundClicks;
-        campaignData[campaignKey].landingPageViews += landingPageViews;
-        if (frequency > 0) campaignData[campaignKey].frequency = frequency;
-        if (leadType) campaignData[campaignKey].leadType = leadType;
-        if (costPerLead > 0) campaignData[campaignKey].costPerLead = costPerLead;
+        dailyChartData[dateStart].spend += spend;
+        dailyChartData[dateStart].leads += leads;
       }
     }
 
-    // ============= MELHORIA 3: Processar Breakdown por Plataforma =============
+    // ============= PASSO 5: Breakdown por Plataforma =============
+    console.log(`\n[STEP 5] Buscando breakdown por plataforma...`);
+
+    const platformBreakdownUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
+      `fields=spend,reach,impressions,clicks,actions,cost_per_action_type` +
+      `&level=account` +
+      `&time_range=${encodeURIComponent(timeRange)}` +
+      `&breakdowns=publisher_platform` +
+      `&action_attribution_windows=${attributionWindows}` +
+      `&access_token=${access_token}`;
+
     interface PlatformBreakdown {
       platform: string;
       spend: number;
@@ -544,26 +617,34 @@ Deno.serve(async (req) => {
 
     const platformBreakdown: PlatformBreakdown[] = [];
     
-    if (platformData.data && !platformData.error) {
-      for (const record of platformData.data) {
-        const platform = record.publisher_platform || 'unknown';
-        const spend = parseFloat(record.spend || '0');
-        const { leads } = calculateLeadsFromActions(record.actions);
-        
-        platformBreakdown.push({
-          platform: getPlatformName(platform),
-          spend,
-          leads,
-          reach: parseInt(record.reach || '0', 10),
-          impressions: parseInt(record.impressions || '0', 10),
-          clicks: parseInt(record.clicks || '0', 10),
-          cpl: leads > 0 ? spend / leads : 0
-        });
+    try {
+      const platformResponse = await fetch(platformBreakdownUrl);
+      const platformData = await platformResponse.json();
+      
+      if (platformData.data && !platformData.error) {
+        for (const record of platformData.data) {
+          const platform = record.publisher_platform || 'unknown';
+          const spend = parseFloat(record.spend || '0');
+          const { leads } = calculateLeadsFromActions(record.actions || [], [], '');
+          
+          platformBreakdown.push({
+            platform: getPlatformName(platform),
+            spend,
+            leads,
+            reach: parseInt(record.reach || '0', 10),
+            impressions: parseInt(record.impressions || '0', 10),
+            clicks: parseInt(record.clicks || '0', 10),
+            cpl: leads > 0 ? spend / leads : 0
+          });
+        }
       }
-      console.log(`Platform breakdown: ${platformBreakdown.length} platforms`);
+    } catch (e) {
+      console.error('Erro ao buscar plataformas:', e);
     }
 
-    // ============= MELHORIA 4: Validação Cruzada com CRM =============
+    // ============= PASSO 6: Validação Cruzada com CRM =============
+    console.log(`\n[STEP 6] Validação CRM...`);
+
     let crmLeadsCount = 0;
     try {
       const { count, error: crmError } = await supabase
@@ -576,7 +657,6 @@ Deno.serve(async (req) => {
 
       if (!crmError && count !== null) {
         crmLeadsCount = count;
-        console.log(`CRM leads from Facebook in period: ${crmLeadsCount}`);
       }
     } catch (e) {
       console.error('Error fetching CRM leads count:', e);
@@ -590,34 +670,19 @@ Deno.serve(async (req) => {
       discrepancy: totalLeads - crmLeadsCount
     };
 
-    // Processar dados DIÁRIOS para gráficos
-    const dailyChartData: Record<string, { date: string; spend: number; leads: number; cpl: number }> = {};
+    console.log(`CRM: Meta=${totalLeads}, CRM=${crmLeadsCount}, Taxa=${captureRate.toFixed(1)}%`);
 
-    if (dailyData.data) {
-      for (const record of dailyData.data) {
-        const spend = parseFloat(record.spend || '0');
-        const { leads } = calculateLeadsFromActions(record.actions, record.conversions);
-        const dateStart = record.date_start;
-
-        if (dateStart) {
-          if (!dailyChartData[dateStart]) {
-            dailyChartData[dateStart] = { date: dateStart, spend: 0, leads: 0, cpl: 0 };
-          }
-          dailyChartData[dateStart].spend += spend;
-          dailyChartData[dateStart].leads += leads;
-        }
-      }
-    }
-
-    // Calcular métricas finais
+    // ============= PASSO 7: Montar resposta final =============
     const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
     const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
     const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
     const avgFrequency = totalReach > 0 ? totalImpressions / totalReach : 0;
 
-    console.log(`\n=== TOTALS ===`);
-    console.log(`Spend: ${totalSpend}, Leads: ${totalLeads}, Reach: ${totalReach}, CPL: ${avgCPL}`);
-    console.log(`CRM Validation: Meta=${totalLeads}, CRM=${crmLeadsCount}, Rate=${captureRate.toFixed(1)}%`);
+    console.log(`\n========== TOTAIS ==========`);
+    console.log(`Spend: R$ ${totalSpend.toFixed(2)}`);
+    console.log(`Leads: ${totalLeads}`);
+    console.log(`CPL: R$ ${avgCPL.toFixed(2)}`);
+    console.log(`Reach: ${totalReach}`);
 
     const chartData = Object.values(dailyChartData)
       .map(d => ({
@@ -640,19 +705,17 @@ Deno.serve(async (req) => {
         leadTypeName: getLeadTypeName(c.leadType),
         cpl: c.costPerLead > 0 ? c.costPerLead : (c.leads > 0 ? c.spend / c.leads : 0),
         ctr: c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0,
-        // MELHORIA 5: Métricas de qualidade
         frequency: c.frequency,
         outboundClicks: c.outboundClicks,
         landingPageViews: c.landingPageViews,
         qualityRanking: c.qualityRanking,
         engagementRanking: c.engagementRanking,
         conversionRanking: c.conversionRanking,
-        // MELHORIA 6: Objetivo
         objective: c.objective,
         objectiveName: c.objectiveName,
       }))
       .sort((a, b) => b.spend - a.spend)
-      .slice(0, 15);
+      .slice(0, 20);
 
     const result = {
       totalSpend,
@@ -663,19 +726,16 @@ Deno.serve(async (req) => {
       avgCPL,
       avgCPC,
       avgCTR,
-      // MELHORIA 5: Métricas globais de qualidade
       avgFrequency,
       totalLandingPageViews,
       totalOutboundClicks,
       chartData,
       campaignBreakdown,
-      // MELHORIA 3: Breakdown por plataforma
       platformBreakdown,
-      // MELHORIA 4: Validação CRM
       crmValidation,
     };
 
-    console.log('Processed ads insights successfully');
+    console.log(`\n✓ Processado com sucesso: ${campaignBreakdown.length} campanhas`);
 
     return new Response(
       JSON.stringify({ data: result, error: null, selectedAccount, availableAccounts }),
