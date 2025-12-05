@@ -65,6 +65,7 @@ interface CampaignBreakdown {
   leads: number;
   cpl: number;
   reach: number;
+  impressions: number;
   clicks: number;
   ctr: number;
 }
@@ -1298,6 +1299,7 @@ const LeadMetrics = () => {
                           <TableHead className="text-right">Leads</TableHead>
                           <TableHead className="text-right">CPL</TableHead>
                           <TableHead className="text-right">Alcance</TableHead>
+                          <TableHead className="text-right">Impressões</TableHead>
                           <TableHead className="text-right">Cliques</TableHead>
                           <TableHead className="text-right">CTR</TableHead>
                           <TableHead className="text-right w-10"></TableHead>
@@ -1322,6 +1324,9 @@ const LeadMetrics = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               {campaign.reach.toLocaleString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {(campaign.impressions || 0).toLocaleString('pt-BR')}
                             </TableCell>
                             <TableCell className="text-right">
                               {campaign.clicks.toLocaleString('pt-BR')}
