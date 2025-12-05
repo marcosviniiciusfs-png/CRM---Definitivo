@@ -45,6 +45,25 @@ interface WhatsAppAdvancedMetrics {
   avgResponseTimeMinutes: number;
 }
 
+// ============= INTERFACES EXPANDIDAS =============
+
+interface PlatformBreakdown {
+  platform: string;
+  spend: number;
+  leads: number;
+  reach: number;
+  impressions: number;
+  clicks: number;
+  cpl: number;
+}
+
+interface CrmValidation {
+  metaReportedLeads: number;
+  crmReceivedLeads: number;
+  captureRate: number;
+  discrepancy: number;
+}
+
 interface AdsMetrics {
   totalSpend: number;
   totalReach: number;
@@ -54,8 +73,16 @@ interface AdsMetrics {
   avgCPL: number;
   avgCPC: number;
   avgCTR: number;
+  // MELHORIA 5: Campos de qualidade
+  avgFrequency?: number;
+  totalLandingPageViews?: number;
+  totalOutboundClicks?: number;
   chartData: { date: string; spend: number; leads: number; cpl: number }[];
   campaignBreakdown: CampaignBreakdown[];
+  // MELHORIA 3: Breakdown por plataforma
+  platformBreakdown?: PlatformBreakdown[];
+  // MELHORIA 4: Validação CRM
+  crmValidation?: CrmValidation;
 }
 
 interface CampaignBreakdown {
@@ -70,6 +97,16 @@ interface CampaignBreakdown {
   ctr: number;
   leadType?: string;
   leadTypeName?: string;
+  // MELHORIA 5: Campos de qualidade
+  frequency?: number;
+  outboundClicks?: number;
+  landingPageViews?: number;
+  qualityRanking?: string;
+  engagementRanking?: string;
+  conversionRanking?: string;
+  // MELHORIA 6: Objetivo da campanha
+  objective?: string;
+  objectiveName?: string;
 }
 
 interface CampaignAd {
@@ -1226,6 +1263,123 @@ const LeadMetrics = () => {
                 </div>
               </TooltipProvider>
 
+              {/* MELHORIA 4: Validação CRM + MELHORIA 3: Breakdown por Plataforma */}
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Card de Validação CRM */}
+                {adsMetrics.crmValidation && (
+                  <Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Target className="h-4 w-4 text-blue-600" />
+                        Validação CRM vs Meta
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <div className="text-xl font-bold">{adsMetrics.crmValidation.metaReportedLeads}</div>
+                          <div className="text-[10px] text-muted-foreground">Leads Meta</div>
+                        </div>
+                        <div>
+                          <div className="text-xl font-bold">{adsMetrics.crmValidation.crmReceivedLeads}</div>
+                          <div className="text-[10px] text-muted-foreground">Leads CRM</div>
+                        </div>
+                        <div>
+                          <div className={cn(
+                            "text-xl font-bold",
+                            adsMetrics.crmValidation.captureRate >= 80 ? "text-green-600" : 
+                            adsMetrics.crmValidation.captureRate >= 50 ? "text-amber-600" : "text-red-600"
+                          )}>
+                            {adsMetrics.crmValidation.captureRate.toFixed(0)}%
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">Taxa Captura</div>
+                        </div>
+                        <div>
+                          <div className={cn(
+                            "text-xl font-bold",
+                            adsMetrics.crmValidation.discrepancy === 0 ? "text-green-600" : "text-amber-600"
+                          )}>
+                            {adsMetrics.crmValidation.discrepancy > 0 ? '+' : ''}{adsMetrics.crmValidation.discrepancy}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">Diferença</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Card de Breakdown por Plataforma */}
+                {adsMetrics.platformBreakdown && adsMetrics.platformBreakdown.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Desempenho por Plataforma
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {adsMetrics.platformBreakdown.map(p => (
+                          <div key={p.platform} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                            <span className="font-medium">{p.platform}</span>
+                            <div className="flex gap-4 text-xs text-muted-foreground">
+                              <span>{p.leads} leads</span>
+                              <span>{formatCurrency(p.cpl)} CPL</span>
+                              <span>{formatCurrency(p.spend)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* MELHORIA 5: Métricas de Qualidade Adicionais */}
+              {(adsMetrics.avgFrequency || adsMetrics.totalLandingPageViews || adsMetrics.totalOutboundClicks) && (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {adsMetrics.avgFrequency !== undefined && adsMetrics.avgFrequency > 0 && (
+                    <Card className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
+                          <Eye className="h-4 w-4 text-violet-600" />
+                        </div>
+                        <div>
+                          <div className="text-lg font-semibold">{adsMetrics.avgFrequency.toFixed(2)}x</div>
+                          <div className="text-xs text-muted-foreground">Frequência Média</div>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                  {adsMetrics.totalLandingPageViews !== undefined && adsMetrics.totalLandingPageViews > 0 && (
+                    <Card className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                          <ExternalLink className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        <div>
+                          <div className="text-lg font-semibold">{adsMetrics.totalLandingPageViews.toLocaleString('pt-BR')}</div>
+                          <div className="text-xs text-muted-foreground">Visualizações LP</div>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                  {adsMetrics.totalOutboundClicks !== undefined && adsMetrics.totalOutboundClicks > 0 && (
+                    <Card className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg">
+                          <MousePointer className="h-4 w-4 text-sky-600" />
+                        </div>
+                        <div>
+                          <div className="text-lg font-semibold">{adsMetrics.totalOutboundClicks.toLocaleString('pt-BR')}</div>
+                          <div className="text-xs text-muted-foreground">Cliques de Saída</div>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              )}
+
               {/* Investment vs Leads Chart */}
               <Card>
                 <CardHeader>
@@ -1293,65 +1447,103 @@ const LeadMetrics = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Campanha</TableHead>
-                          <TableHead className="text-right">Investimento</TableHead>
-                          <TableHead className="text-right">Leads</TableHead>
-                          <TableHead className="text-right">CPL</TableHead>
-                          <TableHead className="text-right">Alcance</TableHead>
-                          <TableHead className="text-right">Impressões</TableHead>
-                          <TableHead className="text-right">Cliques</TableHead>
-                          <TableHead className="text-right">CTR</TableHead>
-                          <TableHead className="text-right w-10"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {adsMetrics.campaignBreakdown.map((campaign, index) => (
-                          <TableRow 
-                            key={index} 
-                            className="cursor-pointer hover:bg-muted/50 transition-colors"
-                            onClick={() => handleCampaignClick(campaign)}
-                          >
-                            <TableCell className="font-medium max-w-[200px] truncate">
-                              {campaign.name}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(campaign.spend)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <span>{campaign.leads}</span>
-                                {campaign.leadTypeName && (
-                                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                    {campaign.leadTypeName}
-                                  </span>
+                    <TooltipProvider>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Campanha</TableHead>
+                            <TableHead className="text-right">Investimento</TableHead>
+                            <TableHead className="text-right">Leads</TableHead>
+                            <TableHead className="text-right">CPL</TableHead>
+                            <TableHead className="text-right">Alcance</TableHead>
+                            <TableHead className="text-right">Impressões</TableHead>
+                            <TableHead className="text-right">Cliques</TableHead>
+                            <TableHead className="text-right">CTR</TableHead>
+                            <TableHead className="text-right w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {adsMetrics.campaignBreakdown.map((campaign, index) => (
+                          <Tooltip key={index}>
+                            <TooltipTrigger asChild>
+                              <TableRow 
+                                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => handleCampaignClick(campaign)}
+                              >
+                                <TableCell className="font-medium max-w-[200px]">
+                                  <div className="truncate">{campaign.name}</div>
+                                  {/* MELHORIA 6: Badge de Objetivo */}
+                                  {campaign.objectiveName && (
+                                    <Badge variant="outline" className="text-[9px] mt-1 font-normal">
+                                      {campaign.objectiveName}
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatCurrency(campaign.spend)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <span>{campaign.leads}</span>
+                                    {campaign.leadTypeName && (
+                                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                        {campaign.leadTypeName}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatCurrency(campaign.cpl)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {campaign.reach.toLocaleString('pt-BR')}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {(campaign.impressions || 0).toLocaleString('pt-BR')}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {campaign.clicks.toLocaleString('pt-BR')}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {campaign.ctr.toFixed(2)}%
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Eye className="h-4 w-4 text-muted-foreground" />
+                                </TableCell>
+                              </TableRow>
+                            </TooltipTrigger>
+                            {/* MELHORIA 5: Tooltip com métricas de qualidade */}
+                            <TooltipContent side="left" className="max-w-xs">
+                              <div className="text-xs space-y-1">
+                                <p className="font-semibold mb-2">Métricas de Qualidade</p>
+                                {campaign.frequency !== undefined && campaign.frequency > 0 && (
+                                  <p>Frequência: {campaign.frequency.toFixed(2)}x</p>
+                                )}
+                                {campaign.landingPageViews !== undefined && campaign.landingPageViews > 0 && (
+                                  <p>Visualizações LP: {campaign.landingPageViews.toLocaleString('pt-BR')}</p>
+                                )}
+                                {campaign.outboundClicks !== undefined && campaign.outboundClicks > 0 && (
+                                  <p>Cliques de Saída: {campaign.outboundClicks.toLocaleString('pt-BR')}</p>
+                                )}
+                                {campaign.qualityRanking && campaign.qualityRanking !== 'N/A' && (
+                                  <p>Qualidade: {campaign.qualityRanking}</p>
+                                )}
+                                {campaign.engagementRanking && campaign.engagementRanking !== 'N/A' && (
+                                  <p>Engajamento: {campaign.engagementRanking}</p>
+                                )}
+                                {campaign.conversionRanking && campaign.conversionRanking !== 'N/A' && (
+                                  <p>Conversão: {campaign.conversionRanking}</p>
+                                )}
+                                {(!campaign.frequency && !campaign.landingPageViews && !campaign.outboundClicks) && (
+                                  <p className="text-muted-foreground">Sem dados de qualidade disponíveis</p>
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(campaign.cpl)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {campaign.reach.toLocaleString('pt-BR')}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {(campaign.impressions || 0).toLocaleString('pt-BR')}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {campaign.clicks.toLocaleString('pt-BR')}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {campaign.ctr.toFixed(2)}%
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Eye className="h-4 w-4 text-muted-foreground" />
-                            </TableCell>
-                          </TableRow>
+                            </TooltipContent>
+                          </Tooltip>
                         ))}
                       </TableBody>
                     </Table>
+                    </TooltipProvider>
                   </CardContent>
                 </Card>
               )}
