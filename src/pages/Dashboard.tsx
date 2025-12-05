@@ -620,7 +620,7 @@ const Dashboard = () => {
           <CardContent className="flex flex-col items-center justify-center pb-6 pt-2">
             {!deadline ? (
               // Estado vazio - sem meta definida
-              <div className="flex flex-col items-center justify-center py-6 space-y-4">
+              <div className="flex flex-col items-center justify-center py-6 space-y-4 w-full">
                 <img 
                   src={goalEmptyState} 
                   alt="Criar meta" 
@@ -639,6 +639,63 @@ const Dashboard = () => {
                   <Target className="w-4 h-4 mr-2" />
                   Criar Meta
                 </Button>
+                
+                {/* Última Contribuição - também no estado vazio */}
+                {lastContribution && (
+                  <div 
+                    key={contributionKey}
+                    className="mt-4 pt-3 border-t border-border w-full animate-fade-in"
+                  >
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> Última contribuição
+                    </p>
+                    <div 
+                      onClick={() => setIsContributionDetailOpen(true)}
+                      className="bg-muted/50 rounded-md p-2 space-y-1 transition-all duration-200 cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] border border-transparent hover:border-primary/20"
+                    >
+                      {/* Linha 1: Avatar + Nome + Dias até venda */}
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={lastContribution.collaboratorAvatar} />
+                          <AvatarFallback className="text-[10px]">{lastContribution.collaboratorName[0]?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{lastContribution.collaboratorName}</span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-muted-foreground text-xs">
+                          <span className="font-medium">Dias até a venda:</span>{' '}
+                          {lastContribution.daysToSale === 0 
+                            ? 'mesmo dia' 
+                            : `${lastContribution.daysToSale} ${lastContribution.daysToSale === 1 ? 'dia' : 'dias'}`}
+                        </span>
+                      </div>
+                      
+                      {/* Linha 2: Valor + Lead + Fonte + Produto */}
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                        <span>
+                          <span className="font-medium">Valor:</span>{' '}
+                          <span className="text-green-600 dark:text-green-400 font-semibold">
+                            R$ {lastContribution.saleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </span>
+                        <span>•</span>
+                        <span><span className="font-medium">Lead:</span> {lastContribution.leadName}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-0.5">
+                          <span className="font-medium">Fonte:</span> {getSourceIcon(lastContribution.leadSource)}
+                        </span>
+                        {lastContribution.productName && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-0.5">
+                              <Package className="w-3 h-3" />
+                              {lastContribution.productName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               // Meta definida - exibir gráfico e métricas
@@ -726,64 +783,64 @@ const Dashboard = () => {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-              </>
-            )}
-
-            {/* Última Contribuição - Layout Compacto */}
-            {lastContribution && (
-              <div 
-                key={contributionKey}
-                className="mt-2 pt-3 border-t border-border w-full animate-fade-in"
-              >
-                <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> Última contribuição
-                </p>
-                <div 
-                  onClick={() => setIsContributionDetailOpen(true)}
-                  className="bg-muted/50 rounded-md p-2 space-y-1 transition-all duration-200 cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] border border-transparent hover:border-primary/20"
-                >
-                  {/* Linha 1: Avatar + Nome + Dias até venda */}
-                  <div className="flex items-center gap-1.5 text-sm">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={lastContribution.collaboratorAvatar} />
-                      <AvatarFallback className="text-[10px]">{lastContribution.collaboratorName[0]?.toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium">{lastContribution.collaboratorName}</span>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="text-muted-foreground text-xs">
-                      <span className="font-medium">Dias até a venda:</span>{' '}
-                      {lastContribution.daysToSale === 0 
-                        ? 'mesmo dia' 
-                        : `${lastContribution.daysToSale} ${lastContribution.daysToSale === 1 ? 'dia' : 'dias'}`}
-                    </span>
-                  </div>
-                  
-                  {/* Linha 2: Valor + Lead + Fonte + Produto */}
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
-                    <span>
-                      <span className="font-medium">Valor:</span>{' '}
-                      <span className="text-green-600 dark:text-green-400 font-semibold">
-                        R$ {lastContribution.saleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </span>
-                    <span>•</span>
-                    <span><span className="font-medium">Lead:</span> {lastContribution.leadName}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-0.5">
-                      <span className="font-medium">Fonte:</span> {getSourceIcon(lastContribution.leadSource)}
-                    </span>
-                    {lastContribution.productName && (
-                      <>
+                
+                {/* Última Contribuição - na branch com meta */}
+                {lastContribution && (
+                  <div 
+                    key={contributionKey}
+                    className="mt-2 pt-3 border-t border-border w-full animate-fade-in"
+                  >
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> Última contribuição
+                    </p>
+                    <div 
+                      onClick={() => setIsContributionDetailOpen(true)}
+                      className="bg-muted/50 rounded-md p-2 space-y-1 transition-all duration-200 cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] border border-transparent hover:border-primary/20"
+                    >
+                      {/* Linha 1: Avatar + Nome + Dias até venda */}
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={lastContribution.collaboratorAvatar} />
+                          <AvatarFallback className="text-[10px]">{lastContribution.collaboratorName[0]?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{lastContribution.collaboratorName}</span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-muted-foreground text-xs">
+                          <span className="font-medium">Dias até a venda:</span>{' '}
+                          {lastContribution.daysToSale === 0 
+                            ? 'mesmo dia' 
+                            : `${lastContribution.daysToSale} ${lastContribution.daysToSale === 1 ? 'dia' : 'dias'}`}
+                        </span>
+                      </div>
+                      
+                      {/* Linha 2: Valor + Lead + Fonte + Produto */}
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                        <span>
+                          <span className="font-medium">Valor:</span>{' '}
+                          <span className="text-green-600 dark:text-green-400 font-semibold">
+                            R$ {lastContribution.saleValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </span>
+                        <span>•</span>
+                        <span><span className="font-medium">Lead:</span> {lastContribution.leadName}</span>
                         <span>•</span>
                         <span className="flex items-center gap-0.5">
-                          <Package className="w-3 h-3" />
-                          {lastContribution.productName}
+                          <span className="font-medium">Fonte:</span> {getSourceIcon(lastContribution.leadSource)}
                         </span>
-                      </>
-                    )}
+                        {lastContribution.productName && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-0.5">
+                              <Package className="w-3 h-3" />
+                              {lastContribution.productName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                )}
+              </>
             )}
 
             {/* Dialog de Detalhes da Última Contribuição */}
