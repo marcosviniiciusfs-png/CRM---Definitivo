@@ -305,6 +305,8 @@ export type Database = {
           access_token: string
           ad_account_id: string | null
           ad_accounts: Json | null
+          business_id: string | null
+          business_name: string | null
           created_at: string
           expires_at: string | null
           id: string
@@ -322,6 +324,8 @@ export type Database = {
           access_token: string
           ad_account_id?: string | null
           ad_accounts?: Json | null
+          business_id?: string | null
+          business_name?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
@@ -339,6 +343,8 @@ export type Database = {
           access_token?: string
           ad_account_id?: string | null
           ad_accounts?: Json | null
+          business_id?: string | null
+          business_name?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string

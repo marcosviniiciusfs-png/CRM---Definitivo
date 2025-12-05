@@ -53,9 +53,9 @@ Deno.serve(async (req) => {
 
     const longLivedTokenData = await longLivedTokenResponse.json();
 
-    // Get user's pages
+    // Get user's pages WITH business information
     const pagesResponse = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${longLivedTokenData.access_token}`
+      `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,business&access_token=${longLivedTokenData.access_token}`
     );
     const pagesData = await pagesResponse.json();
     
@@ -67,13 +67,51 @@ Deno.serve(async (req) => {
       throw new Error('Nenhuma página do Facebook encontrada. Você precisa ter uma página do Facebook para usar esta integração.');
     }
 
-    // Get user's ad accounts with name
-    const adAccountsResponse = await fetch(
-      `https://graph.facebook.com/v18.0/me/adaccounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
-    );
-    const adAccountsData = await adAccountsResponse.json();
-    
-    console.log('Facebook ad accounts response:', JSON.stringify(adAccountsData, null, 2));
+    // Get the selected page and its Business Manager
+    const selectedPage = pagesData.data[0];
+    const businessId = selectedPage?.business?.id || null;
+    const businessName = selectedPage?.business?.name || null;
+
+    console.log(`Selected page: ${selectedPage?.name}, Business ID: ${businessId}, Business Name: ${businessName}`);
+
+    // Fetch ad accounts based on Business Manager association
+    let adAccountsData: { data?: any[] } = { data: [] };
+
+    if (businessId) {
+      // Page has a Business Manager - fetch ad accounts owned by that BM
+      console.log(`Fetching ad accounts for Business Manager ${businessId}...`);
+      
+      const adAccountsResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${businessId}/owned_ad_accounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
+      );
+      adAccountsData = await adAccountsResponse.json();
+      
+      console.log(`Business ${businessId} owned ad accounts response:`, JSON.stringify(adAccountsData, null, 2));
+      
+      // If no owned accounts, try client ad accounts
+      if (!adAccountsData.data || adAccountsData.data.length === 0) {
+        console.log(`No owned ad accounts found, trying client ad accounts...`);
+        const clientAdAccountsResponse = await fetch(
+          `https://graph.facebook.com/v18.0/${businessId}/client_ad_accounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
+        );
+        const clientAdAccountsData = await clientAdAccountsResponse.json();
+        console.log(`Business ${businessId} client ad accounts response:`, JSON.stringify(clientAdAccountsData, null, 2));
+        
+        if (clientAdAccountsData.data && clientAdAccountsData.data.length > 0) {
+          adAccountsData = clientAdAccountsData;
+        }
+      }
+    } else {
+      // No Business Manager associated - fallback to user's personal ad accounts
+      console.log('No Business Manager found for page, fetching user ad accounts...');
+      
+      const adAccountsResponse = await fetch(
+        `https://graph.facebook.com/v18.0/me/adaccounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
+      );
+      adAccountsData = await adAccountsResponse.json();
+      
+      console.log('User ad accounts response:', JSON.stringify(adAccountsData, null, 2));
+    }
 
     // Format all ad accounts with their details
     const adAccounts = adAccountsData.data?.map((acc: any) => ({
@@ -86,7 +124,7 @@ Deno.serve(async (req) => {
     const activeAdAccount = adAccounts.find((acc: any) => acc.status === 1);
     const defaultAdAccountId = activeAdAccount?.id || adAccounts[0]?.id || null;
 
-    console.log(`Found ${adAccounts.length} ad accounts, default: ${defaultAdAccountId}`);
+    console.log(`Found ${adAccounts.length} ad accounts for BM ${businessId || 'N/A'}, default: ${defaultAdAccountId}`);
 
     // Store in database
     const supabase = createClient(
@@ -105,9 +143,11 @@ Deno.serve(async (req) => {
         organization_id,
         access_token: longLivedTokenData.access_token,
         expires_at: expiresAt.toISOString(),
-        page_id: pagesData.data?.[0]?.id || null,
-        page_name: pagesData.data?.[0]?.name || null,
-        page_access_token: pagesData.data?.[0]?.access_token || null,
+        page_id: selectedPage?.id || null,
+        page_name: selectedPage?.name || null,
+        page_access_token: selectedPage?.access_token || null,
+        business_id: businessId,
+        business_name: businessName,
         ad_account_id: defaultAdAccountId,
         ad_accounts: adAccounts,
       }, {
