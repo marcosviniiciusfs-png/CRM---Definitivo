@@ -146,18 +146,30 @@ export function AgentDistributionSettings() {
         .eq('organization_id', memberResult.data.organization_id)
         .single();
 
-      // Contar leads ativos (excluindo stage_type won/lost)
-      // Usar query com join para verificar stage_type do funil
-      const { data: activeLeads, error: leadsError } = await supabase
+      const agentName = profileResult.data?.full_name;
+
+      // Contar leads ativos usando responsavel_user_id OU responsavel (nome) como fallback
+      // Primeiro por UUID
+      const { data: leadsByUuid } = await supabase
         .from('leads')
-        .select(`
-          id,
-          funnel_stages!inner(stage_type)
-        `)
+        .select('id, funnel_stages!inner(stage_type)')
         .eq('responsavel_user_id', memberId)
         .not('funnel_stages.stage_type', 'in', '("won","lost")');
 
-      const leadsCount = leadsError ? 0 : (activeLeads?.length || 0);
+      // Depois por nome (para leads antigos sem UUID)
+      let leadsByName: any[] = [];
+      if (agentName) {
+        const { data } = await supabase
+          .from('leads')
+          .select('id, funnel_stages!inner(stage_type)')
+          .eq('responsavel', agentName)
+          .is('responsavel_user_id', null)
+          .not('funnel_stages.stage_type', 'in', '("won","lost")');
+        leadsByName = data || [];
+      }
+
+      // Combinar (sem duplicatas - leads por nome só contam se não têm UUID)
+      const leadsCount = (leadsByUuid?.length || 0) + leadsByName.length;
 
       if (settingsResult.data) {
         setSettings(settingsResult.data);
