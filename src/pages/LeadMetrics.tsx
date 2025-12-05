@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Line } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2 } from "lucide-react";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,6 +17,8 @@ import type { DateRange } from "react-day-picker";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 interface ChartDataPoint {
   date: string;
@@ -53,7 +55,34 @@ interface AdsMetrics {
   avgCPC: number;
   avgCTR: number;
   chartData: { date: string; spend: number; leads: number; cpl: number }[];
-  campaignBreakdown: { name: string; spend: number; leads: number; cpl: number; reach: number; clicks: number; ctr: number }[];
+  campaignBreakdown: CampaignBreakdown[];
+}
+
+interface CampaignBreakdown {
+  id: string;
+  name: string;
+  spend: number;
+  leads: number;
+  cpl: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+}
+
+interface CampaignAd {
+  id: string;
+  name: string;
+  status: string;
+  effective_status: string;
+  creative: {
+    id: string;
+    name?: string;
+    thumbnail_url?: string;
+    image_url?: string;
+    body?: string;
+    title?: string;
+    call_to_action_type?: string;
+  } | null;
 }
 
 interface AdAccount {
@@ -92,6 +121,11 @@ const LeadMetrics = () => {
   const [availableAdAccounts, setAvailableAdAccounts] = useState<AdAccount[]>([]);
   const [selectedAdAccountName, setSelectedAdAccountName] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  
+  // Campaign ads modal states
+  const [selectedCampaign, setSelectedCampaign] = useState<CampaignBreakdown | null>(null);
+  const [campaignAds, setCampaignAds] = useState<CampaignAd[]>([]);
+  const [loadingAds, setLoadingAds] = useState(false);
 
   useEffect(() => {
     if (user && dateRange?.from && dateRange?.to && shouldLoadMetrics) {
@@ -241,6 +275,76 @@ const LeadMetrics = () => {
     if (organizationId && dateRange?.from && dateRange?.to) {
       const { startDate, endDate } = getDateRange();
       await loadAdsMetrics(organizationId, startDate, endDate, accountId);
+    }
+  };
+
+  const fetchCampaignAds = async (campaign: CampaignBreakdown) => {
+    if (!organizationId) return;
+    
+    setSelectedCampaign(campaign);
+    setLoadingAds(true);
+    setCampaignAds([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-campaign-ads', {
+        body: {
+          organization_id: organizationId,
+          campaign_id: campaign.id || undefined,
+          campaign_name: campaign.name
+        }
+      });
+
+      if (error) {
+        console.error('Error fetching campaign ads:', error);
+        return;
+      }
+
+      if (data?.ads) {
+        setCampaignAds(data.ads);
+      }
+    } catch (error) {
+      console.error('Error loading campaign ads:', error);
+    } finally {
+      setLoadingAds(false);
+    }
+  };
+
+  const handleCampaignClick = (campaign: CampaignBreakdown) => {
+    fetchCampaignAds(campaign);
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'default';
+      case 'PAUSED':
+        return 'secondary';
+      case 'DELETED':
+      case 'ARCHIVED':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'Ativo';
+      case 'PAUSED':
+        return 'Pausado';
+      case 'DELETED':
+        return 'Excluído';
+      case 'ARCHIVED':
+        return 'Arquivado';
+      case 'PENDING_REVIEW':
+        return 'Em Revisão';
+      case 'DISAPPROVED':
+        return 'Reprovado';
+      case 'WITH_ISSUES':
+        return 'Com Problemas';
+      default:
+        return status;
     }
   };
 
@@ -1180,7 +1284,10 @@ const LeadMetrics = () => {
               {adsMetrics.campaignBreakdown.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Performance por Campanha</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      Performance por Campanha
+                      <span className="text-sm font-normal text-muted-foreground">(clique para ver anúncios)</span>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -1193,11 +1300,16 @@ const LeadMetrics = () => {
                           <TableHead className="text-right">Alcance</TableHead>
                           <TableHead className="text-right">Cliques</TableHead>
                           <TableHead className="text-right">CTR</TableHead>
+                          <TableHead className="text-right w-10"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {adsMetrics.campaignBreakdown.map((campaign, index) => (
-                          <TableRow key={index}>
+                          <TableRow 
+                            key={index} 
+                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => handleCampaignClick(campaign)}
+                          >
                             <TableCell className="font-medium max-w-[200px] truncate">
                               {campaign.name}
                             </TableCell>
@@ -1216,6 +1328,9 @@ const LeadMetrics = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               {campaign.ctr.toFixed(2)}%
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Eye className="h-4 w-4 text-muted-foreground" />
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1238,6 +1353,79 @@ const LeadMetrics = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Campaign Ads Preview Modal */}
+      <Dialog open={!!selectedCampaign} onOpenChange={() => setSelectedCampaign(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Megaphone className="h-5 w-5" />
+              Anúncios: {selectedCampaign?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingAds ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingAnimation text="Carregando anúncios..." />
+            </div>
+          ) : campaignAds.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {campaignAds.map(ad => (
+                <Card key={ad.id} className="overflow-hidden">
+                  {/* Thumbnail/Preview */}
+                  {ad.creative?.thumbnail_url || ad.creative?.image_url ? (
+                    <div className="aspect-video bg-muted relative">
+                      <img 
+                        src={ad.creative.thumbnail_url || ad.creative.image_url} 
+                        alt={ad.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-video bg-muted flex items-center justify-center">
+                      <Image className="h-12 w-12 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  
+                  <CardContent className="p-4">
+                    <h4 className="font-medium truncate mb-2">{ad.name}</h4>
+                    
+                    {ad.creative?.title && (
+                      <p className="text-sm font-semibold text-foreground mb-1">{ad.creative.title}</p>
+                    )}
+                    
+                    {ad.creative?.body && (
+                      <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                        {ad.creative.body}
+                      </p>
+                    )}
+                    
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={getStatusBadgeVariant(ad.effective_status)}>
+                        {getStatusLabel(ad.effective_status)}
+                      </Badge>
+                      {ad.creative?.call_to_action_type && (
+                        <Badge variant="outline" className="text-xs">
+                          {ad.creative.call_to_action_type.replace(/_/g, ' ')}
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <Image className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">Nenhum anúncio encontrado</p>
+              <p className="text-sm">Esta campanha não possui anúncios ativos ou os dados não estão disponíveis.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
