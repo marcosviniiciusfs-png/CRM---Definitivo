@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import goalEmptyState from "@/assets/goal-empty-state.png";
 
 interface LastContribution {
   leadId: string;
@@ -617,90 +618,115 @@ const Dashboard = () => {
               </div>}
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pb-6 pt-2">
-            {deadline && <div className="text-center -mb-8">
-                <p className="text-sm text-muted-foreground">Prazo para bater a meta</p>
-                <p className="text-2xl font-bold">
-                  {getDaysRemaining() !== null && getDaysRemaining()! > 0 ? `${getDaysRemaining()} dias restantes` : getDaysRemaining() === 0 ? "Hoje é o prazo!" : "Prazo expirado"}
-                </p>
-              </div>}
-            <div className="relative w-full max-w-[400px] h-[220px]">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <defs>
-                    <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#00aaff" />
-                      <stop offset="100%" stopColor="#00ff00" />
-                    </linearGradient>
-                  </defs>
-                  <Pie data={goalData} cx="50%" cy="85%" startAngle={180} endAngle={0} innerRadius={90} outerRadius={110} paddingAngle={0} dataKey="value" strokeWidth={0} cornerRadius={10}>
-                    {goalData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />)}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              
-              {/* Valor central - posicionado abaixo do arco */}
-              <div className="absolute inset-x-0 bottom-8 flex flex-col items-center">
-                <p className="text-sm sm:text-base font-bold text-center leading-tight">
-                  R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
-                  de R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">{percentage.toFixed(0)}% concluído</p>
+            {!deadline ? (
+              // Estado vazio - sem meta definida
+              <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                <img 
+                  src={goalEmptyState} 
+                  alt="Criar meta" 
+                  className="w-32 h-32 object-contain opacity-80"
+                />
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-foreground">Crie uma meta agora</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Defina um objetivo e prazo para acompanhar seu progresso
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleEditGoal}
+                  className="mt-2"
+                >
+                  <Target className="w-4 h-4 mr-2" />
+                  Criar Meta
+                </Button>
               </div>
-            </div>
-            
-            {/* Métricas de período - layout horizontal sutil */}
-            {deadline && (
-              <div className="flex items-center justify-center gap-2 mt-1 text-[10px] text-muted-foreground flex-wrap">
-                {/* Vendido até o prazo - Verde com Tooltip */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center gap-1 cursor-help">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
-                      <span className="text-green-600 dark:text-green-400 font-medium">
-                        R$ {salesBeforeDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            ) : (
+              // Meta definida - exibir gráfico e métricas
+              <>
+                <div className="text-center -mb-8">
+                  <p className="text-sm text-muted-foreground">Prazo para bater a meta</p>
+                  <p className="text-2xl font-bold">
+                    {getDaysRemaining() !== null && getDaysRemaining()! > 0 ? `${getDaysRemaining()} dias restantes` : getDaysRemaining() === 0 ? "Hoje é o prazo!" : "Prazo expirado"}
+                  </p>
+                </div>
+                <div className="relative w-full max-w-[400px] h-[220px]">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <defs>
+                        <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#00aaff" />
+                          <stop offset="100%" stopColor="#00ff00" />
+                        </linearGradient>
+                      </defs>
+                      <Pie data={goalData} cx="50%" cy="85%" startAngle={180} endAngle={0} innerRadius={90} outerRadius={110} paddingAngle={0} dataKey="value" strokeWidth={0} cornerRadius={10}>
+                        {goalData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Valor central - posicionado abaixo do arco */}
+                  <div className="absolute inset-x-0 bottom-8 flex flex-col items-center">
+                    <p className="text-sm sm:text-base font-bold text-center leading-tight">
+                      R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
+                      de R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">{percentage.toFixed(0)}% concluído</p>
+                  </div>
+                </div>
+                
+                {/* Métricas de período - layout horizontal sutil */}
+                <div className="flex items-center justify-center gap-2 mt-1 text-[10px] text-muted-foreground flex-wrap">
+                  {/* Vendido até o prazo - Verde com Tooltip */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
+                        <span className="text-green-600 dark:text-green-400 font-medium">
+                          R$ {salesBeforeDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
                       </span>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Total vendido dentro do prazo da meta</p>
-                  </TooltipContent>
-                </Tooltip>
-                
-                {/* Separador */}
-                <span className="text-muted-foreground/50">•</span>
-                
-                {/* Duração da meta com Tooltip */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-muted-foreground cursor-help">
-                      {goalDurationDays} dias
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Duração total da meta em dias</p>
-                  </TooltipContent>
-                </Tooltip>
-                
-                {/* Separador */}
-                <span className="text-muted-foreground/50">•</span>
-                
-                {/* Vendido após o prazo - Laranja com Tooltip */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center gap-1 cursor-help">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
-                      <span className="text-orange-500 font-medium">
-                        R$ {salesAfterDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Total vendido dentro do prazo da meta</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  {/* Separador */}
+                  <span className="text-muted-foreground/50">•</span>
+                  
+                  {/* Duração da meta com Tooltip */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-muted-foreground cursor-help">
+                        {goalDurationDays} dias
                       </span>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Total vendido após o prazo da meta</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Duração total da meta em dias</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  {/* Separador */}
+                  <span className="text-muted-foreground/50">•</span>
+                  
+                  {/* Vendido após o prazo - Laranja com Tooltip */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
+                        <span className="text-orange-500 font-medium">
+                          R$ {salesAfterDeadline.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Total vendido após o prazo da meta</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </>
             )}
 
             {/* Última Contribuição - Layout Compacto */}
