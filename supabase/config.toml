@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.fetch-ads-insights]
 verify_jwt = true
+
+[functions.fetch-campaign-ads]
+verify_jwt = true

@@ -138,7 +138,8 @@ Deno.serve(async (req) => {
 
     console.log(`Using ad account: ${selectedAccountId} (${selectedAccount.name})`);
 
-    const insightsFields = [
+const insightsFields = [
+      'campaign_id',
       'campaign_name',
       'reach',
       'impressions',
@@ -186,8 +187,8 @@ Deno.serve(async (req) => {
     let totalLeads = 0;
     let totalLeadCost = 0;
 
-    const dailyData: Record<string, { date: string; spend: number; leads: number; cpl: number }> = {};
-    const campaignData: Record<string, { name: string; spend: number; leads: number; reach: number; clicks: number }> = {};
+const dailyData: Record<string, { date: string; spend: number; leads: number; cpl: number }> = {};
+    const campaignData: Record<string, { id: string; name: string; spend: number; leads: number; reach: number; clicks: number }> = {};
 
     if (insightsData.data) {
       for (const record of insightsData.data) {
@@ -262,10 +263,15 @@ Deno.serve(async (req) => {
           dailyData[dateStart].leads += leads;
         }
 
-        // Aggregate by campaign
+// Aggregate by campaign
         const campaignName = record.campaign_name || 'Unknown';
+        const campaignId = record.campaign_id || '';
         if (!campaignData[campaignName]) {
-          campaignData[campaignName] = { name: campaignName, spend: 0, leads: 0, reach: 0, clicks: 0 };
+          campaignData[campaignName] = { id: campaignId, name: campaignName, spend: 0, leads: 0, reach: 0, clicks: 0 };
+        }
+        // Keep the first campaign_id found (they should all be the same for same campaign name)
+        if (!campaignData[campaignName].id && campaignId) {
+          campaignData[campaignName].id = campaignId;
         }
         campaignData[campaignName].spend += spend;
         campaignData[campaignName].leads += leads;
