@@ -18,54 +18,87 @@ interface AdsInsightsParams {
   ad_account_id?: string;
 }
 
-// Lista completa de action_types considerados como "leads"
-const LEAD_ACTION_TYPES = [
-  // Formulários Lead Ads
+// Tipos de leads por prioridade (NÃO somar, usar apenas um tipo por campanha)
+// Prioridade 1: Formulários Lead Ads
+const FORM_LEAD_TYPES = [
   'lead',
   'leadgen_grouped',
   'onsite_conversion.lead_grouped',
-  'onsite_conversion.messaging_conversation_started_7d_lead',
-  
-  // WhatsApp / Mensagens
+];
+
+// Prioridade 2: Conversões de mensagem/WhatsApp (usar apenas 1 para evitar dupla contagem)
+const MESSAGING_LEAD_TYPES = [
   'onsite_conversion.messaging_conversation_started_7d',
-  'onsite_conversion.messaging_first_reply',
-  'messaging_first_reply',
-  'messaging_conversation_started_7d',
-  'contact_total',
-  'contact',
-  'onsite_web_app_click_to_call_contact',
-  
-  // Pixel de Lead
+];
+
+// Prioridade 3: Pixel de Lead
+const PIXEL_LEAD_TYPES = [
   'offsite_conversion.fb_pixel_lead',
   'omni_lead',
-  
-  // Conversões gerais que podem ser leads
-  'omni_complete_registration',
+];
+
+// Prioridade 4: Conversões de registro
+const REGISTRATION_LEAD_TYPES = [
   'complete_registration',
   'offsite_conversion.fb_pixel_complete_registration',
-  
-  // Outros tipos de conversão
-  'onsite_conversion.post_save',
-  'onsite_conversion.messaging_block',
-  'link_click',
+  'omni_complete_registration',
 ];
 
-// Prefixos para eventos personalizados do pixel
-const CUSTOM_EVENT_PREFIXES = [
-  'offsite_conversion.custom.',
-];
-
-// Função para verificar se um action_type é considerado lead
-const isLeadAction = (actionType: string): boolean => {
-  // Verifica se está na lista direta
-  if (LEAD_ACTION_TYPES.includes(actionType)) return true;
-  
-  // Verifica se é um evento personalizado
-  for (const prefix of CUSTOM_EVENT_PREFIXES) {
-    if (actionType.startsWith(prefix)) return true;
+// Função para calcular leads com priorização (evita dupla contagem)
+const calculateLeadsFromActions = (actions: any[]): { leads: number; leadType: string } => {
+  if (!actions || actions.length === 0) {
+    return { leads: 0, leadType: '' };
   }
+
+  // Prioridade 1: Formulários Lead Ads
+  for (const action of actions) {
+    if (FORM_LEAD_TYPES.includes(action.action_type)) {
+      return { 
+        leads: parseInt(action.value || '0', 10), 
+        leadType: action.action_type 
+      };
+    }
+  }
+
+  // Prioridade 2: Conversões de mensagem/WhatsApp
+  for (const action of actions) {
+    if (MESSAGING_LEAD_TYPES.includes(action.action_type)) {
+      return { 
+        leads: parseInt(action.value || '0', 10), 
+        leadType: action.action_type 
+      };
+    }
+  }
+
+  // Prioridade 3: Pixel de Lead
+  for (const action of actions) {
+    if (PIXEL_LEAD_TYPES.includes(action.action_type)) {
+      return { 
+        leads: parseInt(action.value || '0', 10), 
+        leadType: action.action_type 
+      };
+    }
+  }
+
+  // Prioridade 4: Conversões de registro
+  for (const action of actions) {
+    if (REGISTRATION_LEAD_TYPES.includes(action.action_type)) {
+      return { 
+        leads: parseInt(action.value || '0', 10), 
+        leadType: action.action_type 
+      };
+    }
+  }
+
+  return { leads: 0, leadType: '' };
+};
+
+// Função para obter custo por lead do tipo específico
+const getLeadCostFromActions = (costActions: any[], leadType: string): number => {
+  if (!costActions || !leadType) return 0;
   
-  return false;
+  const costAction = costActions.find((c: any) => c.action_type === leadType);
+  return costAction ? parseFloat(costAction.value || '0') : 0;
 };
 
 Deno.serve(async (req) => {
@@ -138,7 +171,7 @@ Deno.serve(async (req) => {
 
     console.log(`Using ad account: ${selectedAccountId} (${selectedAccount.name})`);
 
-const insightsFields = [
+    const insightsFields = [
       'campaign_id',
       'campaign_name',
       'reach',
@@ -154,22 +187,39 @@ const insightsFields = [
 
     const timeRange = JSON.stringify({ since: start_date, until: end_date });
 
-    const insightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
+    // CHAMADA 1: Com time_increment=1 para dados diários (gráficos)
+    const dailyInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
       `fields=${insightsFields}` +
       `&level=campaign` +
       `&time_range=${encodeURIComponent(timeRange)}` +
       `&time_increment=1` +
       `&access_token=${access_token}`;
 
-    console.log('Fetching insights from Meta API...');
-    const insightsResponse = await fetch(insightsUrl);
-    const insightsData = await insightsResponse.json();
+    // CHAMADA 2: Sem time_increment para totais agregados corretos (especialmente reach)
+    const aggregatedInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
+      `fields=${insightsFields}` +
+      `&level=campaign` +
+      `&time_range=${encodeURIComponent(timeRange)}` +
+      `&access_token=${access_token}`;
 
-    if (insightsData.error) {
-      console.error('Meta API error:', insightsData.error);
+    console.log('Fetching daily and aggregated insights from Meta API...');
+    
+    // Fazer ambas chamadas em paralelo
+    const [dailyResponse, aggregatedResponse] = await Promise.all([
+      fetch(dailyInsightsUrl),
+      fetch(aggregatedInsightsUrl)
+    ]);
+
+    const [dailyData, aggregatedData] = await Promise.all([
+      dailyResponse.json(),
+      aggregatedResponse.json()
+    ]);
+
+    if (dailyData.error) {
+      console.error('Meta API error (daily):', dailyData.error);
       return new Response(
         JSON.stringify({ 
-          error: insightsData.error.message, 
+          error: dailyData.error.message, 
           data: null,
           selectedAccount,
           availableAccounts 
@@ -178,116 +228,114 @@ const insightsFields = [
       );
     }
 
-    console.log(`Received ${insightsData.data?.length || 0} insight records`);
+    if (aggregatedData.error) {
+      console.error('Meta API error (aggregated):', aggregatedData.error);
+      return new Response(
+        JSON.stringify({ 
+          error: aggregatedData.error.message, 
+          data: null,
+          selectedAccount,
+          availableAccounts 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
 
+    console.log(`Received ${dailyData.data?.length || 0} daily records and ${aggregatedData.data?.length || 0} aggregated records`);
+
+    // Processar dados AGREGADOS para totais corretos
     let totalSpend = 0;
     let totalReach = 0;
     let totalImpressions = 0;
     let totalClicks = 0;
     let totalLeads = 0;
-    let totalLeadCost = 0;
 
-const dailyData: Record<string, { date: string; spend: number; leads: number; cpl: number }> = {};
-    const campaignData: Record<string, { id: string; name: string; spend: number; leads: number; reach: number; clicks: number }> = {};
+    const campaignData: Record<string, { 
+      id: string; 
+      name: string; 
+      spend: number; 
+      leads: number; 
+      reach: number; 
+      clicks: number;
+      leadType: string;
+    }> = {};
 
-    if (insightsData.data) {
-      for (const record of insightsData.data) {
+    // Processar dados agregados para totais e breakdown de campanhas
+    if (aggregatedData.data) {
+      for (const record of aggregatedData.data) {
         const spend = parseFloat(record.spend || '0');
         const reach = parseInt(record.reach || '0', 10);
         const impressions = parseInt(record.impressions || '0', 10);
         const clicks = parseInt(record.clicks || '0', 10);
 
         totalSpend += spend;
-        totalReach += reach;
+        totalReach += reach; // Reach agregado correto (não soma diária)
         totalImpressions += impressions;
         totalClicks += clicks;
 
-        // Extrair leads de TODOS os tipos de ações considerados leads
-        let leads = 0;
-        let leadCost = 0;
-        const foundLeadTypes: string[] = [];
-        
-        if (record.actions) {
-          // Log all action types for debugging
-          const allActionTypes = record.actions.map((a: any) => `${a.action_type}:${a.value}`);
-          console.log(`Campaign "${record.campaign_name}" actions:`, allActionTypes.join(', '));
-          
-          // Somar todos os tipos de leads encontrados
-          for (const action of record.actions) {
-            if (isLeadAction(action.action_type)) {
-              const actionLeads = parseInt(action.value || '0', 10);
-              leads += actionLeads;
-              foundLeadTypes.push(`${action.action_type}=${actionLeads}`);
-            }
-          }
-          
-          if (foundLeadTypes.length > 0) {
-            console.log(`Campaign "${record.campaign_name}" lead actions found:`, foundLeadTypes.join(', '));
-          }
-        }
-
-        // Calcular custo por lead baseado em cost_per_action_type
-        if (record.cost_per_action_type && leads > 0) {
-          let totalCostForLeads = 0;
-          let leadActionsWithCost = 0;
-          
-          for (const costAction of record.cost_per_action_type) {
-            if (isLeadAction(costAction.action_type)) {
-              // Encontrar a quantidade de ações correspondente
-              const matchingAction = record.actions?.find((a: any) => a.action_type === costAction.action_type);
-              const actionCount = matchingAction ? parseInt(matchingAction.value || '0', 10) : 0;
-              
-              if (actionCount > 0) {
-                const costPerAction = parseFloat(costAction.value || '0');
-                totalCostForLeads += costPerAction * actionCount;
-                leadActionsWithCost += actionCount;
-                console.log(`Cost for ${costAction.action_type}: ${costPerAction} x ${actionCount} = ${costPerAction * actionCount}`);
-              }
-            }
-          }
-          
-          // Usar o custo total calculado
-          leadCost = leads > 0 ? totalCostForLeads / leads : 0;
-        }
-
+        // Calcular leads com priorização
+        const { leads, leadType } = calculateLeadsFromActions(record.actions);
         totalLeads += leads;
-        totalLeadCost += leadCost * leads;
 
-        // Aggregate by date
-        const dateStart = record.date_start;
-        if (dateStart) {
-          if (!dailyData[dateStart]) {
-            dailyData[dateStart] = { date: dateStart, spend: 0, leads: 0, cpl: 0 };
-          }
-          dailyData[dateStart].spend += spend;
-          dailyData[dateStart].leads += leads;
+        if (leadType) {
+          console.log(`Campaign "${record.campaign_name}" - Lead type: ${leadType}, Count: ${leads}`);
         }
 
-// Aggregate by campaign
+        // Agregar por campanha
         const campaignName = record.campaign_name || 'Unknown';
         const campaignId = record.campaign_id || '';
+        
         if (!campaignData[campaignName]) {
-          campaignData[campaignName] = { id: campaignId, name: campaignName, spend: 0, leads: 0, reach: 0, clicks: 0 };
+          campaignData[campaignName] = { 
+            id: campaignId, 
+            name: campaignName, 
+            spend: 0, 
+            leads: 0, 
+            reach: 0, 
+            clicks: 0,
+            leadType: ''
+          };
         }
-        // Keep the first campaign_id found (they should all be the same for same campaign name)
+        
         if (!campaignData[campaignName].id && campaignId) {
           campaignData[campaignName].id = campaignId;
         }
+        
         campaignData[campaignName].spend += spend;
         campaignData[campaignName].leads += leads;
         campaignData[campaignName].reach += reach;
         campaignData[campaignName].clicks += clicks;
+        campaignData[campaignName].leadType = leadType;
       }
     }
 
-    // Calcular CPL médio corretamente
+    // Processar dados DIÁRIOS para gráficos
+    const dailyChartData: Record<string, { date: string; spend: number; leads: number; cpl: number }> = {};
+
+    if (dailyData.data) {
+      for (const record of dailyData.data) {
+        const spend = parseFloat(record.spend || '0');
+        const { leads } = calculateLeadsFromActions(record.actions);
+        const dateStart = record.date_start;
+
+        if (dateStart) {
+          if (!dailyChartData[dateStart]) {
+            dailyChartData[dateStart] = { date: dateStart, spend: 0, leads: 0, cpl: 0 };
+          }
+          dailyChartData[dateStart].spend += spend;
+          dailyChartData[dateStart].leads += leads;
+        }
+      }
+    }
+
+    // Calcular métricas finais
     const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
     const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
     const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
 
-    console.log(`Totals - Spend: ${totalSpend}, Leads: ${totalLeads}, CPL: ${avgCPL}`);
+    console.log(`Totals - Spend: ${totalSpend}, Leads: ${totalLeads}, Reach: ${totalReach}, CPL: ${avgCPL}`);
 
-    const chartData = Object.values(dailyData)
+    const chartData = Object.values(dailyChartData)
       .map(d => ({
         ...d,
         cpl: d.leads > 0 ? d.spend / d.leads : 0
@@ -296,7 +344,12 @@ const dailyData: Record<string, { date: string; spend: number; leads: number; cp
 
     const campaignBreakdown = Object.values(campaignData)
       .map(c => ({
-        ...c,
+        id: c.id,
+        name: c.name,
+        spend: c.spend,
+        leads: c.leads,
+        reach: c.reach,
+        clicks: c.clicks,
         cpl: c.leads > 0 ? c.spend / c.leads : 0,
         ctr: c.reach > 0 ? (c.clicks / c.reach) * 100 : 0
       }))
