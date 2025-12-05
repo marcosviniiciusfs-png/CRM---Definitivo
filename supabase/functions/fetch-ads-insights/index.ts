@@ -15,8 +15,58 @@ interface AdsInsightsParams {
   organization_id: string;
   start_date: string;
   end_date: string;
-  ad_account_id?: string; // Optional - if not provided, uses default
+  ad_account_id?: string;
 }
+
+// Lista completa de action_types considerados como "leads"
+const LEAD_ACTION_TYPES = [
+  // Formulários Lead Ads
+  'lead',
+  'leadgen_grouped',
+  'onsite_conversion.lead_grouped',
+  'onsite_conversion.messaging_conversation_started_7d_lead',
+  
+  // WhatsApp / Mensagens
+  'onsite_conversion.messaging_conversation_started_7d',
+  'onsite_conversion.messaging_first_reply',
+  'messaging_first_reply',
+  'messaging_conversation_started_7d',
+  'contact_total',
+  'contact',
+  'onsite_web_app_click_to_call_contact',
+  
+  // Pixel de Lead
+  'offsite_conversion.fb_pixel_lead',
+  'omni_lead',
+  
+  // Conversões gerais que podem ser leads
+  'omni_complete_registration',
+  'complete_registration',
+  'offsite_conversion.fb_pixel_complete_registration',
+  
+  // Outros tipos de conversão
+  'onsite_conversion.post_save',
+  'onsite_conversion.messaging_block',
+  'link_click',
+];
+
+// Prefixos para eventos personalizados do pixel
+const CUSTOM_EVENT_PREFIXES = [
+  'offsite_conversion.custom.',
+];
+
+// Função para verificar se um action_type é considerado lead
+const isLeadAction = (actionType: string): boolean => {
+  // Verifica se está na lista direta
+  if (LEAD_ACTION_TYPES.includes(actionType)) return true;
+  
+  // Verifica se é um evento personalizado
+  for (const prefix of CUSTOM_EVENT_PREFIXES) {
+    if (actionType.startsWith(prefix)) return true;
+  }
+  
+  return false;
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,7 +79,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Parse request body
     const { organization_id, start_date, end_date, ad_account_id }: AdsInsightsParams = await req.json();
 
     if (!organization_id || !start_date || !end_date) {
@@ -38,7 +87,6 @@ Deno.serve(async (req) => {
 
     console.log(`Fetching ads insights for org ${organization_id} from ${start_date} to ${end_date}`);
 
-    // Get Facebook integration with ad_account_id and ad_accounts array
     const { data: integration, error: integrationError } = await supabase
       .from('facebook_integrations')
       .select('access_token, ad_account_id, ad_accounts')
@@ -53,7 +101,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse ad_accounts - handle both array and JSON string
     let availableAccounts: AdAccount[] = [];
     if (integration.ad_accounts) {
       if (Array.isArray(integration.ad_accounts)) {
@@ -67,7 +114,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Use provided ad_account_id or fall back to default
     const selectedAccountId = ad_account_id || integration.ad_account_id;
 
     if (!selectedAccountId) {
@@ -82,7 +128,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find the selected account details
     const selectedAccount = availableAccounts.find(acc => acc.id === selectedAccountId) || {
       id: selectedAccountId,
       name: 'Conta de Anúncios',
@@ -93,7 +138,6 @@ Deno.serve(async (req) => {
 
     console.log(`Using ad account: ${selectedAccountId} (${selectedAccount.name})`);
 
-    // Fetch insights from Meta Marketing API
     const insightsFields = [
       'campaign_name',
       'reach',
@@ -109,7 +153,6 @@ Deno.serve(async (req) => {
 
     const timeRange = JSON.stringify({ since: start_date, until: end_date });
 
-    // Fetch campaign-level insights with daily breakdown
     const insightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
       `fields=${insightsFields}` +
       `&level=campaign` +
@@ -136,7 +179,6 @@ Deno.serve(async (req) => {
 
     console.log(`Received ${insightsData.data?.length || 0} insight records`);
 
-    // Process insights data
     let totalSpend = 0;
     let totalReach = 0;
     let totalImpressions = 0;
@@ -159,26 +201,52 @@ Deno.serve(async (req) => {
         totalImpressions += impressions;
         totalClicks += clicks;
 
-        // Extract lead actions
+        // Extrair leads de TODOS os tipos de ações considerados leads
         let leads = 0;
         let leadCost = 0;
+        const foundLeadTypes: string[] = [];
         
         if (record.actions) {
-          const leadAction = record.actions.find((a: any) => 
-            a.action_type === 'lead' || a.action_type === 'leadgen_grouped'
-          );
-          if (leadAction) {
-            leads = parseInt(leadAction.value || '0', 10);
+          // Log all action types for debugging
+          const allActionTypes = record.actions.map((a: any) => `${a.action_type}:${a.value}`);
+          console.log(`Campaign "${record.campaign_name}" actions:`, allActionTypes.join(', '));
+          
+          // Somar todos os tipos de leads encontrados
+          for (const action of record.actions) {
+            if (isLeadAction(action.action_type)) {
+              const actionLeads = parseInt(action.value || '0', 10);
+              leads += actionLeads;
+              foundLeadTypes.push(`${action.action_type}=${actionLeads}`);
+            }
+          }
+          
+          if (foundLeadTypes.length > 0) {
+            console.log(`Campaign "${record.campaign_name}" lead actions found:`, foundLeadTypes.join(', '));
           }
         }
 
-        if (record.cost_per_action_type) {
-          const leadCostAction = record.cost_per_action_type.find((a: any) => 
-            a.action_type === 'lead' || a.action_type === 'leadgen_grouped'
-          );
-          if (leadCostAction) {
-            leadCost = parseFloat(leadCostAction.value || '0');
+        // Calcular custo por lead baseado em cost_per_action_type
+        if (record.cost_per_action_type && leads > 0) {
+          let totalCostForLeads = 0;
+          let leadActionsWithCost = 0;
+          
+          for (const costAction of record.cost_per_action_type) {
+            if (isLeadAction(costAction.action_type)) {
+              // Encontrar a quantidade de ações correspondente
+              const matchingAction = record.actions?.find((a: any) => a.action_type === costAction.action_type);
+              const actionCount = matchingAction ? parseInt(matchingAction.value || '0', 10) : 0;
+              
+              if (actionCount > 0) {
+                const costPerAction = parseFloat(costAction.value || '0');
+                totalCostForLeads += costPerAction * actionCount;
+                leadActionsWithCost += actionCount;
+                console.log(`Cost for ${costAction.action_type}: ${costPerAction} x ${actionCount} = ${costPerAction * actionCount}`);
+              }
+            }
           }
+          
+          // Usar o custo total calculado
+          leadCost = leads > 0 ? totalCostForLeads / leads : 0;
         }
 
         totalLeads += leads;
@@ -206,12 +274,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Calculate averages
+    // Calcular CPL médio corretamente
     const avgCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
     const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
     const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
 
-    // Format daily data with CPL calculation
+    console.log(`Totals - Spend: ${totalSpend}, Leads: ${totalLeads}, CPL: ${avgCPL}`);
+
     const chartData = Object.values(dailyData)
       .map(d => ({
         ...d,
@@ -219,7 +288,6 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Format campaign breakdown with CPL
     const campaignBreakdown = Object.values(campaignData)
       .map(c => ({
         ...c,
