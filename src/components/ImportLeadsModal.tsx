@@ -12,12 +12,37 @@ import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertCircle, X }
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-// Manual CSV parser function
+// Detect delimiter automatically (TAB, semicolon, comma)
+const detectDelimiter = (text: string): string => {
+  const firstLine = text.split(/\r?\n/)[0] || "";
+  const delimiters = ['\t', ';', ','];
+  
+  let maxCount = 0;
+  let detectedDelimiter = ',';
+  
+  for (const delimiter of delimiters) {
+    const regex = delimiter === '\t' ? /\t/g : new RegExp(delimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+    const count = (firstLine.match(regex) || []).length;
+    if (count > maxCount) {
+      maxCount = count;
+      detectedDelimiter = delimiter;
+    }
+  }
+  
+  console.log('[CSV Parser] Detected delimiter:', detectedDelimiter === '\t' ? 'TAB' : detectedDelimiter, 'Count:', maxCount);
+  return detectedDelimiter;
+};
+
+// Manual CSV parser function with automatic delimiter detection
 const parseCSV = (text: string): any[] => {
   const lines = text.split(/\r?\n/).filter(line => line.trim());
   if (lines.length < 2) return [];
   
-  // Parse header - handle quoted fields
+  const delimiter = detectDelimiter(text);
+  console.log('[CSV Parser] Total lines:', lines.length);
+  console.log('[CSV Parser] First line preview:', lines[0].substring(0, 200));
+  
+  // Parse row handling quoted fields
   const parseRow = (row: string): string[] => {
     const result: string[] = [];
     let current = "";
@@ -27,31 +52,36 @@ const parseCSV = (text: string): any[] => {
       const char = row[i];
       if (char === '"') {
         inQuotes = !inQuotes;
-      } else if ((char === ',' || char === ';') && !inQuotes) {
-        result.push(current.trim());
+      } else if (char === delimiter && !inQuotes) {
+        result.push(current.trim().replace(/^"|"$/g, ''));
         current = "";
       } else {
         current += char;
       }
     }
-    result.push(current.trim());
+    result.push(current.trim().replace(/^"|"$/g, ''));
     return result;
   };
   
   const headers = parseRow(lines[0]);
+  console.log('[CSV Parser] Detected columns:', headers);
+  
   const data: any[] = [];
   
   for (let i = 1; i < lines.length; i++) {
     const values = parseRow(lines[i]);
-    if (values.length === headers.length) {
+    if (values.length >= 1) {
       const row: any = {};
       headers.forEach((header, index) => {
-        row[header] = values[index] || "";
+        if (header) {
+          row[header] = values[index] || "";
+        }
       });
       data.push(row);
     }
   }
   
+  console.log('[CSV Parser] Parsed rows:', data.length);
   return data;
 };
 
