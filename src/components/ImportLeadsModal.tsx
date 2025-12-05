@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import * as XLSX from "xlsx";
+import { read, utils } from "xlsx";
 
 interface ImportLeadsModalProps {
   open: boolean;
@@ -78,11 +78,14 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     setFile(uploadedFile);
     
     try {
+      let jsonData: any[] = [];
+      
+      // Try parsing with xlsx library
       const data = await uploadedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
+      const workbook = read(data, { type: "array", codepage: 65001 });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      jsonData = utils.sheet_to_json(worksheet, { defval: "" });
       
       if (jsonData.length === 0) {
         toast({
