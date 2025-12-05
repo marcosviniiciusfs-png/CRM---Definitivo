@@ -306,16 +306,26 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
     }
 
     // Verificar capacidade máxima - usando stage_type do funil
-    const { data: activeLeads } = await supabase
+    // Contar por UUID
+    const { data: leadsByUuid } = await supabase
       .from('leads')
-      .select(`
-        id,
-        funnel_stages!inner(stage_type)
-      `)
+      .select('id, funnel_stages!inner(stage_type)')
       .eq('responsavel_user_id', agent.user_id)
       .not('funnel_stages.stage_type', 'in', '("won","lost")');
 
-    const currentLoad = activeLeads?.length || 0;
+    // Contar por nome (fallback para leads antigos sem UUID)
+    let leadsByNameCount = 0;
+    if (profile?.full_name) {
+      const { data: leadsByName } = await supabase
+        .from('leads')
+        .select('id, funnel_stages!inner(stage_type)')
+        .eq('responsavel', profile.full_name)
+        .is('responsavel_user_id', null)
+        .not('funnel_stages.stage_type', 'in', '("won","lost")');
+      leadsByNameCount = leadsByName?.length || 0;
+    }
+
+    const currentLoad = (leadsByUuid?.length || 0) + leadsByNameCount;
     const agentName = profile?.full_name || member?.email;
     console.log(`Agent ${agentName} (${agent.user_id}): ${currentLoad}/${agent.max_capacity} leads`);
 
