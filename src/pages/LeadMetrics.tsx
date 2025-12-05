@@ -1541,6 +1541,40 @@ const LeadMetrics = () => {
                             </TooltipContent>
                           </Tooltip>
                         ))}
+                          
+                          {/* LINHA DE TOTAIS/MÉDIAS */}
+                          {adsMetrics.campaignBreakdown.length > 0 && (
+                            <TableRow className="bg-muted/50 font-semibold border-t-2 border-primary/20">
+                              <TableCell>
+                                <span className="text-primary">TOTAL / MÉDIA</span>
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  ({adsMetrics.campaignBreakdown.length} campanhas)
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(adsMetrics.totalSpend)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {adsMetrics.totalLeads}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(adsMetrics.avgCPL)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {adsMetrics.totalReach.toLocaleString('pt-BR')}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {adsMetrics.totalImpressions.toLocaleString('pt-BR')}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {adsMetrics.totalClicks.toLocaleString('pt-BR')}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {adsMetrics.avgCTR.toFixed(2)}%
+                              </TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          )}
                       </TableBody>
                     </Table>
                     </TooltipProvider>
