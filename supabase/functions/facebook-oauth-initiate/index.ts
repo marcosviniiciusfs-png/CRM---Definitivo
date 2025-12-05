@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     // Create state parameter with user info and origin for redirect
     const state = btoa(JSON.stringify({ user_id, organization_id, origin }));
 
-    // Required permissions for Facebook Leads
+    // Required permissions for Facebook Leads and Ads
     const scopes = [
       'leads_retrieval',
       'pages_manage_ads',
@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
       'pages_read_engagement',
       'pages_manage_metadata',
       'business_management',
+      'ads_read',
     ].join(',');
 
 
