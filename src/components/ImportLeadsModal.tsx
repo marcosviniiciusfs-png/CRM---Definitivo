@@ -92,9 +92,35 @@ interface ImportLeadsModalProps {
 
 interface FieldMapping {
   excelColumn: string;
+  columnIndex: number;
   crmField: string;
   preview: string[];
 }
+
+// Flexible value getter - handles key mismatches from encoding/whitespace
+const getValue = (row: any, columnName: string, columnIndex: number): string => {
+  // Try direct access first
+  if (row[columnName] !== undefined && row[columnName] !== null) {
+    return String(row[columnName]);
+  }
+  
+  // Try case-insensitive, trimmed search
+  const normalizedSearch = columnName.toLowerCase().trim();
+  const keys = Object.keys(row);
+  
+  for (const key of keys) {
+    if (key.toLowerCase().trim() === normalizedSearch) {
+      return String(row[key] || "");
+    }
+  }
+  
+  // Fallback: try by index position
+  if (columnIndex >= 0 && columnIndex < keys.length) {
+    return String(row[keys[columnIndex]] || "");
+  }
+  
+  return "";
+};
 
 const CRM_FIELDS = [
   { value: "ignore", label: "Ignorar" },
@@ -182,7 +208,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       setParsedData(jsonData);
       
       // Auto-map common fields
-      const autoMappings: FieldMapping[] = cols.map((col) => {
+      const autoMappings: FieldMapping[] = cols.map((col, index) => {
         const colLower = col.toLowerCase().trim();
         let crmField = "additional_data";
         
@@ -210,6 +236,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         
         return {
           excelColumn: col,
+          columnIndex: index,
           crmField,
           preview,
         };
@@ -310,7 +337,15 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
   };
 
   const processLeads = () => {
-    return parsedData.map((row) => {
+    console.log('[processLeads] Starting with', parsedData.length, 'rows');
+    console.log('[processLeads] Mappings:', mappings.map(m => ({ col: m.excelColumn, idx: m.columnIndex, field: m.crmField })));
+    
+    if (parsedData.length > 0) {
+      console.log('[processLeads] First row keys:', Object.keys(parsedData[0]));
+      console.log('[processLeads] First row data:', parsedData[0]);
+    }
+    
+    return parsedData.map((row, rowIndex) => {
       const lead: Record<string, any> = {
         source: "Importação",
         funnel_id: selectedFunnel || null,
@@ -319,7 +354,11 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       const additionalData: Record<string, any> = {};
       
       mappings.forEach((mapping) => {
-        const value = row[mapping.excelColumn];
+        const value = getValue(row, mapping.excelColumn, mapping.columnIndex);
+        
+        if (rowIndex === 0) {
+          console.log(`[processLeads] Row 0 - Column "${mapping.excelColumn}" (idx ${mapping.columnIndex}) -> "${value}"`);
+        }
         
         if (mapping.crmField === "ignore" || !value) {
           return;
@@ -344,6 +383,10 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       
       if (Object.keys(additionalData).length > 0) {
         lead.additional_data = additionalData;
+      }
+      
+      if (rowIndex === 0) {
+        console.log('[processLeads] First processed lead:', lead);
       }
       
       return lead;
