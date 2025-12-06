@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       console.log(`Found campaign ID: ${targetCampaignId}`);
     }
 
-    // Fetch ads for the campaign with creative details
+    // Fetch ads for the campaign with creative details using ad account level with campaign filter
     const adsFields = [
       'id',
       'name',
@@ -121,8 +121,10 @@ Deno.serve(async (req) => {
       'creative{id,name,thumbnail_url,image_url,body,title,call_to_action_type}'
     ].join(',');
 
-    const adsUrl = `https://graph.facebook.com/v18.0/${targetCampaignId}/ads?` +
+    // Use ad account endpoint with campaign.id filter (more reliable than campaign/ads endpoint)
+    const adsUrl = `https://graph.facebook.com/v18.0/${ad_account_id}/ads?` +
       `fields=${adsFields}` +
+      `&filtering=${encodeURIComponent(JSON.stringify([{ field: 'campaign.id', operator: 'EQUAL', value: targetCampaignId }]))}` +
       `&access_token=${access_token}`;
 
     console.log('Fetching ads from Meta API...');
