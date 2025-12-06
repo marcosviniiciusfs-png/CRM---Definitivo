@@ -1275,35 +1275,65 @@ const LeadMetrics = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-4 gap-2 text-center">
-                        <div>
-                          <div className="text-xl font-bold">{adsMetrics.crmValidation.metaReportedLeads}</div>
-                          <div className="text-[10px] text-muted-foreground">Leads Meta</div>
+                      <TooltipProvider>
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <div className="text-xl font-bold">{adsMetrics.crmValidation.metaReportedLeads}</div>
+                                <div className="text-[10px] text-muted-foreground">Leads Meta</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-[200px]">Total de leads/conversões reportados pela Meta Ads para o período selecionado.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <div className="text-xl font-bold">{adsMetrics.crmValidation.crmReceivedLeads}</div>
+                                <div className="text-[10px] text-muted-foreground">Leads CRM</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-[200px]">Total de leads do Facebook que chegaram ao seu CRM no mesmo período.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <div className={cn(
+                                  "text-xl font-bold",
+                                  adsMetrics.crmValidation.captureRate >= 80 ? "text-green-600" : 
+                                  adsMetrics.crmValidation.captureRate >= 50 ? "text-amber-600" : "text-red-600"
+                                )}>
+                                  {adsMetrics.crmValidation.captureRate.toFixed(0)}%
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">Taxa Captura</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-[200px]">Percentual de leads da Meta capturados pelo CRM. Ideal: acima de 80%.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <div className={cn(
+                                  "text-xl font-bold",
+                                  adsMetrics.crmValidation.discrepancy === 0 ? "text-green-600" : "text-amber-600"
+                                )}>
+                                  {adsMetrics.crmValidation.discrepancy > 0 ? '+' : ''}{adsMetrics.crmValidation.discrepancy}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">Diferença</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-[200px]">Diferença entre leads Meta e CRM. Zero indica sincronização perfeita.</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
-                        <div>
-                          <div className="text-xl font-bold">{adsMetrics.crmValidation.crmReceivedLeads}</div>
-                          <div className="text-[10px] text-muted-foreground">Leads CRM</div>
-                        </div>
-                        <div>
-                          <div className={cn(
-                            "text-xl font-bold",
-                            adsMetrics.crmValidation.captureRate >= 80 ? "text-green-600" : 
-                            adsMetrics.crmValidation.captureRate >= 50 ? "text-amber-600" : "text-red-600"
-                          )}>
-                            {adsMetrics.crmValidation.captureRate.toFixed(0)}%
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">Taxa Captura</div>
-                        </div>
-                        <div>
-                          <div className={cn(
-                            "text-xl font-bold",
-                            adsMetrics.crmValidation.discrepancy === 0 ? "text-green-600" : "text-amber-600"
-                          )}>
-                            {adsMetrics.crmValidation.discrepancy > 0 ? '+' : ''}{adsMetrics.crmValidation.discrepancy}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">Diferença</div>
-                        </div>
-                      </div>
+                      </TooltipProvider>
                     </CardContent>
                   </Card>
                 )}
@@ -1318,18 +1348,35 @@ const LeadMetrics = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2">
-                        {adsMetrics.platformBreakdown.map(p => (
-                          <div key={p.platform} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
-                            <span className="font-medium">{p.platform}</span>
-                            <div className="flex gap-4 text-xs text-muted-foreground">
-                              <span>{p.leads} leads</span>
-                              <span>{formatCurrency(p.cpl)} CPL</span>
-                              <span>{formatCurrency(p.spend)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <TooltipProvider>
+                        <div className="space-y-2">
+                          {adsMetrics.platformBreakdown.map(p => {
+                            const platformExplanations: Record<string, string> = {
+                              'Facebook': 'Anúncios exibidos no Feed, Stories, Marketplace e Vídeos do Facebook.',
+                              'Instagram': 'Anúncios exibidos no Feed, Stories, Reels e Explore do Instagram.',
+                              'Audience Network': 'Anúncios exibidos em sites e aplicativos parceiros da Meta fora do Facebook e Instagram.',
+                              'Messenger': 'Anúncios exibidos na caixa de entrada e Stories do Messenger.'
+                            };
+                            return (
+                              <Tooltip key={p.platform}>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm cursor-help hover:bg-muted/70 transition-colors">
+                                    <span className="font-medium">{p.platform}</span>
+                                    <div className="flex gap-4 text-xs text-muted-foreground">
+                                      <span>{p.leads} leads</span>
+                                      <span>{formatCurrency(p.cpl)} CPL</span>
+                                      <span>{formatCurrency(p.spend)}</span>
+                                    </div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="max-w-[250px]">{platformExplanations[p.platform] || 'Plataforma de veiculação de anúncios da Meta.'}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      </TooltipProvider>
                     </CardContent>
                   </Card>
                 )}
