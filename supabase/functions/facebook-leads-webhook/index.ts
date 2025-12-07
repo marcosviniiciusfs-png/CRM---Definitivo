@@ -5,6 +5,122 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para verificar duplicidade de lead
+async function checkDuplicateLead(
+  supabase: any,
+  organizationId: string,
+  telefone: string,
+  email?: string
+): Promise<{
+  isDuplicate: boolean;
+  existingLead: any | null;
+  hasAdvancedInFunnel: boolean;
+  matchType: 'phone' | 'email' | null;
+}> {
+  // Buscar por telefone (prioridade)
+  const { data: leadByPhone } = await supabase
+    .from('leads')
+    .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history')
+    .eq('organization_id', organizationId)
+    .eq('telefone_lead', telefone)
+    .maybeSingle();
+
+  if (leadByPhone) {
+    // Verificar se lead avançou no funil
+    const hasAdvanced = await checkIfLeadAdvanced(supabase, leadByPhone);
+    return {
+      isDuplicate: true,
+      existingLead: leadByPhone,
+      hasAdvancedInFunnel: hasAdvanced,
+      matchType: 'phone'
+    };
+  }
+
+  // Buscar por email como fallback
+  if (email) {
+    const { data: leadByEmail } = await supabase
+      .from('leads')
+      .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history')
+      .eq('organization_id', organizationId)
+      .eq('email', email)
+      .maybeSingle();
+
+    if (leadByEmail) {
+      const hasAdvanced = await checkIfLeadAdvanced(supabase, leadByEmail);
+      return {
+        isDuplicate: true,
+        existingLead: leadByEmail,
+        hasAdvancedInFunnel: hasAdvanced,
+        matchType: 'email'
+      };
+    }
+  }
+
+  return {
+    isDuplicate: false,
+    existingLead: null,
+    hasAdvancedInFunnel: false,
+    matchType: null
+  };
+}
+
+// Verificar se o lead avançou da primeira etapa do funil
+async function checkIfLeadAdvanced(supabase: any, lead: any): Promise<boolean> {
+  if (!lead.funnel_id || !lead.funnel_stage_id) return false;
+
+  const { data: firstStage } = await supabase
+    .from('funnel_stages')
+    .select('id')
+    .eq('funnel_id', lead.funnel_id)
+    .order('position')
+    .limit(1)
+    .maybeSingle();
+
+  return firstStage && firstStage.id !== lead.funnel_stage_id;
+}
+
+// Registrar tentativa de duplicação
+async function registerDuplicateAttempt(
+  supabase: any,
+  existingLeadId: string,
+  source: string,
+  originalPayload: any
+) {
+  // Buscar dados atuais
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('duplicate_attempts_count, duplicate_attempts_history')
+    .eq('id', existingLeadId)
+    .single();
+
+  const currentCount = lead?.duplicate_attempts_count || 0;
+  const currentHistory = Array.isArray(lead?.duplicate_attempts_history) ? lead.duplicate_attempts_history : [];
+
+  // Adicionar nova entrada no histórico
+  const newEntry = {
+    source,
+    attempted_at: new Date().toISOString(),
+    form_name: originalPayload.formName || null,
+    campaign_name: originalPayload.campaignName || null,
+    original_data: originalPayload.leadData || null
+  };
+
+  const updatedHistory = [...currentHistory, newEntry];
+
+  // Atualizar lead
+  await supabase
+    .from('leads')
+    .update({
+      duplicate_attempts_count: currentCount + 1,
+      last_duplicate_attempt_at: new Date().toISOString(),
+      duplicate_attempts_history: updatedHistory,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', existingLeadId);
+
+  console.log(`📊 Tentativa de duplicação registrada para lead ${existingLeadId}. Total: ${currentCount + 1}`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -160,6 +276,72 @@ Deno.serve(async (req) => {
               }
             });
 
+            // Extrair telefone e email para verificação de duplicidade
+            const phoneNumber = leadInfo.phone_number || leadInfo.phone || leadInfo.telefone || '';
+            const email = leadInfo.email || null;
+
+            // ⚡ VERIFICAR DUPLICIDADE
+            console.log('🔍 Verificando duplicidade do lead Facebook...');
+            const duplicateCheck = await checkDuplicateLead(
+              supabase,
+              integration.organization_id,
+              phoneNumber,
+              email
+            );
+
+            if (duplicateCheck.isDuplicate && duplicateCheck.existingLead) {
+              console.log(`⚠️ Lead duplicado detectado via ${duplicateCheck.matchType}:`, duplicateCheck.existingLead.id);
+
+              // Registrar tentativa de duplicação
+              await registerDuplicateAttempt(
+                supabase,
+                duplicateCheck.existingLead.id,
+                'Facebook',
+                { leadData, formName, campaignName }
+              );
+
+              // Se lead NÃO avançou no funil, atualizar dados
+              if (!duplicateCheck.hasAdvancedInFunnel) {
+                console.log('📝 Atualizando dados do lead existente (não avançou no funil)');
+                
+                // Buscar descrição atual
+                const { data: currentLead } = await supabase
+                  .from('leads')
+                  .select('descricao_negocio')
+                  .eq('id', duplicateCheck.existingLead.id)
+                  .single();
+
+                const updatedDescription = (currentLead?.descricao_negocio || '') + 
+                  '\n\n--- NOVA TENTATIVA (' + new Date().toLocaleDateString('pt-BR') + ') ---\n' + 
+                  allFieldsDescription;
+
+                await supabase
+                  .from('leads')
+                  .update({
+                    nome_lead: leadInfo.full_name || leadInfo.first_name || leadInfo.name || duplicateCheck.existingLead.nome_lead,
+                    email: email || undefined,
+                    descricao_negocio: updatedDescription,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', duplicateCheck.existingLead.id);
+              }
+
+              // Atualizar log com status 'duplicate'
+              if (logId) {
+                await supabase
+                  .from('facebook_webhook_logs')
+                  .update({
+                    status: 'duplicate',
+                    lead_id: duplicateCheck.existingLead.id,
+                    error_message: `Lead já existe no CRM (match: ${duplicateCheck.matchType})`
+                  })
+                  .eq('id', logId);
+              }
+
+              // NÃO criar novo lead, NÃO distribuir na roleta
+              continue;
+            }
+
             // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA FACEBOOK
             console.log('🔍 Buscando mapeamento de funil para Facebook...');
             
@@ -220,8 +402,8 @@ Deno.serve(async (req) => {
               .from('leads')
               .insert({
                 nome_lead: leadInfo.full_name || leadInfo.first_name || leadInfo.name || 'Lead do Facebook',
-                telefone_lead: leadInfo.phone_number || leadInfo.phone || leadInfo.telefone || '',
-                email: leadInfo.email || null,
+                telefone_lead: phoneNumber,
+                email: email,
                 empresa: leadInfo.company_name || leadInfo.company || leadInfo.empresa || null,
                 organization_id: integration.organization_id,
                 source: 'Facebook Leads',

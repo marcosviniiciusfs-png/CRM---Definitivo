@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, FileText, Clock, User, Paperclip, Calendar } from "lucide-react";
+import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
@@ -17,6 +17,14 @@ interface LeadDetailsDialogProps {
   leadName: string;
 }
 
+interface DuplicateAttempt {
+  source: string;
+  attempted_at: string;
+  form_name?: string;
+  campaign_name?: string;
+  webhook_token?: string;
+}
+
 interface LeadDetails {
   valor: number | null;
   descricao_negocio: string | null;
@@ -25,6 +33,8 @@ interface LeadDetails {
   data_conclusao: string | null;
   additional_data: Json | null;
   email: string | null;
+  duplicate_attempts_count: number | null;
+  duplicate_attempts_history: Json | null;
 }
 
 interface Activity {
@@ -60,7 +70,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email")
+        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history")
         .eq("id", leadId)
         .single();
 
@@ -153,6 +163,53 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
             </div>
 
             <Separator />
+
+            {/* Histórico de Tentativas de Duplicação */}
+            {details?.duplicate_attempts_count && details.duplicate_attempts_count > 0 && (
+              <>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <RefreshCw className="h-4 w-4" />
+                    <h3 className="font-semibold text-sm">
+                      Tentativas de Retorno ({details.duplicate_attempts_count})
+                    </h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Este lead tentou entrar como novo {details.duplicate_attempts_count} vez{details.duplicate_attempts_count > 1 ? 'es' : ''} após a criação original.
+                  </p>
+                  <div className="space-y-2">
+                    {Array.isArray(details.duplicate_attempts_history) && (details.duplicate_attempts_history as unknown as DuplicateAttempt[]).map((attempt, index) => (
+                      <div key={index} className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                        <div className="flex items-center gap-2 mb-1">
+                          {attempt.source === 'Facebook' && (
+                            <svg className="h-3.5 w-3.5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                            </svg>
+                          )}
+                          {attempt.source === 'WhatsApp' && (
+                            <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                          )}
+                          {attempt.source === 'Webhook' && (
+                            <Globe className="h-3.5 w-3.5 text-purple-600" />
+                          )}
+                          <span className="text-xs font-medium">{attempt.source}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            {format(new Date(attempt.attempted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </span>
+                        </div>
+                        {attempt.form_name && (
+                          <p className="text-xs text-muted-foreground">Formulário: {attempt.form_name}</p>
+                        )}
+                        {attempt.campaign_name && (
+                          <p className="text-xs text-muted-foreground">Campanha: {attempt.campaign_name}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
 
             {/* Dados do Formulário Facebook (se existir) */}
             {details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') && (
