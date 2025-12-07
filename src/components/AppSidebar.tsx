@@ -85,16 +85,16 @@ export function AppSidebar() {
             src={logoFull} 
             alt="KairoZ" 
             className={cn(
-              "h-10 w-auto object-contain transition-all duration-200",
-              open ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"
+              "h-10 w-auto object-contain transition-opacity duration-150 will-change-[opacity]",
+              open ? "opacity-100" : "opacity-0 absolute"
             )}
           />
           <img 
             src={logoIcon} 
             alt="K" 
             className={cn(
-              "h-8 w-auto object-contain transition-all duration-200",
-              open ? "opacity-0 scale-75 absolute" : "opacity-100 scale-100"
+              "h-8 w-auto object-contain transition-opacity duration-150 will-change-[opacity]",
+              open ? "opacity-0 absolute" : "opacity-100"
             )}
           />
         </div>
@@ -180,8 +180,8 @@ export function AppSidebar() {
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4 overflow-hidden">
         {/* Conteúdo expandido - usa CSS para visibilidade */}
         <div className={cn(
-          "space-y-3 transition-all duration-200",
-          open ? "opacity-100 max-h-40" : "opacity-0 max-h-0 overflow-hidden pointer-events-none"
+          "space-y-3 transition-opacity duration-150 will-change-[opacity]",
+          open ? "opacity-100" : "opacity-0 h-0 overflow-hidden pointer-events-none"
         )}>
           <MenuLockToggle
             locked={isLocked}
@@ -210,8 +210,8 @@ export function AppSidebar() {
 
         {/* Conteúdo colapsado - usa CSS para visibilidade */}
         <div className={cn(
-          "space-y-2 transition-all duration-200",
-          open ? "opacity-0 max-h-0 overflow-hidden pointer-events-none absolute" : "opacity-100 max-h-20"
+          "space-y-2 transition-opacity duration-150 will-change-[opacity]",
+          open ? "opacity-0 h-0 overflow-hidden pointer-events-none absolute" : "opacity-100"
         )}>
           <Button
             onClick={() => setIsLocked(!isLocked)}
