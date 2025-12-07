@@ -1,6 +1,7 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package, MessageSquare, Globe, User, Facebook, Calendar, Clock, ExternalLink } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package, MessageSquare, Globe, User, Facebook, Calendar, Clock, ExternalLink, Flame, ArrowRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,82 +59,27 @@ const getSourceLabel = (source: string) => {
   if (lowerSource.includes('webhook') || lowerSource.includes('url')) return 'Webhook';
   return 'Manual';
 };
-const leadSourceData = [{
-  month: "Jan",
-  emailMarketing: 1200,
-  api: 50,
-  vendaLeads: 5
-}, {
-  month: "Fev",
-  emailMarketing: 1800,
-  api: 80,
-  vendaLeads: 8
-}, {
-  month: "Mar",
-  emailMarketing: 2400,
-  api: 120,
-  vendaLeads: 12
-}, {
-  month: "Apr",
-  emailMarketing: 3200,
-  api: 180,
-  vendaLeads: 15
-}, {
-  month: "Mai",
-  emailMarketing: 4500,
-  api: 220,
-  vendaLeads: 18
-}, {
-  month: "Jun",
-  emailMarketing: 5200,
-  api: 260,
-  vendaLeads: 20
-}, {
-  month: "Jul",
-  emailMarketing: 6100,
-  api: 280,
-  vendaLeads: 22
-}, {
-  month: "Ago",
-  emailMarketing: 6800,
-  api: 300,
-  vendaLeads: 23
-}, {
-  month: "Set",
-  emailMarketing: 7200,
-  api: 315,
-  vendaLeads: 24
-}, {
-  month: "Oct",
-  emailMarketing: 7896,
-  api: 325,
-  vendaLeads: 24
-}];
-const conversionData = [{
-  month: "Mai",
-  rate: 5.2
-}, {
-  month: "Jun",
-  rate: 5.8
-}, {
-  month: "Jul",
-  rate: 6.1
-}, {
-  month: "Ago",
-  rate: 6.5
-}, {
-  month: "Set",
-  rate: 7.0
-}, {
-  month: "Out",
-  rate: 7.5
-}];
+// Interfaces
+interface HotLead {
+  id: string;
+  nome_lead: string;
+  valor: number;
+  source: string;
+  updated_at: string;
+}
 
-// Função para calcular a cor da barra baseada no valor
-const getBarColor = (value: number) => {
-  const minRate = 5.2;
-  const maxRate = 7.5;
-  const normalized = (value - minRate) / (maxRate - minRate);
+interface ConversionDataPoint {
+  month: string;
+  rate: number;
+}
+
+// Função para calcular a cor da barra baseada no valor (dinâmico)
+const getBarColor = (value: number, data: ConversionDataPoint[]) => {
+  const rates = data.map(d => d.rate);
+  const minRate = Math.min(...rates, 0);
+  const maxRate = Math.max(...rates, 1);
+  const range = maxRate - minRate || 1;
+  const normalized = Math.max(0, Math.min(1, (value - minRate) / range));
   
   // Verde escuro (#006928) para valores baixos
   // Verde claro/brilhante (#00ff6a) para valores altos
@@ -174,6 +120,15 @@ const Dashboard = () => {
   const [currentTasksCount, setCurrentTasksCount] = useState(0);
   const [leadTasksCount, setLeadTasksCount] = useState(0);
   const [overdueTasksCount, setOverdueTasksCount] = useState(0);
+
+  // Taxa de Conversão real
+  const [conversionData, setConversionData] = useState<ConversionDataPoint[]>([]);
+  const [currentConversionRate, setCurrentConversionRate] = useState(0);
+  const [conversionTrend, setConversionTrend] = useState(0);
+
+  // Leads Quentes
+  const [hotLeads, setHotLeads] = useState<HotLead[]>([]);
+  const [hotLeadsTotal, setHotLeadsTotal] = useState(0);
   
   // Função para carregar todas as métricas
   const loadMetrics = async () => {
@@ -285,10 +240,162 @@ const Dashboard = () => {
     }
   };
 
+  // Função para carregar taxa de conversão real
+  const loadConversionData = async () => {
+    try {
+      if (!user) return;
+
+      const { data: orgMember } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!orgMember) return;
+
+      // Buscar estágios do tipo 'won'
+      const { data: wonStages } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'won');
+
+      const wonStageIds = wonStages?.map(s => s.id) || [];
+
+      // Calcular taxa de conversão para os últimos 6 meses
+      const months: ConversionDataPoint[] = [];
+      const now = new Date();
+
+      for (let i = 5; i >= 0; i--) {
+        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const nextMonthDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        const monthName = monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+
+        // Buscar total de leads do mês
+        const { count: totalLeads } = await supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', orgMember.organization_id)
+          .gte('created_at', monthDate.toISOString())
+          .lt('created_at', nextMonthDate.toISOString());
+
+        // Buscar leads convertidos do mês
+        let convertedLeads = 0;
+        if (wonStageIds.length > 0) {
+          const { count } = await supabase
+            .from('leads')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', orgMember.organization_id)
+            .in('funnel_stage_id', wonStageIds)
+            .gte('updated_at', monthDate.toISOString())
+            .lt('updated_at', nextMonthDate.toISOString());
+          convertedLeads = count || 0;
+        }
+
+        const rate = totalLeads && totalLeads > 0 
+          ? ((convertedLeads / totalLeads) * 100) 
+          : 0;
+
+        months.push({
+          month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+          rate: parseFloat(rate.toFixed(1))
+        });
+      }
+
+      setConversionData(months);
+
+      // Taxa atual (último mês)
+      if (months.length > 0) {
+        const currentRate = months[months.length - 1].rate;
+        setCurrentConversionRate(currentRate);
+
+        // Tendência (comparar com mês anterior)
+        if (months.length > 1) {
+          const previousRate = months[months.length - 2].rate;
+          setConversionTrend(parseFloat((currentRate - previousRate).toFixed(1)));
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar taxa de conversão:', error);
+    }
+  };
+
+  // Função para carregar Leads Quentes
+  const loadHotLeads = async () => {
+    try {
+      if (!user) return;
+
+      const { data: orgMember } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!orgMember) return;
+
+      // Buscar estágios do tipo 'proposal' (proposta enviada = próximo de converter)
+      const { data: proposalStages } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'proposal');
+
+      if (!proposalStages || proposalStages.length === 0) {
+        // Fallback: buscar estágios com posição alta (exceto won/lost)
+        const { data: stages } = await supabase
+          .from('funnel_stages')
+          .select('id, position, stage_type')
+          .not('stage_type', 'in', '("won","lost","discarded")')
+          .order('position', { ascending: false })
+          .limit(2);
+
+        const stageIds = stages?.map(s => s.id) || [];
+
+        if (stageIds.length > 0) {
+          const { data: leads } = await supabase
+            .from('leads')
+            .select('id, nome_lead, valor, source, updated_at')
+            .eq('organization_id', orgMember.organization_id)
+            .in('funnel_stage_id', stageIds)
+            .gt('valor', 0)
+            .order('valor', { ascending: false })
+            .limit(5);
+
+          if (leads) {
+            setHotLeads(leads);
+            const total = leads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+            setHotLeadsTotal(total);
+          }
+        }
+        return;
+      }
+
+      const proposalStageIds = proposalStages.map(s => s.id);
+
+      // Buscar top 5 leads em estágio proposal ordenados por valor
+      const { data: leads } = await supabase
+        .from('leads')
+        .select('id, nome_lead, valor, source, updated_at')
+        .eq('organization_id', orgMember.organization_id)
+        .in('funnel_stage_id', proposalStageIds)
+        .gt('valor', 0)
+        .order('valor', { ascending: false })
+        .limit(5);
+
+      if (leads) {
+        setHotLeads(leads);
+        const total = leads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+        setHotLeadsTotal(total);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar leads quentes:', error);
+    }
+  };
+
   useEffect(() => {
     loadGoal();
     loadLastContribution();
     loadMetrics();
+    loadConversionData();
+    loadHotLeads();
 
     // Real-time subscription para atualizar métricas
     const leadsChannel = supabase
@@ -304,6 +411,8 @@ const Dashboard = () => {
           loadLastContribution();
           loadSalesTotal();
           loadMetrics();
+          loadConversionData();
+          loadHotLeads();
         }
       )
       .subscribe();
@@ -1094,19 +1203,19 @@ const Dashboard = () => {
                 <div>
                   <p className="text-4xl font-bold" style={{
                   color: '#00b34c'
-                }}>7.5%</p>
+                }}>{currentConversionRate}%</p>
                   <p className="text-xs text-muted-foreground">Leads → Clientes</p>
                 </div>
               </div>
               <div className="flex items-center gap-1 px-2 py-1 rounded" style={{
-              backgroundColor: 'rgba(0, 179, 76, 0.1)'
+              backgroundColor: conversionTrend >= 0 ? 'rgba(0, 179, 76, 0.1)' : 'rgba(239, 68, 68, 0.1)'
             }}>
-                <TrendingUp className="w-3 h-3" style={{
-                color: '#00b34c'
+                <TrendingUp className={`w-3 h-3 ${conversionTrend < 0 ? 'rotate-180' : ''}`} style={{
+                color: conversionTrend >= 0 ? '#00b34c' : '#ef4444'
               }} />
                 <span className="text-xs font-medium" style={{
-                color: '#00b34c'
-              }}>+1.2%</span>
+                color: conversionTrend >= 0 ? '#00b34c' : '#ef4444'
+              }}>{conversionTrend >= 0 ? '+' : ''}{conversionTrend}%</span>
               </div>
             </div>
             
@@ -1147,7 +1256,7 @@ const Dashboard = () => {
                           y={newY}
                           width={newWidth}
                           height={newHeight}
-                          fill={getBarColor(payload.rate)}
+                          fill={getBarColor(payload.rate, conversionData)}
                           radius={[4, 4, 0, 0]}
                           filter="url(#glow)"
                           style={{ transition: 'all 0.2s ease' }}
@@ -1165,7 +1274,7 @@ const Dashboard = () => {
                           y={y}
                           width={width}
                           height={height}
-                          fill={getBarColor(payload.rate)}
+                          fill={getBarColor(payload.rate, conversionData)}
                           radius={[4, 4, 0, 0]}
                           opacity={opacity}
                           style={{ transition: 'opacity 0.2s ease' }}
@@ -1292,65 +1401,66 @@ const Dashboard = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Fonte de Leads</CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-orange-500" />
+                <CardTitle className="text-lg font-semibold">Leads Quentes</CardTitle>
+              </div>
+              {hotLeadsTotal > 0 && (
+                <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                  R$ {hotLeadsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-muted-foreground">E-mail Marketing</span>
-                  <span className="text-sm font-semibold">7896</span>
-                </div>
-                <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={leadSourceData}>
-                    <Line type="monotone" dataKey="emailMarketing" stroke="hsl(180, 70%, 45%)" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>Jan</span>
-                  <span>Apr</span>
-                  <span>Jul</span>
-                  <span>Oct</span>
-                </div>
+            {hotLeads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Flame className="w-12 h-12 text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum lead quente no momento</p>
+                <p className="text-xs text-muted-foreground mt-1">Leads em estágio de proposta aparecerão aqui</p>
               </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-muted-foreground">API</span>
-                  <span className="text-sm font-semibold">325</span>
-                </div>
-                <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={leadSourceData}>
-                    <Line type="monotone" dataKey="api" stroke="hsl(180, 70%, 45%)" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>Jan</span>
-                  <span>Apr</span>
-                  <span>Jul</span>
-                  <span>Oct</span>
-                </div>
+            ) : (
+              <div className="space-y-3">
+                {hotLeads.map((lead, index) => {
+                  const maxValue = hotLeads[0]?.valor || 1;
+                  const percentage = (lead.valor / maxValue) * 100;
+                  
+                  return (
+                    <div 
+                      key={lead.id}
+                      className="group cursor-pointer hover:bg-muted/50 rounded-lg p-2 -mx-2 transition-colors"
+                      onClick={() => navigate(`/leads/${lead.id}`)}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs text-muted-foreground shrink-0">{index + 1}.</span>
+                          <span className="font-medium text-sm truncate">{lead.nome_lead}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                            R$ {lead.valor.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </span>
+                          {getSourceIcon(lead.source)}
+                        </div>
+                      </div>
+                      <Progress 
+                        value={percentage} 
+                        className="h-1.5"
+                      />
+                    </div>
+                  );
+                })}
+                
+                <button
+                  onClick={() => navigate('/pipeline')}
+                  className="w-full flex items-center justify-center gap-1 pt-3 text-xs text-muted-foreground hover:text-foreground transition-colors border-t border-border"
+                >
+                  Ver todos <ArrowRight className="w-3 h-3" />
+                </button>
               </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-muted-foreground">Venda de Leads</span>
-                  <span className="text-sm font-semibold">24</span>
-                </div>
-                <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={leadSourceData}>
-                    <Line type="monotone" dataKey="vendaLeads" stroke="hsl(0, 0%, 40%)" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>Jan</span>
-                  <span>Apr</span>
-                  <span>Jul</span>
-                  <span>Oct</span>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
