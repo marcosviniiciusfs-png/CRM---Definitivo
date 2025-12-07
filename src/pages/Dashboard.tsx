@@ -240,7 +240,7 @@ const Dashboard = () => {
     }
   };
 
-  // Função para carregar taxa de conversão real
+  // Função para carregar taxa de conversão real - OTIMIZADA com queries paralelas
   const loadConversionData = async () => {
     try {
       if (!user) return;
@@ -253,53 +253,60 @@ const Dashboard = () => {
 
       if (!orgMember) return;
 
-      // Buscar estágios do tipo 'won'
-      const { data: wonStages } = await supabase
-        .from('funnel_stages')
-        .select('id')
-        .eq('stage_type', 'won');
-
-      const wonStageIds = wonStages?.map(s => s.id) || [];
-
-      // Calcular taxa de conversão para os últimos 6 meses
-      const months: ConversionDataPoint[] = [];
+      // Preparar datas dos últimos 6 meses
       const now = new Date();
-
+      const monthRanges = [];
       for (let i = 5; i >= 0; i--) {
         const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const nextMonthDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
         const monthName = monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-
-        // Buscar total de leads do mês
-        const { count: totalLeads } = await supabase
-          .from('leads')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', orgMember.organization_id)
-          .gte('created_at', monthDate.toISOString())
-          .lt('created_at', nextMonthDate.toISOString());
-
-        // Buscar leads convertidos do mês
-        let convertedLeads = 0;
-        if (wonStageIds.length > 0) {
-          const { count } = await supabase
-            .from('leads')
-            .select('id', { count: 'exact', head: true })
-            .eq('organization_id', orgMember.organization_id)
-            .in('funnel_stage_id', wonStageIds)
-            .gte('updated_at', monthDate.toISOString())
-            .lt('updated_at', nextMonthDate.toISOString());
-          convertedLeads = count || 0;
-        }
-
-        const rate = totalLeads && totalLeads > 0 
-          ? ((convertedLeads / totalLeads) * 100) 
-          : 0;
-
-        months.push({
-          month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
-          rate: parseFloat(rate.toFixed(1))
+        monthRanges.push({
+          start: monthDate.toISOString(),
+          end: nextMonthDate.toISOString(),
+          name: monthName.charAt(0).toUpperCase() + monthName.slice(1)
         });
       }
+
+      // Buscar estágios won e todos os leads dos últimos 6 meses em paralelo
+      const sixMonthsAgo = monthRanges[0].start;
+      
+      const [wonStagesResult, allLeadsResult] = await Promise.all([
+        supabase
+          .from('funnel_stages')
+          .select('id')
+          .eq('stage_type', 'won'),
+        supabase
+          .from('leads')
+          .select('id, created_at, updated_at, funnel_stage_id')
+          .eq('organization_id', orgMember.organization_id)
+          .gte('created_at', sixMonthsAgo)
+      ]);
+
+      const wonStageIds = new Set(wonStagesResult.data?.map(s => s.id) || []);
+      const allLeads = allLeadsResult.data || [];
+
+      // Processar dados localmente em vez de múltiplas queries
+      const months: ConversionDataPoint[] = monthRanges.map(range => {
+        const leadsInMonth = allLeads.filter(lead => 
+          lead.created_at >= range.start && lead.created_at < range.end
+        );
+        
+        const convertedInMonth = allLeads.filter(lead => 
+          lead.funnel_stage_id && 
+          wonStageIds.has(lead.funnel_stage_id) &&
+          lead.updated_at >= range.start && 
+          lead.updated_at < range.end
+        );
+
+        const totalLeads = leadsInMonth.length;
+        const convertedLeads = convertedInMonth.length;
+        const rate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+
+        return {
+          month: range.name,
+          rate: parseFloat(rate.toFixed(1))
+        };
+      });
 
       setConversionData(months);
 
