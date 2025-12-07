@@ -57,7 +57,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 // New optimized components
 import { ChatHeader, ChatInput, ChatLeadItem, MessageBubble, PinnedMessagesBar, PresenceInfo } from "@/components/chat";
-import chatEmptyState from "@/assets/chat-empty-state.gif";
+import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 
 const Chat = () => {
@@ -1122,7 +1122,7 @@ const Chat = () => {
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center flex flex-col items-center">
               <img 
-                src={chatEmptyState} 
+                src={chatGif} 
                 alt="Selecione uma conversa" 
                 className="w-48 h-48 object-contain mb-4"
               />
