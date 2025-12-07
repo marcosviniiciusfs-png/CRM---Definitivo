@@ -11,15 +11,6 @@ interface FetchCampaignAdsParams {
   campaign_name?: string;
 }
 
-interface VideoDetails {
-  source?: string;
-  picture?: string;
-  permalink_url?: string;
-  length?: number;
-  title?: string;
-  description?: string;
-}
-
 interface CampaignAd {
   id: string;
   name: string;
@@ -33,31 +24,37 @@ interface CampaignAd {
     body?: string;
     title?: string;
     call_to_action_type?: string;
-    video_id?: string;
-    video_source_url?: string;
-    video_thumbnail_url?: string;
-    video_permalink_url?: string;
-    video_length?: number;
     object_type?: string;
   } | null;
+  preview_html?: string;
 }
 
-async function fetchVideoDetails(videoId: string, accessToken: string): Promise<VideoDetails | null> {
-  try {
-    const videoUrl = `https://graph.facebook.com/v18.0/${videoId}?fields=source,picture,permalink_url,length,title,description&access_token=${accessToken}`;
-    const response = await fetch(videoUrl);
-    const data = await response.json();
-    
-    if (data.error) {
-      console.error(`Error fetching video ${videoId}:`, data.error);
-      return null;
+// Fetch ad preview iframe from Meta API
+async function fetchAdPreview(adId: string, accessToken: string): Promise<string | null> {
+  const formats = ['MOBILE_FEED_STANDARD', 'DESKTOP_FEED_STANDARD', 'INSTAGRAM_STANDARD'];
+  
+  for (const format of formats) {
+    try {
+      const url = `https://graph.facebook.com/v18.0/${adId}/previews?ad_format=${format}&access_token=${accessToken}`;
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+          const previewHtml = data.data[0].body;
+          if (previewHtml) {
+            console.log(`Got preview for ad ${adId} with format ${format}`);
+            return previewHtml;
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching preview for ad ${adId} with format ${format}:`, error);
     }
-    
-    return data;
-  } catch (error) {
-    console.error(`Error fetching video ${videoId}:`, error);
-    return null;
   }
+  
+  console.log(`No preview available for ad ${adId}`);
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -129,7 +126,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Find exact match or closest match
       const matchedCampaign = campaignsData.data?.find((c: any) => c.name === campaign_name) ||
                               campaignsData.data?.[0];
 
@@ -145,16 +141,9 @@ Deno.serve(async (req) => {
       console.log(`Found campaign ID: ${targetCampaignId}`);
     }
 
-    // Fetch ads for the campaign with expanded creative details including video
-    const adsFields = [
-      'id',
-      'name',
-      'status',
-      'effective_status',
-      'creative{id,name,thumbnail_url,image_url,body,title,call_to_action_type,video_id,object_type,effective_object_story_id}'
-    ].join(',');
+    // Fetch ads for the campaign with creative details
+    const adsFields = 'id,name,status,effective_status,creative{id,name,thumbnail_url,image_url,body,title,call_to_action_type,object_type}';
 
-    // Use ad account endpoint with campaign.id filter (more reliable than campaign/ads endpoint)
     const adsUrl = `https://graph.facebook.com/v18.0/${ad_account_id}/ads?` +
       `fields=${adsFields}` +
       `&filtering=${encodeURIComponent(JSON.stringify([{ field: 'campaign.id', operator: 'EQUAL', value: targetCampaignId }]))}` +
@@ -174,16 +163,12 @@ Deno.serve(async (req) => {
 
     console.log(`Received ${adsData.data?.length || 0} ads`);
 
-    // Process ads data and fetch video details where needed
+    // Process ads and fetch previews in parallel
     const ads: CampaignAd[] = await Promise.all((adsData.data || []).map(async (ad: any) => {
       const creative = ad.creative || null;
-      let videoDetails: VideoDetails | null = null;
       
-      // If creative has a video_id, fetch video details
-      if (creative?.video_id) {
-        console.log(`Fetching video details for video_id: ${creative.video_id}`);
-        videoDetails = await fetchVideoDetails(creative.video_id, access_token);
-      }
+      // Fetch preview iframe for this ad
+      const previewHtml = await fetchAdPreview(ad.id, access_token);
       
       return {
         id: ad.id,
@@ -193,26 +178,18 @@ Deno.serve(async (req) => {
         creative: creative ? {
           id: creative.id,
           name: creative.name,
-          thumbnail_url: creative.thumbnail_url || videoDetails?.picture,
+          thumbnail_url: creative.thumbnail_url,
           image_url: creative.image_url,
           body: creative.body,
           title: creative.title,
           call_to_action_type: creative.call_to_action_type,
-          video_id: creative.video_id,
-          video_source_url: videoDetails?.source,
-          video_thumbnail_url: videoDetails?.picture,
-          video_permalink_url: videoDetails?.permalink_url,
-          video_length: videoDetails?.length,
           object_type: creative.object_type
-        } : null
+        } : null,
+        preview_html: previewHtml
       };
     }));
 
-    // Log ad details for debugging
-    ads.forEach(ad => {
-      const isVideo = ad.creative?.video_id ? 'VIDEO' : 'IMAGE';
-      console.log(`Ad: ${ad.name}, Type: ${isVideo}, Status: ${ad.effective_status}, Has thumbnail: ${!!ad.creative?.thumbnail_url}, Has video source: ${!!ad.creative?.video_source_url}`);
-    });
+    console.log(`Processed ${ads.length} ads with previews`);
 
     return new Response(
       JSON.stringify({ ads, campaign_id: targetCampaignId, error: null }),
