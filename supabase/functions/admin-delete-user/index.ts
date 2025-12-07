@@ -95,18 +95,26 @@ Deno.serve(async (req) => {
 
     console.log('[admin-delete-user] Senha validada com sucesso')
 
-    // Buscar informações do usuário alvo
-    const { data: targetUserData, error: targetUserError } = await supabaseAdmin.rpc(
-      'get_user_details',
-      { _target_user_id: target_user_id }
-    )
-
-    if (targetUserError || !targetUserData || targetUserData.length === 0) {
-      console.error('[admin-delete-user] Erro ao buscar usuário alvo:', targetUserError)
+    // Buscar informações do usuário alvo diretamente (service role bypassa RLS)
+    const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(target_user_id)
+    
+    if (authUserError || !authUserData?.user) {
+      console.error('[admin-delete-user] Erro ao buscar usuário alvo:', authUserError)
       throw new Error('Usuário não encontrado')
     }
 
-    const targetUser = targetUserData[0]
+    // Buscar organization_id do usuário
+    const { data: memberData, error: memberError } = await supabaseAdmin
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', target_user_id)
+      .maybeSingle()
+
+    const targetUser = {
+      email: authUserData.user.email,
+      organization_id: memberData?.organization_id || null
+    }
+    
     console.log('[admin-delete-user] Usuário alvo encontrado:', {
       email: targetUser.email,
       organization_id: targetUser.organization_id
@@ -115,10 +123,10 @@ Deno.serve(async (req) => {
     // Buscar todos os membros da organização (se houver)
     let organizationMembers: any[] = []
     if (targetUser.organization_id) {
-      const { data: membersData, error: membersError } = await supabaseAdmin.rpc(
-        'get_organization_members',
-        { _organization_id: targetUser.organization_id }
-      )
+      const { data: membersData, error: membersError } = await supabaseAdmin
+        .from('organization_members')
+        .select('user_id')
+        .eq('organization_id', targetUser.organization_id)
 
       if (!membersError && membersData) {
         organizationMembers = membersData
