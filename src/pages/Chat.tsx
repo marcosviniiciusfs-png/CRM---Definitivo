@@ -57,7 +57,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 // New optimized components
 import { ChatHeader, ChatInput, ChatLeadItem, MessageBubble, PinnedMessagesBar, PresenceInfo } from "@/components/chat";
-import AnimatedChatIcon from "@/components/AnimatedChatIcon";
+import conversationGif from "@/assets/conversation-icon.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 
 const Chat = () => {
@@ -1121,8 +1121,12 @@ const Chat = () => {
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center flex flex-col items-center">
-              <AnimatedChatIcon />
-              <p className="text-lg mt-4">Selecione uma conversa</p>
+              <img 
+                src={conversationGif} 
+                alt="Selecione uma conversa" 
+                className="w-32 h-32 object-contain mb-4"
+              />
+              <p className="text-lg">Selecione uma conversa</p>
               <p className="text-sm">Escolha um contato na lista para iniciar</p>
             </div>
           </div>
