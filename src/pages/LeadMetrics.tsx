@@ -1263,80 +1263,60 @@ const LeadMetrics = () => {
                 </div>
               </TooltipProvider>
 
-              {/* MELHORIA 4: Validação CRM + MELHORIA 3: Breakdown por Plataforma */}
+              {/* Métricas de Engajamento + Breakdown por Plataforma */}
               <div className="grid gap-4 md:grid-cols-2">
-                {/* Card de Validação CRM */}
-                {adsMetrics.crmValidation && (
-                  <Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Target className="h-4 w-4 text-blue-600" />
-                        Validação CRM vs Meta
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <TooltipProvider>
-                        <div className="grid grid-cols-4 gap-2 text-center">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="cursor-help">
-                                <div className="text-xl font-bold">{adsMetrics.crmValidation.metaReportedLeads}</div>
-                                <div className="text-[10px] text-muted-foreground">Leads Meta</div>
+                {/* Card de Métricas de Engajamento */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Eye className="h-4 w-4" />
+                      Métricas de Engajamento
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <TooltipProvider>
+                      {/* Frequência Média */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
+                            <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
+                              <Eye className="h-4 w-4 text-violet-600" />
+                            </div>
+                            <div>
+                              <div className="text-lg font-semibold">
+                                {adsMetrics.avgFrequency?.toFixed(2) || '0'}x
                               </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="max-w-[200px]">Total de leads/conversões reportados pela Meta Ads para o período selecionado.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="cursor-help">
-                                <div className="text-xl font-bold">{adsMetrics.crmValidation.crmReceivedLeads}</div>
-                                <div className="text-[10px] text-muted-foreground">Leads CRM</div>
+                              <div className="text-xs text-muted-foreground">Frequência Média</div>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[280px]">
+                          <p>Número médio de vezes que cada pessoa viu seus anúncios. Frequência alta (acima de 3x) pode indicar fadiga de anúncio e reduzir performance.</p>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      {/* Cliques de Saída */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
+                            <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg">
+                              <MousePointer className="h-4 w-4 text-sky-600" />
+                            </div>
+                            <div>
+                              <div className="text-lg font-semibold">
+                                {adsMetrics.totalOutboundClicks?.toLocaleString('pt-BR') || '0'}
                               </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="max-w-[200px]">Total de leads do Facebook que chegaram ao seu CRM no mesmo período.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="cursor-help">
-                                <div className={cn(
-                                  "text-xl font-bold",
-                                  adsMetrics.crmValidation.captureRate >= 80 ? "text-green-600" : 
-                                  adsMetrics.crmValidation.captureRate >= 50 ? "text-amber-600" : "text-red-600"
-                                )}>
-                                  {adsMetrics.crmValidation.captureRate.toFixed(0)}%
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">Taxa Captura</div>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="max-w-[200px]">Percentual de leads da Meta capturados pelo CRM. Ideal: acima de 80%.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="cursor-help">
-                                <div className={cn(
-                                  "text-xl font-bold",
-                                  adsMetrics.crmValidation.discrepancy === 0 ? "text-green-600" : "text-amber-600"
-                                )}>
-                                  {adsMetrics.crmValidation.discrepancy > 0 ? '+' : ''}{adsMetrics.crmValidation.discrepancy}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">Diferença</div>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="max-w-[200px]">Diferença entre leads Meta e CRM. Zero indica sincronização perfeita.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </TooltipProvider>
-                    </CardContent>
-                  </Card>
-                )}
+                              <div className="text-xs text-muted-foreground">Cliques de Saída</div>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[280px]">
+                          <p>Total de cliques que direcionaram pessoas para fora do Facebook/Instagram (ex: para seu site, landing page ou WhatsApp). Indica interesse real no seu produto/serviço.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardContent>
+                </Card>
 
                 {/* Card de Breakdown por Plataforma */}
                 {adsMetrics.platformBreakdown && adsMetrics.platformBreakdown.length > 0 && (
@@ -1381,51 +1361,6 @@ const LeadMetrics = () => {
                   </Card>
                 )}
               </div>
-
-              {/* MELHORIA 5: Métricas de Qualidade Adicionais */}
-              {(adsMetrics.avgFrequency || adsMetrics.totalLandingPageViews || adsMetrics.totalOutboundClicks) && (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {adsMetrics.avgFrequency !== undefined && adsMetrics.avgFrequency > 0 && (
-                    <Card className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
-                          <Eye className="h-4 w-4 text-violet-600" />
-                        </div>
-                        <div>
-                          <div className="text-lg font-semibold">{adsMetrics.avgFrequency.toFixed(2)}x</div>
-                          <div className="text-xs text-muted-foreground">Frequência Média</div>
-                        </div>
-                      </div>
-                    </Card>
-                  )}
-                  {adsMetrics.totalLandingPageViews !== undefined && adsMetrics.totalLandingPageViews > 0 && (
-                    <Card className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                          <ExternalLink className="h-4 w-4 text-emerald-600" />
-                        </div>
-                        <div>
-                          <div className="text-lg font-semibold">{adsMetrics.totalLandingPageViews.toLocaleString('pt-BR')}</div>
-                          <div className="text-xs text-muted-foreground">Visualizações LP</div>
-                        </div>
-                      </div>
-                    </Card>
-                  )}
-                  {adsMetrics.totalOutboundClicks !== undefined && adsMetrics.totalOutboundClicks > 0 && (
-                    <Card className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg">
-                          <MousePointer className="h-4 w-4 text-sky-600" />
-                        </div>
-                        <div>
-                          <div className="text-lg font-semibold">{adsMetrics.totalOutboundClicks.toLocaleString('pt-BR')}</div>
-                          <div className="text-xs text-muted-foreground">Cliques de Saída</div>
-                        </div>
-                      </div>
-                    </Card>
-                  )}
-                </div>
-              )}
 
               {/* Investment vs Leads Chart */}
               <Card>
