@@ -601,7 +601,7 @@ const LeadMetrics = () => {
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.name === 'spend' || entry.name === 'cpl' 
-                ? `R$ ${entry.value.toFixed(2)}` 
+                ? `R$ ${Number(entry.value).toFixed(2)}` 
                 : entry.value}
             </p>
           ))}
