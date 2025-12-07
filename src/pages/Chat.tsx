@@ -1125,13 +1125,13 @@ const Chat = () => {
       {/* Modals */}
       <ManageTagsDialog open={manageTagsOpen} onOpenChange={setManageTagsOpen} />
 
-      {selectedLead && leadTagsOpen && (
-        <Popover open={leadTagsOpen} onOpenChange={setLeadTagsOpen}>
-          <PopoverContent className="w-64">
+      <Dialog open={leadTagsOpen && !!selectedLead} onOpenChange={setLeadTagsOpen}>
+        <DialogContent className="max-w-sm">
+          {selectedLead && (
             <LeadTagsManager leadId={selectedLead.id} onTagsChanged={() => loadLeadTagsAssignments([selectedLead.id])} />
-          </PopoverContent>
-        </Popover>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!viewingAvatar} onOpenChange={() => setViewingAvatar(null)}>
         <DialogContent className="max-w-md">
