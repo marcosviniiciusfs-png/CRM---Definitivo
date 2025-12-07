@@ -332,57 +332,55 @@ const Dashboard = () => {
 
       if (!orgMember) return;
 
-      // Buscar estágios do tipo 'proposal' (proposta enviada = próximo de converter)
-      const { data: proposalStages } = await supabase
+      // Buscar estágios finais (won/lost/discarded) para excluí-los
+      const { data: finalStages } = await supabase
         .from('funnel_stages')
         .select('id')
-        .eq('stage_type', 'proposal');
+        .in('stage_type', ['won', 'lost', 'discarded']);
 
-      if (!proposalStages || proposalStages.length === 0) {
-        // Fallback: buscar estágios com posição alta (exceto won/lost)
-        const { data: stages } = await supabase
-          .from('funnel_stages')
-          .select('id, position, stage_type')
-          .not('stage_type', 'in', '("won","lost","discarded")')
-          .order('position', { ascending: false })
-          .limit(2);
+      const finalStageIds = finalStages?.map(s => s.id) || [];
 
-        const stageIds = stages?.map(s => s.id) || [];
-
-        if (stageIds.length > 0) {
-          const { data: leads } = await supabase
-            .from('leads')
-            .select('id, nome_lead, valor, source, updated_at')
-            .eq('organization_id', orgMember.organization_id)
-            .in('funnel_stage_id', stageIds)
-            .gt('valor', 0)
-            .order('valor', { ascending: false })
-            .limit(5);
-
-          if (leads) {
-            setHotLeads(leads);
-            const total = leads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
-            setHotLeadsTotal(total);
-          }
-        }
-        return;
-      }
-
-      const proposalStageIds = proposalStages.map(s => s.id);
-
-      // Buscar top 5 leads em estágio proposal ordenados por valor
-      const { data: leads } = await supabase
+      // Buscar leads com valor > 0 que não estão em estágios finais
+      // Ordenar por valor (maior primeiro)
+      let query = supabase
         .from('leads')
         .select('id, nome_lead, valor, source, updated_at')
         .eq('organization_id', orgMember.organization_id)
-        .in('funnel_stage_id', proposalStageIds)
         .gt('valor', 0)
         .order('valor', { ascending: false })
         .limit(5);
 
-      if (leads) {
-        setHotLeads(leads);
-        const total = leads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+      // Excluir leads em estágios finais se houver
+      if (finalStageIds.length > 0) {
+        query = query.not('funnel_stage_id', 'in', `(${finalStageIds.join(',')})`);
+      }
+
+      const { data: leadsWithValue } = await query;
+
+      if (leadsWithValue && leadsWithValue.length > 0) {
+        setHotLeads(leadsWithValue);
+        const total = leadsWithValue.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+        setHotLeadsTotal(total);
+        return;
+      }
+
+      // Se não houver leads com valor, buscar os leads mais recentes (não em estágios finais)
+      let fallbackQuery = supabase
+        .from('leads')
+        .select('id, nome_lead, valor, source, updated_at')
+        .eq('organization_id', orgMember.organization_id)
+        .order('updated_at', { ascending: false })
+        .limit(5);
+
+      if (finalStageIds.length > 0) {
+        fallbackQuery = fallbackQuery.not('funnel_stage_id', 'in', `(${finalStageIds.join(',')})`);
+      }
+
+      const { data: recentLeads } = await fallbackQuery;
+
+      if (recentLeads && recentLeads.length > 0) {
+        setHotLeads(recentLeads);
+        const total = recentLeads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
         setHotLeadsTotal(total);
       }
     } catch (error) {
