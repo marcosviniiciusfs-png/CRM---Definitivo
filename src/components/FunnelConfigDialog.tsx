@@ -28,6 +28,7 @@ export const FunnelConfigDialog = ({
 }: FunnelConfigDialogProps) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -111,10 +112,22 @@ export const FunnelConfigDialog = ({
     }
   };
 
-  const handleFinish = () => {
-    toast.success("Funil criado com sucesso!");
-    onSuccess();
-    onOpenChange(false);
+  const handleFinish = async () => {
+    if (isFinishing) return; // Prevenir double-click
+    setIsFinishing(true);
+    
+    try {
+      // Se funil ainda não foi salvo, salvar primeiro
+      if (!funnelId && !funnel) {
+        await handleSave();
+      }
+      
+      toast.success(funnel ? "Funil atualizado!" : "Funil criado com sucesso!");
+      onSuccess();
+      onOpenChange(false);
+    } finally {
+      setIsFinishing(false);
+    }
   };
 
   return (
@@ -200,8 +213,8 @@ export const FunnelConfigDialog = ({
               <div className="space-y-4">
                 <FunnelSourceMapping funnelId={funnelId} />
                 <div className="flex justify-end pt-4 border-t">
-                  <Button onClick={handleFinish} size="lg">
-                    Criar e Configurar
+                  <Button onClick={handleFinish} size="lg" disabled={isFinishing || loading}>
+                    {isFinishing ? "Finalizando..." : (funnel ? "Salvar e Fechar" : "Criar e Configurar")}
                   </Button>
                 </div>
               </div>

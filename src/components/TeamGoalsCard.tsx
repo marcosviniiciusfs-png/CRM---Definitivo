@@ -57,6 +57,27 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId }: T
     loadGoals();
   }, [teamId]);
 
+  // Realtime subscription para atualizar metas quando vendas forem registradas
+  useEffect(() => {
+    const channel = supabase
+      .channel(`team-goals-${teamId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'team_goals',
+          filter: `team_id=eq.${teamId}`,
+        },
+        () => loadGoals()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [teamId]);
+
   const loadGoals = async () => {
     try {
       const { data, error } = await supabase

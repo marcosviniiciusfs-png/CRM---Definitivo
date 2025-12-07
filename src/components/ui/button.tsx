@@ -4,6 +4,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+// Áudio pré-carregado globalmente para eliminar delay
+let buttonClickAudio: HTMLAudioElement | null = null;
+if (typeof window !== 'undefined') {
+  buttonClickAudio = new Audio('/button-click.mp3');
+  buttonClickAudio.volume = 0.3;
+  buttonClickAudio.load();
+}
+
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:scale-105 hover:shadow-md active:scale-95 active:shadow-sm",
   {
@@ -50,10 +58,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
       const soundEnabled = localStorage.getItem('buttonClickSoundEnabled') !== 'false';
-      if (soundEnabled) {
-        const audio = new Audio('/button-click.mp3');
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
+      if (soundEnabled && buttonClickAudio) {
+        buttonClickAudio.currentTime = 0;
+        buttonClickAudio.play().catch(() => {});
       }
       onClick?.(e);
     };
