@@ -11,6 +11,15 @@ interface FetchCampaignAdsParams {
   campaign_name?: string;
 }
 
+interface VideoDetails {
+  source?: string;
+  picture?: string;
+  permalink_url?: string;
+  length?: number;
+  title?: string;
+  description?: string;
+}
+
 interface CampaignAd {
   id: string;
   name: string;
@@ -24,7 +33,31 @@ interface CampaignAd {
     body?: string;
     title?: string;
     call_to_action_type?: string;
+    video_id?: string;
+    video_source_url?: string;
+    video_thumbnail_url?: string;
+    video_permalink_url?: string;
+    video_length?: number;
+    object_type?: string;
   } | null;
+}
+
+async function fetchVideoDetails(videoId: string, accessToken: string): Promise<VideoDetails | null> {
+  try {
+    const videoUrl = `https://graph.facebook.com/v18.0/${videoId}?fields=source,picture,permalink_url,length,title,description&access_token=${accessToken}`;
+    const response = await fetch(videoUrl);
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error(`Error fetching video ${videoId}:`, data.error);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error fetching video ${videoId}:`, error);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -112,13 +145,13 @@ Deno.serve(async (req) => {
       console.log(`Found campaign ID: ${targetCampaignId}`);
     }
 
-    // Fetch ads for the campaign with creative details using ad account level with campaign filter
+    // Fetch ads for the campaign with expanded creative details including video
     const adsFields = [
       'id',
       'name',
       'status',
       'effective_status',
-      'creative{id,name,thumbnail_url,image_url,body,title,call_to_action_type}'
+      'creative{id,name,thumbnail_url,image_url,body,title,call_to_action_type,video_id,object_type,effective_object_story_id}'
     ].join(',');
 
     // Use ad account endpoint with campaign.id filter (more reliable than campaign/ads endpoint)
@@ -141,26 +174,44 @@ Deno.serve(async (req) => {
 
     console.log(`Received ${adsData.data?.length || 0} ads`);
 
-    // Process ads data
-    const ads: CampaignAd[] = (adsData.data || []).map((ad: any) => ({
-      id: ad.id,
-      name: ad.name || 'Unnamed Ad',
-      status: ad.status,
-      effective_status: ad.effective_status,
-      creative: ad.creative ? {
-        id: ad.creative.id,
-        name: ad.creative.name,
-        thumbnail_url: ad.creative.thumbnail_url,
-        image_url: ad.creative.image_url,
-        body: ad.creative.body,
-        title: ad.creative.title,
-        call_to_action_type: ad.creative.call_to_action_type
-      } : null
+    // Process ads data and fetch video details where needed
+    const ads: CampaignAd[] = await Promise.all((adsData.data || []).map(async (ad: any) => {
+      const creative = ad.creative || null;
+      let videoDetails: VideoDetails | null = null;
+      
+      // If creative has a video_id, fetch video details
+      if (creative?.video_id) {
+        console.log(`Fetching video details for video_id: ${creative.video_id}`);
+        videoDetails = await fetchVideoDetails(creative.video_id, access_token);
+      }
+      
+      return {
+        id: ad.id,
+        name: ad.name || 'Unnamed Ad',
+        status: ad.status,
+        effective_status: ad.effective_status,
+        creative: creative ? {
+          id: creative.id,
+          name: creative.name,
+          thumbnail_url: creative.thumbnail_url || videoDetails?.picture,
+          image_url: creative.image_url,
+          body: creative.body,
+          title: creative.title,
+          call_to_action_type: creative.call_to_action_type,
+          video_id: creative.video_id,
+          video_source_url: videoDetails?.source,
+          video_thumbnail_url: videoDetails?.picture,
+          video_permalink_url: videoDetails?.permalink_url,
+          video_length: videoDetails?.length,
+          object_type: creative.object_type
+        } : null
+      };
     }));
 
     // Log ad details for debugging
     ads.forEach(ad => {
-      console.log(`Ad: ${ad.name}, Status: ${ad.effective_status}, Has thumbnail: ${!!ad.creative?.thumbnail_url}`);
+      const isVideo = ad.creative?.video_id ? 'VIDEO' : 'IMAGE';
+      console.log(`Ad: ${ad.name}, Type: ${isVideo}, Status: ${ad.effective_status}, Has thumbnail: ${!!ad.creative?.thumbnail_url}, Has video source: ${!!ad.creative?.video_source_url}`);
     });
 
     return new Response(
