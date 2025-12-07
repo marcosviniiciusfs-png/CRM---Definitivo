@@ -278,8 +278,8 @@ const Leads = () => {
         const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
         const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
         
-        // Filtro de responsável
-        const matchesResponsibleFilter = responsibleFilter === "all" || lead.responsavel === responsibleFilter;
+        // Filtro de responsável (usando UUID)
+        const matchesResponsibleFilter = responsibleFilter === "all" || lead.responsavel_user_id === responsibleFilter;
         
         // Filtro de funil
         const matchesFunnel = funnelFilter === "all" || lead.funnel_id === funnelFilter;
@@ -293,12 +293,10 @@ const Leads = () => {
           (!dateRange.from || leadDate >= dateRange.from) &&
           (!dateRange.to || leadDate <= dateRange.to);
         
-        // Membros só veem leads onde são responsáveis
-        const matchesResponsible = permissions.canViewAllLeads || 
-          (userProfile?.full_name && lead.responsavel === userProfile.full_name);
+        // Membros só veem leads onde são responsáveis (filtro já aplicado na query)
         
         return matchesSearch && matchesStatus && matchesSource && matchesResponsibleFilter && 
-               matchesFunnel && matchesStage && matchesDateRange && matchesResponsible;
+               matchesFunnel && matchesStage && matchesDateRange;
       })
       .sort((a, b) => {
         let aValue: any = a[sortColumn] || "";
@@ -587,8 +585,8 @@ const Leads = () => {
             </SelectTrigger>
             <SelectContent className="bg-background z-50">
               <SelectItem value="all">Todos Responsáveis</SelectItem>
-              {colaboradores.map((colab) => (
-                <SelectItem key={colab.user_id || colab.email} value={colab.full_name || colab.email || ''}>
+              {colaboradores.filter(c => c.user_id).map((colab) => (
+                <SelectItem key={colab.user_id} value={colab.user_id}>
                   {colab.full_name || colab.email}
                 </SelectItem>
               ))}

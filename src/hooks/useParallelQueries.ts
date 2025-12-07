@@ -105,12 +105,9 @@ export function useLeadsParallelQueries() {
     setLoading(true);
     
     try {
-      // Execute all filter data queries in parallel
+      // Execute all filter data queries in parallel (usando RPC segura)
       const [membersResult, funnelsResult, tagsResult] = await Promise.all([
-        supabase
-          .from('organization_members')
-          .select('user_id, email')
-          .order('email'),
+        supabase.rpc('get_organization_members_masked'),
         supabase
           .from('sales_funnels')
           .select('id, name')

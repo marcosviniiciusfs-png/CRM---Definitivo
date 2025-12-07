@@ -13,6 +13,7 @@ export interface Lead {
   position?: number;
   avatar_url?: string;
   responsavel?: string;
+  responsavel_user_id?: string | null;
   descricao_negocio?: string;
   is_online?: boolean | null;
   last_seen?: string | null;
