@@ -24,15 +24,10 @@ serve(async (req) => {
       }
     )
 
-    // Anon client for user authentication validation
-    const supabaseAuth = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
-
     // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.log('No authorization header provided')
       return new Response(
         JSON.stringify({ error: 'Token de autorização não fornecido' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
@@ -40,16 +35,18 @@ serve(async (req) => {
     }
     const token = authHeader.replace('Bearer ', '')
 
-    // Verify the user is authenticated using anon client
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
+    // Verify the user is authenticated using admin client
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
     
     if (authError || !user) {
-      console.log('Auth error:', authError?.message)
+      console.log('Auth error:', authError?.message || 'No user found')
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
+    
+    console.log('User authenticated:', user.id)
 
     const { email, password, name, role, organizationId } = await req.json()
 
