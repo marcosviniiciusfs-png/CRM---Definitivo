@@ -1159,7 +1159,7 @@ const LeadMetrics = () => {
                     <TooltipTrigger asChild>
                       <div>
                         <MetricCard
-                          title="CPL"
+                          title="Custo por Lead"
                           value={formatCurrency(adsMetrics.avgCPL)}
                           icon={Target}
                           iconColor="text-blue-500"
