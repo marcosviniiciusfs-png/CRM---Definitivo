@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Line } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink } from "lucide-react";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -166,6 +166,7 @@ const LeadMetrics = () => {
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignBreakdown | null>(null);
   const [campaignAds, setCampaignAds] = useState<CampaignAd[]>([]);
   const [loadingAds, setLoadingAds] = useState(false);
+  const [platformExpanded, setPlatformExpanded] = useState(false);
 
   useEffect(() => {
     if (user && dateRange?.from && dateRange?.to && shouldLoadMetrics) {
@@ -1136,21 +1137,21 @@ const LeadMetrics = () => {
           ) : adsMetrics ? (
             <>
               <TooltipProvider>
-                <div className="grid gap-4 md:grid-cols-4 transition-all duration-500">
+                <div className="grid gap-2 grid-cols-2 md:grid-cols-4 transition-all duration-500">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
                         <MetricCard
-                          title="Valor Investido"
+                          title="Investido"
                           value={formatCurrency(adsMetrics.totalSpend)}
                           icon={DollarSign}
                           iconColor="text-green-500"
+                          compact
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-1">Como é calculado:</p>
-                      <p className="text-sm">Soma total do valor gasto em todas as campanhas ativas no período selecionado.</p>
+                      <p className="text-sm">Soma total do valor gasto em todas as campanhas ativas no período.</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -1158,16 +1159,16 @@ const LeadMetrics = () => {
                     <TooltipTrigger asChild>
                       <div>
                         <MetricCard
-                          title="Custo por Lead (CPL)"
+                          title="CPL"
                           value={formatCurrency(adsMetrics.avgCPL)}
                           icon={Target}
                           iconColor="text-blue-500"
+                          compact
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-1">Como é calculado:</p>
-                      <p className="text-sm">Valor total investido ÷ Total de leads gerados. Indica quanto custa, em média, adquirir cada lead.</p>
+                      <p className="text-sm">Custo por Lead: Valor investido ÷ Leads gerados.</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -1175,16 +1176,16 @@ const LeadMetrics = () => {
                     <TooltipTrigger asChild>
                       <div>
                         <MetricCard
-                          title="Leads Gerados"
+                          title="Leads"
                           value={adsMetrics.totalLeads}
                           icon={Users}
                           iconColor="text-purple-500"
+                          compact
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-1">Como é calculado:</p>
-                      <p className="text-sm">Total de conversões do tipo "lead" registradas pelo Meta Ads no período.</p>
+                      <p className="text-sm">Total de conversões do tipo "lead" no período.</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -1196,32 +1197,31 @@ const LeadMetrics = () => {
                           value={adsMetrics.totalReach.toLocaleString('pt-BR')}
                           icon={Eye}
                           iconColor="text-orange-500"
+                          compact
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-1">Como é calculado:</p>
-                      <p className="text-sm">Número de pessoas únicas que viram seus anúncios pelo menos uma vez.</p>
+                      <p className="text-sm">Pessoas únicas que viram seus anúncios.</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 transition-all duration-500">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
                         <MetricCard
                           title="Impressões"
                           value={adsMetrics.totalImpressions.toLocaleString('pt-BR')}
-                          subtitle="Total de visualizações"
                           icon={Eye}
                           iconColor="text-cyan-500"
+                          compact
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-1">Como é calculado:</p>
-                      <p className="text-sm">Número total de vezes que seus anúncios foram exibidos na tela.</p>
+                      <p className="text-sm">Total de vezes que seus anúncios foram exibidos.</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -1234,12 +1234,12 @@ const LeadMetrics = () => {
                           subtitle={`CTR: ${adsMetrics.avgCTR.toFixed(2)}%`}
                           icon={MousePointer}
                           iconColor="text-indigo-500"
+                          compact
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-1">Como é calculado:</p>
-                      <p className="text-sm">Total de cliques nos anúncios. CTR = (Cliques ÷ Impressões) × 100.</p>
+                      <p className="text-sm">Cliques nos anúncios. CTR = Cliques ÷ Impressões.</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -1247,47 +1247,46 @@ const LeadMetrics = () => {
                     <TooltipTrigger asChild>
                       <div>
                         <MetricCard
-                          title="Custo por Clique (CPC)"
+                          title="CPC"
                           value={formatCurrency(adsMetrics.avgCPC)}
-                          subtitle="Média por clique"
                           icon={DollarSign}
                           iconColor="text-amber-500"
+                          compact
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-1">Como é calculado:</p>
-                      <p className="text-sm">Valor total investido ÷ Total de cliques. Indica o custo médio de cada clique.</p>
+                      <p className="text-sm">Custo por Clique: Valor investido ÷ Cliques.</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>
 
               {/* Métricas de Engajamento + Breakdown por Plataforma */}
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* Card de Métricas de Engajamento */}
+              <div className="grid gap-3 md:grid-cols-2">
+                {/* Card de Métricas de Engajamento - Compacto */}
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Eye className="h-4 w-4" />
-                      Métricas de Engajamento
+                  <CardHeader className="pb-1 pt-3 px-3">
+                    <CardTitle className="text-xs flex items-center gap-2 text-muted-foreground">
+                      <Eye className="h-3.5 w-3.5" />
+                      Engajamento
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="px-3 pb-3 pt-1 space-y-2">
                     <TooltipProvider>
                       {/* Frequência Média */}
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
-                            <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
-                              <Eye className="h-4 w-4 text-violet-600" />
-                            </div>
-                            <div>
-                              <div className="text-lg font-semibold">
-                                {adsMetrics.avgFrequency?.toFixed(2) || '0'}x
+                          <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-violet-100 dark:bg-violet-900/30 rounded">
+                                <Eye className="h-3.5 w-3.5 text-violet-600" />
                               </div>
-                              <div className="text-xs text-muted-foreground">Frequência Média</div>
+                              <span className="text-xs text-muted-foreground">Frequência Média</span>
                             </div>
+                            <span className="text-sm font-semibold">
+                              {adsMetrics.avgFrequency?.toFixed(2) || '0'}x
+                            </span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="max-w-[280px]">
@@ -1298,16 +1297,16 @@ const LeadMetrics = () => {
                       {/* Cliques de Saída */}
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
-                            <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg">
-                              <MousePointer className="h-4 w-4 text-sky-600" />
-                            </div>
-                            <div>
-                              <div className="text-lg font-semibold">
-                                {adsMetrics.totalOutboundClicks?.toLocaleString('pt-BR') || '0'}
+                          <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 rounded">
+                                <MousePointer className="h-3.5 w-3.5 text-sky-600" />
                               </div>
-                              <div className="text-xs text-muted-foreground">Cliques de Saída</div>
+                              <span className="text-xs text-muted-foreground">Cliques de Saída</span>
                             </div>
+                            <span className="text-sm font-semibold">
+                              {adsMetrics.totalOutboundClicks?.toLocaleString('pt-BR') || '0'}
+                            </span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="max-w-[280px]">
@@ -1318,44 +1317,62 @@ const LeadMetrics = () => {
                   </CardContent>
                 </Card>
 
-                {/* Card de Breakdown por Plataforma */}
+                {/* Card de Breakdown por Plataforma - Com expansão */}
                 {adsMetrics.platformBreakdown && adsMetrics.platformBreakdown.length > 0 && (
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Building2 className="h-4 w-4" />
+                    <CardHeader className="pb-1 pt-3 px-3">
+                      <CardTitle className="text-xs flex items-center gap-2 text-muted-foreground">
+                        <Building2 className="h-3.5 w-3.5" />
                         Desempenho por Plataforma
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 pb-3 pt-1">
                       <TooltipProvider>
-                        <div className="space-y-2">
-                          {adsMetrics.platformBreakdown.map(p => {
+                        <div className="space-y-1.5">
+                          {(platformExpanded ? adsMetrics.platformBreakdown : adsMetrics.platformBreakdown.slice(0, 2)).map(p => {
                             const platformExplanations: Record<string, string> = {
-                              'Facebook': 'Anúncios exibidos no Feed, Stories, Marketplace e Vídeos do Facebook.',
-                              'Instagram': 'Anúncios exibidos no Feed, Stories, Reels e Explore do Instagram.',
-                              'Audience Network': 'Anúncios exibidos em sites e aplicativos parceiros da Meta fora do Facebook e Instagram.',
-                              'Messenger': 'Anúncios exibidos na caixa de entrada e Stories do Messenger.'
+                              'Facebook': 'Anúncios no Feed, Stories, Marketplace e Vídeos do Facebook.',
+                              'Instagram': 'Anúncios no Feed, Stories, Reels e Explore do Instagram.',
+                              'Audience Network': 'Anúncios em sites e apps parceiros da Meta.',
+                              'Messenger': 'Anúncios na caixa de entrada e Stories do Messenger.'
                             };
                             return (
                               <Tooltip key={p.platform}>
                                 <TooltipTrigger asChild>
-                                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm cursor-help hover:bg-muted/70 transition-colors">
+                                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded text-xs cursor-help hover:bg-muted/70 transition-colors">
                                     <span className="font-medium">{p.platform}</span>
-                                    <div className="flex gap-4 text-xs text-muted-foreground">
+                                    <div className="flex gap-3 text-muted-foreground">
                                       <span>{p.leads} leads</span>
-                                      <span>{formatCurrency(p.cpl)} CPL</span>
-                                      <span>{formatCurrency(p.spend)}</span>
+                                      <span>{formatCurrency(p.cpl)}</span>
                                     </div>
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p className="max-w-[250px]">{platformExplanations[p.platform] || 'Plataforma de veiculação de anúncios da Meta.'}</p>
+                                  <p className="max-w-[220px]">{platformExplanations[p.platform] || 'Plataforma de veiculação da Meta.'}</p>
                                 </TooltipContent>
                               </Tooltip>
                             );
                           })}
                         </div>
+                        
+                        {adsMetrics.platformBreakdown.length > 2 && (
+                          <button
+                            onClick={() => setPlatformExpanded(!platformExpanded)}
+                            className="w-full mt-2 flex items-center justify-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors py-1 hover:bg-muted/30 rounded"
+                          >
+                            {platformExpanded ? (
+                              <>
+                                <ChevronUp className="h-3 w-3" />
+                                Ver menos
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-3 w-3" />
+                                Ver mais ({adsMetrics.platformBreakdown.length - 2})
+                              </>
+                            )}
+                          </button>
+                        )}
                       </TooltipProvider>
                     </CardContent>
                   </Card>
