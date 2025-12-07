@@ -167,13 +167,131 @@ const Dashboard = () => {
   const [goalDurationDays, setGoalDurationDays] = useState(0);
   const [goalCreatedAt, setGoalCreatedAt] = useState<Date | null>(null);
   const navigate = useNavigate();
+
+  // Métricas reais do banco de dados
+  const [newLeadsCount, setNewLeadsCount] = useState(0);
+  const [newCustomersCount, setNewCustomersCount] = useState(0);
+  const [currentTasksCount, setCurrentTasksCount] = useState(0);
+  const [leadTasksCount, setLeadTasksCount] = useState(0);
+  const [overdueTasksCount, setOverdueTasksCount] = useState(0);
   
+  // Função para carregar todas as métricas
+  const loadMetrics = async () => {
+    try {
+      if (!user) return;
+
+      // Buscar organization_id do usuário
+      const { data: orgMember } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!orgMember) return;
+
+      const organizationId = orgMember.organization_id;
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const today = now.toISOString().split('T')[0];
+
+      // Buscar todas as métricas em paralelo
+      const [
+        leadsResult,
+        wonStagesResult,
+        boardResult
+      ] = await Promise.all([
+        // Novos leads do mês
+        supabase
+          .from('leads')
+          .select('id, funnel_stage_id', { count: 'exact' })
+          .eq('organization_id', organizationId)
+          .gte('created_at', startOfMonth),
+        // Estágios do tipo 'won'
+        supabase
+          .from('funnel_stages')
+          .select('id')
+          .eq('stage_type', 'won'),
+        // Board da organização para filtrar colunas
+        supabase
+          .from('kanban_boards')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .maybeSingle()
+      ]);
+
+      // Novos Leads
+      setNewLeadsCount(leadsResult.count || 0);
+
+      // Novos Clientes (leads em estágios 'won' do mês)
+      if (wonStagesResult.data && wonStagesResult.data.length > 0) {
+        const wonStageIds = wonStagesResult.data.map(s => s.id);
+        const { count: customersCount } = await supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', organizationId)
+          .in('funnel_stage_id', wonStageIds)
+          .gte('updated_at', startOfMonth);
+        
+        setNewCustomersCount(customersCount || 0);
+      }
+
+      // Métricas de Kanban - só se tiver board
+      if (boardResult.data) {
+        const boardId = boardResult.data.id;
+
+        // Buscar colunas do board
+        const { data: columns } = await supabase
+          .from('kanban_columns')
+          .select('id, position')
+          .eq('board_id', boardId)
+          .order('position', { ascending: true });
+
+        if (columns && columns.length > 0) {
+          // Identificar coluna "Concluído" (última posição)
+          const completedColumnId = columns[columns.length - 1].id;
+          const activeColumnIds = columns.slice(0, -1).map(c => c.id);
+
+          // Buscar todas as cards em paralelo
+          const [
+            currentTasksResult,
+            leadTasksResult,
+            overdueTasksResult
+          ] = await Promise.all([
+            // Tarefas atuais (não concluídas)
+            supabase
+              .from('kanban_cards')
+              .select('id', { count: 'exact', head: true })
+              .in('column_id', activeColumnIds),
+            // Tarefas de leads
+            supabase
+              .from('kanban_cards')
+              .select('id', { count: 'exact', head: true })
+              .not('lead_id', 'is', null),
+            // Tarefas atrasadas (due_date < hoje e não concluídas)
+            supabase
+              .from('kanban_cards')
+              .select('id', { count: 'exact', head: true })
+              .in('column_id', activeColumnIds)
+              .lt('due_date', today)
+          ]);
+
+          setCurrentTasksCount(currentTasksResult.count || 0);
+          setLeadTasksCount(leadTasksResult.count || 0);
+          setOverdueTasksCount(overdueTasksResult.count || 0);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar métricas:', error);
+    }
+  };
+
   useEffect(() => {
     loadGoal();
     loadLastContribution();
+    loadMetrics();
 
-    // Real-time subscription para atualizar última contribuição e meta
-    const channel = supabase
+    // Real-time subscription para atualizar métricas
+    const leadsChannel = supabase
       .channel('dashboard-leads-updates')
       .on(
         'postgres_changes',
@@ -185,12 +303,29 @@ const Dashboard = () => {
         () => {
           loadLastContribution();
           loadSalesTotal();
+          loadMetrics();
+        }
+      )
+      .subscribe();
+
+    const kanbanChannel = supabase
+      .channel('dashboard-kanban-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'kanban_cards'
+        },
+        () => {
+          loadMetrics();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(kanbanChannel);
     };
   }, [user]);
 
@@ -587,13 +722,12 @@ const Dashboard = () => {
     );
   }
   return <div className="space-y-6">
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-        <MetricCard title="Novos Leads" value="7089" icon={TrendingUp} iconColor="text-cyan-500" />
-        <MetricCard title="Novos Clientes" value="65" icon={Users} iconColor="text-green-500" />
-        <MetricCard title="Faturas Enviadas" value="628" icon={FileText} iconColor="text-slate-400" />
-        <MetricCard title="Tarefas Atuais" value="5" icon={CheckSquare} iconColor="text-purple-500" />
-        <MetricCard title="Tarefas de Leads" value="120" icon={List} iconColor="text-orange-400" />
-        <MetricCard title="Tarefas Atrasadas" value="48" icon={AlertCircle} iconColor="text-red-500" />
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <MetricCard title="Novos Leads" value={newLeadsCount} icon={TrendingUp} iconColor="text-cyan-500" />
+        <MetricCard title="Novos Clientes" value={newCustomersCount} icon={Users} iconColor="text-green-500" />
+        <MetricCard title="Tarefas Atuais" value={currentTasksCount} icon={CheckSquare} iconColor="text-purple-500" />
+        <MetricCard title="Tarefas de Leads" value={leadTasksCount} icon={List} iconColor="text-orange-400" />
+        <MetricCard title="Tarefas Atrasadas" value={overdueTasksCount} icon={AlertCircle} iconColor="text-red-500" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
