@@ -51,19 +51,15 @@ export const AdCard = ({ ad, getStatusBadgeVariant, getStatusLabel }: AdCardProp
   return (
     <>
       <Card className="overflow-hidden group hover:shadow-lg transition-all duration-300 border-border/50 hover:border-primary/30 h-full flex flex-col">
-        {/* Media Container - Larger aspect ratio for better preview */}
-        <div className="aspect-[9/16] min-h-[400px] bg-gradient-to-br from-muted to-muted/50 relative overflow-hidden">
+        {/* Media Container - Proportional to content */}
+        <div className="min-h-[320px] max-h-[450px] bg-gradient-to-br from-muted to-muted/50 relative overflow-hidden flex items-center justify-center">
           {hasPreview ? (
             // Meta Official Preview iframe
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full flex items-center justify-center">
               <div 
-                className="w-full h-full overflow-hidden"
+                className="[&>iframe]:max-w-full [&>iframe]:mx-auto [&>iframe]:block"
                 dangerouslySetInnerHTML={{ 
                   __html: decodeHtmlEntities(ad.preview_html!) 
-                }}
-                style={{
-                  transform: 'scale(1)',
-                  transformOrigin: 'top center'
                 }}
               />
               {/* Expand button */}
