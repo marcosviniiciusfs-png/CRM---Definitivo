@@ -1120,12 +1120,7 @@ const Chat = () => {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center flex flex-col items-center">
-              <img 
-                src={chatGif} 
-                alt="Selecione uma conversa" 
-                className="w-48 h-48 object-contain mb-4"
-              />
+            <div className="text-center">
               <p className="text-lg">Selecione uma conversa</p>
               <p className="text-sm">Escolha um contato na lista para iniciar</p>
             </div>
