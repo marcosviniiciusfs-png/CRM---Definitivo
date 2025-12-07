@@ -1254,12 +1254,15 @@ export type Database = {
           data_conclusao: string | null
           data_inicio: string | null
           descricao_negocio: string | null
+          duplicate_attempts_count: number | null
+          duplicate_attempts_history: Json | null
           email: string | null
           empresa: string | null
           funnel_id: string | null
           funnel_stage_id: string | null
           id: string
           is_online: boolean | null
+          last_duplicate_attempt_at: string | null
           last_message_at: string | null
           last_seen: string | null
           nome_lead: string
@@ -1281,12 +1284,15 @@ export type Database = {
           data_conclusao?: string | null
           data_inicio?: string | null
           descricao_negocio?: string | null
+          duplicate_attempts_count?: number | null
+          duplicate_attempts_history?: Json | null
           email?: string | null
           empresa?: string | null
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string
           is_online?: boolean | null
+          last_duplicate_attempt_at?: string | null
           last_message_at?: string | null
           last_seen?: string | null
           nome_lead: string
@@ -1308,12 +1314,15 @@ export type Database = {
           data_conclusao?: string | null
           data_inicio?: string | null
           descricao_negocio?: string | null
+          duplicate_attempts_count?: number | null
+          duplicate_attempts_history?: Json | null
           email?: string | null
           empresa?: string | null
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string
           is_online?: boolean | null
+          last_duplicate_attempt_at?: string | null
           last_message_at?: string | null
           last_seen?: string | null
           nome_lead?: string

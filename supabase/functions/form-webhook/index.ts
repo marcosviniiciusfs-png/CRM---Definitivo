@@ -42,6 +42,121 @@ function validateLeadData(nome: string, telefone: string): { valid: boolean; err
   return { valid: true };
 }
 
+// Função para verificar duplicidade de lead
+async function checkDuplicateLead(
+  supabase: any,
+  organizationId: string,
+  telefone: string,
+  email?: string
+): Promise<{
+  isDuplicate: boolean;
+  existingLead: any | null;
+  hasAdvancedInFunnel: boolean;
+  matchType: 'phone' | 'email' | null;
+}> {
+  // Buscar por telefone (prioridade)
+  const { data: leadByPhone } = await supabase
+    .from('leads')
+    .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history, email, empresa, valor, additional_data')
+    .eq('organization_id', organizationId)
+    .eq('telefone_lead', telefone)
+    .maybeSingle();
+
+  if (leadByPhone) {
+    // Verificar se lead avançou no funil
+    const hasAdvanced = await checkIfLeadAdvanced(supabase, leadByPhone);
+    return {
+      isDuplicate: true,
+      existingLead: leadByPhone,
+      hasAdvancedInFunnel: hasAdvanced,
+      matchType: 'phone'
+    };
+  }
+
+  // Buscar por email como fallback
+  if (email) {
+    const { data: leadByEmail } = await supabase
+      .from('leads')
+      .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history, email, empresa, valor, additional_data')
+      .eq('organization_id', organizationId)
+      .eq('email', email)
+      .maybeSingle();
+
+    if (leadByEmail) {
+      const hasAdvanced = await checkIfLeadAdvanced(supabase, leadByEmail);
+      return {
+        isDuplicate: true,
+        existingLead: leadByEmail,
+        hasAdvancedInFunnel: hasAdvanced,
+        matchType: 'email'
+      };
+    }
+  }
+
+  return {
+    isDuplicate: false,
+    existingLead: null,
+    hasAdvancedInFunnel: false,
+    matchType: null
+  };
+}
+
+// Verificar se o lead avançou da primeira etapa do funil
+async function checkIfLeadAdvanced(supabase: any, lead: any): Promise<boolean> {
+  if (!lead.funnel_id || !lead.funnel_stage_id) return false;
+
+  const { data: firstStage } = await supabase
+    .from('funnel_stages')
+    .select('id')
+    .eq('funnel_id', lead.funnel_id)
+    .order('position')
+    .limit(1)
+    .maybeSingle();
+
+  return firstStage && firstStage.id !== lead.funnel_stage_id;
+}
+
+// Registrar tentativa de duplicação
+async function registerDuplicateAttempt(
+  supabase: any,
+  existingLeadId: string,
+  source: string,
+  originalPayload: any
+) {
+  // Buscar dados atuais
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('duplicate_attempts_count, duplicate_attempts_history')
+    .eq('id', existingLeadId)
+    .single();
+
+  const currentCount = lead?.duplicate_attempts_count || 0;
+  const currentHistory = Array.isArray(lead?.duplicate_attempts_history) ? lead.duplicate_attempts_history : [];
+
+  // Adicionar nova entrada no histórico
+  const newEntry = {
+    source,
+    attempted_at: new Date().toISOString(),
+    webhook_token: originalPayload.webhookToken || null,
+    original_data: originalPayload.payload || null
+  };
+
+  const updatedHistory = [...currentHistory, newEntry];
+
+  // Atualizar lead
+  await supabase
+    .from('leads')
+    .update({
+      duplicate_attempts_count: currentCount + 1,
+      last_duplicate_attempt_at: new Date().toISOString(),
+      duplicate_attempts_history: updatedHistory,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', existingLeadId);
+
+  console.log(`📊 Tentativa de duplicação registrada para lead ${existingLeadId}. Total: ${currentCount + 1}`);
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -238,6 +353,73 @@ Deno.serve(async (req) => {
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ⚡ VERIFICAR DUPLICIDADE
+    console.log('🔍 Verificando duplicidade do lead Webhook...');
+    const duplicateCheck = await checkDuplicateLead(
+      supabase,
+      webhookConfig.organization_id,
+      telefone,
+      email || undefined
+    );
+
+    if (duplicateCheck.isDuplicate && duplicateCheck.existingLead) {
+      console.log(`⚠️ Lead duplicado detectado via ${duplicateCheck.matchType}:`, duplicateCheck.existingLead.id);
+
+      // Registrar tentativa de duplicação
+      await registerDuplicateAttempt(
+        supabase,
+        duplicateCheck.existingLead.id,
+        'Webhook',
+        { payload, webhookToken }
+      );
+
+      // Se lead NÃO avançou no funil, atualizar dados
+      if (!duplicateCheck.hasAdvancedInFunnel) {
+        console.log('📝 Atualizando dados do lead existente (não avançou no funil)');
+        
+        // Mesclar additional_data
+        const existingAdditionalData = duplicateCheck.existingLead.additional_data || {};
+        const mergedAdditionalData = {
+          ...existingAdditionalData,
+          ...additionalData,
+          _last_updated_at: new Date().toISOString()
+        };
+
+        await supabase
+          .from('leads')
+          .update({
+            email: email || duplicateCheck.existingLead.email,
+            empresa: empresa || duplicateCheck.existingLead.empresa,
+            valor: valor > 0 ? valor : duplicateCheck.existingLead.valor,
+            additional_data: Object.keys(mergedAdditionalData).length > 0 ? mergedAdditionalData : null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', duplicateCheck.existingLead.id);
+      }
+
+      // Log como duplicado
+      await supabase.from('form_webhook_logs').insert({
+        organization_id: webhookConfig.organization_id,
+        webhook_token: webhookToken,
+        event_type: 'form_submission',
+        status: 'duplicate',
+        payload: payload,
+        lead_id: duplicateCheck.existingLead.id,
+        error_message: `Lead já existe no CRM (match: ${duplicateCheck.matchType})`
+      });
+
+      // Retornar sucesso (para o formulário externo não mostrar erro)
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          lead_id: duplicateCheck.existingLead.id,
+          message: 'Lead atualizado (já existia no CRM)',
+          is_duplicate: true
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

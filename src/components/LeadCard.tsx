@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye, Globe, LucideIcon } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,7 @@ export interface BaseLeadCardProps {
   leadItems?: any[];
   leadTags?: Array<{ id: string; name: string; color: string }>;
   isDraggingActive?: boolean;
+  duplicateAttemptsCount?: number;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -75,6 +76,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   leadItems: initialLeadItems,
   leadTags: tags = [],
   isDraggingActive = false,
+  duplicateAttemptsCount = 0,
   isDropdownOpen,
   setIsDropdownOpen,
   showDetailsDialog,
@@ -171,6 +173,15 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   {name}
                 </h3>
                 <div className="flex items-center gap-1 flex-wrap" data-lead-badges>
+                  {duplicateAttemptsCount > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800"
+                    >
+                      <RefreshCw className="h-2.5 w-2.5" />
+                      {duplicateAttemptsCount} retorno{duplicateAttemptsCount > 1 ? 's' : ''}
+                    </Badge>
+                  )}
                   {isFacebookLead && (
                     <Badge
                       variant="secondary"
@@ -378,7 +389,8 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.source === nextProps.source &&
     prevProps.isDraggingActive === nextProps.isDraggingActive &&
     prevProps.leadItems?.length === nextProps.leadItems?.length &&
-    prevProps.leadTags?.length === nextProps.leadTags?.length
+    prevProps.leadTags?.length === nextProps.leadTags?.length &&
+    prevProps.duplicateAttemptsCount === nextProps.duplicateAttemptsCount
   );
 });
 
