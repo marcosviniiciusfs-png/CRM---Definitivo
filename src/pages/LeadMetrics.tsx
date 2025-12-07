@@ -123,13 +123,9 @@ interface CampaignAd {
     body?: string;
     title?: string;
     call_to_action_type?: string;
-    video_id?: string;
-    video_source_url?: string;
-    video_thumbnail_url?: string;
-    video_permalink_url?: string;
-    video_length?: number;
     object_type?: string;
   } | null;
+  preview_html?: string;
 }
 
 interface AdAccount {
@@ -1604,7 +1600,7 @@ const LeadMetrics = () => {
 
       {/* Campaign Ads Preview Modal - Enhanced with Video Support */}
       <Dialog open={!!selectedCampaign} onOpenChange={() => setSelectedCampaign(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Megaphone className="h-5 w-5 text-primary" />
@@ -1623,7 +1619,7 @@ const LeadMetrics = () => {
               <LoadingAnimation text="Carregando anúncios..." />
             </div>
           ) : campaignAds.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
               {campaignAds.map(ad => (
                 <AdCard
                   key={ad.id}
