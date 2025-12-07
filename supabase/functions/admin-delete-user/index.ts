@@ -134,8 +134,50 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Deletar organização (irá em cascata deletar todos os dados relacionados)
+    // Deletar dados relacionados antes da organização
     if (targetUser.organization_id) {
+      console.log('[admin-delete-user] Deletando dados relacionados da organização:', targetUser.organization_id)
+      
+      // Deletar whatsapp_instances primeiro (foreign key constraint)
+      const { error: whatsappError } = await supabaseAdmin
+        .from('whatsapp_instances')
+        .delete()
+        .eq('organization_id', targetUser.organization_id)
+      
+      if (whatsappError) {
+        console.error('[admin-delete-user] Erro ao deletar whatsapp_instances:', whatsappError)
+      }
+
+      // Deletar facebook_integrations
+      const { error: facebookError } = await supabaseAdmin
+        .from('facebook_integrations')
+        .delete()
+        .eq('organization_id', targetUser.organization_id)
+      
+      if (facebookError) {
+        console.error('[admin-delete-user] Erro ao deletar facebook_integrations:', facebookError)
+      }
+
+      // Deletar google_calendar_integrations
+      const { error: googleError } = await supabaseAdmin
+        .from('google_calendar_integrations')
+        .delete()
+        .eq('organization_id', targetUser.organization_id)
+      
+      if (googleError) {
+        console.error('[admin-delete-user] Erro ao deletar google_calendar_integrations:', googleError)
+      }
+
+      // Deletar meta_pixel_integrations
+      const { error: metaPixelError } = await supabaseAdmin
+        .from('meta_pixel_integrations')
+        .delete()
+        .eq('organization_id', targetUser.organization_id)
+      
+      if (metaPixelError) {
+        console.error('[admin-delete-user] Erro ao deletar meta_pixel_integrations:', metaPixelError)
+      }
+
       console.log('[admin-delete-user] Deletando organização:', targetUser.organization_id)
       
       const { error: orgDeleteError } = await supabaseAdmin
