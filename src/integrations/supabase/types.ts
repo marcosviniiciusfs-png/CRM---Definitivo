@@ -883,6 +883,7 @@ export type Database = {
           due_date: string | null
           estimated_time: number | null
           id: string
+          lead_id: string | null
           position: number
           timer_started_at: string | null
           updated_at: string
@@ -898,6 +899,7 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          lead_id?: string | null
           position?: number
           timer_started_at?: string | null
           updated_at?: string
@@ -913,6 +915,7 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          lead_id?: string | null
           position?: number
           timer_started_at?: string | null
           updated_at?: string
@@ -923,6 +926,13 @@ export type Database = {
             columns: ["column_id"]
             isOneToOne: false
             referencedRelation: "kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_cards_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]

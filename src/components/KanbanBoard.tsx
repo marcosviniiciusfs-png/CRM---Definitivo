@@ -11,13 +11,21 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar, Clock, CalendarCheck } from "lucide-react";
+import { Plus, Calendar, Clock, CalendarCheck, User } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingAnimation } from "./LoadingAnimation";
 import { CreateTaskEventModal } from "./CreateTaskEventModal";
+import { CreateTaskModal } from "./CreateTaskModal";
 import { format } from "date-fns";
+
+interface Lead {
+  id: string;
+  nome_lead: string;
+  telefone_lead: string;
+  email?: string;
+}
 
 interface Card {
   id: string;
@@ -31,6 +39,8 @@ interface Card {
   timer_started_at?: string;
   calendar_event_id?: string;
   calendar_event_link?: string;
+  lead_id?: string;
+  lead?: Lead;
 }
 
 interface Column {
@@ -52,6 +62,8 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const [loading, setLoading] = useState(true);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [selectedCardForCalendar, setSelectedCardForCalendar] = useState<Card | null>(null);
+  const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
+  const [selectedColumnForTask, setSelectedColumnForTask] = useState<string | null>(null);
   const { toast } = useToast();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -108,13 +120,16 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
     const { data: cardsData } = await supabase
       .from("kanban_cards")
-      .select("*")
+      .select("*, leads:lead_id(id, nome_lead, telefone_lead, email)")
       .in("column_id", columnsData?.map(c => c.id) || [])
       .order("position");
 
     const columnsWithCards = columnsData?.map(col => ({
       ...col,
-      cards: cardsData?.filter(card => card.column_id === col.id) || []
+      cards: cardsData?.filter(card => card.column_id === col.id).map(card => ({
+        ...card,
+        lead: card.leads || undefined,
+      })) || []
     })) || [];
 
     setColumns(columnsWithCards);
@@ -149,29 +164,64 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     setColumns(columns.filter(col => col.id !== columnId));
   };
 
-  const addCard = async (columnId: string) => {
+  const openCreateTaskModal = (columnId: string) => {
+    setSelectedColumnForTask(columnId);
+    setCreateTaskModalOpen(true);
+  };
+
+  const handleTaskCreated = async (task: {
+    content: string;
+    description?: string;
+    due_date?: string;
+    estimated_time?: number;
+    lead_id?: string;
+    lead?: Lead;
+  }) => {
+    if (!selectedColumnForTask) return;
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const column = columns.find(c => c.id === columnId);
+    const column = columns.find(c => c.id === selectedColumnForTask);
     const newPosition = column?.cards.length || 0;
+
+    const insertData: any = {
+      column_id: selectedColumnForTask,
+      content: task.content,
+      description: task.description || null,
+      due_date: task.due_date || null,
+      estimated_time: task.estimated_time || null,
+      position: newPosition,
+      created_by: user.id,
+    };
+
+    if (task.lead_id) {
+      insertData.lead_id = task.lead_id;
+    }
+
+    // Set timer_started_at if estimated_time but no due_date
+    if (task.estimated_time && !task.due_date) {
+      insertData.timer_started_at = new Date().toISOString();
+    }
 
     const { data } = await supabase
       .from("kanban_cards")
-      .insert({
-        column_id: columnId,
-        content: "Nova tarefa",
-        position: newPosition,
-        created_by: user.id,
-      })
-      .select()
+      .insert(insertData)
+      .select("*, leads:lead_id(id, nome_lead, telefone_lead, email)")
       .single();
 
     if (data) {
+      const newCard = {
+        ...data,
+        lead: data.leads || task.lead,
+      };
+
       setColumns(columns.map(col =>
-        col.id === columnId ? { ...col, cards: [...col.cards, data] } : col
+        col.id === selectedColumnForTask ? { ...col, cards: [...col.cards, newCard] } : col
       ));
     }
+
+    setSelectedColumnForTask(null);
   };
 
   const detectMentions = (text: string): string[] => {
@@ -422,7 +472,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               column={column}
               onUpdateTitle={updateColumnTitle}
               onDelete={deleteColumn}
-              onAddCard={addCard}
+              onAddCard={openCreateTaskModal}
               onEditCard={updateCard}
               onDeleteCard={deleteCard}
               onSyncCalendar={handleSyncCalendar}
@@ -487,6 +537,15 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           onOpenChange={setCalendarModalOpen}
           card={selectedCardForCalendar}
           onEventCreated={handleEventCreated}
+        />
+      )}
+
+      {selectedColumnForTask && (
+        <CreateTaskModal
+          open={createTaskModalOpen}
+          onOpenChange={setCreateTaskModalOpen}
+          columnId={selectedColumnForTask}
+          onTaskCreated={handleTaskCreated}
         />
       )}
     </div>

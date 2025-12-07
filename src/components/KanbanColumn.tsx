@@ -5,6 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Plus, X } from "lucide-react";
 import { KanbanCard } from "./KanbanCard";
 
+interface Lead {
+  id: string;
+  nome_lead: string;
+  telefone_lead?: string;
+  email?: string;
+}
+
 interface Card {
   id: string;
   content: string;
@@ -16,6 +23,8 @@ interface Card {
   timer_started_at?: string;
   calendar_event_id?: string;
   calendar_event_link?: string;
+  lead_id?: string;
+  lead?: Lead;
 }
 
 interface Column {
