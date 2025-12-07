@@ -1483,12 +1483,12 @@ const LeadMetrics = () => {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-1.5">
-                                    <span>{campaign.leads}</span>
                                     {campaign.leadTypeName && (
                                       <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                         {campaign.leadTypeName}
                                       </span>
                                     )}
+                                    <span className="min-w-[40px] text-right tabular-nums">{campaign.leads}</span>
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right">
