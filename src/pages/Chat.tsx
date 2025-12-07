@@ -706,15 +706,9 @@ const Chat = () => {
         // Send to WhatsApp
         const message = messages.find((m) => m.id === messageId);
         if (message?.evolution_message_id && selectedLead) {
-          const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", user.id).single();
-          if (memberData) {
-            const { data: instanceData } = await supabase.from("whatsapp_instances").select("instance_name").eq("organization_id", memberData.organization_id).eq("status", "CONNECTED").limit(1).maybeSingle();
-            if (instanceData) {
-              await supabase.functions.invoke("send-whatsapp-reaction", {
-                body: { instance_name: instanceData.instance_name, remoteJid: selectedLead.telefone_lead, message_id: message.evolution_message_id, emoji },
-              });
-            }
-          }
+          await supabase.functions.invoke("send-whatsapp-reaction", {
+            body: { message_id: messageId, emoji, lead_id: selectedLead.id },
+          });
         }
       }
     } catch (error) {
