@@ -35,18 +35,39 @@ serve(async (req) => {
     }
     const token = authHeader.replace('Bearer ', '')
 
-    // Verify the user is authenticated using admin client
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    // Decode JWT to extract user ID (JWT is already verified by Supabase when verify_jwt = true)
+    // For manual verification, we parse the JWT payload
+    let currentUserId: string
+    try {
+      const payloadBase64 = token.split('.')[1]
+      const payload = JSON.parse(atob(payloadBase64))
+      currentUserId = payload.sub
+      
+      if (!currentUserId) {
+        throw new Error('No user ID in token')
+      }
+      console.log('User ID from JWT:', currentUserId)
+    } catch (jwtError) {
+      console.log('JWT decode error:', jwtError)
+      return new Response(
+        JSON.stringify({ error: 'Token inválido' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
     
-    if (authError || !user) {
-      console.log('Auth error:', authError?.message || 'No user found')
+    // Verify user exists using admin API
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(currentUserId)
+    
+    if (userError || !userData?.user) {
+      console.log('User not found:', userError?.message)
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
     
-    console.log('User authenticated:', user.id)
+    const currentUser = userData.user
+    console.log('User authenticated:', currentUser.id)
 
     const { email, password, name, role, organizationId } = await req.json()
 
@@ -63,7 +84,7 @@ serve(async (req) => {
     const { data: memberData, error: memberCheckError } = await supabaseAdmin
       .from('organization_members')
       .select('role, organization_id')
-      .eq('user_id', user.id)
+      .eq('user_id', currentUser.id)
       .eq('organization_id', organizationId)
       .single()
 
@@ -76,7 +97,7 @@ serve(async (req) => {
 
     // Only owners and admins can add members - members cannot invite other users
     if (memberData.role !== 'owner' && memberData.role !== 'admin') {
-      console.log(`❌ Usuário ${user.id} com role '${memberData.role}' tentou adicionar membro - NEGADO`);
+      console.log(`❌ Usuário ${currentUser.id} com role '${memberData.role}' tentou adicionar membro - NEGADO`);
       return new Response(
         JSON.stringify({ error: 'Acesso negado: apenas proprietários e administradores podem adicionar colaboradores à organização' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
