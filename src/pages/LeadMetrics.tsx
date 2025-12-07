@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Line } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp, Search, Filter, Check } from "lucide-react";
 import { AdCard } from "@/components/AdCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +20,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ChartDataPoint {
   date: string;
@@ -170,6 +172,71 @@ const LeadMetrics = () => {
   const [campaignAds, setCampaignAds] = useState<CampaignAd[]>([]);
   const [loadingAds, setLoadingAds] = useState(false);
   const [platformExpanded, setPlatformExpanded] = useState(false);
+  
+  // Campaign filter states
+  const [campaignSearchQuery, setCampaignSearchQuery] = useState("");
+  const [selectedLeadTypeFilter, setSelectedLeadTypeFilter] = useState<string>("all");
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
+  const [campaignSelectorOpen, setCampaignSelectorOpen] = useState(false);
+
+  // Get unique lead types for filter dropdown
+  const availableLeadTypes = useMemo(() => {
+    if (!adsMetrics?.campaignBreakdown) return [];
+    const types = new Set<string>();
+    adsMetrics.campaignBreakdown.forEach(c => {
+      if (c.leadTypeName) types.add(c.leadTypeName);
+    });
+    return Array.from(types);
+  }, [adsMetrics?.campaignBreakdown]);
+
+  // Filter campaigns based on search, lead type, and selection
+  const filteredCampaigns = useMemo(() => {
+    if (!adsMetrics?.campaignBreakdown) return [];
+    
+    return adsMetrics.campaignBreakdown.filter(campaign => {
+      const matchesSearch = campaign.name.toLowerCase().includes(campaignSearchQuery.toLowerCase());
+      const matchesLeadType = selectedLeadTypeFilter === "all" || campaign.leadTypeName === selectedLeadTypeFilter;
+      const matchesSelection = selectedCampaignIds.length === 0 || selectedCampaignIds.includes(campaign.id);
+      
+      return matchesSearch && matchesLeadType && matchesSelection;
+    });
+  }, [adsMetrics?.campaignBreakdown, campaignSearchQuery, selectedLeadTypeFilter, selectedCampaignIds]);
+
+  // Calculate totals for filtered campaigns
+  const filteredTotals = useMemo(() => {
+    if (filteredCampaigns.length === 0) return null;
+    
+    const totals = filteredCampaigns.reduce((acc, c) => ({
+      spend: acc.spend + c.spend,
+      leads: acc.leads + c.leads,
+      reach: acc.reach + c.reach,
+      impressions: acc.impressions + c.impressions,
+      clicks: acc.clicks + c.clicks,
+    }), { spend: 0, leads: 0, reach: 0, impressions: 0, clicks: 0 });
+    
+    return {
+      ...totals,
+      cpl: totals.leads > 0 ? totals.spend / totals.leads : 0,
+      ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0,
+    };
+  }, [filteredCampaigns]);
+
+  const toggleCampaignSelection = (campaignId: string) => {
+    setSelectedCampaignIds(prev => 
+      prev.includes(campaignId) 
+        ? prev.filter(id => id !== campaignId)
+        : [...prev, campaignId]
+    );
+  };
+
+  const toggleAllCampaigns = () => {
+    if (!adsMetrics?.campaignBreakdown) return;
+    if (selectedCampaignIds.length === adsMetrics.campaignBreakdown.length) {
+      setSelectedCampaignIds([]);
+    } else {
+      setSelectedCampaignIds(adsMetrics.campaignBreakdown.map(c => c.id));
+    }
+  };
 
   useEffect(() => {
     if (user && dateRange?.from && dateRange?.to && shouldLoadMetrics) {
@@ -1442,11 +1509,104 @@ const LeadMetrics = () => {
               {/* Campaign Performance Table */}
               {adsMetrics.campaignBreakdown.length > 0 && (
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      Performance por Campanha
-                      <span className="text-sm font-normal text-muted-foreground">(clique para ver anúncios)</span>
-                    </CardTitle>
+                  <CardHeader className="pb-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                      <CardTitle className="flex items-center gap-2">
+                        Performance por Campanha
+                        <span className="text-sm font-normal text-muted-foreground">(clique para ver anúncios)</span>
+                      </CardTitle>
+                      
+                      {/* Filters - Right side, minimalist */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Search by name */}
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar..."
+                            value={campaignSearchQuery}
+                            onChange={(e) => setCampaignSearchQuery(e.target.value)}
+                            className="h-8 w-36 pl-8 text-sm bg-muted/30 border-muted focus:bg-background"
+                          />
+                        </div>
+                        
+                        {/* Filter by lead source */}
+                        {availableLeadTypes.length > 0 && (
+                          <Select value={selectedLeadTypeFilter} onValueChange={setSelectedLeadTypeFilter}>
+                            <SelectTrigger className="h-8 w-[130px] text-sm bg-muted/30 border-muted">
+                              <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                              <SelectValue placeholder="Fonte" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Todas fontes</SelectItem>
+                              {availableLeadTypes.map(type => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        
+                        {/* Campaign selector */}
+                        <Popover open={campaignSelectorOpen} onOpenChange={setCampaignSelectorOpen}>
+                          <PopoverTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-8 text-sm bg-muted/30 border-muted hover:bg-muted/50"
+                            >
+                              <Check className="h-3.5 w-3.5 mr-1.5" />
+                              {selectedCampaignIds.length > 0 
+                                ? `${selectedCampaignIds.length} selecionadas` 
+                                : "Campanhas"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-2" align="end">
+                            <div className="space-y-2">
+                              <div 
+                                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer border-b pb-2"
+                                onClick={toggleAllCampaigns}
+                              >
+                                <Checkbox 
+                                  checked={selectedCampaignIds.length === adsMetrics.campaignBreakdown.length}
+                                  className="h-3.5 w-3.5"
+                                />
+                                <span className="text-sm font-medium">
+                                  {selectedCampaignIds.length === adsMetrics.campaignBreakdown.length 
+                                    ? "Desmarcar todas" 
+                                    : "Selecionar todas"}
+                                </span>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto space-y-1">
+                                {adsMetrics.campaignBreakdown.map(campaign => (
+                                  <div 
+                                    key={campaign.id}
+                                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer"
+                                    onClick={() => toggleCampaignSelection(campaign.id)}
+                                  >
+                                    <Checkbox 
+                                      checked={selectedCampaignIds.includes(campaign.id)}
+                                      className="h-3.5 w-3.5"
+                                    />
+                                    <span className="text-xs truncate" title={campaign.name}>
+                                      {campaign.name}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              {selectedCampaignIds.length > 0 && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="w-full h-7 text-xs"
+                                  onClick={() => setSelectedCampaignIds([])}
+                                >
+                                  Limpar seleção
+                                </Button>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <TooltipProvider>
@@ -1465,7 +1625,7 @@ const LeadMetrics = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {adsMetrics.campaignBreakdown.map((campaign, index) => (
+                          {filteredCampaigns.map((campaign, index) => (
                           <Tooltip key={index}>
                             <TooltipTrigger asChild>
                               <TableRow 
@@ -1545,34 +1705,34 @@ const LeadMetrics = () => {
                         ))}
                           
                           {/* LINHA DE TOTAIS/MÉDIAS */}
-                          {adsMetrics.campaignBreakdown.length > 0 && (
+                          {filteredCampaigns.length > 0 && filteredTotals && (
                             <TableRow className="bg-muted/50 font-semibold border-t-2 border-primary/20">
                               <TableCell>
                                 <span className="text-primary">TOTAL / MÉDIA</span>
                                 <span className="text-xs text-muted-foreground ml-2">
-                                  ({adsMetrics.campaignBreakdown.length} campanhas)
+                                  ({filteredCampaigns.length} campanha{filteredCampaigns.length !== 1 ? 's' : ''})
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
-                                {formatCurrency(adsMetrics.totalSpend)}
+                                {formatCurrency(filteredTotals.spend)}
                               </TableCell>
                               <TableCell className="text-right">
-                                {adsMetrics.totalLeads}
+                                {filteredTotals.leads}
                               </TableCell>
                               <TableCell className="text-right">
-                                {formatCurrency(adsMetrics.avgCPL)}
+                                {formatCurrency(filteredTotals.cpl)}
                               </TableCell>
                               <TableCell className="text-right">
-                                {adsMetrics.totalReach.toLocaleString('pt-BR')}
+                                {filteredTotals.reach.toLocaleString('pt-BR')}
                               </TableCell>
                               <TableCell className="text-right">
-                                {adsMetrics.totalImpressions.toLocaleString('pt-BR')}
+                                {filteredTotals.impressions.toLocaleString('pt-BR')}
                               </TableCell>
                               <TableCell className="text-right">
-                                {adsMetrics.totalClicks.toLocaleString('pt-BR')}
+                                {filteredTotals.clicks.toLocaleString('pt-BR')}
                               </TableCell>
                               <TableCell className="text-right">
-                                {adsMetrics.avgCTR.toFixed(2)}%
+                                {filteredTotals.ctr.toFixed(2)}%
                               </TableCell>
                               <TableCell></TableCell>
                             </TableRow>
