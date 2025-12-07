@@ -1124,7 +1124,7 @@ const Chat = () => {
               <img 
                 src={chatEmptyState} 
                 alt="Selecione uma conversa" 
-                className="w-32 h-32 object-contain mb-4"
+                className="w-48 h-48 object-contain mb-4"
               />
               <p className="text-lg">Selecione uma conversa</p>
               <p className="text-sm">Escolha um contato na lista para iniciar</p>
