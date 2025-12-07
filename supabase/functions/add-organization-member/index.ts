@@ -12,7 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
+    // Service role client for admin operations
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
@@ -23,14 +24,27 @@ serve(async (req) => {
       }
     )
 
+    // Anon client for user authentication validation
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    )
+
     // Get the authorization header from the request
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Token de autorização não fornecido' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
     const token = authHeader.replace('Bearer ', '')
 
-    // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    // Verify the user is authenticated using anon client
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
     
     if (authError || !user) {
+      console.log('Auth error:', authError?.message)
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
@@ -49,7 +63,7 @@ serve(async (req) => {
     const emailLower = email.toLowerCase().trim()
 
     // Verify the user is part of the organization and has permission
-    const { data: memberData, error: memberCheckError } = await supabaseClient
+    const { data: memberData, error: memberCheckError } = await supabaseAdmin
       .from('organization_members')
       .select('role, organization_id')
       .eq('user_id', user.id)
@@ -73,13 +87,13 @@ serve(async (req) => {
     }
 
     // Check subscription limits for collaborators
-    const { count: currentMemberCount } = await supabaseClient
+    const { count: currentMemberCount } = await supabaseAdmin
       .from('organization_members')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId);
 
     // Get subscription info from owner's Stripe account
-    const { data: ownerMember } = await supabaseClient
+    const { data: ownerMember } = await supabaseAdmin
       .from('organization_members')
       .select('user_id')
       .eq('organization_id', organizationId)
@@ -88,7 +102,7 @@ serve(async (req) => {
 
     if (ownerMember?.user_id) {
       // Get owner's email to check Stripe subscription
-      const { data: ownerUser } = await supabaseClient.auth.admin.getUserById(ownerMember.user_id)
+      const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(ownerMember.user_id)
       
       if (ownerUser?.user?.email) {
         const stripeKey = Deno.env.get("STRIPE_SECRET_KEY")
@@ -155,7 +169,7 @@ serve(async (req) => {
     }
 
     // Check if user already exists in THIS organization
-    const { data: existingInOrg } = await supabaseClient
+    const { data: existingInOrg } = await supabaseAdmin
       .from('organization_members')
       .select('email')
       .eq('organization_id', organizationId)
@@ -172,10 +186,10 @@ serve(async (req) => {
     let userId: string | null = null
 
     // Try to find existing user by email using Admin API
-    const { data: existingUsers, error: listError } = await supabaseClient.auth.admin.listUsers()
+    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
     
     if (!listError && existingUsers) {
-      const existingUser = existingUsers.users.find(u => u.email?.toLowerCase() === emailLower)
+      const existingUser = existingUsers.users.find((u: any) => u.email?.toLowerCase() === emailLower)
       
       if (existingUser) {
         userId = existingUser.id
@@ -187,7 +201,7 @@ serve(async (req) => {
     if (!userId) {
       // IMPORTANTE: Inserir em organization_members ANTES de criar o usuário
       // Isso permite que o trigger handle_new_user detecte que o usuário foi convidado
-      const { error: preInsertError } = await supabaseClient
+      const { error: preInsertError } = await supabaseAdmin
         .from('organization_members')
         .insert({
           organization_id: organizationId,
@@ -205,7 +219,7 @@ serve(async (req) => {
       }
 
       // Agora cria o usuário - o trigger handle_new_user detectará o email e atualizará o user_id
-      const { data: newUser, error: signUpError } = await supabaseClient.auth.admin.createUser({
+      const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
         email: emailLower,
         password: password,
         email_confirm: true, // Auto-confirm email
@@ -217,7 +231,7 @@ serve(async (req) => {
       if (signUpError) {
         console.error('Error creating user:', signUpError)
         // Remove o registro pré-inserido
-        await supabaseClient
+        await supabaseAdmin
           .from('organization_members')
           .delete()
           .match({ email: emailLower, organization_id: organizationId })
@@ -230,7 +244,7 @@ serve(async (req) => {
 
       if (!newUser.user) {
         // Remove o registro pré-inserido
-        await supabaseClient
+        await supabaseAdmin
           .from('organization_members')
           .delete()
           .match({ email: emailLower, organization_id: organizationId })
@@ -245,7 +259,7 @@ serve(async (req) => {
       console.log('Created new user:', userId)
     } else {
       // Se o usuário já existe, apenas adiciona à organização
-      const { error: memberError } = await supabaseClient
+      const { error: memberError } = await supabaseAdmin
         .from('organization_members')
         .insert({
           organization_id: organizationId,
