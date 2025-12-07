@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink } from "lucide-react";
+import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,14 @@ import { MentionInput } from "./MentionInput";
 import { format } from "date-fns";
 import { useCardTimer } from "@/hooks/useCardTimer";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useNavigate } from "react-router-dom";
+
+interface Lead {
+  id: string;
+  nome_lead: string;
+  telefone_lead?: string;
+  email?: string;
+}
 
 interface Card {
   id: string;
@@ -28,6 +36,8 @@ interface Card {
   timer_started_at?: string;
   calendar_event_id?: string;
   calendar_event_link?: string;
+  lead_id?: string;
+  lead?: Lead;
 }
 
 interface KanbanCardProps {
@@ -38,6 +48,7 @@ interface KanbanCardProps {
 }
 
 export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCardProps) => {
+  const navigate = useNavigate();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: card.id,
@@ -181,6 +192,29 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
                 <div className="text-sm text-muted-foreground whitespace-pre-wrap">
                   {card.description}
                 </div>
+              )}
+
+              {/* Lead Badge */}
+              {card.lead && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex items-center gap-1 px-2 py-1 bg-accent text-accent-foreground rounded cursor-pointer hover:bg-accent/80 transition-colors text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/leads/${card.lead!.id}`);
+                        }}
+                      >
+                        <User className="h-3 w-3" />
+                        {card.lead.nome_lead}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Ver detalhes do lead</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
 
               {(card.due_date || card.estimated_time || card.calendar_event_id) && (
