@@ -35,7 +35,7 @@ interface ActivityWithUser {
 }
 
 const LeadDetails = () => {
-  const { leadId } = useParams<{ leadId: string }>();
+  const { id: leadId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   
