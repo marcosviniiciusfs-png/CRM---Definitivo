@@ -11,7 +11,8 @@ interface SendMessageRequest {
   instance_name: string;
   remoteJid: string;
   message_text: string;
-  leadId?: string; // Opcional, para salvar no banco
+  leadId?: string;
+  quotedMessageId?: string; // ID da mensagem Evolution para quote
 }
 
 serve(async (req) => {
@@ -21,9 +22,9 @@ serve(async (req) => {
   }
 
   try {
-    const { instance_name, remoteJid, message_text, leadId }: SendMessageRequest = await req.json();
+    const { instance_name, remoteJid, message_text, leadId, quotedMessageId }: SendMessageRequest = await req.json();
 
-    console.log('📤 Enviando mensagem:', { instance_name, remoteJid, message_text, leadId });
+    console.log('📤 Enviando mensagem:', { instance_name, remoteJid, message_text, leadId, quotedMessageId });
 
     // Validar parâmetros obrigatórios
     if (!instance_name || !remoteJid || !message_text) {
@@ -222,6 +223,21 @@ serve(async (req) => {
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 segundos de timeout
     
     let evolutionResponse;
+    const requestBody: any = {
+      number: cleanNumber,
+      text: message_text,
+    };
+    
+    // Add quoted message if provided
+    if (quotedMessageId) {
+      requestBody.quoted = {
+        key: {
+          id: quotedMessageId,
+        },
+      };
+      console.log('📝 Mensagem com quote:', quotedMessageId);
+    }
+    
     try {
       evolutionResponse = await fetch(sendMessageUrl, {
         method: 'POST',
@@ -229,10 +245,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'apikey': evolutionApiKey,
         },
-        body: JSON.stringify({
-          number: cleanNumber,
-          text: message_text,
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
     } catch (fetchError: any) {
@@ -370,6 +383,17 @@ serve(async (req) => {
         // Remover asteriscos da assinatura para salvar no CRM
         const messageForCRM = message_text.replace(/^\*([^*]+):\*\n/, '$1:\n');
         
+        // Buscar ID da mensagem citada se houver quotedMessageId
+        let quotedDbMessageId = null;
+        if (quotedMessageId) {
+          const { data: quotedMsg } = await supabase
+            .from('mensagens_chat')
+            .select('id')
+            .eq('evolution_message_id', quotedMessageId)
+            .maybeSingle();
+          quotedDbMessageId = quotedMsg?.id || null;
+        }
+        
         const { error: dbError } = await supabase
           .from('mensagens_chat')
           .insert({
@@ -378,17 +402,16 @@ serve(async (req) => {
             corpo_mensagem: messageForCRM,
             evolution_message_id: messageId,
             status_entrega: 'SENT',
+            quoted_message_id: quotedDbMessageId,
           });
 
         if (dbError) {
           console.error('⚠️ Erro ao salvar no banco (mensagem foi enviada):', dbError);
-          // Nota: Não retornamos erro aqui porque a mensagem FOI enviada com sucesso
         } else {
           console.log('💾 Mensagem salva no banco com sucesso');
         }
       } catch (dbException) {
         console.error('⚠️ Exceção ao salvar no banco (mensagem foi enviada):', dbException);
-        // Nota: Não retornamos erro aqui porque a mensagem FOI enviada com sucesso
       }
     }
 

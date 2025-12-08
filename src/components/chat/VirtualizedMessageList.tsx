@@ -19,6 +19,8 @@ interface VirtualizedMessageListProps {
   setReactionPopoverOpen: React.Dispatch<React.SetStateAction<string | null>>;
   searchResultRefs: React.MutableRefObject<Map<number, HTMLDivElement | null>>;
   onAvatarClick: (url: string, name: string) => void;
+  onReply: (message: Message) => void;
+  onScrollToMessage?: (messageId: string) => void;
 }
 
 const MemoizedMessage = memo(function MemoizedMessage({
@@ -37,6 +39,8 @@ const MemoizedMessage = memo(function MemoizedMessage({
   setReactionPopoverOpen,
   searchResultRefs,
   onAvatarClick,
+  onReply,
+  onScrollToMessage,
 }: {
   message: Message;
   selectedLead: Lead;
@@ -53,6 +57,8 @@ const MemoizedMessage = memo(function MemoizedMessage({
   setReactionPopoverOpen: React.Dispatch<React.SetStateAction<string | null>>;
   searchResultRefs: React.MutableRefObject<Map<number, HTMLDivElement | null>>;
   onAvatarClick: (url: string, name: string) => void;
+  onReply: (message: Message) => void;
+  onScrollToMessage?: (messageId: string) => void;
 }) {
   const searchResultIndex = searchResults.findIndex((r) => r.id === message.id);
   const isSearchMatch = searchResultIndex !== -1;
@@ -79,6 +85,8 @@ const MemoizedMessage = memo(function MemoizedMessage({
         onToggleReaction={(emoji) => onToggleReaction(message.id, emoji)}
         onTogglePin={() => onTogglePin(message.id)}
         onAvatarClick={onAvatarClick}
+        onReply={onReply}
+        onScrollToMessage={onScrollToMessage}
         messageRef={
           searchResultIndex !== -1
             ? (el) => searchResultRefs.current.set(searchResultIndex, el)
@@ -106,6 +114,8 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
   setReactionPopoverOpen,
   searchResultRefs,
   onAvatarClick,
+  onReply,
+  onScrollToMessage,
 }: VirtualizedMessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -136,6 +146,8 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
           setReactionPopoverOpen={setReactionPopoverOpen}
           searchResultRefs={searchResultRefs}
           onAvatarClick={onAvatarClick}
+          onReply={onReply}
+          onScrollToMessage={onScrollToMessage}
         />
       ))}
     </div>

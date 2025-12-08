@@ -55,4 +55,11 @@ export interface Message {
   errorMessage?: string;
   reactions?: MessageReaction[];
   isPinned?: boolean;
+  // Campos para reply/quote
+  quoted_message_id?: string | null;
+  quoted_message?: {
+    corpo_mensagem: string;
+    direcao: 'ENTRADA' | 'SAIDA';
+    media_type?: string | null;
+  } | null;
 }
