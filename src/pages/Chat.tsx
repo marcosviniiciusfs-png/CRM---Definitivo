@@ -156,6 +156,14 @@ const Chat = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Helper to remove existing channel before creating new one
+  const removeExistingChannel = useCallback(async (channelName: string) => {
+    const existingChannel = supabase.getChannels().find(ch => ch.topic === `realtime:${channelName}`);
+    if (existingChannel) {
+      await supabase.removeChannel(existingChannel);
+    }
+  }, []);
+
   // Load user profile
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -173,23 +181,14 @@ const Chat = () => {
     };
 
     loadUserProfile();
-
-    const profileChannel = supabase
-      .channel("profile-changes")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `user_id=eq.${user?.id}` }, (payload) => {
-        if (payload.new?.full_name) setCurrentUserName(payload.new.full_name);
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(profileChannel); };
+    // Profile changes are handled in the global channel below
   }, [user?.id]);
 
-  // Load leads and setup realtime - OPTIMIZED with single parallel call
+  // CONSOLIDATED: Global realtime channel for leads, tags, tag assignments, and profile
   useEffect(() => {
     if (permissions.loading) return;
     if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
 
-    // Single optimized call that loads leads, tags, and notification preference in parallel
     loadAllChatData();
 
     notificationAudioRef.current = new Audio(`/notification.mp3?v=${Date.now()}`);
@@ -204,8 +203,19 @@ const Chat = () => {
     }
 
     let reloadTimeout: NodeJS.Timeout;
-    const leadsChannel = supabase
-      .channel("leads-changes")
+    const globalChannelName = `chat-global-${user?.id}`;
+    
+    // Remove existing channel before creating new one
+    removeExistingChannel(globalChannelName);
+
+    // Single consolidated channel for all global changes
+    const globalChannel = supabase
+      .channel(globalChannelName)
+      // Profile changes
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `user_id=eq.${user?.id}` }, (payload) => {
+        if (payload.new?.full_name) setCurrentUserName(payload.new.full_name);
+      })
+      // Leads changes
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "leads" }, (payload) => {
         const updatedLead = payload.new as Lead;
         setLeads((prev) => prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead)));
@@ -222,15 +232,9 @@ const Chat = () => {
         clearTimeout(reloadTimeout);
         reloadTimeout = setTimeout(() => loadAllChatData(), 500);
       })
-      .subscribe();
-
-    const tagsChannel = supabase
-      .channel("tags-changes")
+      // Tags changes
       .on("postgres_changes", { event: "*", schema: "public", table: "lead_tags" }, () => loadAvailableTags())
-      .subscribe();
-
-    const tagAssignmentsChannel = supabase
-      .channel("tag-assignments-changes")
+      // Tag assignments changes
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_tag_assignments" }, (payload) => {
         const assignment = payload.new as { lead_id: string; tag_id: string };
         setLeadTagsMap((prev) => {
@@ -251,102 +255,115 @@ const Chat = () => {
           return newMap;
         });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[Realtime] Status global channel:', status);
+        if (err) console.error('[Realtime] Erro global channel:', err);
+      });
 
     return () => {
       clearTimeout(reloadTimeout);
-      supabase.removeChannel(leadsChannel);
-      supabase.removeChannel(tagsChannel);
-      supabase.removeChannel(tagAssignmentsChannel);
+      supabase.removeChannel(globalChannel);
     };
-  }, [location.state, permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
+  }, [location.state, permissions.loading, permissions.canViewAllLeads, userProfile?.full_name, user?.id, removeExistingChannel]);
 
-  // Load messages when lead is selected
+  // CONSOLIDATED: Lead-specific realtime channel for messages, reactions, and pinned messages
+  // With debounce to prevent rapid channel creation when switching leads
   useEffect(() => {
     if (!selectedLead) return;
-    loadMessages(selectedLead.id);
 
-    const messagesChannel = supabase
-      .channel(`messages-lead-${selectedLead.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-        console.log('[Realtime] Nova mensagem recebida:', payload.new);
-        const newMessage = payload.new as Message;
-        if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
-          notificationAudioRef.current?.play().catch(() => {});
-        }
-        setMessages((prev) => {
-          if (newMessage.evolution_message_id) {
-            const optimisticIndex = prev.findIndex((msg) => msg.evolution_message_id === newMessage.evolution_message_id && msg.isOptimistic);
-            if (optimisticIndex !== -1) {
-              const updated = [...prev];
-              updated[optimisticIndex] = { ...prev[optimisticIndex], ...newMessage, media_url: newMessage.media_url || prev[optimisticIndex].media_url, isOptimistic: false, sendError: false };
-              return updated;
-            }
-            if (prev.some((msg) => msg.evolution_message_id === newMessage.evolution_message_id && !msg.isOptimistic)) return prev;
+    // Debounce: wait 100ms before creating channels to prevent rapid creation on lead switch
+    const debounceTimeout = setTimeout(async () => {
+      loadMessages(selectedLead.id);
+
+      const leadChannelName = `chat-lead-${selectedLead.id}`;
+      
+      // Remove existing channel before creating new one
+      await removeExistingChannel(leadChannelName);
+
+      // Single consolidated channel for all lead-specific changes
+      const leadChannel = supabase
+        .channel(leadChannelName)
+        // Messages INSERT
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
+          console.log('[Realtime] Nova mensagem recebida:', payload.new);
+          const newMessage = payload.new as Message;
+          if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
+            notificationAudioRef.current?.play().catch(() => {});
           }
-          if (prev.some((msg) => msg.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
+          setMessages((prev) => {
+            if (newMessage.evolution_message_id) {
+              const optimisticIndex = prev.findIndex((msg) => msg.evolution_message_id === newMessage.evolution_message_id && msg.isOptimistic);
+              if (optimisticIndex !== -1) {
+                const updated = [...prev];
+                updated[optimisticIndex] = { ...prev[optimisticIndex], ...newMessage, media_url: newMessage.media_url || prev[optimisticIndex].media_url, isOptimistic: false, sendError: false };
+                return updated;
+              }
+              if (prev.some((msg) => msg.evolution_message_id === newMessage.evolution_message_id && !msg.isOptimistic)) return prev;
+            }
+            if (prev.some((msg) => msg.id === newMessage.id)) return prev;
+            return [...prev, newMessage];
+          });
+        })
+        // Messages UPDATE
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
+          console.log('[Realtime] Mensagem atualizada:', payload.new);
+          const updatedMessage = payload.new as Message;
+          setMessages((prev) => prev.map((msg) => (msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, media_url: updatedMessage.media_url || msg.media_url } : msg)));
+        })
+        // Reactions INSERT
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_reactions" }, (payload) => {
+          const newReaction = payload.new as MessageReaction;
+          setMessageReactions((prev) => {
+            const existing = prev.get(newReaction.message_id) || [];
+            if (existing.some((r) => r.id === newReaction.id)) return prev;
+            return new Map(prev).set(newReaction.message_id, [...existing, newReaction]);
+          });
+        })
+        // Reactions DELETE
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "message_reactions" }, (payload) => {
+          const deletedReaction = payload.old as MessageReaction;
+          setMessageReactions((prev) => {
+            const existing = prev.get(deletedReaction.message_id) || [];
+            const filtered = existing.filter((r) => r.id !== deletedReaction.id);
+            const updated = new Map(prev);
+            if (filtered.length === 0) updated.delete(deletedReaction.message_id);
+            else updated.set(deletedReaction.message_id, filtered);
+            return updated;
+          });
+        })
+        // Pinned messages INSERT
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "pinned_messages", filter: `lead_id=eq.${selectedLead.id}` }, (payload) => {
+          setPinnedMessages((prev) => new Set([...prev, (payload.new as PinnedMessage).message_id]));
+        })
+        // Pinned messages DELETE
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "pinned_messages", filter: `lead_id=eq.${selectedLead.id}` }, (payload) => {
+          setPinnedMessages((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete((payload.old as PinnedMessage).message_id);
+            return newSet;
+          });
+        })
+        .subscribe((status, err) => {
+          console.log('[Realtime] Status lead channel:', status);
+          if (err) console.error('[Realtime] Erro lead channel:', err);
         });
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-        console.log('[Realtime] Mensagem atualizada:', payload.new);
-        const updatedMessage = payload.new as Message;
-        setMessages((prev) => prev.map((msg) => (msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, media_url: updatedMessage.media_url || msg.media_url } : msg)));
-      })
-      .subscribe((status, err) => {
-        console.log('[Realtime] Status mensagens:', status);
-        if (err) console.error('[Realtime] Erro mensagens:', err);
-      });
 
-    const reactionsChannel = supabase
-      .channel(`reactions-lead-${selectedLead.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_reactions" }, (payload) => {
-        const newReaction = payload.new as MessageReaction;
-        setMessageReactions((prev) => {
-          const existing = prev.get(newReaction.message_id) || [];
-          if (existing.some((r) => r.id === newReaction.id)) return prev;
-          return new Map(prev).set(newReaction.message_id, [...existing, newReaction]);
-        });
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "message_reactions" }, (payload) => {
-        const deletedReaction = payload.old as MessageReaction;
-        setMessageReactions((prev) => {
-          const existing = prev.get(deletedReaction.message_id) || [];
-          const filtered = existing.filter((r) => r.id !== deletedReaction.id);
-          const updated = new Map(prev);
-          if (filtered.length === 0) updated.delete(deletedReaction.message_id);
-          else updated.set(deletedReaction.message_id, filtered);
-          return updated;
-        });
-      })
-      .subscribe((status, err) => {
-        console.log('[Realtime] Status reactions:', status);
-        if (err) console.error('[Realtime] Erro reactions:', err);
-      });
-
-    const pinnedChannel = supabase
-      .channel(`pinned-lead-${selectedLead.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pinned_messages", filter: `lead_id=eq.${selectedLead.id}` }, (payload) => {
-        setPinnedMessages((prev) => new Set([...prev, (payload.new as PinnedMessage).message_id]));
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "pinned_messages", filter: `lead_id=eq.${selectedLead.id}` }, (payload) => {
-        setPinnedMessages((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete((payload.old as PinnedMessage).message_id);
-          return newSet;
-        });
-      })
-      .subscribe((status, err) => {
-        console.log('[Realtime] Status pinned:', status);
-        if (err) console.error('[Realtime] Erro pinned:', err);
-      });
+      // Store channel reference for cleanup
+      return () => {
+        supabase.removeChannel(leadChannel);
+      };
+    }, 100);
 
     return () => {
-      supabase.removeChannel(messagesChannel);
-      supabase.removeChannel(reactionsChannel);
-      supabase.removeChannel(pinnedChannel);
+      clearTimeout(debounceTimeout);
+      // Also remove any existing lead channel on cleanup
+      const leadChannelName = `chat-lead-${selectedLead.id}`;
+      const existingChannel = supabase.getChannels().find(ch => ch.topic === `realtime:${leadChannelName}`);
+      if (existingChannel) {
+        supabase.removeChannel(existingChannel);
+      }
     };
-  }, [selectedLead?.id, notificationSoundEnabled]);
+  }, [selectedLead?.id, notificationSoundEnabled, removeExistingChannel]);
 
   // Auto-scroll
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
