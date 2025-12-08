@@ -42,6 +42,7 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
   const { organizationId: contextOrgId, permissions } = useOrganization();
   const [period, setPeriod] = useState<PeriodFilter>("month");
   const [isLoading, setIsLoading] = useState(true);
+  const [membersLoading, setMembersLoading] = useState(true);
   const [selectedCollaborator, setSelectedCollaborator] = useState<string | null>(null);
   const [members, setMembers] = useState<MemberInfo[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<CollaboratorMetricsData | null>(null);
@@ -60,7 +61,8 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
     conversionRate: 0,
   });
 
-  const canSelectCollaborator = permissions.role === 'owner' || permissions.role === 'admin';
+  // Verificar permissões - admin e owner podem selecionar colaboradores
+  const canSelectCollaborator = !permissions.loading && (permissions.role === 'owner' || permissions.role === 'admin');
 
   const orgId = organizationId || contextOrgId;
 
@@ -204,6 +206,7 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
           role: m.role,
         }));
       setMembers(membersList);
+      setMembersLoading(false);
 
       // Create stage type map
       const stageTypeMap = stages.reduce((acc, s) => {
@@ -399,25 +402,31 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
             <Select 
               value={selectedCollaborator || "all"} 
               onValueChange={(v) => setSelectedCollaborator(v === "all" ? null : v)}
+              disabled={membersLoading}
             >
-              <SelectTrigger className="w-[220px]">
-                <SelectValue placeholder="Todos os colaboradores">
-                  {selectedCollaborator && selectedMember ? (
+              <SelectTrigger className="w-[250px] bg-background border-border">
+                <SelectValue placeholder="Selecionar colaborador">
+                  {membersLoading ? (
+                    <span className="text-muted-foreground">Carregando...</span>
+                  ) : selectedCollaborator && selectedMember ? (
                     <div className="flex items-center gap-2">
                       <Avatar className="h-5 w-5">
                         <AvatarImage src={selectedMember.avatar_url} />
-                        <AvatarFallback className="text-[10px]">
+                        <AvatarFallback className="text-[10px] bg-primary/10">
                           {getInitials(selectedMember.full_name)}
                         </AvatarFallback>
                       </Avatar>
                       <span className="truncate">{selectedMember.full_name}</span>
                     </div>
                   ) : (
-                    "Todos os colaboradores"
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>Todos os colaboradores</span>
+                    </div>
                   )}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px] bg-popover border-border">
                 <SelectItem value="all">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
@@ -429,16 +438,26 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
                     <div className="flex items-center gap-2">
                       <Avatar className="h-5 w-5">
                         <AvatarImage src={member.avatar_url} />
-                        <AvatarFallback className="text-[10px]">
+                        <AvatarFallback className="text-[10px] bg-primary/10">
                           {getInitials(member.full_name)}
                         </AvatarFallback>
                       </Avatar>
                       <span>{member.full_name}</span>
+                      {member.role && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({member.role === 'owner' ? 'Dono' : member.role === 'admin' ? 'Admin' : 'Membro'})
+                        </span>
+                      )}
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          )}
+
+          {/* Mostrar loading enquanto permissões carregam */}
+          {permissions.loading && (
+            <div className="w-[250px] h-10 bg-muted/50 rounded-md animate-pulse" />
           )}
 
           {/* Seletor de Período */}
