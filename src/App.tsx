@@ -82,7 +82,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/dashboard" element={<ProtectedRoute><LazyPage><Index /></LazyPage></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><DashboardLayout><LazyPage><Leads /></LazyPage></DashboardLayout></ProtectedRoute>} />
@@ -90,10 +90,10 @@ const App = () => (
               <Route path="/lead-metrics" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadMetrics /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/lead-distribution" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/chat" element={<ProtectedRoute><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/administrativo/colaboradores" element={<ProtectedRoute><LazyPage><Colaboradores /></LazyPage></ProtectedRoute>} />
-              <Route path="/administrativo/producao" element={<ProtectedRoute><LazyPage><Producao /></LazyPage></ProtectedRoute>} />
-              <Route path="/administrativo/equipes" element={<ProtectedRoute><LazyPage><Equipes /></LazyPage></ProtectedRoute>} />
-              <Route path="/administrativo/atividades" element={<ProtectedRoute><LazyPage><Atividades /></LazyPage></ProtectedRoute>} />
+              <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
+              <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
+              <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
+              <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/facebook-webhook-logs" element={<ProtectedRoute><LazyPage><FacebookWebhookLogs /></LazyPage></ProtectedRoute>} />
