@@ -83,45 +83,106 @@ serve(async (req) => {
       throw new Error('Instância WhatsApp não encontrada');
     }
 
-    // Lógica de correção PTT/Áudio de Voz
+    // ========== ÁUDIO PTT: Usar endpoint dedicado sendWhatsAppAudio ==========
+    if (media_type === 'audio' && is_ptt) {
+      console.log('🎤 Usando endpoint sendWhatsAppAudio para PTT (com encoding server-side)');
+      
+      const pttPayload = {
+        number: remoteJid,
+        audio: media_base64,
+        delay: 0,
+        encoding: true  // Evolution converte para formato PTT correto via FFmpeg
+      };
+      
+      console.log('📤 Enviando áudio PTT para Evolution API:', {
+        url: `${evolutionApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
+        number: remoteJid,
+        encoding: true
+      });
+
+      const pttResponse = await fetch(
+        `${evolutionApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': apiKey,
+          },
+          body: JSON.stringify(pttPayload),
+        }
+      );
+
+      if (!pttResponse.ok) {
+        const errorText = await pttResponse.text();
+        console.error('❌ Erro no sendWhatsAppAudio:', {
+          status: pttResponse.status,
+          statusText: pttResponse.statusText,
+          body: errorText
+        });
+        throw new Error(`Erro ao enviar áudio PTT: ${pttResponse.status} - ${errorText}`);
+      }
+
+      const pttData = await pttResponse.json();
+      console.log('✅ Áudio PTT enviado com sucesso:', pttData);
+
+      // Salvar mensagem no banco
+      const messageId = pttData.key?.id || `ptt-${Date.now()}`;
+      
+      const { error: insertError } = await supabase
+        .from('mensagens_chat')
+        .insert({
+          id_lead: leadId,
+          corpo_mensagem: '[Áudio de Voz]',
+          direcao: 'SAIDA',
+          evolution_message_id: messageId,
+          status_entrega: 'SENT',
+          media_type: 'audio',
+          media_metadata: {
+            fileName: 'ptt.ogg',
+            mimeType: 'audio/ogg; codecs=opus',
+            isPTT: true
+          }
+        });
+
+      if (insertError) {
+        console.error('⚠️ Erro ao salvar mensagem PTT no banco:', insertError);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          messageId: messageId,
+          evolutionData: pttData
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== OUTROS TIPOS DE MÍDIA: Usar sendMedia padrão ==========
     let mediatype = media_type;
     let finalFileName = file_name;
     let finalMimeType = mime_type;
 
-    if (media_type === 'audio' && is_ptt) {
-      // Forçar OGG/OPUS para áudio de voz PTT (essencial para WhatsApp)
-      mediatype = 'audio';
-      finalMimeType = 'audio/ogg; codecs=opus';
-      finalFileName = finalFileName || 'audio.ogg';
-      
-      console.log('🎤 Áudio PTT detectado:', {
-        originalMimeType: mime_type,
-        finalMimeType,
-        fileName: finalFileName
-      });
-    } else {
-      // Lógica de fallback para outros tipos de mídia
-      switch (media_type) {
-        case 'image':
-          mediatype = 'image';
-          finalFileName = finalFileName || 'image.jpg';
-          break;
-        case 'video':
-          mediatype = 'video';
-          finalFileName = finalFileName || 'video.mp4';
-          break;
-        case 'audio':
-          mediatype = 'audio';
-          finalFileName = finalFileName || 'audio.mp3';
-          break;
-        case 'document':
-        default:
-          mediatype = 'document';
-          finalFileName = finalFileName || 'document.pdf';
-          break;
-      }
-      finalMimeType = finalMimeType || 'application/octet-stream';
+    switch (media_type) {
+      case 'image':
+        mediatype = 'image';
+        finalFileName = finalFileName || 'image.jpg';
+        break;
+      case 'video':
+        mediatype = 'video';
+        finalFileName = finalFileName || 'video.mp4';
+        break;
+      case 'audio':
+        mediatype = 'audio';
+        finalFileName = finalFileName || 'audio.mp3';
+        break;
+      case 'document':
+      default:
+        mediatype = 'document';
+        finalFileName = finalFileName || 'document.pdf';
+        break;
     }
+    finalMimeType = finalMimeType || 'application/octet-stream';
 
     const payload: any = {
       number: remoteJid,
@@ -132,23 +193,13 @@ serve(async (req) => {
       fileName: finalFileName,
     };
 
-    // Flags para forçar o áudio de voz na Evolution API
-    if (media_type === 'audio' && is_ptt) {
-      payload.ptt = true;
-      payload.isVoice = true;
-    }
-
     console.log('📤 Enviando mídia para Evolution API:', {
       url: `${evolutionApiUrl}/message/sendMedia/${instance_name}`,
       mediaType: mediatype,
       fileName: finalFileName,
-      mimetype: finalMimeType,
-      isPTT: is_ptt,
-      pttFlag: payload.ptt,
-      isVoiceFlag: payload.isVoice
+      mimetype: finalMimeType
     });
 
-    // Enviar mídia via Evolution API
     const evolutionResponse = await fetch(
       `${evolutionApiUrl}/message/sendMedia/${instance_name}`,
       {
