@@ -1050,35 +1050,6 @@ const LeadMetrics = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Volume de Leads por Formulário</CardTitle>
-            </CardHeader>
-            <CardContent className="transition-all duration-500">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={facebookAdvanced.leadsByForm}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="formName"
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    axisLine={{ stroke: 'hsl(var(--border))' }}
-                  />
-                  <YAxis
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                    axisLine={{ stroke: 'hsl(var(--border))' }}
-                  />
-                  <RechartsTooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="count" 
-                    fill="#3b82f6" 
-                    radius={[8, 8, 0, 0]}
-                    animationDuration={800}
-                    animationEasing="ease-in-out"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* WhatsApp Tab */}
@@ -1390,43 +1361,6 @@ const LeadMetrics = () => {
             </CardContent>
           </Card>
 
-          {manualAdvanced.leadsByType.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Volume por Tipo de Cadastro</CardTitle>
-              </CardHeader>
-              <CardContent className="transition-all duration-500">
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={manualAdvanced.leadsByType}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis
-                      dataKey="type"
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                      axisLine={{ stroke: 'hsl(var(--border))' }}
-                    />
-                    <YAxis
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                      axisLine={{ stroke: 'hsl(var(--border))' }}
-                    />
-                    <RechartsTooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--popover))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar
-                      dataKey="count"
-                      fill="#f97316"
-                      radius={[4, 4, 0, 0]}
-                      animationDuration={800}
-                      animationEasing="ease-in-out"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         {/* Campaigns Tab */}
