@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { TopSalesReps } from "./dashboard/TopSalesReps";
@@ -10,6 +11,7 @@ import { SoldThisMonth } from "./dashboard/SoldThisMonth";
 import { OpenRequests } from "./dashboard/OpenRequests";
 import { WonBySource } from "./dashboard/WonBySource";
 import { ForecastChart } from "./dashboard/ForecastChart";
+import { CollaboratorMetrics } from "./dashboard/CollaboratorMetrics";
 import { TrendingUp, Users, Target, Zap } from "lucide-react";
 import { startOfDay, startOfWeek, startOfMonth, startOfQuarter, endOfDay, format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -20,10 +22,29 @@ interface CollaboratorDashboardProps {
   organizationId?: string;
 }
 
+interface MemberInfo {
+  user_id: string;
+  full_name: string;
+  avatar_url?: string;
+  role?: string;
+}
+
+interface CollaboratorMetricsData {
+  leadsAssigned: number;
+  salesMade: number;
+  conversionRate: number;
+  avgResponseTime: number;
+  pendingLeads: number;
+  revenueGenerated: number;
+}
+
 export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardProps) {
   const { organizationId: contextOrgId, permissions } = useOrganization();
   const [period, setPeriod] = useState<PeriodFilter>("month");
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedCollaborator, setSelectedCollaborator] = useState<string | null>(null);
+  const [members, setMembers] = useState<MemberInfo[]>([]);
+  const [selectedMetrics, setSelectedMetrics] = useState<CollaboratorMetricsData | null>(null);
   const [dashboardData, setDashboardData] = useState({
     salesReps: [] as any[],
     forecastByOwner: [] as any[],
@@ -38,6 +59,8 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
     leadsWeek: 0,
     conversionRate: 0,
   });
+
+  const canSelectCollaborator = permissions.role === 'owner' || permissions.role === 'admin';
 
   const orgId = organizationId || contextOrgId;
 
@@ -66,7 +89,48 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
     if (orgId) {
       loadDashboardData();
     }
-  }, [orgId, period]);
+  }, [orgId, period, selectedCollaborator]);
+
+  // Calcular tempo médio de resposta para um colaborador
+  const calculateAvgResponseTime = async (userId: string, leadIds: string[]): Promise<number> => {
+    if (leadIds.length === 0) return 0;
+
+    const { data: messages } = await supabase
+      .from('mensagens_chat')
+      .select('id_lead, direcao, data_hora')
+      .in('id_lead', leadIds)
+      .order('data_hora', { ascending: true });
+
+    if (!messages || messages.length === 0) return 0;
+
+    // Agrupar mensagens por lead
+    const messagesByLead: Record<string, typeof messages> = {};
+    messages.forEach(msg => {
+      if (!messagesByLead[msg.id_lead]) {
+        messagesByLead[msg.id_lead] = [];
+      }
+      messagesByLead[msg.id_lead].push(msg);
+    });
+
+    // Calcular tempo de resposta para cada lead
+    const responseTimes: number[] = [];
+    Object.values(messagesByLead).forEach(leadMessages => {
+      const firstIncoming = leadMessages.find(m => m.direcao === 'ENTRADA');
+      const firstOutgoing = leadMessages.find(m => m.direcao === 'SAIDA');
+
+      if (firstIncoming && firstOutgoing) {
+        const inTime = new Date(firstIncoming.data_hora).getTime();
+        const outTime = new Date(firstOutgoing.data_hora).getTime();
+        if (outTime > inTime) {
+          const diffMinutes = (outTime - inTime) / (1000 * 60);
+          responseTimes.push(diffMinutes);
+        }
+      }
+    });
+
+    if (responseTimes.length === 0) return 0;
+    return responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+  };
 
   const loadDashboardData = async () => {
     if (!orgId) return;
@@ -106,14 +170,14 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
           .eq('organization_id', orgId),
       ]);
 
-      const members = membersResult.data || [];
+      const membersData = membersResult.data || [];
       const leads = leadsResult.data || [];
       const stages = stagesResult.data || [];
       const tasks = tasksResult.data || [];
       const goals = goalsResult.data || [];
 
       // Get profiles for members
-      const userIds = members.filter(m => m.user_id).map(m => m.user_id);
+      const userIds = membersData.filter(m => m.user_id).map(m => m.user_id);
       let profilesMap: Record<string, any> = {};
       
       if (userIds.length > 0) {
@@ -130,33 +194,82 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
         }
       }
 
+      // Atualizar lista de membros para o seletor
+      const membersList: MemberInfo[] = membersData
+        .filter(m => m.user_id)
+        .map(m => ({
+          user_id: m.user_id,
+          full_name: profilesMap[m.user_id]?.full_name || m.email || 'Sem nome',
+          avatar_url: profilesMap[m.user_id]?.avatar_url,
+          role: m.role,
+        }));
+      setMembers(membersList);
+
       // Create stage type map
       const stageTypeMap = stages.reduce((acc, s) => {
         acc[s.id] = s.stage_type;
         return acc;
       }, {} as Record<string, string>);
 
+      // Aplicar filtro de colaborador se selecionado
+      const filterByCollaborator = (leadsList: typeof leads) => {
+        if (!selectedCollaborator) return leadsList;
+        return leadsList.filter(l => l.responsavel_user_id === selectedCollaborator);
+      };
+
       // Filter leads by period
-      const periodLeads = leads.filter(l => {
+      const allPeriodLeads = leads.filter(l => {
         const createdAt = new Date(l.created_at);
         return createdAt >= dateRange.start && createdAt <= dateRange.end;
       });
+      const periodLeads = filterByCollaborator(allPeriodLeads);
 
       // Won leads in period
-      const wonLeads = leads.filter(l => {
+      const allWonLeads = leads.filter(l => {
         const updatedAt = new Date(l.updated_at);
         return updatedAt >= dateRange.start && 
                updatedAt <= dateRange.end && 
                stageTypeMap[l.funnel_stage_id] === 'won';
       });
+      const wonLeads = filterByCollaborator(allWonLeads);
+
+      // Se um colaborador está selecionado, calcular métricas individuais
+      if (selectedCollaborator) {
+        const collabLeads = leads.filter(l => l.responsavel_user_id === selectedCollaborator);
+        const collabWonLeads = collabLeads.filter(l => stageTypeMap[l.funnel_stage_id] === 'won');
+        const collabPendingLeads = collabLeads.filter(l => {
+          const stageType = stageTypeMap[l.funnel_stage_id];
+          return stageType !== 'won' && stageType !== 'lost' && stageType !== 'discarded';
+        });
+        
+        const avgResponseTime = await calculateAvgResponseTime(
+          selectedCollaborator, 
+          collabLeads.map(l => l.id)
+        );
+
+        const totalLeads = collabLeads.length;
+        const totalSales = collabWonLeads.length;
+        const conversionRateVal = totalLeads > 0 ? Math.round((totalSales / totalLeads) * 100) : 0;
+
+        setSelectedMetrics({
+          leadsAssigned: totalLeads,
+          salesMade: totalSales,
+          conversionRate: conversionRateVal,
+          avgResponseTime,
+          pendingLeads: collabPendingLeads.length,
+          revenueGenerated: collabWonLeads.reduce((sum, l) => sum + (l.valor || 0), 0),
+        });
+      } else {
+        setSelectedMetrics(null);
+      }
 
       // Calculate sales reps metrics
-      const salesReps = members
+      const salesReps = membersData
         .filter(m => m.user_id)
         .map(m => {
           const profile = profilesMap[m.user_id] || {};
-          const userWonLeads = wonLeads.filter(l => l.responsavel_user_id === m.user_id);
-          const userAllLeads = periodLeads.filter(l => l.responsavel_user_id === m.user_id);
+          const userWonLeads = allWonLeads.filter(l => l.responsavel_user_id === m.user_id);
+          const userAllLeads = allPeriodLeads.filter(l => l.responsavel_user_id === m.user_id);
           const totalRevenue = userWonLeads.reduce((sum, l) => sum + (l.valor || 0), 0);
           const userGoal = goals[0]; // Use first available goal as fallback
           
@@ -261,26 +374,96 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
     }
   };
 
+  const selectedMember = members.find(m => m.user_id === selectedCollaborator);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header with period selector */}
-      <div className="flex items-center justify-between">
+      {/* Header with selectors */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Dashboard de Performance</h2>
           <p className="text-muted-foreground">Acompanhe as métricas de vendas da equipe</p>
         </div>
-        <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="week">Esta Semana</SelectItem>
-            <SelectItem value="month">Este Mês</SelectItem>
-            <SelectItem value="quarter">Este Trimestre</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          {/* Seletor de Colaborador (apenas para admins/owners) */}
+          {canSelectCollaborator && (
+            <Select 
+              value={selectedCollaborator || "all"} 
+              onValueChange={(v) => setSelectedCollaborator(v === "all" ? null : v)}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Todos os colaboradores">
+                  {selectedCollaborator && selectedMember ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={selectedMember.avatar_url} />
+                        <AvatarFallback className="text-[10px]">
+                          {getInitials(selectedMember.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{selectedMember.full_name}</span>
+                    </div>
+                  ) : (
+                    "Todos os colaboradores"
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span>Todos os colaboradores</span>
+                  </div>
+                </SelectItem>
+                {members.map((member) => (
+                  <SelectItem key={member.user_id} value={member.user_id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={member.avatar_url} />
+                        <AvatarFallback className="text-[10px]">
+                          {getInitials(member.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{member.full_name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Seletor de Período */}
+          <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="week">Esta Semana</SelectItem>
+              <SelectItem value="month">Este Mês</SelectItem>
+              <SelectItem value="quarter">Este Trimestre</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {/* Card de Métricas do Colaborador Selecionado */}
+      {selectedCollaborator && selectedMember && selectedMetrics && (
+        <CollaboratorMetrics
+          collaborator={selectedMember}
+          metrics={selectedMetrics}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Quick stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
