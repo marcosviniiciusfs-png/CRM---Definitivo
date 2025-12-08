@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Users, TrendingUp, Clock, Target, DollarSign, AlertCircle } from "lucide-react";
 
 interface CollaboratorMetricsProps {
@@ -84,6 +85,7 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
       icon: Users,
       color: "bg-blue-100 dark:bg-blue-900/30",
       iconColor: "text-blue-600 dark:text-blue-400",
+      tooltip: "Total de leads atribuídos a este colaborador",
     },
     {
       label: "Vendas Realizadas",
@@ -91,6 +93,7 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
       icon: TrendingUp,
       color: "bg-emerald-100 dark:bg-emerald-900/30",
       iconColor: "text-emerald-600 dark:text-emerald-400",
+      tooltip: "Número de leads convertidos em vendas",
     },
     {
       label: "Taxa de Conversão",
@@ -98,6 +101,7 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
       icon: Target,
       color: "bg-purple-100 dark:bg-purple-900/30",
       iconColor: "text-purple-600 dark:text-purple-400",
+      tooltip: "Percentual de leads convertidos em vendas",
     },
     {
       label: "Tempo Médio Resposta",
@@ -105,6 +109,7 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
       icon: Clock,
       color: "bg-amber-100 dark:bg-amber-900/30",
       iconColor: getResponseTimeColor(metrics.avgResponseTime),
+      tooltip: "Tempo médio para primeira resposta ao lead",
     },
     {
       label: "Leads Pendentes",
@@ -112,6 +117,7 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
       icon: AlertCircle,
       color: "bg-orange-100 dark:bg-orange-900/30",
       iconColor: "text-orange-600 dark:text-orange-400",
+      tooltip: "Leads aguardando atendimento ou resposta",
     },
     {
       label: "Receita Gerada",
@@ -120,6 +126,7 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
       color: "bg-teal-100 dark:bg-teal-900/30",
       iconColor: "text-teal-600 dark:text-teal-400",
       isLarge: true,
+      tooltip: "Valor total de vendas realizadas",
     },
   ];
 
@@ -143,24 +150,30 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
         </div>
 
         {/* Grid de métricas */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {metricItems.map((item) => (
-            <div
-              key={item.label}
-              className="flex flex-col items-center p-4 rounded-lg bg-card border"
-            >
-              <div className={`p-2 rounded-lg ${item.color} mb-2`}>
-                <item.icon className={`h-5 w-5 ${item.iconColor}`} />
-              </div>
-              <span className={`text-lg font-bold ${item.isLarge ? 'text-base' : ''}`}>
-                {item.value}
-              </span>
-              <span className="text-xs text-muted-foreground text-center mt-1">
-                {item.label}
-              </span>
-            </div>
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {metricItems.map((item) => (
+              <Tooltip key={item.label}>
+                <TooltipTrigger asChild>
+                  <div className="flex flex-col items-center p-4 rounded-lg bg-card border cursor-help hover:border-primary/30 transition-colors">
+                    <div className={`p-2 rounded-lg ${item.color} mb-2`}>
+                      <item.icon className={`h-5 w-5 ${item.iconColor}`} />
+                    </div>
+                    <span className={`text-lg font-bold ${item.isLarge ? 'text-base' : ''}`}>
+                      {item.value}
+                    </span>
+                    <span className="text-xs text-muted-foreground text-center mt-1">
+                      {item.label}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{item.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </TooltipProvider>
       </CardContent>
     </Card>
   );
