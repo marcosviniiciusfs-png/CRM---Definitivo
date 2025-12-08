@@ -99,12 +99,45 @@ export const MessageBubble = memo(function MessageBubble({
     return acc;
   }, {} as Record<string, MessageReaction[]>);
 
+  // Emoji button component for reuse
+  const EmojiButton = () => (
+    <Popover open={emojiPopoverOpen} onOpenChange={setEmojiPopoverOpen}>
+      <PopoverTrigger asChild>
+        <button className="p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground">
+          <Smile className="h-5 w-5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-2 bg-background border z-[100]" side="top" align="center">
+        <div className="flex gap-1">
+          {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
+            const userReacted = reactions.some((r) => r.user_id === currentUserId && r.emoji === emoji);
+            return (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => {
+                  onToggleReaction(emoji);
+                  setEmojiPopoverOpen(false);
+                }}
+                className={`text-2xl p-1.5 rounded-lg transition-colors hover:bg-accent/60 ${
+                  userReacted ? "bg-accent" : ""
+                }`}
+              >
+                {emoji}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
     <div
       id={`message-${message.id}`}
       ref={messageRef}
       onDoubleClick={() => onReply(message)}
-      className={`flex gap-2 cursor-pointer select-none ${message.direcao === "SAIDA" ? "justify-end" : "justify-start"} ${
+      className={`flex items-center gap-1 cursor-pointer select-none group ${message.direcao === "SAIDA" ? "justify-end" : "justify-start"} ${
         isPinned ? "relative" : ""
       }`}
     >
@@ -119,7 +152,7 @@ export const MessageBubble = memo(function MessageBubble({
           src={lead.avatar_url}
           name={lead.nome_lead}
           size="sm"
-          className="h-8 w-8 flex-shrink-0 mt-1"
+          className="h-8 w-8 flex-shrink-0 self-start mt-1"
           onClick={() => {
             if (lead.avatar_url) {
               onAvatarClick(lead.avatar_url, lead.nome_lead);
@@ -128,85 +161,58 @@ export const MessageBubble = memo(function MessageBubble({
         />
       )}
 
+      {/* Emoji button outside bubble - for outgoing messages (left side) */}
+      {message.direcao === "SAIDA" && (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity self-center">
+          <EmojiButton />
+        </div>
+      )}
+
       <div
-        className={`max-w-[70%] rounded-lg p-3 relative group ${
+        className={`max-w-[70%] rounded-lg p-3 relative ${
           message.direcao === "SAIDA" ? "bg-chat-bubble text-chat-bubble-foreground" : "bg-muted"
         } ${isSearchMatch ? (isCurrentSearchResult ? "ring-2 ring-primary" : "ring-2 ring-yellow-400") : ""}`}
       >
-        {/* Hover action buttons - emoji and dropdown */}
-        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Quick emoji reaction button */}
-          <Popover open={emojiPopoverOpen} onOpenChange={setEmojiPopoverOpen}>
-            <PopoverTrigger asChild>
-              <button className="bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors">
-                <Smile className="h-4 w-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-2 bg-background border z-[100]" side="top" align="end">
-              <div className="flex gap-1">
-                {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
-                  const userReacted = reactions.some((r) => r.user_id === currentUserId && r.emoji === emoji);
-                  return (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => {
-                        onToggleReaction(emoji);
-                        setEmojiPopoverOpen(false);
-                      }}
-                      className={`text-2xl p-1.5 rounded-lg transition-colors hover:bg-accent/60 ${
-                        userReacted ? "bg-accent" : ""
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  );
-                })}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Dropdown menu */}
-          <DropdownMenu open={dropdownOpen} onOpenChange={onToggleDropdown}>
-            <DropdownMenuTrigger asChild>
-              <button className="bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors">
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
-              <DropdownMenuItem
-                onClick={() => {
-                  onReply(message);
-                  onToggleDropdown(false);
-                }}
-              >
-                <Reply className="h-4 w-4 mr-2" />
-                Responder
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  navigator.clipboard.writeText(message.corpo_mensagem || message.media_url || "");
-                  toast({ title: "Copiado!" });
-                }}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copiar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onTogglePin}>
-                <Pin className="h-4 w-4 mr-2" />
-                {isPinned ? "Desfixar" : "Fixar"}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
-                <Star className="h-4 w-4 mr-2" />
-                Favoritar
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive" onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Apagar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {/* Dropdown menu inside bubble */}
+        <DropdownMenu open={dropdownOpen} onOpenChange={onToggleDropdown}>
+          <DropdownMenuTrigger asChild>
+            <button className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm p-1 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
+            <DropdownMenuItem
+              onClick={() => {
+                onReply(message);
+                onToggleDropdown(false);
+              }}
+            >
+              <Reply className="h-4 w-4 mr-2" />
+              Responder
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                navigator.clipboard.writeText(message.corpo_mensagem || message.media_url || "");
+                toast({ title: "Copiado!" });
+              }}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copiar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onTogglePin}>
+              <Pin className="h-4 w-4 mr-2" />
+              {isPinned ? "Desfixar" : "Fixar"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
+              <Star className="h-4 w-4 mr-2" />
+              Favoritar
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Apagar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Quoted message preview */}
         {message.quoted_message && (
@@ -303,6 +309,13 @@ export const MessageBubble = memo(function MessageBubble({
           </div>
         )}
       </div>
+
+      {/* Emoji button outside bubble - for incoming messages (right side) */}
+      {message.direcao === "ENTRADA" && (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity self-center">
+          <EmojiButton />
+        </div>
+      )}
     </div>
   );
 });
