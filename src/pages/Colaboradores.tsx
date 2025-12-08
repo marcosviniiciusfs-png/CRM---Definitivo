@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -399,8 +399,7 @@ const Colaboradores = () => {
   };
 
   return (
-    <DashboardLayout>
-      <div className="min-h-screen p-8">
+    <div className="min-h-screen p-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -799,8 +798,7 @@ const Colaboradores = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

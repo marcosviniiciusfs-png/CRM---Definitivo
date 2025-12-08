@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -113,8 +113,7 @@ export default function Producao() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Produção</h1>
           <p className="text-muted-foreground">
@@ -195,7 +194,6 @@ export default function Producao() {
           onClose={handleModalClose}
           item={editingItem}
         />
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }

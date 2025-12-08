@@ -23,8 +23,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const isOnChatPage = location.pathname === "/chat";
 
+  // Inicializar com estado do localStorage para evitar flash
+  const getInitialOpen = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-locked') === 'true';
+    }
+    return false;
+  };
+
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={getInitialOpen()}>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <main className="flex-1 bg-background">
