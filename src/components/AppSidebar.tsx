@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import {
@@ -55,7 +55,7 @@ const bottomItems = [
 
 const SIDEBAR_LOCK_KEY = "sidebar-locked";
 
-export function AppSidebar() {
+function AppSidebarComponent() {
   const { open, setOpen } = useSidebar();
   const { signOut, user, subscriptionData } = useAuth();
   const permissions = usePermissions();
@@ -79,17 +79,18 @@ export function AppSidebar() {
     }
   }, [isLocked, open, setOpen]);
 
-  const handleMouseEnter = () => {
+  // Handlers memoizados para evitar re-renderizações
+  const handleMouseEnter = useCallback(() => {
     if (!isLocked) {
       setOpen(true);
     }
-  };
+  }, [isLocked, setOpen]);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
     if (!isLocked) {
       setOpen(false);
     }
-  };
+  }, [isLocked, setOpen]);
 
   return (
     <Sidebar 
@@ -104,16 +105,16 @@ export function AppSidebar() {
             src={logoFull} 
             alt="KairoZ" 
             className={cn(
-              "h-10 w-auto object-contain transition-opacity duration-150 will-change-[opacity]",
-              open ? "opacity-100" : "opacity-0 absolute"
+              "h-10 w-auto object-contain",
+              open ? "block" : "hidden"
             )}
           />
           <img 
             src={logoIcon} 
             alt="K" 
             className={cn(
-              "h-8 w-auto object-contain transition-opacity duration-150 will-change-[opacity]",
-              open ? "opacity-0 absolute" : "opacity-100"
+              "h-8 w-auto object-contain",
+              open ? "hidden" : "block"
             )}
           />
         </div>
@@ -197,63 +198,64 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4 overflow-hidden">
-        {/* Conteúdo expandido - usa CSS para visibilidade */}
-        <div className={cn(
-          "space-y-3 transition-opacity duration-150 will-change-[opacity]",
-          open ? "opacity-100" : "opacity-0 h-0 overflow-hidden pointer-events-none"
-        )}>
-          <MenuLockToggle
-            locked={isLocked}
-            onToggle={setIsLocked}
-          />
-          {subscriptionData?.subscribed && subscriptionData.product_id && (
-            <div className="flex items-center justify-center">
-              <Badge variant="secondary" className="text-xs">
-                Plano {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
-              </Badge>
-            </div>
-          )}
-          <p className="text-xs text-sidebar-foreground/60 truncate">
-            {user?.email}
-          </p>
-          <Button
-            onClick={signOut}
-            variant="outline"
-            className="w-full justify-start gap-2 bg-sidebar-accent hover:bg-sidebar-accent/80 text-sm"
-            size="sm"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </Button>
-        </div>
-
-        {/* Conteúdo colapsado - usa CSS para visibilidade */}
-        <div className={cn(
-          "space-y-2 transition-opacity duration-150 will-change-[opacity]",
-          open ? "opacity-0 h-0 overflow-hidden pointer-events-none absolute" : "opacity-100"
-        )}>
-          <Button
-            onClick={() => setIsLocked(!isLocked)}
-            variant="ghostIcon"
-            size="icon"
-            className={cn("w-full", isLocked && "bg-sidebar-accent")}
-          >
-            {isLocked ? (
-              <Lock className="h-4 w-4" />
-            ) : (
-              <Unlock className="h-4 w-4" />
+        {/* Conteúdo expandido */}
+        {open && (
+          <div className="space-y-3">
+            <MenuLockToggle
+              locked={isLocked}
+              onToggle={setIsLocked}
+            />
+            {subscriptionData?.subscribed && subscriptionData.product_id && (
+              <div className="flex items-center justify-center">
+                <Badge variant="secondary" className="text-xs">
+                  Plano {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
+                </Badge>
+              </div>
             )}
-          </Button>
-          <Button
-            onClick={signOut}
-            variant="ghostIcon"
-            size="icon"
-            className="w-full"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
+            <p className="text-xs text-sidebar-foreground/60 truncate">
+              {user?.email}
+            </p>
+            <Button
+              onClick={signOut}
+              variant="outline"
+              className="w-full justify-start gap-2 bg-sidebar-accent hover:bg-sidebar-accent/80 text-sm"
+              size="sm"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
+        )}
+
+        {/* Conteúdo colapsado */}
+        {!open && (
+          <div className="space-y-2">
+            <Button
+              onClick={() => setIsLocked(!isLocked)}
+              variant="ghostIcon"
+              size="icon"
+              className={cn("w-full", isLocked && "bg-sidebar-accent")}
+            >
+              {isLocked ? (
+                <Lock className="h-4 w-4" />
+              ) : (
+                <Unlock className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              onClick={signOut}
+              variant="ghostIcon"
+              size="icon"
+              className="w-full"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
 }
+
+// Memoizar componente para evitar re-renderizações desnecessárias
+export const AppSidebar = React.memo(AppSidebarComponent);
