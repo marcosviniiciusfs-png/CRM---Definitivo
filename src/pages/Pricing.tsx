@@ -34,7 +34,7 @@ const pricingTiers: PricingTier[] = [
   {
     name: "Star",
     icon: <Zap className="w-6 h-6" />,
-    price: 200,
+    price: 197,
     description: "Ideal para começar",
     color: "blue",
     features: [
@@ -49,7 +49,7 @@ const pricingTiers: PricingTier[] = [
   {
     name: "Pro",
     icon: <TrendingUp className="w-6 h-6" />,
-    price: 500,
+    price: 497,
     description: "Para equipes em crescimento",
     color: "amber",
     features: [
@@ -67,7 +67,7 @@ const pricingTiers: PricingTier[] = [
   {
     name: "Elite",
     icon: <Crown className="w-6 h-6" />,
-    price: 2000,
+    price: 1970,
     description: "Solução completa",
     color: "purple",
     features: [
