@@ -18,6 +18,7 @@ const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+const SIDEBAR_LOCK_KEY = "sidebar-locked";
 
 type SidebarContext = {
   state: "expanded" | "collapsed";
@@ -70,23 +71,36 @@ const SidebarProvider = React.forwardRef<
     [setOpenProp, open],
   );
 
-  // Helper to toggle the sidebar.
-  const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
-  }, [isMobile, setOpen, setOpenMobile]);
+  // Helper to check if sidebar is locked
+  const isLocked = React.useCallback(() => {
+    return localStorage.getItem(SIDEBAR_LOCK_KEY) === 'true';
+  }, []);
 
-  // Adds a keyboard shortcut to toggle the sidebar.
+  // Helper to toggle the sidebar - respects lock state
+  const toggleSidebar = React.useCallback(() => {
+    // Se está bloqueado, não permite fechar
+    if (isLocked() && open) {
+      return;
+    }
+    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
+  }, [isMobile, setOpen, setOpenMobile, isLocked, open]);
+
+  // Adds a keyboard shortcut to toggle the sidebar - respects lock state
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
+        // Se está bloqueado e aberto, não fecha
+        if (isLocked() && open) {
+          return;
+        }
         toggleSidebar();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
+  }, [toggleSidebar, isLocked, open]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
