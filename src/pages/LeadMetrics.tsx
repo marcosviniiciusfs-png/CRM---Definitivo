@@ -1166,9 +1166,9 @@ const LeadMetrics = () => {
                     <MetricCard
                       title="Taxa de Conversão p/ Pipeline"
                       value={`${whatsappAdvanced.pipelineConversionRate}%`}
+                      subtitle="Leads movidos para vendas"
                       icon={Target}
                       iconColor="text-purple-500"
-                      inline
                     />
                   </div>
                 </TooltipTrigger>
@@ -1300,9 +1300,9 @@ const LeadMetrics = () => {
                     <MetricCard
                       title="Taxa de Conversão p/ Pipeline"
                       value={`${manualAdvanced.conversionRate}%`}
+                      subtitle="Leads movidos para vendas"
                       icon={Target}
                       iconColor="text-purple-500"
-                      inline
                     />
                   </div>
                 </TooltipTrigger>

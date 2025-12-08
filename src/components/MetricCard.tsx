@@ -14,10 +14,9 @@ interface MetricCardProps {
     positive: boolean;
   };
   compact?: boolean;
-  inline?: boolean;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, iconColor, trend, compact = false, inline = false }: MetricCardProps) {
+export function MetricCard({ title, value, subtitle, icon: Icon, iconColor, trend, compact = false }: MetricCardProps) {
   if (compact) {
     return (
       <Card className="transition-all duration-300 hover:shadow-md">
@@ -39,22 +38,6 @@ export function MetricCard({ title, value, subtitle, icon: Icon, iconColor, tren
             )}
           </div>
         </div>
-      </Card>
-    );
-  }
-
-  if (inline) {
-    return (
-      <Card className="transition-all duration-300 hover:shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl font-bold">
-              <AnimatedNumber value={value} />
-            </div>
-            <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          </div>
-          <Icon className={`h-4 w-4 ${iconColor || "text-muted-foreground"}`} />
-        </CardHeader>
       </Card>
     );
   }
