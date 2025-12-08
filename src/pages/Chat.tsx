@@ -266,10 +266,10 @@ const Chat = () => {
     if (!selectedLead) return;
     loadMessages(selectedLead.id);
 
-    const channelName = `messages-${selectedLead.id}-${Date.now()}`;
     const messagesChannel = supabase
-      .channel(channelName)
+      .channel(`messages-lead-${selectedLead.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
+        console.log('[Realtime] Nova mensagem recebida:', payload.new);
         const newMessage = payload.new as Message;
         if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
           notificationAudioRef.current?.play().catch(() => {});
@@ -289,13 +289,17 @@ const Chat = () => {
         });
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
+        console.log('[Realtime] Mensagem atualizada:', payload.new);
         const updatedMessage = payload.new as Message;
         setMessages((prev) => prev.map((msg) => (msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, media_url: updatedMessage.media_url || msg.media_url } : msg)));
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[Realtime] Status mensagens:', status);
+        if (err) console.error('[Realtime] Erro mensagens:', err);
+      });
 
     const reactionsChannel = supabase
-      .channel(`reactions-${selectedLead.id}`)
+      .channel(`reactions-lead-${selectedLead.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_reactions" }, (payload) => {
         const newReaction = payload.new as MessageReaction;
         setMessageReactions((prev) => {
@@ -315,10 +319,13 @@ const Chat = () => {
           return updated;
         });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[Realtime] Status reactions:', status);
+        if (err) console.error('[Realtime] Erro reactions:', err);
+      });
 
     const pinnedChannel = supabase
-      .channel(`pinned-${selectedLead.id}`)
+      .channel(`pinned-lead-${selectedLead.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "pinned_messages", filter: `lead_id=eq.${selectedLead.id}` }, (payload) => {
         setPinnedMessages((prev) => new Set([...prev, (payload.new as PinnedMessage).message_id]));
       })
@@ -329,7 +336,10 @@ const Chat = () => {
           return newSet;
         });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[Realtime] Status pinned:', status);
+        if (err) console.error('[Realtime] Erro pinned:', err);
+      });
 
     return () => {
       supabase.removeChannel(messagesChannel);
