@@ -44,18 +44,18 @@ export function SalesGauge({ current, target, label = "Meta Atingida", isLoading
       <CardHeader className="pb-0">
         <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center pt-0">
-        <div className="relative w-full h-[120px]">
+      <CardContent className="flex flex-col items-center pt-2">
+        <div className="relative w-full h-[100px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={gaugeData}
                 cx="50%"
-                cy="100%"
+                cy="90%"
                 startAngle={180}
                 endAngle={0}
-                innerRadius="60%"
-                outerRadius="90%"
+                innerRadius="55%"
+                outerRadius="85%"
                 dataKey="value"
                 stroke="none"
               >
@@ -65,14 +65,14 @@ export function SalesGauge({ current, target, label = "Meta Atingida", isLoading
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-end pb-2">
-            <span className="text-3xl font-bold">{percentage}%</span>
+          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
+            <span className="text-2xl font-bold tabular-nums">{percentage}%</span>
           </div>
         </div>
-        <div className="flex flex-col items-center mt-2 text-center">
-          <span className="text-sm text-muted-foreground">
-            {formatCurrency(current)} / {formatCurrency(target)}
-          </span>
+        <div className="flex items-center justify-center gap-1 mt-3 text-sm text-muted-foreground tabular-nums">
+          <span>{formatCurrency(current)}</span>
+          <span>/</span>
+          <span>{formatCurrency(target)}</span>
         </div>
       </CardContent>
     </Card>

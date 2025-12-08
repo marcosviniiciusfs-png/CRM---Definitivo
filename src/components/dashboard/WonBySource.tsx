@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface SourceData {
   name: string;
@@ -61,41 +61,47 @@ export function WonBySource({ data, totalValue, isLoading }: WonBySourceProps) {
             Nenhum dado disponível
           </div>
         ) : (
-          <div className="h-[200px] relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={40}
-                  outerRadius={65}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => [formatCurrency(value), "Valor"]}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend 
-                  verticalAlign="bottom"
-                  height={36}
-                  formatter={(value) => <span className="text-xs">{value}</span>}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ top: "-20px" }}>
-              <div className="text-center">
-                <p className="text-lg font-bold">{formatCurrency(totalValue)}</p>
+          <div className="h-[200px] flex flex-col items-center">
+            <div className="relative flex-1 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={35}
+                    outerRadius={60}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), "Valor"]}
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <p className="text-base font-bold tabular-nums">{formatCurrency(totalValue)}</p>
               </div>
+            </div>
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2">
+              {chartData.map((item, index) => (
+                <div key={index} className="flex items-center gap-1.5">
+                  <div 
+                    className="w-2.5 h-2.5 rounded-full" 
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-xs text-muted-foreground">{item.name}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
