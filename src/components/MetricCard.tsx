@@ -53,6 +53,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, iconColor, tren
           <div className="text-2xl font-bold">
             <AnimatedNumber value={value} />
           </div>
+          {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
           {trend && (
             <div className={`flex items-center gap-1 text-xs ${trend.positive ? "text-green-600" : "text-red-600"}`}>
               {trend.positive ? (
@@ -64,7 +65,6 @@ export function MetricCard({ title, value, subtitle, icon: Icon, iconColor, tren
             </div>
           )}
         </div>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </CardContent>
     </Card>
   );
