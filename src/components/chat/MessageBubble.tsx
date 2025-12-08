@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Message, MessageReaction, Lead } from "@/types/chat";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { SecureImage, SecureAudio, SecureDocument } from "./SecureMediaDisplay";
@@ -8,6 +8,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Check, CheckCheck, Clock, ChevronDown, Pin, Copy, Star, Trash2, Smile, AlertCircle, RotateCcw, Reply, Mic, Image, File } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,6 +60,7 @@ export const MessageBubble = memo(function MessageBubble({
   messageRef,
 }: MessageBubbleProps) {
   const { toast } = useToast();
+  const [emojiPopoverOpen, setEmojiPopoverOpen] = useState(false);
 
   const getStatusIcon = (status: string | null) => {
     switch (status) {
@@ -97,7 +103,8 @@ export const MessageBubble = memo(function MessageBubble({
     <div
       id={`message-${message.id}`}
       ref={messageRef}
-      className={`flex gap-2 ${message.direcao === "SAIDA" ? "justify-end" : "justify-start"} ${
+      onDoubleClick={() => onReply(message)}
+      className={`flex gap-2 cursor-pointer select-none ${message.direcao === "SAIDA" ? "justify-end" : "justify-start"} ${
         isPinned ? "relative" : ""
       }`}
     >
@@ -126,42 +133,27 @@ export const MessageBubble = memo(function MessageBubble({
           message.direcao === "SAIDA" ? "bg-chat-bubble text-chat-bubble-foreground" : "bg-muted"
         } ${isSearchMatch ? (isCurrentSearchResult ? "ring-2 ring-primary" : "ring-2 ring-yellow-400") : ""}`}
       >
-        {/* Dropdown menu */}
-        <DropdownMenu open={dropdownOpen} onOpenChange={onToggleDropdown}>
-          <DropdownMenuTrigger asChild>
-            <button className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
-            <DropdownMenuItem
-              onClick={() => {
-                onReply(message);
-                onToggleDropdown(false);
-              }}
-            >
-              <Reply className="h-4 w-4 mr-2" />
-              Responder
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                onToggleReactionPopover();
-              }}
-            >
-              <Smile className="h-4 w-4 mr-2" />
-              Reagir
-            </DropdownMenuItem>
-
-            {reactionPopoverOpen && (
-              <div className="px-2 pb-2 pt-1 border-t flex gap-1 flex-wrap">
+        {/* Hover action buttons - emoji and dropdown */}
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Quick emoji reaction button */}
+          <Popover open={emojiPopoverOpen} onOpenChange={setEmojiPopoverOpen}>
+            <PopoverTrigger asChild>
+              <button className="bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors">
+                <Smile className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2 bg-background border z-[100]" side="top" align="end">
+              <div className="flex gap-1">
                 {WHATSAPP_REACTION_EMOJIS.map((emoji) => {
                   const userReacted = reactions.some((r) => r.user_id === currentUserId && r.emoji === emoji);
                   return (
                     <button
                       key={emoji}
                       type="button"
-                      onClick={() => onToggleReaction(emoji)}
+                      onClick={() => {
+                        onToggleReaction(emoji);
+                        setEmojiPopoverOpen(false);
+                      }}
                       className={`text-2xl p-1.5 rounded-lg transition-colors hover:bg-accent/60 ${
                         userReacted ? "bg-accent" : ""
                       }`}
@@ -171,31 +163,50 @@ export const MessageBubble = memo(function MessageBubble({
                   );
                 })}
               </div>
-            )}
+            </PopoverContent>
+          </Popover>
 
-            <DropdownMenuItem
-              onClick={() => {
-                navigator.clipboard.writeText(message.corpo_mensagem || message.media_url || "");
-                toast({ title: "Copiado!" });
-              }}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copiar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onTogglePin}>
-              <Pin className="h-4 w-4 mr-2" />
-              {isPinned ? "Desfixar" : "Fixar"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
-              <Star className="h-4 w-4 mr-2" />
-              Favoritar
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Apagar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          {/* Dropdown menu */}
+          <DropdownMenu open={dropdownOpen} onOpenChange={onToggleDropdown}>
+            <DropdownMenuTrigger asChild>
+              <button className="bg-background/80 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors">
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
+              <DropdownMenuItem
+                onClick={() => {
+                  onReply(message);
+                  onToggleDropdown(false);
+                }}
+              >
+                <Reply className="h-4 w-4 mr-2" />
+                Responder
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  navigator.clipboard.writeText(message.corpo_mensagem || message.media_url || "");
+                  toast({ title: "Copiado!" });
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onTogglePin}>
+                <Pin className="h-4 w-4 mr-2" />
+                {isPinned ? "Desfixar" : "Fixar"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
+                <Star className="h-4 w-4 mr-2" />
+                Favoritar
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Apagar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {/* Quoted message preview */}
         {message.quoted_message && (
