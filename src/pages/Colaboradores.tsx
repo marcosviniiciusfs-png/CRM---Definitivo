@@ -9,10 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { CollaboratorDashboard } from "@/components/CollaboratorDashboard";
 
 const emailSchema = z.string().email({ message: "Email inválido" });
 
@@ -400,58 +402,74 @@ const Colaboradores = () => {
 
   return (
     <div className="min-h-screen p-8">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-card p-3 rounded-lg shadow-sm">
-              <Users className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Gestão de Colaboradores</h1>
-              <p className="text-muted-foreground mt-1">Gerencie e acompanhe todos os colaboradores ativos</p>
-            </div>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="bg-card p-3 rounded-lg shadow-sm">
+            <Users className="h-6 w-6 text-purple-600" />
           </div>
-          <div className="flex flex-col gap-3">
-            {subscriptionLimits && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg border">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Colaboradores: <span className="font-semibold text-foreground">{subscriptionLimits.current}/{subscriptionLimits.total}</span>
-                </span>
-                {subscriptionLimits.current >= subscriptionLimits.total && (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="ml-auto"
-                    onClick={() => window.location.href = '/pricing'}
-                  >
-                    Adicionar Mais
-                  </Button>
-                )}
-              </div>
-            )}
-            <div className="flex gap-3">
-              {(userRole === 'owner' || userRole === 'admin') && (
-                <>
-                  <Button 
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                    onClick={() => setIsDialogOpen(true)}
-                  >
-                    Novo Colaborador
-                  </Button>
-                  <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
-                    Lote de Colaboradores
-                  </Button>
-                </>
-              )}
-              <Button variant="secondary">
-                Ver Inativos
-              </Button>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Gestão de Colaboradores</h1>
+            <p className="text-muted-foreground mt-1">Gerencie e acompanhe todos os colaboradores ativos</p>
           </div>
         </div>
+        <div className="flex flex-col gap-3">
+          {subscriptionLimits && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg border">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Colaboradores: <span className="font-semibold text-foreground">{subscriptionLimits.current}/{subscriptionLimits.total}</span>
+              </span>
+              {subscriptionLimits.current >= subscriptionLimits.total && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="ml-auto"
+                  onClick={() => window.location.href = '/pricing'}
+                >
+                  Adicionar Mais
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
-        {/* Metric Cards */}
+      {/* Tabs */}
+      <Tabs defaultValue="gerenciamento" className="space-y-6">
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="gerenciamento" className="gap-2">
+            <Users className="h-4 w-4" />
+            Gerenciamento
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Dashboard de Colaboradores
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="gerenciamento" className="space-y-6">
+          {/* Action buttons */}
+          <div className="flex gap-3 justify-end">
+            {(userRole === 'owner' || userRole === 'admin') && (
+              <>
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  Novo Colaborador
+                </Button>
+                <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
+                  Lote de Colaboradores
+                </Button>
+              </>
+            )}
+            <Button variant="secondary">
+              Ver Inativos
+            </Button>
+          </div>
+
+          {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="border-l-4 border-l-green-500 shadow-md">
             <CardContent className="pt-6">
@@ -798,6 +816,12 @@ const Colaboradores = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </TabsContent>
+
+        <TabsContent value="dashboard">
+          <CollaboratorDashboard organizationId={organizationId || undefined} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
