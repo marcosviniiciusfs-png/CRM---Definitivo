@@ -156,12 +156,45 @@ const Chat = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Helper to remove existing channel before creating new one
+  // Ref para rastrear se o componente está montado
+  const isMountedRef = useRef(true);
+
+  // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
-    const existingChannel = supabase.getChannels().find(ch => ch.topic === `realtime:${channelName}`);
-    if (existingChannel) {
-      await supabase.removeChannel(existingChannel);
+    const channels = supabase.getChannels();
+    const matchingChannels = channels.filter(ch => 
+      ch.topic === `realtime:${channelName}` || ch.topic === channelName
+    );
+    if (matchingChannels.length > 0) {
+      await Promise.all(matchingChannels.map(ch => supabase.removeChannel(ch)));
     }
+  }, []);
+
+  // Cleanup orphan channels periodically
+  useEffect(() => {
+    const cleanupOrphanChannels = () => {
+      const channels = supabase.getChannels();
+      const chatLeadChannels = channels.filter(ch => 
+        ch.topic.includes('chat-lead-') || ch.topic.includes('realtime:chat-lead-')
+      );
+      
+      // Se tiver mais de 2 canais de lead, limpar os extras (mantém apenas o atual)
+      if (chatLeadChannels.length > 2) {
+        const channelsToRemove = chatLeadChannels.slice(2);
+        channelsToRemove.forEach(ch => supabase.removeChannel(ch));
+      }
+    };
+    
+    const interval = setInterval(cleanupOrphanChannels, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Reset mounted ref on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   // Load user profile
@@ -204,13 +237,17 @@ const Chat = () => {
 
     let reloadTimeout: NodeJS.Timeout;
     const globalChannelName = `chat-global-${user?.id}`;
+    let globalChannel: ReturnType<typeof supabase.channel> | null = null;
     
-    // Remove existing channel before creating new one
-    removeExistingChannel(globalChannelName);
+    const setupGlobalChannel = async () => {
+      // Remove existing channel before creating new one
+      await removeExistingChannel(globalChannelName);
+      
+      if (!isMountedRef.current) return;
 
-    // Single consolidated channel for all global changes
-    const globalChannel = supabase
-      .channel(globalChannelName)
+      // Single consolidated channel for all global changes
+      globalChannel = supabase
+        .channel(globalChannelName)
       // Profile changes
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `user_id=eq.${user?.id}` }, (payload) => {
         if (payload.new?.full_name) setCurrentUserName(payload.new.full_name);
@@ -255,14 +292,16 @@ const Chat = () => {
           return newMap;
         });
       })
-      .subscribe((status, err) => {
-        console.log('[Realtime] Status global channel:', status);
-        if (err) console.error('[Realtime] Erro global channel:', err);
-      });
+        .subscribe();
+    };
+
+    setupGlobalChannel();
 
     return () => {
       clearTimeout(reloadTimeout);
-      supabase.removeChannel(globalChannel);
+      if (globalChannel) {
+        supabase.removeChannel(globalChannel);
+      }
     };
   }, [location.state, permissions.loading, permissions.canViewAllLeads, userProfile?.full_name, user?.id, removeExistingChannel]);
 
@@ -271,21 +310,27 @@ const Chat = () => {
   useEffect(() => {
     if (!selectedLead) return;
 
-    // Debounce: wait 100ms before creating channels to prevent rapid creation on lead switch
+    let leadChannel: ReturnType<typeof supabase.channel> | null = null;
+    const leadChannelName = `chat-lead-${selectedLead.id}`;
+
+    // Debounce: wait 200ms before creating channels to prevent rapid creation on lead switch
     const debounceTimeout = setTimeout(async () => {
+      // Remove ALL existing lead channels first
+      const allChannels = supabase.getChannels();
+      const leadChannelsToRemove = allChannels.filter(ch => 
+        ch.topic.includes('chat-lead-') || ch.topic.includes('realtime:chat-lead-')
+      );
+      await Promise.all(leadChannelsToRemove.map(ch => supabase.removeChannel(ch)));
+
+      if (!isMountedRef.current) return;
+
       loadMessages(selectedLead.id);
 
-      const leadChannelName = `chat-lead-${selectedLead.id}`;
-      
-      // Remove existing channel before creating new one
-      await removeExistingChannel(leadChannelName);
-
       // Single consolidated channel for all lead-specific changes
-      const leadChannel = supabase
+      leadChannel = supabase
         .channel(leadChannelName)
         // Messages INSERT
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-          console.log('[Realtime] Nova mensagem recebida:', payload.new);
           const newMessage = payload.new as Message;
           if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
             notificationAudioRef.current?.play().catch(() => {});
@@ -306,7 +351,6 @@ const Chat = () => {
         })
         // Messages UPDATE
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-          console.log('[Realtime] Mensagem atualizada:', payload.new);
           const updatedMessage = payload.new as Message;
           setMessages((prev) => prev.map((msg) => (msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, media_url: updatedMessage.media_url || msg.media_url } : msg)));
         })
@@ -343,27 +387,17 @@ const Chat = () => {
             return newSet;
           });
         })
-        .subscribe((status, err) => {
-          console.log('[Realtime] Status lead channel:', status);
-          if (err) console.error('[Realtime] Erro lead channel:', err);
-        });
-
-      // Store channel reference for cleanup
-      return () => {
-        supabase.removeChannel(leadChannel);
-      };
-    }, 100);
+        .subscribe();
+    }, 200);
 
     return () => {
       clearTimeout(debounceTimeout);
-      // Also remove any existing lead channel on cleanup
-      const leadChannelName = `chat-lead-${selectedLead.id}`;
-      const existingChannel = supabase.getChannels().find(ch => ch.topic === `realtime:${leadChannelName}`);
-      if (existingChannel) {
-        supabase.removeChannel(existingChannel);
+      // Remove o canal específico do lead
+      if (leadChannel) {
+        supabase.removeChannel(leadChannel);
       }
     };
-  }, [selectedLead?.id, notificationSoundEnabled, removeExistingChannel]);
+  }, [selectedLead?.id, notificationSoundEnabled]);
 
   // Auto-scroll
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -1072,7 +1106,7 @@ const Chat = () => {
       </Card>
 
       {/* Chat Area */}
-      <Card className="flex-1 flex flex-col overflow-hidden h-full min-w-0">
+      <Card className="flex-1 flex flex-col overflow-hidden h-full min-w-0 max-w-full">
         {selectedLead ? (
           <>
             <ChatHeader
@@ -1113,7 +1147,7 @@ const Chat = () => {
                   ) : messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground">Nenhuma mensagem ainda. Inicie a conversa!</div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-w-full overflow-x-hidden">
                       {messages.map((message, index) => {
                         const isSearchMatch = messageSearchQuery.trim() && message.corpo_mensagem.toLowerCase().includes(messageSearchQuery.toLowerCase());
                         let searchResultIndex = -1;
