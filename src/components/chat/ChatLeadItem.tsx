@@ -10,6 +10,7 @@ interface ChatLeadItemProps {
   lead: Lead;
   isSelected: boolean;
   isPinned: boolean;
+  isLocked?: boolean;
   presenceStatus: PresenceInfo | undefined;
   tagVersion: string;
   onClick: () => void;
@@ -20,6 +21,7 @@ export const ChatLeadItem = memo(function ChatLeadItem({
   lead,
   isSelected,
   isPinned,
+  isLocked,
   presenceStatus,
   tagVersion,
   onClick,
@@ -30,7 +32,7 @@ export const ChatLeadItem = memo(function ChatLeadItem({
       onClick={onClick}
       className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors ${
         isSelected ? "bg-muted" : ""
-      }`}
+      } ${isLocked ? "ring-1 ring-primary/30 ring-offset-1 ring-offset-background" : ""}`}
     >
       <div className="relative">
         <LazyAvatar

@@ -14,6 +14,7 @@ import { Pin, PinOff, Tag } from "lucide-react";
 interface VirtualizedLeadListProps {
   leads: Lead[];
   selectedLeadId: string | null;
+  lockedLeadId: string | null;
   pinnedLeads: string[];
   presenceStatus: Map<string, PresenceInfo>;
   leadTagsMap: Map<string, string[]>;
@@ -31,6 +32,7 @@ const VISIBLE_ITEMS = 10;
 const LeadRow = memo(function LeadRow({
   lead,
   selectedLeadId,
+  lockedLeadId,
   pinnedLeads,
   presenceStatus,
   leadTagsMap,
@@ -42,6 +44,7 @@ const LeadRow = memo(function LeadRow({
 }: {
   lead: Lead;
   selectedLeadId: string | null;
+  lockedLeadId: string | null;
   pinnedLeads: string[];
   presenceStatus: Map<string, PresenceInfo>;
   leadTagsMap: Map<string, string[]>;
@@ -52,6 +55,7 @@ const LeadRow = memo(function LeadRow({
   onAvatarClick: (url: string, name: string) => void;
 }) {
   const isPinned = pinnedLeads.includes(lead.id);
+  const isLocked = lead.id === lockedLeadId;
   const hasTag = (leadTagsMap.get(lead.id)?.length || 0) > 0;
 
   return (
@@ -63,6 +67,7 @@ const LeadRow = memo(function LeadRow({
               lead={lead}
               isSelected={selectedLeadId === lead.id}
               isPinned={isPinned}
+              isLocked={isLocked}
               presenceStatus={presenceStatus.get(lead.id)}
               tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
               onClick={() => onSelectLead(lead)}
@@ -104,6 +109,7 @@ const LeadRow = memo(function LeadRow({
 export const VirtualizedLeadList = memo(function VirtualizedLeadList({
   leads,
   selectedLeadId,
+  lockedLeadId,
   pinnedLeads,
   presenceStatus,
   leadTagsMap,
@@ -131,6 +137,7 @@ export const VirtualizedLeadList = memo(function VirtualizedLeadList({
           key={lead.id}
           lead={lead}
           selectedLeadId={selectedLeadId}
+          lockedLeadId={lockedLeadId}
           pinnedLeads={pinnedLeads}
           presenceStatus={presenceStatus}
           leadTagsMap={leadTagsMap}
