@@ -70,6 +70,7 @@ const Chat = () => {
   // Core state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [lockedLeadId, setLockedLeadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -808,6 +809,10 @@ const Chat = () => {
   const pinnedFilteredLeads = useMemo(() => baseFilteredLeads.filter((lead) => pinnedLeads.includes(lead.id)).sort((a, b) => pinnedLeads.indexOf(a.id) - pinnedLeads.indexOf(b.id)), [baseFilteredLeads, pinnedLeads]);
 
   const unpinnedFilteredLeads = useMemo(() => baseFilteredLeads.filter((lead) => !pinnedLeads.includes(lead.id)).sort((a, b) => {
+    // Lead travado sempre fica na posição atual (topo dos não-fixados)
+    if (a.id === lockedLeadId) return -1;
+    if (b.id === lockedLeadId) return 1;
+    
     switch (filterOption) {
       case "alphabetical": return a.nome_lead.localeCompare(b.nome_lead);
       case "created": return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -817,7 +822,7 @@ const Chat = () => {
         return bTime - aTime;
       default: return 0;
     }
-  }), [baseFilteredLeads, pinnedLeads, filterOption]);
+  }), [baseFilteredLeads, pinnedLeads, filterOption, lockedLeadId]);
 
   const activeFiltersCount = (filterOption !== "none" ? 1 : 0) + selectedTagIds.length;
 
@@ -835,9 +840,10 @@ const Chat = () => {
                 lead={lead}
                 isSelected={selectedLead?.id === lead.id}
                 isPinned={true}
+                isLocked={lead.id === lockedLeadId}
                 presenceStatus={presenceStatus.get(lead.id)}
                 tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
-                onClick={() => { setSelectedLead(lead); refreshPresenceForLead(lead); }}
+                onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
               />
             </div>
@@ -958,9 +964,10 @@ const Chat = () => {
                                 lead={lead}
                                 isSelected={selectedLead?.id === lead.id}
                                 isPinned={false}
+                                isLocked={lead.id === lockedLeadId}
                                 presenceStatus={presenceStatus.get(lead.id)}
                                 tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
-                                onClick={() => { setSelectedLead(lead); refreshPresenceForLead(lead); }}
+                                onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
                                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
                               />
                             </div>
