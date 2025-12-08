@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import {
@@ -53,12 +53,31 @@ const bottomItems = [
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
+const SIDEBAR_LOCK_KEY = "sidebar-locked";
+
 export function AppSidebar() {
   const { open, setOpen } = useSidebar();
   const { signOut, user, subscriptionData } = useAuth();
   const permissions = usePermissions();
-  const [isLocked, setIsLocked] = useState(false);
+  
+  // Inicializar estado de bloqueio do localStorage
+  const [isLocked, setIsLocked] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_LOCK_KEY);
+    return saved === 'true';
+  });
   const [administrativoOpen, setAdministrativoOpen] = useState(false);
+
+  // Persistir estado de bloqueio no localStorage
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_LOCK_KEY, String(isLocked));
+  }, [isLocked]);
+
+  // Manter sidebar aberto quando bloqueado
+  useEffect(() => {
+    if (isLocked && !open) {
+      setOpen(true);
+    }
+  }, [isLocked, open, setOpen]);
 
   const handleMouseEnter = () => {
     if (!isLocked) {
