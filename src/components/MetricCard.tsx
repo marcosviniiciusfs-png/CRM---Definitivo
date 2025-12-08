@@ -48,7 +48,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, iconColor, tren
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         <Icon className={`h-4 w-4 ${iconColor || "text-muted-foreground"}`} />
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-h-[52px]">
         <div className="flex items-center gap-3">
           <div className="text-2xl font-bold">
             <AnimatedNumber value={value} />
