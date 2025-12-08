@@ -103,6 +103,60 @@ export const SecureAudio = memo(function SecureAudio({
   );
 });
 
+interface SecureVideoProps {
+  mediaUrl: string | null | undefined;
+  autoPlay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+  className?: string;
+}
+
+export const SecureVideo = memo(function SecureVideo({ 
+  mediaUrl, 
+  autoPlay = false,
+  loop = false,
+  muted = false,
+  className = ""
+}: SecureVideoProps) {
+  const { signedUrl, loading, error } = useSignedMediaUrl(mediaUrl);
+  const [videoError, setVideoError] = useState(false);
+
+  if (!mediaUrl) {
+    return (
+      <div className="flex items-center gap-2 text-sm opacity-70">
+        <AlertCircle className="h-4 w-4" />
+        <span>Vídeo indisponível</span>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <Skeleton className="w-48 h-48 rounded-lg" />;
+  }
+
+  if (error || videoError) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/50 rounded-lg">
+        <AlertCircle className="h-4 w-4" />
+        <span>Erro ao carregar vídeo</span>
+      </div>
+    );
+  }
+
+  return (
+    <video
+      src={signedUrl || mediaUrl}
+      className={`rounded-lg max-w-full max-h-96 ${className}`}
+      controls={!autoPlay}
+      autoPlay={autoPlay}
+      loop={loop}
+      muted={muted}
+      playsInline
+      onError={() => setVideoError(true)}
+    />
+  );
+});
+
 interface SecureDocumentProps {
   mediaUrl: string | null | undefined;
   fileName?: string;

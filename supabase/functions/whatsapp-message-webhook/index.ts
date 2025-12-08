@@ -376,6 +376,17 @@ serve(async (req) => {
         mimetype: messageInfo.imageMessage.mimetype,
         fileLength: messageInfo.imageMessage.fileLength
       };
+    } else if (messageInfo.videoMessage?.gifPlayback) {
+      // GIFs vêm como vídeos com flag gifPlayback = true
+      messageContent = '[GIF]';
+      originalMediaUrl = messageInfo.videoMessage.url;
+      mediaType = 'gif';
+      mediaMetadata = {
+        mimetype: messageInfo.videoMessage.mimetype,
+        fileLength: messageInfo.videoMessage.fileLength,
+        seconds: messageInfo.videoMessage.seconds,
+        gifPlayback: true
+      };
     } else if (messageInfo.videoMessage) {
       messageContent = `[Vídeo] ${messageInfo.videoMessage.caption || ''}`;
       originalMediaUrl = messageInfo.videoMessage.url;
@@ -384,6 +395,16 @@ serve(async (req) => {
         mimetype: messageInfo.videoMessage.mimetype,
         fileLength: messageInfo.videoMessage.fileLength,
         seconds: messageInfo.videoMessage.seconds
+      };
+    } else if (messageInfo.stickerMessage) {
+      // Stickers (Figurinhas)
+      messageContent = '[Figurinha]';
+      originalMediaUrl = messageInfo.stickerMessage.url;
+      mediaType = 'sticker';
+      mediaMetadata = {
+        mimetype: messageInfo.stickerMessage.mimetype,
+        fileLength: messageInfo.stickerMessage.fileLength,
+        isAnimated: messageInfo.stickerMessage.isAnimated
       };
     } else if (messageInfo.audioMessage) {
       messageContent = '[Áudio]';

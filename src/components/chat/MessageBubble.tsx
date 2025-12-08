@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Message, MessageReaction, Lead } from "@/types/chat";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
-import { SecureImage, SecureAudio, SecureDocument } from "./SecureMediaDisplay";
+import { SecureImage, SecureAudio, SecureDocument, SecureVideo } from "./SecureMediaDisplay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -173,10 +173,10 @@ export const MessageBubble = memo(function MessageBubble({
           message.direcao === "SAIDA" ? "bg-chat-bubble text-chat-bubble-foreground" : "bg-muted"
         } ${isSearchMatch ? (isCurrentSearchResult ? "ring-2 ring-primary" : "ring-2 ring-yellow-400") : ""}`}
       >
-        {/* Dropdown menu inside bubble */}
+        {/* Dropdown menu inside bubble - z-10 para ficar acima das imagens */}
         <DropdownMenu open={dropdownOpen} onOpenChange={onToggleDropdown}>
           <DropdownMenuTrigger asChild>
-            <button className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm p-1 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
+            <button className="absolute top-2 right-2 z-10 bg-background/90 backdrop-blur-sm p-1.5 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100 shadow-sm">
               <ChevronDown className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
@@ -260,6 +260,27 @@ export const MessageBubble = memo(function MessageBubble({
               <p className="text-sm whitespace-pre-wrap">{formatMessageBody(message.corpo_mensagem)}</p>
             )}
           </div>
+        ) : message.media_type === "sticker" ? (
+          <div className="w-32 h-32">
+            <SecureImage 
+              mediaUrl={message.media_url} 
+              alt="Figurinha" 
+              className="w-full h-full object-contain" 
+            />
+          </div>
+        ) : message.media_type === "gif" ? (
+          <SecureVideo 
+            mediaUrl={message.media_url} 
+            autoPlay 
+            loop 
+            muted 
+            className="max-w-[280px]"
+          />
+        ) : message.media_type === "video" ? (
+          <SecureVideo 
+            mediaUrl={message.media_url} 
+            className="max-w-[320px]"
+          />
         ) : message.media_type === "document" ? (
           <SecureDocument
             mediaUrl={message.media_url}
