@@ -45,17 +45,17 @@ export function SalesGauge({ current, target, label = "Meta Atingida", isLoading
         <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center pt-2">
-        <div className="relative w-full h-[100px]">
+        <div className="relative w-full h-[110px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={gaugeData}
                 cx="50%"
-                cy="90%"
+                cy="85%"
                 startAngle={180}
                 endAngle={0}
-                innerRadius="55%"
-                outerRadius="85%"
+                innerRadius="50%"
+                outerRadius="80%"
                 dataKey="value"
                 stroke="none"
               >
@@ -65,7 +65,7 @@ export function SalesGauge({ current, target, label = "Meta Atingida", isLoading
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
+          <div className="absolute inset-x-0 bottom-1 flex flex-col items-center">
             <span className="text-2xl font-bold tabular-nums">{percentage}%</span>
           </div>
         </div>
