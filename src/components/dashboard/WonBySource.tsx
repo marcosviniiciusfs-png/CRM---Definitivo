@@ -57,11 +57,11 @@ export function WonBySource({ data, totalValue, isLoading }: WonBySourceProps) {
       </CardHeader>
       <CardContent className="pt-0">
         {data.length === 0 ? (
-          <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+          <div className="h-[350px] flex items-center justify-center text-sm text-muted-foreground">
             Nenhum dado disponível
           </div>
         ) : (
-          <div className="h-[200px] flex flex-col items-center">
+          <div className="h-[350px] flex flex-col items-center">
             <div className="relative flex-1 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -69,8 +69,8 @@ export function WonBySource({ data, totalValue, isLoading }: WonBySourceProps) {
                     data={chartData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={35}
-                    outerRadius={60}
+                    innerRadius={70}
+                    outerRadius={120}
                     dataKey="value"
                     stroke="none"
                   >
