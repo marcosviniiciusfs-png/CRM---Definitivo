@@ -533,7 +533,7 @@ const Chat = () => {
       if (!instanceData) throw new Error("Nenhuma instância WhatsApp conectada");
 
       const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
-        body: { instance_name: instanceData.instance_name, remoteJid: selectedLead.telefone_lead, message: fullMessage, leadId: selectedLead.id },
+        body: { instance_name: instanceData.instance_name, remoteJid: selectedLead.telefone_lead, message_text: fullMessage, leadId: selectedLead.id },
       });
 
       if (error || !data?.success) throw new Error(data?.error || "Erro ao enviar mensagem");
@@ -593,7 +593,7 @@ const Chat = () => {
 
           if (error || !data?.success) throw new Error(data?.error || "Erro ao enviar áudio");
 
-          setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? { ...msg, evolution_message_id: data.messageId, status_entrega: "SENT" as const, media_url: data.mediaUrl || msg.media_url } : msg)));
+          setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? { ...msg, evolution_message_id: data.messageId, status_entrega: "SENT" as const, media_url: data.mediaUrl || msg.media_url, isOptimistic: false } : msg)));
           toast({ title: "Áudio enviado", description: "O áudio foi enviado via WhatsApp" });
         } catch (error) {
           setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? { ...msg, sendError: true } : msg)));
