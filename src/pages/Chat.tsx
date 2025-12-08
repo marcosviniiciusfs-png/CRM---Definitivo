@@ -926,9 +926,9 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
+    <div className="flex h-[calc(100vh-8rem)] gap-4 min-w-0 overflow-hidden">
       {/* Leads List */}
-      <Card className="w-80 flex flex-col overflow-hidden h-full">
+      <Card className="w-80 flex-shrink-0 flex flex-col overflow-hidden h-full">
         <div className="p-4 border-b space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Conversas</h2>
@@ -1072,7 +1072,7 @@ const Chat = () => {
       </Card>
 
       {/* Chat Area */}
-      <Card className="flex-1 flex flex-col overflow-hidden h-full">
+      <Card className="flex-1 flex flex-col overflow-hidden h-full min-w-0">
         {selectedLead ? (
           <>
             <ChatHeader
