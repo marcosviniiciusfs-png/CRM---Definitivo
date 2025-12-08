@@ -92,7 +92,7 @@ export const ChatInput = memo(function ChatInput({
         </Button>
 
         {/* Message input */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-w-0 overflow-hidden">
           {isRecording ? (
             <div className="flex items-center justify-between bg-destructive/10 rounded-lg px-4 py-3">
               <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export const ChatInput = memo(function ChatInput({
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={disabled || sending}
-              className="min-h-[44px] max-h-32 resize-none pr-12"
+              className="min-h-[44px] max-h-32 resize-none pr-12 w-full"
               rows={1}
             />
           )}
