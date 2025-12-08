@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Line } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp, Search, Filter, Check } from "lucide-react";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp, Search, Filter, Check, UserPlus, FileSpreadsheet } from "lucide-react";
 import { AdCard } from "@/components/AdCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,6 +46,13 @@ interface WhatsAppAdvancedMetrics {
   responseRate: number;
   pipelineConversionRate: number;
   avgResponseTimeMinutes: number;
+}
+
+interface ManualAdvancedMetrics {
+  totalManual: number;
+  totalImported: number;
+  conversionRate: number;
+  leadsByType: { type: string; count: number }[];
 }
 
 // ============= INTERFACES EXPANDIDAS =============
@@ -154,6 +161,13 @@ const LeadMetrics = () => {
     responseRate: 0,
     pipelineConversionRate: 0,
     avgResponseTimeMinutes: 0
+  });
+  const [manualMetrics, setManualMetrics] = useState<MetricsData | null>(null);
+  const [manualAdvanced, setManualAdvanced] = useState<ManualAdvancedMetrics>({
+    totalManual: 0,
+    totalImported: 0,
+    conversionRate: 0,
+    leadsByType: []
   });
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
@@ -281,7 +295,7 @@ const LeadMetrics = () => {
 
       const { startDate, endDate } = getDateRange();
 
-      const [facebookResult, whatsappResult] = await Promise.all([
+      const [facebookResult, whatsappResult, manualResult] = await Promise.all([
         supabase
           .from('leads')
           .select('created_at')
@@ -295,6 +309,14 @@ const LeadMetrics = () => {
           .select('created_at')
           .eq('organization_id', orgMember.organization_id)
           .eq('source', 'WhatsApp')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('leads')
+          .select('created_at, source')
+          .eq('organization_id', orgMember.organization_id)
+          .in('source', ['Manual', 'Importação'])
           .gte('created_at', startDate.toISOString())
           .lte('created_at', endDate.toISOString())
           .order('created_at', { ascending: true })
@@ -314,6 +336,14 @@ const LeadMetrics = () => {
       } else {
         setWhatsappMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
         setWhatsappAdvanced({ responseRate: 0, pipelineConversionRate: 0, avgResponseTimeMinutes: 0 });
+      }
+
+      if (manualResult.data && manualResult.data.length > 0) {
+        setManualMetrics(processMetrics(manualResult.data));
+        await loadManualAdvancedMetrics(orgMember.organization_id, startDate, endDate);
+      } else {
+        setManualMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
+        setManualAdvanced({ totalManual: 0, totalImported: 0, conversionRate: 0, leadsByType: [] });
       }
 
       // Load ads metrics
@@ -601,6 +631,48 @@ const LeadMetrics = () => {
     }
   };
 
+  const loadManualAdvancedMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
+    try {
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('id, stage, source, created_at')
+        .eq('organization_id', organizationId)
+        .in('source', ['Manual', 'Importação'])
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+
+      if (!allLeads || allLeads.length === 0) {
+        setManualAdvanced({
+          totalManual: 0,
+          totalImported: 0,
+          conversionRate: 0,
+          leadsByType: []
+        });
+        return;
+      }
+
+      const totalManual = allLeads.filter(l => l.source === 'Manual').length;
+      const totalImported = allLeads.filter(l => l.source === 'Importação').length;
+
+      const qualifiedLeads = allLeads.filter(lead => lead.stage && lead.stage !== 'NOVO');
+      const conversionRate = allLeads.length > 0 ? (qualifiedLeads.length / allLeads.length) * 100 : 0;
+
+      const leadsByType = [
+        { type: 'Manual', count: totalManual },
+        { type: 'Importação', count: totalImported }
+      ].filter(t => t.count > 0);
+
+      setManualAdvanced({
+        totalManual,
+        totalImported,
+        conversionRate: Number(conversionRate.toFixed(1)),
+        leadsByType
+      });
+    } catch (error) {
+      console.error('Erro ao carregar métricas avançadas de cadastro manual:', error);
+    }
+  };
+
   const processMetrics = (leads: any[]): MetricsData => {
     const { startDate, endDate } = getDateRange();
     
@@ -707,7 +779,7 @@ const LeadMetrics = () => {
 
       <Tabs defaultValue="facebook" className="space-y-6">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="facebook" className="flex items-center gap-2">
               <Facebook className="h-4 w-4" />
               Meta Ads
@@ -715,6 +787,10 @@ const LeadMetrics = () => {
             <TabsTrigger value="whatsapp" className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4" />
               WhatsApp
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Cadastro Manual
             </TabsTrigger>
             <TabsTrigger value="campaigns" className="flex items-center gap-2">
               <Megaphone className="h-4 w-4" />
@@ -1159,6 +1235,198 @@ const LeadMetrics = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Manual Registration Tab */}
+        <TabsContent value="manual" className="space-y-6">
+          <TooltipProvider>
+            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <MetricCard
+                      title={`Total de Leads (${getDateRange().days} dias)`}
+                      value={manualMetrics?.total || 0}
+                      icon={Users}
+                      iconColor="text-orange-500"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Como é calculado:</p>
+                  <p className="text-sm">Contagem total de leads cadastrados manualmente ou importados no período selecionado.</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <MetricCard
+                      title="Cadastros Manuais"
+                      value={manualAdvanced.totalManual}
+                      icon={UserPlus}
+                      iconColor="text-orange-500"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Como é calculado:</p>
+                  <p className="text-sm">Total de leads criados manualmente através do formulário de cadastro do CRM.</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <MetricCard
+                      title="Leads Importados"
+                      value={manualAdvanced.totalImported}
+                      icon={FileSpreadsheet}
+                      iconColor="text-blue-500"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Como é calculado:</p>
+                  <p className="text-sm">Total de leads importados via planilha Excel/CSV para o CRM.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <MetricCard
+                      title="Taxa de Conversão p/ Pipeline"
+                      value={`${manualAdvanced.conversionRate}%`}
+                      subtitle="Leads movidos para vendas"
+                      icon={Target}
+                      iconColor="text-purple-500"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Como é calculado:</p>
+                  <p className="text-sm">(Leads com stage diferente de "NOVO" / Total de Leads) × 100. Indica quantos leads manuais/importados foram qualificados.</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <MetricCard
+                      title="Segunda Metade do Período"
+                      value={manualMetrics?.thisWeekTotal || 0}
+                      icon={TrendingUp}
+                      iconColor="text-green-500"
+                      trend={{
+                        value: `${manualMetrics?.growthRate || 0}%`,
+                        positive: Number(manualMetrics?.growthRate || 0) >= 0
+                      }}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Como é calculado:</p>
+                  <p className="text-sm">Total de leads cadastrados/importados na segunda metade do período. A taxa compara com a primeira metade.</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <MetricCard
+                      title="Primeira Metade do Período"
+                      value={manualMetrics?.lastWeekTotal || 0}
+                      icon={UserPlus}
+                      iconColor="text-orange-600"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Como é calculado:</p>
+                  <p className="text-sm">Total de leads cadastrados/importados na primeira metade do período, usado como base de comparação.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Tendência de Leads - Cadastro Manual</CardTitle>
+            </CardHeader>
+            <CardContent className="transition-all duration-500">
+              <ResponsiveContainer width="100%" height={400}>
+                <AreaChart data={manualMetrics?.chartData || []}>
+                  <defs>
+                    <linearGradient id="manualGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                  />
+                  <YAxis
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                  />
+                  <RechartsTooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    fill="url(#manualGradient)"
+                    animationDuration={800}
+                    animationEasing="ease-in-out"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {manualAdvanced.leadsByType.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Volume por Tipo de Cadastro</CardTitle>
+              </CardHeader>
+              <CardContent className="transition-all duration-500">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={manualAdvanced.leadsByType}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="type"
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar
+                      dataKey="count"
+                      fill="#f97316"
+                      radius={[4, 4, 0, 0]}
+                      animationDuration={800}
+                      animationEasing="ease-in-out"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Campaigns Tab */}
