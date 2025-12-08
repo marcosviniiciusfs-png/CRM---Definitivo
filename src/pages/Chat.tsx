@@ -103,6 +103,9 @@ const Chat = () => {
   const [pinnedLeads, setPinnedLeads] = useState<string[]>([]);
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  
   // Presence & reactions state
   const [presenceStatus, setPresenceStatus] = useState<Map<string, PresenceInfo>>(new Map());
   const [messageReactions, setMessageReactions] = useState<Map<string, MessageReaction[]>>(new Map());
@@ -471,9 +474,21 @@ const Chat = () => {
   const loadMessages = async (leadId: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("mensagens_chat").select("*").eq("id_lead", leadId).order("data_hora", { ascending: true });
+      const { data, error } = await supabase.from("mensagens_chat").select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)").eq("id_lead", leadId).order("data_hora", { ascending: true });
       if (error) throw error;
-      setMessages((data || []) as Message[]);
+      
+      // Map quoted messages to the correct format
+      const messagesWithQuotes = (data || []).map((msg: any) => ({
+        ...msg,
+        quoted_message: msg.quoted ? {
+          corpo_mensagem: msg.quoted.corpo_mensagem,
+          direcao: msg.quoted.direcao,
+          media_type: msg.quoted.media_type,
+        } : null,
+        quoted_message_id: msg.quoted_message_id,
+      })) as Message[];
+      
+      setMessages(messagesWithQuotes);
 
       const messageIds = data?.map((m) => m.id) || [];
       if (messageIds.length > 0) {
@@ -517,10 +532,17 @@ const Chat = () => {
       created_at: new Date().toISOString(),
       isOptimistic: true,
       sendError: false,
+      quoted_message_id: replyingTo?.id || null,
+      quoted_message: replyingTo ? {
+        corpo_mensagem: replyingTo.corpo_mensagem,
+        direcao: replyingTo.direcao,
+        media_type: replyingTo.media_type,
+      } : null,
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
     setNewMessage("");
+    setReplyingTo(null);
     messageInputRef.current?.focus();
 
     try {
@@ -534,7 +556,13 @@ const Chat = () => {
       if (!instanceData) throw new Error("Nenhuma instância WhatsApp conectada");
 
       const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
-        body: { instance_name: instanceData.instance_name, remoteJid: selectedLead.telefone_lead, message_text: fullMessage, leadId: selectedLead.id },
+        body: { 
+          instance_name: instanceData.instance_name, 
+          remoteJid: selectedLead.telefone_lead, 
+          message_text: fullMessage, 
+          leadId: selectedLead.id,
+          quotedMessageId: replyingTo?.evolution_message_id || undefined,
+        },
       });
 
       if (error || !data?.success) throw new Error(data?.error || "Erro ao enviar mensagem");
@@ -547,7 +575,7 @@ const Chat = () => {
       setSending(false);
       messageInputRef.current?.focus();
     }
-  }, [selectedLead, sending, currentUserName, toast]);
+  }, [selectedLead, sending, currentUserName, toast, replyingTo]);
 
   const sendAudio = useCallback(async (audioBlob: Blob) => {
     if (!selectedLead || sendingAudio) return;
@@ -1089,6 +1117,16 @@ const Chat = () => {
                             onToggleReaction={(emoji) => toggleReaction(message.id, emoji)}
                             onTogglePin={() => togglePinMessage(message)}
                             onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
+                            onReply={(msg) => {
+                              setReplyingTo(msg);
+                              messageInputRef.current?.focus();
+                            }}
+                            onScrollToMessage={(messageId) => {
+                              const el = document.getElementById(`message-${messageId}`);
+                              el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                              el?.classList.add("ring-2", "ring-primary");
+                              setTimeout(() => el?.classList.remove("ring-2", "ring-primary"), 2000);
+                            }}
                             messageRef={(el) => {
                               if (isSearchMatch && searchResultIndex >= 0) {
                                 searchResultRefs.current.set(searchResultIndex, el);
@@ -1117,6 +1155,9 @@ const Chat = () => {
               onStopRecording={opusRecorder.stopRecording}
               onFileSelect={handleFileSelect}
               inputRef={messageInputRef}
+              replyingTo={replyingTo}
+              onCancelReply={() => setReplyingTo(null)}
+              leadName={selectedLead?.nome_lead}
             />
           </>
         ) : (

@@ -2,6 +2,8 @@ import { memo, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Send, Mic, Paperclip, Square, Loader2 } from "lucide-react";
+import { Message } from "@/types/chat";
+import { ReplyPreview } from "./ReplyPreview";
 
 interface ChatInputProps {
   newMessage: string;
@@ -17,6 +19,9 @@ interface ChatInputProps {
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   disabled?: boolean;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
+  leadName?: string;
 }
 
 export const ChatInput = memo(function ChatInput({
@@ -33,6 +38,9 @@ export const ChatInput = memo(function ChatInput({
   onFileSelect,
   inputRef,
   disabled = false,
+  replyingTo,
+  onCancelReply,
+  leadName = "",
 }: ChatInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,8 +58,16 @@ export const ChatInput = memo(function ChatInput({
   };
 
   return (
-    <form onSubmit={onSendMessage} className="p-4 border-t">
-      <div className="flex gap-2 items-end">
+    <form onSubmit={onSendMessage} className="border-t">
+      {/* Reply preview */}
+      {replyingTo && onCancelReply && (
+        <ReplyPreview
+          message={replyingTo}
+          leadName={leadName}
+          onCancel={onCancelReply}
+        />
+      )}
+      <div className="p-4 flex gap-2 items-end">
         {/* File attachment button */}
         <input
           type="file"

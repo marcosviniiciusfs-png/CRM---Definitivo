@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, CheckCheck, Clock, ChevronDown, Pin, Copy, Star, Trash2, Smile, AlertCircle, RotateCcw } from "lucide-react";
+import { Check, CheckCheck, Clock, ChevronDown, Pin, Copy, Star, Trash2, Smile, AlertCircle, RotateCcw, Reply, Mic, Image, File } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface MessageBubbleProps {
@@ -27,6 +27,8 @@ interface MessageBubbleProps {
   onTogglePin: () => void;
   onRetry?: () => void;
   onAvatarClick: (url: string, name: string) => void;
+  onReply: (message: Message) => void;
+  onScrollToMessage?: (messageId: string) => void;
   messageRef?: (el: HTMLDivElement | null) => void;
 }
 
@@ -48,6 +50,8 @@ export const MessageBubble = memo(function MessageBubble({
   onTogglePin,
   onRetry,
   onAvatarClick,
+  onReply,
+  onScrollToMessage,
   messageRef,
 }: MessageBubbleProps) {
   const { toast } = useToast();
@@ -131,6 +135,15 @@ export const MessageBubble = memo(function MessageBubble({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
             <DropdownMenuItem
+              onClick={() => {
+                onReply(message);
+                onToggleDropdown(false);
+              }}
+            >
+              <Reply className="h-4 w-4 mr-2" />
+              Responder
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
                 onToggleReactionPopover();
@@ -183,6 +196,38 @@ export const MessageBubble = memo(function MessageBubble({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Quoted message preview */}
+        {message.quoted_message && (
+          <div
+            className="mb-2 p-2 rounded bg-background/50 border-l-2 border-primary/50 cursor-pointer hover:bg-background/70 transition-colors"
+            onClick={() => onScrollToMessage?.(message.quoted_message_id || "")}
+          >
+            <p className="text-xs font-medium text-primary/70">
+              {message.quoted_message.direcao === "ENTRADA" ? lead.nome_lead : "Você"}
+            </p>
+            <p className="text-xs truncate text-muted-foreground">
+              {message.quoted_message.media_type === "audio" ? (
+                <span className="flex items-center gap-1">
+                  <Mic className="h-3 w-3" />
+                  Mensagem de áudio
+                </span>
+              ) : message.quoted_message.media_type === "image" ? (
+                <span className="flex items-center gap-1">
+                  <Image className="h-3 w-3" />
+                  Foto
+                </span>
+              ) : message.quoted_message.media_type === "document" ? (
+                <span className="flex items-center gap-1">
+                  <File className="h-3 w-3" />
+                  Documento
+                </span>
+              ) : (
+                message.quoted_message.corpo_mensagem || "[Mídia]"
+              )}
+            </p>
+          </div>
+        )}
 
         {/* Message content */}
         {message.media_type === "audio" ? (

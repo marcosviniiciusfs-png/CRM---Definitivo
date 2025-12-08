@@ -1382,6 +1382,7 @@ export type Database = {
           media_metadata: Json | null
           media_type: string | null
           media_url: string | null
+          quoted_message_id: string | null
           status_entrega: string | null
         }
         Insert: {
@@ -1395,6 +1396,7 @@ export type Database = {
           media_metadata?: Json | null
           media_type?: string | null
           media_url?: string | null
+          quoted_message_id?: string | null
           status_entrega?: string | null
         }
         Update: {
@@ -1408,6 +1410,7 @@ export type Database = {
           media_metadata?: Json | null
           media_type?: string | null
           media_url?: string | null
+          quoted_message_id?: string | null
           status_entrega?: string | null
         }
         Relationships: [
@@ -1416,6 +1419,13 @@ export type Database = {
             columns: ["id_lead"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_chat_quoted_message_id_fkey"
+            columns: ["quoted_message_id"]
+            isOneToOne: false
+            referencedRelation: "mensagens_chat"
             referencedColumns: ["id"]
           },
         ]
