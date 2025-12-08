@@ -169,9 +169,10 @@ export const MessageBubble = memo(function MessageBubble({
       )}
 
       <div
-        className={`max-w-[70%] rounded-lg p-3 relative ${
+        className={`max-w-[70%] rounded-lg p-3 relative overflow-hidden break-words ${
           message.direcao === "SAIDA" ? "bg-chat-bubble text-chat-bubble-foreground" : "bg-muted"
         } ${isSearchMatch ? (isCurrentSearchResult ? "ring-2 ring-primary" : "ring-2 ring-yellow-400") : ""}`}
+        style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
       >
         {/* Dropdown menu inside bubble - z-10 para ficar acima das imagens */}
         <DropdownMenu open={dropdownOpen} onOpenChange={onToggleDropdown}>
@@ -288,7 +289,7 @@ export const MessageBubble = memo(function MessageBubble({
             fileSize={message.media_metadata?.fileSize}
           />
         ) : (
-          <p className="text-sm whitespace-pre-wrap">{formatMessageBody(message.corpo_mensagem)}</p>
+          <p className="text-sm whitespace-pre-wrap break-words" style={{ overflowWrap: 'break-word' }}>{formatMessageBody(message.corpo_mensagem)}</p>
         )}
 
         {/* Timestamp and status */}
