@@ -678,7 +678,7 @@ const Leads = () => {
       {showBulkActions && permissions.canViewAllLeads && (
         <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between animate-in slide-in-from-top">
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">
+            <span className="text-sm font-medium text-white">
               {selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''} selecionado{selectedLeads.length > 1 ? 's' : ''}
             </span>
             <Button
