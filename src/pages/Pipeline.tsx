@@ -961,7 +961,7 @@ const Pipeline = () => {
             >
               <div 
                 className={cn(
-                  "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                  "flex gap-3 overflow-x-auto pb-4 scrollbar-subtle pipeline-content",
                   isTabTransitioning && "transitioning"
                 )}
                 data-dragging-active={isDraggingActive}
@@ -991,7 +991,7 @@ const Pipeline = () => {
         ) : (
           <div 
             className={cn(
-              "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+              "flex gap-3 overflow-x-auto pb-4 scrollbar-subtle pipeline-content",
               isTabTransitioning && "transitioning"
             )}
             data-dragging-active={isDraggingActive}
