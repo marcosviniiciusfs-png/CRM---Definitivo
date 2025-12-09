@@ -43,6 +43,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [empresa, setEmpresa] = useState("");
+  const [idade, setIdade] = useState("");
   const [valor, setValor] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -159,6 +160,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     setTelefone("");
     setEmail("");
     setEmpresa("");
+    setIdade("");
     setValor("");
     setSelectedFunnelId("");
     setSelectedStageId("");
@@ -202,6 +204,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         telefone_lead: telefone.trim(),
         email: email.trim() || null,
         empresa: empresa.trim() || null,
+        idade: idade.trim() ? parseInt(idade) : null,
         source: "Manual",
         funnel_id: selectedFunnelId,
         funnel_stage_id: selectedStageId,
@@ -287,6 +290,19 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
               value={empresa}
               onChange={(e) => setEmpresa(e.target.value)}
               placeholder="Nome da empresa"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="idade">Idade</Label>
+            <Input
+              id="idade"
+              type="number"
+              min="0"
+              max="150"
+              value={idade}
+              onChange={(e) => setIdade(e.target.value)}
+              placeholder="Ex: 25"
             />
           </div>
 

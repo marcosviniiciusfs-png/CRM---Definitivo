@@ -1301,6 +1301,7 @@ export type Database = {
           funnel_id: string | null
           funnel_stage_id: string | null
           id: string
+          idade: number | null
           is_online: boolean | null
           last_duplicate_attempt_at: string | null
           last_message_at: string | null
@@ -1331,6 +1332,7 @@ export type Database = {
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string
+          idade?: number | null
           is_online?: boolean | null
           last_duplicate_attempt_at?: string | null
           last_message_at?: string | null
@@ -1361,6 +1363,7 @@ export type Database = {
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string
+          idade?: number | null
           is_online?: boolean | null
           last_duplicate_attempt_at?: string | null
           last_message_at?: string | null

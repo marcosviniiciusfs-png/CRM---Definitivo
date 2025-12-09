@@ -71,10 +71,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editingDataInicio, setEditingDataInicio] = useState(false);
   const [editingDataConclusao, setEditingDataConclusao] = useState(false);
   const [editingDescricao, setEditingDescricao] = useState(false);
+  const [editingIdade, setEditingIdade] = useState(false);
   const [dataInicio, setDataInicio] = useState<Date | undefined>(new Date());
   const [dataConclusao, setDataConclusao] = useState<Date | undefined>(undefined);
   const [descricao, setDescricao] = useState("");
   const [responsavel, setResponsavel] = useState("");
+  const [idade, setIdade] = useState<number | null>(null);
   const [colaboradores, setColaboradores] = useState<Array<{ 
     id: string; 
     email: string; 
@@ -103,7 +105,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     try {
       const { data, error } = await supabase
         .from('leads')
-        .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor')
+        .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor, idade')
         .eq('id', lead.id)
         .single();
 
@@ -114,6 +116,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         setDataInicio(data.data_inicio ? new Date(data.data_inicio) : new Date());
         setDataConclusao(data.data_conclusao ? new Date(data.data_conclusao) : undefined);
         setDescricao(data.descricao_negocio || '');
+        setIdade(data.idade || null);
         // Atualizar o valor com os dados mais recentes do banco
         setEditedValue(data.valor?.toString() || "0");
       } else {
@@ -2037,6 +2040,75 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 onClick={async () => {
                                   await saveDadosNegocio();
                                   setEditingDescricao(false);
+                                }}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  {/* Idade */}
+                  <div className="flex items-start justify-between group">
+                    <span className="text-muted-foreground">Idade</span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("font-medium", !idade && "text-muted-foreground")}>
+                        {idade ? `${idade} anos` : "Adicionar idade"}
+                      </span>
+                      <Popover open={editingIdade} onOpenChange={setEditingIdade} modal={false}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-accent/50"
+                            type="button"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                          <div className="space-y-3">
+                            <Label htmlFor="idade">Idade</Label>
+                            <Input
+                              id="idade"
+                              type="number"
+                              min="0"
+                              max="150"
+                              placeholder="Ex: 25"
+                              value={idade?.toString() || ""}
+                              onChange={(e) => setIdade(e.target.value ? parseInt(e.target.value) : null)}
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingIdade(false);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const { error } = await supabase
+                                      .from('leads')
+                                      .update({ idade: idade })
+                                      .eq('id', lead.id);
+
+                                    if (error) throw error;
+
+                                    setEditingIdade(false);
+                                    toast.success("Idade atualizada com sucesso!");
+                                    onUpdate();
+                                  } catch (error) {
+                                    console.error('Erro ao salvar idade:', error);
+                                    toast.error('Erro ao salvar idade');
+                                  }
                                 }}
                               >
                                 <Check className="h-4 w-4" />
