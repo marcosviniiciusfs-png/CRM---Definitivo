@@ -122,12 +122,12 @@ export default function Producao() {
         </div>
 
         <Tabs defaultValue="producao" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="producao" className="gap-2">
+          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent max-w-md">
+            <TabsTrigger value="producao" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <Factory className="h-4 w-4" />
               Produção
             </TabsTrigger>
-            <TabsTrigger value="produtos" className="gap-2">
+            <TabsTrigger value="produtos" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <Package className="h-4 w-4" />
               Produtos da Empresa
             </TabsTrigger>

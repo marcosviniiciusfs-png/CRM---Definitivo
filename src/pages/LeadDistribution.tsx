@@ -18,18 +18,18 @@ export default function LeadDistribution() {
       </div>
 
       <Tabs defaultValue={permissions.canCreateRoulettes ? "config" : "agent"} className="space-y-6">
-        <TabsList>
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
           {permissions.canCreateRoulettes && (
-            <TabsTrigger value="config" className="flex items-center gap-2">
+            <TabsTrigger value="config" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <Settings2 className="h-4 w-4" />
               Roletas
             </TabsTrigger>
           )}
-          <TabsTrigger value="agent" className="flex items-center gap-2">
+          <TabsTrigger value="agent" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <User className="h-4 w-4" />
             {permissions.canManageAgentSettings ? "Configurar Agentes" : "Minhas Preferências"}
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
+          <TabsTrigger value="history" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <History className="h-4 w-4" />
             Histórico
           </TabsTrigger>

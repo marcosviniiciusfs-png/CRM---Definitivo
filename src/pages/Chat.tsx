@@ -1027,9 +1027,9 @@ const Chat = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <TabsList className="mx-4 mt-2 grid w-[calc(100%-2rem)] grid-cols-2">
-            <TabsTrigger value="all" className="text-sm">Tudo</TabsTrigger>
-            <TabsTrigger value="pinned" className="text-sm gap-1">
+          <TabsList className="mx-4 mt-2 w-[calc(100%-2rem)] justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <TabsTrigger value="all" className="text-sm rounded-none px-4 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Tudo</TabsTrigger>
+            <TabsTrigger value="pinned" className="text-sm gap-1 rounded-none px-4 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               Fixados
               {pinnedFilteredLeads.length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{pinnedFilteredLeads.length}</Badge>}
             </TabsTrigger>

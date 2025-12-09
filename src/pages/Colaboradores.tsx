@@ -437,12 +437,12 @@ const Colaboradores = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="gerenciamento" className="space-y-6">
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="gerenciamento" className="gap-2">
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+          <TabsTrigger value="gerenciamento" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <Users className="h-4 w-4" />
             Gerenciamento
           </TabsTrigger>
-          <TabsTrigger value="dashboard" className="gap-2">
+          <TabsTrigger value="dashboard" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <BarChart3 className="h-4 w-4" />
             Dashboard de Colaboradores
           </TabsTrigger>

@@ -330,17 +330,17 @@ export default function Atividades() {
         </div>
 
         <Tabs defaultValue="messages" className="space-y-6">
-          <TabsList className="inline-flex h-12 items-center justify-start rounded-lg bg-muted p-1 w-full">
-            <TabsTrigger value="messages" className="flex-1">
-              <MessageSquare className="h-4 w-4 mr-2" />
+          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <TabsTrigger value="messages" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              <MessageSquare className="h-4 w-4" />
               Mensagens
             </TabsTrigger>
-            <TabsTrigger value="sessions" className="flex-1">
-              <LogIn className="h-4 w-4 mr-2" />
+            <TabsTrigger value="sessions" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              <LogIn className="h-4 w-4" />
               Conexões
             </TabsTrigger>
-            <TabsTrigger value="system" className="flex-1">
-              <Activity className="h-4 w-4 mr-2" />
+            <TabsTrigger value="system" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              <Activity className="h-4 w-4" />
               Outras Atividades
             </TabsTrigger>
           </TabsList>
