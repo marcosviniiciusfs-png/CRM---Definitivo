@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { X, Clock, MapPin, FileText, Users } from 'lucide-react';
-import { format, addHours } from 'date-fns';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface CreateCalendarEventModalProps {
   open: boolean;
@@ -18,6 +19,9 @@ export function CreateCalendarEventModal({
   initialDate,
   onEventCreated
 }: CreateCalendarEventModalProps) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -100,17 +104,28 @@ export function CreateCalendarEventModal({
     onOpenChange(false);
   };
 
+  // Dynamic styles based on theme
+  const styles = {
+    bg: isDark ? 'bg-[#1e1e1e]' : 'bg-white',
+    border: isDark ? 'border-[#3c3c3c]' : 'border-[#dadce0]',
+    text: isDark ? 'text-[#e8eaed]' : 'text-[#3c4043]',
+    textMuted: isDark ? 'text-[#9aa0a6]' : 'text-[#5f6368]',
+    inputBg: isDark ? 'bg-[#2d2d2d]' : 'bg-white',
+    inputBorder: isDark ? 'border-[#3c3c3c]' : 'border-[#dadce0]',
+    hoverBg: isDark ? 'hover:bg-[#3c3c3c]' : 'hover:bg-[#f1f3f4]',
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md p-0 gap-0 bg-white rounded-lg overflow-hidden border-none">
+      <DialogContent className={`max-w-md p-0 gap-0 ${styles.bg} rounded-lg overflow-hidden border-none`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#dadce0]">
-          <h2 className="text-lg text-[#3c4043]">Criar evento</h2>
+        <div className={`flex items-center justify-between px-4 py-3 border-b ${styles.border}`}>
+          <h2 className={`text-lg ${styles.text}`}>Criar evento</h2>
           <button
             onClick={handleClose}
-            className="p-2 rounded-full hover:bg-[#f1f3f4] transition-colors"
+            className={`p-2 rounded-full ${styles.hoverBg} transition-colors`}
           >
-            <X className="h-4 w-4 text-[#5f6368]" />
+            <X className={`h-4 w-4 ${styles.textMuted}`} />
           </button>
         </div>
 
@@ -121,14 +136,14 @@ export function CreateCalendarEventModal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-lg text-[#3c4043] border-b border-[#dadce0] pb-2 focus:outline-none focus:border-[#1a73e8]"
+              className={`w-full text-lg ${styles.text} ${styles.inputBg} border-b ${styles.inputBorder} pb-2 focus:outline-none focus:border-[#1a73e8]`}
               placeholder="Adicionar título"
               autoFocus
             />
           </div>
 
           <div className="flex items-center gap-3">
-            <Clock className="h-4 w-4 text-[#5f6368]" />
+            <Clock className={`h-4 w-4 ${styles.textMuted}`} />
             <div className="flex-1 space-y-2">
               <div className="flex gap-2">
                 <input
@@ -140,13 +155,13 @@ export function CreateCalendarEventModal({
                       setEndDate(e.target.value);
                     }
                   }}
-                  className="flex-1 px-2 py-1 border border-[#dadce0] rounded text-sm focus:outline-none focus:border-[#1a73e8]"
+                  className={`flex-1 px-2 py-1 border ${styles.inputBorder} ${styles.inputBg} ${styles.text} rounded text-sm focus:outline-none focus:border-[#1a73e8]`}
                 />
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-24 px-2 py-1 border border-[#dadce0] rounded text-sm focus:outline-none focus:border-[#1a73e8]"
+                  className={`w-24 px-2 py-1 border ${styles.inputBorder} ${styles.inputBg} ${styles.text} rounded text-sm focus:outline-none focus:border-[#1a73e8]`}
                 />
               </div>
               <div className="flex gap-2">
@@ -155,46 +170,46 @@ export function CreateCalendarEventModal({
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate}
-                  className="flex-1 px-2 py-1 border border-[#dadce0] rounded text-sm focus:outline-none focus:border-[#1a73e8]"
+                  className={`flex-1 px-2 py-1 border ${styles.inputBorder} ${styles.inputBg} ${styles.text} rounded text-sm focus:outline-none focus:border-[#1a73e8]`}
                 />
                 <input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-24 px-2 py-1 border border-[#dadce0] rounded text-sm focus:outline-none focus:border-[#1a73e8]"
+                  className={`w-24 px-2 py-1 border ${styles.inputBorder} ${styles.inputBg} ${styles.text} rounded text-sm focus:outline-none focus:border-[#1a73e8]`}
                 />
               </div>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <Users className="h-4 w-4 text-[#5f6368] mt-2" />
+            <Users className={`h-4 w-4 ${styles.textMuted} mt-2`} />
             <input
               type="text"
               value={attendees}
               onChange={(e) => setAttendees(e.target.value)}
-              className="flex-1 px-2 py-1 border border-[#dadce0] rounded text-sm focus:outline-none focus:border-[#1a73e8]"
+              className={`flex-1 px-2 py-1 border ${styles.inputBorder} ${styles.inputBg} ${styles.text} rounded text-sm focus:outline-none focus:border-[#1a73e8]`}
               placeholder="Adicionar convidados (emails separados por vírgula)"
             />
           </div>
 
           <div className="flex items-start gap-3">
-            <MapPin className="h-4 w-4 text-[#5f6368] mt-2" />
+            <MapPin className={`h-4 w-4 ${styles.textMuted} mt-2`} />
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="flex-1 px-2 py-1 border border-[#dadce0] rounded text-sm focus:outline-none focus:border-[#1a73e8]"
+              className={`flex-1 px-2 py-1 border ${styles.inputBorder} ${styles.inputBg} ${styles.text} rounded text-sm focus:outline-none focus:border-[#1a73e8]`}
               placeholder="Adicionar local ou videoconferência"
             />
           </div>
 
           <div className="flex items-start gap-3">
-            <FileText className="h-4 w-4 text-[#5f6368] mt-2" />
+            <FileText className={`h-4 w-4 ${styles.textMuted} mt-2`} />
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="flex-1 px-2 py-1 border border-[#dadce0] rounded text-sm focus:outline-none focus:border-[#1a73e8] resize-none"
+              className={`flex-1 px-2 py-1 border ${styles.inputBorder} ${styles.inputBg} ${styles.text} rounded text-sm focus:outline-none focus:border-[#1a73e8] resize-none`}
               rows={3}
               placeholder="Adicionar descrição"
             />
@@ -204,7 +219,7 @@ export function CreateCalendarEventModal({
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-sm text-[#5f6368] hover:bg-[#f1f3f4] rounded transition-colors"
+              className={`px-4 py-2 text-sm ${styles.textMuted} ${styles.hoverBg} rounded transition-colors`}
             >
               Cancelar
             </button>
