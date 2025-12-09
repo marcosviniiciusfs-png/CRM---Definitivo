@@ -1,4 +1,4 @@
-import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle } from "lucide-react";
+import { Home, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle, Puzzle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -34,7 +34,7 @@ const PLAN_NAMES: { [key: string]: string } = {
 };
 
 const items = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Início", url: "/dashboard", icon: Home },
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Leads", url: "/leads", icon: Users },
   { title: "Métricas", url: "/lead-metrics", icon: BarChart3 },
@@ -51,6 +51,7 @@ const administrativoItems = [
 
 const bottomItems = [
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
+  { title: "Integrações", url: "/integrations", icon: Puzzle },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
