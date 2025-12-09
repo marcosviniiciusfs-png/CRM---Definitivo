@@ -169,7 +169,6 @@ const Leads = () => {
     if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
 
     loadLeads(true);
-    setSelectedLeads([]); // Limpar seleção ao recarregar
 
     // Otimizado: debouncing em realtime para evitar recargas excessivas
     let reloadTimeout: NodeJS.Timeout;
@@ -186,7 +185,11 @@ const Leads = () => {
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
             loadLeads(true);
-            setSelectedLeads([]); // Limpar seleção ao atualizar
+            // Manter apenas seleções de leads que ainda existem
+            setSelectedLeads(prev => {
+              if (prev.length === 0) return prev;
+              return prev;
+            });
           }, 500); // Aguardar 500ms antes de recarregar
         }
       )
@@ -228,8 +231,19 @@ const Leads = () => {
       
       if (reset) {
         setLeads(data || []);
+        // Filtrar seleções para manter apenas leads que ainda existem
+        setSelectedLeads(prev => {
+          if (prev.length === 0) return prev;
+          const newIds = new Set((data || []).map(l => l.id));
+          return prev.filter(id => newIds.has(id));
+        });
       } else {
-        setLeads(prev => [...prev, ...(data || [])]);
+        // Evitar duplicatas no infinite scroll
+        setLeads(prev => {
+          const existingIds = new Set(prev.map(l => l.id));
+          const newLeads = (data || []).filter(l => !existingIds.has(l.id));
+          return [...prev, ...newLeads];
+        });
       }
       
       setHasMore((data || []).length === LEADS_PER_PAGE);
@@ -704,13 +718,18 @@ const Leads = () => {
               </SelectContent>
             </Select>
             
-            <Select onValueChange={handleBulkAssign}>
+            <Select onValueChange={(userId) => {
+              const colab = colaboradores.find(c => c.user_id === userId);
+              if (colab) {
+                handleBulkAssign(colab.full_name || colab.email, colab.user_id);
+              }
+            }}>
               <SelectTrigger className="w-[180px] h-9 bg-background">
                 <SelectValue placeholder="Atribuir a" />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
-                {colaboradores.map((colab) => (
-                  <SelectItem key={colab.user_id || colab.email} value={colab.full_name || colab.email || ''}>
+                {colaboradores.filter(c => c.user_id).map((colab) => (
+                  <SelectItem key={colab.user_id} value={colab.user_id}>
                     {colab.full_name || colab.email}
                   </SelectItem>
                 ))}
@@ -743,6 +762,7 @@ const Leads = () => {
                   <TableHead className="w-[50px]">
                     <Checkbox
                       checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
+                      data-state={selectedLeads.length > 0 && selectedLeads.length < filteredLeads.length ? "indeterminate" : undefined}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
@@ -802,8 +822,11 @@ const Leads = () => {
                   const statusInfo = statusConfig[lead.stage || 'NOVO'] || statusConfig.NOVO;
                   const isSelected = selectedLeads.includes(lead.id);
                   
-                  return (
-                    <TableRow key={lead.id} className={cn("hover:bg-muted/50", isSelected && "bg-primary/5")}>
+                    return (
+                    <TableRow key={lead.id} className={cn(
+                      "hover:bg-muted/50 transition-colors", 
+                      isSelected && "bg-primary/10 border-l-2 border-l-primary"
+                    )}>
                       {permissions.canViewAllLeads && (
                         <TableCell>
                           <Checkbox
