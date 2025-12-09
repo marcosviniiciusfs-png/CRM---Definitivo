@@ -780,6 +780,36 @@ export type Database = {
           },
         ]
       }
+      google_calendar_tokens: {
+        Row: {
+          created_at: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token: string
+          id: string
+          integration_id: string
+          token_expires_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token: string
+          id?: string
+          integration_id: string
+          token_expires_at: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_access_token?: string
+          encrypted_refresh_token?: string
+          id?: string
+          integration_id?: string
+          token_expires_at?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       items: {
         Row: {
           cost_price: number
@@ -2323,7 +2353,7 @@ export type Database = {
       }
     }
     Views: {
-      google_calendar_integrations_safe: {
+      google_calendar_integrations_public: {
         Row: {
           calendar_id: string | null
           created_at: string | null
@@ -2417,6 +2447,16 @@ export type Database = {
           refresh_token: string
           token_expires_at: string
           user_id: string
+        }[]
+      }
+      get_google_calendar_tokens_secure: {
+        Args: { target_user_id: string }
+        Returns: {
+          calendar_id: string
+          encrypted_access_token: string
+          encrypted_refresh_token: string
+          integration_id: string
+          token_expires_at: string
         }[]
       }
       get_meta_pixel_integrations_masked: {
