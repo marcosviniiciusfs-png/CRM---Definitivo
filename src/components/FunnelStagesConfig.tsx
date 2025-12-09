@@ -460,38 +460,73 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="custom">
-                  <div className="flex items-center gap-2">
-                    <span>📋</span> Normal (Processo)
+                  <div className="flex flex-col items-start py-1">
+                    <div className="flex items-center gap-2">
+                      <span>📋</span> Normal (Processo)
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Etapa comum do processo de vendas, sem ação automática
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="won">
-                  <div className="flex items-center gap-2">
-                    <span>🎉</span> Ganho/Convertido
+                  <div className="flex flex-col items-start py-1">
+                    <div className="flex items-center gap-2">
+                      <span>🎉</span> Ganho/Convertido
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Marca o lead como venda realizada e registra na produção mensal
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="lost">
-                  <div className="flex items-center gap-2">
-                    <span>❌</span> Perdido
+                  <div className="flex flex-col items-start py-1">
+                    <div className="flex items-center gap-2">
+                      <span>❌</span> Perdido
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Marca o lead como oportunidade perdida (cliente recusou/desistiu)
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="discarded">
-                  <div className="flex items-center gap-2">
-                    <span>🗑️</span> Descartado/Arquivado
+                  <div className="flex flex-col items-start py-1">
+                    <div className="flex items-center gap-2">
+                      <span>🗑️</span> Descartado/Arquivado
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Remove leads inválidos (spam, número errado, teste)
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="send_message">
-                  <div className="flex items-center gap-2">
-                    <span>💬</span> Enviar Mensagem Automática
+                  <div className="flex flex-col items-start py-1">
+                    <div className="flex items-center gap-2">
+                      <span>💬</span> Enviar Mensagem Automática
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Envia uma mensagem WhatsApp quando o lead entra nesta etapa
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="create_task">
-                  <div className="flex items-center gap-2">
-                    <span>✅</span> Criar Tarefa de Follow-up
+                  <div className="flex flex-col items-start py-1">
+                    <div className="flex items-center gap-2">
+                      <span>✅</span> Criar Tarefa de Follow-up
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Cria automaticamente uma tarefa no Kanban para acompanhamento
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="assign_agent">
-                  <div className="flex items-center gap-2">
-                    <span>👤</span> Atribuir para Agente
+                  <div className="flex flex-col items-start py-1">
+                    <div className="flex items-center gap-2">
+                      <span>👤</span> Atribuir para Agente
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Transfere o lead para um agente específico automaticamente
+                    </span>
                   </div>
                 </SelectItem>
               </SelectContent>
