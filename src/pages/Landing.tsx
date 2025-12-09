@@ -122,6 +122,16 @@ const Landing = () => {
             Começar agora
           </Button>
         </div>
+
+        {/* Footer */}
+        <div className="mt-20 pt-8 border-t border-gray-800 text-center">
+          <button
+            onClick={() => navigate('/privacy-policy')}
+            className="text-gray-400 hover:text-cyan-400 text-sm transition-colors"
+          >
+            Política de Privacidade
+          </button>
+        </div>
       </div>
     </StarsBackground>
   );
