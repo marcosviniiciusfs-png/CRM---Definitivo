@@ -102,9 +102,11 @@ const Pipeline = () => {
   
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollTrackRef = useRef<HTMLDivElement>(null);
   const [scrollThumbWidth, setScrollThumbWidth] = useState(20);
   const [scrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [showScrollbar, setShowScrollbar] = useState(false);
+  const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
 
   // Atualiza a posição e tamanho do thumb da scrollbar
   const updateScrollbarThumb = useCallback(() => {
@@ -130,7 +132,7 @@ const Pipeline = () => {
 
   // Clique na track da scrollbar
   const handleScrollbarTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!scrollContainerRef.current) return;
+    if (!scrollContainerRef.current || e.target !== e.currentTarget) return;
     const track = e.currentTarget;
     const rect = track.getBoundingClientRect();
     const clickPosition = (e.clientX - rect.left) / rect.width;
@@ -141,6 +143,40 @@ const Pipeline = () => {
       behavior: 'smooth'
     });
   }, []);
+
+  // Handler para iniciar o drag do thumb
+  const handleThumbMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingScrollbar(true);
+  }, []);
+
+  // Effect para lidar com drag global do scrollbar
+  useEffect(() => {
+    if (!isDraggingScrollbar) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!scrollContainerRef.current || !scrollTrackRef.current) return;
+      const track = scrollTrackRef.current;
+      const rect = track.getBoundingClientRect();
+      const clickPosition = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const { scrollWidth, clientWidth } = scrollContainerRef.current;
+      const maxScrollLeft = scrollWidth - clientWidth;
+      scrollContainerRef.current.scrollLeft = clickPosition * maxScrollLeft;
+    };
+    
+    const handleMouseUp = () => {
+      setIsDraggingScrollbar(false);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingScrollbar]);
 
   // Atualiza scrollbar quando stages/leads mudam
   useEffect(() => {
@@ -1137,18 +1173,20 @@ const Pipeline = () => {
       </AlertDialogContent>
     </AlertDialog>
 
-    {/* Barra de rolagem fixa na altura do footer do menu */}
+    {/* Barra de rolagem fixa no rodapé */}
     {showScrollbar && (
       <div 
-        className="fixed bottom-[72px] left-[var(--sidebar-width,256px)] right-6 h-2 z-40 bg-muted/20 rounded-full cursor-pointer transition-all hover:h-3 hover:bg-muted/30"
+        ref={scrollTrackRef}
+        className="fixed bottom-3 left-[var(--sidebar-width,256px)] right-6 h-2 z-40 bg-muted/20 rounded-full cursor-pointer transition-all hover:h-3 hover:bg-muted/30"
         onClick={handleScrollbarTrackClick}
       >
         <div 
-          className="h-full bg-muted-foreground/25 rounded-full hover:bg-muted-foreground/40 transition-colors"
+          className="h-full bg-muted-foreground/25 rounded-full hover:bg-muted-foreground/40 transition-colors cursor-grab active:cursor-grabbing"
           style={{ 
             width: `${scrollThumbWidth}%`, 
             marginLeft: `${scrollThumbPosition}%` 
           }}
+          onMouseDown={handleThumbMouseDown}
         />
       </div>
     )}
