@@ -38,6 +38,15 @@ interface AddLeadModalProps {
   onSuccess: () => void;
 }
 
+const sourceOptions = [
+  { value: "Manual", label: "Cadastro Manual" },
+  { value: "Facebook", label: "Facebook" },
+  { value: "WhatsApp", label: "WhatsApp" },
+  { value: "Google ADS", label: "Google ADS" },
+  { value: "TikTok", label: "TikTok" },
+  { value: "Outro", label: "Outro" },
+];
+
 export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) => {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -45,6 +54,8 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   const [empresa, setEmpresa] = useState("");
   const [idade, setIdade] = useState("");
   const [valor, setValor] = useState("");
+  const [source, setSource] = useState("Manual");
+  const [customSource, setCustomSource] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Funnel and stage states
@@ -162,6 +173,8 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     setEmpresa("");
     setIdade("");
     setValor("");
+    setSource("Manual");
+    setCustomSource("");
     setSelectedFunnelId("");
     setSelectedStageId("");
     setStages([]);
@@ -186,6 +199,11 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
       return;
     }
 
+    if (source === "Outro" && !customSource.trim()) {
+      toast.error("Especifique a origem do lead");
+      return;
+    }
+
     if (!selectedFunnelId) {
       toast.error("Selecione um funil");
       return;
@@ -199,13 +217,15 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     setIsSaving(true);
 
     try {
+      const finalSource = source === "Outro" ? customSource.trim() : source;
+      
       const insertData: any = {
         nome_lead: nome.trim(),
         telefone_lead: telefone.trim(),
         email: email.trim() || null,
         empresa: empresa.trim() || null,
         idade: idade.trim() ? parseInt(idade) : null,
-        source: "Manual",
+        source: finalSource,
         funnel_id: selectedFunnelId,
         funnel_stage_id: selectedStageId,
         stage: "NOVO",
@@ -315,6 +335,38 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
               placeholder="R$ 0,00"
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="source">Origem do Lead</Label>
+            <Select value={source} onValueChange={setSource}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a origem" />
+              </SelectTrigger>
+              <SelectContent>
+                {sourceOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {source === "Outro" && (
+            <div className="space-y-2">
+              <Label htmlFor="customSource">Especifique a origem</Label>
+              <Input
+                id="customSource"
+                value={customSource}
+                onChange={(e) => setCustomSource(e.target.value.slice(0, 17))}
+                placeholder="Digite a origem"
+                maxLength={17}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {customSource.length}/17 caracteres
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="funnel">Funil</Label>
