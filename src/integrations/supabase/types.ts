@@ -2480,6 +2480,18 @@ export type Database = {
           role: Database["public"]["Enums"]["organization_role"]
         }[]
       }
+      get_webhook_configs_masked: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          tag_id: string
+          updated_at: string
+          webhook_token: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
