@@ -2327,6 +2327,14 @@ export type Database = {
     }
     Functions: {
       count_main_users: { Args: never; Returns: number }
+      decrypt_oauth_token: {
+        Args: { encrypted_token: string; encryption_key: string }
+        Returns: string
+      }
+      encrypt_oauth_token: {
+        Args: { encryption_key: string; plain_token: string }
+        Returns: string
+      }
       get_facebook_integrations_masked: {
         Args: never
         Returns: {
@@ -2359,6 +2367,17 @@ export type Database = {
           token_expires_at: string
           updated_at: string
           user_id: string
+        }[]
+      }
+      get_google_calendar_tokens_for_user: {
+        Args: { _user_id: string }
+        Returns: {
+          access_token: string
+          calendar_id: string
+          id: string
+          is_active: boolean
+          refresh_token: string
+          token_expires_at: string
         }[]
       }
       get_meta_pixel_integrations_masked: {
