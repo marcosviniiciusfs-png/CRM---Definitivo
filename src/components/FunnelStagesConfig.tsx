@@ -200,8 +200,12 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       // Criar etapas padrão do Pipeline
       const defaultStages = [
         { name: "Novo Lead", color: "#3B82F6", icon: "📋", position: 0, description: "Leads recém-chegados" },
-        { name: "Em Atendimento", color: "#EAB308", icon: "💬", position: 1, description: "Leads em conversação ativa" },
-        { name: "Fechado", color: "#10B981", icon: "✅", position: 2, description: "Negociação em fase final" },
+        { name: "Qualificação / Aquecido", color: "#06B6D4", icon: "🔥", position: 1, description: "Leads sendo qualificados" },
+        { name: "Agendamento Realizado", color: "#EAB308", icon: "📅", position: 2, description: "Reunião agendada" },
+        { name: "Reunião Feita", color: "#F97316", icon: "🤝", position: 3, description: "Reunião realizada com o lead" },
+        { name: "Proposta / Negociação", color: "#8B5CF6", icon: "📝", position: 4, description: "Proposta enviada, em negociação" },
+        { name: "Aprovação / Análise", color: "#6366F1", icon: "🔍", position: 5, description: "Aguardando aprovação do cliente" },
+        { name: "Pós-venda / Ativação", color: "#34D399", icon: "✨", position: 6, description: "Cliente em processo de ativação" },
       ];
 
       const stagesToInsert = defaultStages.map(stage => ({

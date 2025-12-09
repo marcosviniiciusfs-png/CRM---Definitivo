@@ -60,9 +60,14 @@ const ICON_EMOJI_MAP: Record<string, string> = {
 
 // Etapas padrão (quando não há funil customizado)
 const DEFAULT_STAGES = [
-  { id: "NOVO", title: "Novo Lead", color: "bg-blue-500" },
-  { id: "EM_ATENDIMENTO", title: "Em Atendimento", color: "bg-yellow-500" },
-  { id: "FECHADO", title: "Fechado", color: "bg-green-500" },
+  { id: "NOVO_LEAD", title: "Novo Lead", color: "bg-blue-500" },
+  { id: "QUALIFICACAO", title: "Qualificação / Aquecido", color: "bg-cyan-500" },
+  { id: "AGENDAMENTO", title: "Agendamento Realizado", color: "bg-yellow-500" },
+  { id: "REUNIAO", title: "Reunião Feita", color: "bg-orange-500" },
+  { id: "PROPOSTA", title: "Proposta / Negociação", color: "bg-purple-500" },
+  { id: "APROVACAO", title: "Aprovação / Análise", color: "bg-indigo-500" },
+  { id: "VENDA", title: "Venda Realizada", color: "bg-green-500" },
+  { id: "POS_VENDA", title: "Pós-venda / Ativação", color: "bg-emerald-500" },
   { id: "PERDIDO", title: "Perdido", color: "bg-red-500" },
 ];
 
