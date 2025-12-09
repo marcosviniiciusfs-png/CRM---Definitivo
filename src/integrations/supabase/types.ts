@@ -2323,7 +2323,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      google_calendar_integrations_safe: {
+        Row: {
+          calendar_id: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          organization_id: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          calendar_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          organization_id?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          calendar_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          organization_id?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       count_main_users: { Args: never; Returns: number }
@@ -2357,27 +2397,26 @@ export type Database = {
       get_google_calendar_integrations_masked: {
         Args: never
         Returns: {
-          access_token: string
           calendar_id: string
           created_at: string
           id: string
           is_active: boolean
           organization_id: string
-          refresh_token: string
           token_expires_at: string
           updated_at: string
           user_id: string
         }[]
       }
       get_google_calendar_tokens_for_user: {
-        Args: { _user_id: string }
+        Args: { target_user_id: string }
         Returns: {
           access_token: string
           calendar_id: string
           id: string
-          is_active: boolean
+          organization_id: string
           refresh_token: string
           token_expires_at: string
+          user_id: string
         }[]
       }
       get_meta_pixel_integrations_masked: {
