@@ -37,8 +37,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <AppSidebar />
         <main className="flex-1 flex flex-col h-screen overflow-hidden bg-background">
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-card px-6 shrink-0">
-            <SidebarTrigger className="lg:hidden" />
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger className="lg:hidden" />
+              {location.pathname === "/dashboard" && (
+                <h1 className="text-xl font-semibold text-primary">Dashboard</h1>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
               {isOnChatPage && (
                 <>
                   <Button

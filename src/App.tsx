@@ -27,6 +27,7 @@ const LeadDistribution = lazy(() => import("./pages/LeadDistribution"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Integrations = lazy(() => import("./pages/Integrations"));
 const Colaboradores = lazy(() => import("./pages/Colaboradores"));
 const Equipes = lazy(() => import("./pages/Equipes"));
 const Atividades = lazy(() => import("./pages/Atividades"));
@@ -95,6 +96,7 @@ const App = () => (
               <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
+              <Route path="/integrations" element={<ProtectedRoute><DashboardLayout><LazyPage><Integrations /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
               <Route path="/facebook-webhook-logs" element={<ProtectedRoute><LazyPage><FacebookWebhookLogs /></LazyPage></ProtectedRoute>} />
               <Route path="/whatsapp-webhook-logs" element={<ProtectedRoute><LazyPage><WhatsAppWebhookLogs /></LazyPage></ProtectedRoute>} />
