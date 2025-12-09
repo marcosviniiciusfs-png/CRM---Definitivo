@@ -66,6 +66,7 @@ function AppSidebarComponent() {
   const isDark = theme === "dark";
   const hoverClass = isDark ? "hover:bg-sidebar-accent/10" : "hover:bg-sidebar-accent";
   const activeClass = isDark ? "bg-sidebar-accent/10" : "bg-sidebar-accent";
+  const activeTextClass = isDark ? "text-[#680101]" : "text-sidebar-primary";
   
   // Inicializar estado de bloqueio do localStorage
   const [isLocked, setIsLocked] = useState(() => {
@@ -143,7 +144,7 @@ function AppSidebarComponent() {
                         to={item.url}
                         end
                         className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}
-                        activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
+                        activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
                       >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
                         <span className="truncate">{item.title}</span>
@@ -171,7 +172,7 @@ function AppSidebarComponent() {
                               <NavLink
                                 to={subItem.url}
                                 className={cn(hoverClass, "text-sidebar-foreground text-sm px-3 py-2")}
-                                activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
+                              activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
                               >
                                 <subItem.icon className="h-4 w-4 flex-shrink-0" />
                                 <span>{subItem.title}</span>
