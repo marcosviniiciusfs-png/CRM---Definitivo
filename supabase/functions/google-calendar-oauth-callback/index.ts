@@ -1,6 +1,42 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Função para criptografar token usando AES-256-GCM
+async function encryptToken(plainToken: string, encryptionKey: string): Promise<string> {
+  const encoder = new TextEncoder();
+  
+  // Derivar chave de 256 bits usando SHA-256
+  const keyMaterial = await crypto.subtle.digest(
+    'SHA-256',
+    encoder.encode(encryptionKey)
+  );
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyMaterial,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  // Gerar IV aleatório
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  
+  // Criptografar
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(plainToken)
+  );
+  
+  // Combinar IV + dados criptografados e converter para base64
+  const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  
+  return btoa(String.fromCharCode(...combined));
+}
+
 serve(async (req) => {
   // Fallback padrão para redirect
   let redirectUrl = 'https://kairozspace.com.br';
@@ -45,7 +81,12 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const encryptionKey = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    if (!encryptionKey) {
+      throw new Error('Chave de criptografia não configurada');
+    }
 
     // Trocar código por tokens
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')!;
@@ -75,6 +116,11 @@ serve(async (req) => {
     const tokens = await tokenResponse.json();
     console.log('✅ Tokens obtidos com sucesso');
 
+    // Criptografar tokens antes de salvar
+    const encryptedAccessToken = await encryptToken(tokens.access_token, encryptionKey);
+    const encryptedRefreshToken = await encryptToken(tokens.refresh_token, encryptionKey);
+    console.log('🔐 Tokens criptografados com sucesso');
+
     // Calcular expiração
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
@@ -95,14 +141,14 @@ serve(async (req) => {
       .update({ is_active: false })
       .eq('user_id', user_id);
 
-    // Salvar integração no banco
+    // Salvar integração com tokens criptografados
     const { error: insertError } = await supabase
       .from('google_calendar_integrations')
       .insert({
         organization_id: memberData.organization_id,
         user_id,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
+        access_token: encryptedAccessToken,
+        refresh_token: encryptedRefreshToken,
         token_expires_at: expiresAt,
         calendar_id: 'primary',
         is_active: true,
@@ -113,7 +159,7 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log('✅ Integração salva com sucesso');
+    console.log('✅ Integração salva com tokens criptografados');
 
     // Redirecionar para a página de configurações do frontend
     return new Response(null, {
