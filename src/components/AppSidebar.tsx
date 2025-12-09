@@ -226,7 +226,7 @@ function AppSidebarComponent() {
             <Button
               onClick={signOut}
               variant="outline"
-              className="w-full justify-start gap-2 bg-black hover:bg-black/80 border-red-600 text-[#680101] text-sm"
+              className="w-full justify-start gap-2 bg-black hover:bg-black/80 border-sidebar-accent text-[#680101] text-sm"
               size="sm"
             >
               <LogOut className="h-4 w-4" />
