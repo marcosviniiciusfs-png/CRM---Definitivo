@@ -1,6 +1,7 @@
 import { LayoutDashboard, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
@@ -58,7 +59,13 @@ const SIDEBAR_LOCK_KEY = "sidebar-locked";
 function AppSidebarComponent() {
   const { open, setOpen } = useSidebar();
   const { signOut, user, subscriptionData } = useAuth();
+  const { theme } = useTheme();
   const permissions = usePermissions();
+  
+  // Classes condicionais para hover/active - opacidade 30% apenas no dark mode
+  const isDark = theme === "dark";
+  const hoverClass = isDark ? "hover:bg-sidebar-accent/30" : "hover:bg-sidebar-accent";
+  const activeClass = isDark ? "bg-sidebar-accent/30" : "bg-sidebar-accent";
   
   // Inicializar estado de bloqueio do localStorage
   const [isLocked, setIsLocked] = useState(() => {
@@ -135,8 +142,8 @@ function AppSidebarComponent() {
                       <NavLink
                         to={item.url}
                         end
-                        className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                        className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}
+                        activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
                       >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
                         <span className="truncate">{item.title}</span>
@@ -150,7 +157,7 @@ function AppSidebarComponent() {
                 <Collapsible open={administrativoOpen} onOpenChange={setAdministrativoOpen} className="group/collapsible">
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5">
+                      <SidebarMenuButton className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}>
                         <Briefcase className="h-5 w-5 flex-shrink-0" />
                         <span>Administrativo</span>
                         <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
@@ -163,8 +170,8 @@ function AppSidebarComponent() {
                             <SidebarMenuSubButton asChild>
                               <NavLink
                                 to={subItem.url}
-                                className="hover:bg-sidebar-accent text-sidebar-foreground text-sm px-3 py-2"
-                                activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                                className={cn(hoverClass, "text-sidebar-foreground text-sm px-3 py-2")}
+                                activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
                               >
                                 <subItem.icon className="h-4 w-4 flex-shrink-0" />
                                 <span>{subItem.title}</span>
@@ -183,8 +190,8 @@ function AppSidebarComponent() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      className="hover:bg-sidebar-accent text-sidebar-foreground text-base px-3 py-2.5"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                      className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}
+                      activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       <span>{item.title}</span>
