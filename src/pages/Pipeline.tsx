@@ -103,6 +103,7 @@ const Pipeline = () => {
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ mouseX: number; scrollLeft: number } | null>(null);
   const [scrollThumbWidth, setScrollThumbWidth] = useState(20);
   const [scrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [showScrollbar, setShowScrollbar] = useState(false);
@@ -148,6 +149,15 @@ const Pipeline = () => {
   const handleThumbMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Salva a posição inicial do mouse e do scroll
+    if (scrollContainerRef.current) {
+      dragStartRef.current = {
+        mouseX: e.clientX,
+        scrollLeft: scrollContainerRef.current.scrollLeft
+      };
+    }
+    
     setIsDraggingScrollbar(true);
   }, []);
 
@@ -160,17 +170,30 @@ const Pipeline = () => {
     document.body.style.cursor = 'grabbing';
     
     const handleMouseMove = (e: MouseEvent) => {
-      if (!scrollContainerRef.current || !scrollTrackRef.current) return;
+      if (!scrollContainerRef.current || !scrollTrackRef.current || !dragStartRef.current) return;
+      
       const track = scrollTrackRef.current;
       const rect = track.getBoundingClientRect();
-      const clickPosition = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const { scrollWidth, clientWidth } = scrollContainerRef.current;
       const maxScrollLeft = scrollWidth - clientWidth;
-      scrollContainerRef.current.scrollLeft = clickPosition * maxScrollLeft;
+      
+      // Calcula o delta do movimento do mouse
+      const mouseDelta = e.clientX - dragStartRef.current.mouseX;
+      
+      // Converte o delta do mouse para delta de scroll (proporcionalmente)
+      const trackWidth = rect.width;
+      const thumbWidth = (clientWidth / scrollWidth) * trackWidth;
+      const scrollableTrackWidth = trackWidth - thumbWidth;
+      const scrollDelta = (mouseDelta / scrollableTrackWidth) * maxScrollLeft;
+      
+      // Aplica o delta à posição inicial
+      const newScrollLeft = Math.max(0, Math.min(maxScrollLeft, dragStartRef.current.scrollLeft + scrollDelta));
+      scrollContainerRef.current.scrollLeft = newScrollLeft;
     };
     
     const handleMouseUp = () => {
       setIsDraggingScrollbar(false);
+      dragStartRef.current = null;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
