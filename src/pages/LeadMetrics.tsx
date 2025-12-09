@@ -55,6 +55,19 @@ interface ManualAdvancedMetrics {
   leadsByType: { type: string; count: number }[];
 }
 
+interface AgeDistribution {
+  range: string;
+  count: number;
+  percentage: number;
+}
+
+interface AgeMetrics {
+  predominantAgeRange: string;
+  averageAge: number;
+  totalWithAge: number;
+  ageDistribution: AgeDistribution[];
+}
+
 // ============= INTERFACES EXPANDIDAS =============
 
 interface PlatformBreakdown {
@@ -169,6 +182,7 @@ const LeadMetrics = () => {
     conversionRate: 0,
     leadsByType: []
   });
+  const [manualAgeMetrics, setManualAgeMetrics] = useState<AgeMetrics | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
     to: new Date()
@@ -341,9 +355,11 @@ const LeadMetrics = () => {
       if (manualResult.data && manualResult.data.length > 0) {
         setManualMetrics(processMetrics(manualResult.data));
         await loadManualAdvancedMetrics(orgMember.organization_id, startDate, endDate);
+        await loadManualAgeMetrics(orgMember.organization_id, startDate, endDate);
       } else {
         setManualMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
         setManualAdvanced({ totalManual: 0, totalImported: 0, conversionRate: 0, leadsByType: [] });
+        setManualAgeMetrics(null);
       }
 
       // Load ads metrics
@@ -670,6 +686,55 @@ const LeadMetrics = () => {
       });
     } catch (error) {
       console.error('Erro ao carregar métricas avançadas de cadastro manual:', error);
+    }
+  };
+
+  const loadManualAgeMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
+    try {
+      const { data } = await supabase
+        .from('leads')
+        .select('idade')
+        .eq('organization_id', organizationId)
+        .in('source', ['Manual', 'Importação'])
+        .not('idade', 'is', null)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+
+      if (!data || data.length === 0) {
+        setManualAgeMetrics(null);
+        return;
+      }
+
+      const ranges = [
+        { range: '18-25', min: 18, max: 25 },
+        { range: '26-35', min: 26, max: 35 },
+        { range: '36-45', min: 36, max: 45 },
+        { range: '46-55', min: 46, max: 55 },
+        { range: '55+', min: 56, max: 200 }
+      ];
+
+      const distribution = ranges.map(r => ({
+        range: r.range,
+        count: data.filter(l => l.idade !== null && l.idade >= r.min && l.idade <= r.max).length,
+        percentage: 0
+      }));
+
+      const total = data.length;
+      distribution.forEach(d => d.percentage = Math.round((d.count / total) * 100));
+
+      const predominant = distribution.reduce((a, b) => a.count > b.count ? a : b);
+      const validAges = data.filter(l => l.idade !== null).map(l => l.idade as number);
+      const avg = validAges.length > 0 ? Math.round(validAges.reduce((sum, age) => sum + age, 0) / validAges.length) : 0;
+
+      setManualAgeMetrics({
+        predominantAgeRange: predominant.range,
+        averageAge: avg,
+        totalWithAge: total,
+        ageDistribution: distribution
+      });
+    } catch (error) {
+      console.error('Erro ao carregar métricas de idade:', error);
+      setManualAgeMetrics(null);
     }
   };
 
@@ -1360,6 +1425,52 @@ const LeadMetrics = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          {/* Card de Faixa Etária */}
+          {manualAgeMetrics && manualAgeMetrics.totalWithAge > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-orange-500" />
+                  Faixa Etária dos Leads
+                  <Badge variant="secondary" className="ml-2">
+                    {manualAgeMetrics.totalWithAge} leads com idade
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Info cards */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Faixa Predominante</span>
+                      <span className="font-semibold text-lg text-primary">{manualAgeMetrics.predominantAgeRange} anos</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Idade Média</span>
+                      <span className="font-semibold text-lg">{manualAgeMetrics.averageAge} anos</span>
+                    </div>
+                  </div>
+                  
+                  {/* Distribution bars */}
+                  <div className="space-y-2">
+                    {manualAgeMetrics.ageDistribution.map(item => (
+                      <div key={item.range} className="flex items-center gap-2">
+                        <span className="text-xs w-12 text-muted-foreground">{item.range}</span>
+                        <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-orange-500 rounded-full transition-all duration-500"
+                            style={{ width: `${item.percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-xs w-12 text-right font-medium">{item.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         </TabsContent>
 
