@@ -145,10 +145,10 @@ export const FunnelConfigDialog = ({
         </DialogHeader>
 
         <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="info">Informações</TabsTrigger>
-            <TabsTrigger value="stages">Etapas</TabsTrigger>
-            <TabsTrigger value="sources">Origens</TabsTrigger>
+          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <TabsTrigger value="info" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Informações</TabsTrigger>
+            <TabsTrigger value="stages" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Etapas</TabsTrigger>
+            <TabsTrigger value="sources" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Origens</TabsTrigger>
           </TabsList>
 
           <TabsContent value="info" className="space-y-4 mt-4">

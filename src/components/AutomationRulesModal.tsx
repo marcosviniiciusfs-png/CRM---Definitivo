@@ -277,9 +277,9 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="list">Minhas Regras</TabsTrigger>
-            <TabsTrigger value="create" onClick={() => {
+          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <TabsTrigger value="list" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Minhas Regras</TabsTrigger>
+            <TabsTrigger value="create" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200" onClick={() => {
               if (activeTab !== "create") {
                 resetForm();
               }

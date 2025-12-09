@@ -271,9 +271,9 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="perfil" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="perfil">Perfil</TabsTrigger>
-          <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+          <TabsTrigger value="perfil" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Perfil</TabsTrigger>
+          <TabsTrigger value="notificacoes" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Notificações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="perfil" className="space-y-6 mt-6">

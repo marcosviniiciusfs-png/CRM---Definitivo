@@ -844,20 +844,20 @@ const LeadMetrics = () => {
 
       <Tabs defaultValue="facebook" className="space-y-6">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
-            <TabsTrigger value="facebook" className="flex items-center gap-2">
+          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent max-w-2xl">
+            <TabsTrigger value="facebook" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <Facebook className="h-4 w-4" />
               Meta Ads
             </TabsTrigger>
-            <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+            <TabsTrigger value="whatsapp" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <MessageCircle className="h-4 w-4" />
               WhatsApp
             </TabsTrigger>
-            <TabsTrigger value="manual" className="flex items-center gap-2">
+            <TabsTrigger value="manual" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <UserPlus className="h-4 w-4" />
               Cadastro Manual
             </TabsTrigger>
-            <TabsTrigger value="campaigns" className="flex items-center gap-2">
+            <TabsTrigger value="campaigns" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <Megaphone className="h-4 w-4" />
               Campanhas
             </TabsTrigger>
