@@ -24,8 +24,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import logoFull from "@/assets/logo-full.png";
-import logoIcon from "@/assets/logo-icon.png";
+import logoFull from "@/assets/kairoz-logo-full-new.png";
+import logoIcon from "@/assets/kairoz-logo-icon.png";
 
 const PLAN_NAMES: { [key: string]: string } = {
   'prod_TVqqdFt1DYCcCI': 'Básico',
