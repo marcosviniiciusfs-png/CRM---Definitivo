@@ -62,10 +62,10 @@ function AppSidebarComponent() {
   const { theme } = useTheme();
   const permissions = usePermissions();
   
-  // Classes condicionais para hover/active - opacidade 30% apenas no dark mode
+  // Classes condicionais para hover/active - opacidade 10% apenas no dark mode
   const isDark = theme === "dark";
-  const hoverClass = isDark ? "hover:bg-sidebar-accent/30" : "hover:bg-sidebar-accent";
-  const activeClass = isDark ? "bg-sidebar-accent/30" : "bg-sidebar-accent";
+  const hoverClass = isDark ? "hover:bg-sidebar-accent/10" : "hover:bg-sidebar-accent";
+  const activeClass = isDark ? "bg-sidebar-accent/10" : "bg-sidebar-accent";
   
   // Inicializar estado de bloqueio do localStorage
   const [isLocked, setIsLocked] = useState(() => {
