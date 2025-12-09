@@ -118,8 +118,8 @@ const Dashboard = () => {
   const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [newCustomersCount, setNewCustomersCount] = useState(0);
   const [currentTasksCount, setCurrentTasksCount] = useState(0);
-  const [leadTasksCount, setLeadTasksCount] = useState(0);
   const [overdueTasksCount, setOverdueTasksCount] = useState(0);
+  const [lossRate, setLossRate] = useState(0);
 
   // Taxa de Conversão real
   const [conversionData, setConversionData] = useState<ConversionDataPoint[]>([]);
@@ -209,7 +209,6 @@ const Dashboard = () => {
           // Buscar todas as cards em paralelo
           const [
             currentTasksResult,
-            leadTasksResult,
             overdueTasksResult
           ] = await Promise.all([
             // Tarefas atuais (não concluídas)
@@ -217,11 +216,6 @@ const Dashboard = () => {
               .from('kanban_cards')
               .select('id', { count: 'exact', head: true })
               .in('column_id', activeColumnIds),
-            // Tarefas de leads
-            supabase
-              .from('kanban_cards')
-              .select('id', { count: 'exact', head: true })
-              .not('lead_id', 'is', null),
             // Tarefas atrasadas (due_date < hoje e não concluídas)
             supabase
               .from('kanban_cards')
@@ -231,7 +225,6 @@ const Dashboard = () => {
           ]);
 
           setCurrentTasksCount(currentTasksResult.count || 0);
-          setLeadTasksCount(leadTasksResult.count || 0);
           setOverdueTasksCount(overdueTasksResult.count || 0);
         }
       }
@@ -395,12 +388,60 @@ const Dashboard = () => {
     }
   };
 
+  // Função para calcular Taxa de Perda de Vendas
+  const loadLossRate = async () => {
+    try {
+      if (!user) return;
+
+      const { data: orgMember } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!orgMember) return;
+
+      // Buscar estágios do tipo 'lost'
+      const { data: lostStages } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'lost');
+
+      const lostStageIds = lostStages?.map(s => s.id) || [];
+
+      // Contar total de leads e leads perdidos em paralelo
+      const [totalResult, lostResult] = await Promise.all([
+        supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', orgMember.organization_id),
+        lostStageIds.length > 0
+          ? supabase
+              .from('leads')
+              .select('id', { count: 'exact', head: true })
+              .eq('organization_id', orgMember.organization_id)
+              .in('funnel_stage_id', lostStageIds)
+          : Promise.resolve({ count: 0 })
+      ]);
+
+      const totalLeads = totalResult.count || 0;
+      const lostLeads = lostResult.count || 0;
+
+      // Calcular taxa de perda
+      const rate = totalLeads > 0 ? (lostLeads / totalLeads) * 100 : 0;
+      setLossRate(parseFloat(rate.toFixed(1)));
+    } catch (error) {
+      console.error('Erro ao calcular taxa de perda:', error);
+    }
+  };
+
   useEffect(() => {
     loadGoal();
     loadLastContribution();
     loadMetrics();
     loadConversionData();
     loadHotLeads();
+    loadLossRate();
 
     // Real-time subscription para atualizar métricas
     const leadsChannel = supabase
@@ -418,6 +459,7 @@ const Dashboard = () => {
           loadMetrics();
           loadConversionData();
           loadHotLeads();
+          loadLossRate();
         }
       )
       .subscribe();
@@ -840,8 +882,8 @@ const Dashboard = () => {
         <MetricCard title="Novos Leads" value={newLeadsCount} icon={TrendingUp} iconColor="text-cyan-500" />
         <MetricCard title="Novos Clientes" value={newCustomersCount} icon={Users} iconColor="text-green-500" />
         <MetricCard title="Tarefas Atuais" value={currentTasksCount} icon={CheckSquare} iconColor="text-purple-500" />
-        <MetricCard title="Tarefas de Leads" value={leadTasksCount} icon={List} iconColor="text-orange-400" />
         <MetricCard title="Tarefas Atrasadas" value={overdueTasksCount} icon={AlertCircle} iconColor="text-red-500" />
+        <MetricCard title="Taxa de Perda" value={`${lossRate}%`} icon={XCircle} iconColor="text-rose-500" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
