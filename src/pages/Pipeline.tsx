@@ -99,6 +99,55 @@ const Pipeline = () => {
     targetStage: string;
     event: DragEndEvent | null;
   }>({ show: false, lead: null, targetStage: '', event: null });
+  
+  // Scrollbar fixa customizada
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollThumbWidth, setScrollThumbWidth] = useState(20);
+  const [scrollThumbPosition, setScrollThumbPosition] = useState(0);
+  const [showScrollbar, setShowScrollbar] = useState(false);
+
+  // Atualiza a posição e tamanho do thumb da scrollbar
+  const updateScrollbarThumb = useCallback(() => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      const hasOverflow = scrollWidth > clientWidth;
+      setShowScrollbar(hasOverflow);
+      
+      if (hasOverflow) {
+        const thumbWidth = (clientWidth / scrollWidth) * 100;
+        const maxScrollLeft = scrollWidth - clientWidth;
+        const thumbPosition = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * (100 - thumbWidth) : 0;
+        setScrollThumbWidth(thumbWidth);
+        setScrollThumbPosition(thumbPosition);
+      }
+    }
+  }, []);
+
+  // Sincroniza scroll do container com a barra customizada
+  const handleScrollContainerScroll = useCallback(() => {
+    updateScrollbarThumb();
+  }, [updateScrollbarThumb]);
+
+  // Clique na track da scrollbar
+  const handleScrollbarTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollContainerRef.current) return;
+    const track = e.currentTarget;
+    const rect = track.getBoundingClientRect();
+    const clickPosition = (e.clientX - rect.left) / rect.width;
+    const { scrollWidth, clientWidth } = scrollContainerRef.current;
+    const maxScrollLeft = scrollWidth - clientWidth;
+    scrollContainerRef.current.scrollTo({
+      left: clickPosition * maxScrollLeft,
+      behavior: 'smooth'
+    });
+  }, []);
+
+  // Atualiza scrollbar quando stages/leads mudam
+  useEffect(() => {
+    updateScrollbarThumb();
+    const timer = setTimeout(updateScrollbarThumb, 100);
+    return () => clearTimeout(timer);
+  }, [stages, leads, selectedFunnelId, updateScrollbarThumb]);
 
   // Configurar sensor com constraint de distância
   const sensors = useSensors(
@@ -960,8 +1009,10 @@ const Pipeline = () => {
               className="mt-6"
             >
               <div 
+                ref={scrollContainerRef}
+                onScroll={handleScrollContainerScroll}
                 className={cn(
-                  "flex gap-3 overflow-x-auto pb-4 scrollbar-subtle pipeline-content",
+                  "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
                   isTabTransitioning && "transitioning"
                 )}
                 data-dragging-active={isDraggingActive}
@@ -990,8 +1041,10 @@ const Pipeline = () => {
           </Tabs>
         ) : (
           <div 
+            ref={scrollContainerRef}
+            onScroll={handleScrollContainerScroll}
             className={cn(
-              "flex gap-3 overflow-x-auto pb-4 scrollbar-subtle pipeline-content",
+              "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
               isTabTransitioning && "transitioning"
             )}
             data-dragging-active={isDraggingActive}
@@ -1083,6 +1136,22 @@ const Pipeline = () => {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {/* Barra de rolagem fixa na altura do footer do menu */}
+    {showScrollbar && (
+      <div 
+        className="fixed bottom-[72px] left-[var(--sidebar-width,256px)] right-6 h-2 z-40 bg-muted/20 rounded-full cursor-pointer transition-all hover:h-3 hover:bg-muted/30"
+        onClick={handleScrollbarTrackClick}
+      >
+        <div 
+          className="h-full bg-muted-foreground/25 rounded-full hover:bg-muted-foreground/40 transition-colors"
+          style={{ 
+            width: `${scrollThumbWidth}%`, 
+            marginLeft: `${scrollThumbPosition}%` 
+          }}
+        />
+      </div>
+    )}
     </>
   );
 };
