@@ -814,7 +814,7 @@ const Leads = () => {
                       )}
                       <TableCell className="font-medium">{lead.nome_lead}</TableCell>
                       <TableCell className="text-muted-foreground">{lead.email || "-"}</TableCell>
-                      <TableCell className="text-primary">{formatPhoneNumber(lead.telefone_lead)}</TableCell>
+                      <TableCell className="text-white">{formatPhoneNumber(lead.telefone_lead)}</TableCell>
                       <TableCell>
                         <LeadResponsibleSelect
                           leadId={lead.id}
