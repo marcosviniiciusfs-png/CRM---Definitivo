@@ -155,6 +155,10 @@ const Pipeline = () => {
   useEffect(() => {
     if (!isDraggingScrollbar) return;
     
+    // Previne seleção de texto durante o drag
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'grabbing';
+    
     const handleMouseMove = (e: MouseEvent) => {
       if (!scrollContainerRef.current || !scrollTrackRef.current) return;
       const track = scrollTrackRef.current;
@@ -167,14 +171,23 @@ const Pipeline = () => {
     
     const handleMouseUp = () => {
       setIsDraggingScrollbar(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
     
+    // Escuta em múltiplos eventos para garantir que o drag pare
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseleave', handleMouseUp);
+    window.addEventListener('blur', handleMouseUp);
     
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseleave', handleMouseUp);
+      window.removeEventListener('blur', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
   }, [isDraggingScrollbar]);
 
