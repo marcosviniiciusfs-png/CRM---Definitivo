@@ -1,8 +1,10 @@
 import React, { useMemo } from "react";
-import { Trophy, Crown, Medal, Award } from "lucide-react";
+import { Trophy, Medal, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import shieldGold from "@/assets/shield-gold.png";
+import shieldSilver from "@/assets/shield-silver.png";
 
 export interface SalesRepData {
   user_id: string;
@@ -42,7 +44,7 @@ const formatCurrency = (value: number) => {
 };
 
 // ============================================
-// PODIUM SHIELD - Hexagonal Metallic Style
+// PODIUM SHIELD - Image Based Style
 // ============================================
 const PodiumShield = ({
   rep,
@@ -53,31 +55,25 @@ const PodiumShield = ({
 }) => {
   const styles = {
     1: {
-      // GOLD - 1st Place
-      background: "linear-gradient(180deg, #ffc800 0%, #a88a00 100%)",
-      border: "#ffd700",
-      glow: "0 0 25px rgba(0, 200, 255, 0.8), inset 0 0 10px rgba(255, 255, 100, 0.5)",
-      width: 140,
-      height: 175,
-      avatarSize: 70,
+      shieldImage: shieldGold,
+      width: 160,
+      height: 180,
+      avatarSize: 55,
+      avatarTop: 58,
     },
     2: {
-      // SILVER - 2nd Place
-      background: "linear-gradient(180deg, #e0e0e0 0%, #808080 100%)",
-      border: "#c0c0c0",
-      glow: "0 0 15px rgba(0, 200, 255, 0.6)",
-      width: 120,
-      height: 150,
-      avatarSize: 60,
+      shieldImage: shieldSilver,
+      width: 130,
+      height: 140,
+      avatarSize: 45,
+      avatarTop: 42,
     },
     3: {
-      // BRONZE - 3rd Place
-      background: "linear-gradient(180deg, #d38d3d 0%, #8f5315 100%)",
-      border: "#cd7f32",
-      glow: "0 0 10px rgba(0, 200, 255, 0.4)",
-      width: 110,
-      height: 135,
-      avatarSize: 55,
+      shieldImage: shieldSilver,
+      width: 130,
+      height: 140,
+      avatarSize: 45,
+      avatarTop: 42,
     },
   };
 
@@ -85,87 +81,72 @@ const PodiumShield = ({
 
   return (
     <div className="flex flex-col items-center">
-      {/* Crown for 1st place */}
-      {position === 1 && (
-        <Crown 
-          className="h-10 w-10 text-yellow-400 mb-2"
-          style={{ filter: "drop-shadow(0 0 8px rgba(234, 179, 8, 0.8))" }}
-        />
-      )}
-
-      {/* Shield with hexagonal clip-path */}
+      {/* Shield Image Container */}
       <div
-        className="relative flex flex-col items-center justify-center transition-transform duration-300 hover:scale-105"
+        className="relative flex items-center justify-center transition-transform duration-300 hover:scale-105"
         style={{
           width: style.width,
           height: style.height,
-          background: style.background,
-          border: `3px solid ${style.border}`,
-          clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-          boxShadow: style.glow,
         }}
       >
-        {/* Profile Picture */}
+        {/* Shield Image */}
+        <img 
+          src={style.shieldImage} 
+          alt={`Shield ${position}`}
+          className="absolute inset-0 w-full h-full object-contain"
+          style={{
+            filter: position === 1 ? "drop-shadow(0 0 15px rgba(255, 200, 0, 0.5))" : "none",
+          }}
+        />
+        
+        {/* Profile Picture centered on shield */}
         <Avatar
-          className="border-2 border-white shadow-lg"
+          className="absolute border-2 border-white/80 shadow-lg z-10"
           style={{
             width: style.avatarSize,
             height: style.avatarSize,
+            top: style.avatarTop,
           }}
         >
           <AvatarImage src={rep.avatar_url || undefined} />
           <AvatarFallback 
-            className="font-bold"
+            className="font-bold bg-gradient-to-br from-indigo-900 to-indigo-950 text-white"
             style={{
-              background: "linear-gradient(135deg, #1a1a3a, #2a2a5a)",
-              color: "white",
-              fontSize: style.avatarSize * 0.3,
+              fontSize: style.avatarSize * 0.35,
             }}
           >
             {getInitials(rep.full_name)}
           </AvatarFallback>
         </Avatar>
-
-        {/* Name inside shield */}
-        <span 
-          className="mt-2 font-bold text-white text-center px-2 truncate w-full"
-          style={{
-            fontSize: position === 1 ? 14 : 12,
-            textShadow: "0 1px 2px rgba(0,0,0,0.5)",
-          }}
-        >
-          {rep.full_name?.split(" ")[0] || "Colaborador"}
-        </span>
       </div>
+
+      {/* Name outside shield */}
+      <span 
+        className="mt-2 font-bold text-white text-center truncate max-w-[150px]"
+        style={{
+          fontSize: position === 1 ? 16 : 14,
+          textShadow: "0 1px 3px rgba(0,0,0,0.7)",
+        }}
+      >
+        {rep.full_name || "Colaborador"}
+      </span>
 
       {/* Position Base */}
       <div 
-        className="mt-3 font-bold text-white text-center"
+        className="mt-1 font-bold text-white text-center"
         style={{
-          fontSize: position === 1 ? 24 : 20,
+          fontSize: position === 1 ? 22 : 18,
           textShadow: "0 0 10px rgba(0, 200, 255, 0.8)",
         }}
       >
         {position}º
-      </div>
-
-      {/* Revenue Badge */}
-      <div 
-        className="mt-1 px-3 py-1 rounded-full text-xs font-semibold"
-        style={{
-          background: "rgba(0, 200, 255, 0.2)",
-          border: "1px solid rgba(0, 200, 255, 0.4)",
-          color: "rgba(0, 200, 255, 1)",
-        }}
-      >
-        {formatCurrency(rep.total_revenue)}
       </div>
     </div>
   );
 };
 
 // ============================================
-// PODIUM SECTION - Container with Neon Floor
+// PODIUM SECTION - Container without Floor Effect
 // ============================================
 const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   if (top3.length === 0) return null;
@@ -174,26 +155,16 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
 
   return (
     <div 
-      className="relative overflow-hidden py-8 px-4"
+      className="relative py-8 px-4"
       style={{
-        minHeight: 380,
+        minHeight: 340,
       }}
     >
-      {/* Neon Floor Effect */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 z-0"
-        style={{
-          height: 50,
-          background: "radial-gradient(circle at center, rgba(0, 200, 255, 0.3) 0%, rgba(0, 200, 255, 0) 70%)",
-          boxShadow: "0 0 30px 10px rgba(0, 200, 255, 0.5)",
-        }}
-      />
-
       {/* Podium Layout - 2nd, 1st, 3rd aligned at bottom */}
-      <div className="relative z-10 flex items-end justify-center gap-4 md:gap-8">
-        {/* 2nd Place - 75% height offset */}
+      <div className="flex items-end justify-center gap-4 md:gap-8">
+        {/* 2nd Place - offset */}
         {second && (
-          <div style={{ marginTop: 50 }}>
+          <div style={{ marginTop: 40 }}>
             <PodiumShield rep={second} position={2} />
           </div>
         )}
@@ -205,9 +176,9 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
           </div>
         )}
 
-        {/* 3rd Place - 60% height offset */}
+        {/* 3rd Place - offset */}
         {third && (
-          <div style={{ marginTop: 70 }}>
+          <div style={{ marginTop: 40 }}>
             <PodiumShield rep={third} position={3} />
           </div>
         )}
@@ -241,7 +212,7 @@ const RankingCard = ({
 
   return (
     <div 
-      className="flex items-center gap-2 p-2 rounded-lg bg-indigo-950/80 border border-indigo-500/20 hover:border-indigo-400/40 transition-all max-w-sm"
+      className="flex items-center gap-3 p-3 rounded-lg bg-indigo-950/80 border border-indigo-500/20 hover:border-indigo-400/40 transition-all w-full"
       style={{
         backdropFilter: "blur(10px)",
       }}
@@ -249,7 +220,7 @@ const RankingCard = ({
       {/* Position Badge */}
       <div 
         className={cn(
-          "flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br font-bold text-white text-xs",
+          "flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br font-bold text-white text-xs shrink-0",
           getBadgeColor(position)
         )}
       >
@@ -257,7 +228,7 @@ const RankingCard = ({
       </div>
 
       {/* Avatar */}
-      <Avatar className="h-8 w-8 border border-indigo-500/30">
+      <Avatar className="h-9 w-9 border border-indigo-500/30 shrink-0">
         <AvatarImage src={rep.avatar_url || undefined} />
         <AvatarFallback className="bg-indigo-900 text-indigo-200 text-[10px] font-bold">
           {getInitials(rep.full_name)}
