@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
-import { Trophy, Crown, Medal, Award } from "lucide-react";
+import { Trophy, Crown, Medal, Award, Star } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +18,8 @@ interface SalesLeaderboardProps {
   reps: SalesRepData[];
   isLoading?: boolean;
   title?: string;
+  sortBy?: "revenue" | "won_leads" | "percentage";
+  listType?: "cards" | "rows";
 }
 
 const getInitials = (name: string | null) => {
@@ -31,259 +32,212 @@ const getInitials = (name: string | null) => {
     .slice(0, 2);
 };
 
-// Shield Badge Component for Podium
-const ShieldBadge = ({
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+// Shield Badge for Podium (matching reference design)
+const PodiumShield = ({
   rep,
   position,
-  size = "large",
 }: {
   rep: SalesRepData;
   position: 1 | 2 | 3;
-  size?: "large" | "medium";
 }) => {
-  const shieldStyles = {
+  const styles = {
     1: {
-      gradient: "from-yellow-300 via-yellow-500 to-yellow-700",
-      border: "border-yellow-400",
-      glow: "shadow-[0_0_30px_rgba(250,204,21,0.5),0_0_60px_rgba(250,204,21,0.3)]",
-      iconColor: "text-yellow-300",
-      bgInner: "bg-gradient-to-b from-yellow-900/50 to-yellow-950/80",
+      frameColor: "from-yellow-400 via-yellow-500 to-yellow-600",
+      innerBg: "bg-gradient-to-b from-red-600 to-red-900",
+      glowColor: "rgba(234, 179, 8, 0.6)",
+      size: "w-36 h-44",
+      avatarSize: "h-20 w-20",
     },
     2: {
-      gradient: "from-gray-200 via-gray-400 to-gray-600",
-      border: "border-gray-300",
-      glow: "shadow-[0_0_25px_rgba(156,163,175,0.4),0_0_50px_rgba(156,163,175,0.2)]",
-      iconColor: "text-gray-300",
-      bgInner: "bg-gradient-to-b from-gray-800/50 to-gray-900/80",
+      frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
+      innerBg: "bg-gradient-to-b from-blue-600 to-blue-900",
+      glowColor: "rgba(34, 211, 238, 0.5)",
+      size: "w-32 h-40",
+      avatarSize: "h-16 w-16",
     },
     3: {
-      gradient: "from-orange-400 via-orange-600 to-orange-800",
-      border: "border-orange-500",
-      glow: "shadow-[0_0_25px_rgba(249,115,22,0.4),0_0_50px_rgba(249,115,22,0.2)]",
-      iconColor: "text-orange-400",
-      bgInner: "bg-gradient-to-b from-orange-900/50 to-orange-950/80",
+      frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
+      innerBg: "bg-gradient-to-b from-red-600 to-red-900",
+      glowColor: "rgba(34, 211, 238, 0.5)",
+      size: "w-32 h-40",
+      avatarSize: "h-16 w-16",
     },
   };
 
-  const style = shieldStyles[position];
-  const isLarge = size === "large";
+  const style = styles[position];
 
   return (
-    <div className="relative flex flex-col items-center animate-fade-in">
-      {/* Crown for 1st place */}
+    <div className="flex flex-col items-center relative">
+      {/* Crown for 1st */}
       {position === 1 && (
-        <Crown
-          className={cn(
-            "absolute -top-6 text-yellow-400 animate-pulse",
-            isLarge ? "h-10 w-10" : "h-8 w-8"
-          )}
-          style={{
-            filter: "drop-shadow(0 0 10px rgba(250, 204, 21, 0.8))",
-          }}
+        <Crown 
+          className="absolute -top-8 h-10 w-10 text-yellow-400 z-10"
+          style={{ filter: "drop-shadow(0 0 8px rgba(234, 179, 8, 0.8))" }}
         />
       )}
-
-      {/* Shield Container */}
-      <div
-        className={cn(
-          "relative",
-          isLarge ? "w-28 h-32" : "w-24 h-28"
-        )}
+      
+      {/* Shield Frame */}
+      <div 
+        className={cn("relative", style.size)}
+        style={{
+          filter: `drop-shadow(0 0 20px ${style.glowColor})`,
+        }}
       >
-        {/* Shield Shape with Gradient Border */}
-        <div
+        {/* Outer Frame with gradient */}
+        <div 
           className={cn(
-            "absolute inset-0 rounded-t-full",
-            "bg-gradient-to-b",
-            style.gradient,
-            style.glow,
-            "transition-all duration-300 hover:scale-105"
+            "absolute inset-0 bg-gradient-to-b p-1",
+            style.frameColor
           )}
           style={{
-            clipPath: "polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%)",
+            clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
           }}
         >
-          {/* Inner Shield */}
-          <div
-            className={cn(
-              "absolute inset-1 flex flex-col items-center justify-center",
-              style.bgInner
-            )}
+          {/* Inner Background */}
+          <div 
+            className={cn("w-full h-full flex flex-col items-center justify-center", style.innerBg)}
             style={{
-              clipPath: "polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%)",
+              clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
             }}
           >
+            {/* Decorative top elements */}
+            <div className="absolute top-2 left-2 right-2 flex justify-between">
+              <Star className="h-3 w-3 text-yellow-400/60" />
+              <Star className="h-3 w-3 text-yellow-400/60" />
+            </div>
+            
+            {/* Label */}
+            <span className="text-[10px] text-white/80 mb-1 font-medium">
+              {position === 1 ? "Nome do Primeiro" : position === 2 ? "Nome do Primeiro" : "Nome do Primeiro"}
+            </span>
+            
             {/* Avatar */}
-            <Avatar
-              className={cn(
-                "border-2",
-                style.border,
-                isLarge ? "h-14 w-14" : "h-12 w-12"
-              )}
-            >
+            <Avatar className={cn(style.avatarSize, "border-2 border-white/30")}>
               <AvatarImage src={rep.avatar_url || undefined} />
-              <AvatarFallback className="bg-[#0a0a2a] text-cyan-400 font-bold">
+              <AvatarFallback className="bg-purple-900 text-white font-bold">
                 {getInitials(rep.full_name)}
               </AvatarFallback>
             </Avatar>
 
-            {/* Position Number */}
-            <span
-              className={cn(
-                "font-bold mt-1",
-                style.iconColor,
-                isLarge ? "text-lg" : "text-base"
-              )}
-            >
-              #{position}
-            </span>
+            {/* Decorative diamond */}
+            <div className="mt-2 w-4 h-4 rotate-45 bg-gradient-to-br from-yellow-400 to-yellow-600" />
           </div>
         </div>
       </div>
 
-      {/* Name */}
-      <p
-        className={cn(
-          "text-white font-semibold text-center mt-2 truncate max-w-[120px]",
-          isLarge ? "text-sm" : "text-xs"
-        )}
-      >
-        {rep.full_name || "Sem nome"}
+      {/* Name below shield */}
+      <p className="mt-3 text-white font-semibold text-sm text-center max-w-[120px] truncate">
+        {rep.full_name || "Colaborador"}
       </p>
-
-      {/* Stats */}
-      <div className="flex items-center gap-3 mt-1 text-xs text-cyan-300">
-        <span>Mês: {rep.won_leads}</span>
-        <span className="text-gray-500">|</span>
-        <span>R$ {rep.total_revenue.toLocaleString("pt-BR")}</span>
-      </div>
     </div>
   );
 };
 
-// Podium Section Component
+// Podium Section
 const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   if (top3.length === 0) return null;
 
-  const [first, second, third] = [
-    top3[0],
-    top3[1] || null,
-    top3[2] || null,
-  ];
+  const [first, second, third] = [top3[0], top3[1] || null, top3[2] || null];
 
   return (
-    <div className="relative mb-8">
-      {/* Neon Glow Background Effect */}
-      <div
-        className="absolute inset-0 opacity-30"
+    <div className="relative py-8">
+      {/* Glow effect behind podium */}
+      <div 
+        className="absolute inset-0 opacity-40"
         style={{
-          background:
-            "radial-gradient(ellipse at center, rgba(0, 245, 255, 0.3) 0%, transparent 70%)",
+          background: "radial-gradient(ellipse at center bottom, rgba(34, 211, 238, 0.4) 0%, transparent 60%)",
         }}
       />
 
-      {/* Podium Layout */}
-      <div className="relative flex items-end justify-center gap-4 md:gap-8 pt-8 pb-4">
-        {/* 2nd Place - Left */}
+      {/* Podium Layout - 2nd, 1st, 3rd */}
+      <div className="relative flex items-end justify-center gap-6 md:gap-12">
+        {/* 2nd Place */}
         {second && (
-          <div className="flex flex-col items-center">
-            <ShieldBadge rep={second} position={2} size="medium" />
-            <div
-              className="w-20 md:w-24 h-20 mt-4 rounded-t-lg bg-gradient-to-b from-gray-600 to-gray-800"
-              style={{
-                boxShadow: "0 0 20px rgba(156, 163, 175, 0.3)",
-              }}
-            >
-              <div className="h-full flex items-center justify-center">
-                <Medal className="h-8 w-8 text-gray-300" />
-              </div>
-            </div>
+          <div className="flex flex-col items-center pb-4">
+            <PodiumShield rep={second} position={2} />
           </div>
         )}
 
-        {/* 1st Place - Center */}
+        {/* 1st Place - Elevated */}
         {first && (
-          <div className="flex flex-col items-center -mt-4">
-            <ShieldBadge rep={first} position={1} size="large" />
-            <div
-              className="w-24 md:w-28 h-28 mt-4 rounded-t-lg bg-gradient-to-b from-yellow-500 to-yellow-700"
-              style={{
-                boxShadow: "0 0 30px rgba(250, 204, 21, 0.4)",
-              }}
-            >
-              <div className="h-full flex items-center justify-center">
-                <Trophy className="h-10 w-10 text-yellow-200" />
-              </div>
-            </div>
+          <div className="flex flex-col items-center -mt-8">
+            <PodiumShield rep={first} position={1} />
           </div>
         )}
 
-        {/* 3rd Place - Right */}
+        {/* 3rd Place */}
         {third && (
-          <div className="flex flex-col items-center">
-            <ShieldBadge rep={third} position={3} size="medium" />
-            <div
-              className="w-20 md:w-24 h-16 mt-4 rounded-t-lg bg-gradient-to-b from-orange-500 to-orange-700"
-              style={{
-                boxShadow: "0 0 20px rgba(249, 115, 22, 0.3)",
-              }}
-            >
-              <div className="h-full flex items-center justify-center">
-                <Award className="h-7 w-7 text-orange-200" />
-              </div>
-            </div>
+          <div className="flex flex-col items-center pb-4">
+            <PodiumShield rep={third} position={3} />
           </div>
         )}
       </div>
 
-      {/* Podium Base with Neon Edge */}
-      <div
-        className="h-2 bg-gradient-to-r from-transparent via-cyan-500 to-transparent mx-auto max-w-md"
-        style={{
-          boxShadow: "0 0 20px rgba(0, 245, 255, 0.6)",
-        }}
-      />
+      {/* Platform Base */}
+      <div className="flex justify-center mt-4">
+        <div 
+          className="w-96 h-6 rounded-t-lg"
+          style={{
+            background: "linear-gradient(to bottom, rgba(34, 211, 238, 0.3), rgba(34, 211, 238, 0.1))",
+            boxShadow: "0 0 30px rgba(34, 211, 238, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
+          }}
+        />
+      </div>
     </div>
   );
 };
 
-// Ranking Row Component
-const RankingRow = ({
+// Ranking Card for list
+const RankingCard = ({
   rep,
   position,
 }: {
   rep: SalesRepData;
   position: number;
 }) => {
-  const percentage = rep.target > 0 ? Math.min((rep.won_leads / rep.target) * 100, 100) : 0;
+  const getBadgeColor = (pos: number) => {
+    if (pos <= 3) return "from-yellow-400 to-yellow-600";
+    if (pos <= 6) return "from-purple-400 to-purple-600";
+    return "from-blue-400 to-blue-600";
+  };
+
+  const getBadgeIcon = (pos: number) => {
+    if (pos === 1) return <Trophy className="h-3 w-3" />;
+    if (pos === 2) return <Medal className="h-3 w-3" />;
+    if (pos === 3) return <Award className="h-3 w-3" />;
+    return null;
+  };
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 p-3 rounded-lg",
-        "bg-[#0f0f35]/80 border border-cyan-900/30",
-        "hover:border-cyan-500/50 hover:bg-[#151550]/80",
-        "transition-all duration-200 group"
-      )}
+    <div 
+      className="flex items-center gap-3 p-3 rounded-xl bg-indigo-950/80 border border-indigo-500/20 hover:border-indigo-400/40 transition-all"
       style={{
-        boxShadow: "inset 0 1px 0 rgba(0, 245, 255, 0.05)",
+        backdropFilter: "blur(10px)",
       }}
     >
-      {/* Position */}
-      <div
+      {/* Position Badge */}
+      <div 
         className={cn(
-          "flex items-center justify-center w-8 h-8 rounded-full",
-          "bg-gradient-to-br from-cyan-900/50 to-purple-900/50",
-          "border border-cyan-700/30 text-cyan-300 font-bold text-sm"
+          "flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br font-bold text-white text-sm",
+          getBadgeColor(position)
         )}
       >
-        {position}
+        {getBadgeIcon(position) || position}
       </div>
 
       {/* Avatar */}
-      <Avatar className="h-10 w-10 border-2 border-cyan-800/50 group-hover:border-cyan-500/50 transition-colors">
+      <Avatar className="h-10 w-10 border-2 border-indigo-500/30">
         <AvatarImage src={rep.avatar_url || undefined} />
-        <AvatarFallback className="bg-[#0a0a2a] text-cyan-400 text-xs font-bold">
+        <AvatarFallback className="bg-indigo-900 text-indigo-200 text-xs font-bold">
           {getInitials(rep.full_name)}
         </AvatarFallback>
       </Avatar>
@@ -291,33 +245,19 @@ const RankingRow = ({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-white font-medium text-sm truncate">
-          {rep.full_name || "Sem nome"}
+          {rep.full_name || "Colaborador"}
         </p>
-        <div className="flex items-center gap-4 text-xs text-gray-400 mt-0.5">
-          <span>
-            Mês: <span className="text-cyan-400 font-medium">{rep.won_leads}</span>
-          </span>
-          <span>
-            Feitas: <span className="text-purple-400 font-medium">{rep.total_leads}</span>
-          </span>
+        <div className="flex items-center gap-3 text-xs text-indigo-300/80">
+          <span>Mês {rep.won_leads}</span>
+          <span className="text-indigo-500">•</span>
+          <span>Vendas {rep.total_leads}</span>
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="w-24 md:w-32">
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-gray-500">Meta</span>
-          <span className="text-cyan-400 font-medium">{Math.round(percentage)}%</span>
-        </div>
-        <div className="relative h-2 bg-gray-800 rounded-full overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500"
-            style={{
-              width: `${percentage}%`,
-              boxShadow: percentage > 0 ? "0 0 10px rgba(0, 245, 255, 0.5)" : "none",
-            }}
-          />
-        </div>
+      {/* Stats Badge */}
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+        <Trophy className="h-3 w-3 text-yellow-400" />
+        <span className="text-xs text-yellow-300 font-medium">{formatCurrency(rep.total_revenue)}</span>
       </div>
     </div>
   );
@@ -326,16 +266,14 @@ const RankingRow = ({
 // Loading Skeleton
 const LeaderboardSkeleton = () => (
   <div className="space-y-6">
-    {/* Podium Skeleton */}
     <div className="flex items-end justify-center gap-8 py-8">
-      <Skeleton className="w-24 h-40 bg-gray-800" />
-      <Skeleton className="w-28 h-52 bg-gray-800" />
-      <Skeleton className="w-24 h-36 bg-gray-800" />
+      <Skeleton className="w-32 h-44 bg-indigo-800/50 rounded-lg" />
+      <Skeleton className="w-36 h-52 bg-indigo-800/50 rounded-lg" />
+      <Skeleton className="w-32 h-44 bg-indigo-800/50 rounded-lg" />
     </div>
-    {/* List Skeleton */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-16 bg-gray-800 rounded-lg" />
+        <Skeleton key={i} className="h-16 bg-indigo-800/50 rounded-xl" />
       ))}
     </div>
   </div>
@@ -345,108 +283,85 @@ const LeaderboardSkeleton = () => (
 export function SalesLeaderboard({
   reps,
   isLoading = false,
-  title = "Ranking de Vendas",
+  sortBy = "revenue",
+  listType = "cards",
 }: SalesLeaderboardProps) {
-  const sortedReps = useMemo(
-    () => [...reps].sort((a, b) => b.total_revenue - a.total_revenue),
-    [reps]
-  );
+  const sortedReps = useMemo(() => {
+    const sorted = [...reps];
+    switch (sortBy) {
+      case "revenue":
+        return sorted.sort((a, b) => b.total_revenue - a.total_revenue);
+      case "won_leads":
+        return sorted.sort((a, b) => b.won_leads - a.won_leads);
+      case "percentage":
+        const getPercentage = (r: SalesRepData) => r.target > 0 ? (r.won_leads / r.target) * 100 : 0;
+        return sorted.sort((a, b) => getPercentage(b) - getPercentage(a));
+      default:
+        return sorted;
+    }
+  }, [reps, sortBy]);
 
   const top3 = sortedReps.slice(0, 3);
   const restRanking = sortedReps.slice(3);
 
   // Split into two columns
-  const leftColumn = restRanking.filter((_, i) => i % 2 === 0);
-  const rightColumn = restRanking.filter((_, i) => i % 2 === 1);
+  const leftColumn: { rep: SalesRepData; position: number }[] = [];
+  const rightColumn: { rep: SalesRepData; position: number }[] = [];
+  
+  restRanking.forEach((rep, index) => {
+    const position = index + 4;
+    if (index % 2 === 0) {
+      leftColumn.push({ rep, position });
+    } else {
+      rightColumn.push({ rep, position });
+    }
+  });
 
   if (isLoading) {
-    return (
-      <div className="rounded-xl p-6 bg-[#0a0a2a]">
-        <LeaderboardSkeleton />
-      </div>
-    );
+    return <LeaderboardSkeleton />;
   }
 
   if (reps.length === 0) {
     return (
-      <div className="rounded-xl p-8 bg-[#0a0a2a] text-center">
-        <Trophy className="h-12 w-12 text-gray-600 mx-auto mb-3" />
-        <p className="text-gray-400">Nenhum dado de vendas disponível</p>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <Trophy className="h-16 w-16 text-indigo-400/40 mb-4" />
+        <p className="text-indigo-300/60 text-lg">Nenhum dado de vendas disponível</p>
+        <p className="text-indigo-400/40 text-sm mt-1">Realize vendas para aparecer no ranking</p>
       </div>
     );
   }
 
   return (
-    <div
-      className="rounded-xl p-6 overflow-hidden relative"
-      style={{
-        background: "linear-gradient(180deg, #0a0a2a 0%, #050515 100%)",
-        boxShadow:
-          "0 0 40px rgba(0, 245, 255, 0.1), inset 0 1px 0 rgba(0, 245, 255, 0.1)",
-      }}
-    >
-      {/* Background Grid Effect */}
-      <div
-        className="absolute inset-0 opacity-5"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(0, 245, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 245, 255, 0.1) 1px, transparent 1px)",
-          backgroundSize: "50px 50px",
-        }}
-      />
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Left Side - Podium */}
+      <div className="flex flex-col">
+        <PodiumSection top3={top3} />
+      </div>
 
-      {/* Content */}
-      <div className="relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <Trophy
-            className="h-8 w-8 text-yellow-400"
-            style={{
-              filter: "drop-shadow(0 0 10px rgba(250, 204, 21, 0.6))",
-            }}
-          />
-          <h2
-            className="text-2xl font-bold text-white"
-            style={{
-              textShadow: "0 0 20px rgba(0, 245, 255, 0.3)",
-            }}
-          >
-            {title}
-          </h2>
-          <Trophy
-            className="h-8 w-8 text-yellow-400"
-            style={{
-              filter: "drop-shadow(0 0 10px rgba(250, 204, 21, 0.6))",
-            }}
-          />
+      {/* Right Side - Ranking List */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-indigo-300/60 px-2">Tipo de Lista</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+          {/* Left Column */}
+          <div className="space-y-2">
+            {leftColumn.map(({ rep, position }) => (
+              <RankingCard key={rep.user_id} rep={rep} position={position} />
+            ))}
+          </div>
+          
+          {/* Right Column */}
+          <div className="space-y-2">
+            {rightColumn.map(({ rep, position }) => (
+              <RankingCard key={rep.user_id} rep={rep} position={position} />
+            ))}
+          </div>
         </div>
 
-        {/* Podium */}
-        <PodiumSection top3={top3} />
-
-        {/* Ranking List - Two Columns */}
-        {restRanking.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
-            <div className="space-y-2">
-              {leftColumn.map((rep, i) => (
-                <RankingRow
-                  key={rep.user_id}
-                  rep={rep}
-                  position={4 + i * 2}
-                />
-              ))}
-            </div>
-            <div className="space-y-2">
-              {rightColumn.map((rep, i) => (
-                <RankingRow
-                  key={rep.user_id}
-                  rep={rep}
-                  position={5 + i * 2}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Bottom Info */}
+        <div className="flex items-center justify-end gap-2 text-xs text-indigo-400/40 pt-4">
+          <span>© Ranking Kairoz em tempo real</span>
+        </div>
       </div>
     </div>
   );
