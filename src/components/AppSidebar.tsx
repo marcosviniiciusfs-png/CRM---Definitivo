@@ -66,7 +66,7 @@ function AppSidebarComponent() {
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
   const activeClass = "bg-sidebar-accent";
-  const activeTextClass = "text-sidebar-foreground";
+  const activeTextClass = "text-sidebar-primary";
   
   // Inicializar estado de bloqueio do localStorage
   const [isLocked, setIsLocked] = useState(() => {
