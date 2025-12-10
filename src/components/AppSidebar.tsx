@@ -1,4 +1,4 @@
-import { Home, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle, Puzzle } from "lucide-react";
+import { Home, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle, Puzzle, Trophy } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -40,6 +40,7 @@ const items = [
   { title: "Métricas", url: "/lead-metrics", icon: BarChart3 },
   { title: "Roleta de Leads", url: "/lead-distribution", icon: Shuffle },
   { title: "Chat", url: "/chat", icon: MessageSquare },
+  { title: "Ranking", url: "/ranking", icon: Trophy },
 ];
 
 const administrativoItems = [
