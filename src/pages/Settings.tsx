@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { User, Bell, Moon, Sun, CreditCard, Shield } from "lucide-react";
+import { User, Bell, Moon, Sun, CreditCard, Shield, Database, Download, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -39,6 +39,7 @@ const Settings = () => {
   const [addingCollaborators, setAddingCollaborators] = useState(false);
   const [extraCollaboratorsQty, setExtraCollaboratorsQty] = useState(1);
   const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
+  const [exportingBackup, setExportingBackup] = useState(false);
 
   // Handle OAuth redirect parameters
   useEffect(() => {
@@ -511,6 +512,77 @@ const Settings = () => {
               </div>
               <Button onClick={handleChangePassword} disabled={changingPassword}>
                 {changingPassword ? "Atualizando..." : "Atualizar Senha"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Backup do Banco de Dados */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                Backup de Dados
+              </CardTitle>
+              <CardDescription>
+                Exporte todos os dados da sua organização em formato JSON
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground mb-3">
+                  O backup inclui: leads, mensagens, funis, equipes, tarefas, metas, histórico de distribuição, automações e configurações da organização.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <strong>Nota:</strong> Apenas owners e admins podem exportar backups.
+                </p>
+              </div>
+              <Button 
+                onClick={async () => {
+                  setExportingBackup(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('export-database-backup');
+                    
+                    if (error) {
+                      console.error('Erro ao exportar:', error);
+                      toast.error(error.message || 'Erro ao exportar backup');
+                      return;
+                    }
+
+                    // Create and download the file
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const date = new Date().toISOString().split('T')[0];
+                    a.download = `backup-kairoz-${date}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    const stats = data?.metadata?.statistics;
+                    toast.success(`Backup exportado! ${stats?.total_records || 0} registros em ${stats?.total_tables || 0} tabelas.`);
+                  } catch (err) {
+                    console.error('Erro ao exportar backup:', err);
+                    toast.error('Erro ao exportar backup. Tente novamente.');
+                  } finally {
+                    setExportingBackup(false);
+                  }
+                }}
+                disabled={exportingBackup}
+                className="w-full sm:w-auto"
+              >
+                {exportingBackup ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Exportar Backup Completo
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>

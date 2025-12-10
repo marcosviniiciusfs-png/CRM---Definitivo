@@ -101,3 +101,6 @@ verify_jwt = true
 
 [functions.get-signed-media-url]
 verify_jwt = true
+
+[functions.export-database-backup]
+verify_jwt = true
