@@ -1,14 +1,10 @@
-import React, { useMemo, useState } from "react";
-import { Trophy, Medal, Award, Wand2, Loader2 } from "lucide-react";
+import React, { useMemo } from "react";
+import { Trophy, Medal, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { removeBackground, loadImage, blobToBase64 } from "@/lib/background-removal";
-import shieldGoldDefault from "@/assets/shield-gold.png";
-import shieldSilverDefault from "@/assets/shield-silver.png";
+import shieldGold from "@/assets/shield-gold.png";
+import shieldSilver from "@/assets/shield-silver.png";
 
 export interface SalesRepData {
   user_id: string;
@@ -53,35 +49,31 @@ const formatCurrency = (value: number) => {
 const PodiumShield = ({
   rep,
   position,
-  customShieldGold,
-  customShieldSilver,
 }: {
   rep: SalesRepData;
   position: 1 | 2 | 3;
-  customShieldGold?: string;
-  customShieldSilver?: string;
 }) => {
   const styles = {
     1: {
-      shieldImage: customShieldGold || shieldGoldDefault,
-      width: 280,
-      height: 320,
-      avatarSize: 90,
-      avatarTop: "38%",
+      shieldImage: shieldGold,
+      width: 160,
+      height: 180,
+      avatarSize: 55,
+      avatarTop: 58,
     },
     2: {
-      shieldImage: customShieldSilver || shieldSilverDefault,
-      width: 220,
-      height: 250,
-      avatarSize: 70,
-      avatarTop: "32%",
+      shieldImage: shieldSilver,
+      width: 130,
+      height: 140,
+      avatarSize: 45,
+      avatarTop: 42,
     },
     3: {
-      shieldImage: customShieldSilver || shieldSilverDefault,
-      width: 220,
-      height: 250,
-      avatarSize: 70,
-      avatarTop: "32%",
+      shieldImage: shieldSilver,
+      width: 130,
+      height: 140,
+      avatarSize: 45,
+      avatarTop: 42,
     },
   };
 
@@ -114,9 +106,6 @@ const PodiumShield = ({
             width: style.avatarSize,
             height: style.avatarSize,
             top: style.avatarTop,
-            left: "50%",
-            transform: "translateX(-50%)",
-            borderRadius: "50%",
           }}
         >
           <AvatarImage src={rep.avatar_url || undefined} />
@@ -159,15 +148,7 @@ const PodiumShield = ({
 // ============================================
 // PODIUM SECTION - Container without Floor Effect
 // ============================================
-const PodiumSection = ({ 
-  top3,
-  customShieldGold,
-  customShieldSilver,
-}: { 
-  top3: SalesRepData[];
-  customShieldGold?: string;
-  customShieldSilver?: string;
-}) => {
+const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   if (top3.length === 0) return null;
 
   const [first, second, third] = [top3[0], top3[1] || null, top3[2] || null];
@@ -184,36 +165,21 @@ const PodiumSection = ({
         {/* 2nd Place - offset */}
         {second && (
           <div style={{ marginTop: 40 }}>
-            <PodiumShield 
-              rep={second} 
-              position={2} 
-              customShieldGold={customShieldGold}
-              customShieldSilver={customShieldSilver}
-            />
+            <PodiumShield rep={second} position={2} />
           </div>
         )}
 
         {/* 1st Place - Full height (no offset) */}
         {first && (
           <div>
-            <PodiumShield 
-              rep={first} 
-              position={1} 
-              customShieldGold={customShieldGold}
-              customShieldSilver={customShieldSilver}
-            />
+            <PodiumShield rep={first} position={1} />
           </div>
         )}
 
         {/* 3rd Place - offset */}
         {third && (
           <div style={{ marginTop: 40 }}>
-            <PodiumShield 
-              rep={third} 
-              position={3}
-              customShieldGold={customShieldGold}
-              customShieldSilver={customShieldSilver}
-            />
+            <PodiumShield rep={third} position={3} />
           </div>
         )}
       </div>
@@ -317,10 +283,6 @@ export function SalesLeaderboard({
   sortBy = "revenue",
   listType = "cards",
 }: SalesLeaderboardProps) {
-  const [isGenerating, setIsGenerating] = useState<"gold" | "silver" | null>(null);
-  const [customShieldGold, setCustomShieldGold] = useState<string | undefined>();
-  const [customShieldSilver, setCustomShieldSilver] = useState<string | undefined>();
-
   const sortedReps = useMemo(() => {
     const sorted = [...reps];
     switch (sortBy) {
@@ -338,50 +300,6 @@ export function SalesLeaderboard({
 
   const top3 = sortedReps.slice(0, 3);
 
-  const generateShield = async (type: "gold" | "silver") => {
-    setIsGenerating(type);
-    
-    try {
-      // Step 1: Generate shield with AI
-      toast.info("Gerando escudo com IA...");
-      const { data, error } = await supabase.functions.invoke("generate-shield-image", {
-        body: { type },
-      });
-
-      if (error) {
-        console.error("Error generating shield:", error);
-        toast.error(`Erro ao gerar escudo ${type === "gold" ? "dourado" : "prateado"}`);
-        return;
-      }
-
-      const imageSource = data?.image || data?.publicUrl;
-      if (!imageSource) {
-        toast.error("Imagem não foi gerada");
-        return;
-      }
-
-      // Step 2: Load image and remove background
-      toast.info("Removendo fundo da imagem...");
-      const imageElement = await loadImage(imageSource);
-      const transparentBlob = await removeBackground(imageElement);
-      const transparentBase64 = await blobToBase64(transparentBlob);
-
-      // Step 3: Set the transparent image
-      if (type === "gold") {
-        setCustomShieldGold(transparentBase64);
-      } else {
-        setCustomShieldSilver(transparentBase64);
-      }
-      
-      toast.success(`Escudo ${type === "gold" ? "dourado" : "prateado"} gerado com transparência!`);
-    } catch (err) {
-      console.error("Error:", err);
-      toast.error("Erro ao gerar escudo. Tente novamente.");
-    } finally {
-      setIsGenerating(null);
-    }
-  };
-
   if (isLoading) {
     return <LeaderboardSkeleton />;
   }
@@ -397,67 +315,28 @@ export function SalesLeaderboard({
   }
 
   return (
-    <div className="space-y-6">
-      {/* AI Shield Generation Controls */}
-      <div className="flex items-center justify-center gap-3 pb-4 border-b border-indigo-500/20">
-        <span className="text-sm text-indigo-300/60">Gerar escudos com IA:</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => generateShield("gold")}
-          disabled={isGenerating !== null}
-          className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300"
-        >
-          {isGenerating === "gold" ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Wand2 className="h-4 w-4 mr-2" />
-          )}
-          Escudo Dourado
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => generateShield("silver")}
-          disabled={isGenerating !== null}
-          className="border-gray-400/30 text-gray-300 hover:bg-gray-500/10 hover:text-gray-200"
-        >
-          {isGenerating === "silver" ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Wand2 className="h-4 w-4 mr-2" />
-          )}
-          Escudo Prateado
-        </Button>
+    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
+      {/* Left - Podium */}
+      <div className="flex items-center justify-center">
+        <PodiumSection top3={top3} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
-        {/* Left - Podium */}
-        <div className="flex items-center justify-center">
-          <PodiumSection 
-            top3={top3} 
-            customShieldGold={customShieldGold}
-            customShieldSilver={customShieldSilver}
-          />
+      {/* Right - Complete Collaborators List */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-indigo-300/60 px-2 flex items-center gap-2">
+          <Trophy className="h-4 w-4" />
+          Lista de Colaboradores
+        </h3>
+        
+        <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+          {sortedReps.map((rep, index) => (
+            <RankingCard key={rep.user_id} rep={rep} position={index + 1} />
+          ))}
         </div>
 
-        {/* Right - Complete Collaborators List */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-indigo-300/60 px-2 flex items-center gap-2">
-            <Trophy className="h-4 w-4" />
-            Lista de Colaboradores
-          </h3>
-          
-          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-            {sortedReps.map((rep, index) => (
-              <RankingCard key={rep.user_id} rep={rep} position={index + 1} />
-            ))}
-          </div>
-
-          {/* Bottom Info */}
-          <div className="flex items-center justify-end gap-2 text-xs text-indigo-400/40 pt-2">
-            <span>© Ranking Kairoz em tempo real</span>
-          </div>
+        {/* Bottom Info */}
+        <div className="flex items-center justify-end gap-2 text-xs text-indigo-400/40 pt-2">
+          <span>© Ranking Kairoz em tempo real</span>
         </div>
       </div>
     </div>
