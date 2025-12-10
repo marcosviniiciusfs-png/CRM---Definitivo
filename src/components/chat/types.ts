@@ -1,5 +1,18 @@
 import { Lead, Message, MessageReaction } from "@/types/chat";
 
+export interface PresenceInfo {
+  isOnline: boolean;
+  lastSeen?: string;
+  status?: string;
+  rateLimited?: boolean;
+}
+
+export interface LeadTagInfo {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface ChatContextType {
   selectedLead: Lead | null;
   setSelectedLead: (lead: Lead | null) => void;
@@ -14,17 +27,4 @@ export interface ChatContextType {
   presenceStatus: Map<string, PresenceInfo>;
   setPresenceStatus: React.Dispatch<React.SetStateAction<Map<string, PresenceInfo>>>;
   currentUserName: string;
-}
-
-export interface PresenceInfo {
-  isOnline: boolean;
-  lastSeen?: string;
-  status?: string;
-  rateLimited?: boolean;
-}
-
-export interface LeadTagInfo {
-  id: string;
-  name: string;
-  color: string;
 }
