@@ -104,7 +104,7 @@ const Top3Section = ({ top3 }: { top3: SalesRepData[] }) => {
 
   const positionConfig = {
     1: {
-      size: 85,
+      size: 81,
       gradientBg: "from-yellow-400 to-yellow-600",
       icon: Trophy,
       iconColor: "text-yellow-400",
