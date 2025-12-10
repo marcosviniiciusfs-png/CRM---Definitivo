@@ -3,6 +3,7 @@ import { Trophy, Medal, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import profileFrameGold from "@/assets/profile-frame-gold.gif";
 
 export interface SalesRepData {
   user_id: string;
@@ -42,62 +43,28 @@ const formatCurrency = (value: number) => {
 };
 
 // ============================================
-// WINGED FRAME - 1st Place with Wings
+// ANIMATED GOLD FRAME - 1st Place with GIF
 // ============================================
-const WingedFrame = ({ children }: { children: React.ReactNode }) => (
-  <div className="relative">
-    {/* Left Wing */}
+const AnimatedGoldFrame = ({ children }: { children: React.ReactNode }) => (
+  <div className="relative" style={{ width: 140, height: 140 }}>
+    {/* Profile photo - lower layer, centered in the circle */}
     <div 
-      className="absolute -left-10 top-1/2 -translate-y-1/2 z-0"
-      style={{
-        width: 45,
-        height: 70,
-        background: "linear-gradient(135deg, #FFD700 0%, #FFA500 30%, #FFD700 60%, #B8860B 100%)",
-        clipPath: "polygon(100% 20%, 100% 80%, 30% 65%, 0% 50%, 30% 35%)",
-        filter: "drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))",
-        transform: "rotate(-5deg)",
+      className="absolute z-[1] flex items-center justify-center"
+      style={{ 
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
       }}
-    />
-    <div 
-      className="absolute -left-8 top-1/2 -translate-y-1/2 z-0"
-      style={{
-        width: 35,
-        height: 50,
-        background: "linear-gradient(135deg, #FFFACD 0%, #FFD700 50%, #DAA520 100%)",
-        clipPath: "polygon(100% 25%, 100% 75%, 20% 60%, 0% 50%, 20% 40%)",
-        filter: "drop-shadow(0 0 5px rgba(255, 215, 0, 0.4))",
-      }}
-    />
-    
-    {/* Gold Frame Container */}
-    <div 
-      className="relative p-1.5 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-500 to-amber-600 z-10"
-      style={{ boxShadow: "0 0 25px rgba(255, 215, 0, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.3)" }}
     >
       {children}
     </div>
     
-    {/* Right Wing */}
-    <div 
-      className="absolute -right-10 top-1/2 -translate-y-1/2 z-0"
-      style={{
-        width: 45,
-        height: 70,
-        background: "linear-gradient(225deg, #FFD700 0%, #FFA500 30%, #FFD700 60%, #B8860B 100%)",
-        clipPath: "polygon(0% 20%, 0% 80%, 70% 65%, 100% 50%, 70% 35%)",
-        filter: "drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))",
-        transform: "rotate(5deg)",
-      }}
-    />
-    <div 
-      className="absolute -right-8 top-1/2 -translate-y-1/2 z-0"
-      style={{
-        width: 35,
-        height: 50,
-        background: "linear-gradient(225deg, #FFFACD 0%, #FFD700 50%, #DAA520 100%)",
-        clipPath: "polygon(0% 25%, 0% 75%, 80% 60%, 100% 50%, 80% 40%)",
-        filter: "drop-shadow(0 0 5px rgba(255, 215, 0, 0.4))",
-      }}
+    {/* Animated GIF frame - upper layer */}
+    <img 
+      src={profileFrameGold}
+      alt="Gold Frame"
+      className="absolute inset-0 w-full h-full z-[10] pointer-events-none"
+      style={{ objectFit: 'contain' }}
     />
   </div>
 );
@@ -182,7 +149,7 @@ const Top3Section = ({ top3 }: { top3: SalesRepData[] }) => {
     );
 
     if (position === 1) {
-      return <WingedFrame>{avatar}</WingedFrame>;
+      return <AnimatedGoldFrame>{avatar}</AnimatedGoldFrame>;
     }
     
     return (
