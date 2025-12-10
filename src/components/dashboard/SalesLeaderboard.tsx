@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { removeBackground, loadImage, blobToBase64 } from "@/lib/background-removal";
 import shieldGoldDefault from "@/assets/shield-gold.png";
 import shieldSilverDefault from "@/assets/shield-silver.png";
 
@@ -341,6 +342,8 @@ export function SalesLeaderboard({
     setIsGenerating(type);
     
     try {
+      // Step 1: Generate shield with AI
+      toast.info("Gerando escudo com IA...");
       const { data, error } = await supabase.functions.invoke("generate-shield-image", {
         body: { type },
       });
@@ -351,24 +354,29 @@ export function SalesLeaderboard({
         return;
       }
 
-      if (data?.image) {
-        if (type === "gold") {
-          setCustomShieldGold(data.image);
-        } else {
-          setCustomShieldSilver(data.image);
-        }
-        toast.success(`Escudo ${type === "gold" ? "dourado" : "prateado"} gerado com sucesso!`);
-      } else if (data?.publicUrl) {
-        if (type === "gold") {
-          setCustomShieldGold(data.publicUrl);
-        } else {
-          setCustomShieldSilver(data.publicUrl);
-        }
-        toast.success(`Escudo ${type === "gold" ? "dourado" : "prateado"} gerado e salvo!`);
+      const imageSource = data?.image || data?.publicUrl;
+      if (!imageSource) {
+        toast.error("Imagem não foi gerada");
+        return;
       }
+
+      // Step 2: Load image and remove background
+      toast.info("Removendo fundo da imagem...");
+      const imageElement = await loadImage(imageSource);
+      const transparentBlob = await removeBackground(imageElement);
+      const transparentBase64 = await blobToBase64(transparentBlob);
+
+      // Step 3: Set the transparent image
+      if (type === "gold") {
+        setCustomShieldGold(transparentBase64);
+      } else {
+        setCustomShieldSilver(transparentBase64);
+      }
+      
+      toast.success(`Escudo ${type === "gold" ? "dourado" : "prateado"} gerado com transparência!`);
     } catch (err) {
       console.error("Error:", err);
-      toast.error("Erro ao gerar escudo");
+      toast.error("Erro ao gerar escudo. Tente novamente.");
     } finally {
       setIsGenerating(null);
     }
