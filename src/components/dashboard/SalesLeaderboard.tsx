@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Trophy, Crown, Medal, Award, Star } from "lucide-react";
+import { Trophy, Crown, Medal, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,9 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Shield Badge for Podium with 3D perspective
+// ============================================
+// PODIUM SHIELD - Hexagonal Metallic Style
+// ============================================
 const PodiumShield = ({
   rep,
   position,
@@ -51,210 +53,161 @@ const PodiumShield = ({
 }) => {
   const styles = {
     1: {
-      frameColor: "from-yellow-400 via-yellow-500 to-yellow-600",
-      innerBg: "from-red-600 to-red-900",
-      glowColor: "rgba(234, 179, 8, 0.6)",
-      size: "w-52 h-60",
-      avatarSize: "h-24 w-24",
-      transform: "rotateX(8deg)",
+      // GOLD - 1st Place
+      background: "linear-gradient(180deg, #ffc800 0%, #a88a00 100%)",
+      border: "#ffd700",
+      glow: "0 0 25px rgba(0, 200, 255, 0.8), inset 0 0 10px rgba(255, 255, 100, 0.5)",
+      width: 140,
+      height: 175,
+      avatarSize: 70,
     },
     2: {
-      frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
-      innerBg: "from-blue-600 to-blue-900",
-      glowColor: "rgba(34, 211, 238, 0.5)",
-      size: "w-44 h-52",
-      avatarSize: "h-20 w-20",
-      transform: "rotateX(6deg)",
+      // SILVER - 2nd Place
+      background: "linear-gradient(180deg, #e0e0e0 0%, #808080 100%)",
+      border: "#c0c0c0",
+      glow: "0 0 15px rgba(0, 200, 255, 0.6)",
+      width: 120,
+      height: 150,
+      avatarSize: 60,
     },
     3: {
-      frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
-      innerBg: "from-red-600 to-red-900",
-      glowColor: "rgba(34, 211, 238, 0.5)",
-      size: "w-44 h-52",
-      avatarSize: "h-20 w-20",
-      transform: "rotateX(6deg)",
+      // BRONZE - 3rd Place
+      background: "linear-gradient(180deg, #d38d3d 0%, #8f5315 100%)",
+      border: "#cd7f32",
+      glow: "0 0 10px rgba(0, 200, 255, 0.4)",
+      width: 110,
+      height: 135,
+      avatarSize: 55,
     },
   };
 
   const style = styles[position];
 
   return (
-    <div className="flex flex-col items-center relative">
-      {/* Crown for 1st */}
+    <div className="flex flex-col items-center">
+      {/* Crown for 1st place */}
       {position === 1 && (
         <Crown 
-          className="absolute -top-10 h-12 w-12 text-yellow-400 z-10"
-          style={{ filter: "drop-shadow(0 0 12px rgba(234, 179, 8, 0.9))" }}
+          className="h-10 w-10 text-yellow-400 mb-2"
+          style={{ filter: "drop-shadow(0 0 8px rgba(234, 179, 8, 0.8))" }}
         />
       )}
-      
-      {/* 3D Perspective Container */}
-      <div 
-        className="relative"
-        style={{ 
-          perspective: "800px",
-          transformStyle: "preserve-3d",
+
+      {/* Shield with hexagonal clip-path */}
+      <div
+        className="relative flex flex-col items-center justify-center transition-transform duration-300 hover:scale-105"
+        style={{
+          width: style.width,
+          height: style.height,
+          background: style.background,
+          border: `3px solid ${style.border}`,
+          clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+          boxShadow: style.glow,
         }}
       >
-        {/* Shield with 3D Transform */}
-        <div 
-          className={cn("relative", style.size)}
+        {/* Profile Picture */}
+        <Avatar
+          className="border-2 border-white shadow-lg"
           style={{
-            transform: style.transform,
-            transformStyle: "preserve-3d",
+            width: style.avatarSize,
+            height: style.avatarSize,
           }}
         >
-          {/* Shadow/Depth layer */}
-          <div 
-            className="absolute inset-0 bg-black/40"
+          <AvatarImage src={rep.avatar_url || undefined} />
+          <AvatarFallback 
+            className="font-bold"
             style={{
-              clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
-              transform: "translateZ(-20px) translateY(8px)",
-              filter: "blur(8px)",
-            }}
-          />
-
-          {/* Main Shield */}
-          <div 
-            className={cn(
-              "absolute inset-0 bg-gradient-to-b p-[3px]",
-              style.frameColor
-            )}
-            style={{
-              clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
-              boxShadow: `
-                0 8px 32px ${style.glowColor},
-                0 4px 0 rgba(0,0,0,0.3),
-                inset 0 1px 0 rgba(255,255,255,0.4)
-              `,
+              background: "linear-gradient(135deg, #1a1a3a, #2a2a5a)",
+              color: "white",
+              fontSize: style.avatarSize * 0.3,
             }}
           >
-            {/* Inner Background */}
-            <div 
-              className={cn("w-full h-full flex flex-col items-center justify-center bg-gradient-to-b relative overflow-hidden", style.innerBg)}
-              style={{
-                clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
-              }}
-            >
-              {/* Highlight reflection */}
-              <div 
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 40%)",
-                }}
-              />
+            {getInitials(rep.full_name)}
+          </AvatarFallback>
+        </Avatar>
 
-              {/* Side depth effect */}
-              <div 
-                className="absolute left-0 top-0 bottom-0 w-3 pointer-events-none"
-                style={{
-                  background: "linear-gradient(90deg, rgba(0,0,0,0.3), transparent)",
-                }}
-              />
-              <div 
-                className="absolute right-0 top-0 bottom-0 w-3 pointer-events-none"
-                style={{
-                  background: "linear-gradient(-90deg, rgba(0,0,0,0.3), transparent)",
-                }}
-              />
-
-              {/* Decorative top elements */}
-              <div className="absolute top-3 left-3 right-3 flex justify-between z-10">
-                <Star className="h-3 w-3 text-yellow-400/80" />
-                <Star className="h-3 w-3 text-yellow-400/80" />
-              </div>
-              
-              {/* Position label */}
-              <span className="text-[10px] text-white/70 mb-1 font-semibold tracking-wider uppercase z-10">
-                {position}º Lugar
-              </span>
-              
-              {/* Avatar with glow */}
-              <div 
-                className="relative z-10"
-                style={{
-                  filter: `drop-shadow(0 0 8px ${style.glowColor})`,
-                }}
-              >
-                <Avatar className={cn(style.avatarSize, "border-2 border-white/40 ring-2 ring-white/10")}>
-                  <AvatarImage src={rep.avatar_url || undefined} />
-                  <AvatarFallback className="bg-purple-900 text-white font-bold text-lg">
-                    {getInitials(rep.full_name)}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-
-              {/* Decorative diamond */}
-              <div 
-                className="mt-3 w-4 h-4 rotate-45 bg-gradient-to-br from-yellow-400 to-yellow-600 z-10"
-                style={{
-                  boxShadow: "0 0 8px rgba(234, 179, 8, 0.6)",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Bottom thickness effect */}
-          <div 
-            className={cn("absolute left-0 right-0 h-2 bg-gradient-to-b", style.frameColor)}
-            style={{
-              bottom: "-4px",
-              clipPath: "polygon(0 0, 100% 0, 95% 100%, 5% 100%)",
-              opacity: 0.6,
-              filter: "brightness(0.7)",
-            }}
-          />
-        </div>
+        {/* Name inside shield */}
+        <span 
+          className="mt-2 font-bold text-white text-center px-2 truncate w-full"
+          style={{
+            fontSize: position === 1 ? 14 : 12,
+            textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+          }}
+        >
+          {rep.full_name?.split(" ")[0] || "Colaborador"}
+        </span>
       </div>
 
-      {/* Name below shield */}
-      <p className="mt-4 text-white font-semibold text-sm text-center max-w-[120px] truncate drop-shadow-lg">
-        {rep.full_name || "Colaborador"}
-      </p>
-      
-      {/* Revenue badge */}
-      <div className="mt-1 px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-500/40">
-        <span className="text-xs text-yellow-300 font-medium">{formatCurrency(rep.total_revenue)}</span>
+      {/* Position Base */}
+      <div 
+        className="mt-3 font-bold text-white text-center"
+        style={{
+          fontSize: position === 1 ? 24 : 20,
+          textShadow: "0 0 10px rgba(0, 200, 255, 0.8)",
+        }}
+      >
+        {position}º
+      </div>
+
+      {/* Revenue Badge */}
+      <div 
+        className="mt-1 px-3 py-1 rounded-full text-xs font-semibold"
+        style={{
+          background: "rgba(0, 200, 255, 0.2)",
+          border: "1px solid rgba(0, 200, 255, 0.4)",
+          color: "rgba(0, 200, 255, 1)",
+        }}
+      >
+        {formatCurrency(rep.total_revenue)}
       </div>
     </div>
   );
 };
 
-// Podium Section
+// ============================================
+// PODIUM SECTION - Container with Neon Floor
+// ============================================
 const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   if (top3.length === 0) return null;
 
   const [first, second, third] = [top3[0], top3[1] || null, top3[2] || null];
 
   return (
-    <div className="relative pt-16 pb-8">
-      {/* Glow effect behind podium */}
+    <div 
+      className="relative overflow-hidden py-8 px-4"
+      style={{
+        minHeight: 380,
+      }}
+    >
+      {/* Neon Floor Effect */}
       <div 
-        className="absolute inset-0 opacity-40"
+        className="absolute bottom-0 left-0 right-0 z-0"
         style={{
-          background: "radial-gradient(ellipse at center bottom, rgba(34, 211, 238, 0.4) 0%, transparent 60%)",
+          height: 50,
+          background: "radial-gradient(circle at center, rgba(0, 200, 255, 0.3) 0%, rgba(0, 200, 255, 0) 70%)",
+          boxShadow: "0 0 30px 10px rgba(0, 200, 255, 0.5)",
         }}
       />
 
-      {/* Podium Layout - 2nd, 1st, 3rd */}
-      <div className="relative flex items-end justify-center gap-6 md:gap-14">
-        {/* 2nd Place */}
+      {/* Podium Layout - 2nd, 1st, 3rd aligned at bottom */}
+      <div className="relative z-10 flex items-end justify-center gap-4 md:gap-8">
+        {/* 2nd Place - 75% height offset */}
         {second && (
-          <div className="flex flex-col items-center pb-4">
+          <div style={{ marginTop: 50 }}>
             <PodiumShield rep={second} position={2} />
           </div>
         )}
 
-        {/* 1st Place - Elevated */}
+        {/* 1st Place - Full height (no offset) */}
         {first && (
-          <div className="flex flex-col items-center -mt-8">
+          <div>
             <PodiumShield rep={first} position={1} />
           </div>
         )}
 
-        {/* 3rd Place */}
+        {/* 3rd Place - 60% height offset */}
         {third && (
-          <div className="flex flex-col items-center pb-4">
+          <div style={{ marginTop: 70 }}>
             <PodiumShield rep={third} position={3} />
           </div>
         )}
@@ -263,7 +216,9 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   );
 };
 
-// Ranking Card for list
+// ============================================
+// RANKING CARD - List Item
+// ============================================
 const RankingCard = ({
   rep,
   position,
@@ -330,23 +285,27 @@ const RankingCard = ({
   );
 };
 
-// Loading Skeleton
+// ============================================
+// LOADING SKELETON
+// ============================================
 const LeaderboardSkeleton = () => (
   <div className="space-y-6">
     <div className="flex items-end justify-center gap-8 py-8">
-      <Skeleton className="w-32 h-44 bg-indigo-800/50 rounded-lg" />
-      <Skeleton className="w-36 h-52 bg-indigo-800/50 rounded-lg" />
-      <Skeleton className="w-32 h-44 bg-indigo-800/50 rounded-lg" />
+      <Skeleton className="w-28 h-36 bg-indigo-800/50 rounded-lg" />
+      <Skeleton className="w-36 h-44 bg-indigo-800/50 rounded-lg" />
+      <Skeleton className="w-28 h-36 bg-indigo-800/50 rounded-lg" />
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-16 bg-indigo-800/50 rounded-xl" />
+        <Skeleton key={i} className="h-14 bg-indigo-800/50 rounded-xl" />
       ))}
     </div>
   </div>
 );
 
-// Main Component
+// ============================================
+// MAIN COMPONENT
+// ============================================
 export function SalesLeaderboard({
   reps,
   isLoading = false,
@@ -369,19 +328,6 @@ export function SalesLeaderboard({
   }, [reps, sortBy]);
 
   const top3 = sortedReps.slice(0, 3);
-
-  // Full list with all collaborators split into two columns
-  const leftColumn: { rep: SalesRepData; position: number }[] = [];
-  const rightColumn: { rep: SalesRepData; position: number }[] = [];
-  
-  sortedReps.forEach((rep, index) => {
-    const position = index + 1;
-    if (index % 2 === 0) {
-      leftColumn.push({ rep, position });
-    } else {
-      rightColumn.push({ rep, position });
-    }
-  });
 
   if (isLoading) {
     return <LeaderboardSkeleton />;
