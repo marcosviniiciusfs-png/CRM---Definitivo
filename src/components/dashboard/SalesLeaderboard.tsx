@@ -51,94 +51,100 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   const [first, second, third] = [top3[0], top3[1] || null, top3[2] || null];
 
   return (
-    <div className="relative flex flex-col items-center">
-      {/* Avatars positioned above podium */}
-      <div className="relative w-[420px] h-[200px]">
-        {/* 2nd Place Avatar - Left */}
-        {second && (
-          <div 
-            className="absolute flex flex-col items-center"
-            style={{ left: "12%", bottom: "20px" }}
-          >
-            <Avatar
-              className="border-3 border-white/90 shadow-xl"
-              style={{
-                width: 70,
-                height: 70,
-                boxShadow: "0 4px 20px rgba(192, 192, 192, 0.5)",
-              }}
-            >
-              <AvatarImage src={second.avatar_url || undefined} />
-              <AvatarFallback className="font-bold bg-gradient-to-br from-gray-400 to-gray-600 text-white text-lg">
-                {getInitials(second.full_name)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="mt-2 font-bold text-foreground text-sm text-center truncate max-w-[100px]">
-              {second.full_name || "Colaborador"}
-            </span>
-          </div>
-        )}
-
-        {/* 1st Place Avatar - Center (higher) */}
-        {first && (
-          <div 
-            className="absolute flex flex-col items-center"
-            style={{ left: "50%", transform: "translateX(-50%)", bottom: "60px" }}
-          >
-            <Avatar
-              className="border-4 border-yellow-400/90 shadow-xl"
-              style={{
-                width: 90,
-                height: 90,
-                boxShadow: "0 4px 25px rgba(255, 200, 0, 0.6)",
-              }}
-            >
-              <AvatarImage src={first.avatar_url || undefined} />
-              <AvatarFallback className="font-bold bg-gradient-to-br from-yellow-400 to-yellow-600 text-white text-xl">
-                {getInitials(first.full_name)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="mt-2 font-bold text-foreground text-base text-center truncate max-w-[120px]">
-              {first.full_name || "Colaborador"}
-            </span>
-          </div>
-        )}
-
-        {/* 3rd Place Avatar - Right */}
-        {third && (
-          <div 
-            className="absolute flex flex-col items-center"
-            style={{ right: "12%", bottom: "20px" }}
-          >
-            <Avatar
-              className="border-3 border-white/90 shadow-xl"
-              style={{
-                width: 70,
-                height: 70,
-                boxShadow: "0 4px 20px rgba(205, 127, 50, 0.5)",
-              }}
-            >
-              <AvatarImage src={third.avatar_url || undefined} />
-              <AvatarFallback className="font-bold bg-gradient-to-br from-orange-400 to-orange-600 text-white text-lg">
-                {getInitials(third.full_name)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="mt-2 font-bold text-foreground text-sm text-center truncate max-w-[100px]">
-              {third.full_name || "Colaborador"}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Podium Image */}
+    <div className="relative w-[420px]">
+      {/* Podium Image as base */}
       <img 
         src={podiumBase} 
         alt="Podium"
-        className="w-[420px] h-auto object-contain"
-        style={{
-          marginTop: "-20px",
-        }}
+        className="w-full h-auto object-contain"
       />
+
+      {/* 1st Place Avatar - Center (on top of highest step) */}
+      {first && (
+        <div 
+          className="absolute flex flex-col items-center"
+          style={{ 
+            left: "50%", 
+            top: "8%", 
+            transform: "translateX(-50%)" 
+          }}
+        >
+          <Avatar
+            className="border-4 border-yellow-400/90 shadow-xl"
+            style={{
+              width: 85,
+              height: 85,
+              boxShadow: "0 4px 25px rgba(255, 200, 0, 0.6)",
+            }}
+          >
+            <AvatarImage src={first.avatar_url || undefined} />
+            <AvatarFallback className="font-bold bg-gradient-to-br from-yellow-400 to-yellow-600 text-white text-xl">
+              {getInitials(first.full_name)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="mt-1 font-bold text-foreground text-sm text-center truncate max-w-[100px] drop-shadow-lg">
+            {first.full_name || "Colaborador"}
+          </span>
+        </div>
+      )}
+
+      {/* 2nd Place Avatar - Left (on second step) */}
+      {second && (
+        <div 
+          className="absolute flex flex-col items-center"
+          style={{ 
+            left: "18%", 
+            top: "28%", 
+            transform: "translateX(-50%)" 
+          }}
+        >
+          <Avatar
+            className="border-3 border-white/90 shadow-xl"
+            style={{
+              width: 65,
+              height: 65,
+              boxShadow: "0 4px 20px rgba(192, 192, 192, 0.5)",
+            }}
+          >
+            <AvatarImage src={second.avatar_url || undefined} />
+            <AvatarFallback className="font-bold bg-gradient-to-br from-gray-400 to-gray-600 text-white text-lg">
+              {getInitials(second.full_name)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="mt-1 font-bold text-foreground text-xs text-center truncate max-w-[80px] drop-shadow-lg">
+            {second.full_name || "Colaborador"}
+          </span>
+        </div>
+      )}
+
+      {/* 3rd Place Avatar - Right (on third step) */}
+      {third && (
+        <div 
+          className="absolute flex flex-col items-center"
+          style={{ 
+            right: "18%", 
+            top: "38%", 
+            transform: "translateX(50%)" 
+          }}
+        >
+          <Avatar
+            className="border-3 border-white/90 shadow-xl"
+            style={{
+              width: 65,
+              height: 65,
+              boxShadow: "0 4px 20px rgba(205, 127, 50, 0.5)",
+            }}
+          >
+            <AvatarImage src={third.avatar_url || undefined} />
+            <AvatarFallback className="font-bold bg-gradient-to-br from-orange-400 to-orange-600 text-white text-lg">
+              {getInitials(third.full_name)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="mt-1 font-bold text-foreground text-xs text-center truncate max-w-[80px] drop-shadow-lg">
+            {third.full_name || "Colaborador"}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
