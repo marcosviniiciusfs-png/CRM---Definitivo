@@ -41,7 +41,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Shield Badge for Podium (matching reference design)
+// Shield Badge for Podium with 3D perspective
 const PodiumShield = ({
   rep,
   position,
@@ -52,24 +52,27 @@ const PodiumShield = ({
   const styles = {
     1: {
       frameColor: "from-yellow-400 via-yellow-500 to-yellow-600",
-      innerBg: "bg-gradient-to-b from-red-600 to-red-900",
+      innerBg: "from-red-600 to-red-900",
       glowColor: "rgba(234, 179, 8, 0.6)",
-      size: "w-36 h-44",
+      size: "w-40 h-48",
       avatarSize: "h-20 w-20",
+      transform: "rotateX(8deg)",
     },
     2: {
       frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
-      innerBg: "bg-gradient-to-b from-blue-600 to-blue-900",
+      innerBg: "from-blue-600 to-blue-900",
       glowColor: "rgba(34, 211, 238, 0.5)",
       size: "w-32 h-40",
       avatarSize: "h-16 w-16",
+      transform: "rotateX(6deg)",
     },
     3: {
       frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
-      innerBg: "bg-gradient-to-b from-red-600 to-red-900",
+      innerBg: "from-red-600 to-red-900",
       glowColor: "rgba(34, 211, 238, 0.5)",
       size: "w-32 h-40",
       avatarSize: "h-16 w-16",
+      transform: "rotateX(6deg)",
     },
   };
 
@@ -80,64 +83,139 @@ const PodiumShield = ({
       {/* Crown for 1st */}
       {position === 1 && (
         <Crown 
-          className="absolute -top-8 h-10 w-10 text-yellow-400 z-10"
-          style={{ filter: "drop-shadow(0 0 8px rgba(234, 179, 8, 0.8))" }}
+          className="absolute -top-10 h-12 w-12 text-yellow-400 z-10"
+          style={{ filter: "drop-shadow(0 0 12px rgba(234, 179, 8, 0.9))" }}
         />
       )}
       
-      {/* Shield Frame */}
+      {/* 3D Perspective Container */}
       <div 
-        className={cn("relative", style.size)}
-        style={{
-          filter: `drop-shadow(0 0 20px ${style.glowColor})`,
+        className="relative"
+        style={{ 
+          perspective: "800px",
+          transformStyle: "preserve-3d",
         }}
       >
-        {/* Outer Frame with gradient */}
+        {/* Shield with 3D Transform */}
         <div 
-          className={cn(
-            "absolute inset-0 bg-gradient-to-b p-1",
-            style.frameColor
-          )}
+          className={cn("relative", style.size)}
           style={{
-            clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
+            transform: style.transform,
+            transformStyle: "preserve-3d",
           }}
         >
-          {/* Inner Background */}
+          {/* Shadow/Depth layer */}
           <div 
-            className={cn("w-full h-full flex flex-col items-center justify-center", style.innerBg)}
+            className="absolute inset-0 bg-black/40"
             style={{
               clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
+              transform: "translateZ(-20px) translateY(8px)",
+              filter: "blur(8px)",
+            }}
+          />
+
+          {/* Main Shield */}
+          <div 
+            className={cn(
+              "absolute inset-0 bg-gradient-to-b p-[3px]",
+              style.frameColor
+            )}
+            style={{
+              clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
+              boxShadow: `
+                0 8px 32px ${style.glowColor},
+                0 4px 0 rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.4)
+              `,
             }}
           >
-            {/* Decorative top elements */}
-            <div className="absolute top-2 left-2 right-2 flex justify-between">
-              <Star className="h-3 w-3 text-yellow-400/60" />
-              <Star className="h-3 w-3 text-yellow-400/60" />
-            </div>
-            
-            {/* Label */}
-            <span className="text-[10px] text-white/80 mb-1 font-medium">
-              {position === 1 ? "Nome do Primeiro" : position === 2 ? "Nome do Primeiro" : "Nome do Primeiro"}
-            </span>
-            
-            {/* Avatar */}
-            <Avatar className={cn(style.avatarSize, "border-2 border-white/30")}>
-              <AvatarImage src={rep.avatar_url || undefined} />
-              <AvatarFallback className="bg-purple-900 text-white font-bold">
-                {getInitials(rep.full_name)}
-              </AvatarFallback>
-            </Avatar>
+            {/* Inner Background */}
+            <div 
+              className={cn("w-full h-full flex flex-col items-center justify-center bg-gradient-to-b relative overflow-hidden", style.innerBg)}
+              style={{
+                clipPath: "polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%)",
+              }}
+            >
+              {/* Highlight reflection */}
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 40%)",
+                }}
+              />
 
-            {/* Decorative diamond */}
-            <div className="mt-2 w-4 h-4 rotate-45 bg-gradient-to-br from-yellow-400 to-yellow-600" />
+              {/* Side depth effect */}
+              <div 
+                className="absolute left-0 top-0 bottom-0 w-3 pointer-events-none"
+                style={{
+                  background: "linear-gradient(90deg, rgba(0,0,0,0.3), transparent)",
+                }}
+              />
+              <div 
+                className="absolute right-0 top-0 bottom-0 w-3 pointer-events-none"
+                style={{
+                  background: "linear-gradient(-90deg, rgba(0,0,0,0.3), transparent)",
+                }}
+              />
+
+              {/* Decorative top elements */}
+              <div className="absolute top-3 left-3 right-3 flex justify-between z-10">
+                <Star className="h-3 w-3 text-yellow-400/80" />
+                <Star className="h-3 w-3 text-yellow-400/80" />
+              </div>
+              
+              {/* Position label */}
+              <span className="text-[10px] text-white/70 mb-1 font-semibold tracking-wider uppercase z-10">
+                {position}º Lugar
+              </span>
+              
+              {/* Avatar with glow */}
+              <div 
+                className="relative z-10"
+                style={{
+                  filter: `drop-shadow(0 0 8px ${style.glowColor})`,
+                }}
+              >
+                <Avatar className={cn(style.avatarSize, "border-2 border-white/40 ring-2 ring-white/10")}>
+                  <AvatarImage src={rep.avatar_url || undefined} />
+                  <AvatarFallback className="bg-purple-900 text-white font-bold text-lg">
+                    {getInitials(rep.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+
+              {/* Decorative diamond */}
+              <div 
+                className="mt-3 w-4 h-4 rotate-45 bg-gradient-to-br from-yellow-400 to-yellow-600 z-10"
+                style={{
+                  boxShadow: "0 0 8px rgba(234, 179, 8, 0.6)",
+                }}
+              />
+            </div>
           </div>
+
+          {/* Bottom thickness effect */}
+          <div 
+            className={cn("absolute left-0 right-0 h-2 bg-gradient-to-b", style.frameColor)}
+            style={{
+              bottom: "-4px",
+              clipPath: "polygon(0 0, 100% 0, 95% 100%, 5% 100%)",
+              opacity: 0.6,
+              filter: "brightness(0.7)",
+            }}
+          />
         </div>
       </div>
 
       {/* Name below shield */}
-      <p className="mt-3 text-white font-semibold text-sm text-center max-w-[120px] truncate">
+      <p className="mt-4 text-white font-semibold text-sm text-center max-w-[120px] truncate drop-shadow-lg">
         {rep.full_name || "Colaborador"}
       </p>
+      
+      {/* Revenue badge */}
+      <div className="mt-1 px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-500/40">
+        <span className="text-xs text-yellow-300 font-medium">{formatCurrency(rep.total_revenue)}</span>
+      </div>
     </div>
   );
 };
@@ -302,14 +380,13 @@ export function SalesLeaderboard({
   }, [reps, sortBy]);
 
   const top3 = sortedReps.slice(0, 3);
-  const restRanking = sortedReps.slice(3);
 
-  // Split into two columns
+  // Full list with all collaborators split into two columns
   const leftColumn: { rep: SalesRepData; position: number }[] = [];
   const rightColumn: { rep: SalesRepData; position: number }[] = [];
   
-  restRanking.forEach((rep, index) => {
-    const position = index + 4;
+  sortedReps.forEach((rep, index) => {
+    const position = index + 1;
     if (index % 2 === 0) {
       leftColumn.push({ rep, position });
     } else {
@@ -332,17 +409,18 @@ export function SalesLeaderboard({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Left Side - Podium */}
-      <div className="flex flex-col">
-        <PodiumSection top3={top3} />
-      </div>
+    <div className="space-y-8">
+      {/* Top - Podium */}
+      <PodiumSection top3={top3} />
 
-      {/* Right Side - Ranking List */}
+      {/* Bottom - Complete Collaborators List */}
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-indigo-300/60 px-2">Tipo de Lista</h3>
+        <h3 className="text-sm font-medium text-indigo-300/60 px-2 flex items-center gap-2">
+          <Trophy className="h-4 w-4" />
+          Lista de Colaboradores
+        </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2">
           {/* Left Column */}
           <div className="space-y-2">
             {leftColumn.map(({ rep, position }) => (
