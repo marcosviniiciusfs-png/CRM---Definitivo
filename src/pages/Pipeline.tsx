@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Settings2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Settings2, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,6 +109,7 @@ const Pipeline = () => {
   const [scrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [showScrollbar, setShowScrollbar] = useState(false);
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Atualiza a posição e tamanho do thumb da scrollbar
   const updateScrollbarThumb = useCallback(() => {
@@ -543,6 +545,18 @@ const Pipeline = () => {
     }));
   }, [leads]);
 
+  // Filtrar leads por termo de busca (nome ou fonte)
+  const filteredLeads = useMemo(() => {
+    if (!searchTerm.trim()) return leadsWithFormattedDates;
+    
+    const term = searchTerm.toLowerCase().trim();
+    return leadsWithFormattedDates.filter((lead) => {
+      const nameMatch = lead.nome_lead?.toLowerCase().includes(term);
+      const sourceMatch = lead.source?.toLowerCase().includes(term);
+      return nameMatch || sourceMatch;
+    });
+  }, [leadsWithFormattedDates, searchTerm]);
+
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
     const map = new Map<string, Lead[]>();
@@ -551,9 +565,9 @@ const Pipeline = () => {
       let filtered;
       
       if (usingCustomFunnel) {
-        filtered = leadsWithFormattedDates.filter((lead) => lead.funnel_stage_id === stage.id);
+        filtered = filteredLeads.filter((lead) => lead.funnel_stage_id === stage.id);
       } else {
-        filtered = leadsWithFormattedDates.filter((lead) => (lead.stage || "NOVO") === stage.id);
+        filtered = filteredLeads.filter((lead) => (lead.stage || "NOVO") === stage.id);
       }
       
       filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
@@ -561,7 +575,7 @@ const Pipeline = () => {
     });
     
     return map;
-  }, [leadsWithFormattedDates, stages, usingCustomFunnel]);
+  }, [filteredLeads, stages, usingCustomFunnel]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -1038,13 +1052,24 @@ const Pipeline = () => {
               Arraste e solte os cards para mover leads entre as etapas
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => navigate("/funnel-builder")}
-          >
-            <Settings2 className="h-4 w-4 mr-2" />
-            Gerenciar Funis
-          </Button>
+          <div className="flex flex-col items-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/funnel-builder")}
+            >
+              <Settings2 className="h-4 w-4 mr-2" />
+              Gerenciar Funis
+            </Button>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou origem..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
         </div>
 
         {allFunnels.length > 0 ? (
