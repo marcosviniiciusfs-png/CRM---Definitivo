@@ -54,24 +54,24 @@ const PodiumShield = ({
       frameColor: "from-yellow-400 via-yellow-500 to-yellow-600",
       innerBg: "from-red-600 to-red-900",
       glowColor: "rgba(234, 179, 8, 0.6)",
-      size: "w-40 h-48",
-      avatarSize: "h-20 w-20",
+      size: "w-52 h-60",
+      avatarSize: "h-24 w-24",
       transform: "rotateX(8deg)",
     },
     2: {
       frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
       innerBg: "from-blue-600 to-blue-900",
       glowColor: "rgba(34, 211, 238, 0.5)",
-      size: "w-32 h-40",
-      avatarSize: "h-16 w-16",
+      size: "w-44 h-52",
+      avatarSize: "h-20 w-20",
       transform: "rotateX(6deg)",
     },
     3: {
       frameColor: "from-cyan-300 via-cyan-400 to-cyan-500",
       innerBg: "from-red-600 to-red-900",
       glowColor: "rgba(34, 211, 238, 0.5)",
-      size: "w-32 h-40",
-      avatarSize: "h-16 w-16",
+      size: "w-44 h-52",
+      avatarSize: "h-20 w-20",
       transform: "rotateX(6deg)",
     },
   };
@@ -227,7 +227,7 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   const [first, second, third] = [top3[0], top3[1] || null, top3[2] || null];
 
   return (
-    <div className="relative py-8">
+    <div className="relative pt-16 pb-8">
       {/* Glow effect behind podium */}
       <div 
         className="absolute inset-0 opacity-40"
@@ -237,7 +237,7 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
       />
 
       {/* Podium Layout - 2nd, 1st, 3rd */}
-      <div className="relative flex items-end justify-center gap-6 md:gap-12">
+      <div className="relative flex items-end justify-center gap-6 md:gap-14">
         {/* 2nd Place */}
         {second && (
           <div className="flex flex-col items-center pb-4">
@@ -258,17 +258,6 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
             <PodiumShield rep={third} position={3} />
           </div>
         )}
-      </div>
-
-      {/* Platform Base */}
-      <div className="flex justify-center mt-4">
-        <div 
-          className="w-96 h-6 rounded-t-lg"
-          style={{
-            background: "linear-gradient(to bottom, rgba(34, 211, 238, 0.3), rgba(34, 211, 238, 0.1))",
-            boxShadow: "0 0 30px rgba(34, 211, 238, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
-          }}
-        />
       </div>
     </div>
   );
@@ -297,7 +286,7 @@ const RankingCard = ({
 
   return (
     <div 
-      className="flex items-center gap-3 p-3 rounded-xl bg-indigo-950/80 border border-indigo-500/20 hover:border-indigo-400/40 transition-all"
+      className="flex items-center gap-2 p-2 rounded-lg bg-indigo-950/80 border border-indigo-500/20 hover:border-indigo-400/40 transition-all max-w-sm"
       style={{
         backdropFilter: "blur(10px)",
       }}
@@ -305,7 +294,7 @@ const RankingCard = ({
       {/* Position Badge */}
       <div 
         className={cn(
-          "flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br font-bold text-white text-sm",
+          "flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br font-bold text-white text-xs",
           getBadgeColor(position)
         )}
       >
@@ -313,19 +302,19 @@ const RankingCard = ({
       </div>
 
       {/* Avatar */}
-      <Avatar className="h-10 w-10 border-2 border-indigo-500/30">
+      <Avatar className="h-8 w-8 border border-indigo-500/30">
         <AvatarImage src={rep.avatar_url || undefined} />
-        <AvatarFallback className="bg-indigo-900 text-indigo-200 text-xs font-bold">
+        <AvatarFallback className="bg-indigo-900 text-indigo-200 text-[10px] font-bold">
           {getInitials(rep.full_name)}
         </AvatarFallback>
       </Avatar>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-white font-medium text-sm truncate">
+        <p className="text-white font-medium text-xs truncate">
           {rep.full_name || "Colaborador"}
         </p>
-        <div className="flex items-center gap-3 text-xs text-indigo-300/80">
+        <div className="flex items-center gap-2 text-[10px] text-indigo-300/80">
           <span>Mês {rep.won_leads}</span>
           <span className="text-indigo-500">•</span>
           <span>Vendas {rep.total_leads}</span>
@@ -333,9 +322,9 @@ const RankingCard = ({
       </div>
 
       {/* Stats Badge */}
-      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
-        <Trophy className="h-3 w-3 text-yellow-400" />
-        <span className="text-xs text-yellow-300 font-medium">{formatCurrency(rep.total_revenue)}</span>
+      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+        <Trophy className="h-2.5 w-2.5 text-yellow-400" />
+        <span className="text-[10px] text-yellow-300 font-medium">{formatCurrency(rep.total_revenue)}</span>
       </div>
     </div>
   );
