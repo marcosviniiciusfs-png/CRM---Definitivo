@@ -3,8 +3,6 @@ import { Trophy, Medal, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import shieldGold from "@/assets/shield-gold.png";
-import shieldSilver from "@/assets/shield-silver.png";
 
 export interface SalesRepData {
   user_id: string;
@@ -44,7 +42,7 @@ const formatCurrency = (value: number) => {
 };
 
 // ============================================
-// PODIUM SHIELD - Image Based Style
+// PODIUM SHIELD - CSS Hexagonal Style
 // ============================================
 const PodiumShield = ({
   rep,
@@ -55,25 +53,31 @@ const PodiumShield = ({
 }) => {
   const styles = {
     1: {
-      shieldImage: shieldGold,
-      width: 200,
-      height: 220,
-      avatarSize: 70,
-      avatarTop: "42%",
+      width: 180,
+      height: 200,
+      avatarSize: 75,
+      background: "linear-gradient(180deg, #ffc800 0%, #b8860b 50%, #8b6914 100%)",
+      borderColor: "#ffd700",
+      glow: "0 0 30px rgba(255, 200, 0, 0.6)",
+      innerGlow: "inset 0 0 25px rgba(255, 255, 200, 0.4)",
     },
     2: {
-      shieldImage: shieldSilver,
-      width: 160,
+      width: 150,
       height: 170,
-      avatarSize: 55,
-      avatarTop: "35%",
+      avatarSize: 60,
+      background: "linear-gradient(180deg, #e8e8e8 0%, #a8a8a8 50%, #707070 100%)",
+      borderColor: "#c0c0c0",
+      glow: "0 0 20px rgba(192, 192, 192, 0.5)",
+      innerGlow: "inset 0 0 20px rgba(255, 255, 255, 0.3)",
     },
     3: {
-      shieldImage: shieldSilver,
-      width: 160,
+      width: 150,
       height: 170,
-      avatarSize: 55,
-      avatarTop: "35%",
+      avatarSize: 60,
+      background: "linear-gradient(180deg, #d4a574 0%, #cd7f32 50%, #8b5a2b 100%)",
+      borderColor: "#cd7f32",
+      glow: "0 0 20px rgba(205, 127, 50, 0.5)",
+      innerGlow: "inset 0 0 20px rgba(255, 200, 150, 0.3)",
     },
   };
 
@@ -81,33 +85,50 @@ const PodiumShield = ({
 
   return (
     <div className="flex flex-col items-center">
-      {/* Shield Image Container */}
+      {/* CSS Hexagonal Shield */}
       <div
-        className="relative flex items-center justify-center transition-transform duration-300 hover:scale-105"
+        className="relative transition-transform duration-300 hover:scale-105"
         style={{
           width: style.width,
           height: style.height,
+          background: style.background,
+          clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+          boxShadow: style.glow,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        {/* Shield Image */}
-        <img 
-          src={style.shieldImage} 
-          alt={`Shield ${position}`}
-          className="absolute inset-0 w-full h-full object-contain"
+        {/* Inner Glow Overlay */}
+        <div
+          className="absolute inset-0"
           style={{
-            filter: position === 1 ? "drop-shadow(0 0 15px rgba(255, 200, 0, 0.5))" : "none",
+            clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+            boxShadow: style.innerGlow,
+            pointerEvents: "none",
           }}
         />
         
-        {/* Profile Picture centered on shield */}
+        {/* Metallic Border Effect */}
+        <div
+          className="absolute"
+          style={{
+            width: style.width - 8,
+            height: style.height - 8,
+            background: "transparent",
+            border: `3px solid ${style.borderColor}`,
+            clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+            opacity: 0.6,
+          }}
+        />
+
+        {/* Profile Picture - Perfectly Centered */}
         <Avatar
-          className="absolute border-2 border-white/80 shadow-lg z-10"
+          className="border-3 border-white/90 shadow-xl z-10"
           style={{
             width: style.avatarSize,
             height: style.avatarSize,
-            top: style.avatarTop,
-            left: "50%",
-            transform: "translateX(-50%)",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.4)",
           }}
         >
           <AvatarImage src={rep.avatar_url || undefined} />
@@ -124,21 +145,21 @@ const PodiumShield = ({
 
       {/* Name outside shield */}
       <span 
-        className="mt-2 font-bold text-white text-center truncate max-w-[150px]"
+        className="mt-3 font-bold text-white text-center truncate max-w-[150px]"
         style={{
           fontSize: position === 1 ? 16 : 14,
-          textShadow: "0 1px 3px rgba(0,0,0,0.7)",
+          textShadow: "0 2px 4px rgba(0,0,0,0.8)",
         }}
       >
         {rep.full_name || "Colaborador"}
       </span>
 
-      {/* Position Base */}
+      {/* Position */}
       <div 
         className="mt-1 font-bold text-white text-center"
         style={{
-          fontSize: position === 1 ? 22 : 18,
-          textShadow: "0 0 10px rgba(0, 200, 255, 0.8)",
+          fontSize: position === 1 ? 24 : 20,
+          textShadow: "0 0 12px rgba(0, 200, 255, 0.9)",
         }}
       >
         {position}º
