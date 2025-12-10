@@ -56,23 +56,23 @@ const PodiumShield = ({
   const styles = {
     1: {
       shieldImage: shieldGold,
-      width: 200,
-      height: 220,
-      avatarSize: 70,
+      width: 400,
+      height: 440,
+      avatarSize: 140,
       avatarTop: "42%",
     },
     2: {
       shieldImage: shieldSilver,
-      width: 160,
-      height: 170,
-      avatarSize: 55,
+      width: 320,
+      height: 340,
+      avatarSize: 110,
       avatarTop: "35%",
     },
     3: {
       shieldImage: shieldSilver,
-      width: 160,
-      height: 170,
-      avatarSize: 55,
+      width: 320,
+      height: 340,
+      avatarSize: 110,
       avatarTop: "35%",
     },
   };
