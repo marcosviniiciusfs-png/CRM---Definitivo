@@ -137,17 +137,12 @@ export default function Ranking() {
   }, [organizationId, period]);
 
   return (
-    <div 
-      className="min-h-screen"
-      style={{
-        background: "linear-gradient(135deg, #1a1a4e 0%, #2d1b69 50%, #1a1a4e 100%)",
-      }}
-    >
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="flex items-center justify-center gap-3 py-4 border-b border-purple-500/30">
+      <div className="flex items-center justify-center gap-3 py-4 border-b border-border">
         <Trophy className="h-6 w-6 text-yellow-400" />
-        <h1 className="text-xl font-bold text-white">Ranking de vendas</h1>
-        <Button variant="ghost" size="icon" className="text-white/60 hover:text-white">
+        <h1 className="text-xl font-bold text-foreground">Ranking de vendas</h1>
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
           <Settings2 className="h-5 w-5" />
         </Button>
       </div>
@@ -157,13 +152,13 @@ export default function Ranking() {
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           {/* Left Filters */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-white/80">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>📊</span>
               <span>Nome do Ranking</span>
             </div>
             
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
-              <SelectTrigger className="w-[160px] bg-purple-900/50 border-purple-500/30 text-white">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
               <SelectContent>
@@ -174,7 +169,7 @@ export default function Ranking() {
             </Select>
 
             <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
-              <SelectTrigger className="w-[160px] bg-purple-900/50 border-purple-500/30 text-white">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
@@ -187,9 +182,9 @@ export default function Ranking() {
 
           {/* Right Filters */}
           <div className="flex items-center gap-3">
-            <span className="text-sm text-white/60">Tipo de Lista</span>
+            <span className="text-sm text-muted-foreground">Tipo de Lista</span>
             <Select value={listType} onValueChange={(v) => setListType(v as ListType)}>
-              <SelectTrigger className="w-[120px] bg-purple-900/50 border-purple-500/30 text-white">
+              <SelectTrigger className="w-[120px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -210,14 +205,14 @@ export default function Ranking() {
 
         {/* Teams Footer */}
         {teams.length > 0 && (
-          <div className="mt-6 flex items-center gap-4 px-4 py-3 bg-purple-900/30 rounded-lg border border-purple-500/20">
-            <span className="text-sm text-white/60">Times Ativos:</span>
+          <div className="mt-6 flex items-center gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border">
+            <span className="text-sm text-muted-foreground">Times Ativos:</span>
             <div className="flex items-center gap-2">
               {teams.map(team => (
                 <div key={team.id} className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8 border-2" style={{ borderColor: team.color || '#6366f1' }}>
+                  <Avatar className="h-8 w-8 border-2" style={{ borderColor: team.color || 'hsl(var(--primary))' }}>
                     <AvatarImage src={team.avatar_url} />
-                    <AvatarFallback className="bg-purple-900 text-white text-xs">
+                    <AvatarFallback className="bg-muted text-foreground text-xs">
                       {team.name?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
