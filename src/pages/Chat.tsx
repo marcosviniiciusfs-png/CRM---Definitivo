@@ -116,6 +116,9 @@ const Chat = () => {
   const [currentUserName, setCurrentUserName] = useState<string>("Atendente");
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
   
+  // Responsibles map for admin/owner view
+  const [responsiblesMap, setResponsiblesMap] = useState<Map<string, { full_name: string; avatar_url: string | null }>>(new Map());
+  
   // File & audio state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
@@ -484,19 +487,47 @@ const Chat = () => {
         setNotificationSoundEnabled(profileResult.data.notification_sound_enabled ?? true);
       }
 
-      // Load tag assignments in parallel (after we have lead IDs)
+      // Load tag assignments and responsibles in parallel (after we have lead IDs)
       if (leadsData.length > 0) {
-        const { data: tagAssignments } = await supabase
-          .from("lead_tag_assignments")
-          .select("lead_id, tag_id")
-          .in("lead_id", leadsData.map(l => l.id));
+        // Get unique responsible user IDs
+        const responsibleUserIds = [...new Set(
+          leadsData
+            .map(l => l.responsavel_user_id)
+            .filter((id): id is string => !!id)
+        )];
+
+        const [tagAssignmentsResult, responsiblesResult] = await Promise.all([
+          supabase
+            .from("lead_tag_assignments")
+            .select("lead_id, tag_id")
+            .in("lead_id", leadsData.map(l => l.id)),
+          responsibleUserIds.length > 0
+            ? supabase
+                .from("profiles")
+                .select("user_id, full_name, avatar_url")
+                .in("user_id", responsibleUserIds)
+            : Promise.resolve({ data: [] })
+        ]);
         
-        const newMap = new Map<string, string[]>();
-        tagAssignments?.forEach((assignment) => {
-          const current = newMap.get(assignment.lead_id) || [];
-          newMap.set(assignment.lead_id, [...current, assignment.tag_id]);
+        // Set tag assignments
+        const newTagMap = new Map<string, string[]>();
+        tagAssignmentsResult.data?.forEach((assignment) => {
+          const current = newTagMap.get(assignment.lead_id) || [];
+          newTagMap.set(assignment.lead_id, [...current, assignment.tag_id]);
         });
-        setLeadTagsMap(newMap);
+        setLeadTagsMap(newTagMap);
+
+        // Set responsibles map
+        const newResponsiblesMap = new Map<string, { full_name: string; avatar_url: string | null }>();
+        responsiblesResult.data?.forEach((profile) => {
+          if (profile.user_id) {
+            newResponsiblesMap.set(profile.user_id, {
+              full_name: profile.full_name || "Sem nome",
+              avatar_url: profile.avatar_url
+            });
+          }
+        });
+        setResponsiblesMap(newResponsiblesMap);
       }
     } catch (error) {
       toast({ title: "Erro", description: "Não foi possível carregar os contatos", variant: "destructive" });
@@ -932,6 +963,7 @@ const Chat = () => {
                 isLocked={lead.id === lockedLeadId}
                 presenceStatus={presenceStatus.get(lead.id)}
                 tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
+                responsibleInfo={permissions.canViewAllLeads && lead.responsavel_user_id ? responsiblesMap.get(lead.responsavel_user_id) : undefined}
                 onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
               />
@@ -1056,6 +1088,7 @@ const Chat = () => {
                                 isLocked={lead.id === lockedLeadId}
                                 presenceStatus={presenceStatus.get(lead.id)}
                                 tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
+                                responsibleInfo={permissions.canViewAllLeads && lead.responsavel_user_id ? responsiblesMap.get(lead.responsavel_user_id) : undefined}
                                 onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
                                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
                               />

@@ -11,6 +11,11 @@ import {
 } from "@/components/ui/context-menu";
 import { Pin, PinOff, Tag } from "lucide-react";
 
+interface ResponsibleInfo {
+  full_name: string;
+  avatar_url: string | null;
+}
+
 interface VirtualizedLeadListProps {
   leads: Lead[];
   selectedLeadId: string | null;
@@ -18,6 +23,8 @@ interface VirtualizedLeadListProps {
   pinnedLeads: string[];
   presenceStatus: Map<string, PresenceInfo>;
   leadTagsMap: Map<string, string[]>;
+  responsiblesMap?: Map<string, ResponsibleInfo>;
+  showResponsible?: boolean;
   isPinnedList?: boolean;
   onSelectLead: (lead: Lead) => void;
   onTogglePin: (leadId: string) => void;
@@ -36,6 +43,8 @@ const LeadRow = memo(function LeadRow({
   pinnedLeads,
   presenceStatus,
   leadTagsMap,
+  responsibleInfo,
+  showResponsible,
   onSelectLead,
   onTogglePin,
   onAddTags,
@@ -48,6 +57,8 @@ const LeadRow = memo(function LeadRow({
   pinnedLeads: string[];
   presenceStatus: Map<string, PresenceInfo>;
   leadTagsMap: Map<string, string[]>;
+  responsibleInfo?: ResponsibleInfo;
+  showResponsible?: boolean;
   onSelectLead: (lead: Lead) => void;
   onTogglePin: (leadId: string) => void;
   onAddTags: (lead: Lead) => void;
@@ -70,6 +81,7 @@ const LeadRow = memo(function LeadRow({
               isLocked={isLocked}
               presenceStatus={presenceStatus.get(lead.id)}
               tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
+              responsibleInfo={showResponsible ? responsibleInfo : undefined}
               onClick={() => onSelectLead(lead)}
               onAvatarClick={onAvatarClick}
             />
@@ -113,6 +125,8 @@ export const VirtualizedLeadList = memo(function VirtualizedLeadList({
   pinnedLeads,
   presenceStatus,
   leadTagsMap,
+  responsiblesMap,
+  showResponsible = false,
   isPinnedList = false,
   onSelectLead,
   onTogglePin,
@@ -141,6 +155,8 @@ export const VirtualizedLeadList = memo(function VirtualizedLeadList({
           pinnedLeads={pinnedLeads}
           presenceStatus={presenceStatus}
           leadTagsMap={leadTagsMap}
+          responsibleInfo={lead.responsavel_user_id ? responsiblesMap?.get(lead.responsavel_user_id) : undefined}
+          showResponsible={showResponsible}
           onSelectLead={onSelectLead}
           onTogglePin={onTogglePin}
           onAddTags={onAddTags}

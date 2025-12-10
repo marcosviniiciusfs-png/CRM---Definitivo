@@ -2,9 +2,14 @@ import { memo } from "react";
 import { Lead } from "@/types/chat";
 import { PresenceInfo } from "./types";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
-import { Phone, Pin } from "lucide-react";
+import { Phone, Pin, User } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
+
+interface ResponsibleInfo {
+  full_name: string;
+  avatar_url: string | null;
+}
 
 interface ChatLeadItemProps {
   lead: Lead;
@@ -13,6 +18,7 @@ interface ChatLeadItemProps {
   isLocked?: boolean;
   presenceStatus: PresenceInfo | undefined;
   tagVersion: string;
+  responsibleInfo?: ResponsibleInfo;
   onClick: () => void;
   onAvatarClick: (url: string, name: string) => void;
 }
@@ -24,6 +30,7 @@ export const ChatLeadItem = memo(function ChatLeadItem({
   isLocked,
   presenceStatus,
   tagVersion,
+  responsibleInfo,
   onClick,
   onAvatarClick,
 }: ChatLeadItemProps) {
@@ -90,6 +97,22 @@ export const ChatLeadItem = memo(function ChatLeadItem({
           <Phone className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">{formatPhoneNumber(lead.telefone_lead)}</span>
         </p>
+        {responsibleInfo && (
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {responsibleInfo.avatar_url ? (
+              <img 
+                src={responsibleInfo.avatar_url} 
+                alt={responsibleInfo.full_name}
+                className="h-4 w-4 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="h-4 w-4 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <User className="h-2.5 w-2.5 text-muted-foreground" />
+              </div>
+            )}
+            <span className="text-xs text-muted-foreground truncate">{responsibleInfo.full_name}</span>
+          </div>
+        )}
       </div>
     </button>
   );
