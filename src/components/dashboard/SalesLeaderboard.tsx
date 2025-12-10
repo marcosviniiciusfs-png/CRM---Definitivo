@@ -409,35 +409,27 @@ export function SalesLeaderboard({
   }
 
   return (
-    <div className="space-y-8">
-      {/* Top - Podium */}
-      <PodiumSection top3={top3} />
+    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
+      {/* Left - Podium */}
+      <div className="flex items-center justify-center">
+        <PodiumSection top3={top3} />
+      </div>
 
-      {/* Bottom - Complete Collaborators List */}
+      {/* Right - Complete Collaborators List */}
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-indigo-300/60 px-2 flex items-center gap-2">
           <Trophy className="h-4 w-4" />
           Lista de Colaboradores
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2">
-          {/* Left Column */}
-          <div className="space-y-2">
-            {leftColumn.map(({ rep, position }) => (
-              <RankingCard key={rep.user_id} rep={rep} position={position} />
-            ))}
-          </div>
-          
-          {/* Right Column */}
-          <div className="space-y-2">
-            {rightColumn.map(({ rep, position }) => (
-              <RankingCard key={rep.user_id} rep={rep} position={position} />
-            ))}
-          </div>
+        <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+          {sortedReps.map((rep, index) => (
+            <RankingCard key={rep.user_id} rep={rep} position={index + 1} />
+          ))}
         </div>
 
         {/* Bottom Info */}
-        <div className="flex items-center justify-end gap-2 text-xs text-indigo-400/40 pt-4">
+        <div className="flex items-center justify-end gap-2 text-xs text-indigo-400/40 pt-2">
           <span>© Ranking Kairoz em tempo real</span>
         </div>
       </div>
