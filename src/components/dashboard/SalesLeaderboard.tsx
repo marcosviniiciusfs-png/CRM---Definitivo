@@ -56,24 +56,24 @@ const PodiumShield = ({
   const styles = {
     1: {
       shieldImage: shieldGold,
-      width: 160,
-      height: 180,
-      avatarSize: 55,
-      avatarTop: 58,
+      width: 200,
+      height: 220,
+      avatarSize: 70,
+      avatarTop: "42%",
     },
     2: {
       shieldImage: shieldSilver,
-      width: 130,
-      height: 140,
-      avatarSize: 45,
-      avatarTop: 42,
+      width: 160,
+      height: 170,
+      avatarSize: 55,
+      avatarTop: "35%",
     },
     3: {
       shieldImage: shieldSilver,
-      width: 130,
-      height: 140,
-      avatarSize: 45,
-      avatarTop: 42,
+      width: 160,
+      height: 170,
+      avatarSize: 55,
+      avatarTop: "35%",
     },
   };
 
@@ -106,6 +106,8 @@ const PodiumShield = ({
             width: style.avatarSize,
             height: style.avatarSize,
             top: style.avatarTop,
+            left: "50%",
+            transform: "translateX(-50%)",
           }}
         >
           <AvatarImage src={rep.avatar_url || undefined} />
