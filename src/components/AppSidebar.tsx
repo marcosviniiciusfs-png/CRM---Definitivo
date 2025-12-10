@@ -1,7 +1,7 @@
 import { Home, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle, Puzzle, Trophy } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
@@ -61,14 +61,12 @@ const SIDEBAR_LOCK_KEY = "sidebar-locked";
 function AppSidebarComponent() {
   const { open, setOpen } = useSidebar();
   const { signOut, user, subscriptionData } = useAuth();
-  const { theme } = useTheme();
   const permissions = usePermissions();
   
-  // Classes condicionais para hover/active - opacidade 10% apenas no dark mode
-  const isDark = theme === "dark";
-  const hoverClass = isDark ? "hover:bg-sidebar-accent/10" : "hover:bg-sidebar-accent";
-  const activeClass = isDark ? "bg-sidebar-accent/10" : "bg-sidebar-accent";
-  const activeTextClass = isDark ? "text-[#680101]" : "text-sidebar-primary";
+  // Classes condicionais para hover/active - neutras para ambos os temas
+  const hoverClass = "hover:bg-sidebar-accent/60";
+  const activeClass = "bg-sidebar-accent";
+  const activeTextClass = "text-sidebar-foreground";
   
   // Inicializar estado de bloqueio do localStorage
   const [isLocked, setIsLocked] = useState(() => {
@@ -228,7 +226,7 @@ function AppSidebarComponent() {
             <Button
               onClick={signOut}
               variant="outline"
-              className="w-full justify-start gap-2 bg-black hover:bg-black/80 border-sidebar-accent text-[#680101] text-sm"
+              className="w-full justify-start gap-2 bg-black hover:bg-black/80 border-sidebar-border text-white text-sm"
               size="sm"
             >
               <LogOut className="h-4 w-4" />
