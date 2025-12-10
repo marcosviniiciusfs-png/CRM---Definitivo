@@ -42,7 +42,93 @@ const formatCurrency = (value: number) => {
 };
 
 // ============================================
-// TOP 3 SECTION - Avatars Only
+// WINGED FRAME - 1st Place with Wings
+// ============================================
+const WingedFrame = ({ children }: { children: React.ReactNode }) => (
+  <div className="relative">
+    {/* Left Wing */}
+    <div 
+      className="absolute -left-10 top-1/2 -translate-y-1/2 z-0"
+      style={{
+        width: 45,
+        height: 70,
+        background: "linear-gradient(135deg, #FFD700 0%, #FFA500 30%, #FFD700 60%, #B8860B 100%)",
+        clipPath: "polygon(100% 20%, 100% 80%, 30% 65%, 0% 50%, 30% 35%)",
+        filter: "drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))",
+        transform: "rotate(-5deg)",
+      }}
+    />
+    <div 
+      className="absolute -left-8 top-1/2 -translate-y-1/2 z-0"
+      style={{
+        width: 35,
+        height: 50,
+        background: "linear-gradient(135deg, #FFFACD 0%, #FFD700 50%, #DAA520 100%)",
+        clipPath: "polygon(100% 25%, 100% 75%, 20% 60%, 0% 50%, 20% 40%)",
+        filter: "drop-shadow(0 0 5px rgba(255, 215, 0, 0.4))",
+      }}
+    />
+    
+    {/* Gold Frame Container */}
+    <div 
+      className="relative p-1.5 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-500 to-amber-600 z-10"
+      style={{ boxShadow: "0 0 25px rgba(255, 215, 0, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.3)" }}
+    >
+      {children}
+    </div>
+    
+    {/* Right Wing */}
+    <div 
+      className="absolute -right-10 top-1/2 -translate-y-1/2 z-0"
+      style={{
+        width: 45,
+        height: 70,
+        background: "linear-gradient(225deg, #FFD700 0%, #FFA500 30%, #FFD700 60%, #B8860B 100%)",
+        clipPath: "polygon(0% 20%, 0% 80%, 70% 65%, 100% 50%, 70% 35%)",
+        filter: "drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))",
+        transform: "rotate(5deg)",
+      }}
+    />
+    <div 
+      className="absolute -right-8 top-1/2 -translate-y-1/2 z-0"
+      style={{
+        width: 35,
+        height: 50,
+        background: "linear-gradient(225deg, #FFFACD 0%, #FFD700 50%, #DAA520 100%)",
+        clipPath: "polygon(0% 25%, 0% 75%, 80% 60%, 100% 50%, 80% 40%)",
+        filter: "drop-shadow(0 0 5px rgba(255, 215, 0, 0.4))",
+      }}
+    />
+  </div>
+);
+
+// ============================================
+// SIMPLE FRAME - 2nd and 3rd Place
+// ============================================
+const SimpleFrame = ({ children, color }: { children: React.ReactNode; color: "silver" | "bronze" }) => {
+  const styles = {
+    silver: {
+      gradient: "from-gray-200 via-gray-400 to-gray-300",
+      shadow: "0 0 15px rgba(192, 192, 192, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.2)",
+    },
+    bronze: {
+      gradient: "from-orange-300 via-orange-500 to-orange-400",
+      shadow: "0 0 15px rgba(205, 127, 50, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.2)",
+    },
+  };
+
+  return (
+    <div 
+      className={cn("p-1 rounded-full bg-gradient-to-br", styles[color].gradient)}
+      style={{ boxShadow: styles[color].shadow }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// ============================================
+// TOP 3 SECTION - Avatars with Frames
 // ============================================
 const Top3Section = ({ top3 }: { top3: SalesRepData[] }) => {
   if (top3.length === 0) return null;
@@ -52,24 +138,18 @@ const Top3Section = ({ top3 }: { top3: SalesRepData[] }) => {
   const positionConfig = {
     1: {
       size: 100,
-      borderColor: "border-yellow-400",
-      glowColor: "0 0 30px rgba(250, 204, 21, 0.5)",
       gradientBg: "from-yellow-400 to-yellow-600",
       icon: Trophy,
       iconColor: "text-yellow-400",
     },
     2: {
       size: 80,
-      borderColor: "border-gray-300",
-      glowColor: "0 0 20px rgba(192, 192, 192, 0.4)",
       gradientBg: "from-gray-300 to-gray-500",
       icon: Medal,
       iconColor: "text-gray-300",
     },
     3: {
       size: 80,
-      borderColor: "border-orange-400",
-      glowColor: "0 0 20px rgba(251, 146, 60, 0.4)",
       gradientBg: "from-orange-400 to-orange-600",
       icon: Award,
       iconColor: "text-orange-400",
@@ -83,8 +163,37 @@ const Top3Section = ({ top3 }: { top3: SalesRepData[] }) => {
     { rep: third, position: 3 as const },
   ];
 
+  const renderAvatar = (rep: SalesRepData, position: 1 | 2 | 3) => {
+    const config = positionConfig[position];
+    
+    const avatar = (
+      <Avatar
+        className="border-2 border-background"
+        style={{
+          width: config.size,
+          height: config.size,
+        }}
+      >
+        <AvatarImage src={rep.avatar_url || undefined} />
+        <AvatarFallback className={cn("font-bold text-white bg-gradient-to-br text-xl", config.gradientBg)}>
+          {getInitials(rep.full_name)}
+        </AvatarFallback>
+      </Avatar>
+    );
+
+    if (position === 1) {
+      return <WingedFrame>{avatar}</WingedFrame>;
+    }
+    
+    return (
+      <SimpleFrame color={position === 2 ? "silver" : "bronze"}>
+        {avatar}
+      </SimpleFrame>
+    );
+  };
+
   return (
-    <div className="flex items-end justify-center gap-6 py-6">
+    <div className="flex items-end justify-center gap-8 py-6">
       {orderedPositions.map(({ rep, position }) => {
         if (!rep) return <div key={position} className="w-24" />;
         
@@ -96,26 +205,14 @@ const Top3Section = ({ top3 }: { top3: SalesRepData[] }) => {
             key={rep.user_id} 
             className={cn(
               "flex flex-col items-center gap-2",
-              position === 1 ? "mb-4" : "mb-0"
+              position === 1 ? "mb-6" : "mb-0"
             )}
           >
             {/* Position Icon */}
             <Icon className={cn("h-6 w-6", config.iconColor)} />
             
-            {/* Avatar */}
-            <Avatar
-              className={cn("border-4", config.borderColor)}
-              style={{
-                width: config.size,
-                height: config.size,
-                boxShadow: config.glowColor,
-              }}
-            >
-              <AvatarImage src={rep.avatar_url || undefined} />
-              <AvatarFallback className={cn("font-bold text-white bg-gradient-to-br text-xl", config.gradientBg)}>
-                {getInitials(rep.full_name)}
-              </AvatarFallback>
-            </Avatar>
+            {/* Avatar with Frame */}
+            {renderAvatar(rep, position)}
 
             {/* Name */}
             <span className="font-bold text-foreground text-sm text-center truncate max-w-[100px]">
