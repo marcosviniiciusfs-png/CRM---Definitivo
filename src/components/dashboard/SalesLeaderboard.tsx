@@ -3,6 +3,7 @@ import { Trophy, Medal, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import podiumBase from "@/assets/podium-base.png";
 
 export interface SalesRepData {
   user_id: string;
@@ -42,134 +43,7 @@ const formatCurrency = (value: number) => {
 };
 
 // ============================================
-// PODIUM SHIELD - CSS Hexagonal Style
-// ============================================
-const PodiumShield = ({
-  rep,
-  position,
-}: {
-  rep: SalesRepData;
-  position: 1 | 2 | 3;
-}) => {
-  const styles = {
-    1: {
-      width: 180,
-      height: 200,
-      avatarSize: 75,
-      background: "linear-gradient(180deg, #ffc800 0%, #b8860b 50%, #8b6914 100%)",
-      borderColor: "#ffd700",
-      glow: "0 0 30px rgba(255, 200, 0, 0.6)",
-      innerGlow: "inset 0 0 25px rgba(255, 255, 200, 0.4)",
-    },
-    2: {
-      width: 150,
-      height: 170,
-      avatarSize: 60,
-      background: "linear-gradient(180deg, #e8e8e8 0%, #a8a8a8 50%, #707070 100%)",
-      borderColor: "#c0c0c0",
-      glow: "0 0 20px rgba(192, 192, 192, 0.5)",
-      innerGlow: "inset 0 0 20px rgba(255, 255, 255, 0.3)",
-    },
-    3: {
-      width: 150,
-      height: 170,
-      avatarSize: 60,
-      background: "linear-gradient(180deg, #d4a574 0%, #cd7f32 50%, #8b5a2b 100%)",
-      borderColor: "#cd7f32",
-      glow: "0 0 20px rgba(205, 127, 50, 0.5)",
-      innerGlow: "inset 0 0 20px rgba(255, 200, 150, 0.3)",
-    },
-  };
-
-  const style = styles[position];
-
-  return (
-    <div className="flex flex-col items-center">
-      {/* CSS Hexagonal Shield */}
-      <div
-        className="relative transition-transform duration-300 hover:scale-105"
-        style={{
-          width: style.width,
-          height: style.height,
-          background: style.background,
-          clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-          boxShadow: style.glow,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {/* Inner Glow Overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-            boxShadow: style.innerGlow,
-            pointerEvents: "none",
-          }}
-        />
-        
-        {/* Metallic Border Effect */}
-        <div
-          className="absolute"
-          style={{
-            width: style.width - 8,
-            height: style.height - 8,
-            background: "transparent",
-            border: `3px solid ${style.borderColor}`,
-            clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-            opacity: 0.6,
-          }}
-        />
-
-        {/* Profile Picture - Perfectly Centered */}
-        <Avatar
-          className="border-3 border-white/90 shadow-xl z-10"
-          style={{
-            width: style.avatarSize,
-            height: style.avatarSize,
-            boxShadow: "0 4px 15px rgba(0,0,0,0.4)",
-          }}
-        >
-          <AvatarImage src={rep.avatar_url || undefined} />
-          <AvatarFallback 
-            className="font-bold bg-gradient-to-br from-indigo-900 to-indigo-950 text-white"
-            style={{
-              fontSize: style.avatarSize * 0.35,
-            }}
-          >
-            {getInitials(rep.full_name)}
-          </AvatarFallback>
-        </Avatar>
-      </div>
-
-      {/* Name outside shield */}
-      <span 
-        className="mt-3 font-bold text-white text-center truncate max-w-[150px]"
-        style={{
-          fontSize: position === 1 ? 16 : 14,
-          textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-        }}
-      >
-        {rep.full_name || "Colaborador"}
-      </span>
-
-      {/* Position */}
-      <div 
-        className="mt-1 font-bold text-white text-center"
-        style={{
-          fontSize: position === 1 ? 24 : 20,
-          textShadow: "0 0 12px rgba(0, 200, 255, 0.9)",
-        }}
-      >
-        {position}º
-      </div>
-    </div>
-  );
-};
-
-// ============================================
-// PODIUM SECTION - Container without Floor Effect
+// PODIUM SECTION - Image Based with Avatars
 // ============================================
 const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   if (top3.length === 0) return null;
@@ -177,35 +51,94 @@ const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
   const [first, second, third] = [top3[0], top3[1] || null, top3[2] || null];
 
   return (
-    <div 
-      className="relative py-8 px-4"
-      style={{
-        minHeight: 340,
-      }}
-    >
-      {/* Podium Layout - 2nd, 1st, 3rd aligned at bottom */}
-      <div className="flex items-end justify-center gap-4 md:gap-8">
-        {/* 2nd Place - offset */}
+    <div className="relative flex flex-col items-center">
+      {/* Avatars positioned above podium */}
+      <div className="relative w-[420px] h-[200px]">
+        {/* 2nd Place Avatar - Left */}
         {second && (
-          <div style={{ marginTop: 40 }}>
-            <PodiumShield rep={second} position={2} />
+          <div 
+            className="absolute flex flex-col items-center"
+            style={{ left: "12%", bottom: "20px" }}
+          >
+            <Avatar
+              className="border-3 border-white/90 shadow-xl"
+              style={{
+                width: 70,
+                height: 70,
+                boxShadow: "0 4px 20px rgba(192, 192, 192, 0.5)",
+              }}
+            >
+              <AvatarImage src={second.avatar_url || undefined} />
+              <AvatarFallback className="font-bold bg-gradient-to-br from-gray-400 to-gray-600 text-white text-lg">
+                {getInitials(second.full_name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="mt-2 font-bold text-foreground text-sm text-center truncate max-w-[100px]">
+              {second.full_name || "Colaborador"}
+            </span>
           </div>
         )}
 
-        {/* 1st Place - Full height (no offset) */}
+        {/* 1st Place Avatar - Center (higher) */}
         {first && (
-          <div>
-            <PodiumShield rep={first} position={1} />
+          <div 
+            className="absolute flex flex-col items-center"
+            style={{ left: "50%", transform: "translateX(-50%)", bottom: "60px" }}
+          >
+            <Avatar
+              className="border-4 border-yellow-400/90 shadow-xl"
+              style={{
+                width: 90,
+                height: 90,
+                boxShadow: "0 4px 25px rgba(255, 200, 0, 0.6)",
+              }}
+            >
+              <AvatarImage src={first.avatar_url || undefined} />
+              <AvatarFallback className="font-bold bg-gradient-to-br from-yellow-400 to-yellow-600 text-white text-xl">
+                {getInitials(first.full_name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="mt-2 font-bold text-foreground text-base text-center truncate max-w-[120px]">
+              {first.full_name || "Colaborador"}
+            </span>
           </div>
         )}
 
-        {/* 3rd Place - offset */}
+        {/* 3rd Place Avatar - Right */}
         {third && (
-          <div style={{ marginTop: 40 }}>
-            <PodiumShield rep={third} position={3} />
+          <div 
+            className="absolute flex flex-col items-center"
+            style={{ right: "12%", bottom: "20px" }}
+          >
+            <Avatar
+              className="border-3 border-white/90 shadow-xl"
+              style={{
+                width: 70,
+                height: 70,
+                boxShadow: "0 4px 20px rgba(205, 127, 50, 0.5)",
+              }}
+            >
+              <AvatarImage src={third.avatar_url || undefined} />
+              <AvatarFallback className="font-bold bg-gradient-to-br from-orange-400 to-orange-600 text-white text-lg">
+                {getInitials(third.full_name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="mt-2 font-bold text-foreground text-sm text-center truncate max-w-[100px]">
+              {third.full_name || "Colaborador"}
+            </span>
           </div>
         )}
       </div>
+
+      {/* Podium Image */}
+      <img 
+        src={podiumBase} 
+        alt="Podium"
+        className="w-[420px] h-auto object-contain"
+        style={{
+          marginTop: "-20px",
+        }}
+      />
     </div>
   );
 };
