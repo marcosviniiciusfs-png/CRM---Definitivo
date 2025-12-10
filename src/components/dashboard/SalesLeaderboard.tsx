@@ -3,7 +3,6 @@ import { Trophy, Medal, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import podiumBase from "@/assets/podium-base.png";
 
 export interface SalesRepData {
   user_id: string;
@@ -43,108 +42,101 @@ const formatCurrency = (value: number) => {
 };
 
 // ============================================
-// PODIUM SECTION - Image Based with Avatars
+// TOP 3 SECTION - Avatars Only
 // ============================================
-const PodiumSection = ({ top3 }: { top3: SalesRepData[] }) => {
+const Top3Section = ({ top3 }: { top3: SalesRepData[] }) => {
   if (top3.length === 0) return null;
 
   const [first, second, third] = [top3[0], top3[1] || null, top3[2] || null];
 
+  const positionConfig = {
+    1: {
+      size: 100,
+      borderColor: "border-yellow-400",
+      glowColor: "0 0 30px rgba(250, 204, 21, 0.5)",
+      gradientBg: "from-yellow-400 to-yellow-600",
+      icon: Trophy,
+      iconColor: "text-yellow-400",
+    },
+    2: {
+      size: 80,
+      borderColor: "border-gray-300",
+      glowColor: "0 0 20px rgba(192, 192, 192, 0.4)",
+      gradientBg: "from-gray-300 to-gray-500",
+      icon: Medal,
+      iconColor: "text-gray-300",
+    },
+    3: {
+      size: 80,
+      borderColor: "border-orange-400",
+      glowColor: "0 0 20px rgba(251, 146, 60, 0.4)",
+      gradientBg: "from-orange-400 to-orange-600",
+      icon: Award,
+      iconColor: "text-orange-400",
+    },
+  };
+
+  // Order: 2nd, 1st, 3rd for visual podium effect
+  const orderedPositions = [
+    { rep: second, position: 2 as const },
+    { rep: first, position: 1 as const },
+    { rep: third, position: 3 as const },
+  ];
+
   return (
-    <div className="relative w-[420px]">
-      {/* Podium Image as base */}
-      <img 
-        src={podiumBase} 
-        alt="Podium"
-        className="w-full h-auto object-contain"
-      />
+    <div className="flex items-end justify-center gap-6 py-6">
+      {orderedPositions.map(({ rep, position }) => {
+        if (!rep) return <div key={position} className="w-24" />;
+        
+        const config = positionConfig[position];
+        const Icon = config.icon;
 
-      {/* 1st Place Avatar - Center (on top of highest step) */}
-      {first && (
-        <div 
-          className="absolute flex flex-col items-center"
-          style={{ 
-            left: "50%", 
-            top: "8%", 
-            transform: "translateX(-50%)" 
-          }}
-        >
-          <Avatar
-            className="border-4 border-yellow-400/90 shadow-xl"
-            style={{
-              width: 85,
-              height: 85,
-              boxShadow: "0 4px 25px rgba(255, 200, 0, 0.6)",
-            }}
+        return (
+          <div 
+            key={rep.user_id} 
+            className={cn(
+              "flex flex-col items-center gap-2",
+              position === 1 ? "mb-4" : "mb-0"
+            )}
           >
-            <AvatarImage src={first.avatar_url || undefined} />
-            <AvatarFallback className="font-bold bg-gradient-to-br from-yellow-400 to-yellow-600 text-white text-xl">
-              {getInitials(first.full_name)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="mt-1 font-bold text-foreground text-sm text-center truncate max-w-[100px] drop-shadow-lg">
-            {first.full_name || "Colaborador"}
-          </span>
-        </div>
-      )}
+            {/* Position Icon */}
+            <Icon className={cn("h-6 w-6", config.iconColor)} />
+            
+            {/* Avatar */}
+            <Avatar
+              className={cn("border-4", config.borderColor)}
+              style={{
+                width: config.size,
+                height: config.size,
+                boxShadow: config.glowColor,
+              }}
+            >
+              <AvatarImage src={rep.avatar_url || undefined} />
+              <AvatarFallback className={cn("font-bold text-white bg-gradient-to-br text-xl", config.gradientBg)}>
+                {getInitials(rep.full_name)}
+              </AvatarFallback>
+            </Avatar>
 
-      {/* 2nd Place Avatar - Left (on second step) */}
-      {second && (
-        <div 
-          className="absolute flex flex-col items-center"
-          style={{ 
-            left: "18%", 
-            top: "28%", 
-            transform: "translateX(-50%)" 
-          }}
-        >
-          <Avatar
-            className="border-3 border-white/90 shadow-xl"
-            style={{
-              width: 65,
-              height: 65,
-              boxShadow: "0 4px 20px rgba(192, 192, 192, 0.5)",
-            }}
-          >
-            <AvatarImage src={second.avatar_url || undefined} />
-            <AvatarFallback className="font-bold bg-gradient-to-br from-gray-400 to-gray-600 text-white text-lg">
-              {getInitials(second.full_name)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="mt-1 font-bold text-foreground text-xs text-center truncate max-w-[80px] drop-shadow-lg">
-            {second.full_name || "Colaborador"}
-          </span>
-        </div>
-      )}
+            {/* Name */}
+            <span className="font-bold text-foreground text-sm text-center truncate max-w-[100px]">
+              {rep.full_name || "Colaborador"}
+            </span>
 
-      {/* 3rd Place Avatar - Right (on third step) */}
-      {third && (
-        <div 
-          className="absolute flex flex-col items-center"
-          style={{ 
-            right: "18%", 
-            top: "38%", 
-            transform: "translateX(50%)" 
-          }}
-        >
-          <Avatar
-            className="border-3 border-white/90 shadow-xl"
-            style={{
-              width: 65,
-              height: 65,
-              boxShadow: "0 4px 20px rgba(205, 127, 50, 0.5)",
-            }}
-          >
-            <AvatarImage src={third.avatar_url || undefined} />
-            <AvatarFallback className="font-bold bg-gradient-to-br from-orange-400 to-orange-600 text-white text-lg">
-              {getInitials(third.full_name)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="mt-1 font-bold text-foreground text-xs text-center truncate max-w-[80px] drop-shadow-lg">
-            {third.full_name || "Colaborador"}
-          </span>
-        </div>
-      )}
+            {/* Revenue */}
+            <span className="text-xs text-muted-foreground">
+              {formatCurrency(rep.total_revenue)}
+            </span>
+
+            {/* Position Badge */}
+            <div className={cn(
+              "px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r",
+              config.gradientBg
+            )}>
+              {position}º
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -280,7 +272,7 @@ export function SalesLeaderboard({
     <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
       {/* Left - Podium */}
       <div className="flex items-center justify-center">
-        <PodiumSection top3={top3} />
+        <Top3Section top3={top3} />
       </div>
 
       {/* Right - Complete Collaborators List */}
