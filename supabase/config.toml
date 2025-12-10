@@ -101,3 +101,6 @@ verify_jwt = true
 
 [functions.get-signed-media-url]
 verify_jwt = true
+
+[functions.generate-shield-image]
+verify_jwt = true
