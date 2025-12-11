@@ -1524,7 +1524,7 @@ const Dashboard = () => {
                   return (
                     <div 
                       key={seller.user_id}
-                      className="group"
+                      className="group overflow-hidden"
                     >
                       <div className="flex items-center gap-3 mb-1.5">
                         <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0 ${positionColors[index]}`}>
@@ -1547,10 +1547,12 @@ const Dashboard = () => {
                           </div>
                         </div>
                       </div>
-                      <Progress 
-                        value={percentage} 
-                        className="h-1.5 ml-8"
-                      />
+                      <div className="pl-8 pr-0">
+                        <Progress 
+                          value={percentage} 
+                          className="h-1.5"
+                        />
+                      </div>
                     </div>
                   );
                 })}
