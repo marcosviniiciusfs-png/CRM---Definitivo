@@ -107,7 +107,7 @@ function AppSidebarComponent() {
       onMouseLeave={handleMouseLeave}
       className="border-r border-sidebar-border shadow-sm"
     >
-      <SidebarContent className="bg-sidebar overflow-hidden">
+      <SidebarContent className="bg-sidebar overflow-y-auto">
         <div className="p-4 pb-4 flex items-center justify-center">
           <img 
             src={logoFull} 

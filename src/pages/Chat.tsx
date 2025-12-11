@@ -1214,7 +1214,7 @@ const Chat = () => {
                   className="absolute inset-0 pointer-events-none transition-opacity duration-300"
                   style={{ backgroundColor: theme === "dark" ? "#0C1317" : "#ECE5DD", backgroundImage: theme === "dark" ? "url(/chat-pattern-dark.png)" : "url(/chat-pattern.png)", backgroundRepeat: "repeat", backgroundSize: "200px", opacity: 0.3 }}
                 />
-                <ScrollArea className="h-full p-4 relative z-10">
+                <ScrollArea className="absolute inset-0 p-4 z-10">
                   {loading ? (
                     <LoadingAnimation text="Carregando mensagens..." />
                   ) : messages.length === 0 ? (

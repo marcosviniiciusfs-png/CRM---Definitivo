@@ -132,7 +132,7 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
   }, [messages.length]);
 
   return (
-    <div ref={containerRef} className="space-y-1 px-2 overflow-auto h-full">
+    <div ref={containerRef} className="space-y-1 px-2 overflow-y-auto h-full scroll-smooth">
       {messages.map((message) => (
         <MemoizedMessage
           key={message.id}
