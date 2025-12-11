@@ -22,9 +22,36 @@ export function AssetPreloader() {
       audio.preload = 'auto';
       audio.src = src;
     });
+
+    // NOVO: Pré-aquecer edge functions para reduzir cold start
+    warmEdgeFunctions();
   }, []);
 
   return null;
+}
+
+// Função para pré-aquecer edge functions em background
+async function warmEdgeFunctions() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!supabaseUrl) return;
+
+  // Aquecer edge functions mais usadas com HEAD request (não bloqueia, apenas aquece container)
+  const edgeFunctionsToWarm = [
+    'check-subscription',
+    'fetch-presence-status',
+  ];
+
+  // Executar em background após 1 segundo para não competir com carregamento inicial
+  setTimeout(() => {
+    edgeFunctionsToWarm.forEach(fnName => {
+      fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
+        method: 'OPTIONS', // OPTIONS é leve e aquece o container
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(() => {
+        // Ignorar erros silenciosamente - é apenas warming
+      });
+    });
+  }, 1500);
 }
 
 // Hook para pré-carregar assets sob demanda

@@ -224,10 +224,12 @@ const Chat = () => {
   }, [user?.id]);
 
   // CONSOLIDATED: Global realtime channel for leads, tags, tag assignments, and profile
+  // OPTIMIZED: Não esperar permissions.loading - carregar imediatamente
   useEffect(() => {
-    if (permissions.loading) return;
-    if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
+    // Carregar dados assim que tivermos user.id - não bloquear em permissions
+    if (!user?.id) return;
 
+    // Carregar dados imediatamente - permissions serão aplicadas nas queries
     loadAllChatData();
 
     notificationAudioRef.current = new Audio(`/notification.mp3?v=${Date.now()}`);
@@ -441,18 +443,15 @@ const Chat = () => {
         return;
       }
 
-      // Build leads query
-      let leadsQuery = supabase
+      // Build leads query - RLS policy handles role-based filtering automatically
+      // Admins/Owners see all leads, Members see only assigned leads via RLS
+      const leadsQuery = supabase
         .from("leads")
         .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id")
         .eq("organization_id", orgMember.organization_id)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
         .limit(300);
-
-      if (!permissions.canViewAllLeads) {
-        leadsQuery = leadsQuery.eq("responsavel_user_id", user.id);
-      }
 
       // Execute all queries in parallel
       const [leadsResult, tagsResult, profileResult] = await Promise.all([
