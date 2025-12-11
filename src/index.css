@@ -347,10 +347,6 @@ All colors MUST be HSL.
   scrollbar-width: thin;
 }
 
-/* Fix for Radix ScrollArea viewport */
-[data-radix-scroll-area-viewport] {
-  overflow: auto !important;
-}
 
 /* Ensure scroll works on touch devices */
 .overflow-y-auto,
