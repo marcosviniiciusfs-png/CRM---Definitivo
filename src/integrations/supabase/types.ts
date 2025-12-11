@@ -2373,13 +2373,14 @@ export type Database = {
       get_facebook_integrations_masked: {
         Args: never
         Returns: {
-          access_token: string
           ad_account_id: string
+          ad_accounts: Json
+          business_id: string
+          business_name: string
           created_at: string
           expires_at: string
           id: string
           organization_id: string
-          page_access_token: string
           page_id: string
           page_name: string
           selected_form_id: string

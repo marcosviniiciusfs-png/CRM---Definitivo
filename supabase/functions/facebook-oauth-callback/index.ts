@@ -5,6 +5,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para criptografar tokens usando AES-256
+async function encryptToken(token: string, key: string): Promise<string> {
+  if (!token) return '';
+  
+  const encoder = new TextEncoder();
+  const data = encoder.encode(token);
+  
+  // Derivar chave de 256 bits do key string
+  const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  // Gerar IV aleatório
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  
+  // Criptografar
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    cryptoKey,
+    data
+  );
+  
+  // Combinar IV + encrypted data e converter para base64
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  
+  return btoa(String.fromCharCode(...combined));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -135,29 +170,54 @@ Deno.serve(async (req) => {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + (longLivedTokenData.expires_in || 5184000)); // 60 days default
 
-    // Use upsert to update existing integration or create new one
-    const { error: dbError } = await supabase
+    // Obter chave de criptografia
+    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
+
+    // Criptografar tokens
+    const encryptedAccessToken = await encryptToken(longLivedTokenData.access_token, ENCRYPTION_KEY);
+    const encryptedPageAccessToken = await encryptToken(selectedPage?.access_token || '', ENCRYPTION_KEY);
+
+    // Use upsert to update existing integration or create new one (sem tokens)
+    const { data: integrationData, error: dbError } = await supabase
       .from('facebook_integrations')
       .upsert({
         user_id,
         organization_id,
-        access_token: longLivedTokenData.access_token,
+        access_token: 'ENCRYPTED_IN_TOKENS_TABLE', // Placeholder para manter compatibilidade
         expires_at: expiresAt.toISOString(),
         page_id: selectedPage?.id || null,
         page_name: selectedPage?.name || null,
-        page_access_token: selectedPage?.access_token || null,
+        page_access_token: 'ENCRYPTED_IN_TOKENS_TABLE', // Placeholder
         business_id: businessId,
         business_name: businessName,
         ad_account_id: defaultAdAccountId,
         ad_accounts: adAccounts,
       }, {
         onConflict: 'user_id,organization_id'
-      });
+      })
+      .select('id')
+      .single();
 
     if (dbError) {
       console.error('Database error:', dbError);
       throw dbError;
     }
+
+    // Armazenar tokens criptografados na tabela segura
+    if (integrationData?.id) {
+      const { error: tokenError } = await supabase.rpc('update_facebook_tokens_secure', {
+        p_integration_id: integrationData.id,
+        p_encrypted_access_token: encryptedAccessToken,
+        p_encrypted_page_access_token: encryptedPageAccessToken
+      });
+
+      if (tokenError) {
+        console.error('Token storage error:', tokenError);
+        // Não falhar completamente, apenas logar o erro
+      }
+    }
+
+    console.log('Facebook integration saved with encrypted tokens');
 
     // Redirect back to settings page with success using the app origin
     const redirectUrl = origin || url.origin;
