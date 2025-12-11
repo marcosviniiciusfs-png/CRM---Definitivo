@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
-import whatsappLogo from "@/assets/whatsapp-logo.png";
+import whatsappLogo from "@/assets/whatsapp-icon.png";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface QRCodeData {
