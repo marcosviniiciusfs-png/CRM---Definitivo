@@ -34,6 +34,7 @@ interface MessageBubbleProps {
   onAvatarClick: (url: string, name: string) => void;
   onReply: (message: Message) => void;
   onScrollToMessage?: (messageId: string) => void;
+  onDelete: () => void;
   messageRef?: (el: HTMLDivElement | null) => void;
 }
 
@@ -57,6 +58,7 @@ export const MessageBubble = memo(function MessageBubble({
   onAvatarClick,
   onReply,
   onScrollToMessage,
+  onDelete,
   messageRef,
 }: MessageBubbleProps) {
   const { toast } = useToast();
@@ -208,7 +210,7 @@ export const MessageBubble = memo(function MessageBubble({
               <Star className="h-4 w-4 mr-2" />
               Favoritar
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => toast({ title: "Em breve", description: "Funcionalidade em desenvolvimento" })}>
+            <DropdownMenuItem className="text-destructive" onClick={onDelete}>
               <Trash2 className="h-4 w-4 mr-2" />
               Apagar
             </DropdownMenuItem>
