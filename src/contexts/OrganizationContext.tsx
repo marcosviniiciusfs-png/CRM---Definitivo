@@ -186,25 +186,35 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  // Initial load with cache
+  // Initial load with cache - OPTIMIZED: Immediate UI unlock
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
       return;
     }
 
-    // Try to load from cache immediately for faster UI
+    // Try to load from cache FIRST (load instantâneo)
     const cachedData = getOrgCache(user.id);
     if (cachedData) {
-      console.log('[ORG] Restoring from cache on mount');
+      console.log('[ORG] Restoring from cache on mount - instant load');
       setOrganizationId(cachedData.organizationId);
       setPermissions({ ...cachedData.permissions, loading: false });
       dataLoadedRef.current = true;
       
-      // Refresh in background to ensure data is fresh
-      loadOrganizationData(true);
+      // Refresh in background silently
+      setTimeout(() => loadOrganizationData(true), 100);
     } else {
+      // SEM CACHE: Setar loading=false com permissões padrão de member
+      // para não bloquear a UI, depois atualizar quando dados chegarem
+      console.log('[ORG] No cache - setting default member permissions');
+      setPermissions({
+        ...defaultPermissions,
+        loading: false,
+        role: 'member', // Assumir member por padrão para não bloquear
+      });
+      
+      // Carregar dados reais em background
       loadOrganizationData();
     }
   }, [user?.id]); // Only depend on user.id to avoid re-running on every user object change

@@ -230,19 +230,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Initial session check
+    // Initial session check - OPTIMIZED: Non-blocking
     supabase.auth.getSession()
-      .then(async ({ data: { session } }) => {
+      .then(({ data: { session } }) => {
         if (!mounted) return;
         
         console.log('[AUTH] Initial session check, user:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // LIBERAR LOADING IMEDIATAMENTE - não bloquear UI
+        setLoading(false);
 
         if (session?.user && session?.access_token) {
+          // Log session em background
           setTimeout(() => logUserSession(session.user.id, true), 0);
           
-          // Check cache first
+          // Check cache first para UI rápida
           const cachedData = getSubscriptionCache(session.user.id);
           if (cachedData) {
             console.log('[AUTH] Using cached subscription data on initial load');
@@ -250,8 +254,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             subscriptionFetchedRef.current = true;
           }
           
-          // Refresh in background if no cache or to update cache
-          if (!cachedData) {
+          // Atualizar subscription em BACKGROUND (não bloquear)
+          setTimeout(async () => {
+            if (!mounted) return;
             try {
               const { data, error } = await supabase.functions.invoke('check-subscription');
               if (!error && data && mounted) {
@@ -262,10 +267,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } catch (error) {
               console.error('[AUTH] Erro ao verificar assinatura inicial:', error);
             }
-          }
+          }, 100);
         }
       })
-      .finally(() => {
+      .catch((error) => {
+        console.error('[AUTH] Erro ao obter sessão:', error);
         if (mounted) {
           setLoading(false);
         }
