@@ -10,13 +10,11 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 type PeriodType = "month" | "quarter" | "year";
 type SortType = "revenue" | "won_leads" | "percentage";
-type ListType = "cards" | "rows";
 
 export default function Ranking() {
   const { organizationId } = useOrganization();
   const [period, setPeriod] = useState<PeriodType>("month");
   const [sortBy, setSortBy] = useState<SortType>("revenue");
-  const [listType, setListType] = useState<ListType>("cards");
   const [reps, setReps] = useState<SalesRepData[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -179,20 +177,6 @@ export default function Ranking() {
               </SelectContent>
             </Select>
           </div>
-
-          {/* Right Filters */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Tipo de Lista</span>
-            <Select value={listType} onValueChange={(v) => setListType(v as ListType)}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cards">Cards</SelectItem>
-                <SelectItem value="rows">Linhas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* Leaderboard */}
@@ -200,7 +184,6 @@ export default function Ranking() {
           reps={reps} 
           isLoading={isLoading} 
           sortBy={sortBy}
-          listType={listType}
         />
 
         {/* Teams Footer */}
