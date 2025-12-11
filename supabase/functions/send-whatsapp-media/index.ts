@@ -299,7 +299,8 @@ serve(async (req) => {
         success: true,
         messageId: messageId,
         evolutionData: evolutionData,
-        mediaUrl: evolutionData.message?.imageMessage?.url || evolutionData.message?.videoMessage?.url || evolutionData.message?.documentMessage?.url || null
+        // Priorizar storageUrl (URL permanente) sobre URL temporária do Evolution
+        mediaUrl: storageUrl || evolutionData.message?.imageMessage?.url || evolutionData.message?.videoMessage?.url || evolutionData.message?.documentMessage?.url || null
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
