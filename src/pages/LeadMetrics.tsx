@@ -165,6 +165,7 @@ const LeadMetrics = () => {
   const [adsMetrics, setAdsMetrics] = useState<AdsMetrics | null>(null);
   const [adsLoading, setAdsLoading] = useState(false);
   const [adsError, setAdsError] = useState<string | null>(null);
+  const [adsNeedsReconnect, setAdsNeedsReconnect] = useState(false);
   const [facebookAdvanced, setFacebookAdvanced] = useState<FacebookAdvancedMetrics>({
     mqlConversionRate: 0,
     discardRate: 0,
@@ -377,6 +378,7 @@ const LeadMetrics = () => {
     try {
       setAdsLoading(true);
       setAdsError(null);
+      setAdsNeedsReconnect(false);
 
       const { data, error } = await supabase.functions.invoke('fetch-ads-insights', {
         body: {
@@ -403,6 +405,11 @@ const LeadMetrics = () => {
       if (data?.selectedAccount) {
         setSelectedAdAccountId(data.selectedAccount.id);
         setSelectedAdAccountName(data.selectedAccount.name);
+      }
+
+      // Check if reconnection is needed
+      if (data?.needsReconnect) {
+        setAdsNeedsReconnect(true);
       }
 
       if (data?.error) {
@@ -1511,9 +1518,22 @@ const LeadMetrics = () => {
               <CardContent className="py-12">
                 <div className="text-center text-muted-foreground">
                   <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">Métricas de Campanhas Indisponíveis</p>
-                  <p className="text-sm">{adsError}</p>
-                  <p className="text-xs mt-2">Certifique-se de ter uma conta de anúncios vinculada ao Facebook.</p>
+                  <p className="text-lg font-medium mb-2">
+                    {adsNeedsReconnect ? 'Reconexão Necessária' : 'Métricas de Campanhas Indisponíveis'}
+                  </p>
+                  <p className="text-sm max-w-md mx-auto">{adsError}</p>
+                  {adsNeedsReconnect ? (
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => window.location.href = '/integrations'}
+                    >
+                      <Facebook className="h-4 w-4 mr-2" />
+                      Ir para Integrações
+                    </Button>
+                  ) : (
+                    <p className="text-xs mt-2">Certifique-se de ter uma conta de anúncios vinculada ao Facebook.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

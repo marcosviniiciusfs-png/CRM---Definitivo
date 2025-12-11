@@ -282,82 +282,91 @@ Deno.serve(async (req) => {
     // Buscar tokens de forma segura
     const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
     
-    // Primeiro tentar a tabela segura de tokens
-    const { data: secureTokens, error: secureError } = await supabase
-      .from('facebook_integration_tokens')
-      .select(`
-        encrypted_access_token,
-        integration:facebook_integrations!inner(
-          id,
-          organization_id,
-          ad_account_id,
-          ad_accounts
-        )
-      `)
-      .eq('integration.organization_id', organization_id)
-      .single();
-
     let access_token: string | null = null;
     let selectedAccountId: string | null = null;
     let availableAccounts: AdAccount[] = [];
+    let integrationId: string | null = null;
 
-    if (secureTokens && !secureError) {
-      // Descriptografar token
-      access_token = await decryptToken(secureTokens.encrypted_access_token, ENCRYPTION_KEY);
-      const integration = secureTokens.integration as any;
-      selectedAccountId = ad_account_id || integration?.ad_account_id;
-      
-      if (integration?.ad_accounts) {
-        if (Array.isArray(integration.ad_accounts)) {
-          availableAccounts = integration.ad_accounts;
-        } else if (typeof integration.ad_accounts === 'string') {
-          try {
-            availableAccounts = JSON.parse(integration.ad_accounts);
-          } catch (e) {
-            console.error('Failed to parse ad_accounts:', e);
-          }
+    // Primeiro buscar a integração principal
+    const { data: integration, error: integrationError } = await supabase
+      .from('facebook_integrations')
+      .select('id, access_token, ad_account_id, ad_accounts')
+      .eq('organization_id', organization_id)
+      .single();
+
+    if (integrationError || !integration) {
+      console.error('Integration not found:', integrationError);
+      return new Response(
+        JSON.stringify({ error: 'Facebook integration not found', data: null, needsReconnect: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    integrationId = integration.id;
+    selectedAccountId = ad_account_id || integration.ad_account_id;
+    
+    if (integration.ad_accounts) {
+      if (Array.isArray(integration.ad_accounts)) {
+        availableAccounts = integration.ad_accounts;
+      } else if (typeof integration.ad_accounts === 'string') {
+        try {
+          availableAccounts = JSON.parse(integration.ad_accounts);
+        } catch (e) {
+          console.error('Failed to parse ad_accounts:', e);
         }
       }
+    }
+
+    // Tentar buscar tokens da tabela segura via RPC
+    const { data: secureTokens, error: secureError } = await supabase.rpc('get_facebook_tokens_secure', {
+      p_organization_id: organization_id
+    });
+
+    if (!secureError && secureTokens && secureTokens.length > 0 && secureTokens[0].encrypted_access_token) {
+      // Tokens encontrados na tabela segura - descriptografar
+      console.log('Using secure tokens from facebook_integration_tokens');
+      access_token = await decryptToken(secureTokens[0].encrypted_access_token, ENCRYPTION_KEY);
     } else {
-      // Fallback para tabela antiga (tokens legado)
-      console.log('Fallback to legacy tokens table');
-      const { data: integration, error: integrationError } = await supabase
-        .from('facebook_integrations')
-        .select('access_token, ad_account_id, ad_accounts')
-        .eq('organization_id', organization_id)
-        .single();
-
-      if (integrationError || !integration) {
-        console.error('Integration not found:', integrationError);
-        return new Response(
-          JSON.stringify({ error: 'Facebook integration not found', data: null }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
-      }
-
-      // Verificar se é token criptografado ou legado
+      // Verificar se há token legado válido na tabela principal
+      console.log('Checking for legacy tokens in facebook_integrations');
+      
       if (integration.access_token && integration.access_token !== 'ENCRYPTED_IN_TOKENS_TABLE') {
+        // Token legado encontrado - usar e migrar para tabela segura
+        console.log('Found legacy token, attempting migration...');
         access_token = integration.access_token;
-      }
-      
-      selectedAccountId = ad_account_id || integration.ad_account_id;
-      
-      if (integration.ad_accounts) {
-        if (Array.isArray(integration.ad_accounts)) {
-          availableAccounts = integration.ad_accounts;
-        } else if (typeof integration.ad_accounts === 'string') {
-          try {
-            availableAccounts = JSON.parse(integration.ad_accounts);
-          } catch (e) {
-            console.error('Failed to parse ad_accounts:', e);
+        
+        // Tentar migrar para tabela segura (não bloqueia se falhar)
+        try {
+          const { error: migrateError } = await supabase.rpc('update_facebook_tokens_secure', {
+            p_integration_id: integrationId,
+            p_encrypted_access_token: access_token,
+            p_encrypted_page_access_token: null
+          });
+          
+          if (!migrateError) {
+            console.log('Legacy token migrated successfully');
+            // Atualizar tabela principal para indicar que tokens estão criptografados
+            await supabase
+              .from('facebook_integrations')
+              .update({ access_token: 'ENCRYPTED_IN_TOKENS_TABLE' })
+              .eq('id', integrationId);
+          } else {
+            console.log('Migration failed, continuing with legacy token:', migrateError.message);
           }
+        } catch (migrationError) {
+          console.log('Migration error (non-blocking):', migrationError);
         }
       }
     }
 
     if (!access_token) {
+      console.log('No valid access token found - reconnection required');
       return new Response(
-        JSON.stringify({ error: 'Facebook access token not found or expired', data: null }),
+        JSON.stringify({ 
+          error: 'Token do Facebook expirado ou não encontrado. Por favor, reconecte sua conta do Facebook nas configurações de integrações.', 
+          data: null,
+          needsReconnect: true 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }

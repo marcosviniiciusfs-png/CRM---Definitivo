@@ -26,6 +26,8 @@ export const FacebookLeadsConnection = () => {
   const [leadForms, setLeadForms] = useState<LeadForm[]>([]);
   const [loadingForms, setLoadingForms] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
+  const [checkingTokens, setCheckingTokens] = useState(false);
 
   useEffect(() => {
     checkConnection();
@@ -47,6 +49,7 @@ export const FacebookLeadsConnection = () => {
 
   const checkConnection = async () => {
     try {
+      setCheckingTokens(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -58,17 +61,48 @@ export const FacebookLeadsConnection = () => {
         return;
       }
 
-      const integration = data?.[0];
+      const integrationData = data?.[0];
 
-      if (integration && integration.page_id) {
+      if (integrationData && integrationData.page_id) {
         setIsConnected(true);
-        setIntegration(integration);
-      } else if (integration) {
+        setIntegration(integrationData);
+        
+        // Verificar integridade dos tokens
+        const { data: orgData } = await supabase
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (orgData) {
+          const { data: tokenCheck } = await supabase.rpc('get_facebook_tokens_secure', {
+            p_organization_id: orgData.organization_id
+          });
+          
+          // Se não há tokens na tabela segura E o token principal é placeholder, precisa reconectar
+          const hasSecureTokens = tokenCheck && tokenCheck.length > 0 && tokenCheck[0].encrypted_access_token;
+          
+          if (!hasSecureTokens) {
+            // Verificar se tem token legado válido
+            const { data: legacyCheck } = await supabase
+              .from('facebook_integrations')
+              .select('access_token')
+              .eq('organization_id', orgData.organization_id)
+              .single();
+            
+            if (!legacyCheck?.access_token || legacyCheck.access_token === 'ENCRYPTED_IN_TOKENS_TABLE') {
+              setNeedsReconnect(true);
+            }
+          }
+        }
+      } else if (integrationData) {
         setIsConnected(false);
-        setIntegration(integration);
+        setIntegration(integrationData);
       }
     } catch (error) {
       console.error('Error:', error);
+    } finally {
+      setCheckingTokens(false);
     }
   };
 
@@ -260,8 +294,8 @@ export const FacebookLeadsConnection = () => {
             Conecte sua conta do Facebook para receber leads automaticamente das suas campanhas de anúncios
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-        {showSuccess && isConnected && (
+      <CardContent className="space-y-4">
+        {showSuccess && isConnected && !needsReconnect && (
           <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertDescription className="text-sm text-green-800 dark:text-green-200">
@@ -270,19 +304,35 @@ export const FacebookLeadsConnection = () => {
           </Alert>
         )}
 
+        {needsReconnect && (
+          <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>Reconexão necessária!</strong> Os tokens de acesso expiraram ou estão inválidos. 
+              Por favor, desconecte e reconecte sua conta do Facebook para restaurar a funcionalidade.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
           <div className="flex items-center gap-3">
-            {isConnected ? (
+            {isConnected && !needsReconnect ? (
               <CheckCircle className="h-5 w-5 text-green-500" />
+            ) : needsReconnect ? (
+              <AlertCircle className="h-5 w-5 text-amber-500" />
             ) : (
               <AlertCircle className="h-5 w-5 text-muted-foreground" />
             )}
             <div>
               <p className="font-medium">Status da Conexão</p>
               <p className="text-sm text-muted-foreground">
-                {isConnected ? `Conectado - ${integration?.page_name || 'Página configurada'}` : 'Não conectado'}
+                {needsReconnect 
+                  ? 'Reconexão necessária' 
+                  : isConnected 
+                    ? `Conectado - ${integration?.page_name || 'Página configurada'}` 
+                    : 'Não conectado'}
               </p>
-              {isConnected && integration?.selected_form_name && (
+              {isConnected && integration?.selected_form_name && !needsReconnect && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Formulário: {integration.selected_form_name}
                 </p>
@@ -290,7 +340,7 @@ export const FacebookLeadsConnection = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            {isConnected && !integration?.selected_form_id && (
+            {isConnected && !integration?.selected_form_id && !needsReconnect && (
               <Button onClick={fetchLeadForms} disabled={loadingForms} variant="outline">
                 {loadingForms ? 'Carregando...' : 'Selecionar Formulário'}
               </Button>
