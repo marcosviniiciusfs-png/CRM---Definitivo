@@ -86,22 +86,27 @@ Deno.serve(async (req) => {
     if (!evolutionResponse.ok) {
       console.error(`Evolution API retornou erro ${evolutionResponse.status}`);
       
-      // Se retornar 404, a instância não existe na Evolution API
+      // Se retornar 404, a instância não existe na Evolution API - deletar registro órfão
       if (evolutionResponse.status === 404) {
-        // CRÍTICO: NÃO sobrescrever se já está CONNECTED
-        await supabase
+        console.log('🗑️ Instância não existe na Evolution API - deletando registro órfão do banco');
+        
+        // Deletar o registro órfão do banco de dados
+        const { error: deleteError } = await supabase
           .from('whatsapp_instances')
-          .update({ 
-            status: 'DISCONNECTED',
-            updated_at: new Date().toISOString()
-          })
-          .eq('instance_name', instance_name)
-          .neq('status', 'CONNECTED'); // NÃO sobrescrever CONNECTED
+          .delete()
+          .eq('instance_name', instance_name);
+          
+        if (!deleteError) {
+          console.log('✅ Registro órfão deletado do banco de dados');
+        } else {
+          console.error('❌ Erro ao deletar registro órfão:', deleteError);
+        }
 
         return new Response(
           JSON.stringify({ 
             status: 'DISCONNECTED',
-            message: 'Instância não encontrada na Evolution API'
+            message: 'Instância não encontrada na Evolution API - registro removido',
+            deleted: true
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
