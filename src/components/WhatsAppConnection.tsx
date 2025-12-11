@@ -898,6 +898,7 @@ const WhatsAppConnection = () => {
                   onClick={createInstance}
                   disabled={creating}
                   size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {creating ? (
                     <>
