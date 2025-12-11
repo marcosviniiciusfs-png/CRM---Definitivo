@@ -300,6 +300,41 @@ export type Database = {
           },
         ]
       }
+      facebook_integration_tokens: {
+        Row: {
+          created_at: string
+          encrypted_access_token: string | null
+          encrypted_page_access_token: string | null
+          id: string
+          integration_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_access_token?: string | null
+          encrypted_page_access_token?: string | null
+          id?: string
+          integration_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_access_token?: string | null
+          encrypted_page_access_token?: string | null
+          id?: string
+          integration_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facebook_integration_tokens_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: true
+            referencedRelation: "facebook_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facebook_integrations: {
         Row: {
           access_token: string
@@ -2390,6 +2425,16 @@ export type Database = {
           webhook_verified: boolean
         }[]
       }
+      get_facebook_tokens_secure: {
+        Args: { p_organization_id: string }
+        Returns: {
+          ad_account_id: string
+          encrypted_access_token: string
+          encrypted_page_access_token: string
+          integration_id: string
+          page_id: string
+        }[]
+      }
       get_google_calendar_integrations_masked: {
         Args: never
         Returns: {
@@ -2519,6 +2564,14 @@ export type Database = {
           id: string
           last_sign_in_at: string
         }[]
+      }
+      update_facebook_tokens_secure: {
+        Args: {
+          p_encrypted_access_token: string
+          p_encrypted_page_access_token: string
+          p_integration_id: string
+        }
+        Returns: undefined
       }
       update_google_calendar_tokens_secure: {
         Args: {

@@ -50,24 +50,22 @@ export const FacebookLeadsConnection = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('facebook_integrations')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      // Usar função mascarada que não retorna tokens
+      const { data, error } = await supabase.rpc('get_facebook_integrations_masked');
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error checking Facebook connection:', error);
         return;
       }
 
-      if (data && data.page_id && data.page_access_token) {
+      const integration = data?.[0];
+
+      if (integration && integration.page_id) {
         setIsConnected(true);
-        setIntegration(data);
-      } else if (data) {
-        // Integração existente, mas sem token de página válido
+        setIntegration(integration);
+      } else if (integration) {
         setIsConnected(false);
-        setIntegration(data);
+        setIntegration(integration);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -143,27 +141,49 @@ export const FacebookLeadsConnection = () => {
       return;
     }
     
-    if (!integration.page_id || !integration.page_access_token) {
-      toast.error('Token de acesso expirado. Por favor, reconecte ao Facebook.');
+    if (!integration.page_id) {
+      toast.error('Página não configurada. Por favor, reconecte ao Facebook.');
       return;
     }
 
     setLoadingForms(true);
     try {
+      // Buscar organization_id do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+
+      const { data: orgData } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!orgData) {
+        toast.error('Organização não encontrada');
+        return;
+      }
+
+      // Enviar apenas organization_id - tokens serão buscados de forma segura no servidor
       const { data, error } = await supabase.functions.invoke('facebook-list-lead-forms', {
         body: {
-          page_id: integration.page_id,
-          page_access_token: integration.page_access_token,
+          organization_id: orgData.organization_id,
         },
       });
 
       if (error) throw error;
 
-      setLeadForms(data.forms);
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setLeadForms(data.forms || []);
       setShowFormSelector(true);
     } catch (error) {
       console.error('Error fetching lead forms:', error);
-      toast.error('Erro ao buscar formulários de lead');
+      toast.error(error instanceof Error ? error.message : 'Erro ao buscar formulários de lead');
     } finally {
       setLoadingForms(false);
     }
@@ -172,13 +192,30 @@ export const FacebookLeadsConnection = () => {
   const handleFormSelect = async (form: LeadForm) => {
     setSubscribing(true);
     try {
+      // Buscar organization_id do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+
+      const { data: orgData } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!orgData) {
+        toast.error('Organização não encontrada');
+        return;
+      }
+
       const { error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
         body: {
           form_id: form.id,
           form_name: form.name,
-          page_access_token: integration.page_access_token,
-          page_id: integration.page_id,
           integration_id: integration.id,
+          organization_id: orgData.organization_id,
         },
       });
 
