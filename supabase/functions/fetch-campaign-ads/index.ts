@@ -29,6 +29,38 @@ interface CampaignAd {
   preview_html?: string;
 }
 
+// Função para descriptografar tokens
+async function decryptToken(encryptedToken: string, key: string): Promise<string> {
+  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
+  
+  try {
+    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+    
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      data
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption error:', error);
+    return encryptedToken;
+  }
+}
+
 // Fetch ad preview iframe from Meta API
 async function fetchAdPreview(adId: string, accessToken: string): Promise<string | null> {
   const formats = ['MOBILE_FEED_STANDARD', 'DESKTOP_FEED_STANDARD', 'INSTAGRAM_STANDARD'];
@@ -80,22 +112,59 @@ Deno.serve(async (req) => {
 
     console.log(`Fetching ads for campaign: ${campaign_id || campaign_name} in org ${organization_id}`);
 
-    // Get Facebook integration
-    const { data: integration, error: integrationError } = await supabase
-      .from('facebook_integrations')
-      .select('access_token, ad_account_id')
-      .eq('organization_id', organization_id)
+    // Buscar tokens de forma segura
+    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
+    
+    // Primeiro tentar a tabela segura de tokens
+    const { data: secureTokens, error: secureError } = await supabase
+      .from('facebook_integration_tokens')
+      .select(`
+        encrypted_access_token,
+        integration:facebook_integrations!inner(
+          id,
+          organization_id,
+          ad_account_id
+        )
+      `)
+      .eq('integration.organization_id', organization_id)
       .single();
 
-    if (integrationError || !integration) {
-      console.error('Integration not found:', integrationError);
+    let access_token: string | null = null;
+    let ad_account_id: string | null = null;
+
+    if (secureTokens && !secureError) {
+      access_token = await decryptToken(secureTokens.encrypted_access_token, ENCRYPTION_KEY);
+      const integration = secureTokens.integration as any;
+      ad_account_id = integration?.ad_account_id;
+    } else {
+      // Fallback para tabela antiga (tokens legado)
+      console.log('Fallback to legacy tokens table');
+      const { data: integration, error: integrationError } = await supabase
+        .from('facebook_integrations')
+        .select('access_token, ad_account_id')
+        .eq('organization_id', organization_id)
+        .single();
+
+      if (integrationError || !integration) {
+        console.error('Integration not found:', integrationError);
+        return new Response(
+          JSON.stringify({ error: 'Facebook integration not found', ads: [] }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      if (integration.access_token && integration.access_token !== 'ENCRYPTED_IN_TOKENS_TABLE') {
+        access_token = integration.access_token;
+      }
+      ad_account_id = integration.ad_account_id;
+    }
+
+    if (!access_token) {
       return new Response(
-        JSON.stringify({ error: 'Facebook integration not found', ads: [] }),
+        JSON.stringify({ error: 'Facebook access token not found', ads: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
-
-    const { access_token, ad_account_id } = integration;
 
     if (!ad_account_id) {
       return new Response(
@@ -168,7 +237,7 @@ Deno.serve(async (req) => {
       const creative = ad.creative || null;
       
       // Fetch preview iframe for this ad
-      const previewHtml = await fetchAdPreview(ad.id, access_token);
+      const previewHtml = await fetchAdPreview(ad.id, access_token!);
       
       return {
         id: ad.id,

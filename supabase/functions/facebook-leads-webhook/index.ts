@@ -5,6 +5,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para descriptografar tokens
+async function decryptToken(encryptedToken: string, key: string): Promise<string> {
+  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
+  
+  try {
+    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+    
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      data
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption error:', error);
+    return encryptedToken;
+  }
+}
+
 // Função para verificar duplicidade de lead
 async function checkDuplicateLead(
   supabase: any,
@@ -17,7 +49,6 @@ async function checkDuplicateLead(
   hasAdvancedInFunnel: boolean;
   matchType: 'phone' | 'email' | null;
 }> {
-  // Buscar por telefone (prioridade)
   const { data: leadByPhone } = await supabase
     .from('leads')
     .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history')
@@ -26,7 +57,6 @@ async function checkDuplicateLead(
     .maybeSingle();
 
   if (leadByPhone) {
-    // Verificar se lead avançou no funil
     const hasAdvanced = await checkIfLeadAdvanced(supabase, leadByPhone);
     return {
       isDuplicate: true,
@@ -36,7 +66,6 @@ async function checkDuplicateLead(
     };
   }
 
-  // Buscar por email como fallback
   if (email) {
     const { data: leadByEmail } = await supabase
       .from('leads')
@@ -64,7 +93,6 @@ async function checkDuplicateLead(
   };
 }
 
-// Verificar se o lead avançou da primeira etapa do funil
 async function checkIfLeadAdvanced(supabase: any, lead: any): Promise<boolean> {
   if (!lead.funnel_id || !lead.funnel_stage_id) return false;
 
@@ -79,14 +107,12 @@ async function checkIfLeadAdvanced(supabase: any, lead: any): Promise<boolean> {
   return firstStage && firstStage.id !== lead.funnel_stage_id;
 }
 
-// Registrar tentativa de duplicação
 async function registerDuplicateAttempt(
   supabase: any,
   existingLeadId: string,
   source: string,
   originalPayload: any
 ) {
-  // Buscar dados atuais
   const { data: lead } = await supabase
     .from('leads')
     .select('duplicate_attempts_count, duplicate_attempts_history')
@@ -96,7 +122,6 @@ async function registerDuplicateAttempt(
   const currentCount = lead?.duplicate_attempts_count || 0;
   const currentHistory = Array.isArray(lead?.duplicate_attempts_history) ? lead.duplicate_attempts_history : [];
 
-  // Adicionar nova entrada no histórico
   const newEntry = {
     source,
     attempted_at: new Date().toISOString(),
@@ -107,7 +132,6 @@ async function registerDuplicateAttempt(
 
   const updatedHistory = [...currentHistory, newEntry];
 
-  // Atualizar lead
   await supabase
     .from('leads')
     .update({
@@ -119,6 +143,34 @@ async function registerDuplicateAttempt(
     .eq('id', existingLeadId);
 
   console.log(`📊 Tentativa de duplicação registrada para lead ${existingLeadId}. Total: ${currentCount + 1}`);
+}
+
+// Função para obter page_access_token de forma segura
+async function getSecurePageAccessToken(
+  supabase: any,
+  integrationId: string,
+  legacyToken: string | null
+): Promise<string> {
+  const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
+  
+  // Primeiro tentar a tabela segura
+  const { data: secureTokens, error } = await supabase
+    .from('facebook_integration_tokens')
+    .select('encrypted_page_access_token')
+    .eq('integration_id', integrationId)
+    .single();
+
+  if (secureTokens && !error && secureTokens.encrypted_page_access_token) {
+    const decrypted = await decryptToken(secureTokens.encrypted_page_access_token, ENCRYPTION_KEY);
+    if (decrypted) return decrypted;
+  }
+
+  // Fallback para token legado
+  if (legacyToken && legacyToken !== 'ENCRYPTED_IN_TOKENS_TABLE') {
+    return legacyToken;
+  }
+
+  return '';
 }
 
 Deno.serve(async (req) => {
@@ -154,7 +206,6 @@ Deno.serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      // Process each entry in the webhook
       for (const entry of body.entry || []) {
         for (const change of entry.changes || []) {
           if (change.field === 'leadgen') {
@@ -163,7 +214,6 @@ Deno.serve(async (req) => {
             const leadgenId = leadgenData.leadgen_id;
             let logId: string | null = null;
 
-            // Get the integration for this page
             const { data: integration } = await supabase
               .from('facebook_integrations')
               .select('*')
@@ -173,7 +223,6 @@ Deno.serve(async (req) => {
             if (!integration) {
               console.log(`No integration found for page ${pageId}`);
 
-              // Try to find any organization to attach the log to so it appears in the UI
               let fallbackOrgId: string | null = null;
               const { data: anyIntegration } = await supabase
                 .from('facebook_integrations')
@@ -185,7 +234,6 @@ Deno.serve(async (req) => {
                 fallbackOrgId = anyIntegration.organization_id;
               }
 
-              // Log the failed webhook (using a fallback org if available)
               await supabase.from('facebook_webhook_logs').insert({
                 event_type: 'leadgen',
                 payload: body,
@@ -199,7 +247,6 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            // Create initial log entry
             const { data: logEntry } = await supabase
               .from('facebook_webhook_logs')
               .insert({
@@ -215,9 +262,27 @@ Deno.serve(async (req) => {
             
             logId = logEntry?.id || null;
 
+            // Obter page_access_token de forma segura
+            const pageAccessToken = await getSecurePageAccessToken(
+              supabase,
+              integration.id,
+              integration.page_access_token
+            );
+
+            if (!pageAccessToken) {
+              console.error('No page access token found');
+              if (logId) {
+                await supabase
+                  .from('facebook_webhook_logs')
+                  .update({ status: 'error', error_message: 'No page access token found' })
+                  .eq('id', logId);
+              }
+              continue;
+            }
+
             // Fetch lead data from Facebook
             const leadResponse = await fetch(
-              `https://graph.facebook.com/v18.0/${leadgenId}?access_token=${integration.page_access_token}`
+              `https://graph.facebook.com/v18.0/${leadgenId}?access_token=${pageAccessToken}`
             );
             const leadData = await leadResponse.json();
 
@@ -225,7 +290,7 @@ Deno.serve(async (req) => {
             let formName = leadData.form_id;
             try {
               const formResponse = await fetch(
-                `https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${integration.page_access_token}`
+                `https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${pageAccessToken}`
               );
               const formData = await formResponse.json();
               if (formData.name) {
@@ -240,7 +305,7 @@ Deno.serve(async (req) => {
             try {
               if (leadData.ad_id) {
                 const adResponse = await fetch(
-                  `https://graph.facebook.com/v18.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${integration.page_access_token}`
+                  `https://graph.facebook.com/v18.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${pageAccessToken}`
                 );
                 const adData = await adResponse.json();
                 if (adData.campaign?.name) {
@@ -267,7 +332,6 @@ Deno.serve(async (req) => {
             allFieldsDescription += `Campanha: ${campaignName}\n\n`;
             allFieldsDescription += '=== INFORMAÇÕES DO FORMULÁRIO ===\n';
             
-            // Add all fields to description
             fieldData.forEach((field: any) => {
               const fieldName = field.name;
               const fieldValue = field.values?.[0] || '';
@@ -276,11 +340,10 @@ Deno.serve(async (req) => {
               }
             });
 
-            // Extrair telefone e email para verificação de duplicidade
             const phoneNumber = leadInfo.phone_number || leadInfo.phone || leadInfo.telefone || '';
             const email = leadInfo.email || null;
 
-            // ⚡ VERIFICAR DUPLICIDADE
+            // Verificar duplicidade
             console.log('🔍 Verificando duplicidade do lead Facebook...');
             const duplicateCheck = await checkDuplicateLead(
               supabase,
@@ -292,7 +355,6 @@ Deno.serve(async (req) => {
             if (duplicateCheck.isDuplicate && duplicateCheck.existingLead) {
               console.log(`⚠️ Lead duplicado detectado via ${duplicateCheck.matchType}:`, duplicateCheck.existingLead.id);
 
-              // Registrar tentativa de duplicação
               await registerDuplicateAttempt(
                 supabase,
                 duplicateCheck.existingLead.id,
@@ -300,11 +362,9 @@ Deno.serve(async (req) => {
                 { leadData, formName, campaignName }
               );
 
-              // Se lead NÃO avançou no funil, atualizar dados
               if (!duplicateCheck.hasAdvancedInFunnel) {
                 console.log('📝 Atualizando dados do lead existente (não avançou no funil)');
                 
-                // Buscar descrição atual
                 const { data: currentLead } = await supabase
                   .from('leads')
                   .select('descricao_negocio')
@@ -326,7 +386,6 @@ Deno.serve(async (req) => {
                   .eq('id', duplicateCheck.existingLead.id);
               }
 
-              // Atualizar log com status 'duplicate'
               if (logId) {
                 await supabase
                   .from('facebook_webhook_logs')
@@ -338,23 +397,20 @@ Deno.serve(async (req) => {
                   .eq('id', logId);
               }
 
-              // NÃO criar novo lead, NÃO distribuir na roleta
               continue;
             }
 
-            // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA FACEBOOK
+            // Buscar mapeamento de funil
             console.log('🔍 Buscando mapeamento de funil para Facebook...');
             
-            // Primeiro, buscar os funis da organização
             const { data: orgFunnels } = await supabase
               .from('sales_funnels')
               .select('id')
               .eq('organization_id', integration.organization_id);
             
-            const funnelIds = orgFunnels?.map(f => f.id) || [];
+            const funnelIds = orgFunnels?.map((f: any) => f.id) || [];
             console.log('🎯 Funis da organização:', funnelIds);
             
-            // Depois, buscar o mapeamento para esses funis
             const { data: funnelMapping } = await supabase
               .from('funnel_source_mappings')
               .select('funnel_id, target_stage_id')
@@ -371,7 +427,6 @@ Deno.serve(async (req) => {
               funnelStageId = funnelMapping.target_stage_id;
             } else {
               console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
-              // Buscar funil padrão da organização
               const { data: defaultFunnel } = await supabase
                 .from('sales_funnels')
                 .select('id')
@@ -382,7 +437,6 @@ Deno.serve(async (req) => {
               if (defaultFunnel) {
                 funnelId = defaultFunnel.id;
                 
-                // Buscar primeira etapa do funil padrão
                 const { data: firstStage } = await supabase
                   .from('funnel_stages')
                   .select('id')
@@ -397,7 +451,7 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Create lead in database with all available information
+            // Create lead in database
             const { data: newLead, error: leadError } = await supabase
               .from('leads')
               .insert({
@@ -418,7 +472,6 @@ Deno.serve(async (req) => {
             if (leadError) {
               console.error('Error creating lead:', leadError);
               
-              // Update log with error
               if (logId) {
                 await supabase
                   .from('facebook_webhook_logs')
@@ -431,7 +484,6 @@ Deno.serve(async (req) => {
             } else {
               console.log('Lead created successfully from Facebook');
               
-              // Update log with success
               if (logId) {
                 await supabase
                   .from('facebook_webhook_logs')
@@ -443,24 +495,24 @@ Deno.serve(async (req) => {
                   .eq('id', logId);
               }
 
-              // ✅ DISTRIBUIR LEAD NA ROLETA
+              // Distribuir lead na roleta
               supabase.functions.invoke('distribute-lead', {
                 body: {
                   lead_id: newLead.id,
                   organization_id: integration.organization_id,
                   trigger_source: 'facebook',
                 },
-              }).then(({ data, error }) => {
+              }).then(({ data, error }: any) => {
                 if (error) {
                   console.error('⚠️ Erro ao distribuir lead:', error);
                 } else {
                   console.log('✅ Lead distribuído:', data);
                 }
-              }).catch(err => {
+              }).catch((err: any) => {
                 console.error('⚠️ Falha ao invocar distribute-lead:', err);
               });
 
-              // Processar automações (não bloqueia o retorno)
+              // Processar automações
               supabase.functions.invoke('process-automation-rules', {
                 body: {
                   trigger_type: 'LEAD_CREATED_META_FORM',
@@ -471,13 +523,13 @@ Deno.serve(async (req) => {
                     form_name: formName,
                   },
                 },
-              }).then(({ data, error }) => {
+              }).then(({ data, error }: any) => {
                 if (error) {
                   console.error('⚠️ Erro ao processar automações:', error);
                 } else {
-                  console.log('✅ Automações processadas:', data);
+                  console.log('✅ Automações processadas');
                 }
-              }).catch(err => {
+              }).catch((err: any) => {
                 console.error('⚠️ Falha ao invocar process-automation-rules:', err);
               });
             }
@@ -486,26 +538,24 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ received: true }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
 
-  } catch (error) {
-    console.error('Webhook processing error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-  }
+    } catch (error) {
+      console.error('Webhook processing error:', error);
+      
+      return new Response(
+        JSON.stringify({ error: 'Webhook processing failed' }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
   }
 
   return new Response('Method not allowed', { status: 405 });
