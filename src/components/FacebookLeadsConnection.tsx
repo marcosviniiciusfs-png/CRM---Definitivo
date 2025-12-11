@@ -263,7 +263,7 @@ export const FacebookLeadsConnection = () => {
                 Desconectar
               </Button>
             ) : (
-              <Button onClick={handleConnect} disabled={loading} className="gap-2">
+              <Button onClick={handleConnect} disabled={loading} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                 <Facebook className="h-4 w-4" />
                 {loading ? 'Conectando...' : 'Conectar ao Facebook'}
               </Button>
