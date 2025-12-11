@@ -1360,7 +1360,7 @@ const Dashboard = () => {
                     </div>
                   </div>)}
               </div> : topSellers.length === 0 ? <div className="flex flex-col items-center justify-center py-4 text-center">
-                <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-48 h-48 mb-3" />
+                <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-24 h-24 mb-3" />
                 <p className="text-sm text-muted-foreground">Nenhuma venda este mês</p>
                 <p className="text-xs text-muted-foreground mt-1">Os melhores vendedores aparecerão aqui</p>
               </div> : <div className="space-y-3">
