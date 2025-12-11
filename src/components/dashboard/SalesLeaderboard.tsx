@@ -20,7 +20,6 @@ interface SalesLeaderboardProps {
   isLoading?: boolean;
   title?: string;
   sortBy?: "revenue" | "won_leads" | "percentage";
-  listType?: "cards" | "rows";
 }
 
 const getInitials = (name: string | null) => {
@@ -299,7 +298,6 @@ export function SalesLeaderboard({
   reps,
   isLoading = false,
   sortBy = "revenue",
-  listType = "cards",
 }: SalesLeaderboardProps) {
   const sortedReps = useMemo(() => {
     const sorted = [...reps];
