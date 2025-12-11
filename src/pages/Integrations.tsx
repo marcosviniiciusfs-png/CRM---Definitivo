@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Link2, Copy, RefreshCw, Pencil, X, Check } from "lucide-react";
+import { Link2, Copy, RefreshCw, Pencil, X, Check, FileText, MessageSquare, BarChart3 } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
@@ -428,6 +429,46 @@ const Integrations = () => {
         </Card>
 
         <GlobalFunnelMapping />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Logs de Acompanhamento
+            </CardTitle>
+            <CardDescription>
+              Monitore os webhooks e eventos das suas integrações
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" asChild className="justify-start">
+                <Link to="/facebook-webhook-logs">
+                  <MessageSquare className="h-4 w-4 mr-2 text-blue-600" />
+                  Logs Facebook Leads
+                </Link>
+              </Button>
+              <Button variant="outline" asChild className="justify-start">
+                <Link to="/whatsapp-webhook-logs">
+                  <MessageSquare className="h-4 w-4 mr-2 text-green-600" />
+                  Logs WhatsApp
+                </Link>
+              </Button>
+              <Button variant="outline" asChild className="justify-start">
+                <Link to="/form-webhook-logs">
+                  <Link2 className="h-4 w-4 mr-2 text-orange-600" />
+                  Logs Webhook
+                </Link>
+              </Button>
+              <Button variant="outline" asChild className="justify-start">
+                <Link to="/meta-pixel-logs">
+                  <BarChart3 className="h-4 w-4 mr-2 text-purple-600" />
+                  Logs Meta Pixel
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
