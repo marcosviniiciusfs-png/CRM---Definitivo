@@ -334,3 +334,26 @@ All colors MUST be HSL.
     animation: fade-out 200ms ease-out !important;
   }
 }
+
+/* Global scroll improvements */
+.scroll-container {
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+}
+
+/* Fix for Radix ScrollArea viewport */
+[data-radix-scroll-area-viewport] {
+  overflow: auto !important;
+}
+
+/* Ensure scroll works on touch devices */
+.overflow-y-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+}

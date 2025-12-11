@@ -465,7 +465,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 p-4 overflow-x-auto">
+        <div className="flex gap-4 p-4 overflow-x-auto overflow-y-hidden min-h-[calc(100vh-200px)]">
           {columns.map((column) => (
             <KanbanColumn
               key={column.id}
