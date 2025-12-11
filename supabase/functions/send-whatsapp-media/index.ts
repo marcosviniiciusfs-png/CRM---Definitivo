@@ -228,6 +228,37 @@ serve(async (req) => {
     // Salvar mensagem no banco de dados
     const messageId = evolutionData.key?.id || `media-${Date.now()}`;
     
+    // Upload para Supabase Storage para ter URL permanente
+    let storageUrl: string | null = null;
+    try {
+      // Remover prefixo data:xxx;base64, se existir
+      const base64Data = media_base64.replace(/^data:[^;]+;base64,/, '');
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const filePath = `${leadId}/${Date.now()}-${finalFileName}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('chat-media')
+        .upload(filePath, bytes, {
+          contentType: finalMimeType,
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('⚠️ Erro no upload para Storage:', uploadError);
+      } else if (uploadData) {
+        // Construir URL do Storage (bucket privado, requer signed URL)
+        storageUrl = `${supabaseUrl}/storage/v1/object/chat-media/${filePath}`;
+        console.log('✅ Mídia salva no Storage:', storageUrl);
+      }
+    } catch (uploadErr) {
+      console.error('⚠️ Erro ao fazer upload para Storage:', uploadErr);
+    }
+    
     // Preparar corpo da mensagem
     let messageBody = '';
     if (media_type === 'image') {
@@ -249,7 +280,7 @@ serve(async (req) => {
         evolution_message_id: messageId,
         status_entrega: 'SENT',
         media_type: media_type,
-        media_url: evolutionData.message?.imageMessage?.url || evolutionData.message?.videoMessage?.url || evolutionData.message?.documentMessage?.url || null,
+        media_url: storageUrl || evolutionData.message?.imageMessage?.url || evolutionData.message?.videoMessage?.url || evolutionData.message?.documentMessage?.url || null,
         media_metadata: {
           fileName: finalFileName,
           mimeType: finalMimeType,
