@@ -110,21 +110,19 @@ serve(async (req) => {
 
     console.log('🗑️ Deletando evento:', eventId, 'para usuário:', user.id);
 
-    // Buscar integração ativa do usuário (apenas o próprio usuário)
-    const { data: integration, error: integrationError } = await supabase
-      .from('google_calendar_integrations')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
+    // Buscar tokens via função segura
+    const { data: tokenData, error: tokenError } = await supabase
+      .rpc('get_google_calendar_tokens_secure', { target_user_id: user.id });
 
-    if (integrationError || !integration) {
+    if (tokenError || !tokenData || tokenData.length === 0) {
       throw new Error('Google Calendar não conectado');
     }
 
+    const integration = tokenData[0];
+
     // Descriptografar tokens
-    let accessToken = await decryptToken(integration.access_token, encryptionKey);
-    const refreshToken = await decryptToken(integration.refresh_token, encryptionKey);
+    let accessToken = await decryptToken(integration.encrypted_access_token, encryptionKey);
+    const refreshToken = await decryptToken(integration.encrypted_refresh_token, encryptionKey);
 
     // Verificar se o token expirou
     const now = new Date();
@@ -159,14 +157,19 @@ serve(async (req) => {
       // Criptografar novo access token
       const encryptedNewAccessToken = await encryptToken(accessToken, encryptionKey);
 
+      // Atualizar token na tabela segura
       const newExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+      await supabase.rpc('update_google_calendar_tokens_secure', {
+        p_integration_id: integration.integration_id,
+        p_encrypted_access_token: encryptedNewAccessToken,
+        p_token_expires_at: newExpiresAt,
+      });
+
+      // Atualizar expiração na tabela de integrações
       await supabase
         .from('google_calendar_integrations')
-        .update({
-          access_token: encryptedNewAccessToken,
-          token_expires_at: newExpiresAt,
-        })
-        .eq('id', integration.id);
+        .update({ token_expires_at: newExpiresAt })
+        .eq('id', integration.integration_id);
 
       console.log('✅ Token renovado e criptografado');
     }

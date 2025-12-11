@@ -141,25 +141,42 @@ serve(async (req) => {
       .update({ is_active: false })
       .eq('user_id', user_id);
 
-    // Salvar integração com tokens criptografados
-    const { error: insertError } = await supabase
+    // Salvar integração (apenas metadados, sem tokens)
+    const { data: integration, error: insertError } = await supabase
       .from('google_calendar_integrations')
       .insert({
         organization_id: memberData.organization_id,
         user_id,
-        access_token: encryptedAccessToken,
-        refresh_token: encryptedRefreshToken,
         token_expires_at: expiresAt,
         calendar_id: 'primary',
         is_active: true,
-      });
+      })
+      .select('id')
+      .single();
 
-    if (insertError) {
+    if (insertError || !integration) {
       console.error('❌ Erro ao salvar integração:', insertError);
       throw insertError;
     }
 
-    console.log('✅ Integração salva com tokens criptografados');
+    // Salvar tokens na tabela segura separada
+    const { error: tokenInsertError } = await supabase
+      .from('google_calendar_tokens')
+      .upsert({
+        integration_id: integration.id,
+        encrypted_access_token: encryptedAccessToken,
+        encrypted_refresh_token: encryptedRefreshToken,
+        token_expires_at: expiresAt,
+      }, {
+        onConflict: 'integration_id'
+      });
+
+    if (tokenInsertError) {
+      console.error('❌ Erro ao salvar tokens:', tokenInsertError);
+      throw tokenInsertError;
+    }
+
+    console.log('✅ Integração e tokens salvos com segurança');
 
     // Redirecionar para a página de configurações do frontend
     return new Response(null, {

@@ -735,37 +735,31 @@ export type Database = {
       }
       google_calendar_integrations: {
         Row: {
-          access_token: string
           calendar_id: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
           organization_id: string
-          refresh_token: string
           token_expires_at: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
-          access_token: string
           calendar_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
           organization_id: string
-          refresh_token: string
           token_expires_at: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
-          access_token?: string
           calendar_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
           organization_id?: string
-          refresh_token?: string
           token_expires_at?: string
           updated_at?: string | null
           user_id?: string
@@ -808,7 +802,15 @@ export type Database = {
           token_expires_at?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_tokens_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: true
+            referencedRelation: "google_calendar_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       items: {
         Row: {
@@ -2356,47 +2358,7 @@ export type Database = {
       }
     }
     Views: {
-      google_calendar_integrations_public: {
-        Row: {
-          calendar_id: string | null
-          created_at: string | null
-          id: string | null
-          is_active: boolean | null
-          organization_id: string | null
-          token_expires_at: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          calendar_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          organization_id?: string | null
-          token_expires_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          calendar_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          organization_id?: string | null
-          token_expires_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "google_calendar_integrations_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       count_main_users: { Args: never; Returns: number }
@@ -2556,6 +2518,14 @@ export type Database = {
           id: string
           last_sign_in_at: string
         }[]
+      }
+      update_google_calendar_tokens_secure: {
+        Args: {
+          p_encrypted_access_token: string
+          p_integration_id: string
+          p_token_expires_at: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
