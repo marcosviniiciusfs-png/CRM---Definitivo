@@ -883,12 +883,12 @@ const WhatsAppConnection = () => {
                       {disconnecting === instance.id ? (
                         <>
                           <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          Deletando
+                          Desconectando
                         </>
                       ) : (
                         <>
                           <LogOut className="h-3 w-3 mr-1" />
-                          Deletar
+                          Desconectar
                         </>
                       )}
                     </Button>
