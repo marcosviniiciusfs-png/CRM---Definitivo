@@ -169,7 +169,70 @@ serve(async (req) => {
         case 'close':
         case 'disconnected':
           internalStatus = 'DISCONNECTED';
-          console.log('⚠️ Conexão desconectada');
+          console.log('⚠️ Conexão desconectada - iniciando auto-deleção da instância');
+          
+          // 🗑️ AUTO-DELETAR INSTÂNCIA QUANDO DESCONECTADA
+          try {
+            const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL')?.replace(/\/manager\/?$/, '').replace(/\/$/, '');
+            const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+            
+            if (evolutionApiUrl && evolutionApiKey) {
+              console.log(`🗑️ Deletando instância ${instance} da Evolution API...`);
+              
+              // 1. Primeiro fazer logout da instância
+              try {
+                const logoutResponse = await fetch(`${evolutionApiUrl}/instance/logout/${instance}`, {
+                  method: 'DELETE',
+                  headers: { 
+                    'apikey': evolutionApiKey, 
+                    'Content-Type': 'application/json' 
+                  },
+                });
+                console.log(`📤 Logout response: ${logoutResponse.status}`);
+              } catch (logoutErr) {
+                console.warn('⚠️ Erro no logout (ignorando):', logoutErr);
+              }
+              
+              // 2. Deletar a instância da Evolution API
+              const deleteResponse = await fetch(`${evolutionApiUrl}/instance/delete/${instance}`, {
+                method: 'DELETE',
+                headers: { 
+                  'apikey': evolutionApiKey, 
+                  'Content-Type': 'application/json' 
+                },
+              });
+              console.log(`✅ Instância deletada da Evolution API: ${deleteResponse.status}`);
+            }
+          } catch (deleteApiErr) {
+            console.warn('⚠️ Erro ao deletar da Evolution API (continuando):', deleteApiErr);
+          }
+          
+          // 3. Deletar do banco de dados
+          try {
+            const { error: deleteDbError } = await supabase
+              .from('whatsapp_instances')
+              .delete()
+              .eq('instance_name', instance);
+              
+            if (!deleteDbError) {
+              console.log('✅ Instância deletada do banco de dados');
+              
+              // Retornar imediatamente após deletar
+              return new Response(
+                JSON.stringify({ 
+                  success: true, 
+                  message: 'Instância desconectada e deletada automaticamente',
+                  deleted: true
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+              );
+            } else {
+              console.error('❌ Erro ao deletar do banco:', deleteDbError);
+            }
+          } catch (deleteDbErr) {
+            console.error('❌ Erro ao deletar do banco:', deleteDbErr);
+          }
+          
           break;
         case 'connecting':
           internalStatus = 'CONNECTING';
