@@ -1,6 +1,6 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package, MessageSquare, Globe, User, Facebook, Calendar, Clock, ExternalLink, Flame, ArrowRight } from "lucide-react";
+import { TrendingUp, Users, FileText, CheckSquare, List, AlertCircle, Pencil, CheckCircle, XCircle, Target, Package, MessageSquare, Globe, User, Facebook, Calendar, Clock, ExternalLink, Trophy, ArrowRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, PieChart, Pie, Cell, BarChart, Bar, Rectangle } from "recharts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import goalEmptyState from "@/assets/goal-empty-state.png";
+import topSellersEmptyState from "@/assets/top-sellers-empty.gif";
 
 interface LastContribution {
   leadId: string;
@@ -60,12 +61,12 @@ const getSourceLabel = (source: string) => {
   return 'Manual';
 };
 // Interfaces
-interface HotLead {
-  id: string;
-  nome_lead: string;
-  valor: number;
-  source: string;
-  updated_at: string;
+interface TopSeller {
+  user_id: string;
+  full_name: string;
+  avatar_url: string | null;
+  won_leads: number;
+  total_revenue: number;
 }
 
 interface ConversionDataPoint {
@@ -126,9 +127,9 @@ const Dashboard = () => {
   const [currentConversionRate, setCurrentConversionRate] = useState(0);
   const [conversionTrend, setConversionTrend] = useState(0);
 
-  // Leads Quentes
-  const [hotLeads, setHotLeads] = useState<HotLead[]>([]);
-  const [hotLeadsTotal, setHotLeadsTotal] = useState(0);
+  // Top 5 Vendedores
+  const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
+  const [topSellersLoading, setTopSellersLoading] = useState(true);
   
   // Função para carregar todas as métricas
   const loadMetrics = async () => {
@@ -319,9 +320,10 @@ const Dashboard = () => {
     }
   };
 
-  // Função para carregar Leads Quentes
-  const loadHotLeads = async () => {
+  // Função para carregar Top 5 Vendedores
+  const loadTopSellers = async () => {
     try {
+      setTopSellersLoading(true);
       if (!user) return;
 
       const { data: orgMember } = await supabase
@@ -332,59 +334,80 @@ const Dashboard = () => {
 
       if (!orgMember) return;
 
-      // Buscar estágios finais (won/lost/discarded) para excluí-los
-      const { data: finalStages } = await supabase
-        .from('funnel_stages')
-        .select('id')
-        .in('stage_type', ['won', 'lost', 'discarded']);
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const finalStageIds = finalStages?.map(s => s.id) || [];
+      // Buscar membros, perfis e estágios won em paralelo
+      const [membersResult, wonStagesResult] = await Promise.all([
+        supabase.rpc('get_organization_members_masked'),
+        supabase
+          .from('funnel_stages')
+          .select('id')
+          .eq('stage_type', 'won')
+      ]);
 
-      // Buscar leads com valor > 0 que não estão em estágios finais
-      // Ordenar por valor (maior primeiro)
-      let query = supabase
-        .from('leads')
-        .select('id, nome_lead, valor, source, updated_at')
-        .eq('organization_id', orgMember.organization_id)
-        .gt('valor', 0)
-        .order('valor', { ascending: false })
-        .limit(5);
+      const members = membersResult.data || [];
+      const wonStageIds = wonStagesResult.data?.map(s => s.id) || [];
 
-      // Excluir leads em estágios finais se houver
-      if (finalStageIds.length > 0) {
-        query = query.not('funnel_stage_id', 'in', `(${finalStageIds.join(',')})`);
-      }
-
-      const { data: leadsWithValue } = await query;
-
-      if (leadsWithValue && leadsWithValue.length > 0) {
-        setHotLeads(leadsWithValue);
-        const total = leadsWithValue.reduce((sum, lead) => sum + (lead.valor || 0), 0);
-        setHotLeadsTotal(total);
+      if (wonStageIds.length === 0 || members.length === 0) {
+        setTopSellers([]);
         return;
       }
 
-      // Se não houver leads com valor, buscar os leads mais recentes (não em estágios finais)
-      let fallbackQuery = supabase
-        .from('leads')
-        .select('id, nome_lead, valor, source, updated_at')
-        .eq('organization_id', orgMember.organization_id)
-        .order('updated_at', { ascending: false })
-        .limit(5);
+      // Buscar perfis dos membros
+      const memberUserIds = members.filter(m => m.user_id).map(m => m.user_id);
+      
+      const [profilesResult, wonLeadsResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', memberUserIds),
+        supabase
+          .from('leads')
+          .select('responsavel_user_id, valor')
+          .eq('organization_id', orgMember.organization_id)
+          .in('funnel_stage_id', wonStageIds)
+          .gte('updated_at', startOfMonth)
+      ]);
 
-      if (finalStageIds.length > 0) {
-        fallbackQuery = fallbackQuery.not('funnel_stage_id', 'in', `(${finalStageIds.join(',')})`);
-      }
+      const profiles = profilesResult.data || [];
+      const wonLeads = wonLeadsResult.data || [];
 
-      const { data: recentLeads } = await fallbackQuery;
+      // Agrupar vendas por colaborador
+      const salesByUser: Record<string, { won_leads: number; total_revenue: number }> = {};
+      
+      wonLeads.forEach(lead => {
+        if (lead.responsavel_user_id) {
+          if (!salesByUser[lead.responsavel_user_id]) {
+            salesByUser[lead.responsavel_user_id] = { won_leads: 0, total_revenue: 0 };
+          }
+          salesByUser[lead.responsavel_user_id].won_leads++;
+          salesByUser[lead.responsavel_user_id].total_revenue += lead.valor || 0;
+        }
+      });
 
-      if (recentLeads && recentLeads.length > 0) {
-        setHotLeads(recentLeads);
-        const total = recentLeads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
-        setHotLeadsTotal(total);
-      }
+      // Montar lista de top sellers (apenas quem tem pelo menos 1 venda)
+      const sellers: TopSeller[] = memberUserIds
+        .filter(userId => salesByUser[userId]?.won_leads > 0)
+        .map(userId => {
+          const profile = profiles.find(p => p.user_id === userId);
+          const sales = salesByUser[userId];
+          return {
+            user_id: userId,
+            full_name: profile?.full_name || 'Colaborador',
+            avatar_url: profile?.avatar_url || null,
+            won_leads: sales.won_leads,
+            total_revenue: sales.total_revenue
+          };
+        })
+        .sort((a, b) => b.total_revenue - a.total_revenue)
+        .slice(0, 5);
+
+      setTopSellers(sellers);
     } catch (error) {
-      console.error('Erro ao carregar leads quentes:', error);
+      console.error('Erro ao carregar top vendedores:', error);
+    } finally {
+      setTopSellersLoading(false);
     }
   };
 
@@ -440,7 +463,7 @@ const Dashboard = () => {
     loadLastContribution();
     loadMetrics();
     loadConversionData();
-    loadHotLeads();
+    loadTopSellers();
     loadLossRate();
 
     // Real-time subscription para atualizar métricas
@@ -458,7 +481,7 @@ const Dashboard = () => {
           loadSalesTotal();
           loadMetrics();
           loadConversionData();
-          loadHotLeads();
+          loadTopSellers();
           loadLossRate();
         }
       )
@@ -1451,60 +1474,92 @@ const Dashboard = () => {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Flame className="w-5 h-5 text-orange-500" />
-                <CardTitle className="text-lg font-semibold">Leads Quentes</CardTitle>
+                <Trophy className="w-5 h-5 text-yellow-500" />
+                <CardTitle className="text-lg font-semibold">Top 5 Vendedores</CardTitle>
               </div>
-              {hotLeadsTotal > 0 && (
-                <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                  R$ {hotLeadsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              {topSellers.length > 0 && (
+                <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
                 </span>
               )}
             </div>
           </CardHeader>
           <CardContent>
-            {hotLeads.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Flame className="w-12 h-12 text-muted-foreground/30 mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhum lead quente no momento</p>
-                <p className="text-xs text-muted-foreground mt-1">Leads em estágio de proposta aparecerão aqui</p>
+            {topSellersLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-24 mb-1" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : topSellers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-4 text-center">
+                <img 
+                  src={topSellersEmptyState} 
+                  alt="Nenhuma venda" 
+                  className="w-24 h-24 mb-3"
+                />
+                <p className="text-sm text-muted-foreground">Nenhuma venda este mês</p>
+                <p className="text-xs text-muted-foreground mt-1">Os melhores vendedores aparecerão aqui</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {hotLeads.map((lead, index) => {
-                  const maxValue = hotLeads[0]?.valor || 1;
-                  const percentage = (lead.valor / maxValue) * 100;
+                {topSellers.map((seller, index) => {
+                  const maxRevenue = topSellers[0]?.total_revenue || 1;
+                  const percentage = (seller.total_revenue / maxRevenue) * 100;
+                  
+                  const positionColors = [
+                    'bg-yellow-500 text-yellow-950',
+                    'bg-gray-400 text-gray-950',
+                    'bg-amber-600 text-amber-950',
+                    'bg-muted text-muted-foreground',
+                    'bg-muted text-muted-foreground'
+                  ];
                   
                   return (
                     <div 
-                      key={lead.id}
-                      className="group cursor-pointer hover:bg-muted/50 rounded-lg p-2 -mx-2 transition-colors"
-                      onClick={() => navigate(`/leads/${lead.id}`)}
+                      key={seller.user_id}
+                      className="group"
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs text-muted-foreground shrink-0">{index + 1}.</span>
-                          <span className="font-medium text-sm truncate">{lead.nome_lead}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                            R$ {lead.valor.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </span>
-                          {getSourceIcon(lead.source)}
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0 ${positionColors[index]}`}>
+                          {index + 1}
+                        </span>
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarImage src={seller.avatar_url || undefined} />
+                          <AvatarFallback className="text-xs bg-muted">
+                            {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{seller.full_name}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
+                            <span>•</span>
+                            <span className="font-semibold text-green-600 dark:text-green-400">
+                              R$ {seller.total_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <Progress 
                         value={percentage} 
-                        className="h-1.5"
+                        className="h-1.5 ml-8"
                       />
                     </div>
                   );
                 })}
                 
                 <button
-                  onClick={() => navigate('/pipeline')}
+                  onClick={() => navigate('/ranking')}
                   className="w-full flex items-center justify-center gap-1 pt-3 text-xs text-muted-foreground hover:text-foreground transition-colors border-t border-border"
                 >
-                  Ver todos <ArrowRight className="w-3 h-3" />
+                  Ver ranking completo <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
             )}
