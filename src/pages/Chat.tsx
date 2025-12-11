@@ -106,6 +106,9 @@ const Chat = () => {
   // Reply state
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   
+  // Delete message state
+  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+  
   // Presence & reactions state
   const [presenceStatus, setPresenceStatus] = useState<Map<string, PresenceInfo>>(new Map());
   const [messageReactions, setMessageReactions] = useState<Map<string, MessageReaction[]>>(new Map());
@@ -859,6 +862,47 @@ const Chat = () => {
     }
   }, [selectedLead, user, pinnedMessages, toast]);
 
+  const deleteMessage = useCallback(async (message: Message) => {
+    if (!selectedLead) return;
+
+    try {
+      // Remove related data first
+      await Promise.all([
+        supabase.from("pinned_messages").delete().eq("message_id", message.id),
+        supabase.from("message_reactions").delete().eq("message_id", message.id)
+      ]);
+
+      // Delete the message
+      const { error } = await supabase
+        .from("mensagens_chat")
+        .delete()
+        .eq("id", message.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setMessages((prev) => prev.filter((m) => m.id !== message.id));
+      setPinnedMessages((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(message.id);
+        return newSet;
+      });
+      setMessageReactions((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(message.id);
+        return newMap;
+      });
+
+      toast({ title: "Mensagem apagada" });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível apagar a mensagem",
+        variant: "destructive"
+      });
+    }
+  }, [selectedLead, toast]);
+
   const togglePinLead = useCallback((leadId: string) => {
     setPinnedLeads((prev) => {
       const newPinned = prev.includes(leadId) ? prev.filter((id) => id !== leadId) : [leadId, ...prev];
@@ -1217,6 +1261,7 @@ const Chat = () => {
                               el?.classList.add("ring-2", "ring-primary");
                               setTimeout(() => el?.classList.remove("ring-2", "ring-primary"), 2000);
                             }}
+                            onDelete={() => setMessageToDelete(message)}
                             messageRef={(el) => {
                               if (isSearchMatch && searchResultIndex >= 0) {
                                 searchResultRefs.current.set(searchResultIndex, el);
@@ -1299,6 +1344,31 @@ const Chat = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmRemoveAllTags} disabled={selectedTagsToRemove.length === 0}>Remover selecionadas</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!messageToDelete} onOpenChange={(open) => !open && setMessageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar mensagem</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja apagar esta mensagem? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (messageToDelete) {
+                  deleteMessage(messageToDelete);
+                  setMessageToDelete(null);
+                }
+              }}
+            >
+              Apagar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
