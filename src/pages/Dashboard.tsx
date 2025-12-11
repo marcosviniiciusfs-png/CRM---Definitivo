@@ -1551,6 +1551,7 @@ const Dashboard = () => {
                         <Progress 
                           value={percentage} 
                           className="h-1.5"
+                          indicatorClassName="bg-[#EAB308]"
                         />
                       </div>
                     </div>
