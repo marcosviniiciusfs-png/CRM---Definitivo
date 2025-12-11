@@ -110,7 +110,7 @@ export const ChatInput = memo(function ChatInput({
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={disabled || sending}
+              disabled={disabled}
               className="min-h-[44px] max-h-32 resize-none pr-12 w-full"
               rows={1}
             />

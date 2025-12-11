@@ -606,8 +606,7 @@ const Chat = () => {
 
   // Message actions
   const sendMessage = useCallback(async (messageText: string) => {
-    if (!selectedLead || !messageText.trim() || sending) return;
-    setSending(true);
+    if (!selectedLead || !messageText.trim()) return;
 
     const optimisticId = `optimistic-${Date.now()}`;
     const signatureText = `*${currentUserName}:*\n`;
@@ -663,11 +662,8 @@ const Chat = () => {
     } catch (error) {
       setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? { ...msg, sendError: true, errorMessage: error instanceof Error ? error.message : "Erro desconhecido" } : msg)));
       toast({ title: "Erro ao enviar", description: error instanceof Error ? error.message : "Erro desconhecido", variant: "destructive" });
-    } finally {
-      setSending(false);
-      messageInputRef.current?.focus();
     }
-  }, [selectedLead, sending, currentUserName, toast, replyingTo]);
+  }, [selectedLead, currentUserName, toast, replyingTo]);
 
   const sendAudio = useCallback(async (audioBlob: Blob) => {
     if (!selectedLead || sendingAudio) return;
