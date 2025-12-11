@@ -112,6 +112,15 @@ const Settings = () => {
 
       if (error) throw error;
 
+      // Atualizar cache do sessionStorage para sincronizar com UserProfileMenu
+      const cacheKey = `profile_${user.id}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const profileData = JSON.parse(cached);
+        profileData.full_name = fullName;
+        sessionStorage.setItem(cacheKey, JSON.stringify(profileData));
+      }
+
       toast.success("Perfil atualizado com sucesso!");
     } catch (error) {
       console.error('Erro ao salvar perfil:', error);
@@ -290,7 +299,19 @@ const Settings = () => {
                 avatarUrl={avatarUrl}
                 userId={user?.id || ""}
                 userName={fullName || user?.email || ""}
-                onAvatarUpdate={(url) => setAvatarUrl(url)}
+                onAvatarUpdate={(url) => {
+                  setAvatarUrl(url);
+                  // Atualizar cache do sessionStorage para sincronizar com UserProfileMenu
+                  if (user?.id) {
+                    const cacheKey = `profile_${user.id}`;
+                    const cached = sessionStorage.getItem(cacheKey);
+                    if (cached) {
+                      const profileData = JSON.parse(cached);
+                      profileData.avatar_url = url;
+                      sessionStorage.setItem(cacheKey, JSON.stringify(profileData));
+                    }
+                  }
+                }}
               />
               
               <div className="grid gap-4 md:grid-cols-2">
