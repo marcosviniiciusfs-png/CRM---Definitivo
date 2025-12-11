@@ -72,7 +72,13 @@ export const ChatInput = memo(function ChatInput({
         <input
           type="file"
           ref={fileInputRef}
-          onChange={onFileSelect}
+          onChange={(e) => {
+            onFileSelect(e);
+            // Reset input to allow selecting the same file again
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
+          }}
           accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
           className="hidden"
         />

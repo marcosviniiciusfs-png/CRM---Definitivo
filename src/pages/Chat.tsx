@@ -136,7 +136,7 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
 
   // Custom hooks
   const { refreshPresenceForLead, isLoadingPresence } = useChatPresence({
@@ -792,8 +792,11 @@ const Chat = () => {
       } finally {
         setSendingFile(false);
         setSelectedFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
       }
+    };
+    reader.onerror = () => {
+      toast({ title: "Erro ao ler arquivo", description: "Não foi possível processar o arquivo selecionado", variant: "destructive" });
+      setSendingFile(false);
     };
     reader.readAsDataURL(file);
   }, [selectedLead, toast]);
