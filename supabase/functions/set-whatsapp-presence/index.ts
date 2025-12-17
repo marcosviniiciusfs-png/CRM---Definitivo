@@ -90,6 +90,51 @@ serve(async (req) => {
     // Remove trailing slash and /manager from URL if present
     const baseUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
 
+    // First check if the instance is connected
+    const statusResponse = await fetch(`${baseUrl}/instance/connectionState/${instance_name}`, {
+      method: 'GET',
+      headers: {
+        'apikey': evolutionApiKey,
+      },
+    });
+
+    if (!statusResponse.ok) {
+      console.log(`⚠️ Instance ${instance_name} not found or error checking status`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Instance not found',
+          skipped: true,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, // Return 200 to not cause frontend errors
+        },
+      );
+    }
+
+    const statusData = await statusResponse.json();
+    const connectionState = statusData?.instance?.state || statusData?.state;
+    
+    console.log(`📡 Instance ${instance_name} connection state: ${connectionState}`);
+
+    // Only set presence if instance is connected
+    if (connectionState !== 'open' && connectionState !== 'connected') {
+      console.log(`⚠️ Instance ${instance_name} is not connected (state: ${connectionState}), skipping presence update`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Instance not connected',
+          skipped: true,
+          connectionState,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, // Return 200 to not cause frontend errors
+        },
+      );
+    }
+
     // Call Evolution API to set presence
     const presenceResponse = await fetch(`${baseUrl}/instance/setPresence/${instance_name}`, {
       method: 'POST',
@@ -103,6 +148,23 @@ serve(async (req) => {
     if (!presenceResponse.ok) {
       const errorText = await presenceResponse.text();
       console.error('❌ Evolution API error:', errorText);
+      
+      // Check if it's a connection closed error - handle gracefully
+      if (errorText.includes('Connection Closed') || errorText.includes('connection')) {
+        console.log(`⚠️ Connection closed for ${instance_name}, presence not set`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Connection closed',
+            skipped: true,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200, // Return 200 to not cause frontend errors
+          },
+        );
+      }
+      
       throw new Error(`Evolution API error: ${presenceResponse.status} - ${errorText}`);
     }
 
@@ -129,7 +191,7 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 200, // Return 200 to prevent frontend crashes - presence is non-critical
       },
     );
   }
