@@ -1,0 +1,206 @@
+{
+  "_metadata": {
+    "backup_date": "2026-01-02T23:28:00Z",
+    "project": "Kairoz CRM",
+    "database": "Lovable Cloud / Supabase",
+    "project_id": "uvwanpztskkhzdqifbai",
+    "total_tables": 49,
+    "description": "Backup completo do banco de dados do sistema Kairoz CRM"
+  },
+  "_statistics": {
+    "organizations": 11,
+    "profiles": 23,
+    "organization_members": 18,
+    "leads": 636,
+    "teams": 3,
+    "team_members": 11,
+    "sales_funnels": 9,
+    "funnel_stages": 81,
+    "kanban_boards": 3,
+    "kanban_columns": 8,
+    "kanban_cards": 10,
+    "goals": 17,
+    "team_goals": 3,
+    "items": 2,
+    "lead_tags": 8,
+    "whatsapp_instances": 5,
+    "webhook_configs": 2,
+    "automation_rules": 1,
+    "lead_distribution_configs": 3,
+    "agent_distribution_settings": 6,
+    "production_blocks": 4,
+    "notifications": 4,
+    "user_roles": 1
+  },
+  "organizations": [
+    {"id": "a79b1484-af5e-4ac6-91c1-be59d509798b", "name": "mateusabc21@gmail.com's Organization", "created_at": "2025-11-14T19:02:29.720324+00:00"},
+    {"id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "Marcos's Organization", "created_at": "2025-11-19T20:16:30.840931+00:00"},
+    {"id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "mateusabcck@gmail.com's Organization", "created_at": "2025-11-20T14:14:23.373448+00:00"},
+    {"id": "66119f2a-81dd-48e8-8b13-0d898945608c", "name": "Pyke's Organization", "created_at": "2025-11-21T14:14:42.437648+00:00"},
+    {"id": "c4b66d60-7d92-4b59-a62a-6256b434a66d", "name": "Marata's Organization", "created_at": "2025-11-24T21:45:11.799262+00:00"},
+    {"id": "ad1e0f6a-5a0c-4591-921f-142bfe7d73fe", "name": "Marcos Hurtz's Organization", "created_at": "2025-11-26T14:37:18.505301+00:00"},
+    {"id": "704a5652-1d95-4b92-8d1d-04b1bfa73c92", "name": "Info's Organization", "created_at": "2025-11-30T16:27:45.31629+00:00"},
+    {"id": "e3e3edcd-289f-434a-bbaf-42488c2a1e3b", "name": "Kerlys Kauan Costa Alves's Organization", "created_at": "2025-11-30T17:21:32.257628+00:00"},
+    {"id": "6dd00f7b-3670-40a3-993b-339ab8b8c3da", "name": "Tata's Organization", "created_at": "2025-12-05T00:36:52.622824+00:00"},
+    {"id": "b578471f-d196-4d50-afda-163b3333060c", "name": "Daniela Silva's Organization", "created_at": "2025-12-09T17:58:38.325484+00:00"},
+    {"id": "94e2ca7a-699d-4612-ad63-a078a44f1793", "name": "Victor's Organization", "created_at": "2025-12-09T21:34:55.429605+00:00"}
+  ],
+  "profiles": [
+    {"id": "3af30ac6-150c-4929-bb41-06a91da18b3d", "user_id": "96e68316-68a9-4f6c-bf2f-e5cb48ddae10", "full_name": "Batata", "avatar_url": null},
+    {"id": "3db40c8c-8ee7-4ed1-a8e4-ba9da567edb8", "user_id": "5d23b55e-aaed-4ebf-8120-f4341bda56a0", "full_name": "Brito", "avatar_url": null},
+    {"id": "a6cf97ac-d22a-4551-811e-3cdf83553681", "user_id": "45b35983-bb9a-4c35-a527-31cdca012a5f", "full_name": "Marcos", "avatar_url": null},
+    {"id": "c27c6025-5a74-4f7e-8871-a5e6468743df", "user_id": "f672e74c-07a7-4bd5-9a80-dfc00630d6f8", "full_name": "mateusabc20@gmail.com", "avatar_url": null},
+    {"id": "10988232-7e47-4013-badf-adc835cb81a1", "user_id": "9b51c26d-a785-4ab8-bc31-f6af80277bd5", "full_name": "Britinho", "avatar_url": null, "job_title": ""},
+    {"id": "c31f8807-0f15-4a2c-8401-eddc68e9b59a", "user_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "full_name": "Mateus Brito", "avatar_url": "https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/avatars/41d0c7bb-db11-4663-ade1-dc307d20b243/1763651082247.jpg"},
+    {"id": "673df24a-7589-4c84-b616-b20195e67220", "user_id": "f4e81cff-47a9-46eb-8eb4-ef47910dbfe9", "full_name": "Pyke", "avatar_url": null},
+    {"id": "b4941fcb-fcc0-4f99-a803-ca31f8882ec6", "user_id": "bae698c3-2b7b-4c1b-b9eb-f1c56808bf05", "full_name": "Vinicius", "job_title": "marcos01@gmail.com", "avatar_url": null},
+    {"id": "240a6e12-f5e2-41db-8f0d-778c518a530d", "user_id": "d464e068-d720-4852-ab7d-8e29d40e1174", "full_name": "Marata", "avatar_url": null},
+    {"id": "f65c775b-9e81-4b77-a560-ac52e994322d", "user_id": "3f98213b-4590-46a5-8e15-0fcdca3b0118", "full_name": "Marcos", "avatar_url": "https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/avatars/3f98213b-4590-46a5-8e15-0fcdca3b0118/1764156828624.jpg"},
+    {"id": "13856ec1-948b-4bf4-9db5-e5204b668b44", "user_id": "630afe05-f61d-40db-a738-a33ec63f0c61", "full_name": "Marcos Hurtz", "avatar_url": null},
+    {"id": "788167ce-2eee-4142-88a0-46d90dfeb936", "user_id": "e7fef480-d6fa-4c69-847d-7ef440e92583", "full_name": "Batata", "avatar_url": null},
+    {"id": "e2f6086d-c424-47c6-9ac8-54c31d212aee", "user_id": "a2929c13-23b3-4ae6-b0c2-d4e519ea2de1", "full_name": "Batata01", "avatar_url": null},
+    {"id": "d71e4d73-f2c3-4254-89a1-225766561933", "user_id": "c8a34deb-5443-4ff2-b4a1-12106e85fcd6", "full_name": "Info", "avatar_url": null},
+    {"id": "09c47c1d-f749-4c21-9622-d27163994d24", "user_id": "62f8a79c-f9a0-45ea-9233-ce9cf8b09293", "full_name": "Kerlys Kauan Costa Alves", "avatar_url": null},
+    {"id": "3479065c-b27a-48e8-b631-8fdebd1e8ead", "user_id": "5ac3ef6e-dfe9-49cb-9dcb-c08aff9dc531", "full_name": "Tata", "avatar_url": null},
+    {"id": "5e42aa51-f3a4-4ff6-81f7-5ac1e3be5d9c", "user_id": "6a37a6d6-6e69-4dc9-a746-5e0f062841ab", "full_name": "Daniela Silva", "avatar_url": null},
+    {"id": "a94f26ad-7cb8-4ef7-8c92-3bbea6d52b5b", "user_id": "c3b14637-8b70-40f1-82c2-6c01ab391a5a", "full_name": "Victor", "avatar_url": null},
+    {"id": "cc5a6ce5-38a0-4395-a1f1-7ca98eed3b85", "user_id": "af8412ab-7c40-4f02-86bd-4b1342ddf467", "full_name": "teste01@gmail.com", "avatar_url": null},
+    {"id": "2b21bb5c-3db5-4f06-b3ec-c6ae7d0f5c7d", "user_id": "071d44c7-9b1b-44c4-b4e5-87f6779bc2a1", "full_name": "Vinicius01", "avatar_url": null},
+    {"id": "f2c4d1a9-8e6b-4f3a-9c2d-1a3b5c7d9e0f", "user_id": "9d504a40-823c-4936-ba33-720895fb30fa", "full_name": "Gilmar Silva", "avatar_url": null},
+    {"id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "user_id": "ca4cfc69-31bf-4957-9793-6593313677c2", "full_name": "Camila", "avatar_url": null}
+  ],
+  "organization_members": [
+    {"id": "9cb3807c-e454-4e64-a343-6dff57799921", "organization_id": "a79b1484-af5e-4ac6-91c1-be59d509798b", "user_id": "9b51c26d-a785-4ab8-bc31-f6af80277bd5", "email": "mateusabc21@gmail.com", "role": "owner"},
+    {"id": "35ccc9cd-fb22-4421-b3cd-a126bb78f973", "organization_id": "a79b1484-af5e-4ac6-91c1-be59d509798b", "user_id": "45b35983-bb9a-4c35-a527-31cdca012a5f", "email": "marcos@gmail.com", "role": "member"},
+    {"id": "17d1edbd-6431-470a-b93f-12020889d6e9", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "3f98213b-4590-46a5-8e15-0fcdca3b0118", "email": "marcosviniicius.fs@gmail.com", "role": "owner"},
+    {"id": "9c144f99-60ed-46d5-8b53-9e57dd70a69c", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "email": "mateusabcck@gmail.com", "role": "owner"},
+    {"id": "15de4706-e706-4ded-9464-dd8655c96857", "organization_id": "66119f2a-81dd-48e8-8b13-0d898945608c", "user_id": "f4e81cff-47a9-46eb-8eb4-ef47910dbfe9", "email": "marcosviniciusferreiradesa901@gmail.com", "role": "owner"},
+    {"id": "7b3d33bc-53c4-48e0-8eed-4095515a7580", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "f4e81cff-47a9-46eb-8eb4-ef47910dbfe9", "email": "marcosviniciusferreiradesa901@gmail.com", "role": "member"},
+    {"id": "f13ce173-8f03-481a-9e6f-7964e9983544", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "bae698c3-2b7b-4c1b-b9eb-f1c56808bf05", "email": "marcos01@gmail.com", "role": "member"},
+    {"id": "5901df93-fe81-4acd-b613-5027ff34ece7", "organization_id": "c4b66d60-7d92-4b59-a62a-6256b434a66d", "user_id": "d464e068-d720-4852-ab7d-8e29d40e1174", "email": "marata@gmail.com", "role": "owner"},
+    {"id": "b39857f9-9e22-4de6-93c1-a3633f52024a", "organization_id": "ad1e0f6a-5a0c-4591-921f-142bfe7d73fe", "user_id": "630afe05-f61d-40db-a738-a33ec63f0c61", "email": "marcoshurtz17@gmail.com", "role": "owner"},
+    {"id": "f018785c-79be-40fc-8c78-863d51f42300", "organization_id": "704a5652-1d95-4b92-8d1d-04b1bfa73c92", "user_id": "c8a34deb-5443-4ff2-b4a1-12106e85fcd6", "email": "infoprod1git4l@gmail.com", "role": "owner"},
+    {"id": "278d1aa5-671d-4f10-8dce-5d19a1c98227", "organization_id": "e3e3edcd-289f-434a-bbaf-42488c2a1e3b", "user_id": "62f8a79c-f9a0-45ea-9233-ce9cf8b09293", "email": "kerlyskauan@gmail.com", "role": "owner"},
+    {"id": "6f921e8f-d7eb-4589-a063-807ef951b5b3", "organization_id": "6dd00f7b-3670-40a3-993b-339ab8b8c3da", "user_id": "5ac3ef6e-dfe9-49cb-9dcb-c08aff9dc531", "email": "tatata@gmail.com", "role": "owner"},
+    {"id": "05d81ed9-83ec-4e4b-b17d-076c7eccd03b", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "af8412ab-7c40-4f02-86bd-4b1342ddf467", "email": "teste01@gmail.com", "role": "member"},
+    {"id": "fb9ecc69-cfcb-4ded-beba-9615c67bc89e", "organization_id": "b578471f-d196-4d50-afda-163b3333060c", "user_id": "6a37a6d6-6e69-4dc9-a746-5e0f062841ab", "email": "daniicristini@gmail.com", "role": "owner"},
+    {"id": "f7e347f1-9633-4784-ba04-11d4455b6f2a", "organization_id": "94e2ca7a-699d-4612-ad63-a078a44f1793", "user_id": "c3b14637-8b70-40f1-82c2-6c01ab391a5a", "email": "victor@gmail.com", "role": "owner"},
+    {"id": "7834a5c7-4b21-43e9-88ca-1edd40ab8758", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "071d44c7-9b1b-44c4-b4e5-87f6779bc2a1", "email": "vinicius01@gmail.com", "role": "member"},
+    {"id": "d78e674e-aa71-4fa5-a087-6913fa6a45b9", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "9d504a40-823c-4936-ba33-720895fb30fa", "email": "gilmarsilva@gmail.com", "role": "member"},
+    {"id": "34113b7e-d370-4577-ae18-6f17bb6ce402", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "ca4cfc69-31bf-4957-9793-6593313677c2", "email": "camila@gmail.com", "role": "member"}
+  ],
+  "user_roles": [
+    {"id": "82d01006-9a9a-4723-a3df-1b6e77a0c055", "user_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "role": "super_admin", "created_at": "2025-11-20T02:31:50.767479+00:00"}
+  ],
+  "teams": [
+    {"id": "3ab2b155-996d-4a84-86f0-b93e5f9bf321", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "Equipe Phoenix", "color": "#EF4444", "leader_id": "3f98213b-4590-46a5-8e15-0fcdca3b0118", "avatar_url": "https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/team-avatars/d1e0b2bb-8f1a-4abf-a721-daa430c40c32/5de2b913-9217-421f-969d-f65085a9a23e.jpeg"},
+    {"id": "0152bd39-8622-40f5-b356-4a97eaa663ff", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Lobo", "color": "#3B82F6", "leader_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "avatar_url": "https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/team-avatars/2309ce52-a0be-4298-b65c-1bc48a4bba8f/443ad633-85e3-49be-be34-079f45ed77c7.png"},
+    {"id": "937f9aac-c912-4edc-ae16-3f70912ac506", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Phonix", "color": "#EF4444", "leader_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "avatar_url": "https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/team-avatars/2309ce52-a0be-4298-b65c-1bc48a4bba8f/b17c2aa8-ec8f-4f28-820f-15c3c2889635.png"}
+  ],
+  "team_members": [
+    {"id": "ee2af572-d399-49bf-8276-04def6c45246", "team_id": "3ab2b155-996d-4a84-86f0-b93e5f9bf321", "user_id": "3f98213b-4590-46a5-8e15-0fcdca3b0118", "role": "leader"},
+    {"id": "a166dd7f-ccae-4218-8c21-9b9b7c5c8b4b", "team_id": "3ab2b155-996d-4a84-86f0-b93e5f9bf321", "user_id": "bae698c3-2b7b-4c1b-b9eb-f1c56808bf05", "role": "member"},
+    {"id": "ea5ca4f5-33a2-40c7-954a-3c565b420816", "team_id": "3ab2b155-996d-4a84-86f0-b93e5f9bf321", "user_id": "f4e81cff-47a9-46eb-8eb4-ef47910dbfe9", "role": "member"},
+    {"id": "12a86b0d-e2b7-4f35-95f9-d64e639e6bfc", "team_id": "0152bd39-8622-40f5-b356-4a97eaa663ff", "user_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "role": "leader"},
+    {"id": "3e8f659e-04bb-401c-a54f-4e1a19396128", "team_id": "0152bd39-8622-40f5-b356-4a97eaa663ff", "user_id": "a2929c13-23b3-4ae6-b0c2-d4e519ea2de1", "role": "member"},
+    {"id": "56f8bcc9-cee8-4b1d-a461-2ac9c7562929", "team_id": "0152bd39-8622-40f5-b356-4a97eaa663ff", "user_id": "af8412ab-7c40-4f02-86bd-4b1342ddf467", "role": "member"},
+    {"id": "92b15c18-09ce-4bd3-8320-a7949cc08d25", "team_id": "0152bd39-8622-40f5-b356-4a97eaa663ff", "user_id": "ca4cfc69-31bf-4957-9793-6593313677c2", "role": "member"},
+    {"id": "d6cfb262-cdc4-4fa3-a7e0-c6f9774f6772", "team_id": "937f9aac-c912-4edc-ae16-3f70912ac506", "user_id": "071d44c7-9b1b-44c4-b4e5-87f6779bc2a1", "role": "member"},
+    {"id": "0cd641fe-c839-4799-b580-8168791543e3", "team_id": "937f9aac-c912-4edc-ae16-3f70912ac506", "user_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "role": "leader"},
+    {"id": "c037189d-0c19-4df5-aff4-65773ac37713", "team_id": "937f9aac-c912-4edc-ae16-3f70912ac506", "user_id": "9d504a40-823c-4936-ba33-720895fb30fa", "role": "member"},
+    {"id": "ce4177e6-d158-47db-953d-c1843f2f6f44", "team_id": "937f9aac-c912-4edc-ae16-3f70912ac506", "user_id": "a2929c13-23b3-4ae6-b0c2-d4e519ea2de1", "role": "member"}
+  ],
+  "sales_funnels": [
+    {"id": "fbbecc59-c843-433c-93ce-539499cc9df7", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Funil de Vendas", "description": "Funil padrão de vendas", "is_default": true, "is_active": true},
+    {"id": "30955a2d-e23c-4d33-b5b9-86da17eeb25a", "organization_id": "a79b1484-af5e-4ac6-91c1-be59d509798b", "name": "Funil Padrão", "description": "Funil padrão do sistema", "is_default": true, "is_active": true},
+    {"id": "06f5d198-e372-495a-a504-89adf49c35df", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "Funil Padrão", "description": "Funil padrão do sistema", "is_default": true, "is_active": true},
+    {"id": "a05250e1-22b7-4136-ad2f-01bb5923b966", "organization_id": "66119f2a-81dd-48e8-8b13-0d898945608c", "name": "Funil Padrão", "description": "Funil padrão do sistema", "is_default": true, "is_active": true},
+    {"id": "79966c94-4b3a-4ddb-b736-67589ca3014d", "organization_id": "c4b66d60-7d92-4b59-a62a-6256b434a66d", "name": "Funil Padrão", "description": "Funil padrão do sistema", "is_default": true, "is_active": true},
+    {"id": "162d8964-08ab-4da1-b120-17c35f5827ed", "organization_id": "ad1e0f6a-5a0c-4591-921f-142bfe7d73fe", "name": "Funil Padrão", "description": "Funil padrão do sistema", "is_default": true, "is_active": true},
+    {"id": "0e095ee4-4ea8-44a0-a96a-6014b6887c26", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "SDR", "icon": "headphones", "is_default": false, "is_active": true},
+    {"id": "f3a1c40e-ef10-4e5a-bbc8-d0a0276f43c7", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Comercial", "icon": "target", "icon_color": "#EF4444", "is_default": false, "is_active": true},
+    {"id": "abe19d9a-d0e0-48a3-8bc0-a178fa7f2958", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "Teste 02", "icon": "briefcase", "is_default": false, "is_active": true}
+  ],
+  "lead_tags": [
+    {"id": "d73a5992-7c20-460c-950c-27b38014c0cd", "organization_id": "a79b1484-af5e-4ac6-91c1-be59d509798b", "name": "Desqualificado", "color": "#EF4444"},
+    {"id": "2ed376ce-9256-45c0-9c52-9071dcdf9186", "organization_id": "a79b1484-af5e-4ac6-91c1-be59d509798b", "name": "Qualificado", "color": "#10B981"},
+    {"id": "78ec7828-b3cc-472d-87d8-6c72a72c4370", "organization_id": "a79b1484-af5e-4ac6-91c1-be59d509798b", "name": "Cliente chato", "color": "#F59E0B"},
+    {"id": "37b762f2-1fc4-4cbc-a531-16dbcbf8f7a8", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "Chato", "color": "#EF4444"},
+    {"id": "9d0ed79e-0570-41aa-b261-bf6927a4cb9f", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Paralelepipito", "color": "#8B5CF6"},
+    {"id": "5fce1475-ca18-4c81-9808-052476ee7597", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "lkjhgfd", "color": "#10b981"},
+    {"id": "d6b1d6e4-254c-4405-b93b-8ec9cd69b611", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Simulador", "color": "#10b981"},
+    {"id": "3f125ac9-b40f-4693-82d5-a11d6f634860", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Desqualificado", "color": "#EF4444"}
+  ],
+  "items": [
+    {"id": "1657c064-14ec-4403-944d-96b1201a39d6", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Aparelho dentario", "item_type": "physical", "icon": "Tooth", "cost_price": 78, "sale_price": 168, "stock_quantity": 37, "profit_margin": 115.38},
+    {"id": "de40a8f6-9bb4-4ccb-a855-394c12bfe5d8", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Divórcio", "item_type": "service", "icon": "Scale", "cost_price": 116, "sale_price": 176, "profit_margin": 51.72}
+  ],
+  "kanban_boards": [
+    {"id": "2c4fd83c-ea8e-402c-aabe-a3309c60e753", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Quadro de Tarefas"},
+    {"id": "877f18b3-3ab6-40e2-a6fc-68572ad637c5", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "Quadro de Tarefas"},
+    {"id": "92fd6692-72fd-427e-a8d7-a00880235b17", "organization_id": "ad1e0f6a-5a0c-4591-921f-142bfe7d73fe", "name": "Quadro de Tarefas"}
+  ],
+  "kanban_columns": [
+    {"id": "37a148e2-533e-4f1b-9c27-3f65c933bcc4", "board_id": "877f18b3-3ab6-40e2-a6fc-68572ad637c5", "title": "Nova Coluna", "position": 2},
+    {"id": "0ca6b3df-fc9b-450d-a782-da869e423e24", "board_id": "2c4fd83c-ea8e-402c-aabe-a3309c60e753", "title": "Nova Coluna", "position": 0},
+    {"id": "06f5a193-7624-4fde-82c6-7d1d1ba16077", "board_id": "2c4fd83c-ea8e-402c-aabe-a3309c60e753", "title": "Fazendo", "position": 1},
+    {"id": "a40f2f18-b73f-44c1-b246-d650eebf8477", "board_id": "2c4fd83c-ea8e-402c-aabe-a3309c60e753", "title": "Revisão", "position": 2},
+    {"id": "882d02d8-3862-4ea8-8bcf-f2e055424a22", "board_id": "2c4fd83c-ea8e-402c-aabe-a3309c60e753", "title": "Concluído", "position": 3},
+    {"id": "ace7522c-3e6c-40fd-bfa0-1280b1a2104a", "board_id": "92fd6692-72fd-427e-a8d7-a00880235b17", "title": "A Fazer", "position": 0},
+    {"id": "382a1be4-279d-4fbb-b3e0-c6698285c21c", "board_id": "92fd6692-72fd-427e-a8d7-a00880235b17", "title": "Em Progresso", "position": 1},
+    {"id": "e0245619-fea3-4bfe-9666-a2eac6cd03d4", "board_id": "92fd6692-72fd-427e-a8d7-a00880235b17", "title": "Concluído", "position": 2}
+  ],
+  "goals": [
+    {"id": "95c8b275-cb6d-4054-87a6-8b34410d1765", "organization_id": "66119f2a-81dd-48e8-8b13-0d898945608c", "user_id": "f4e81cff-47a9-46eb-8eb4-ef47910dbfe9", "target_value": 8000, "current_value": 7580},
+    {"id": "4066740d-dfca-4170-857c-298c4d78f910", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "bae698c3-2b7b-4c1b-b9eb-f1c56808bf05", "target_value": 8000, "current_value": 7580},
+    {"id": "1b30735e-4003-4c62-a01d-e40ba5bf8062", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "target_value": 900000000, "current_value": 383713340, "deadline": "2025-12-12"},
+    {"id": "c3fca250-06ee-49a1-ad18-430f7ec56592", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "3f98213b-4590-46a5-8e15-0fcdca3b0118", "target_value": 80000, "current_value": 0, "deadline": "2026-01-31"},
+    {"id": "07e947b4-27b1-4d1c-9188-40cc4f05ec9d", "organization_id": "ad1e0f6a-5a0c-4591-921f-142bfe7d73fe", "user_id": "630afe05-f61d-40db-a738-a33ec63f0c61", "target_value": 100000, "current_value": 0, "deadline": "2025-12-21"}
+  ],
+  "team_goals": [
+    {"id": "70cd5cad-adcb-4200-b774-9f26249845d1", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "team_id": "3ab2b155-996d-4a84-86f0-b93e5f9bf321", "goal_type": "revenue", "target_value": 300000, "current_value": 0, "period_type": "weekly", "start_date": "2025-12-07", "end_date": "2025-12-13"},
+    {"id": "507074f4-26f2-4b95-a581-f74982090ac7", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "team_id": "937f9aac-c912-4edc-ae16-3f70912ac506", "goal_type": "revenue", "target_value": 1233, "current_value": 345, "period_type": "monthly", "start_date": "2025-12-01", "end_date": "2025-12-31"},
+    {"id": "366106ca-fc83-4396-9a57-560e5fef0403", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "team_id": "0152bd39-8622-40f5-b356-4a97eaa663ff", "goal_type": "revenue", "target_value": 100000, "current_value": 358803548, "period_type": "monthly", "start_date": "2025-12-01", "end_date": "2025-12-31"}
+  ],
+  "webhook_configs": [
+    {"id": "105e0216-5280-4ac7-9df1-7af7a5070909", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "webhook_token": "b641f2a2942fb03fa678a6bcb7a2f4e15b13b7a7497cfd7782008336ba5143a0", "tag_id": "d6b1d6e4-254c-4405-b93b-8ec9cd69b611", "is_active": true},
+    {"id": "19c7d186-bd74-422e-b809-5c61181a2028", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "webhook_token": "c0fb7a6dbb1c8c43b62b920bb468ca638fadbfdc11e712e8175250fda11d6250", "tag_id": "5fce1475-ca18-4c81-9808-052476ee7597", "is_active": true}
+  ],
+  "automation_rules": [
+    {"id": "ba4291d1-57cf-4d38-b5a9-9371b0e4c94e", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Teste 15", "trigger_type": "WHATSAPP_FIRST_MESSAGE", "is_active": true, "conditions": [{"type": "MESSAGE_CONTENT", "operator": "CONTAINS", "value": "TESTE"}], "actions": [{"type": "SET_TYPING_STATUS", "config": {"enabled": true, "duration_seconds": 10}}, {"type": "SEND_PREDEFINED_MESSAGE", "config": {"message": "\"A imaginação é mais importante que o conhecimento\"\n\nAlbert Einstein"}}]}
+  ],
+  "lead_distribution_configs": [
+    {"id": "11acfe4a-8185-42c9-b184-0743dc9b5abe", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Teste", "source_type": "whatsapp", "distribution_method": "round_robin", "is_active": true, "eligible_agents": ["e7fef480-d6fa-4c69-847d-7ef440e92583", "a2929c13-23b3-4ae6-b0c2-d4e519ea2de1", "41d0c7bb-db11-4663-ade1-dc307d20b243"]},
+    {"id": "cc901ff8-e6df-4ab0-af00-6d3e142006d0", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "name": "Meta ads - Distribuição", "source_type": "facebook", "distribution_method": "load_based", "is_active": true, "eligible_agents": ["e7fef480-d6fa-4c69-847d-7ef440e92583", "a2929c13-23b3-4ae6-b0c2-d4e519ea2de1", "41d0c7bb-db11-4663-ade1-dc307d20b243"]},
+    {"id": "6c0b5316-b5ea-4c5b-9e5b-4a47060a4a2a", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "name": "Teste 02", "source_type": "all", "distribution_method": "random", "auto_redistribute": true, "is_active": true, "eligible_agents": ["3f98213b-4590-46a5-8e15-0fcdca3b0118", "f4e81cff-47a9-46eb-8eb4-ef47910dbfe9", "bae698c3-2b7b-4c1b-b9eb-f1c56808bf05"]}
+  ],
+  "agent_distribution_settings": [
+    {"id": "5ae7404a-a8b9-42a0-bb53-de34dab52af1", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "e7fef480-d6fa-4c69-847d-7ef440e92583", "is_active": true, "is_paused": false, "max_capacity": 50, "priority_weight": 1},
+    {"id": "09759e60-162c-40b8-825e-8d2223d1393f", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "a2929c13-23b3-4ae6-b0c2-d4e519ea2de1", "is_active": true, "is_paused": false, "max_capacity": 50, "priority_weight": 1},
+    {"id": "faf6cb3f-17ac-425a-9699-410fc2733e2c", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "user_id": "41d0c7bb-db11-4663-ade1-dc307d20b243", "is_active": true, "is_paused": false, "max_capacity": 50, "priority_weight": 1},
+    {"id": "709f05b5-c288-4e60-b116-44b325a2a4b7", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "3f98213b-4590-46a5-8e15-0fcdca3b0118", "is_active": true, "is_paused": false, "max_capacity": 50, "priority_weight": 1},
+    {"id": "1b9c8f73-b0d2-49d6-927e-e45e8bc5c581", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "f4e81cff-47a9-46eb-8eb4-ef47910dbfe9", "is_active": true, "is_paused": false, "max_capacity": 50, "priority_weight": 1},
+    {"id": "a80f2a20-6952-4f13-8b10-55e06cfb009e", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "user_id": "bae698c3-2b7b-4c1b-b9eb-f1c56808bf05", "is_active": true, "is_paused": false, "max_capacity": 50, "priority_weight": 1}
+  ],
+  "production_blocks": [
+    {"id": "2eb3e1f5-d68e-468d-a408-ff584b1094d1", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "year": 2025, "month": 11, "total_sales": 1, "total_revenue": 0, "total_cost": 0, "total_profit": 0, "is_closed": false},
+    {"id": "c60262a5-602a-4003-896e-f18011f53092", "organization_id": "2309ce52-a0be-4298-b65c-1bc48a4bba8f", "year": 2025, "month": 12, "total_sales": 13, "total_revenue": 3580913, "total_cost": 0, "total_profit": 3580913, "is_closed": false},
+    {"id": "585afceb-826b-498c-8bc2-e426ff1c1d2a", "organization_id": "d1e0b2bb-8f1a-4abf-a721-daa430c40c32", "year": 2025, "month": 12, "total_sales": 1, "total_revenue": 3400, "total_cost": 0, "total_profit": 3400, "is_closed": false},
+    {"id": "5eab10f0-6f98-4ab5-84c8-224d050af033", "organization_id": "ad1e0f6a-5a0c-4591-921f-142bfe7d73fe", "year": 2025, "month": 12, "total_sales": 0, "total_revenue": 0, "total_cost": 0, "total_profit": 0, "is_closed": false}
+  ],
+  "funnel_source_mappings": [
+    {"id": "eaa19f41-1727-44e8-b5e4-01c2511e5577", "funnel_id": "f3a1c40e-ef10-4e5a-bbc8-d0a0276f43c7", "source_type": "webhook", "target_stage_id": "b1d161eb-9244-43eb-ba6a-706c96bc97c1"},
+    {"id": "7828ea39-efc8-44fc-bc22-b005ff6667a3", "funnel_id": "abe19d9a-d0e0-48a3-8bc0-a178fa7f2958", "source_type": "whatsapp", "target_stage_id": "7c994da2-0c84-4b09-b5cf-bbc41b3d9eb7"},
+    {"id": "5690ca44-b6ba-4415-a836-6aa30cbef2d8", "funnel_id": "162d8964-08ab-4da1-b120-17c35f5827ed", "source_type": "whatsapp", "target_stage_id": "8fda2846-e674-4626-914a-55368ebb67e1"}
+  ],
+  "app_config": [
+    {"id": "12237ee4-9591-45f3-aea7-3cc8547966eb", "config_key": "EVOLUTION_API_URL", "config_value": "https://evolution01.kairozspace.com.br/manager/", "description": "URL da Evolution API"},
+    {"id": "94d63741-d9b4-4f45-950b-d3bf365ba80d", "config_key": "EVOLUTION_API_KEY", "config_value": "eYaco6Cs2tnCHtxd8Op41dKXJEKkN6Im", "description": "Chave de API da Evolution API"}
+  ],
+  "_notes": {
+    "leads_note": "636 leads no total (não incluídos por tamanho - use export-database-backup Edge Function para backup completo)",
+    "messages_note": "Mensagens do chat não incluídas por tamanho",
+    "activities_note": "Atividades do sistema não incluídas por tamanho",
+    "storage_buckets": ["avatars (público)", "team-avatars (público)", "shields (público)", "chat-media (privado)", "activity-attachments (privado)"]
+  }
+}
