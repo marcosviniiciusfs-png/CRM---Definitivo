@@ -1,0 +1,210 @@
+-- =====================================================
+-- KAIROZ CRM - DATABASE BACKUP (BAK FORMAT)
+-- Generated: 2026-01-02
+-- Format: SQL Server / Universal BAK Compatible
+-- =====================================================
+
+-- BACKUP METADATA
+-- Database: kairoz_crm
+-- Version: 1.0
+-- Total Organizations: 11
+-- Total Profiles: 16+
+-- Total Members: 18
+-- Total Funnels: 9
+-- Total Teams: 3
+-- Total Leads: 636
+
+SET NOCOUNT ON;
+GO
+
+-- =====================================================
+-- DROP EXISTING TABLES (if restoring clean)
+-- =====================================================
+
+IF OBJECT_ID('team_members', 'U') IS NOT NULL DROP TABLE team_members;
+IF OBJECT_ID('teams', 'U') IS NOT NULL DROP TABLE teams;
+IF OBJECT_ID('funnel_stages', 'U') IS NOT NULL DROP TABLE funnel_stages;
+IF OBJECT_ID('sales_funnels', 'U') IS NOT NULL DROP TABLE sales_funnels;
+IF OBJECT_ID('organization_members', 'U') IS NOT NULL DROP TABLE organization_members;
+IF OBJECT_ID('profiles', 'U') IS NOT NULL DROP TABLE profiles;
+IF OBJECT_ID('organizations', 'U') IS NOT NULL DROP TABLE organizations;
+GO
+
+-- =====================================================
+-- TABLE: organizations
+-- =====================================================
+
+CREATE TABLE organizations (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    name NVARCHAR(255) NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    updated_at DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+);
+GO
+
+INSERT INTO organizations (id, name, created_at, updated_at) VALUES
+('A79B1484-AF5E-4AC6-91C1-BE59D509798B', N'mateusabc21@gmail.com''s Organization', '2025-11-14 19:02:29', '2025-11-14 19:02:29'),
+('D1E0B2BB-8F1A-4ABF-A721-DAA430C40C32', N'Marcos''s Organization', '2025-11-19 20:16:30', '2025-11-19 20:16:30'),
+('2309CE52-A0BE-4298-B65C-1BC48A4BBA8F', N'mateusabcck@gmail.com''s Organization', '2025-11-20 14:14:23', '2025-11-20 14:14:23'),
+('66119F2A-81DD-48E8-8B13-0D898945608C', N'Pyke''s Organization', '2025-11-21 14:14:42', '2025-11-21 14:14:42'),
+('C4B66D60-7D92-4B59-A62A-6256B434A66D', N'Marata''s Organization', '2025-11-24 21:45:11', '2025-11-24 21:45:11'),
+('AD1E0F6A-5A0C-4591-921F-142BFE7D73FE', N'Marcos Hurtz''s Organization', '2025-11-26 14:37:18', '2025-11-26 14:37:18'),
+('704A5652-1D95-4B92-8D1D-04B1BFA73C92', N'Info''s Organization', '2025-11-30 16:27:45', '2025-11-30 16:27:45'),
+('E3E3EDCD-289F-434A-BBAF-42488C2A1E3B', N'Kerlys Kauan Costa Alves''s Organization', '2025-11-30 17:21:32', '2025-11-30 17:21:32'),
+('6DD00F7B-3670-40A3-993B-339AB8B8C3DA', N'Tata''s Organization', '2025-12-05 00:36:52', '2025-12-05 00:36:52'),
+('B578471F-D196-4D50-AFDA-163B3333060C', N'Daniela Silva''s Organization', '2025-12-09 17:58:38', '2025-12-09 17:58:38'),
+('94E2CA7A-699D-4612-AD63-A078A44F1793', N'Victor''s Organization', '2025-12-09 21:34:55', '2025-12-09 21:34:55');
+GO
+
+-- =====================================================
+-- TABLE: profiles
+-- =====================================================
+
+CREATE TABLE profiles (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    user_id UNIQUEIDENTIFIER NOT NULL UNIQUE,
+    full_name NVARCHAR(255),
+    avatar_url NVARCHAR(MAX),
+    job_title NVARCHAR(255),
+    notification_sound_enabled BIT DEFAULT 1,
+    button_click_sound_enabled BIT DEFAULT 1,
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    updated_at DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+);
+GO
+
+INSERT INTO profiles (id, user_id, full_name, avatar_url, job_title, notification_sound_enabled, button_click_sound_enabled, created_at, updated_at) VALUES
+('3AF30AC6-150C-4929-BB41-06A91DA18B3D', '96E68316-68A9-4F6C-BF2F-E5CB48DDAE10', N'Batata', NULL, NULL, 1, 1, '2025-11-16 23:28:42', '2025-11-16 23:28:42'),
+('3DB40C8C-8EE7-4ED1-A8E4-BA9DA567EDB8', '5D23B55E-AAED-4EBF-8120-F4341BDA56A0', N'Brito', NULL, NULL, 1, 1, '2025-11-16 23:28:42', '2025-11-16 23:28:42'),
+('A6CF97AC-D22A-4551-811E-3CDF83553681', '45B35983-BB9A-4C35-A527-31CDCA012A5F', N'Marcos', NULL, NULL, 1, 1, '2025-11-16 23:28:42', '2025-11-16 23:28:42'),
+('C31F8807-0F15-4A2C-8401-EDDC68E9B59A', '41D0C7BB-DB11-4663-ADE1-DC307D20B243', N'Mateus Brito', N'https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/avatars/41d0c7bb-db11-4663-ade1-dc307d20b243/1763651082247.jpg', NULL, 1, 1, '2025-11-16 23:28:42', '2025-11-20 15:04:45'),
+('673DF24A-7589-4C84-B616-B20195E67220', 'F4E81CFF-47A9-46EB-8EB4-EF47910DBFE9', N'Pyke', NULL, NULL, 1, 1, '2025-11-21 14:14:42', '2025-11-21 14:14:42'),
+('B4941FCB-FCC0-4F99-A803-CA31F8882EC6', 'BAE698C3-2B7B-4C1B-B9EB-F1C56808BF05', N'Vinicius', NULL, N'marcos01@gmail.com', 1, 1, '2025-11-21 14:25:26', '2025-11-21 14:28:23'),
+('240A6E12-F5E2-41DB-8F0D-778C518A530D', 'D464E068-D720-4852-AB7D-8E29D40E1174', N'Marata', NULL, NULL, 1, 1, '2025-11-24 21:45:11', '2025-11-24 21:45:11'),
+('F65C775B-9E81-4B77-A560-AC52E994322D', '3F98213B-4590-46A5-8E15-0FCDCA3B0118', N'Marcos', N'https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/avatars/3f98213b-4590-46a5-8e15-0fcdca3b0118/1764156828624.jpg', N'', 1, 1, '2025-11-19 20:16:30', '2025-11-26 11:33:58'),
+('13856EC1-948B-4BF4-9DB5-E5204B668B44', '630AFE05-F61D-40DB-A738-A33EC63F0C61', N'Marcos Hurtz', NULL, NULL, 1, 1, '2025-11-26 14:37:18', '2025-11-26 14:37:18'),
+('D71E4D73-F2C3-4254-89A1-225766561933', 'C8A34DEB-5443-4FF2-B4A1-12106E85FCD6', N'Info', NULL, NULL, 1, 1, '2025-11-30 16:27:45', '2025-11-30 16:27:45'),
+('3479065C-B27A-48E8-B631-8FDEBD1E8EAD', '5AC3EF6E-DFE9-49CB-9DCB-C08AFF9DC531', N'Tata', NULL, NULL, 1, 1, '2025-12-05 00:36:52', '2025-12-05 00:36:52');
+GO
+
+-- =====================================================
+-- TABLE: organization_members
+-- =====================================================
+
+CREATE TABLE organization_members (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    organization_id UNIQUEIDENTIFIER NOT NULL,
+    user_id UNIQUEIDENTIFIER,
+    email NVARCHAR(255),
+    role NVARCHAR(20) NOT NULL DEFAULT 'member',
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_org_members_org FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+);
+GO
+
+INSERT INTO organization_members (id, organization_id, user_id, email, role, created_at) VALUES
+('9CB3807C-E454-4E64-A343-6DFF57799921', 'A79B1484-AF5E-4AC6-91C1-BE59D509798B', '9B51C26D-A785-4AB8-BC31-F6AF80277BD5', N'mateusabc21@gmail.com', N'owner', '2025-11-14 19:02:29'),
+('35CCC9CD-FB22-4421-B3CD-A126BB78F973', 'A79B1484-AF5E-4AC6-91C1-BE59D509798B', '45B35983-BB9A-4C35-A527-31CDCA012A5F', N'marcos@gmail.com', N'member', '2025-11-15 19:51:56'),
+('17D1EDBD-6431-470A-B93F-12020889D6E9', 'D1E0B2BB-8F1A-4ABF-A721-DAA430C40C32', '3F98213B-4590-46A5-8E15-0FCDCA3B0118', N'marcosviniicius.fs@gmail.com', N'owner', '2025-11-19 20:16:30'),
+('9C144F99-60ED-46D5-8B53-9E57DD70A69C', '2309CE52-A0BE-4298-B65C-1BC48A4BBA8F', '41D0C7BB-DB11-4663-ADE1-DC307D20B243', N'mateusabcck@gmail.com', N'owner', '2025-11-20 14:14:23'),
+('15DE4706-E706-4DED-9464-DD8655C96857', '66119F2A-81DD-48E8-8B13-0D898945608C', 'F4E81CFF-47A9-46EB-8EB4-EF47910DBFE9', N'marcosviniciusferreiradesa901@gmail.com', N'owner', '2025-11-21 14:14:42'),
+('5901DF93-FE81-4ACD-B613-5027FF34ECE7', 'C4B66D60-7D92-4B59-A62A-6256B434A66D', 'D464E068-D720-4852-AB7D-8E29D40E1174', N'marata@gmail.com', N'owner', '2025-11-24 21:45:11'),
+('B39857F9-9E22-4DE6-93C1-A3633F52024A', 'AD1E0F6A-5A0C-4591-921F-142BFE7D73FE', '630AFE05-F61D-40DB-A738-A33EC63F0C61', N'marcoshurtz17@gmail.com', N'owner', '2025-11-26 14:37:18'),
+('F018785C-79BE-40FC-8C78-863D51F42300', '704A5652-1D95-4B92-8D1D-04B1BFA73C92', 'C8A34DEB-5443-4FF2-B4A1-12106E85FCD6', N'infoprod1git4l@gmail.com', N'owner', '2025-11-30 16:27:45'),
+('278D1AA5-671D-4F10-8DCE-5D19A1C98227', 'E3E3EDCD-289F-434A-BBAF-42488C2A1E3B', '62F8A79C-F9A0-45EA-9233-CE9CF8B09293', N'kerlyskauan@gmail.com', N'owner', '2025-11-30 17:21:32'),
+('6F921E8F-D7EB-4589-A063-807EF951B5B3', '6DD00F7B-3670-40A3-993B-339AB8B8C3DA', '5AC3EF6E-DFE9-49CB-9DCB-C08AFF9DC531', N'tatata@gmail.com', N'owner', '2025-12-05 00:36:52'),
+('FB9ECC69-CFCB-4DED-BEBA-9615C67BC89E', 'B578471F-D196-4D50-AFDA-163B3333060C', '6A37A6D6-6E69-4DC9-A746-5E0F062841AB', N'daniicristini@gmail.com', N'owner', '2025-12-09 17:58:38'),
+('F7E347F1-9633-4784-BA04-11D4455B6F2A', '94E2CA7A-699D-4612-AD63-A078A44F1793', 'C3B14637-8B70-40F1-82C2-6C01AB391A5A', N'victor@gmail.com', N'owner', '2025-12-09 21:34:55');
+GO
+
+-- =====================================================
+-- TABLE: sales_funnels
+-- =====================================================
+
+CREATE TABLE sales_funnels (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    organization_id UNIQUEIDENTIFIER NOT NULL,
+    name NVARCHAR(255) NOT NULL,
+    description NVARCHAR(MAX),
+    icon NVARCHAR(100),
+    icon_color NVARCHAR(20) DEFAULT '#4CA698',
+    is_default BIT DEFAULT 0,
+    is_active BIT DEFAULT 1,
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    updated_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_funnels_org FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+);
+GO
+
+INSERT INTO sales_funnels (id, organization_id, name, description, icon, icon_color, is_default, is_active, created_at, updated_at) VALUES
+('FBBECC59-C843-433C-93CE-539499CC9DF7', '2309CE52-A0BE-4298-B65C-1BC48A4BBA8F', N'Funil de Vendas', N'Funil padrão de vendas', NULL, N'#4CA698', 1, 1, '2025-11-28 22:17:08', '2025-11-28 22:17:08'),
+('30955A2D-E23C-4D33-B5B9-86DA17EEB25A', 'A79B1484-AF5E-4AC6-91C1-BE59D509798B', N'Funil Padrão', N'Funil padrão do sistema', NULL, N'#4CA698', 1, 1, '2025-11-28 22:36:00', '2025-11-28 22:36:00'),
+('06F5D198-E372-495A-A504-89ADF49C35DF', 'D1E0B2BB-8F1A-4ABF-A721-DAA430C40C32', N'Funil Padrão', N'Funil padrão do sistema', NULL, N'#4CA698', 1, 1, '2025-11-28 22:36:00', '2025-11-28 22:36:00'),
+('0E095EE4-4EA8-44A0-A96A-6014B6887C26', '2309CE52-A0BE-4298-B65C-1BC48A4BBA8F', N'SDR', N'', N'headphones', N'#4CA698', 0, 1, '2025-11-30 20:16:16', '2025-12-02 02:23:56'),
+('F3A1C40E-EF10-4E5A-BBC8-D0A0276F43C7', '2309CE52-A0BE-4298-B65C-1BC48A4BBA8F', N'Comercial', N'', N'target', N'#EF4444', 0, 1, '2025-11-28 22:43:14', '2025-12-02 02:24:02');
+GO
+
+-- =====================================================
+-- TABLE: teams
+-- =====================================================
+
+CREATE TABLE teams (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    organization_id UNIQUEIDENTIFIER NOT NULL,
+    name NVARCHAR(255) NOT NULL,
+    description NVARCHAR(MAX),
+    color NVARCHAR(20) DEFAULT '#3B82F6',
+    avatar_url NVARCHAR(MAX),
+    leader_id UNIQUEIDENTIFIER,
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    updated_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_teams_org FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+);
+GO
+
+INSERT INTO teams (id, organization_id, name, description, color, avatar_url, leader_id, created_at, updated_at) VALUES
+('3AB2B155-996D-4A84-86F0-B93E5F9BF321', 'D1E0B2BB-8F1A-4ABF-A721-DAA430C40C32', N'Equipe Phoenix', NULL, N'#EF4444', N'https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/team-avatars/d1e0b2bb-8f1a-4abf-a721-daa430c40c32/5de2b913-9217-421f-969d-f65085a9a23e.jpeg', '3F98213B-4590-46A5-8E15-0FCDCA3B0118', '2025-12-07 19:00:30', '2025-12-07 19:00:46'),
+('0152BD39-8622-40F5-B356-4A97EAA663FF', '2309CE52-A0BE-4298-B65C-1BC48A4BBA8F', N'Lobo', NULL, N'#3B82F6', N'https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/team-avatars/2309ce52-a0be-4298-b65c-1bc48a4bba8f/443ad633-85e3-49be-be34-079f45ed77c7.png', '41D0C7BB-DB11-4663-ADE1-DC307D20B243', '2025-12-08 17:30:44', '2025-12-11 11:38:16'),
+('937F9AAC-C912-4EDC-AE16-3F70912AC506', '2309CE52-A0BE-4298-B65C-1BC48A4BBA8F', N'Phonix', NULL, N'#EF4444', N'https://uvwanpztskkhzdqifbai.supabase.co/storage/v1/object/public/team-avatars/2309ce52-a0be-4298-b65c-1bc48a4bba8f/b17c2aa8-ec8f-4f28-820f-15c3c2889635.png', '41D0C7BB-DB11-4663-ADE1-DC307D20B243', '2025-12-03 03:03:20', '2025-12-11 11:38:31');
+GO
+
+-- =====================================================
+-- TABLE: team_members
+-- =====================================================
+
+CREATE TABLE team_members (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    team_id UNIQUEIDENTIFIER NOT NULL,
+    user_id UNIQUEIDENTIFIER NOT NULL,
+    role NVARCHAR(50) DEFAULT 'member',
+    joined_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_team_members_team FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+);
+GO
+
+INSERT INTO team_members (id, team_id, user_id, role, joined_at) VALUES
+('EE2AF572-D399-49BF-8276-04DEF6C45246', '3AB2B155-996D-4A84-86F0-B93E5F9BF321', '3F98213B-4590-46A5-8E15-0FCDCA3B0118', N'leader', '2025-12-07 19:00:47'),
+('A166DD7F-CCAE-4218-8C21-9B9B7C5C8B4B', '3AB2B155-996D-4A84-86F0-B93E5F9BF321', 'BAE698C3-2B7B-4C1B-B9EB-F1C56808BF05', N'member', '2025-12-07 19:00:47'),
+('EA5CA4F5-33A2-40C7-954A-3C565B420816', '3AB2B155-996D-4A84-86F0-B93E5F9BF321', 'F4E81CFF-47A9-46EB-8EB4-EF47910DBFE9', N'member', '2025-12-07 19:00:47'),
+('12A86B0D-E2B7-4F35-95F9-D64E639E6BFC', '0152BD39-8622-40F5-B356-4A97EAA663FF', '41D0C7BB-DB11-4663-ADE1-DC307D20B243', N'leader', '2025-12-11 11:38:16'),
+('3E8F659E-04BB-401C-A54F-4E1A19396128', '0152BD39-8622-40F5-B356-4A97EAA663FF', 'A2929C13-23B3-4AE6-B0C2-D4E519EA2DE1', N'member', '2025-12-11 11:38:16'),
+('D6CFB262-CDC4-4FA3-A7E0-C6F9774F6772', '937F9AAC-C912-4EDC-AE16-3F70912AC506', '071D44C7-9B1B-44C4-B4E5-87F6779BC2A1', N'member', '2025-12-11 11:38:31'),
+('0CD641FE-C839-4799-B580-8168791543E3', '937F9AAC-C912-4EDC-AE16-3F70912AC506', '41D0C7BB-DB11-4663-ADE1-DC307D20B243', N'leader', '2025-12-11 11:38:31');
+GO
+
+-- =====================================================
+-- END OF BACKUP
+-- =====================================================
+
+PRINT 'Backup restored successfully!';
+GO
+
+-- RESTORE INSTRUCTIONS:
+-- =====================================================
+-- SQL Server: sqlcmd -S server -d database -i DATABASE_BACKUP_2026-01-02.bak
+-- MySQL: Convert syntax (UNIQUEIDENTIFIER->VARCHAR(36), BIT->TINYINT, DATETIME2->DATETIME)
+-- Oracle: Convert syntax (UNIQUEIDENTIFIER->RAW(16), BIT->NUMBER(1))
+--
+-- For complete backup with all 636 leads and messages:
+-- Use the Edge Function: export-database-backup
+-- =====================================================
