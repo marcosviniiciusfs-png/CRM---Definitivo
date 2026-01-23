@@ -312,16 +312,17 @@ const WhatsAppConnection = () => {
 
       console.log('✅ Instância criada com sucesso:', data);
 
-      // SEMPRE abrir o dialog após criar a instância - QR pode vir imediatamente ou via webhook
-      const hasQrCode = data.instance && data.instance.qrCode;
-      console.log('📦 QR Code na resposta:', hasQrCode ? 'SIM' : 'NÃO (aguardar webhook)');
+      // CRÍTICO: Ignorar qualquer QR da resposta - o webhook vai enviar o correto
+      console.log('📦 Instância criada. QR Code será recebido via webhook.');
       
       // Criar objeto de instância para exibir no dialog
+      // CRÍTICO: Sempre iniciar com qr_code NULL - deixar o banco/webhook popular com o QR correto
+      // O QR da resposta inicial pode estar incorreto ou desatualizado
       const tempInstance: WhatsAppInstance = {
         id: data.instance?.id || '',
         instance_name: data.instance?.instanceName || '',
-        status: hasQrCode ? 'WAITING_QR' : 'CREATING',
-        qr_code: hasQrCode ? data.instance.qrCode : null,
+        status: 'CREATING', // Sempre CREATING até receber QR válido via webhook
+        qr_code: null, // NUNCA usar QR da resposta - será populado via polling/realtime
         phone_number: null,
         created_at: new Date().toISOString(),
         connected_at: null,
@@ -332,10 +333,8 @@ const WhatsAppConnection = () => {
       setQrDialogOpen(true);
       
       toast({
-        title: hasQrCode ? "QR Code pronto!" : "Gerando QR Code...",
-        description: hasQrCode 
-          ? "Escaneie o código para conectar seu WhatsApp."
-          : "O QR Code será exibido em alguns segundos.",
+        title: "Gerando QR Code...",
+        description: "O QR Code será exibido em alguns segundos. Aguarde.",
       });
 
       // Recarregar instâncias (o realtime também fará isso)
@@ -581,14 +580,26 @@ const WhatsAppConnection = () => {
         if (dbError) {
           console.warn('⚠️ Erro ao buscar instância do banco:', dbError);
         } else if (instanceFromDb) {
-          // Atualizar selectedInstance com QR do banco
-          if (instanceFromDb.qr_code && !selectedInstance.qr_code) {
-            console.log('✅ QR Code encontrado no banco! Atualizando...');
-            setSelectedInstance(prev => prev ? {
-              ...prev,
-              qr_code: instanceFromDb.qr_code,
-              status: instanceFromDb.status || prev.status
-            } : prev);
+          // CRÍTICO: SEMPRE sincronizar QR code do banco - o banco é a fonte da verdade
+          // Não comparar com valor local, sempre usar o valor do banco
+          if (instanceFromDb.qr_code) {
+            console.log('✅ QR Code encontrado no banco! Sincronizando com valor mais recente...');
+            setSelectedInstance(prev => {
+              // Só atualizar se o QR mudou (evitar re-renders desnecessários)
+              if (prev && prev.qr_code !== instanceFromDb.qr_code) {
+                console.log('🔄 QR Code atualizado - banco tinha valor diferente');
+                return {
+                  ...prev,
+                  qr_code: instanceFromDb.qr_code,
+                  status: instanceFromDb.status || prev.status
+                };
+              }
+              // Atualizar status mesmo se QR não mudou
+              if (prev && prev.status !== instanceFromDb.status) {
+                return { ...prev, status: instanceFromDb.status || prev.status };
+              }
+              return prev;
+            });
           }
           
           // Verificar se conectou via banco
