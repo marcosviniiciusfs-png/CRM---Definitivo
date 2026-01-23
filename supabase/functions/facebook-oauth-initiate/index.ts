@@ -43,6 +43,12 @@ Deno.serve(async (req) => {
       `&state=${state}` +
       `&scope=${scopes}`;
 
+    // Log the generated URLs for debugging
+    console.log('Facebook OAuth initiate - REDIRECT_URI:', REDIRECT_URI);
+    console.log('Facebook OAuth initiate - FACEBOOK_APP_ID:', FACEBOOK_APP_ID);
+    console.log('Facebook OAuth initiate - Full auth URL:', authUrl);
+    console.log('Facebook OAuth initiate - Origin from request:', origin);
+
     return new Response(
       JSON.stringify({ auth_url: authUrl }),
       { 
