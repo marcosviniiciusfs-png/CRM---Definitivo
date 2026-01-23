@@ -67,6 +67,23 @@ serve(async (req) => {
     if (event === 'qrcode.updated' || event === 'QRCODE_UPDATED') {
       console.log(`🔄 Processando QR Code para instância: ${instance}`);
       
+      // CRÍTICO: Verificar se a instância existe antes de atualizar
+      const { data: existingInstance, error: findError } = await supabase
+        .from('whatsapp_instances')
+        .select('id, instance_name')
+        .eq('instance_name', instance)
+        .single();
+
+      if (findError || !existingInstance) {
+        console.warn(`⚠️ Instância ${instance} não existe no banco - ignorando QR update`);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Instância não encontrada' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+
+      console.log(`✅ Instância encontrada: ${existingInstance.id}`);
+      
       let rawBase64 = '';
       
       if (data?.qrcode?.base64 && typeof data.qrcode.base64 === 'string') {
