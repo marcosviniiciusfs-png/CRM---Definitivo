@@ -258,16 +258,8 @@ const Integrations = () => {
     setEditingTag(false);
   };
 
-  if (!permissions.canManageIntegrations) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight">Integrações</h1>
-          <p className="text-muted-foreground mt-2">Você não tem permissão para acessar esta página.</p>
-        </div>
-      </div>
-    );
-  }
+  // Página acessível a qualquer usuário autenticado
+  // Funcionalidades de gerenciamento são controladas individualmente pelos componentes
 
   if (loading) {
     return (
