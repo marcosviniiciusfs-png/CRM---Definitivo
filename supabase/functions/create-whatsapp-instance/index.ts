@@ -11,6 +11,92 @@ interface CreateInstanceRequest {
   userId: string;
 }
 
+async function getOrCreateOrganizationId(
+  // Tipagem propositalmente frouxa: Edge Functions não usam os tipos gerados do banco
+  // e o inference pode virar `never` dependendo dos generics do createClient.
+  supabase: any,
+  user: { id: string; email?: string | null },
+): Promise<string | null> {
+  // 1) Happy path: membership already linked by user_id
+  const { data: memberByUser, error: memberByUserError } = await supabase
+    .from('organization_members')
+    .select('id, organization_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (memberByUserError) {
+    console.warn('⚠️ Error fetching org by user_id (continuing):', memberByUserError);
+  }
+
+  if (memberByUser?.organization_id) {
+    return memberByUser.organization_id;
+  }
+
+  // 2) Fallback: user was invited (email match) but membership not linked yet
+  const email = user.email?.toLowerCase().trim();
+  if (email) {
+    const { data: inviteByEmail, error: inviteByEmailError } = await supabase
+      .from('organization_members')
+      .select('id, organization_id')
+      .eq('email', email)
+      .is('user_id', null)
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    if (inviteByEmailError) {
+      console.warn('⚠️ Error fetching org invite by email (continuing):', inviteByEmailError);
+    }
+
+    if (inviteByEmail?.organization_id) {
+      const { error: linkError } = await supabase
+        .from('organization_members')
+        .update({ user_id: user.id })
+        .eq('id', inviteByEmail.id);
+
+      if (linkError) {
+        console.warn('⚠️ Failed to link invited member to user_id (continuing):', linkError);
+      } else {
+        console.log('✅ Linked invited organization membership to user_id');
+      }
+
+      return inviteByEmail.organization_id;
+    }
+  }
+
+  // 3) Last resort: create a new organization for this user
+  console.warn('⚠️ User has no organization. Creating a new organization automatically...');
+
+  const orgName = email ? `${email}'s Organization` : `Organização ${user.id.substring(0, 8)}`;
+  const { data: newOrg, error: orgError } = await supabase
+    .from('organizations')
+    .insert({ name: orgName })
+    .select('id')
+    .single();
+
+  if (orgError || !newOrg?.id) {
+    console.error('❌ Failed to create organization:', orgError);
+    // If we cannot create, do not block WhatsApp connection entirely.
+    return null;
+  }
+
+  const { error: memberInsertError } = await supabase
+    .from('organization_members')
+    .insert({
+      organization_id: newOrg.id,
+      user_id: user.id,
+      role: 'owner',
+      email: email ?? null,
+    });
+
+  if (memberInsertError) {
+    console.warn('⚠️ Failed to create organization membership (continuing):', memberInsertError);
+    return newOrg.id;
+  }
+
+  console.log('✅ Organization created and user assigned as owner:', newOrg.id);
+  return newOrg.id;
+}
+
 // Clean Base64 string
 function cleanBase64(rawBase64: string): string {
   // CRÍTICO: Remover aspas duplas literais no início e fim
@@ -373,22 +459,19 @@ serve(async (req) => {
     }
 
     // ========================================
-    // GET USER'S ORGANIZATION
+    // GET (OR CREATE) USER'S ORGANIZATION
     // ========================================
-    console.log('🏢 Fetching user organization...');
-    const { data: memberData, error: memberError } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .single();
+    console.log('🏢 Fetching user organization (with fallback)...');
+    const organizationId = await getOrCreateOrganizationId(supabase, {
+      id: user.id,
+      email: user.email,
+    });
 
-    if (memberError || !memberData) {
-      console.error('❌ Error fetching organization:', memberError);
-      throw new Error('User is not associated with any organization');
+    if (organizationId) {
+      console.log('✅ Organization resolved:', organizationId);
+    } else {
+      console.warn('⚠️ Could not resolve organization. Proceeding with organization_id = null');
     }
-
-    const organizationId = memberData.organization_id;
-    console.log('✅ Organization found:', organizationId);
 
     // ========================================
     // IMMEDIATE DATABASE SAVE
