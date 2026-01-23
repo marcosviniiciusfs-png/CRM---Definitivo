@@ -46,42 +46,62 @@ Deno.serve(async (req) => {
 
     // Chamar a Evolution API para obter o status real
     let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY') || '';
+
+    console.log('🔍 Verificando variáveis de ambiente...');
+    console.log('EVOLUTION_API_URL presente:', !!evolutionApiUrl, 'valor:', evolutionApiUrl ? evolutionApiUrl.substring(0, 30) + '...' : 'VAZIO');
+    console.log('EVOLUTION_API_KEY presente:', !!evolutionApiKey, 'tamanho:', evolutionApiKey ? evolutionApiKey.length : 0);
 
     // Validar e corrigir URL da Evolution API
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
+    if (!evolutionApiUrl || evolutionApiUrl.trim() === '' || !/^https?:\/\//.test(evolutionApiUrl)) {
+      console.log('⚠️ EVOLUTION_API_URL inválida ou vazia. Usando URL padrão.');
       evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
     }
 
-    if (!evolutionApiKey) {
-      console.error('Evolution API credentials not configured');
+    if (!evolutionApiKey || evolutionApiKey.trim() === '') {
+      console.error('❌ EVOLUTION_API_KEY não configurada ou vazia');
       return new Response(
-        JSON.stringify({ error: 'Evolution API não configurada' }),
+        JSON.stringify({ 
+          error: 'Credenciais da Evolution API não configuradas',
+          details: 'A chave de API da Evolution não foi encontrada nos secrets do Supabase. Verifique a configuração.'
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('✅ Credenciais da Evolution API validadas');
     console.log('Evolution API URL original:', evolutionApiUrl);
 
-    // Limpar a URL base: remover /manager e trailing slashes (igual create-whatsapp-instance faz)
-    evolutionApiUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '').trim();
+    // Limpar a URL base: remover /manager e trailing slashes
+    evolutionApiUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/+$/, '').trim();
     
     console.log('Evolution API URL limpa:', evolutionApiUrl);
 
     // Construir a URL completa - usando o endpoint correto da Evolution API v2
-    // Endpoint: GET /instance/connectionState/{instanceName}
     const statusUrl = `${evolutionApiUrl}/instance/connectionState/${instance_name}`;
     
-    console.log(`URL final para Evolution API: ${statusUrl}`);
+    console.log(`🌐 URL final para Evolution API: ${statusUrl}`);
 
-    const evolutionResponse = await fetch(statusUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': evolutionApiKey,
-        'Content-Type': 'application/json',
-      },
-    });
+    let evolutionResponse;
+    try {
+      evolutionResponse = await fetch(statusUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': evolutionApiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (fetchError) {
+      console.error('❌ Erro de rede ao conectar com Evolution API:', fetchError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Não foi possível conectar com a Evolution API',
+          details: 'A API pode estar fora do ar ou inacessível. Tente novamente em alguns minutos.',
+          status: 'DISCONNECTED'
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!evolutionResponse.ok) {
       console.error(`Evolution API retornou erro ${evolutionResponse.status}`);
