@@ -180,11 +180,128 @@ serve(async (req) => {
       );
     }
 
+    // ==================== EVENTO: QRCODE.UPDATED ====================
+    if (event === 'qrcode.updated' || event === 'QRCODE_UPDATED') {
+      console.log(`🔄 Processando QR Code para instância: ${instance}`);
+      
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      let rawBase64 = '';
+      
+      if (data?.qrcode?.base64 && typeof data.qrcode.base64 === 'string') {
+        rawBase64 = data.qrcode.base64;
+        console.log('✅ QR extraído de: data.qrcode.base64');
+      } else if (typeof data?.qrcode === 'string') {
+        rawBase64 = data.qrcode;
+        console.log('✅ QR extraído de: data.qrcode (string)');
+      } else if (typeof data?.qr === 'string') {
+        rawBase64 = data.qr;
+        console.log('✅ QR extraído de: data.qr');
+      } else if (typeof data?.base64 === 'string') {
+        rawBase64 = data.base64;
+        console.log('✅ QR extraído de: data.base64');
+      }
+      
+      if (!rawBase64) {
+        console.warn('⚠️ QR Code não encontrado no payload');
+        return new Response(
+          JSON.stringify({ success: false, error: 'QR Code não encontrado' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+      
+      // Limpar Base64
+      let cleanedBase64 = rawBase64;
+      if (cleanedBase64.startsWith('"') && cleanedBase64.endsWith('"')) {
+        cleanedBase64 = cleanedBase64.slice(1, -1);
+      }
+      cleanedBase64 = cleanedBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
+      cleanedBase64 = cleanedBase64.replace(/\s/g, '');
+      cleanedBase64 = cleanedBase64.replace(/['"]/g, '');
+      cleanedBase64 = cleanedBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+      
+      console.log(`✅ QR Code limpo: ${cleanedBase64.length} caracteres`);
+      
+      // Atualizar no banco
+      const { error: updateError } = await supabase
+        .from('whatsapp_instances')
+        .update({ 
+          qr_code: cleanedBase64,
+          status: 'WAITING_QR',
+          updated_at: new Date().toISOString()
+        })
+        .eq('instance_name', instance);
+      
+      if (updateError) {
+        console.error('❌ Erro ao atualizar QR Code:', updateError);
+        return new Response(
+          JSON.stringify({ success: false, error: updateError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+      
+      console.log(`✅ QR Code atualizado no banco para instância: ${instance}`);
+      return new Response(
+        JSON.stringify({ success: true, message: 'QR Code atualizado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+    
+    // ==================== EVENTO: CONNECTION_UPDATE ====================
+    if (event === 'connection.update' || event === 'CONNECTION_UPDATE') {
+      console.log(`🔄 Processando atualização de conexão para instância: ${instance}`);
+      
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      const state = data?.state || data?.status || data?.connection;
+      console.log('📊 Estado da conexão:', state);
+      
+      let newStatus = 'DISCONNECTED';
+      if (state === 'open' || state === 'connected') {
+        newStatus = 'CONNECTED';
+      } else if (state === 'close' || state === 'disconnected') {
+        newStatus = 'DISCONNECTED';
+      } else if (state === 'connecting') {
+        newStatus = 'CREATING';
+      }
+      
+      const updatePayload: any = {
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Limpar QR code se conectou
+      if (newStatus === 'CONNECTED') {
+        updatePayload.qr_code = null;
+        updatePayload.connected_at = new Date().toISOString();
+      }
+      
+      const { error: updateError } = await supabase
+        .from('whatsapp_instances')
+        .update(updatePayload)
+        .eq('instance_name', instance);
+      
+      if (updateError) {
+        console.error('❌ Erro ao atualizar status:', updateError);
+      } else {
+        console.log(`✅ Status atualizado para ${newStatus}: ${instance}`);
+      }
+      
+      return new Response(
+        JSON.stringify({ success: true, message: `Status atualizado: ${newStatus}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // Processar apenas eventos de mensagens recebidas
     if (event !== 'messages.upsert' && event !== 'MESSAGES_UPSERT') {
-      console.log(`⏭️ Evento ${event} - encaminhando para outro webhook se necessário`);
+      console.log(`⏭️ Evento ${event} - ignorado`);
       return new Response(
-        JSON.stringify({ success: true, message: `Evento ${event} ignorado neste webhook` }),
+        JSON.stringify({ success: true, message: `Evento ${event} não processado` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }

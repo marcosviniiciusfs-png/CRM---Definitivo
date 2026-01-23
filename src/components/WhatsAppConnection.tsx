@@ -312,34 +312,31 @@ const WhatsAppConnection = () => {
 
       console.log('✅ Instância criada com sucesso:', data);
 
-      // CRÍTICO: Se a resposta contém o QR Code, abrir dialog IMEDIATAMENTE
-      if (data.instance && data.instance.qrCode) {
-        console.log('🚀 QR Code recebido na resposta, abrindo dialog imediatamente');
-        
-        // Criar objeto de instância temporário para exibir no dialog
-        const tempInstance: WhatsAppInstance = {
-          id: data.instance.id,
-          instance_name: data.instance.instanceName,
-          status: data.instance.status || 'WAITING_QR',
-          qr_code: data.instance.qrCode,
-          phone_number: null,
-          created_at: new Date().toISOString(),
-          connected_at: null,
-        };
-        
-        setSelectedInstance(tempInstance);
-        setQrDialogOpen(true);
-        
-        toast({
-          title: "QR Code pronto!",
-          description: "Escaneie o código para conectar seu WhatsApp.",
-        });
-      } else {
-        toast({
-          title: "Instância criada!",
-          description: "O QR Code será exibido em alguns segundos.",
-        });
-      }
+      // SEMPRE abrir o dialog após criar a instância - QR pode vir imediatamente ou via webhook
+      const hasQrCode = data.instance && data.instance.qrCode;
+      console.log('📦 QR Code na resposta:', hasQrCode ? 'SIM' : 'NÃO (aguardar webhook)');
+      
+      // Criar objeto de instância para exibir no dialog
+      const tempInstance: WhatsAppInstance = {
+        id: data.instance?.id || '',
+        instance_name: data.instance?.instanceName || '',
+        status: hasQrCode ? 'WAITING_QR' : 'CREATING',
+        qr_code: hasQrCode ? data.instance.qrCode : null,
+        phone_number: null,
+        created_at: new Date().toISOString(),
+        connected_at: null,
+      };
+      
+      // SEMPRE abrir o dialog - mostrar loading enquanto aguarda QR
+      setSelectedInstance(tempInstance);
+      setQrDialogOpen(true);
+      
+      toast({
+        title: hasQrCode ? "QR Code pronto!" : "Gerando QR Code...",
+        description: hasQrCode 
+          ? "Escaneie o código para conectar seu WhatsApp."
+          : "O QR Code será exibido em alguns segundos.",
+      });
 
       // Recarregar instâncias (o realtime também fará isso)
       await loadInstances();
@@ -559,21 +556,56 @@ const WhatsAppConnection = () => {
     }
   }, [selectedInstance, qrDialogOpen]); // CRÍTICO: Removido toast das dependências
 
-  // CRÍTICO: Polling automático para verificar status quando modal está aberto
-  // Isso garante que o modal fecha mesmo se o webhook da Evolution não funcionar
+  // CRÍTICO: Polling automático para verificar status E buscar QR Code quando modal está aberto
+  // Isso garante que o modal recebe o QR mesmo se o Realtime falhar
   useEffect(() => {
     // 🛑 CRÍTICO: Early Return - Verificar se selectedInstance existe e tem ID antes de continuar
     if (!selectedInstance || !selectedInstance.id || !qrDialogOpen || selectedInstance.status === 'CONNECTED') {
       return;
     }
 
-    console.log('⏰ Iniciando polling de status para instância:', selectedInstance.instance_name);
+    console.log('⏰ Iniciando polling de status/QR para instância:', selectedInstance.instance_name);
 
     // Verificar status a cada 3 segundos enquanto o modal está aberto
     const pollInterval = setInterval(async () => {
       try {
-        console.log('🔍 Polling: Verificando status da instância...');
+        console.log('🔍 Polling: Verificando status e QR da instância...');
         
+        // PRIMEIRO: Buscar QR atualizado do banco de dados
+        const { data: instanceFromDb, error: dbError } = await supabase
+          .from('whatsapp_instances')
+          .select('id, qr_code, status')
+          .eq('id', selectedInstance.id)
+          .single();
+
+        if (dbError) {
+          console.warn('⚠️ Erro ao buscar instância do banco:', dbError);
+        } else if (instanceFromDb) {
+          // Atualizar selectedInstance com QR do banco
+          if (instanceFromDb.qr_code && !selectedInstance.qr_code) {
+            console.log('✅ QR Code encontrado no banco! Atualizando...');
+            setSelectedInstance(prev => prev ? {
+              ...prev,
+              qr_code: instanceFromDb.qr_code,
+              status: instanceFromDb.status || prev.status
+            } : prev);
+          }
+          
+          // Verificar se conectou via banco
+          if (instanceFromDb.status === 'CONNECTED') {
+            console.log('✅ Polling detectou CONNECTED no banco!');
+            setQrDialogOpen(false);
+            setSelectedInstance(null);
+            toast({
+              title: "WhatsApp conectado!",
+              description: "Conectado com sucesso!",
+            });
+            loadInstances();
+            return;
+          }
+        }
+
+        // SEGUNDO: Verificar status na Evolution API (backup)
         const { data, error } = await supabase.functions.invoke('check-whatsapp-status', {
           body: { instance_name: selectedInstance.instance_name }
         });
@@ -587,11 +619,9 @@ const WhatsAppConnection = () => {
 
         // Se conectou, o banco será atualizado e o Realtime vai notificar
         if (data?.status === 'CONNECTED') {
-          console.log('✅ Polling detectou CONNECTED! Aguardando Realtime...');
-          // O Realtime vai fechar o modal, mas vamos garantir
+          console.log('✅ Polling detectou CONNECTED na API!');
           setTimeout(() => {
             if (qrDialogOpenRef.current) {
-              console.log('🔒 Forçando fechamento do modal após detecção de CONNECTED');
               setQrDialogOpen(false);
               setSelectedInstance(null);
               toast({
@@ -605,14 +635,14 @@ const WhatsAppConnection = () => {
       } catch (error) {
         console.error('❌ Erro ao verificar status no polling:', error);
       }
-    }, 3000); // Verificar a cada 3 segundos
+    }, 2500); // Verificar a cada 2.5 segundos (mais responsivo para QR)
 
     // Limpar interval quando o modal fechar ou a instância mudar
     return () => {
-      console.log('⏰ Parando polling de status');
+      console.log('⏰ Parando polling de status/QR');
       clearInterval(pollInterval);
     };
-  }, [selectedInstance, qrDialogOpen]); // CRÍTICO: Removido toast das dependências
+  }, [selectedInstance?.id, qrDialogOpen]); // Depender apenas do ID para evitar loops
 
   const getStatusIcon = (status: string) => {
     switch (status) {
