@@ -62,19 +62,36 @@ Deno.serve(async (req) => {
     const FACEBOOK_APP_SECRET = Deno.env.get('FACEBOOK_APP_SECRET');
     const REDIRECT_URI = `${Deno.env.get('SUPABASE_URL')}/functions/v1/facebook-oauth-callback`;
 
+    // Log the redirect URI being used
+    console.log('Using REDIRECT_URI:', REDIRECT_URI);
+    console.log('FACEBOOK_APP_ID configured:', FACEBOOK_APP_ID ? 'Yes' : 'No');
+    
     // Exchange code for access token
-    const tokenResponse = await fetch(
-      `https://graph.facebook.com/v18.0/oauth/access_token?` +
+    const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?` +
       `client_id=${FACEBOOK_APP_ID}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
       `&client_secret=${FACEBOOK_APP_SECRET}` +
-      `&code=${code}`
-    );
+      `&code=${code}`;
+    
+    console.log('Token exchange URL (without secret):', tokenUrl.replace(FACEBOOK_APP_SECRET || '', '[REDACTED]'));
+    
+    const tokenResponse = await fetch(tokenUrl);
 
     const tokenData = await tokenResponse.json();
     
+    // Log detailed response from Facebook
+    console.log('Facebook token exchange response status:', tokenResponse.status);
+    console.log('Facebook token exchange response:', JSON.stringify(tokenData, null, 2));
+    
     if (!tokenData.access_token) {
-      throw new Error('Failed to get access token from Facebook');
+      // Log detailed error information
+      console.error('Facebook token error details:', {
+        error: tokenData.error,
+        error_description: tokenData.error?.message || tokenData.error_description,
+        error_reason: tokenData.error?.code || tokenData.error_reason,
+        error_type: tokenData.error?.type
+      });
+      throw new Error(`Failed to get access token: ${tokenData.error?.message || JSON.stringify(tokenData)}`);
     }
 
     // Exchange short-lived token for long-lived token
