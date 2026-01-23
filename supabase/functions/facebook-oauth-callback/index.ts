@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
     // Redirect back to settings page with success using the app origin
     const redirectUrl = origin || url.origin;
     return Response.redirect(
-      `${redirectUrl}/settings?tab=integracoes&facebook=success`,
+      `${redirectUrl}/integrations?facebook=success`,
       302
     );
 
@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
     }
     
     return Response.redirect(
-      `${redirectOrigin}/settings?tab=integracoes&facebook=error&message=${encodeURIComponent(errorMessage)}`,
+      `${redirectOrigin}/integrations?facebook=error&message=${encodeURIComponent(errorMessage)}`,
       302
     );
   }
