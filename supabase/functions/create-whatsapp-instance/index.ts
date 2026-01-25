@@ -17,7 +17,25 @@ async function getOrCreateOrganizationId(
   supabase: any,
   user: { id: string; email?: string | null },
 ): Promise<string | null> {
-  // 1) Happy path: membership already linked by user_id
+  // PREVENÇÃO DE DUPLICATAS: Primeiro verificar se já é OWNER de alguma organização
+  const { data: existingOwner, error: ownerError } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .eq('role', 'owner')
+    .maybeSingle();
+
+  if (ownerError) {
+    console.warn('⚠️ Error checking existing owner status:', ownerError);
+  }
+
+  // Se já for owner, retornar a organização existente (NÃO criar nova)
+  if (existingOwner?.organization_id) {
+    console.log('✅ User already owns an organization:', existingOwner.organization_id);
+    return existingOwner.organization_id;
+  }
+
+  // 1) Happy path: membership already linked by user_id (como membro)
   const { data: memberByUser, error: memberByUserError } = await supabase
     .from('organization_members')
     .select('id, organization_id')
@@ -64,7 +82,8 @@ async function getOrCreateOrganizationId(
   }
 
   // 3) Last resort: create a new organization for this user
-  console.warn('⚠️ User has no organization. Creating a new organization automatically...');
+  // NOTA: Isso só acontece se o usuário NÃO for owner de nenhuma org
+  console.warn('⚠️ User has no organization and is not an owner. Creating a new organization...');
 
   const orgName = email ? `${email}'s Organization` : `Organização ${user.id.substring(0, 8)}`;
   const { data: newOrg, error: orgError } = await supabase

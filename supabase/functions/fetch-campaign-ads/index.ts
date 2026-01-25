@@ -211,11 +211,34 @@ Deno.serve(async (req) => {
     }
 
     // Fetch ads for the campaign with creative details
+    // IMPORTANTE: Incluir TODOS os status de anúncios para exibir mesmo campanhas pausadas/arquivadas
     const adsFields = 'id,name,status,effective_status,creative{id,name,thumbnail_url,image_url,body,title,call_to_action_type,object_type}';
+    
+    // Filtros: campanha específica + todos os status possíveis de anúncios
+    const adsFiltering = [
+      { field: 'campaign.id', operator: 'EQUAL', value: targetCampaignId },
+      { 
+        field: 'effective_status', 
+        operator: 'IN', 
+        value: [
+          'ACTIVE', 
+          'PAUSED', 
+          'ARCHIVED', 
+          'PENDING_REVIEW', 
+          'DISAPPROVED', 
+          'PREAPPROVED', 
+          'PENDING_BILLING_INFO', 
+          'CAMPAIGN_PAUSED', 
+          'ADSET_PAUSED', 
+          'IN_PROCESS', 
+          'WITH_ISSUES'
+        ]
+      }
+    ];
 
     const adsUrl = `https://graph.facebook.com/v18.0/${ad_account_id}/ads?` +
       `fields=${adsFields}` +
-      `&filtering=${encodeURIComponent(JSON.stringify([{ field: 'campaign.id', operator: 'EQUAL', value: targetCampaignId }]))}` +
+      `&filtering=${encodeURIComponent(JSON.stringify(adsFiltering))}` +
       `&access_token=${access_token}`;
 
     console.log('Fetching ads from Meta API...');
