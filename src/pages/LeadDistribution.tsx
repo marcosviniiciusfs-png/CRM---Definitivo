@@ -4,6 +4,8 @@ import { AgentDistributionSettings } from "@/components/AgentDistributionSetting
 import { DistributionHistory } from "@/components/DistributionHistory";
 import { Settings2, User, History } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 export default function LeadDistribution() {
   const permissions = usePermissions();

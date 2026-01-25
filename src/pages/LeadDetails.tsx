@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Phone, Mail, Building, Calendar, DollarSign, MessageSquare, Activity, Loader2, FileText, Paperclip } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -37,7 +38,7 @@ interface ActivityWithUser {
 const LeadDetails = () => {
   const { id: leadId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isReady } = useOrganizationReady();
   
   const [leadData, setLeadData] = useState<LeadData | null>(null);
   const [activities, setActivities] = useState<ActivityWithUser[]>([]);

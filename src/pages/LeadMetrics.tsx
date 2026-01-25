@@ -6,7 +6,8 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsToolti
 import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp, Search, Filter, Check, UserPlus, FileSpreadsheet } from "lucide-react";
 import { AdCard } from "@/components/AdCard";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { LoadingAnimation as LoadingAnimationComponent } from "@/components/LoadingAnimation";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -157,7 +158,7 @@ interface AdAccount {
 }
 
 const LeadMetrics = () => {
-  const { user } = useAuth();
+  const { user, organizationId, isReady } = useOrganizationReady();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [facebookMetrics, setFacebookMetrics] = useState<MetricsData | null>(null);
@@ -194,7 +195,7 @@ const LeadMetrics = () => {
   const [selectedAdAccountId, setSelectedAdAccountId] = useState<string | null>(null);
   const [availableAdAccounts, setAvailableAdAccounts] = useState<AdAccount[]>([]);
   const [selectedAdAccountName, setSelectedAdAccountName] = useState<string | null>(null);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [localOrganizationId, setLocalOrganizationId] = useState<string | null>(null);
   
   // Campaign ads modal states
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignBreakdown | null>(null);
@@ -306,7 +307,7 @@ const LeadMetrics = () => {
 
       if (!orgMember) return;
       
-      setOrganizationId(orgMember.organization_id);
+      setLocalOrganizationId(orgMember.organization_id);
 
       const { startDate, endDate } = getDateRange();
 

@@ -10,14 +10,14 @@ import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
 import { FunnelSelector } from "@/components/FunnelSelector";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 const Integrations = () => {
-  const { user } = useAuth();
+  const { user, organizationId, isReady } = useOrganizationReady();
   const permissions = usePermissions();
   const [loading, setLoading] = useState(true);
   const [webhookConfig, setWebhookConfig] = useState<{ webhook_token: string; is_active: boolean; tag_id?: string | null } | null>(null);
@@ -260,6 +260,15 @@ const Integrations = () => {
 
   // Página acessível a qualquer usuário autenticado
   // Funcionalidades de gerenciamento são controladas individualmente pelos componentes
+
+  // Guard: Aguardar inicialização completa (auth + org)
+  if (!isReady || !organizationId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingAnimation text="Carregando integrações..." />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

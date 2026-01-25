@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Settings2, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -74,7 +75,7 @@ const DEFAULT_STAGES = [
 
 const Pipeline = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, organizationId, isReady } = useOrganizationReady();
   const permissions = usePermissions();
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -1010,6 +1011,11 @@ const Pipeline = () => {
     [leads, activeId]
   );
 
+  // Guard: Aguardar inicialização completa (auth + org)
+  if (!isReady || !organizationId) {
+    return <LoadingAnimation text="Carregando pipeline..." />;
+  }
+  
   if (initialLoading) {
     return (
       <div className="space-y-6">
