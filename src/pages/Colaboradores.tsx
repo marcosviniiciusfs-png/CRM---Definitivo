@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -26,6 +27,7 @@ interface Colaborador {
   user_id: string | null;
   full_name?: string;
   avatar_url?: string;
+  is_active?: boolean;
 }
 
 const Colaboradores = () => {
@@ -39,6 +41,19 @@ const Colaboradores = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [colaboradorToDelete, setColaboradorToDelete] = useState<Colaborador | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
+  
+  // Edit modal state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [colaboradorToEdit, setColaboradorToEdit] = useState<Colaborador | null>(null);
+  const [editData, setEditData] = useState({
+    name: "",
+    email: "",
+    newPassword: "",
+    role: "member" as "owner" | "admin" | "member",
+    is_active: true
+  });
+  
   const [stats, setStats] = useState({
     ativos: 0,
     novos: 0,
@@ -66,7 +81,6 @@ const Colaboradores = () => {
   const loadOrganizationData = async () => {
     setIsLoading(true);
     try {
-      // Passo 1: Buscar usuário e organização em paralelo
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -100,9 +114,12 @@ const Colaboradores = () => {
       setUserRole(memberData.role);
       setCurrentUserId(user.id);
 
-      // Passo 2: Buscar membros (usando RPC segura) e subscription em PARALELO
+      // Fetch members with is_active column
       const [membersResult, subResult] = await Promise.all([
-        supabase.rpc('get_organization_members_masked'),
+        supabase
+          .from('organization_members')
+          .select('id, user_id, organization_id, role, created_at, email, is_active')
+          .eq('organization_id', orgId),
         supabase.functions.invoke('check-subscription')
       ]);
 
@@ -118,7 +135,7 @@ const Colaboradores = () => {
 
       const members = membersResult.data || [];
       
-      // Passo 3: Buscar profiles em paralelo (se houver membros com user_id)
+      // Fetch profiles in parallel
       const userIds = members.filter(m => m.user_id).map(m => m.user_id);
       let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
       
@@ -139,9 +156,10 @@ const Colaboradores = () => {
         }
       }
       
-      // Transformar e setar dados
+      // Transform and set data
       const transformedMembers = members.map((member: any) => ({
         ...member,
+        is_active: member.is_active ?? true,
         full_name: member.user_id && profilesMap[member.user_id] 
           ? profilesMap[member.user_id].full_name 
           : null,
@@ -152,30 +170,33 @@ const Colaboradores = () => {
       
       setColaboradores(transformedMembers);
       
-      // Calcular stats
+      // Calculate stats
       const now = new Date();
       const thisMonth = now.getMonth();
       const thisYear = now.getFullYear();
       
-      const novos = transformedMembers.filter((m: any) => {
+      const activeMembers = transformedMembers.filter((m: Colaborador) => m.is_active !== false);
+      const inactiveMembers = transformedMembers.filter((m: Colaborador) => m.is_active === false);
+      
+      const novos = activeMembers.filter((m: any) => {
         const createdDate = new Date(m.created_at);
         return createdDate.getMonth() === thisMonth && 
                createdDate.getFullYear() === thisYear;
       }).length;
       
       setStats({
-        ativos: transformedMembers.length,
+        ativos: activeMembers.length,
         novos: novos,
         saidas: 0,
-        inativos: 0
+        inativos: inactiveMembers.length
       });
 
-      // Setar subscription limits
+      // Set subscription limits
       const subData = subResult.data;
       if (subData?.subscribed && subData?.total_collaborators) {
         setSubscriptionLimits({
           total: subData.total_collaborators,
-          current: transformedMembers.length
+          current: activeMembers.length
         });
       }
     } catch (error) {
@@ -192,7 +213,6 @@ const Colaboradores = () => {
 
   const handleAddColaborador = async () => {
     try {
-      // Check if user has permission
       if (userRole !== 'owner' && userRole !== 'admin') {
         toast({
           title: "Acesso negado",
@@ -202,7 +222,6 @@ const Colaboradores = () => {
         return;
       }
 
-      // Validate all fields
       const validationResult = emailSchema.safeParse(newColaborador.email);
       
       if (!validationResult.success) {
@@ -243,7 +262,6 @@ const Colaboradores = () => {
 
       setIsLoading(true);
 
-      // Verificar sessão ativa
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast({
@@ -255,9 +273,6 @@ const Colaboradores = () => {
         return;
       }
 
-      console.log('🚀 Adicionando colaborador:', newColaborador.email);
-
-      // Use edge function to handle user creation and organization membership
       const { data, error } = await supabase.functions.invoke('add-organization-member', {
         body: {
           email: newColaborador.email.toLowerCase().trim(),
@@ -269,7 +284,6 @@ const Colaboradores = () => {
       });
 
       if (error) {
-        console.error('❌ Erro ao adicionar membro:', error);
         toast({
           title: "Erro ao adicionar colaborador",
           description: error.message || "Não foi possível adicionar o colaborador. Tente novamente.",
@@ -280,7 +294,6 @@ const Colaboradores = () => {
       }
 
       if (data?.error) {
-        console.error('❌ Erro retornado pela função:', data.error);
         toast({
           title: "Erro",
           description: data.error,
@@ -290,8 +303,6 @@ const Colaboradores = () => {
         return;
       }
 
-      console.log('✅ Colaborador adicionado com sucesso:', data);
-
       toast({
         title: "Sucesso!",
         description: data?.message || `${newColaborador.name} foi adicionado à organização com sucesso`,
@@ -300,11 +311,9 @@ const Colaboradores = () => {
       setIsDialogOpen(false);
       setNewColaborador({ name: "", email: "", password: "", role: "member" });
       
-      // Recarregar dados da organização
       await loadOrganizationData();
 
     } catch (error: any) {
-      console.error('❌ Erro inesperado:', error);
       toast({
         title: "Erro inesperado",
         description: error?.message || "Ocorreu um erro ao adicionar o colaborador. Por favor, tente novamente.",
@@ -315,8 +324,116 @@ const Colaboradores = () => {
     }
   };
 
+  const handleEditColaborador = (colaborador: Colaborador) => {
+    if (userRole !== 'owner' && userRole !== 'admin') {
+      toast({
+        title: "Acesso negado",
+        description: "Apenas proprietários e administradores podem editar colaboradores",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Admins cannot edit owners
+    if (userRole === 'admin' && colaborador.role === 'owner') {
+      toast({
+        title: "Acesso negado",
+        description: "Administradores não podem editar proprietários",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setColaboradorToEdit(colaborador);
+    setEditData({
+      name: colaborador.full_name || "",
+      email: colaborador.email || "",
+      newPassword: "",
+      role: colaborador.role as "owner" | "admin" | "member",
+      is_active: colaborador.is_active !== false
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!colaboradorToEdit) return;
+
+    // Validate email if changed
+    if (editData.email && editData.email !== colaboradorToEdit.email) {
+      const validationResult = emailSchema.safeParse(editData.email);
+      if (!validationResult.success) {
+        toast({
+          title: "Erro de validação",
+          description: "Por favor, insira um email válido",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Validate password if provided
+    if (editData.newPassword && editData.newPassword.length < 6) {
+      toast({
+        title: "Erro de validação",
+        description: "A nova senha deve ter pelo menos 6 caracteres",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('update-organization-member', {
+        body: {
+          memberId: colaboradorToEdit.id,
+          name: editData.name || undefined,
+          email: editData.email !== colaboradorToEdit.email ? editData.email : undefined,
+          newPassword: editData.newPassword || undefined,
+          role: editData.role !== colaboradorToEdit.role ? editData.role : undefined,
+          is_active: editData.is_active
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Erro ao atualizar",
+          description: error.message || "Não foi possível atualizar o colaborador",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data?.error) {
+        toast({
+          title: "Erro",
+          description: data.error,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Sucesso!",
+        description: "Colaborador atualizado com sucesso",
+      });
+
+      setIsEditDialogOpen(false);
+      setColaboradorToEdit(null);
+      await loadOrganizationData();
+
+    } catch (error: any) {
+      toast({
+        title: "Erro inesperado",
+        description: error?.message || "Ocorreu um erro ao atualizar o colaborador",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDeleteColaborador = (colaborador: Colaborador) => {
-    // Verificar se é owner
     if (userRole !== 'owner') {
       toast({
         title: "Acesso negado",
@@ -326,7 +443,6 @@ const Colaboradores = () => {
       return;
     }
 
-    // Impedir auto-exclusão
     if (colaborador.user_id === currentUserId) {
       toast({
         title: "Ação não permitida",
@@ -357,12 +473,10 @@ const Colaboradores = () => {
         description: `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi removido da organização`,
       });
 
-      // Recarregar dados
       await loadOrganizationData();
       setDeleteDialogOpen(false);
       setColaboradorToDelete(null);
     } catch (error: any) {
-      console.error('Erro ao excluir colaborador:', error);
       toast({
         title: "Erro ao excluir",
         description: error.message || "Não foi possível excluir o colaborador",
@@ -373,9 +487,14 @@ const Colaboradores = () => {
     }
   };
 
-  const filteredColaboradores = colaboradores.filter((colab) =>
-    colab.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
-  );
+  // Filter collaborators based on active status and search term
+  const filteredColaboradores = colaboradores
+    .filter((colab) => {
+      const matchesSearch = (colab.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        colab.email?.toLowerCase().includes(searchTerm.toLowerCase())) ?? false;
+      const matchesStatus = showInactive ? colab.is_active === false : colab.is_active !== false;
+      return matchesSearch && matchesStatus;
+    });
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -395,9 +514,13 @@ const Colaboradores = () => {
     }
   };
 
-  const getInitials = (email: string | null) => {
-    if (!email) return 'NC';
-    return email.substring(0, 2).toUpperCase();
+  const getInitials = (name: string | null) => {
+    if (!name) return 'NC';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -464,8 +587,11 @@ const Colaboradores = () => {
                 </Button>
               </>
             )}
-            <Button variant="secondary">
-              Ver Inativos
+            <Button 
+              variant={showInactive ? "default" : "secondary"}
+              onClick={() => setShowInactive(!showInactive)}
+            >
+              {showInactive ? "Ver Ativos" : "Ver Inativos"}
             </Button>
           </div>
 
@@ -535,9 +661,15 @@ const Colaboradores = () => {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-6">
               <Users className="h-5 w-5 text-blue-600" />
-              <h2 className="text-xl font-semibold text-foreground">Lista de Colaboradores</h2>
+              <h2 className="text-xl font-semibold text-foreground">
+                {showInactive ? "Colaboradores Inativos" : "Lista de Colaboradores"}
+              </h2>
             </div>
-            <p className="text-sm text-muted-foreground mb-6">Gerencie colaboradores, cargos e status de convites.</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              {showInactive 
+                ? "Colaboradores com acesso desativado. Você pode reativá-los a qualquer momento."
+                : "Gerencie colaboradores, cargos e status de convites."}
+            </p>
 
             {/* Controls */}
             <div className="flex items-center justify-between mb-6">
@@ -560,7 +692,7 @@ const Colaboradores = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Buscar por email..."
+                  placeholder="Buscar por nome ou email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-64"
@@ -577,20 +709,20 @@ const Colaboradores = () => {
                     <TableHead className="font-semibold">CARGO</TableHead>
                     <TableHead className="font-semibold">STATUS</TableHead>
                     <TableHead className="font-semibold">CRIAÇÃO</TableHead>
-                    {userRole === 'owner' && <TableHead className="font-semibold">AÇÕES</TableHead>}
+                    {(userRole === 'owner' || userRole === 'admin') && <TableHead className="font-semibold">AÇÕES</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={userRole === 'owner' ? 5 : 4} className="text-center py-8">
+                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 5 : 4} className="text-center py-8">
                         <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
                       </TableCell>
                     </TableRow>
                   ) : filteredColaboradores.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={userRole === 'owner' ? 5 : 4} className="text-center py-8 text-muted-foreground">
-                        Nenhum colaborador encontrado
+                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 5 : 4} className="text-center py-8 text-muted-foreground">
+                        {showInactive ? "Nenhum colaborador inativo" : "Nenhum colaborador encontrado"}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -611,13 +743,11 @@ const Colaboradores = () => {
                             </Avatar>
                             <div>
                               <p className="font-medium text-foreground">
-                                {colab.full_name || colab.email || 'Nome não cadastrado'}
+                                {colab.full_name || 'Nome não cadastrado'}
                               </p>
-                              {colab.full_name && (
-                                <p className="text-sm text-muted-foreground">
-                                  {colab.email}
-                                </p>
-                              )}
+                              <p className="text-sm text-muted-foreground">
+                                {colab.email}
+                              </p>
                             </div>
                           </div>
                         </TableCell>
@@ -627,7 +757,11 @@ const Colaboradores = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {colab.user_id ? (
+                          {colab.is_active === false ? (
+                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
+                              Inativo
+                            </Badge>
+                          ) : colab.user_id ? (
                             <Badge style={{ backgroundColor: '#66ee78', color: '#000' }}>
                               Ativo
                             </Badge>
@@ -640,22 +774,36 @@ const Colaboradores = () => {
                         <TableCell className="text-gray-600">
                           {new Date(colab.created_at).toLocaleDateString('pt-BR')}
                         </TableCell>
-                        {userRole === 'owner' && (
+                        {(userRole === 'owner' || userRole === 'admin') && (
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteColaborador(colab)}
-                              disabled={colab.user_id === currentUserId}
-                              className={
-                                colab.user_id === currentUserId
-                                  ? "text-muted-foreground cursor-not-allowed"
-                                  : "text-red-600 hover:text-red-700 hover:bg-red-50"
-                              }
-                            >
-                              <UserX className="h-4 w-4 mr-1" />
-                              Excluir
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditColaborador(colab)}
+                                disabled={userRole === 'admin' && colab.role === 'owner'}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                Editar
+                              </Button>
+                              {userRole === 'owner' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteColaborador(colab)}
+                                  disabled={colab.user_id === currentUserId}
+                                  className={
+                                    colab.user_id === currentUserId
+                                      ? "text-muted-foreground cursor-not-allowed"
+                                      : "text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  }
+                                >
+                                  <UserX className="h-4 w-4 mr-1" />
+                                  Excluir
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -748,6 +896,111 @@ const Colaboradores = () => {
                   </>
                 ) : (
                   "Criar Colaborador"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para editar colaborador */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Editar Colaborador</DialogTitle>
+              <DialogDescription>
+                Atualize as informações do colaborador.
+              </DialogDescription>
+            </DialogHeader>
+            {colaboradorToEdit && (
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-name">Nome Completo</Label>
+                  <Input
+                    id="edit-name"
+                    type="text"
+                    placeholder="Nome do colaborador"
+                    value={editData.name}
+                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    placeholder="colaborador@exemplo.com"
+                    value={editData.email}
+                    onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-password">Nova Senha (deixe vazio para manter)</Label>
+                  <Input
+                    id="edit-password"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={editData.newPassword}
+                    onChange={(e) => setEditData({ ...editData, newPassword: e.target.value })}
+                  />
+                </div>
+                {userRole === 'owner' && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-role">Cargo</Label>
+                    <Select
+                      value={editData.role}
+                      onValueChange={(value: "owner" | "admin" | "member") => 
+                        setEditData({ ...editData, role: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="member">Membro</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="owner">Proprietário</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <Label htmlFor="edit-active" className="text-base font-medium">Acesso Ativo</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {editData.is_active ? "O colaborador pode acessar o sistema" : "O acesso está desativado"}
+                    </p>
+                  </div>
+                  <Switch
+                    id="edit-active"
+                    checked={editData.is_active}
+                    onCheckedChange={(checked) => setEditData({ ...editData, is_active: checked })}
+                    disabled={colaboradorToEdit.user_id === currentUserId}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setColaboradorToEdit(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar Alterações"
                 )}
               </Button>
             </DialogFooter>
