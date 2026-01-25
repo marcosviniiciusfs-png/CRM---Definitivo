@@ -13,6 +13,7 @@ interface UpdateMemberRequest {
   newPassword?: string;
   role?: "owner" | "admin" | "member";
   is_active?: boolean;
+  custom_role_id?: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
 
     // Parse body
     const body: UpdateMemberRequest = await req.json();
-    const { memberId, name, email, newPassword, role, is_active } = body;
+    const { memberId, name, email, newPassword, role, is_active, custom_role_id } = body;
 
     if (!memberId) {
       return new Response(JSON.stringify({ error: "ID do membro é obrigatório" }), {
@@ -133,10 +134,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update organization_members table (role, is_active, and display_name for users without user_id)
+    // Update organization_members table (role, is_active, custom_role_id, and display_name for users without user_id)
     const memberUpdates: Record<string, unknown> = {};
     if (role !== undefined) memberUpdates.role = role;
     if (is_active !== undefined) memberUpdates.is_active = is_active;
+    if (custom_role_id !== undefined) memberUpdates.custom_role_id = custom_role_id;
     
     // If no user_id, store name in display_name column
     if (!targetMember.user_id && name !== undefined) {

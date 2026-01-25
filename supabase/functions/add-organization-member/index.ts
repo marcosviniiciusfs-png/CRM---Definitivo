@@ -69,7 +69,7 @@ serve(async (req) => {
     const currentUser = userData.user
     console.log('User authenticated:', currentUser.id)
 
-    const { email, password, name, role, organizationId } = await req.json()
+    const { email, password, name, role, organizationId, custom_role_id } = await req.json()
 
     if (!email || !password || !name || !role || !organizationId) {
       return new Response(
@@ -225,7 +225,8 @@ serve(async (req) => {
           organization_id: organizationId,
           user_id: null, // Será atualizado pelo trigger após criar o usuário
           role: role,
-          email: emailLower
+          email: emailLower,
+          custom_role_id: custom_role_id || null
         })
 
       if (preInsertError) {
@@ -283,7 +284,8 @@ serve(async (req) => {
           organization_id: organizationId,
           user_id: userId,
           role: role,
-          email: emailLower
+          email: emailLower,
+          custom_role_id: custom_role_id || null
         })
 
       if (memberError) {

@@ -458,8 +458,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>
               {editingRole ? "Editar Cargo" : "Criar Novo Cargo"}
             </DialogTitle>
@@ -468,7 +468,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="max-h-[60vh] pr-4">
+          <ScrollArea className="flex-1 max-h-[calc(85vh-180px)] pr-4">
             <div className="space-y-6">
               {/* Basic Info */}
               <div className="space-y-4">
@@ -495,14 +495,14 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                 </div>
                 <div>
                   <Label>Cor do Cargo</Label>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {colorOptions.map((color) => (
                       <button
                         key={color}
                         type="button"
-                        className={`w-8 h-8 rounded-full border-2 transition-all ${
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all flex-shrink-0 ${
                           formData.color === color 
-                            ? "border-foreground scale-110" 
+                            ? "border-foreground scale-110 ring-2 ring-offset-2 ring-foreground/30" 
                             : "border-transparent hover:scale-105"
                         }`}
                         style={{ backgroundColor: color }}
@@ -701,7 +701,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             </div>
           </ScrollArea>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>

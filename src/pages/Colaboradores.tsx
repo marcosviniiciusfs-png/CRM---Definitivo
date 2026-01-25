@@ -30,6 +30,13 @@ interface Colaborador {
   avatar_url?: string;
   is_active?: boolean;
   display_name?: string;
+  custom_role_id?: string | null;
+}
+
+interface CustomRoleOption {
+  id: string;
+  name: string;
+  color: string;
 }
 
 const Colaboradores = () => {
@@ -53,7 +60,8 @@ const Colaboradores = () => {
     email: "",
     newPassword: "",
     role: "member" as "owner" | "admin" | "member",
-    is_active: true
+    is_active: true,
+    custom_role_id: null as string | null
   });
   
   const [stats, setStats] = useState({
@@ -71,8 +79,11 @@ const Colaboradores = () => {
     name: "",
     email: "",
     password: "",
-    role: "member" as "owner" | "admin" | "member"
+    role: "member" as "owner" | "admin" | "member",
+    custom_role_id: null as string | null
   });
+  
+  const [customRoles, setCustomRoles] = useState<CustomRoleOption[]>([]);
   
   const { toast } = useToast();
 
@@ -116,14 +127,23 @@ const Colaboradores = () => {
       setUserRole(memberData.role);
       setCurrentUserId(user.id);
 
-      // Fetch members with is_active and display_name columns
-      const [membersResult, subResult] = await Promise.all([
+      // Fetch members, custom roles and subscription in parallel
+      const [membersResult, rolesResult, subResult] = await Promise.all([
         supabase
           .from('organization_members')
-          .select('id, user_id, organization_id, role, created_at, email, is_active, display_name')
+          .select('id, user_id, organization_id, role, created_at, email, is_active, display_name, custom_role_id')
+          .eq('organization_id', orgId),
+        supabase
+          .from('organization_custom_roles')
+          .select('id, name, color')
           .eq('organization_id', orgId),
         supabase.functions.invoke('check-subscription')
       ]);
+
+      // Set custom roles
+      if (rolesResult.data) {
+        setCustomRoles(rolesResult.data);
+      }
 
       if (membersResult.error) {
         toast({
@@ -286,7 +306,8 @@ const Colaboradores = () => {
           password: newColaborador.password,
           name: newColaborador.name.trim(),
           role: newColaborador.role,
-          organizationId: organizationId
+          organizationId: organizationId,
+          custom_role_id: newColaborador.custom_role_id || null
         }
       });
 
@@ -316,7 +337,7 @@ const Colaboradores = () => {
       });
 
       setIsDialogOpen(false);
-      setNewColaborador({ name: "", email: "", password: "", role: "member" });
+      setNewColaborador({ name: "", email: "", password: "", role: "member", custom_role_id: null });
       
       await loadOrganizationData();
 
@@ -357,7 +378,8 @@ const Colaboradores = () => {
       email: colaborador.email || "",
       newPassword: "",
       role: colaborador.role as "owner" | "admin" | "member",
-      is_active: colaborador.is_active !== false
+      is_active: colaborador.is_active !== false,
+      custom_role_id: colaborador.custom_role_id || null
     });
     setIsEditDialogOpen(true);
   };
@@ -398,7 +420,8 @@ const Colaboradores = () => {
           email: editData.email !== colaboradorToEdit.email ? editData.email : undefined,
           newPassword: editData.newPassword || undefined,
           role: editData.role !== colaboradorToEdit.role ? editData.role : undefined,
-          is_active: editData.is_active
+          is_active: editData.is_active,
+          custom_role_id: editData.custom_role_id
         }
       });
 
@@ -758,9 +781,23 @@ const Colaboradores = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={getRoleColor(colab.role)}>
-                            {getRoleLabel(colab.role)}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge className={getRoleColor(colab.role)}>
+                              {getRoleLabel(colab.role)}
+                            </Badge>
+                            {colab.custom_role_id && customRoles.find(r => r.id === colab.custom_role_id) && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs"
+                                style={{ 
+                                  borderColor: customRoles.find(r => r.id === colab.custom_role_id)?.color,
+                                  color: customRoles.find(r => r.id === colab.custom_role_id)?.color 
+                                }}
+                              >
+                                {customRoles.find(r => r.id === colab.custom_role_id)?.name}
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {colab.is_active === false ? (
@@ -862,7 +899,7 @@ const Colaboradores = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Cargo</Label>
+                <Label htmlFor="role">Papel Base</Label>
                 <Select
                   value={newColaborador.role}
                   onValueChange={(value: "owner" | "admin" | "member") => 
@@ -879,13 +916,44 @@ const Colaboradores = () => {
                   </SelectContent>
                 </Select>
               </div>
+              {customRoles.length > 0 && (
+                <div className="grid gap-2">
+                  <Label htmlFor="custom_role">Cargo Personalizado</Label>
+                  <Select
+                    value={newColaborador.custom_role_id || "none"}
+                    onValueChange={(value) => 
+                      setNewColaborador({ ...newColaborador, custom_role_id: value === "none" ? null : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um cargo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <span className="text-muted-foreground">Usar permissões do papel base</span>
+                      </SelectItem>
+                      {customRoles.map(role => (
+                        <SelectItem key={role.id} value={role.id}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: role.color }} />
+                            {role.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Permissões adicionais além do papel base
+                  </p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
                   setIsDialogOpen(false);
-                  setNewColaborador({ name: "", email: "", password: "", role: "member" });
+                  setNewColaborador({ name: "", email: "", password: "", role: "member", custom_role_id: null });
                 }}
               >
                 Cancelar
@@ -951,7 +1019,7 @@ const Colaboradores = () => {
                 </div>
                 {userRole === 'owner' && (
                   <div className="grid gap-2">
-                    <Label htmlFor="edit-role">Cargo</Label>
+                    <Label htmlFor="edit-role">Papel Base</Label>
                     <Select
                       value={editData.role}
                       onValueChange={(value: "owner" | "admin" | "member") => 
@@ -967,6 +1035,37 @@ const Colaboradores = () => {
                         <SelectItem value="owner">Proprietário</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+                {customRoles.length > 0 && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-custom-role">Cargo Personalizado</Label>
+                    <Select
+                      value={editData.custom_role_id || "none"}
+                      onValueChange={(value) => 
+                        setEditData({ ...editData, custom_role_id: value === "none" ? null : value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um cargo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">Usar permissões do papel base</span>
+                        </SelectItem>
+                        {customRoles.map(role => (
+                          <SelectItem key={role.id} value={role.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: role.color }} />
+                              {role.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Permissões adicionais além do papel base
+                    </p>
                   </div>
                 )}
                 <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
