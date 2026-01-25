@@ -980,6 +980,7 @@ export type Database = {
         Row: {
           calendar_event_id: string | null
           calendar_event_link: string | null
+          color: string | null
           column_id: string
           content: string
           created_at: string
@@ -999,6 +1000,7 @@ export type Database = {
         Insert: {
           calendar_event_id?: string | null
           calendar_event_link?: string | null
+          color?: string | null
           column_id: string
           content: string
           created_at?: string
@@ -1018,6 +1020,7 @@ export type Database = {
         Update: {
           calendar_event_id?: string | null
           calendar_event_link?: string | null
+          color?: string | null
           column_id?: string
           content?: string
           created_at?: string

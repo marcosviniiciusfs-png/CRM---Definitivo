@@ -42,6 +42,7 @@ interface Card {
   lead_id?: string;
   lead?: Lead;
   is_collaborative?: boolean;
+  color?: string | null;
   requires_all_approval?: boolean;
   timer_start_column_id?: string;
 }
@@ -66,7 +67,18 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
   const [editEstimatedTime, setEditEstimatedTime] = useState(
     card.estimated_time?.toString() || ""
   );
+  const [editColor, setEditColor] = useState(card.color || "");
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+
+  const colorOptions = [
+    { value: "", label: "Sem cor" },
+    { value: "#EF4444", label: "Vermelho" },
+    { value: "#F97316", label: "Laranja" },
+    { value: "#EAB308", label: "Amarelo" },
+    { value: "#22C55E", label: "Verde" },
+    { value: "#3B82F6", label: "Azul" },
+    { value: "#8B5CF6", label: "Roxo" },
+  ];
 
   const isTimerActive = card.estimated_time && !card.due_date;
   const { formatTimerDisplay, isOvertime } = useCardTimer({
@@ -90,6 +102,7 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
         description: editDescription || undefined,
         due_date: editDueDate || undefined,
         estimated_time: editEstimatedTime ? parseInt(editEstimatedTime) : undefined,
+        color: editColor || null,
       },
       oldDescription
     );
@@ -118,10 +131,13 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        backgroundColor: card.color ? `${card.color}1A` : undefined, // 1A = 10% opacity in hex
+      }}
       className={`kanban-card bg-card border rounded-lg p-3 mb-2 group relative shadow-sm ${
         !isEditing ? "cursor-grab active:cursor-grabbing" : ""
-      } ${card.is_collaborative ? "ring-1 ring-primary/30 hover:ring-primary/60 transition-all" : ""}`}
+      } ${card.is_collaborative ? "ring-1 ring-amber-500/40 hover:ring-amber-500/70 transition-all" : ""}`}
       {...(!isEditing ? { ...attributes, ...listeners } : {})}
     >
       <div className="flex items-start gap-2">
@@ -172,6 +188,32 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
                     placeholder="60"
                     min="0"
                   />
+                </div>
+              </div>
+
+              {/* Color Picker */}
+              <div>
+                <label className="text-xs font-medium mb-1 block">Cor</label>
+                <div className="flex flex-wrap gap-2">
+                  {colorOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`w-6 h-6 rounded-full border-2 transition-all flex-shrink-0 ${
+                        editColor === option.value
+                          ? "border-foreground scale-110 ring-2 ring-offset-1 ring-foreground/30"
+                          : "border-muted hover:scale-105"
+                      }`}
+                      style={{
+                        backgroundColor: option.value || "transparent",
+                        backgroundImage: !option.value ? "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)" : undefined,
+                        backgroundSize: !option.value ? "6px 6px" : undefined,
+                        backgroundPosition: !option.value ? "0 0, 0 3px, 3px -3px, -3px 0px" : undefined,
+                      }}
+                      onClick={() => setEditColor(option.value)}
+                      title={option.label}
+                    />
+                  ))}
                 </div>
               </div>
 
