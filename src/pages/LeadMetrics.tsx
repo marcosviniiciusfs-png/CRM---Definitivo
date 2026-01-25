@@ -413,6 +413,14 @@ const LeadMetrics = () => {
       }
 
       if (data?.error) {
+        // Silence "not configured" errors - treat as normal state
+        if (data.error.includes('integration not found') || 
+            data.error.includes('not configured') ||
+            data.error.includes('Facebook integration not found')) {
+          setAdsError(null);
+          setAdsMetrics(null);
+          return;
+        }
         console.log('Ads insights error:', data.error);
         setAdsError(data.error);
         setAdsMetrics(null);

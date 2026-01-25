@@ -1,6 +1,6 @@
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import kairozLogo from "@/assets/kairoz-logo.png";
 import individualGif from "@/assets/individual.gif";
@@ -11,6 +11,11 @@ import AnimatedChatIcon from "@/components/AnimatedChatIcon";
 const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+
+  // Redirect authenticated users to dashboard
+  if (!loading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
  
   const handleStartClick = () => {
     if (user) {
