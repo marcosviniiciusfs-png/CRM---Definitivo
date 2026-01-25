@@ -73,7 +73,7 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
                 </div>
                 <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
                   <AvatarImage src={rep.avatar_url || undefined} />
-                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                  <AvatarFallback className="text-xs bg-muted text-muted-foreground">
                     {getInitials(rep.full_name)}
                   </AvatarFallback>
                 </Avatar>

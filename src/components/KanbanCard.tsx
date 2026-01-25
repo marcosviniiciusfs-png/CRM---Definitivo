@@ -200,7 +200,7 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div 
-                        className="flex items-center gap-1 px-2 py-1 bg-accent text-accent-foreground rounded cursor-pointer hover:bg-accent/80 transition-colors text-xs"
+                        className="flex items-center gap-1 px-2 py-1 bg-muted text-foreground border border-primary/20 rounded cursor-pointer hover:bg-muted/80 transition-colors text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/leads/${card.lead!.id}`);

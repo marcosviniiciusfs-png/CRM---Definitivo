@@ -324,7 +324,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
                   />
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={member.avatar_url} />
-                    <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                    <AvatarFallback className="bg-muted text-muted-foreground text-xs">
                       {(member.full_name || member.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>

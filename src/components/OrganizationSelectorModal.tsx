@@ -21,7 +21,7 @@ interface OrganizationSelectorModalProps {
 }
 
 const roleConfig = {
-  owner: { label: 'Proprietário', icon: Crown, color: 'bg-primary/10 text-primary border-primary/20' },
+  owner: { label: 'Proprietário', icon: Crown, color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30' },
   admin: { label: 'Administrador', icon: Shield, color: 'bg-secondary text-secondary-foreground border-border' },
   member: { label: 'Membro', icon: User, color: 'bg-muted text-muted-foreground border-border' },
 };
