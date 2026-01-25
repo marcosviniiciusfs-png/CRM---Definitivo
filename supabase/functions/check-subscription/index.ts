@@ -23,6 +23,12 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
   );
 
+  // Admin client for fetching owner email when needed
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+
   try {
     logStep("Function started");
 
@@ -67,11 +73,51 @@ serve(async (req) => {
     const user = userData.user;
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Parse request body for organization_id
+    let organizationId: string | null = null;
+    try {
+      const body = await req.json();
+      organizationId = body.organization_id || null;
+    } catch {
+      // No body or invalid JSON - that's okay, will use user's email
+    }
+
+    // Determine which email to use for Stripe check
+    let emailToCheck = user.email;
+
+    if (organizationId) {
+      logStep("Organization ID provided, fetching owner", { organizationId });
+      
+      // Get the owner of this organization using the RPC function
+      const { data: ownerUserId, error: ownerError } = await supabaseClient.rpc(
+        'get_organization_owner',
+        { p_organization_id: organizationId }
+      );
+
+      if (ownerError) {
+        logStep("Error fetching organization owner", { error: ownerError.message });
+        // Fall back to user's own email if there's an error
+      } else if (ownerUserId) {
+        logStep("Found organization owner", { ownerUserId });
+        
+        // Get the owner's email using admin client
+        const { data: ownerData, error: ownerUserError } = await supabaseAdmin.auth.admin.getUserById(ownerUserId);
+        
+        if (ownerUserError || !ownerData?.user?.email) {
+          logStep("Error fetching owner email", { error: ownerUserError?.message });
+          // Fall back to user's own email
+        } else {
+          emailToCheck = ownerData.user.email;
+          logStep("Using owner's email for subscription check", { ownerEmail: emailToCheck });
+        }
+      }
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email: emailToCheck, limit: 1 });
     
     if (customers.data.length === 0) {
-      logStep("No customer found, updating unsubscribed state");
+      logStep("No customer found, returning unsubscribed state", { emailChecked: emailToCheck });
       return new Response(JSON.stringify({ subscribed: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -79,7 +125,7 @@ serve(async (req) => {
     }
 
     const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
+    logStep("Found Stripe customer", { customerId, emailChecked: emailToCheck });
 
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
@@ -137,10 +183,12 @@ serve(async (req) => {
         productId, 
         maxCollaborators, 
         extraCollaborators,
-        totalCollaborators: maxCollaborators + extraCollaborators
+        totalCollaborators: maxCollaborators + extraCollaborators,
+        organizationId: organizationId || 'not specified',
+        ownerEmail: emailToCheck
       });
     } else {
-      logStep("No active subscription found");
+      logStep("No active subscription found", { emailChecked: emailToCheck });
     }
 
     return new Response(JSON.stringify({

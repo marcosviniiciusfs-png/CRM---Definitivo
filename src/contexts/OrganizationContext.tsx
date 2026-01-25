@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
+import { OrganizationSelectorModal, OrganizationMembership } from "@/components/OrganizationSelectorModal";
 
 interface Permissions {
   canManageCollaborators: boolean;
@@ -23,14 +24,7 @@ interface Permissions {
   loading: boolean;
 }
 
-export interface OrganizationMembership {
-  organization_id: string;
-  role: 'owner' | 'admin' | 'member';
-  organizations: {
-    id: string;
-    name: string;
-  };
-}
+export type { OrganizationMembership };
 
 interface OrganizationContextType {
   organizationId: string | null;
@@ -38,6 +32,7 @@ interface OrganizationContextType {
   availableOrganizations: OrganizationMembership[];
   switchOrganization: (orgId: string) => Promise<void>;
   refresh: () => Promise<void>;
+  needsOrgSelection: boolean;
 }
 
 const defaultPermissions: Permissions = {
@@ -155,13 +150,15 @@ const OrganizationContext = createContext<OrganizationContextType>({
   availableOrganizations: [],
   switchOrganization: async () => {},
   refresh: async () => {},
+  needsOrgSelection: false,
 });
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, refreshSubscription } = useAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Permissions>(defaultPermissions);
   const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
+  const [needsOrgSelection, setNeedsOrgSelection] = useState(false);
   const dataLoadedRef = useRef(false);
 
   const loadOrganizationData = useCallback(async (forceRefresh = false, selectedOrgId?: string) => {
@@ -169,6 +166,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
       setAvailableOrganizations([]);
+      setNeedsOrgSelection(false);
       clearOrgCache();
       dataLoadedRef.current = false;
       return;
@@ -182,40 +180,35 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setOrganizationId(cachedData.selectedOrganizationId);
         setAvailableOrganizations(cachedData.availableOrganizations);
         setPermissions({ ...cachedData.permissions, loading: false });
+        setNeedsOrgSelection(false);
         dataLoadedRef.current = true;
         return;
       }
     }
 
     try {
-      console.log('[ORG] Fetching organization data from API');
+      console.log('[ORG] Fetching organization data via RPC');
       
-      // Buscar TODAS as organizações do usuário
-      const { data: memberships, error } = await supabase
-        .from('organization_members')
-        .select(`
-          organization_id, 
-          role,
-          organizations (
-            id,
-            name
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('is_active', true);
+      // USAR A NOVA RPC SECURITY DEFINER que contorna as políticas RLS
+      const { data: memberships, error } = await supabase.rpc('get_my_organization_memberships');
 
       if (error) {
-        console.error('[ORG] Error fetching memberships:', error);
+        console.error('[ORG] Error fetching memberships via RPC:', error);
         setPermissions(prev => ({ ...prev, loading: false }));
         return;
       }
 
+      console.log('[ORG] Memberships returned:', memberships?.length, memberships);
+
       if (memberships && memberships.length > 0) {
-        // Formatar dados
-        const formattedMemberships: OrganizationMembership[] = memberships.map(m => ({
+        // Formatar dados para compatibilidade com o resto do sistema
+        const formattedMemberships: OrganizationMembership[] = memberships.map((m: any) => ({
           organization_id: m.organization_id,
           role: m.role as 'owner' | 'admin' | 'member',
-          organizations: m.organizations as { id: string; name: string }
+          organizations: { 
+            id: m.organization_id, 
+            name: m.organization_name 
+          }
         }));
 
         setAvailableOrganizations(formattedMemberships);
@@ -237,8 +230,16 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        // Se tem múltiplas orgs e nenhuma foi selecionada ainda (nem por cache, nem por param)
+        if (!targetOrgId && formattedMemberships.length > 1) {
+          console.log('[ORG] Multiple organizations detected, requires selection');
+          setNeedsOrgSelection(true);
+          setPermissions(prev => ({ ...prev, loading: false }));
+          return; // NÃO auto-selecionar, esperar usuário escolher
+        }
+
         if (!targetOrgId) {
-          // Priorizar org onde é owner, depois admin, depois member
+          // Única organização ou seleção automática para caso com 1 org
           const sortedMemberships = [...formattedMemberships].sort((a, b) => {
             const order = { owner: 0, admin: 1, member: 2 };
             return order[a.role] - order[b.role];
@@ -247,6 +248,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         }
 
         setOrganizationId(targetOrgId);
+        setNeedsOrgSelection(false);
 
         // Calcular permissões baseado na org selecionada
         const selectedMembership = formattedMemberships.find(
@@ -258,14 +260,47 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setPermissions(newPermissions);
         setOrgCache(targetOrgId, formattedMemberships, newPermissions, user.id);
         dataLoadedRef.current = true;
+
+        // Atualizar subscription com a organização correta
+        console.log('[ORG] Refreshing subscription for organization:', targetOrgId);
+        refreshSubscription(targetOrgId);
       } else {
+        console.log('[ORG] No memberships found');
         setPermissions(prev => ({ ...prev, loading: false }));
       }
     } catch (error) {
       console.error('Error loading organization data:', error);
       setPermissions(prev => ({ ...prev, loading: false }));
     }
-  }, [user]);
+  }, [user, refreshSubscription]);
+
+  const handleOrgSelect = useCallback(async (orgId: string) => {
+    if (!user) return;
+    
+    const targetMembership = availableOrganizations.find(
+      m => m.organization_id === orgId
+    );
+    
+    if (!targetMembership) {
+      console.error('[ORG] Organization not found in available organizations');
+      return;
+    }
+
+    console.log('[ORG] User selected organization:', orgId);
+    
+    setOrganizationId(orgId);
+    setNeedsOrgSelection(false);
+    
+    const newPermissions = calculatePermissions(targetMembership.role);
+    setPermissions(newPermissions);
+    
+    // Atualizar cache com a nova seleção
+    setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
+    
+    // Atualizar subscription com a nova organização
+    console.log('[ORG] Refreshing subscription after org selection:', orgId);
+    refreshSubscription(orgId);
+  }, [user, availableOrganizations, refreshSubscription]);
 
   const switchOrganization = useCallback(async (orgId: string) => {
     if (!user) return;
@@ -288,7 +323,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     
     // Atualizar cache com a nova seleção
     setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
-  }, [user, availableOrganizations]);
+    
+    // IMPORTANTE: Atualizar subscription com a nova organização
+    console.log('[ORG] Refreshing subscription after org switch:', orgId);
+    await refreshSubscription(orgId);
+  }, [user, availableOrganizations, refreshSubscription]);
 
   // Initial load with cache - OPTIMIZED: Immediate UI unlock
   useEffect(() => {
@@ -296,6 +335,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
       setAvailableOrganizations([]);
+      setNeedsOrgSelection(false);
       return;
     }
 
@@ -306,6 +346,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setOrganizationId(cachedData.selectedOrganizationId);
       setAvailableOrganizations(cachedData.availableOrganizations);
       setPermissions({ ...cachedData.permissions, loading: false });
+      setNeedsOrgSelection(false);
       dataLoadedRef.current = true;
       
       // Refresh in background silently
@@ -313,14 +354,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     } else {
       // SEM CACHE: Setar loading=false com permissões padrão de member
       // para não bloquear a UI, depois atualizar quando dados chegarem
-      console.log('[ORG] No cache - setting default member permissions');
+      console.log('[ORG] No cache - loading data from API');
       setPermissions({
         ...defaultPermissions,
         loading: false,
         role: 'member', // Assumir member por padrão para não bloquear
       });
       
-      // Carregar dados reais em background
+      // Carregar dados reais
       loadOrganizationData();
     }
   }, [user?.id]); // Only depend on user.id to avoid re-running on every user object change
@@ -335,8 +376,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       permissions,
       availableOrganizations,
       switchOrganization,
-      refresh 
+      refresh,
+      needsOrgSelection
     }}>
+      {/* GATE GLOBAL: Modal de seleção de organização */}
+      {user && needsOrgSelection && availableOrganizations.length > 1 && (
+        <OrganizationSelectorModal
+          open={true}
+          organizations={availableOrganizations}
+          onSelect={handleOrgSelect}
+        />
+      )}
       {children}
     </OrganizationContext.Provider>
   );
