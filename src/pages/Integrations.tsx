@@ -9,7 +9,7 @@ import { Link2, Copy, RefreshCw, Pencil, X, Check, FileText, MessageSquare, BarC
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
-import { GlobalFunnelMapping } from "@/components/GlobalFunnelMapping";
+import { FunnelSelector } from "@/components/FunnelSelector";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -406,11 +406,13 @@ const Integrations = () => {
                     Use esta URL como destino (action) do seu formulário. Envie dados via POST com os campos: <code className="px-1 py-0.5 bg-muted rounded">nome</code> e <code className="px-1 py-0.5 bg-muted rounded">telefone</code> (obrigatórios), <code className="px-1 py-0.5 bg-muted rounded">email</code>, <code className="px-1 py-0.5 bg-muted rounded">empresa</code>, <code className="px-1 py-0.5 bg-muted rounded">valor</code> (opcionais).
                   </p>
                 </div>
+                <FunnelSelector sourceType="webhook" className="mt-4" />
+
                 <Button 
                   variant="outline" 
                   onClick={handleRegenerateWebhook}
                   disabled={loadingWebhook}
-                  className="w-full"
+                  className="w-full mt-4"
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${loadingWebhook ? 'animate-spin' : ''}`} />
                   Regenerar Token
@@ -420,7 +422,7 @@ const Integrations = () => {
           </CardContent>
         </Card>
 
-        <GlobalFunnelMapping />
+        
 
         <Card>
           <CardHeader>
