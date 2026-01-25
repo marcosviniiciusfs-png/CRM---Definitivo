@@ -1,32 +1,11 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 const Tasks = () => {
-  const { user } = useAuth();
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { organizationId, isInitialized } = useOrganization();
 
-  useEffect(() => {
-    const fetchOrganizationId = async () => {
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .single();
-
-      setOrganizationId(data?.organization_id || null);
-      setLoading(false);
-    };
-
-    fetchOrganizationId();
-  }, [user]);
-
-  if (loading) {
+  if (!isInitialized) {
     return <LoadingAnimation text="Carregando tarefas..." />;
   }
 
