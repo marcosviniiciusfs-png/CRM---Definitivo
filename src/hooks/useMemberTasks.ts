@@ -25,34 +25,53 @@ export function useMemberTasks(userId: string | undefined, organizationId: strin
         return { total: 0, byColumn: [], overdueCount: 0 };
       }
 
-      // Buscar tarefas atribuídas ao usuário
-      const { data: assignees, error } = await supabase
+      // Step 1: Get card_ids assigned to this user
+      const { data: assignedCards, error: assignError } = await supabase
         .from("kanban_card_assignees")
-        .select(`
-          card_id,
-          kanban_cards!inner (
-            id,
-            content,
-            due_date,
-            column_id,
-            kanban_columns!inner (
-              id,
-              title,
-              position,
-              kanban_boards!inner (
-                organization_id
-              )
-            )
-          )
-        `)
+        .select("card_id")
         .eq("user_id", userId);
 
-      if (error || !assignees) {
-        console.error("Error fetching member tasks:", error);
+      if (assignError) {
+        console.error("[useMemberTasks] Error fetching assignees:", assignError);
         return { total: 0, byColumn: [], overdueCount: 0 };
       }
 
-      // Filtrar por organização e processar dados
+      if (!assignedCards || assignedCards.length === 0) {
+        return { total: 0, byColumn: [], overdueCount: 0 };
+      }
+
+      const cardIds = assignedCards.map(a => a.card_id);
+
+      // Step 2: Get cards with their columns and boards
+      const { data: cards, error: cardsError } = await supabase
+        .from("kanban_cards")
+        .select(`
+          id,
+          content,
+          due_date,
+          column_id,
+          kanban_columns (
+            id,
+            title,
+            position,
+            board_id,
+            kanban_boards (
+              organization_id
+            )
+          )
+        `)
+        .in("id", cardIds);
+
+      if (cardsError) {
+        console.error("[useMemberTasks] Error fetching cards:", cardsError);
+        return { total: 0, byColumn: [], overdueCount: 0 };
+      }
+
+      if (!cards || cards.length === 0) {
+        return { total: 0, byColumn: [], overdueCount: 0 };
+      }
+
+      // Step 3: Process and filter by organization
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -65,12 +84,12 @@ export function useMemberTasks(userId: string | undefined, organizationId: strin
 
       let overdueCount = 0;
 
-      for (const assignee of assignees) {
-        const card = assignee.kanban_cards as any;
-        const column = card?.kanban_columns;
+      for (const card of cards) {
+        const column = card.kanban_columns as any;
         const board = column?.kanban_boards;
 
-        if (board?.organization_id !== organizationId) continue;
+        // Filter by organization
+        if (!board || board.organization_id !== organizationId) continue;
 
         const isOverdue = card.due_date ? new Date(card.due_date) < today : false;
         if (isOverdue) overdueCount++;
@@ -87,12 +106,12 @@ export function useMemberTasks(userId: string | undefined, organizationId: strin
         columnMap.get(column.id)?.tasks.push({
           id: card.id,
           content: card.content,
-          dueDate: card.due_date,
+          dueDate: card.due_date || undefined,
           isOverdue,
         });
       }
 
-      // Ordenar colunas por posição e converter para array
+      // Sort columns by position and convert to array
       const byColumn = Array.from(columnMap.values())
         .sort((a, b) => a.position - b.position)
         .map(({ columnId, columnTitle, tasks }) => ({
@@ -107,6 +126,6 @@ export function useMemberTasks(userId: string | undefined, organizationId: strin
       return { total, byColumn, overdueCount };
     },
     enabled: !!userId && !!organizationId,
-    staleTime: 30 * 1000, // 30 segundos
+    staleTime: 30 * 1000, // 30 seconds
   });
 }

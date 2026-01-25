@@ -238,7 +238,7 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar, isInComplet
                 >
                   {card.content}
                   {card.is_collaborative && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
                       <Users className="h-3 w-3 mr-1" />
                       Colaborativa
                     </Badge>
