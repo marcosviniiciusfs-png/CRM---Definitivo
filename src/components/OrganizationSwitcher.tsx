@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Building2, ChevronDown, Crown, Shield, User, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useOrganization } from "@/contexts/OrganizationContext";
-import type { OrganizationMembership } from "./OrganizationSelectorModal";
+import type { OrganizationMembership } from "@/contexts/OrganizationContext";
 
 const roleConfig = {
   owner: { label: 'Proprietário', icon: Crown, color: 'text-primary' },
@@ -29,7 +28,6 @@ export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcher
     organizationId, 
     availableOrganizations, 
     switchOrganization,
-    permissions 
   } = useOrganization();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -47,11 +45,18 @@ export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcher
     if (orgId === organizationId) return;
     
     setIsLoading(true);
-    await switchOrganization(orgId);
-    setIsLoading(false);
     
-    // Reload para atualizar todos os dados
-    window.location.reload();
+    try {
+      // Trocar org (agora inclui refresh de subscription internamente)
+      await switchOrganization(orgId);
+      
+      // Reload para atualizar todos os dados
+      window.location.reload();
+    } catch (error) {
+      console.error('[ORG-SWITCH] Error switching organization:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (collapsed) {

@@ -26,27 +26,17 @@ const Auth = () => {
       // Só verificar se: tem user, não está pendente redirect, e ainda não verificou
       if (!user || pendingRedirect || hasCheckedOrgs) return;
       
-      console.log('[AUTH-PAGE] Checking organizations for user:', user.email);
+      console.log('[AUTH-PAGE] Checking organizations for user via RPC:', user.email);
       setHasCheckedOrgs(true);
 
       try {
-        const { data: memberships, error } = await supabase
-          .from('organization_members')
-          .select(`
-            organization_id, 
-            role,
-            organizations (
-              id,
-              name
-            )
-          `)
-          .eq('user_id', user.id)
-          .eq('is_active', true);
+        // USAR A NOVA RPC SECURITY DEFINER
+        const { data: memberships, error } = await supabase.rpc('get_my_organization_memberships');
 
-        console.log('[AUTH-PAGE] Memberships found:', memberships?.length, memberships);
+        console.log('[AUTH-PAGE] Memberships from RPC:', memberships?.length, memberships);
 
         if (error) {
-          console.error('[AUTH-PAGE] Error checking organizations:', error);
+          console.error('[AUTH-PAGE] Error checking organizations via RPC:', error);
           navigate("/dashboard");
           return;
         }
@@ -54,10 +44,10 @@ const Auth = () => {
         if (memberships && memberships.length > 1) {
           console.log('[AUTH-PAGE] Multiple orgs detected, showing selector modal');
           // Formatar dados e mostrar modal
-          const formattedMemberships: OrganizationMembership[] = memberships.map(m => ({
+          const formattedMemberships: OrganizationMembership[] = memberships.map((m: any) => ({
             organization_id: m.organization_id,
             role: m.role as 'owner' | 'admin' | 'member',
-            organizations: m.organizations as { id: string; name: string }
+            organizations: { id: m.organization_id, name: m.organization_name }
           }));
           
           setAvailableOrganizations(formattedMemberships);

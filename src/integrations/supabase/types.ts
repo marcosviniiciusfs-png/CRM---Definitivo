@@ -2489,6 +2489,15 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_my_organization_memberships: {
+        Args: never
+        Returns: {
+          is_owner: boolean
+          organization_id: string
+          organization_name: string
+          role: Database["public"]["Enums"]["organization_role"]
+        }[]
+      }
       get_organization_members: {
         Args: { _organization_id: string }
         Returns: {
@@ -2512,6 +2521,10 @@ export type Database = {
           role: Database["public"]["Enums"]["organization_role"]
           user_id: string
         }[]
+      }
+      get_organization_owner: {
+        Args: { p_organization_id: string }
+        Returns: string
       }
       get_user_details: {
         Args: { _target_user_id: string }

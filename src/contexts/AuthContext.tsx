@@ -17,7 +17,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   subscriptionData: SubscriptionData | null;
-  refreshSubscription: () => Promise<void>;
+  refreshSubscription: (organizationId?: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
@@ -35,38 +35,46 @@ interface CachedSubscription {
   data: SubscriptionData;
   timestamp: number;
   userId: string;
+  organizationId: string; // Agora inclui a organização
 }
 
-// Helper functions for cache
-const getSubscriptionCache = (userId: string): SubscriptionData | null => {
+// Helper functions for cache - agora considera organizationId
+const getSubscriptionCache = (userId: string, organizationId?: string): SubscriptionData | null => {
   try {
-    const cached = sessionStorage.getItem(SUBSCRIPTION_CACHE_KEY);
+    const cacheKey = organizationId 
+      ? `${SUBSCRIPTION_CACHE_KEY}_${organizationId}` 
+      : SUBSCRIPTION_CACHE_KEY;
+    const cached = sessionStorage.getItem(cacheKey);
     if (!cached) return null;
     
     const parsed: CachedSubscription = JSON.parse(cached);
     const isExpired = Date.now() - parsed.timestamp > SUBSCRIPTION_CACHE_TTL;
     const isCorrectUser = parsed.userId === userId;
+    const isCorrectOrg = !organizationId || parsed.organizationId === organizationId;
     
-    if (isExpired || !isCorrectUser) {
-      sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
+    if (isExpired || !isCorrectUser || !isCorrectOrg) {
+      sessionStorage.removeItem(cacheKey);
       return null;
     }
     
     return parsed.data;
   } catch {
-    sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
     return null;
   }
 };
 
-const setSubscriptionCache = (data: SubscriptionData, userId: string) => {
+const setSubscriptionCache = (data: SubscriptionData, userId: string, organizationId?: string) => {
   try {
+    const cacheKey = organizationId 
+      ? `${SUBSCRIPTION_CACHE_KEY}_${organizationId}` 
+      : SUBSCRIPTION_CACHE_KEY;
     const cacheData: CachedSubscription = {
       data,
       timestamp: Date.now(),
       userId,
+      organizationId: organizationId || '',
     };
-    sessionStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(cacheData));
+    sessionStorage.setItem(cacheKey, JSON.stringify(cacheData));
   } catch {
     // Ignore storage errors
   }
@@ -89,8 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentSessionIdRef = useRef<string | null>(null);
   const subscriptionFetchedRef = useRef(false);
 
-  const refreshSubscription = async (forceRefresh = false) => {
-    console.log('[AUTH] refreshSubscription called, user:', user?.email, 'force:', forceRefresh);
+  // Nova assinatura: aceita organizationId (opcional) para verificar pelo owner da org
+  const refreshSubscription = async (organizationId?: string) => {
+    console.log('[AUTH] refreshSubscription called, user:', user?.email, 'orgId:', organizationId);
     
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession?.access_token || !user) {
@@ -98,19 +107,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Check cache first (unless force refresh)
-    if (!forceRefresh) {
-      const cachedData = getSubscriptionCache(user.id);
+    // Check cache first (se tiver organizationId)
+    if (organizationId) {
+      const cachedData = getSubscriptionCache(user.id, organizationId);
       if (cachedData) {
-        console.log('[AUTH] Using cached subscription data');
+        console.log('[AUTH] Using cached subscription data for org:', organizationId);
         setSubscriptionData(cachedData);
         return;
       }
     }
     
     try {
-      console.log('[AUTH] Invoking check-subscription function...');
-      const { data, error } = await supabase.functions.invoke('check-subscription');
+      console.log('[AUTH] Invoking check-subscription function...', { organizationId });
+      const { data, error } = await supabase.functions.invoke('check-subscription', {
+        body: organizationId ? { organization_id: organizationId } : {}
+      });
       
       if (error) {
         console.error('[AUTH] Erro ao verificar assinatura:', error);
@@ -119,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('[AUTH] Subscription data received:', data);
       setSubscriptionData(data);
-      setSubscriptionCache(data, user.id);
+      setSubscriptionCache(data, user.id, organizationId);
     } catch (error) {
       console.error('[AUTH] Erro ao verificar assinatura:', error);
     }
