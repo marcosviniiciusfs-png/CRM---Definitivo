@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ClipboardList, User, Search, Calendar, Clock, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MentionInput } from "./MentionInput";
@@ -46,10 +47,12 @@ interface CreateTaskModalProps {
     lead_id?: string;
     lead?: Lead;
     assignees?: string[];
+    is_collaborative?: boolean;
+    requires_all_approval?: boolean;
   }) => void;
 }
 
-type TaskType = "normal" | "lead";
+type TaskType = "normal" | "lead" | "collaborative";
 
 export const CreateTaskModal = ({
   open,
@@ -68,6 +71,8 @@ export const CreateTaskModal = ({
   const [loading, setLoading] = useState(false);
   const [assignees, setAssignees] = useState<string[]>([]);
   const [orgMembers, setOrgMembers] = useState<UserOption[]>([]);
+  const [requiresAllApproval, setRequiresAllApproval] = useState(true);
+
   useEffect(() => {
     if (open) {
       loadOrgMembers();
@@ -120,6 +125,7 @@ export const CreateTaskModal = ({
       setEstimatedTime("");
       setSelectedLead(null);
       setAssignees([]);
+      setRequiresAllApproval(true);
     }
   }, [open]);
 
@@ -144,8 +150,11 @@ export const CreateTaskModal = ({
   const handleCreate = async () => {
     if (!content.trim()) return;
     if (taskType === "lead" && !selectedLead) return;
+    if (taskType === "collaborative" && assignees.length < 2) return;
 
     setLoading(true);
+
+    const isCollaborative = taskType === "collaborative";
 
     onTaskCreated({
       content: content.trim(),
@@ -155,6 +164,8 @@ export const CreateTaskModal = ({
       lead_id: selectedLead?.id,
       lead: selectedLead || undefined,
       assignees: assignees.length > 0 ? assignees : undefined,
+      is_collaborative: isCollaborative,
+      requires_all_approval: isCollaborative ? requiresAllApproval : undefined,
     });
 
     setLoading(false);
@@ -170,49 +181,70 @@ export const CreateTaskModal = ({
 
         <div className="space-y-4">
           {/* Tipo de Tarefa */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
                 setTaskType("normal");
                 setSelectedLead(null);
               }}
               className={cn(
-                "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
+                "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all",
                 taskType === "normal"
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-muted-foreground/50"
               )}
             >
               <ClipboardList className={cn(
-                "h-6 w-6",
+                "h-5 w-5",
                 taskType === "normal" ? "text-primary" : "text-muted-foreground"
               )} />
               <span className={cn(
-                "text-sm font-medium",
+                "text-xs font-medium",
                 taskType === "normal" ? "text-primary" : "text-muted-foreground"
               )}>
-                Tarefa Normal
+                Normal
               </span>
             </button>
 
             <button
               onClick={() => setTaskType("lead")}
               className={cn(
-                "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
+                "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all",
                 taskType === "lead"
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-muted-foreground/50"
               )}
             >
               <User className={cn(
-                "h-6 w-6",
+                "h-5 w-5",
                 taskType === "lead" ? "text-primary" : "text-muted-foreground"
               )} />
               <span className={cn(
-                "text-sm font-medium",
+                "text-xs font-medium",
                 taskType === "lead" ? "text-primary" : "text-muted-foreground"
               )}>
-                Tarefa de Lead
+                Lead
+              </span>
+            </button>
+
+            <button
+              onClick={() => setTaskType("collaborative")}
+              className={cn(
+                "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all",
+                taskType === "collaborative"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-muted-foreground/50"
+              )}
+            >
+              <Users className={cn(
+                "h-5 w-5",
+                taskType === "collaborative" ? "text-primary" : "text-muted-foreground"
+              )} />
+              <span className={cn(
+                "text-xs font-medium",
+                taskType === "collaborative" ? "text-primary" : "text-muted-foreground"
+              )}>
+                Colaborativa
               </span>
             </button>
           </div>
@@ -301,15 +333,45 @@ export const CreateTaskModal = ({
           <div className="space-y-2">
             <Label className="flex items-center gap-1">
               <Users className="h-3 w-3" />
-              Responsáveis (opcional)
+              {taskType === "collaborative" 
+                ? "Colaboradores (mínimo 2)" 
+                : "Responsáveis (opcional)"}
             </Label>
             <MultiSelectUsers
               value={assignees}
               onChange={setAssignees}
               users={orgMembers}
-              placeholder="Atribuir responsáveis..."
+              placeholder={
+                taskType === "collaborative"
+                  ? "Selecione os colaboradores..."
+                  : "Atribuir responsáveis..."
+              }
             />
+            {taskType === "collaborative" && assignees.length < 2 && (
+              <p className="text-xs text-destructive">
+                Tarefas colaborativas precisam de pelo menos 2 colaboradores.
+              </p>
+            )}
           </div>
+
+          {/* Regra de aprovação para tarefas colaborativas */}
+          {taskType === "collaborative" && (
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+              <div className="space-y-0.5">
+                <Label htmlFor="requires-approval" className="text-sm font-medium">
+                  Requer aprovação de todos
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  A tarefa só pode avançar quando todos confirmarem
+                </p>
+              </div>
+              <Switch
+                id="requires-approval"
+                checked={requiresAllApproval}
+                onCheckedChange={setRequiresAllApproval}
+              />
+            </div>
+          )}
 
           {/* Data e Tempo */}
           <div className="grid grid-cols-2 gap-3">
@@ -349,7 +411,8 @@ export const CreateTaskModal = ({
               disabled={
                 loading ||
                 !content.trim() ||
-                (taskType === "lead" && !selectedLead)
+                (taskType === "lead" && !selectedLead) ||
+                (taskType === "collaborative" && assignees.length < 2)
               }
             >
               Criar Tarefa
