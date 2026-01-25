@@ -297,10 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
     
-    if (!error) {
-      navigate("/dashboard");
-    }
-    
+    // Não redirecionar aqui - deixar a página de Auth verificar múltiplas orgs
     return { error };
   };
 
@@ -310,10 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     
-    if (!error) {
-      navigate("/dashboard");
-    }
-    
+    // Não redirecionar aqui - deixar a página de Auth verificar múltiplas orgs
     return { error };
   };
 

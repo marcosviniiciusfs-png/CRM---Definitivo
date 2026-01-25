@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
+import React, { useState, useEffect, useCallback } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import {
@@ -209,6 +210,9 @@ function AppSidebarComponent() {
         {/* Conteúdo expandido */}
         {open && (
           <div className="space-y-3">
+            {/* Seletor de Organização */}
+            <OrganizationSwitcher collapsed={false} />
+            
             <MenuLockToggle
               locked={isLocked}
               onToggle={setIsLocked}
@@ -238,6 +242,9 @@ function AppSidebarComponent() {
         {/* Conteúdo colapsado */}
         {!open && (
           <div className="space-y-2">
+            {/* Seletor de Organização colapsado */}
+            <OrganizationSwitcher collapsed={true} />
+            
             <Button
               onClick={() => setIsLocked(!isLocked)}
               variant="ghostIcon"
