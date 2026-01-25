@@ -114,7 +114,7 @@ export const KanbanColumn = ({
 
   return (
     <div 
-      className="flex-shrink-0 w-[330px] bg-background rounded-lg p-4 shadow-md border flex flex-col max-h-[calc(100vh-200px)]"
+      className="flex-shrink-0 w-[346px] bg-background rounded-lg p-4 shadow-md border flex flex-col max-h-[calc(100vh-200px)]"
       style={{
         borderTopColor: column.stage_color || undefined,
         borderTopWidth: column.stage_color ? "3px" : undefined,
