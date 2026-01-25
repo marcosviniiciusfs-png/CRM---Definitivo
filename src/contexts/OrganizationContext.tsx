@@ -23,9 +23,20 @@ interface Permissions {
   loading: boolean;
 }
 
+export interface OrganizationMembership {
+  organization_id: string;
+  role: 'owner' | 'admin' | 'member';
+  organizations: {
+    id: string;
+    name: string;
+  };
+}
+
 interface OrganizationContextType {
   organizationId: string | null;
   permissions: Permissions;
+  availableOrganizations: OrganizationMembership[];
+  switchOrganization: (orgId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -55,7 +66,8 @@ const ORG_CACHE_KEY = "kairoz_org_cache";
 const ORG_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 interface CachedOrgData {
-  organizationId: string;
+  selectedOrganizationId: string;
+  availableOrganizations: OrganizationMembership[];
   permissions: Permissions;
   timestamp: number;
   userId: string;
@@ -83,10 +95,16 @@ const getOrgCache = (userId: string): CachedOrgData | null => {
   }
 };
 
-const setOrgCache = (organizationId: string, permissions: Permissions, userId: string) => {
+const setOrgCache = (
+  selectedOrganizationId: string, 
+  availableOrganizations: OrganizationMembership[],
+  permissions: Permissions, 
+  userId: string
+) => {
   try {
     const cacheData: CachedOrgData = {
-      organizationId,
+      selectedOrganizationId,
+      availableOrganizations,
       permissions,
       timestamp: Date.now(),
       userId,
@@ -105,9 +123,37 @@ const clearOrgCache = () => {
   }
 };
 
+const calculatePermissions = (role: 'owner' | 'admin' | 'member' | null): Permissions => {
+  const isOwner = role === 'owner';
+  const isAdmin = role === 'admin';
+
+  return {
+    canManageCollaborators: isOwner || isAdmin,
+    canDeleteCollaborators: isOwner,
+    canChangeRoles: isOwner,
+    canCreateRoulettes: isOwner || isAdmin,
+    canDeleteRoulettes: isOwner,
+    canManualDistribute: isOwner || isAdmin,
+    canViewAllLeads: isOwner || isAdmin,
+    canAssignLeads: isOwner || isAdmin,
+    canDeleteLeads: isOwner || isAdmin,
+    canManageAutomation: isOwner || isAdmin,
+    canManageIntegrations: isOwner || isAdmin,
+    canManageTags: isOwner || isAdmin,
+    canManagePipeline: isOwner || isAdmin,
+    canViewTeamMetrics: isOwner || isAdmin,
+    canAccessAdminSection: isOwner || isAdmin,
+    canManageAgentSettings: isOwner || isAdmin,
+    role,
+    loading: false,
+  };
+};
+
 const OrganizationContext = createContext<OrganizationContextType>({
   organizationId: null,
   permissions: defaultPermissions,
+  availableOrganizations: [],
+  switchOrganization: async () => {},
   refresh: async () => {},
 });
 
@@ -115,12 +161,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Permissions>(defaultPermissions);
+  const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
   const dataLoadedRef = useRef(false);
 
-  const loadOrganizationData = useCallback(async (forceRefresh = false) => {
+  const loadOrganizationData = useCallback(async (forceRefresh = false, selectedOrgId?: string) => {
     if (!user) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
+      setAvailableOrganizations([]);
       clearOrgCache();
       dataLoadedRef.current = false;
       return;
@@ -131,7 +179,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const cachedData = getOrgCache(user.id);
       if (cachedData) {
         console.log('[ORG] Using cached organization data');
-        setOrganizationId(cachedData.organizationId);
+        setOrganizationId(cachedData.selectedOrganizationId);
+        setAvailableOrganizations(cachedData.availableOrganizations);
         setPermissions({ ...cachedData.permissions, loading: false });
         dataLoadedRef.current = true;
         return;
@@ -140,42 +189,74 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log('[ORG] Fetching organization data from API');
-      const { data: orgMember } = await supabase
+      
+      // Buscar TODAS as organizações do usuário
+      const { data: memberships, error } = await supabase
         .from('organization_members')
-        .select('organization_id, role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (orgMember) {
-        setOrganizationId(orgMember.organization_id);
-        
-        const role = orgMember.role as 'owner' | 'admin' | 'member' | null;
-        const isOwner = role === 'owner';
-        const isAdmin = role === 'admin';
-
-        const newPermissions: Permissions = {
-          canManageCollaborators: isOwner || isAdmin,
-          canDeleteCollaborators: isOwner,
-          canChangeRoles: isOwner,
-          canCreateRoulettes: isOwner || isAdmin,
-          canDeleteRoulettes: isOwner,
-          canManualDistribute: isOwner || isAdmin,
-          canViewAllLeads: isOwner || isAdmin,
-          canAssignLeads: isOwner || isAdmin,
-          canDeleteLeads: isOwner || isAdmin,
-          canManageAutomation: isOwner || isAdmin,
-          canManageIntegrations: isOwner || isAdmin,
-          canManageTags: isOwner || isAdmin,
-          canManagePipeline: isOwner || isAdmin,
-          canViewTeamMetrics: isOwner || isAdmin,
-          canAccessAdminSection: isOwner || isAdmin,
-          canManageAgentSettings: isOwner || isAdmin,
+        .select(`
+          organization_id, 
           role,
-          loading: false,
-        };
+          organizations (
+            id,
+            name
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('[ORG] Error fetching memberships:', error);
+        setPermissions(prev => ({ ...prev, loading: false }));
+        return;
+      }
+
+      if (memberships && memberships.length > 0) {
+        // Formatar dados
+        const formattedMemberships: OrganizationMembership[] = memberships.map(m => ({
+          organization_id: m.organization_id,
+          role: m.role as 'owner' | 'admin' | 'member',
+          organizations: m.organizations as { id: string; name: string }
+        }));
+
+        setAvailableOrganizations(formattedMemberships);
+
+        // Determinar qual organização selecionar
+        let targetOrgId = selectedOrgId;
+        
+        if (!targetOrgId) {
+          // Verificar se há uma seleção no cache
+          const cachedData = getOrgCache(user.id);
+          if (cachedData?.selectedOrganizationId) {
+            // Verificar se a org do cache ainda está disponível
+            const stillAvailable = formattedMemberships.find(
+              m => m.organization_id === cachedData.selectedOrganizationId
+            );
+            if (stillAvailable) {
+              targetOrgId = cachedData.selectedOrganizationId;
+            }
+          }
+        }
+
+        if (!targetOrgId) {
+          // Priorizar org onde é owner, depois admin, depois member
+          const sortedMemberships = [...formattedMemberships].sort((a, b) => {
+            const order = { owner: 0, admin: 1, member: 2 };
+            return order[a.role] - order[b.role];
+          });
+          targetOrgId = sortedMemberships[0].organization_id;
+        }
+
+        setOrganizationId(targetOrgId);
+
+        // Calcular permissões baseado na org selecionada
+        const selectedMembership = formattedMemberships.find(
+          m => m.organization_id === targetOrgId
+        );
+        const role = selectedMembership?.role || null;
+        const newPermissions = calculatePermissions(role);
 
         setPermissions(newPermissions);
-        setOrgCache(orgMember.organization_id, newPermissions, user.id);
+        setOrgCache(targetOrgId, formattedMemberships, newPermissions, user.id);
         dataLoadedRef.current = true;
       } else {
         setPermissions(prev => ({ ...prev, loading: false }));
@@ -186,11 +267,35 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  const switchOrganization = useCallback(async (orgId: string) => {
+    if (!user) return;
+    
+    console.log('[ORG] Switching to organization:', orgId);
+    
+    const targetMembership = availableOrganizations.find(
+      m => m.organization_id === orgId
+    );
+    
+    if (!targetMembership) {
+      console.error('[ORG] Organization not found in available organizations');
+      return;
+    }
+
+    setOrganizationId(orgId);
+    
+    const newPermissions = calculatePermissions(targetMembership.role);
+    setPermissions(newPermissions);
+    
+    // Atualizar cache com a nova seleção
+    setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
+  }, [user, availableOrganizations]);
+
   // Initial load with cache - OPTIMIZED: Immediate UI unlock
   useEffect(() => {
     if (!user?.id) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
+      setAvailableOrganizations([]);
       return;
     }
 
@@ -198,7 +303,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     const cachedData = getOrgCache(user.id);
     if (cachedData) {
       console.log('[ORG] Restoring from cache on mount - instant load');
-      setOrganizationId(cachedData.organizationId);
+      setOrganizationId(cachedData.selectedOrganizationId);
+      setAvailableOrganizations(cachedData.availableOrganizations);
       setPermissions({ ...cachedData.permissions, loading: false });
       dataLoadedRef.current = true;
       
@@ -226,7 +332,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   return (
     <OrganizationContext.Provider value={{ 
       organizationId, 
-      permissions, 
+      permissions,
+      availableOrganizations,
+      switchOrganization,
       refresh 
     }}>
       {children}

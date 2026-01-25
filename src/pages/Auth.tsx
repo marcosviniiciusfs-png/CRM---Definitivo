@@ -1,19 +1,119 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Login1 } from "@/components/ui/login-1";
+import { OrganizationSelectorModal, OrganizationMembership } from "@/components/OrganizationSelectorModal";
+import { supabase } from "@/integrations/supabase/client";
 import kairozLogo from "@/assets/kairoz-logo-full.png";
 
 const Auth = () => {
   const { signUp, signIn, signInWithGoogle, resetPassword, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showOrgSelector, setShowOrgSelector] = useState(false);
+  const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
+  const [pendingRedirect, setPendingRedirect] = useState(false);
 
-  // Redirect if already logged in
-  if (user && !authLoading) {
+  // Verificar se o usuário tem múltiplas organizações após login
+  useEffect(() => {
+    const checkMultipleOrganizations = async () => {
+      if (!user || pendingRedirect) return;
+
+      try {
+        const { data: memberships, error } = await supabase
+          .from('organization_members')
+          .select(`
+            organization_id, 
+            role,
+            organizations (
+              id,
+              name
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+
+        if (error) {
+          console.error('Error checking organizations:', error);
+          navigate("/dashboard");
+          return;
+        }
+
+        if (memberships && memberships.length > 1) {
+          // Formatar dados e mostrar modal
+          const formattedMemberships: OrganizationMembership[] = memberships.map(m => ({
+            organization_id: m.organization_id,
+            role: m.role as 'owner' | 'admin' | 'member',
+            organizations: m.organizations as { id: string; name: string }
+          }));
+          
+          setAvailableOrganizations(formattedMemberships);
+          setShowOrgSelector(true);
+        } else {
+          // Apenas uma organização, redirecionar direto
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error('Error checking organizations:', error);
+        navigate("/dashboard");
+      }
+    };
+
+    checkMultipleOrganizations();
+  }, [user, navigate, pendingRedirect]);
+
+  const handleOrganizationSelect = (organizationId: string) => {
+    // Salvar seleção no cache antes de redirecionar
+    const selectedOrg = availableOrganizations.find(
+      org => org.organization_id === organizationId
+    );
+    
+    if (selectedOrg && user) {
+      // Calcular permissões básicas para o cache
+      const isOwner = selectedOrg.role === 'owner';
+      const isAdmin = selectedOrg.role === 'admin';
+      
+      const cacheData = {
+        selectedOrganizationId: organizationId,
+        availableOrganizations,
+        permissions: {
+          canManageCollaborators: isOwner || isAdmin,
+          canDeleteCollaborators: isOwner,
+          canChangeRoles: isOwner,
+          canCreateRoulettes: isOwner || isAdmin,
+          canDeleteRoulettes: isOwner,
+          canManualDistribute: isOwner || isAdmin,
+          canViewAllLeads: isOwner || isAdmin,
+          canAssignLeads: isOwner || isAdmin,
+          canDeleteLeads: isOwner || isAdmin,
+          canManageAutomation: isOwner || isAdmin,
+          canManageIntegrations: isOwner || isAdmin,
+          canManageTags: isOwner || isAdmin,
+          canManagePipeline: isOwner || isAdmin,
+          canViewTeamMetrics: isOwner || isAdmin,
+          canAccessAdminSection: isOwner || isAdmin,
+          canManageAgentSettings: isOwner || isAdmin,
+          role: selectedOrg.role,
+          loading: false,
+        },
+        timestamp: Date.now(),
+        userId: user.id,
+      };
+      
+      localStorage.setItem('kairoz_org_cache', JSON.stringify(cacheData));
+    }
+    
+    setPendingRedirect(true);
+    setShowOrgSelector(false);
+    navigate("/dashboard");
+  };
+
+  // Se já logado e não está mostrando seletor, redirecionar
+  if (user && !authLoading && !showOrgSelector && pendingRedirect) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -44,6 +144,7 @@ const Auth = () => {
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao CRM",
       });
+      // A verificação de múltiplas orgs será feita no useEffect
     }
   };
 
@@ -128,19 +229,28 @@ const Auth = () => {
   }
 
   return (
-    <StarsBackground className="min-h-screen" speed={30} factor={0.08}>
-      <Login1
-        logo={{
-          src: kairozLogo,
-          alt: "KairoZ",
-        }}
-        onLogin={handleLogin}
-        onSignup={handleSignup}
-        onGoogleLogin={handleGoogleLogin}
-        onForgotPassword={handleForgotPassword}
-        loading={loading}
+    <>
+      <StarsBackground className="min-h-screen" speed={30} factor={0.08}>
+        <Login1
+          logo={{
+            src: kairozLogo,
+            alt: "KairoZ",
+          }}
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          onGoogleLogin={handleGoogleLogin}
+          onForgotPassword={handleForgotPassword}
+          loading={loading}
+        />
+      </StarsBackground>
+
+      {/* Modal de seleção de organização */}
+      <OrganizationSelectorModal
+        open={showOrgSelector}
+        organizations={availableOrganizations}
+        onSelect={handleOrganizationSelect}
       />
-    </StarsBackground>
+    </>
   );
 };
 
