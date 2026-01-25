@@ -73,8 +73,17 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const [selectedCardForCalendar, setSelectedCardForCalendar] = useState<Card | null>(null);
   const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
   const [selectedColumnForTask, setSelectedColumnForTask] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [cardAssigneesMap, setCardAssigneesMap] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  // Buscar usuário atual
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id || null);
+    });
+  }, []);
 
   useEffect(() => {
     loadOrCreateBoard();
@@ -159,6 +168,23 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       .select("*, leads:lead_id(id, nome_lead, telefone_lead, email)")
       .in("column_id", columnsData?.map(c => c.id) || [])
       .order("position");
+
+    // Buscar assignees para todos os cards
+    const cardIds = cardsData?.map(c => c.id) || [];
+    const { data: assigneesData } = await supabase
+      .from("kanban_card_assignees")
+      .select("card_id, user_id")
+      .in("card_id", cardIds);
+
+    // Criar mapa de card_id -> user_ids para contador de tarefas do usuário
+    const assigneesMap: Record<string, string[]> = {};
+    assigneesData?.forEach(a => {
+      if (!assigneesMap[a.card_id]) {
+        assigneesMap[a.card_id] = [];
+      }
+      assigneesMap[a.card_id].push(a.user_id);
+    });
+    setCardAssigneesMap(assigneesMap);
 
     const columnsWithCards = columnsData?.map(col => ({
       ...col,
@@ -721,6 +747,8 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
             <KanbanColumn
               key={column.id}
               column={column}
+              currentUserId={currentUserId}
+              cardAssigneesMap={cardAssigneesMap}
               onUpdateTitle={updateColumnTitle}
               onDelete={deleteColumn}
               onAddCard={openCreateTaskModal}
