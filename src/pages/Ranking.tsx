@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOrganization } from "@/contexts/OrganizationContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { supabase } from "@/integrations/supabase/client";
 import { SalesLeaderboard, SalesRepData } from "@/components/dashboard/SalesLeaderboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +13,7 @@ type PeriodType = "month" | "quarter" | "year";
 type SortType = "revenue" | "won_leads" | "percentage";
 
 export default function Ranking() {
-  const { organizationId, isInitialized } = useOrganization();
+  const { organizationId, isReady } = useOrganizationReady();
   const [period, setPeriod] = useState<PeriodType>("month");
   const [sortBy, setSortBy] = useState<SortType>("revenue");
   const [reps, setReps] = useState<SalesRepData[]>([]);
@@ -135,17 +135,9 @@ export default function Ranking() {
     loadSalesData();
   }, [organizationId, period]);
 
-  // Guard: Aguardar inicialização
-  if (!isInitialized) {
+  // Guard: Aguardar inicialização completa (auth + org)
+  if (!isReady || !organizationId) {
     return <LoadingAnimation text="Carregando ranking..." />;
-  }
-
-  if (!organizationId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Organização não encontrada</p>
-      </div>
-    );
   }
 
   return (

@@ -1,23 +1,13 @@
-import { useOrganization } from "@/contexts/OrganizationContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 const Tasks = () => {
-  const { organizationId, isInitialized } = useOrganization();
+  const { organizationId, isReady } = useOrganizationReady();
 
-  if (!isInitialized) {
+  // Guard: Aguardar inicialização completa (auth + org)
+  if (!isReady || !organizationId) {
     return <LoadingAnimation text="Carregando tarefas..." />;
-  }
-
-  if (!organizationId) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tarefas</h1>
-          <p className="text-muted-foreground">Erro ao carregar organização</p>
-        </div>
-      </div>
-    );
   }
 
   return (
