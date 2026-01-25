@@ -285,7 +285,7 @@ export default function AdminUserDetails() {
             <div className="flex items-start gap-4">
               <Avatar className="w-16 h-16">
                 <AvatarImage src={userDetails.avatar_url || undefined} />
-                <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                <AvatarFallback className="bg-muted text-muted-foreground text-lg">
                   {getInitials(userDetails.full_name, userDetails.email)}
                 </AvatarFallback>
               </Avatar>
@@ -438,7 +438,7 @@ export default function AdminUserDetails() {
                           <div className="flex items-center gap-3">
                             <Avatar className="w-8 h-8">
                               <AvatarImage src={member.avatar_url || undefined} />
-                              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                              <AvatarFallback className="bg-muted text-muted-foreground text-xs">
                                 {getInitials(member.full_name, member.email)}
                               </AvatarFallback>
                             </Avatar>

@@ -80,7 +80,7 @@ export const LazyAvatar = memo(function LazyAvatar({
           />
           <AvatarFallback
             className={cn(
-              "bg-primary/10 text-primary transition-opacity duration-200",
+              "bg-muted text-muted-foreground transition-opacity duration-200",
               isLoaded ? "opacity-0" : "opacity-100"
             )}
           >

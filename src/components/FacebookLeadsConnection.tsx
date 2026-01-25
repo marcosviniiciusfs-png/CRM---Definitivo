@@ -409,14 +409,18 @@ export const FacebookLeadsConnection = () => {
                     key={form.id}
                     onClick={() => handleFormSelect(form)}
                     disabled={subscribing}
-                    className="w-full p-4 border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full p-4 border rounded-lg hover:bg-muted hover:border-primary/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <p className="font-medium">{form.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
                         <div className="flex items-center gap-4 mt-2">
-                          <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
+                          <span className={`text-xs px-2 py-1 rounded font-medium ${
+                            form.status === 'ACTIVE' 
+                              ? "bg-green-500/20 text-green-600 dark:text-green-400" 
+                              : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                          }`}>
                             {form.status}
                           </span>
                           <span className="text-xs text-muted-foreground">

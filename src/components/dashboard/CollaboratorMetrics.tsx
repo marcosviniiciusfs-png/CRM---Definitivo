@@ -135,9 +135,9 @@ export function CollaboratorMetrics({ collaborator, metrics, isLoading }: Collab
       <CardContent className="pt-6">
         {/* Header com avatar e nome */}
         <div className="flex items-center gap-4 mb-6">
-          <Avatar className="h-16 w-16 border-2 border-primary/20">
+          <Avatar className="h-16 w-16 border-2 border-border">
             <AvatarImage src={collaborator.avatar_url} />
-            <AvatarFallback className="bg-primary/10 text-primary text-lg">
+            <AvatarFallback className="bg-muted text-muted-foreground text-lg">
               {getInitials(collaborator.full_name)}
             </AvatarFallback>
           </Avatar>

@@ -84,7 +84,7 @@ export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcher
               <DropdownMenuItem
                 key={org.organization_id}
                 onClick={() => handleSwitch(org.organization_id)}
-                className={cn("cursor-pointer", isActive && "bg-accent")}
+                className={cn("cursor-pointer", isActive && "bg-muted border-l-2 border-l-primary")}
               >
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-2">
@@ -139,7 +139,7 @@ export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcher
               onClick={() => handleSwitch(org.organization_id)}
               className={cn(
                 "cursor-pointer flex items-center justify-between",
-                isActive && "bg-accent"
+                isActive && "bg-muted border-l-2 border-l-primary"
               )}
             >
               <div className="flex items-center gap-2 min-w-0">
