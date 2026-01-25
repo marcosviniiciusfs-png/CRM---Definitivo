@@ -87,17 +87,29 @@ export const CollaborativeTaskApproval = ({
 
   const confirmMutation = useMutation({
     mutationFn: async () => {
+      console.log("🔍 DEBUG - Iniciando confirmação:", {
+        currentUserAssignee,
+        user_id: user?.id,
+        card_id: cardId,
+      });
+
       if (!currentUserAssignee) throw new Error("Você não está atribuído a esta tarefa");
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("kanban_card_assignees")
         .update({
           is_completed: true,
           completed_at: new Date().toISOString(),
         })
-        .eq("id", currentUserAssignee.id);
+        .eq("id", currentUserAssignee.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Erro ao atualizar assignee:", error);
+        throw error;
+      }
+
+      console.log("✅ Confirmação salva com sucesso:", data);
 
       // Notificar outros membros
       const otherAssignees = assignees.filter((a) => a.user_id !== user?.id);
@@ -132,23 +144,37 @@ export const CollaborativeTaskApproval = ({
         }
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["card-assignees-approval", cardId] });
-      queryClient.invalidateQueries({ queryKey: ["card-assignees", cardId] });
+    onSuccess: async () => {
+      console.log("✅ Mutation success - invalidando queries...");
+      
+      // Invalidar TODAS as queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ["card-assignees-approval", cardId] });
+      await queryClient.invalidateQueries({ queryKey: ["card-assignees", cardId] });
+      await queryClient.invalidateQueries({ queryKey: ["kanban-columns"] });
+      
+      // Forçar refetch imediato
+      await queryClient.refetchQueries({ queryKey: ["card-assignees-approval", cardId] });
+      
       toast({
-        title: "Concluído!",
+        title: "✅ Concluído!",
         description: "Sua parte na tarefa foi marcada como concluída.",
       });
+      
       setConfirmChecked(false);
-      onOpenChange(false);
+      
+      // Fechar modal após delay para usuário ver feedback
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 1000);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("🔴 Erro completo na mutation:", error);
+      
       toast({
-        title: "Erro",
-        description: "Não foi possível confirmar a conclusão.",
+        title: "Erro ao Confirmar",
+        description: error?.message || "Não foi possível confirmar a conclusão. Verifique sua conexão.",
         variant: "destructive",
       });
-      console.error(error);
     },
   });
 
