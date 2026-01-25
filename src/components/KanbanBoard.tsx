@@ -44,6 +44,7 @@ interface Card {
   is_collaborative?: boolean;
   requires_all_approval?: boolean;
   timer_start_column_id?: string;
+  color?: string | null;
 }
 
 interface Column {
@@ -214,6 +215,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     is_collaborative?: boolean;
     requires_all_approval?: boolean;
     timer_start_column_id?: string | null;
+    color?: string | null;
   }) => {
     if (!selectedColumnForTask) return;
 
@@ -234,6 +236,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       is_collaborative: task.is_collaborative || false,
       requires_all_approval: task.requires_all_approval ?? true,
       timer_start_column_id: task.timer_start_column_id || null,
+      color: task.color || null,
     };
 
     if (task.lead_id) {
@@ -289,6 +292,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         lead: data.leads || task.lead,
         is_collaborative: task.is_collaborative,
         requires_all_approval: task.requires_all_approval,
+        color: task.color,
       };
 
       setColumns(columns.map(col =>
@@ -363,6 +367,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       description: updates.description || null,
       due_date: updates.due_date || null,
       estimated_time: updates.estimated_time ?? null,
+      color: updates.color !== undefined ? (updates.color || null) : undefined,
     };
 
     // Gerenciar timer_started_at baseado em estimated_time e due_date

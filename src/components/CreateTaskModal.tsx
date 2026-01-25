@@ -57,6 +57,7 @@ interface CreateTaskModalProps {
     is_collaborative?: boolean;
     requires_all_approval?: boolean;
     timer_start_column_id?: string | null;
+    color?: string | null;
   }) => void;
 }
 
@@ -87,6 +88,17 @@ export const CreateTaskModal = ({
   const [requiresAllApproval, setRequiresAllApproval] = useState(true);
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumn[]>([]);
   const [timerStartColumnId, setTimerStartColumnId] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string>("");
+
+  const colorOptions = [
+    { value: "", label: "Sem cor" },
+    { value: "#EF4444", label: "Vermelho - Urgente" },
+    { value: "#F97316", label: "Laranja - Alta" },
+    { value: "#EAB308", label: "Amarelo - Média" },
+    { value: "#22C55E", label: "Verde - Baixa" },
+    { value: "#3B82F6", label: "Azul - Info" },
+    { value: "#8B5CF6", label: "Roxo - Especial" },
+  ];
 
   useEffect(() => {
     if (open) {
@@ -143,6 +155,7 @@ export const CreateTaskModal = ({
       setAssignees([]);
       setRequiresAllApproval(true);
       setTimerStartColumnId(null);
+      setSelectedColor("");
     }
   }, [open]);
 
@@ -210,6 +223,7 @@ export const CreateTaskModal = ({
       is_collaborative: isCollaborative,
       requires_all_approval: isCollaborative ? requiresAllApproval : undefined,
       timer_start_column_id: estimatedTime && !dueDate ? timerStartColumnId : null,
+      color: selectedColor || null,
     });
 
     setLoading(false);
@@ -483,6 +497,37 @@ export const CreateTaskModal = ({
               )}
             </div>
           )}
+
+          {/* Color Picker */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">Cor</Label>
+            <div className="flex flex-wrap gap-2">
+              {colorOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`w-7 h-7 rounded-full border-2 transition-all flex-shrink-0 ${
+                    selectedColor === option.value
+                      ? "border-foreground scale-110 ring-2 ring-offset-1 ring-foreground/30"
+                      : "border-muted hover:scale-105"
+                  }`}
+                  style={{
+                    backgroundColor: option.value || "transparent",
+                    backgroundImage: !option.value ? "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)" : undefined,
+                    backgroundSize: !option.value ? "6px 6px" : undefined,
+                    backgroundPosition: !option.value ? "0 0, 0 3px, 3px -3px, -3px 0px" : undefined,
+                  }}
+                  onClick={() => setSelectedColor(option.value)}
+                  title={option.label}
+                />
+              ))}
+            </div>
+            {selectedColor && (
+              <p className="text-xs text-muted-foreground">
+                A cor será exibida como fundo do cartão com 10% de opacidade.
+              </p>
+            )}
+          </div>
 
           {/* Botões */}
           <div className="flex justify-end gap-2 pt-2">

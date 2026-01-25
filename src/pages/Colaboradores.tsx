@@ -781,18 +781,19 @@ const Colaboradores = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge className={getRoleColor(colab.role)}>
                               {getRoleLabel(colab.role)}
                             </Badge>
                             {colab.custom_role_id && customRoles.find(r => r.id === colab.custom_role_id) && (
                               <Badge 
                                 variant="outline" 
-                                className="text-xs"
+                                className="text-xs max-w-[100px] truncate"
                                 style={{ 
                                   borderColor: customRoles.find(r => r.id === colab.custom_role_id)?.color,
                                   color: customRoles.find(r => r.id === colab.custom_role_id)?.color 
                                 }}
+                                title={customRoles.find(r => r.id === colab.custom_role_id)?.name}
                               >
                                 {customRoles.find(r => r.id === colab.custom_role_id)?.name}
                               </Badge>

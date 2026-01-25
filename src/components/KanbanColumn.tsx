@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ interface Card {
   calendar_event_link?: string;
   lead_id?: string;
   lead?: Lead;
+  color?: string | null;
 }
 
 interface Column {
@@ -63,12 +65,45 @@ export const KanbanColumn = ({
     id: column.id,
   });
 
+  // Local state for instant typing feedback
+  const [localTitle, setLocalTitle] = useState(column.title);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync local state when column prop changes (e.g., from external update)
+  useEffect(() => {
+    setLocalTitle(column.title);
+  }, [column.title]);
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setLocalTitle(newTitle);
+
+    // Clear existing debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // Debounce the database update by 500ms
+    debounceRef.current = setTimeout(() => {
+      onUpdateTitle(column.id, newTitle);
+    }, 500);
+  };
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="flex-shrink-0 w-80 bg-background rounded-lg p-4 shadow-md border">
       <div className="flex items-center justify-between mb-4">
         <Input
-          value={column.title}
-          onChange={(e) => onUpdateTitle(column.id, e.target.value)}
+          value={localTitle}
+          onChange={handleTitleChange}
           className="font-semibold border-none focus-visible:ring-0 px-0 h-auto"
         />
         <Button
