@@ -2,7 +2,7 @@ import { StarsBackground } from "@/components/ui/stars-background";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import kairozLogo from "@/assets/kairoz-logo.png";
+import kairozLogo from "@/assets/kairoz-logo-red.png";
 import individualGif from "@/assets/individual.gif";
 import checkBoardGif from "@/assets/check_board.gif";
 import conversationGif from "@/assets/conversation-icon.gif";
@@ -50,7 +50,7 @@ const Landing = () => {
   ];
 
   return (
-    <StarsBackground className="min-h-screen bg-black text-white" speed={30} factor={0.08} starColor="#22d3ee">
+    <StarsBackground className="min-h-screen bg-black text-white" speed={30} factor={0.08} starColor="#E02A32">
       <div className="container mx-auto px-4 py-12">
         {/* Logo */}
         <div className="flex justify-center mb-16">
@@ -63,7 +63,7 @@ const Landing = () => {
 
         {/* Hero Section */}
         <div className="text-center mb-20">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-teal-500 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
             Sua Central de Gestão de
             <br />
             Clientes e WhatsApp
@@ -78,11 +78,11 @@ const Landing = () => {
           {features.map((feature, index) => (
             <div 
               key={index}
-              className="group p-6 rounded-xl border border-cyan-500/20 bg-gray-900/50 backdrop-blur-sm hover:border-cyan-500/40 hover:bg-gray-900/70 transition-all duration-300"
+              className="group p-6 rounded-xl border border-primary/20 bg-gray-900/50 backdrop-blur-sm hover:border-primary/40 hover:bg-gray-900/70 transition-all duration-300"
             >
               <div className="flex justify-center mb-4">
                 {feature.type === 'lucide' && feature.icon ? (
-                  <feature.icon className="w-16 h-16 text-cyan-400" />
+                  <feature.icon className="w-16 h-16 text-primary" />
                 ) : feature.type === 'gif' && feature.gifSrc ? (
                   <img src={feature.gifSrc} alt={feature.title} className="w-16 h-16 object-contain" />
                 ) : (
@@ -122,7 +122,7 @@ const Landing = () => {
           <Button 
             onClick={handleStartClick}
             size="lg"
-            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-lg px-12 py-6 h-auto rounded-full shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 transform"
+            className="bg-gradient-to-r from-primary to-red-600 hover:from-red-600 hover:to-red-700 text-white text-lg px-12 py-6 h-auto rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 transform"
           >
             Começar agora
           </Button>
@@ -132,7 +132,7 @@ const Landing = () => {
         <div className="mt-20 pt-8 text-center">
           <button
             onClick={() => navigate('/privacy-policy')}
-            className="text-gray-400 hover:text-cyan-400 text-sm transition-colors"
+            className="text-gray-400 hover:text-primary text-sm transition-colors"
           >
             Política de Privacidade
           </button>
