@@ -176,6 +176,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     estimated_time?: number;
     lead_id?: string;
     lead?: Lead;
+    assignees?: string[];
   }) => {
     if (!selectedColumnForTask) return;
 
@@ -211,6 +212,32 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       .single();
 
     if (data) {
+      // Salvar assignees se houver
+      if (task.assignees && task.assignees.length > 0) {
+        await supabase.from("kanban_card_assignees").insert(
+          task.assignees.map((userId) => ({
+            card_id: data.id,
+            user_id: userId,
+            assigned_by: user.id,
+          }))
+        );
+
+        // Criar notificações para os atribuídos
+        for (const assigneeId of task.assignees) {
+          if (assigneeId !== user.id) {
+            await supabase.from("notifications").insert({
+              user_id: assigneeId,
+              type: "task_assigned",
+              title: "Tarefa atribuída",
+              message: `Você foi atribuído à tarefa "${task.content}"`,
+              card_id: data.id,
+              due_date: task.due_date || null,
+              time_estimate: task.estimated_time || null,
+            });
+          }
+        }
+      }
+
       const newCard = {
         ...data,
         lead: data.leads || task.lead,
