@@ -11,7 +11,7 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar, Clock, CalendarCheck, User } from "lucide-react";
+import { Plus, Calendar, Clock, CalendarCheck, User, Users } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -416,6 +416,12 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     const card = sourceColumn.cards.find(c => c.id === activeCardId);
     if (!card) return;
 
+    // Block collaborative tasks from moving visually until validated in handleDragEnd
+    if (card.is_collaborative && card.requires_all_approval) {
+      // Don't move visually - will be validated in handleDragEnd
+      return;
+    }
+
     const newColumns = columns.map(col => {
       if (col.id === sourceColumn.id) {
         return { ...col, cards: col.cards.filter(c => c.id !== activeCardId) };
@@ -454,10 +460,10 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
     // Verificar se é tarefa colaborativa e está mudando de coluna
     if (sourceColumn.id !== targetColumn.id && card.is_collaborative && card.requires_all_approval) {
-      // Buscar status dos colaboradores
+      // Buscar status dos colaboradores com nomes
       const { data: assignees } = await supabase
         .from("kanban_card_assignees")
-        .select("is_completed")
+        .select("is_completed, user_id")
         .eq("card_id", activeCardId);
 
       if (assignees && assignees.length > 0) {
@@ -465,13 +471,22 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
         if (!allCompleted) {
           const completedCount = assignees.filter(a => a.is_completed).length;
+          
+          // Buscar nomes dos pendentes
+          const pendingIds = assignees.filter(a => !a.is_completed).map(a => a.user_id);
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .in("user_id", pendingIds);
+          
+          const pendingNames = profiles?.map(p => p.full_name).join(", ") || "colaboradores";
+          
           toast({
-            title: "Movimentação bloqueada",
-            description: `Todos os colaboradores devem confirmar a conclusão antes de mover. (${completedCount}/${assignees.length} confirmaram)`,
+            title: "⚠️ Movimentação Bloqueada",
+            description: `Tarefa colaborativa requer aprovação de todos. Faltam: ${pendingNames} (${completedCount}/${assignees.length} confirmaram)`,
             variant: "destructive",
+            duration: 5000,
           });
-          // Recarregar para reverter visualmente
-          await loadColumns(boardId || "");
           return;
         }
       }
@@ -483,6 +498,17 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         .from("kanban_cards")
         .update({ column_id: targetColumn.id })
         .eq("id", activeCardId);
+      
+      // Update local state for collaborative tasks that passed validation
+      setColumns(columns.map(col => {
+        if (col.id === sourceColumn.id) {
+          return { ...col, cards: col.cards.filter(c => c.id !== activeCardId) };
+        }
+        if (col.id === targetColumn.id) {
+          return { ...col, cards: [...col.cards, card] };
+        }
+        return col;
+      }));
     }
 
     // Reordenação dentro da mesma coluna
@@ -552,8 +578,18 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
         <DragOverlay>
           {activeCard ? (
-            <div className="bg-card border rounded-lg p-3 shadow-lg opacity-90 w-80">
+            <div className={`bg-card border rounded-lg p-3 shadow-lg opacity-90 w-80 ${
+              activeCard.is_collaborative ? "ring-2 ring-primary" : ""
+            }`}>
               <div className="space-y-2">
+                {/* Indicador de tarefa colaborativa */}
+                {activeCard.is_collaborative && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded text-xs">
+                    <Users className="h-3 w-3" />
+                    <span>Tarefa Colaborativa - Requer aprovação de todos</span>
+                  </div>
+                )}
+
                 <div className="font-medium">{activeCard.content}</div>
                 
                 {activeCard.description && (

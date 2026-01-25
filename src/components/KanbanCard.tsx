@@ -3,7 +3,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink, User, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink, User, Users, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -119,7 +120,7 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
       style={style}
       className={`kanban-card bg-card border rounded-lg p-3 mb-2 group relative shadow-sm ${
         !isEditing ? "cursor-grab active:cursor-grabbing" : ""
-      }`}
+      } ${card.is_collaborative ? "ring-1 ring-primary/30 hover:ring-primary/60 transition-all" : ""}`}
       {...(!isEditing ? { ...attributes, ...listeners } : {})}
     >
       <div className="flex items-start gap-2">
@@ -186,10 +187,16 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div
-                  onClick={() => setIsEditing(true)}
-                  className="cursor-pointer flex-1 font-medium"
+                  onClick={() => !card.is_collaborative && setIsEditing(true)}
+                  className="cursor-pointer flex-1 font-medium flex items-center gap-2 flex-wrap"
                 >
                   {card.content}
+                  {card.is_collaborative && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+                      <Users className="h-3 w-3 mr-1" />
+                      Colaborativa
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -233,6 +240,23 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
                   }
                 }}
               />
+
+              {/* Botão de aprovação para tarefas colaborativas */}
+              {card.is_collaborative && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2 text-xs h-7 border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setApprovalModalOpen(true);
+                  }}
+                >
+                  <Check className="h-3 w-3 mr-1" />
+                  Ver Status e Confirmar
+                </Button>
+              )}
 
               {(card.due_date || card.estimated_time || card.calendar_event_id) && (
                 <div className="flex flex-wrap gap-2 text-xs">
