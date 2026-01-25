@@ -43,6 +43,7 @@ interface Card {
   lead?: Lead;
   is_collaborative?: boolean;
   requires_all_approval?: boolean;
+  timer_start_column_id?: string;
 }
 
 interface Column {
@@ -131,6 +132,10 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       cards: cardsData?.filter(card => card.column_id === col.id).map(card => ({
         ...card,
         lead: card.leads || undefined,
+        // Garantir que flags colaborativas estejam sempre presentes
+        is_collaborative: card.is_collaborative ?? false,
+        requires_all_approval: card.requires_all_approval ?? true,
+        timer_start_column_id: card.timer_start_column_id || null,
       })) || []
     })) || [];
 
@@ -181,6 +186,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     assignees?: string[];
     is_collaborative?: boolean;
     requires_all_approval?: boolean;
+    timer_start_column_id?: string | null;
   }) => {
     if (!selectedColumnForTask) return;
 
@@ -200,15 +206,22 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       created_by: user.id,
       is_collaborative: task.is_collaborative || false,
       requires_all_approval: task.requires_all_approval ?? true,
+      timer_start_column_id: task.timer_start_column_id || null,
     };
 
     if (task.lead_id) {
       insertData.lead_id = task.lead_id;
     }
 
-    // Set timer_started_at if estimated_time but no due_date
+    // Set timer_started_at based on timer_start_column_id
     if (task.estimated_time && !task.due_date) {
-      insertData.timer_started_at = new Date().toISOString();
+      // Se não tem coluna de início configurada OU a coluna atual é a coluna de início
+      if (!task.timer_start_column_id || task.timer_start_column_id === selectedColumnForTask) {
+        insertData.timer_started_at = new Date().toISOString();
+      } else {
+        // Timer aguarda chegar na coluna configurada
+        insertData.timer_started_at = null;
+      }
     }
 
     const { data } = await supabase
@@ -396,7 +409,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     setIsDraggingActive(true);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = async (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -416,10 +429,47 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     const card = sourceColumn.cards.find(c => c.id === activeCardId);
     if (!card) return;
 
-    // Block collaborative tasks from moving visually until validated in handleDragEnd
+    // BLOQUEIO TOTAL para tarefas colaborativas - verificar no banco de dados
     if (card.is_collaborative && card.requires_all_approval) {
-      // Don't move visually - will be validated in handleDragEnd
-      return;
+      // Buscar status atual dos assignees diretamente do banco
+      const { data: assignees } = await supabase
+        .from("kanban_card_assignees")
+        .select("is_completed, user_id")
+        .eq("card_id", activeCardId);
+
+      console.log("🔍 DragOver - Tarefa Colaborativa:", {
+        cardId: activeCardId,
+        is_collaborative: card.is_collaborative,
+        requires_all_approval: card.requires_all_approval,
+        assignees: assignees,
+      });
+
+      if (assignees && assignees.length > 0) {
+        const allCompleted = assignees.every(a => a.is_completed);
+        
+        if (!allCompleted) {
+          const completedCount = assignees.filter(a => a.is_completed).length;
+          
+          // Buscar nomes dos pendentes para feedback
+          const pendingIds = assignees.filter(a => !a.is_completed).map(a => a.user_id);
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .in("user_id", pendingIds);
+          
+          const pendingNames = profiles?.map(p => p.full_name).join(", ") || "colaboradores";
+
+          toast({
+            title: "⚠️ Tarefa Colaborativa Bloqueada",
+            description: `Todos devem confirmar antes de mover. Faltam: ${pendingNames} (${completedCount}/${assignees.length})`,
+            variant: "destructive",
+            duration: 4000,
+          });
+          
+          // NÃO MOVER - Bloquear movimento visual
+          return;
+        }
+      }
     }
 
     const newColumns = columns.map(col => {
@@ -458,16 +508,40 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     const card = sourceColumn.cards.find(c => c.id === activeCardId);
     if (!card) return;
 
+    console.log("🔍 DragEnd - Card Info:", {
+      cardId: activeCardId,
+      is_collaborative: card.is_collaborative,
+      requires_all_approval: card.requires_all_approval,
+      sourceColumn: sourceColumn.title,
+      targetColumn: targetColumn.title,
+    });
+
     // Verificar se é tarefa colaborativa e está mudando de coluna
     if (sourceColumn.id !== targetColumn.id && card.is_collaborative && card.requires_all_approval) {
+      console.log("🔍 DragEnd - Validando tarefa colaborativa...");
+      
       // Buscar status dos colaboradores com nomes
-      const { data: assignees } = await supabase
+      const { data: assignees, error } = await supabase
         .from("kanban_card_assignees")
         .select("is_completed, user_id")
         .eq("card_id", activeCardId);
 
+      console.log("🔍 DragEnd - Assignees:", { assignees, error });
+
+      if (error) {
+        console.error("❌ Erro ao buscar assignees:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível validar a tarefa colaborativa.",
+          variant: "destructive",
+        });
+        await loadColumns(boardId || "");
+        return;
+      }
+
       if (assignees && assignees.length > 0) {
         const allCompleted = assignees.every(a => a.is_completed);
+        console.log("🔍 DragEnd - Todos completaram?", allCompleted);
 
         if (!allCompleted) {
           const completedCount = assignees.filter(a => a.is_completed).length;
@@ -481,22 +555,40 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           
           const pendingNames = profiles?.map(p => p.full_name).join(", ") || "colaboradores";
           
+          console.log("🚫 DragEnd - BLOQUEANDO movimento. Pendentes:", pendingNames);
+          
           toast({
             title: "⚠️ Movimentação Bloqueada",
             description: `Tarefa colaborativa requer aprovação de todos. Faltam: ${pendingNames} (${completedCount}/${assignees.length} confirmaram)`,
             variant: "destructive",
             duration: 5000,
           });
+          
+          // IMPORTANTE: Recarregar para reverter visualmente
+          await loadColumns(boardId || "");
           return;
         }
+      } else {
+        console.log("⚠️ DragEnd - Tarefa colaborativa sem assignees cadastrados");
       }
     }
 
     // Atualizar no banco se mudou de coluna
     if (sourceColumn.id !== targetColumn.id) {
+      const updateData: any = { column_id: targetColumn.id };
+      
+      // Verificar se deve iniciar o timer ao entrar nesta coluna
+      if (card.timer_start_column_id === targetColumn.id && !card.timer_started_at && card.estimated_time) {
+        updateData.timer_started_at = new Date().toISOString();
+        toast({
+          title: "⏱️ Cronômetro Iniciado",
+          description: `Timer da tarefa "${card.content}" começou a contar!`,
+        });
+      }
+      
       await supabase
         .from("kanban_cards")
-        .update({ column_id: targetColumn.id })
+        .update(updateData)
         .eq("id", activeCardId);
       
       // Update local state for collaborative tasks that passed validation
@@ -505,7 +597,11 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           return { ...col, cards: col.cards.filter(c => c.id !== activeCardId) };
         }
         if (col.id === targetColumn.id) {
-          return { ...col, cards: [...col.cards, card] };
+          const updatedCard = { 
+            ...card, 
+            timer_started_at: updateData.timer_started_at || card.timer_started_at 
+          };
+          return { ...col, cards: [...col.cards, updatedCard] };
         }
         return col;
       }));

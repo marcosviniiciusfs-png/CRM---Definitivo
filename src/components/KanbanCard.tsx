@@ -43,6 +43,7 @@ interface Card {
   lead?: Lead;
   is_collaborative?: boolean;
   requires_all_approval?: boolean;
+  timer_start_column_id?: string;
 }
 
 interface KanbanCardProps {
@@ -292,13 +293,20 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
                   {card.estimated_time && (
                     <div className={`flex items-center gap-1 px-2 py-1 rounded ${
                       !card.due_date 
-                        ? isOvertime 
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-primary/10 text-primary" 
+                        ? card.timer_started_at
+                          ? isOvertime 
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                         : "bg-muted"
                     }`}>
-                      <Clock className="h-3 w-3" />
-                      {!card.due_date ? formatTimerDisplay() : formatEstimatedTime(card.estimated_time)}
+                      <Clock className={`h-3 w-3 ${!card.due_date && card.timer_start_column_id && !card.timer_started_at ? 'animate-pulse' : ''}`} />
+                      {!card.due_date 
+                        ? card.timer_started_at 
+                          ? formatTimerDisplay() 
+                          : `${formatEstimatedTime(card.estimated_time)} (aguardando)`
+                        : formatEstimatedTime(card.estimated_time)
+                      }
                     </div>
                   )}
                 </div>
