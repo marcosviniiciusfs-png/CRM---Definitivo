@@ -201,37 +201,50 @@ serve(async (req) => {
     console.log('Message Webhook:', messageWebhookUrl);
 
     // ========================================
-    // STEP 1: CLEANUP OLD INSTANCES
+    // STEP 1: CLEANUP OLD INSTANCES (NON-BLOCKING)
     // ========================================
-    console.log('🧹 Starting cleanup of old instances...');
+    // OTIMIZAÇÃO: Executar limpeza de forma não-bloqueante
+    // A limpeza será feita em background enquanto criamos a nova instância
+    console.log('🧹 Agendando limpeza de instâncias antigas (non-blocking)...');
     
-    // FIRST: Get all instances from database for this user
-    const { data: dbInstances, error: dbFetchError } = await supabase
-      .from('whatsapp_instances')
-      .select('*')
-      .eq('user_id', user.id);
+    // Capturar dados necessários para cleanup antes de prosseguir
+    const cleanupData = {
+      userId: user.id,
+      baseUrl,
+      evolutionApiKey,
+    };
+    
+    // Função de limpeza que será executada em background
+    const performCleanup = async () => {
+      try {
+        // Get all instances from database for this user
+        const { data: dbInstances, error: dbFetchError } = await supabase
+          .from('whatsapp_instances')
+          .select('*')
+          .eq('user_id', cleanupData.userId);
 
-    if (dbFetchError) {
-      console.error('❌ Error fetching instances from database:', dbFetchError);
-    } else {
-      console.log(`📋 Found ${dbInstances?.length || 0} instances in database for user`);
-    }
+        if (dbFetchError) {
+          console.error('❌ [CLEANUP] Error fetching instances from database:', dbFetchError);
+          return;
+        }
 
-    // SECOND: Fetch all instances from Evolution API
-    try {
-      const fetchInstancesResponse = await fetch(`${baseUrl}/instance/fetchInstances`, {
-        method: 'GET',
-        headers: {
-          'apikey': evolutionApiKey,
-        },
-      });
+        console.log(`📋 [CLEANUP] Found ${dbInstances?.length || 0} instances in database for user`);
 
-      if (fetchInstancesResponse.ok) {
+        // Fetch all instances from Evolution API
+        const fetchInstancesResponse = await fetch(`${cleanupData.baseUrl}/instance/fetchInstances`, {
+          method: 'GET',
+          headers: {
+            'apikey': cleanupData.evolutionApiKey,
+          },
+        });
+
+        if (!fetchInstancesResponse.ok) {
+          console.warn('⚠️ [CLEANUP] Could not fetch instances:', fetchInstancesResponse.status);
+          return;
+        }
+
         const allInstances = await fetchInstancesResponse.json();
-        console.log(`📋 Found ${allInstances.length} total instances in Evolution API`);
-
-        // Filter instances belonging to this user (by instance name pattern OR database records)
-        const userPrefix = `crm-${user.id.substring(0, 8)}`;
+        const userPrefix = `crm-${cleanupData.userId.substring(0, 8)}`;
         const dbInstanceNames = dbInstances?.map(inst => inst.instance_name) || [];
         
         const userInstances = Array.isArray(allInstances) 
@@ -244,83 +257,48 @@ serve(async (req) => {
             })
           : [];
 
-        console.log(`🔍 Found ${userInstances.length} instances for user in Evolution API`);
+        console.log(`🔍 [CLEANUP] Found ${userInstances.length} old instances to clean up`);
 
-        // Delete each old instance
-        if (userInstances.length > 0) {
-          console.log('🗑️ Deleting old instances...');
-          
-          for (const oldInstance of userInstances) {
-            const oldInstanceName = oldInstance.instance?.instanceName;
-            if (!oldInstanceName) continue;
+        // Delete each old instance (don't block on these)
+        for (const oldInstance of userInstances) {
+          const oldInstanceName = oldInstance.instance?.instanceName;
+          if (!oldInstanceName) continue;
 
-            try {
-              console.log(`  ↳ Processing instance: ${oldInstanceName}`);
-              
-              // STEP 1.1: Force logout first
-              try {
-                console.log(`    🔓 Logging out: ${oldInstanceName}`);
-                const logoutResponse = await fetch(`${baseUrl}/instance/logout/${oldInstanceName}`, {
-                  method: 'DELETE',
-                  headers: {
-                    'apikey': evolutionApiKey,
-                  },
-                });
-
-                if (logoutResponse.ok) {
-                  console.log(`    ✅ Logged out: ${oldInstanceName}`);
-                } else {
-                  console.warn(`    ⚠️ Logout failed for ${oldInstanceName}:`, logoutResponse.status);
-                }
-              } catch (logoutError) {
-                console.warn(`    ⚠️ Logout error for ${oldInstanceName}:`, logoutError);
-                // Continue to delete even if logout fails
-              }
-
-              // STEP 1.2: Delete the instance
-              console.log(`    🗑️ Deleting: ${oldInstanceName}`);
-              const deleteResponse = await fetch(`${baseUrl}/instance/delete/${oldInstanceName}`, {
-                method: 'DELETE',
-                headers: {
-                  'apikey': evolutionApiKey,
-                },
-              });
-
-              if (deleteResponse.ok) {
-                console.log(`    ✅ Deleted: ${oldInstanceName}`);
-              } else {
-                console.warn(`    ⚠️ Failed to delete ${oldInstanceName}:`, deleteResponse.status);
-              }
-            } catch (deleteError) {
-              console.error(`  ❌ Error processing ${oldInstanceName}:`, deleteError);
-            }
+          try {
+            // Logout first
+            await fetch(`${cleanupData.baseUrl}/instance/logout/${oldInstanceName}`, {
+              method: 'DELETE',
+              headers: { 'apikey': cleanupData.evolutionApiKey },
+            });
+            
+            // Delete instance
+            await fetch(`${cleanupData.baseUrl}/instance/delete/${oldInstanceName}`, {
+              method: 'DELETE',
+              headers: { 'apikey': cleanupData.evolutionApiKey },
+            });
+            
+            console.log(`✅ [CLEANUP] Deleted: ${oldInstanceName}`);
+          } catch (e) {
+            console.warn(`⚠️ [CLEANUP] Error cleaning ${oldInstanceName}:`, e);
           }
-
-          // Also cleanup database records for these instances
-          const { error: dbCleanupError } = await supabase
-            .from('whatsapp_instances')
-            .delete()
-            .eq('user_id', user.id);
-
-          if (dbCleanupError) {
-            console.warn('⚠️ Error cleaning up database instances:', dbCleanupError);
-          } else {
-            console.log('✅ Database instances cleaned up');
-          }
-
-          // Wait a moment for Evolution API to fully process deletions
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log('✅ Cleanup completed');
-        } else {
-          console.log('✨ No old instances to clean up');
         }
-      } else {
-        console.warn('⚠️ Could not fetch instances for cleanup:', fetchInstancesResponse.status);
+
+        // Cleanup database records
+        await supabase
+          .from('whatsapp_instances')
+          .delete()
+          .eq('user_id', cleanupData.userId);
+
+        console.log('✅ [CLEANUP] Background cleanup completed');
+      } catch (error) {
+        console.error('❌ [CLEANUP] Background cleanup failed:', error);
       }
-    } catch (cleanupError) {
-      console.error('❌ Error during cleanup:', cleanupError);
-      // Continue with instance creation even if cleanup fails
-    }
+    };
+
+    // NOTA: Não aguardar a limpeza - ela acontece em background
+    // Isso permite retornar o QR code muito mais rápido
+    // A limpeza continuará executando mesmo após a resposta ser enviada
+    performCleanup().catch(err => console.error('❌ [CLEANUP] Error in background cleanup:', err));
 
     // ========================================
     // STEP 2: CREATE NEW INSTANCE
@@ -353,89 +331,10 @@ serve(async (req) => {
     console.log('Evolution API response:', evolutionData);
 
     // ========================================
-    // STEP 3: CONFIGURE WEBHOOKS
-    // ========================================
-    console.log('Configuring webhooks for instance...');
-    
-    // Get webhook secret for authentication
-    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
-    if (!webhookSecret) {
-      console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET not configured - webhooks will not be authenticated!');
-    }
-    
-    // Configurar webhook global usando o formato correto da Evolution API
-    const webhookConfig = {
-      webhook: {
-        enabled: true,
-        url: messageWebhookUrl,
-        webhook_by_events: true, // CRITICAL: Habilitar webhook por eventos
-        webhook_base64: false,
-        events: [
-          'QRCODE_UPDATED',
-          'CONNECTION_UPDATE',
-          'MESSAGES_UPSERT',
-          'MESSAGES_UPDATE',
-          'SEND_MESSAGE'
-        ],
-        // 🔒 SEGURANÇA: Adicionar header de autenticação para webhooks
-        ...(webhookSecret ? {
-          headers: {
-            'x-api-key': webhookSecret
-          }
-        } : {})
-      }
-    };
-
-    const webhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': evolutionApiKey,
-      },
-      body: JSON.stringify(webhookConfig),
-    });
-
-    if (!webhookResponse.ok) {
-      const webhookError = await webhookResponse.json().catch(async () => {
-        const text = await webhookResponse.text();
-        return { error: text };
-      });
-      console.error('❌ Webhook configuration failed:', JSON.stringify(webhookError, null, 2));
-      // Não falhar a criação da instância por causa do webhook
-    } else {
-      const webhookResult = await webhookResponse.json();
-      console.log('✅ Webhook configured successfully:', JSON.stringify(webhookResult, null, 2));
-    }
-
-    // ========================================
-    // SET PRESENCE AS UNAVAILABLE BY DEFAULT
-    // ========================================
-    console.log('👻 Definindo presença como unavailable por padrão...');
-    try {
-      const presenceResponse = await fetch(`${baseUrl}/instance/setPresence/${instanceName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': evolutionApiKey,
-        },
-        body: JSON.stringify({ presence: 'unavailable' }),
-      });
-      
-      if (presenceResponse.ok) {
-        console.log('✅ Presença definida como unavailable');
-      } else {
-        console.warn('⚠️ Falha ao definir presença:', presenceResponse.status);
-      }
-    } catch (presenceError) {
-      console.warn('⚠️ Erro ao definir presença inicial:', presenceError);
-      // Não falhar a criação por causa da presença
-    }
-
-    // ========================================
     // PRIORITY: IMMEDIATE QR CODE EXTRACTION
     // ========================================
-    // Extract QR Code IMMEDIATELY from Evolution API response
-    // This is CRITICAL for QR Code freshness - any delay causes expiration
+    // OTIMIZAÇÃO: Extrair QR ANTES de qualquer outra operação
+    // Isso garante que o QR code seja retornado o mais rápido possível
     
     let qrCodeBase64: string | null = null;
     
@@ -459,16 +358,101 @@ serve(async (req) => {
     }
 
     // ========================================
-    // GET (OR CREATE) USER'S ORGANIZATION
+    // STEP 3: PARALLEL OPERATIONS (NON-BLOCKING)
     // ========================================
-    console.log('🏢 Fetching user organization (with fallback)...');
-    const organizationId = await getOrCreateOrganizationId(supabase, {
-      id: user.id,
-      email: user.email,
-    });
+    // OTIMIZAÇÃO: Executar webhook, presença e busca de org em PARALELO
+    // Isso economiza vários segundos de latência
+    
+    console.log('⚡ Executando operações paralelas (webhook, presença, org)...');
+    
+    // Get webhook secret for authentication
+    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET not configured - webhooks will not be authenticated!');
+    }
+    
+    // Configurar webhook (não-bloqueante)
+    const configureWebhook = async () => {
+      const webhookConfig = {
+        webhook: {
+          enabled: true,
+          url: messageWebhookUrl,
+          webhook_by_events: true,
+          webhook_base64: false,
+          events: [
+            'QRCODE_UPDATED',
+            'CONNECTION_UPDATE',
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'SEND_MESSAGE'
+          ],
+          ...(webhookSecret ? {
+            headers: {
+              'x-api-key': webhookSecret
+            }
+          } : {})
+        }
+      };
 
-    if (organizationId) {
-      console.log('✅ Organization resolved:', organizationId);
+      const webhookResponse = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionApiKey!,
+        },
+        body: JSON.stringify(webhookConfig),
+      });
+
+      if (!webhookResponse.ok) {
+        const webhookError = await webhookResponse.json().catch(async () => {
+          const text = await webhookResponse.text();
+          return { error: text };
+        });
+        console.error('❌ Webhook configuration failed:', JSON.stringify(webhookError, null, 2));
+      } else {
+        const webhookResult = await webhookResponse.json();
+        console.log('✅ Webhook configured successfully');
+      }
+    };
+
+    // Definir presença (não-bloqueante)
+    const setPresence = async () => {
+      const presenceResponse = await fetch(`${baseUrl}/instance/setPresence/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionApiKey!,
+        },
+        body: JSON.stringify({ presence: 'unavailable' }),
+      });
+      
+      if (presenceResponse.ok) {
+        console.log('✅ Presença definida como unavailable');
+      } else {
+        console.warn('⚠️ Falha ao definir presença:', presenceResponse.status);
+      }
+    };
+
+    // Buscar organização (necessário para salvar no banco)
+    const getOrganization = async () => {
+      return await getOrCreateOrganizationId(supabase, {
+        id: user.id,
+        email: user.email,
+      });
+    };
+
+    // OTIMIZAÇÃO: Executar todas as operações em paralelo
+    const [webhookResult, presenceResult, organizationId] = await Promise.allSettled([
+      configureWebhook(),
+      setPresence(),
+      getOrganization(),
+    ]);
+
+    // Extrair organizationId do resultado
+    const orgId = organizationId.status === 'fulfilled' ? organizationId.value : null;
+    
+    if (orgId) {
+      console.log('✅ Organization resolved:', orgId);
     } else {
       console.warn('⚠️ Could not resolve organization. Proceeding with organization_id = null');
     }
@@ -484,7 +468,7 @@ serve(async (req) => {
       .from('whatsapp_instances')
       .insert({
         user_id: user.id,
-        organization_id: organizationId,
+        organization_id: orgId,
         instance_name: instanceName,
         status: qrCodeBase64 ? 'WAITING_QR' : 'CREATING',
         webhook_url: qrWebhookUrl,
