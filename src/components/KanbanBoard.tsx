@@ -52,6 +52,11 @@ interface Column {
   title: string;
   position: number;
   cards: Card[];
+  is_completion_stage?: boolean;
+  block_backward_movement?: boolean;
+  auto_delete_enabled?: boolean;
+  auto_delete_hours?: number | null;
+  stage_color?: string | null;
 }
 
 interface KanbanBoardProps {
@@ -157,6 +162,11 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
     const columnsWithCards = columnsData?.map(col => ({
       ...col,
+      is_completion_stage: col.is_completion_stage ?? false,
+      block_backward_movement: col.block_backward_movement ?? false,
+      auto_delete_enabled: col.auto_delete_enabled ?? false,
+      auto_delete_hours: col.auto_delete_hours,
+      stage_color: col.stage_color,
       cards: cardsData?.filter(card => card.column_id === col.id).map(card => ({
         ...card,
         lead: card.leads || undefined,
@@ -504,6 +514,17 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       }
     }
 
+    // Verificar bloqueio de movimento reverso durante drag
+    if (sourceColumn.block_backward_movement) {
+      const sourcePos = columns.findIndex(c => c.id === sourceColumn.id);
+      const targetPos = columns.findIndex(c => c.id === targetColumn.id);
+      
+      if (targetPos < sourcePos) {
+        // Bloquear visualmente - não mover
+        return;
+      }
+    }
+
     const newColumns = columns.map(col => {
       if (col.id === sourceColumn.id) {
         return { ...col, cards: col.cards.filter(c => c.id !== activeCardId) };
@@ -605,6 +626,22 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       }
     }
 
+    // Verificar bloqueio de movimento reverso
+    if (sourceColumn.id !== targetColumn.id && sourceColumn.block_backward_movement) {
+      const sourcePos = columns.findIndex(c => c.id === sourceColumn.id);
+      const targetPos = columns.findIndex(c => c.id === targetColumn.id);
+      
+      if (targetPos < sourcePos) {
+        toast({
+          title: "⚠️ Movimento Bloqueado",
+          description: `Tarefas não podem voltar da etapa "${sourceColumn.title}" para etapas anteriores.`,
+          variant: "destructive",
+        });
+        await loadColumns(boardId || "");
+        return;
+      }
+    }
+
     // Atualizar no banco se mudou de coluna
     if (sourceColumn.id !== targetColumn.id) {
       const updateData: any = { column_id: targetColumn.id };
@@ -691,6 +728,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               onDeleteCard={deleteCard}
               onSyncCalendar={handleSyncCalendar}
               isDraggingActive={isDraggingActive}
+              onSettingsUpdated={() => loadColumns(boardId || "")}
             />
           ))}
 

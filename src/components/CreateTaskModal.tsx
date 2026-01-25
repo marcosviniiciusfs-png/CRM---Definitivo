@@ -460,7 +460,7 @@ export const CreateTaskModal = ({
           </div>
 
           {/* Seletor de coluna para início do timer */}
-          {estimatedTime && !dueDate && (
+          {estimatedTime && (
             <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
               <Label className="flex items-center gap-1 text-sm font-medium">
                 <Timer className="h-3 w-3" />

@@ -1063,24 +1063,39 @@ export type Database = {
       }
       kanban_columns: {
         Row: {
+          auto_delete_enabled: boolean | null
+          auto_delete_hours: number | null
+          block_backward_movement: boolean | null
           board_id: string
           created_at: string
           id: string
+          is_completion_stage: boolean | null
           position: number
+          stage_color: string | null
           title: string
         }
         Insert: {
+          auto_delete_enabled?: boolean | null
+          auto_delete_hours?: number | null
+          block_backward_movement?: boolean | null
           board_id: string
           created_at?: string
           id?: string
+          is_completion_stage?: boolean | null
           position?: number
+          stage_color?: string | null
           title: string
         }
         Update: {
+          auto_delete_enabled?: boolean | null
+          auto_delete_hours?: number | null
+          block_backward_movement?: boolean | null
           board_id?: string
           created_at?: string
           id?: string
+          is_completion_stage?: boolean | null
           position?: number
+          stage_color?: string | null
           title?: string
         }
         Relationships: [

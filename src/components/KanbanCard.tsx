@@ -52,9 +52,10 @@ interface KanbanCardProps {
   onEdit: (id: string, updates: Partial<Card>, oldDescription?: string) => void;
   onDelete: (id: string) => void;
   onSyncCalendar?: (card: Card) => void;
+  isInCompletionStage?: boolean;
 }
 
-export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCardProps) => {
+export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar, isInCompletionStage }: KanbanCardProps) => {
   const navigate = useNavigate();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
@@ -137,7 +138,9 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
       }}
       className={`kanban-card bg-card border rounded-lg p-3 mb-2 group relative shadow-sm ${
         !isEditing ? "cursor-grab active:cursor-grabbing" : ""
-      } ${card.is_collaborative ? "ring-1 ring-amber-500/40 hover:ring-amber-500/70 transition-all" : ""}`}
+      } ${card.is_collaborative ? "ring-1 ring-amber-500/40 hover:ring-amber-500/70 transition-all" : ""} ${
+        isInCompletionStage ? "ring-1 ring-green-500/50" : ""
+      }`}
       {...(!isEditing ? { ...attributes, ...listeners } : {})}
     >
       <div className="flex items-start gap-2">
@@ -289,7 +292,7 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full mt-2 text-xs h-7 border-primary/30 text-primary hover:bg-primary/10"
+                  className="w-full mt-2 text-xs h-7 border-amber-500/50 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();

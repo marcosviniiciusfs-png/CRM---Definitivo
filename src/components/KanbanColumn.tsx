@@ -3,8 +3,9 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Settings } from "lucide-react";
 import { KanbanCard } from "./KanbanCard";
+import { StageSettingsModal } from "./StageSettingsModal";
 
 interface Lead {
   id: string;
@@ -33,6 +34,11 @@ interface Column {
   id: string;
   title: string;
   cards: Card[];
+  is_completion_stage?: boolean;
+  block_backward_movement?: boolean;
+  auto_delete_enabled?: boolean;
+  auto_delete_hours?: number | null;
+  stage_color?: string | null;
 }
 
 interface KanbanColumnProps {
@@ -49,6 +55,7 @@ interface KanbanColumnProps {
   onDeleteCard: (columnId: string, cardId: string) => void;
   onSyncCalendar?: (card: Card) => void;
   isDraggingActive: boolean;
+  onSettingsUpdated?: () => void;
 }
 
 export const KanbanColumn = ({
@@ -60,6 +67,7 @@ export const KanbanColumn = ({
   onDeleteCard,
   onSyncCalendar,
   isDraggingActive,
+  onSettingsUpdated,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -67,6 +75,7 @@ export const KanbanColumn = ({
 
   // Local state for instant typing feedback
   const [localTitle, setLocalTitle] = useState(column.title);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync local state when column prop changes (e.g., from external update)
@@ -99,13 +108,28 @@ export const KanbanColumn = ({
   }, []);
 
   return (
-    <div className="flex-shrink-0 w-80 bg-background rounded-lg p-4 shadow-md border">
-      <div className="flex items-center justify-between mb-4">
+    <div 
+      className="flex-shrink-0 w-80 bg-background rounded-lg p-4 shadow-md border"
+      style={{
+        borderTopColor: column.stage_color || undefined,
+        borderTopWidth: column.stage_color ? "3px" : undefined,
+      }}
+    >
+      <div className="flex items-center justify-between mb-4 gap-1">
         <Input
           value={localTitle}
           onChange={handleTitleChange}
-          className="font-semibold border-none focus-visible:ring-0 px-0 h-auto"
+          className="font-semibold border-none focus-visible:ring-0 px-0 h-auto flex-1"
         />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSettingsOpen(true)}
+          className="h-6 w-6 p-0"
+          title="Configurações da etapa"
+        >
+          <Settings className="h-4 w-4 text-muted-foreground" />
+        </Button>
         <Button
           variant="ghost"
           size="sm"
@@ -135,6 +159,7 @@ export const KanbanColumn = ({
               }
               onDelete={(id) => onDeleteCard(column.id, id)}
               onSyncCalendar={onSyncCalendar}
+              isInCompletionStage={column.is_completion_stage}
             />
           ))}
         </SortableContext>
@@ -149,6 +174,14 @@ export const KanbanColumn = ({
         <Plus className="mr-2 h-4 w-4" />
         Adicionar Cartão
       </Button>
+
+      <StageSettingsModal
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        columnId={column.id}
+        columnTitle={column.title}
+        onSettingsUpdated={onSettingsUpdated || (() => {})}
+      />
     </div>
   );
 };
