@@ -18,10 +18,16 @@ const Auth = () => {
   const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
   const [pendingRedirect, setPendingRedirect] = useState(false);
 
+  const [hasCheckedOrgs, setHasCheckedOrgs] = useState(false);
+
   // Verificar se o usuário tem múltiplas organizações após login
   useEffect(() => {
     const checkMultipleOrganizations = async () => {
-      if (!user || pendingRedirect) return;
+      // Só verificar se: tem user, não está pendente redirect, e ainda não verificou
+      if (!user || pendingRedirect || hasCheckedOrgs) return;
+      
+      console.log('[AUTH-PAGE] Checking organizations for user:', user.email);
+      setHasCheckedOrgs(true);
 
       try {
         const { data: memberships, error } = await supabase
@@ -37,13 +43,16 @@ const Auth = () => {
           .eq('user_id', user.id)
           .eq('is_active', true);
 
+        console.log('[AUTH-PAGE] Memberships found:', memberships?.length, memberships);
+
         if (error) {
-          console.error('Error checking organizations:', error);
+          console.error('[AUTH-PAGE] Error checking organizations:', error);
           navigate("/dashboard");
           return;
         }
 
         if (memberships && memberships.length > 1) {
+          console.log('[AUTH-PAGE] Multiple orgs detected, showing selector modal');
           // Formatar dados e mostrar modal
           const formattedMemberships: OrganizationMembership[] = memberships.map(m => ({
             organization_id: m.organization_id,
@@ -54,17 +63,18 @@ const Auth = () => {
           setAvailableOrganizations(formattedMemberships);
           setShowOrgSelector(true);
         } else {
+          console.log('[AUTH-PAGE] Single org or none, redirecting to dashboard');
           // Apenas uma organização, redirecionar direto
           navigate("/dashboard");
         }
       } catch (error) {
-        console.error('Error checking organizations:', error);
+        console.error('[AUTH-PAGE] Error checking organizations:', error);
         navigate("/dashboard");
       }
     };
 
     checkMultipleOrganizations();
-  }, [user, navigate, pendingRedirect]);
+  }, [user, navigate, pendingRedirect, hasCheckedOrgs]);
 
   const handleOrganizationSelect = (organizationId: string) => {
     // Salvar seleção no cache antes de redirecionar
