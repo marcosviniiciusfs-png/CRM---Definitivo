@@ -75,25 +75,52 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   }, [organizationId]);
 
   const loadOrCreateBoard = async () => {
+    console.log('[KANBAN] Loading board for organization:', organizationId);
+    
+    // Validar organizationId antes de prosseguir
+    if (!organizationId || organizationId.length < 10) {
+      console.error('[KANBAN] Invalid organizationId:', organizationId);
+      setLoading(false);
+      return;
+    }
+    
     try {
-      // Buscar board existente
-      const { data: existingBoard } = await supabase
+      // Buscar board existente usando maybeSingle para evitar erro se não existir
+      const { data: existingBoard, error: fetchError } = await supabase
         .from("kanban_boards")
         .select("id")
         .eq("organization_id", organizationId)
-        .single();
+        .maybeSingle();
+
+      console.log('[KANBAN] Existing board result:', { existingBoard, fetchError });
+
+      if (fetchError) {
+        console.error('[KANBAN] Error fetching board:', fetchError);
+        toast({ title: "Erro ao carregar quadro", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
 
       let currentBoardId = existingBoard?.id;
 
       if (!currentBoardId) {
+        console.log('[KANBAN] No board found, creating new one...');
         // Criar novo board com colunas padrão
-        const { data: newBoard } = await supabase
+        const { data: newBoard, error: createError } = await supabase
           .from("kanban_boards")
           .insert({ organization_id: organizationId })
           .select()
           .single();
 
+        if (createError) {
+          console.error('[KANBAN] Error creating board:', createError);
+          toast({ title: "Erro ao criar quadro", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+
         currentBoardId = newBoard?.id;
+        console.log('[KANBAN] New board created:', currentBoardId);
 
         if (currentBoardId) {
           await supabase.from("kanban_columns").insert([
@@ -107,7 +134,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       setBoardId(currentBoardId || null);
       await loadColumns(currentBoardId || "");
     } catch (error) {
-      console.error("Erro ao carregar board:", error);
+      console.error("[KANBAN] Erro ao carregar board:", error);
       toast({ title: "Erro ao carregar quadro", variant: "destructive" });
     } finally {
       setLoading(false);

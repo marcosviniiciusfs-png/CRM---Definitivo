@@ -282,8 +282,18 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   }, [user, refreshSubscription]);
 
+  // Ref para prevenir cliques duplos durante seleção
+  const isProcessingSelection = useRef(false);
+
   const handleOrgSelect = useCallback(async (orgId: string) => {
-    if (!user) return;
+    // Prevenir cliques duplos
+    if (!user || isProcessingSelection.current) {
+      console.log('[ORG] Ignoring selection - already processing or no user');
+      return;
+    }
+    
+    isProcessingSelection.current = true;
+    console.log('[ORG] Processing organization selection:', orgId);
     
     const targetMembership = availableOrganizations.find(
       m => m.organization_id === orgId
@@ -291,23 +301,36 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     
     if (!targetMembership) {
       console.error('[ORG] Organization not found in available organizations');
+      isProcessingSelection.current = false;
       return;
     }
 
-    console.log('[ORG] User selected organization:', orgId);
-    
-    setOrganizationId(orgId);
-    setNeedsOrgSelection(false);
-    
-    const newPermissions = calculatePermissions(targetMembership.role);
-    setPermissions(newPermissions);
-    
-    // Atualizar cache com a nova seleção
-    setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
-    
-    // Atualizar subscription com a nova organização
-    console.log('[ORG] Refreshing subscription after org selection:', orgId);
-    refreshSubscription(orgId);
+    try {
+      // 1. Calcular permissões
+      const newPermissions = calculatePermissions(targetMembership.role);
+      
+      // 2. Salvar no cache ANTES de atualizar estados (crítico para evitar race conditions)
+      setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
+      
+      // 3. Atualizar todos os estados de forma síncrona
+      setOrganizationId(orgId);
+      setPermissions(newPermissions);
+      setNeedsOrgSelection(false);
+      setIsInitialized(true);
+      dataLoadedRef.current = true;
+      
+      console.log('[ORG] Organization selected successfully:', orgId);
+      
+      // 4. Atualizar subscription em background
+      refreshSubscription(orgId);
+    } catch (error) {
+      console.error('[ORG] Error during organization selection:', error);
+    } finally {
+      // Delay para garantir que estados propagaram antes de permitir nova seleção
+      setTimeout(() => {
+        isProcessingSelection.current = false;
+      }, 500);
+    }
   }, [user, availableOrganizations, refreshSubscription]);
 
   const switchOrganization = useCallback(async (orgId: string) => {
