@@ -11,11 +11,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3, Pencil } from "lucide-react";
+import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3, Pencil, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { CollaboratorDashboard } from "@/components/CollaboratorDashboard";
+import { RoleManagementTab } from "@/components/RoleManagementTab";
 
 const emailSchema = z.string().email({ message: "Email inválido" });
 
@@ -571,6 +572,10 @@ const Colaboradores = () => {
             <Users className="h-4 w-4" />
             Gerenciamento
           </TabsTrigger>
+          <TabsTrigger value="cargos" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <Shield className="h-4 w-4" />
+            Cargos
+          </TabsTrigger>
           <TabsTrigger value="dashboard" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <BarChart3 className="h-4 w-4" />
             Dashboard de Colaboradores
@@ -581,17 +586,12 @@ const Colaboradores = () => {
           {/* Action buttons */}
           <div className="flex gap-3 justify-end">
             {(userRole === 'owner' || userRole === 'admin') && (
-              <>
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                  onClick={() => setIsDialogOpen(true)}
-                >
-                  Novo Colaborador
-                </Button>
-                <Button variant="secondary" className="bg-purple-600 hover:bg-purple-700 text-white">
-                  Lote de Colaboradores
-                </Button>
-              </>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                onClick={() => setIsDialogOpen(true)}
+              >
+                Novo Colaborador
+              </Button>
             )}
             <Button 
               variant={showInactive ? "default" : "secondary"}
@@ -1075,6 +1075,15 @@ const Colaboradores = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </TabsContent>
+
+        <TabsContent value="cargos">
+          {organizationId && (
+            <RoleManagementTab 
+              organizationId={organizationId} 
+              userRole={userRole}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="dashboard">

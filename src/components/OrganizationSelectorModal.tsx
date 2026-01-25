@@ -35,11 +35,18 @@ export function OrganizationSelectorModal({
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSelect = async (orgId: string) => {
+    // Prevenir cliques duplos
+    if (isLoading) {
+      console.log('[ORG-MODAL] Ignoring click - already loading');
+      return;
+    }
+    
+    console.log('[ORG-MODAL] User clicked organization:', orgId);
     setSelectedId(orgId);
     setIsLoading(true);
     
-    // Pequeno delay para feedback visual
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Delay maior para garantir sincronização de estados
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     onSelect(orgId);
   };

@@ -1767,9 +1767,111 @@ export type Database = {
           },
         ]
       }
+      organization_custom_roles: {
+        Row: {
+          can_assign_leads: boolean | null
+          can_create_leads: boolean | null
+          can_create_tasks: boolean | null
+          can_delete_leads: boolean | null
+          can_delete_tasks: boolean | null
+          can_edit_all_tasks: boolean | null
+          can_edit_leads: boolean | null
+          can_edit_own_tasks: boolean | null
+          can_manage_automations: boolean | null
+          can_manage_collaborators: boolean | null
+          can_manage_integrations: boolean | null
+          can_manage_tags: boolean | null
+          can_move_leads_pipeline: boolean | null
+          can_send_messages: boolean | null
+          can_view_all_conversations: boolean | null
+          can_view_all_leads: boolean | null
+          can_view_assigned_leads: boolean | null
+          can_view_chat: boolean | null
+          can_view_kanban: boolean | null
+          can_view_pipeline: boolean | null
+          can_view_reports: boolean | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          can_assign_leads?: boolean | null
+          can_create_leads?: boolean | null
+          can_create_tasks?: boolean | null
+          can_delete_leads?: boolean | null
+          can_delete_tasks?: boolean | null
+          can_edit_all_tasks?: boolean | null
+          can_edit_leads?: boolean | null
+          can_edit_own_tasks?: boolean | null
+          can_manage_automations?: boolean | null
+          can_manage_collaborators?: boolean | null
+          can_manage_integrations?: boolean | null
+          can_manage_tags?: boolean | null
+          can_move_leads_pipeline?: boolean | null
+          can_send_messages?: boolean | null
+          can_view_all_conversations?: boolean | null
+          can_view_all_leads?: boolean | null
+          can_view_assigned_leads?: boolean | null
+          can_view_chat?: boolean | null
+          can_view_kanban?: boolean | null
+          can_view_pipeline?: boolean | null
+          can_view_reports?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          can_assign_leads?: boolean | null
+          can_create_leads?: boolean | null
+          can_create_tasks?: boolean | null
+          can_delete_leads?: boolean | null
+          can_delete_tasks?: boolean | null
+          can_edit_all_tasks?: boolean | null
+          can_edit_leads?: boolean | null
+          can_edit_own_tasks?: boolean | null
+          can_manage_automations?: boolean | null
+          can_manage_collaborators?: boolean | null
+          can_manage_integrations?: boolean | null
+          can_manage_tags?: boolean | null
+          can_move_leads_pipeline?: boolean | null
+          can_send_messages?: boolean | null
+          can_view_all_conversations?: boolean | null
+          can_view_all_leads?: boolean | null
+          can_view_assigned_leads?: boolean | null
+          can_view_chat?: boolean | null
+          can_view_kanban?: boolean | null
+          can_view_pipeline?: boolean | null
+          can_view_reports?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_custom_roles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
+          custom_role_id: string | null
           display_name: string | null
           email: string | null
           id: string
@@ -1780,6 +1882,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_role_id?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -1790,6 +1893,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_role_id?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -1799,6 +1903,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_members_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "organization_custom_roles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organization_members_organization_id_fkey"
             columns: ["organization_id"]
