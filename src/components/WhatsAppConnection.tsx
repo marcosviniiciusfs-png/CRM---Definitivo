@@ -312,29 +312,35 @@ const WhatsAppConnection = () => {
 
       console.log('✅ Instância criada com sucesso:', data);
 
-      // CRÍTICO: Ignorar qualquer QR da resposta - o webhook vai enviar o correto
-      console.log('📦 Instância criada. QR Code será recebido via webhook.');
+      // OTIMIZAÇÃO: Usar QR da resposta imediatamente se disponível
+      // A Evolution API retorna o QR code na resposta de criação
+      const initialQrCode = data.instance?.qrCode || data.evolutionData?.qrcode?.base64 || null;
+      
+      if (initialQrCode) {
+        console.log('🚀 QR Code disponível na resposta inicial! Exibindo imediatamente.');
+      } else {
+        console.log('📦 QR Code não disponível na resposta. Será recebido via polling/webhook.');
+      }
       
       // Criar objeto de instância para exibir no dialog
-      // CRÍTICO: Sempre iniciar com qr_code NULL - deixar o banco/webhook popular com o QR correto
-      // O QR da resposta inicial pode estar incorreto ou desatualizado
+      // OTIMIZAÇÃO: Usar QR da resposta se disponível para exibição imediata
       const tempInstance: WhatsAppInstance = {
         id: data.instance?.id || '',
         instance_name: data.instance?.instanceName || '',
-        status: 'CREATING', // Sempre CREATING até receber QR válido via webhook
-        qr_code: null, // NUNCA usar QR da resposta - será populado via polling/realtime
+        status: initialQrCode ? 'WAITING_QR' : 'CREATING',
+        qr_code: initialQrCode, // OTIMIZAÇÃO: Usar QR da resposta inicial
         phone_number: null,
         created_at: new Date().toISOString(),
         connected_at: null,
       };
       
-      // SEMPRE abrir o dialog - mostrar loading enquanto aguarda QR
+      // SEMPRE abrir o dialog - mostrar QR imediatamente se disponível
       setSelectedInstance(tempInstance);
       setQrDialogOpen(true);
       
       toast({
-        title: "Gerando QR Code...",
-        description: "O QR Code será exibido em alguns segundos. Aguarde.",
+        title: initialQrCode ? "QR Code pronto!" : "Gerando QR Code...",
+        description: initialQrCode ? "Escaneie o QR Code com seu WhatsApp." : "O QR Code será exibido em alguns segundos. Aguarde.",
       });
 
       // Recarregar instâncias (o realtime também fará isso)
@@ -646,7 +652,7 @@ const WhatsAppConnection = () => {
       } catch (error) {
         console.error('❌ Erro ao verificar status no polling:', error);
       }
-    }, 2500); // Verificar a cada 2.5 segundos (mais responsivo para QR)
+    }, 1500); // OTIMIZAÇÃO: Verificar a cada 1.5 segundos para resposta mais rápida
 
     // Limpar interval quando o modal fechar ou a instância mudar
     return () => {
