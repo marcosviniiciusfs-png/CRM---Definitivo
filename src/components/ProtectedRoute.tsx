@@ -1,15 +1,19 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { useOrganization } from "@/contexts/OrganizationContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
+/**
+ * Rota protegida que usa o hook unificado useOrganizationReady.
+ * CRÍTICO: Isso previne tela branca garantindo que TANTO auth QUANTO organization
+ * estejam completamente inicializados antes de renderizar os children.
+ */
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
-  const { isInitialized, organizationId, needsOrgSelection } = useOrganization();
+  const { user, isLoading, isReady } = useOrganizationReady();
 
-  // Aguardar autenticação
-  if (authLoading) {
-    return <LoadingAnimation text="Verificando autenticação..." />;
+  // CRÍTICO: Aguardar TUDO estar pronto (auth + org)
+  // Isso previne race conditions e tela branca
+  if (isLoading) {
+    return <LoadingAnimation text="Carregando..." />;
   }
 
   // Redirecionar se não autenticado
@@ -17,13 +21,11 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Aguardar organização inicializar (CRÍTICO: evita tela branca)
-  if (!isInitialized) {
+  // CRÍTICO: Só renderizar quando tudo estiver pronto
+  // O modal de seleção de org aparece via OrganizationContext se necessário
+  if (!isReady) {
     return <LoadingAnimation text="Carregando workspace..." />;
   }
-
-  // Se precisa selecionar org, o modal já aparece via OrganizationContext
-  // Podemos permitir renderizar children normalmente após inicialização
   
   return <>{children}</>;
 }

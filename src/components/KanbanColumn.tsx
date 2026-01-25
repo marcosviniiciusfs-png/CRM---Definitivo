@@ -144,24 +144,28 @@ export const KanbanColumn = ({
         </Button>
       </div>
 
-      {/* Task counter indicator */}
-      <div className="flex flex-col items-center gap-0.5 mb-2 flex-shrink-0">
+      {/* Task counter indicator - Layout horizontal otimizado */}
+      <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
         {/* Total de tarefas - amarelo */}
-        <div className="flex items-center justify-center gap-1.5 py-1 text-amber-600 dark:text-amber-400 text-xs font-medium">
-          <span>{column.cards.length} tarefa{column.cards.length !== 1 ? 's' : ''}</span>
-          <ChevronDown className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+          <span className="text-amber-600 dark:text-amber-400 text-xs font-semibold">
+            {column.cards.length}
+          </span>
+          <ChevronDown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
         </div>
         
-        {/* Tarefas do usuário - azul */}
+        {/* Tarefas do usuário - azul (lado a lado) */}
         {currentUserId && (() => {
           const myTasksCount = column.cards.filter(card => 
             cardAssigneesMap?.[card.id]?.includes(currentUserId)
           ).length;
           
           return myTasksCount > 0 ? (
-            <div className="flex items-center justify-center gap-1.5 py-1 text-blue-600 dark:text-blue-400 text-xs font-medium">
-              <User className="h-3 w-3" />
-              <span>{myTasksCount} sua{myTasksCount !== 1 ? 's' : ''}</span>
+            <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-blue-500/10 border border-blue-500/20">
+              <User className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+              <span className="text-blue-600 dark:text-blue-400 text-xs font-semibold">
+                {myTasksCount}
+              </span>
             </div>
           ) : null;
         })()}
