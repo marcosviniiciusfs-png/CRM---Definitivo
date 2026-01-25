@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ArrowRight, History } from "lucide-react";
+import { useOrganization } from "@/contexts/OrganizationContext";
 
 interface DistributionRecord {
   id: string;
@@ -26,33 +27,27 @@ interface DistributionRecord {
 }
 
 export function DistributionHistory() {
+  const { organizationId } = useOrganization();
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<DistributionRecord[]>([]);
 
   useEffect(() => {
-    loadHistory();
-  }, []);
+    if (organizationId) {
+      loadHistory();
+    }
+  }, [organizationId]);
 
   const loadHistory = async () => {
+    if (!organizationId) return;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: member } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!member) return;
-
       const { data, error } = await supabase
         .from('lead_distribution_history')
         .select(`
           *,
           leads (nome_lead, telefone_lead)
         `)
-        .eq('organization_id', member.organization_id)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .limit(100);
 

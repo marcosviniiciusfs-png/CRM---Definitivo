@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Trophy, Settings2 } from "lucide-react";
 import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear } from "date-fns";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 type PeriodType = "month" | "quarter" | "year";
 type SortType = "revenue" | "won_leads" | "percentage";
 
 export default function Ranking() {
-  const { organizationId } = useOrganization();
+  const { organizationId, isInitialized } = useOrganization();
   const [period, setPeriod] = useState<PeriodType>("month");
   const [sortBy, setSortBy] = useState<SortType>("revenue");
   const [reps, setReps] = useState<SalesRepData[]>([]);
@@ -133,6 +134,19 @@ export default function Ranking() {
   useEffect(() => {
     loadSalesData();
   }, [organizationId, period]);
+
+  // Guard: Aguardar inicialização
+  if (!isInitialized) {
+    return <LoadingAnimation text="Carregando ranking..." />;
+  }
+
+  if (!organizationId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">Organização não encontrada</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

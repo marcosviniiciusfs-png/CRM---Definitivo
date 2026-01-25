@@ -33,6 +33,7 @@ interface OrganizationContextType {
   switchOrganization: (orgId: string) => Promise<void>;
   refresh: () => Promise<void>;
   needsOrgSelection: boolean;
+  isInitialized: boolean;
 }
 
 const defaultPermissions: Permissions = {
@@ -151,6 +152,7 @@ const OrganizationContext = createContext<OrganizationContextType>({
   switchOrganization: async () => {},
   refresh: async () => {},
   needsOrgSelection: false,
+  isInitialized: false,
 });
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
@@ -159,6 +161,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<Permissions>(defaultPermissions);
   const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
   const [needsOrgSelection, setNeedsOrgSelection] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const dataLoadedRef = useRef(false);
 
   const loadOrganizationData = useCallback(async (forceRefresh = false, selectedOrgId?: string) => {
@@ -167,6 +170,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setOrganizationId(null);
       setAvailableOrganizations([]);
       setNeedsOrgSelection(false);
+      setIsInitialized(true);
       clearOrgCache();
       dataLoadedRef.current = false;
       return;
@@ -181,6 +185,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setAvailableOrganizations(cachedData.availableOrganizations);
         setPermissions({ ...cachedData.permissions, loading: false });
         setNeedsOrgSelection(false);
+        setIsInitialized(true);
         dataLoadedRef.current = true;
         return;
       }
@@ -259,6 +264,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
         setPermissions(newPermissions);
         setOrgCache(targetOrgId, formattedMemberships, newPermissions, user.id);
+        setIsInitialized(true);
         dataLoadedRef.current = true;
 
         // Atualizar subscription com a organização correta
@@ -267,10 +273,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       } else {
         console.log('[ORG] No memberships found');
         setPermissions(prev => ({ ...prev, loading: false }));
+        setIsInitialized(true);
       }
     } catch (error) {
       console.error('Error loading organization data:', error);
       setPermissions(prev => ({ ...prev, loading: false }));
+      setIsInitialized(true);
     }
   }, [user, refreshSubscription]);
 
@@ -329,13 +337,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     await refreshSubscription(orgId);
   }, [user, availableOrganizations, refreshSubscription]);
 
-  // Initial load with cache - OPTIMIZED: Immediate UI unlock
+  // Initial load with cache - OPTIMIZED: Wait for initialization before rendering
   useEffect(() => {
     if (!user?.id) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
       setAvailableOrganizations([]);
       setNeedsOrgSelection(false);
+      setIsInitialized(true);
       return;
     }
 
@@ -347,21 +356,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setAvailableOrganizations(cachedData.availableOrganizations);
       setPermissions({ ...cachedData.permissions, loading: false });
       setNeedsOrgSelection(false);
+      setIsInitialized(true);
       dataLoadedRef.current = true;
       
       // Refresh in background silently
       setTimeout(() => loadOrganizationData(true), 100);
     } else {
-      // SEM CACHE: Setar loading=false com permissões padrão de member
-      // para não bloquear a UI, depois atualizar quando dados chegarem
+      // SEM CACHE: Manter isInitialized=false até dados chegarem
       console.log('[ORG] No cache - loading data from API');
-      setPermissions({
-        ...defaultPermissions,
-        loading: false,
-        role: 'member', // Assumir member por padrão para não bloquear
-      });
+      setIsInitialized(false);
       
-      // Carregar dados reais
+      // Carregar dados reais - isInitialized será setado quando completar
       loadOrganizationData();
     }
   }, [user?.id]); // Only depend on user.id to avoid re-running on every user object change
@@ -377,7 +382,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       availableOrganizations,
       switchOrganization,
       refresh,
-      needsOrgSelection
+      needsOrgSelection,
+      isInitialized
     }}>
       {/* GATE GLOBAL: Modal de seleção de organização */}
       {user && needsOrgSelection && availableOrganizations.length > 1 && (
