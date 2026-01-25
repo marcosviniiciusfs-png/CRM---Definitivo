@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Facebook, CheckCircle, AlertCircle, Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { FunnelSelector } from "@/components/FunnelSelector";
 
 
 interface LeadForm {
@@ -371,13 +372,14 @@ export const FacebookLeadsConnection = () => {
         )}
 
         {isConnected && integration && integration.selected_form_id && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
               <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Tudo Configurado!</p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">
                 Os leads do formulário <strong>"{integration.selected_form_name}"</strong> aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
               </p>
             </div>
+            <FunnelSelector sourceType="facebook" />
           </div>
         )}
 

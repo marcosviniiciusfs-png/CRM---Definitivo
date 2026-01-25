@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
 import whatsappLogo from "@/assets/whatsapp-icon.png";
 import { useAuth } from "@/contexts/AuthContext";
+import { FunnelSelector } from "@/components/FunnelSelector";
 
 interface QRCodeData {
   instance: string;
@@ -943,6 +944,11 @@ const WhatsAppConnection = () => {
               )}
             </div>
           </div>
+          
+          {/* Funnel Selector - only show when connected */}
+          {instances.some(i => i.status === 'CONNECTED') && (
+            <FunnelSelector sourceType="whatsapp" className="mt-3" />
+          )}
         </CardContent>
     </Card>
     </>
