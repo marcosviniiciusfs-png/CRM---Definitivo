@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
@@ -98,9 +98,7 @@ const getBarColor = (value: number, data: ConversionDataPoint[]) => {
   return `rgb(${r}, ${g}, ${b})`;
 };
 const Dashboard = () => {
-  const {
-    user
-  } = useAuth();
+  const { user, organizationId, isReady } = useOrganizationReady();
   const [loading, setLoading] = useState(true);
   const [isEditGoalOpen, setIsEditGoalOpen] = useState(false);
   const [currentValue, setCurrentValue] = useState(7580);
@@ -744,6 +742,13 @@ const Dashboard = () => {
     value: displayRemaining,
     fill: "hsl(0, 0%, 90%)"
   }];
+  // Guard: Aguardar inicialização completa (auth + org)
+  if (!isReady || !organizationId) {
+    return <div className="flex items-center justify-center min-h-screen">
+        <LoadingAnimation text="Carregando dashboard..." />
+      </div>;
+  }
+  
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">
         <LoadingAnimation text="Carregando dashboard..." />

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,6 @@ import { Users, User, UserX, Crown, Search, MoreVertical, Edit2, Trash2, Target 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { CreateTeamModal } from "@/components/CreateTeamModal";
 import { EditTeamModal } from "@/components/EditTeamModal";
 import { TeamGoalsCard } from "@/components/TeamGoalsCard";

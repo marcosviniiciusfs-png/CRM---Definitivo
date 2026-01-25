@@ -45,7 +45,7 @@ import { AddLeadModal } from "@/components/AddLeadModal";
 import { EditLeadModal } from "@/components/EditLeadModal";
 import { ImportLeadsModal } from "@/components/ImportLeadsModal";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useLeadsParallelQueries } from "@/hooks/useParallelQueries";
 import { useInfiniteScroll } from "@/hooks/usePagination";
 
@@ -62,7 +62,7 @@ type SortOrder = "asc" | "desc";
 const Leads = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, organizationId, isReady } = useOrganizationReady();
   const permissions = usePermissions();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);

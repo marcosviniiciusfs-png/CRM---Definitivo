@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Lead, Message, MessageReaction, PinnedMessage } from "@/types/chat";
 import { Card } from "@/components/ui/card";
@@ -63,7 +63,7 @@ import { useChatPresence } from "@/hooks/useChatPresence";
 const Chat = () => {
   const location = useLocation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, organizationId, isReady } = useOrganizationReady();
   const { theme } = useTheme();
   const permissions = usePermissions();
   

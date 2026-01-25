@@ -7,7 +7,8 @@ import { Plus, ArrowLeft, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { FunnelConfigDialog } from "@/components/FunnelConfigDialog";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +32,7 @@ interface Funnel {
 
 const FunnelBuilder = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, organizationId, isReady } = useOrganizationReady();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
