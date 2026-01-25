@@ -247,8 +247,11 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar, isInComplet
               </div>
 
               {card.description && (
-                <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {card.description}
+                <div className="text-sm text-muted-foreground">
+                  {card.description.length > 50 
+                    ? `${card.description.substring(0, 50)}...` 
+                    : card.description
+                  }
                 </div>
               )}
 

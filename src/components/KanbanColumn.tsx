@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, X, Settings, ChevronDown, User } from "lucide-react";
 import { KanbanCard } from "./KanbanCard";
 import { StageSettingsModal } from "./StageSettingsModal";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
 interface Lead {
   id: string;
@@ -113,7 +114,7 @@ export const KanbanColumn = ({
 
   return (
     <div 
-      className="flex-shrink-0 w-80 bg-background rounded-lg p-4 shadow-md border flex flex-col max-h-[calc(100vh-200px)]"
+      className="flex-shrink-0 w-[330px] bg-background rounded-lg p-4 shadow-md border flex flex-col max-h-[calc(100vh-200px)]"
       style={{
         borderTopColor: column.stage_color || undefined,
         borderTopWidth: column.stage_color ? "3px" : undefined,
@@ -146,27 +147,45 @@ export const KanbanColumn = ({
 
       {/* Task counter indicator - Layout horizontal otimizado */}
       <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
-        {/* Total de tarefas - amarelo */}
-        <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-amber-500/10 border border-amber-500/20">
-          <span className="text-amber-600 dark:text-amber-400 text-xs font-semibold">
-            {column.cards.length}
-          </span>
-          <ChevronDown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-        </div>
+        {/* Total de tarefas - amarelo com tooltip */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-amber-500/10 border border-amber-500/20 cursor-help">
+                <span className="text-amber-600 dark:text-amber-400 text-xs font-semibold">
+                  {column.cards.length}
+                </span>
+                <ChevronDown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total de tarefas nesta etapa</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         
-        {/* Tarefas do usuário - azul (lado a lado) */}
+        {/* Tarefas do usuário - azul com tooltip */}
         {currentUserId && (() => {
           const myTasksCount = column.cards.filter(card => 
             cardAssigneesMap?.[card.id]?.includes(currentUserId)
           ).length;
           
           return myTasksCount > 0 ? (
-            <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-              <User className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-              <span className="text-blue-600 dark:text-blue-400 text-xs font-semibold">
-                {myTasksCount}
-              </span>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-blue-500/10 border border-blue-500/20 cursor-help">
+                    <User className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                    <span className="text-blue-600 dark:text-blue-400 text-xs font-semibold">
+                      {myTasksCount}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Tarefas atribuídas a você nesta etapa</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : null;
         })()}
       </div>
