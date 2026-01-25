@@ -41,6 +41,8 @@ interface Card {
   calendar_event_link?: string;
   lead_id?: string;
   lead?: Lead;
+  is_collaborative?: boolean;
+  requires_all_approval?: boolean;
 }
 
 interface Column {
@@ -177,6 +179,8 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     lead_id?: string;
     lead?: Lead;
     assignees?: string[];
+    is_collaborative?: boolean;
+    requires_all_approval?: boolean;
   }) => {
     if (!selectedColumnForTask) return;
 
@@ -194,6 +198,8 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       estimated_time: task.estimated_time || null,
       position: newPosition,
       created_by: user.id,
+      is_collaborative: task.is_collaborative || false,
+      requires_all_approval: task.requires_all_approval ?? true,
     };
 
     if (task.lead_id) {
@@ -238,9 +244,11 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         }
       }
 
-      const newCard = {
+      const newCard: Card = {
         ...data,
         lead: data.leads || task.lead,
+        is_collaborative: task.is_collaborative,
+        requires_all_approval: task.requires_all_approval,
       };
 
       setColumns(columns.map(col =>
@@ -443,6 +451,31 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
     const card = sourceColumn.cards.find(c => c.id === activeCardId);
     if (!card) return;
+
+    // Verificar se é tarefa colaborativa e está mudando de coluna
+    if (sourceColumn.id !== targetColumn.id && card.is_collaborative && card.requires_all_approval) {
+      // Buscar status dos colaboradores
+      const { data: assignees } = await supabase
+        .from("kanban_card_assignees")
+        .select("is_completed")
+        .eq("card_id", activeCardId);
+
+      if (assignees && assignees.length > 0) {
+        const allCompleted = assignees.every(a => a.is_completed);
+
+        if (!allCompleted) {
+          const completedCount = assignees.filter(a => a.is_completed).length;
+          toast({
+            title: "Movimentação bloqueada",
+            description: `Todos os colaboradores devem confirmar a conclusão antes de mover. (${completedCount}/${assignees.length} confirmaram)`,
+            variant: "destructive",
+          });
+          // Recarregar para reverter visualmente
+          await loadColumns(boardId || "");
+          return;
+        }
+      }
+    }
 
     // Atualizar no banco se mudou de coluna
     if (sourceColumn.id !== targetColumn.id) {

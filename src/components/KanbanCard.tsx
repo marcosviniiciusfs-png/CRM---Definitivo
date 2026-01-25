@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink, User } from "lucide-react";
+import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink, User, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { useCardTimer } from "@/hooks/useCardTimer";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
+import { AssigneeAvatarGroup } from "./AssigneeAvatarGroup";
+import { CollaborativeTaskApproval } from "./CollaborativeTaskApproval";
 
 interface Lead {
   id: string;
@@ -38,6 +40,8 @@ interface Card {
   calendar_event_link?: string;
   lead_id?: string;
   lead?: Lead;
+  is_collaborative?: boolean;
+  requires_all_approval?: boolean;
 }
 
 interface KanbanCardProps {
@@ -60,6 +64,7 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
   const [editEstimatedTime, setEditEstimatedTime] = useState(
     card.estimated_time?.toString() || ""
   );
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
 
   const isTimerActive = card.estimated_time && !card.due_date;
   const { formatTimerDisplay, isOvertime } = useCardTimer({
@@ -217,6 +222,18 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
                 </TooltipProvider>
               )}
 
+              {/* Assignees Avatar Group */}
+              <AssigneeAvatarGroup
+                cardId={card.id}
+                isCollaborative={card.is_collaborative}
+                showProgress={true}
+                onAssigneeClick={() => {
+                  if (card.is_collaborative) {
+                    setApprovalModalOpen(true);
+                  }
+                }}
+              />
+
               {(card.due_date || card.estimated_time || card.calendar_event_id) && (
                 <div className="flex flex-wrap gap-2 text-xs">
                   {card.calendar_event_id && (
@@ -309,6 +326,16 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar }: KanbanCar
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Modal de aprovação colaborativa */}
+      {card.is_collaborative && (
+        <CollaborativeTaskApproval
+          open={approvalModalOpen}
+          onOpenChange={setApprovalModalOpen}
+          cardId={card.id}
+          cardTitle={card.content}
+        />
+      )}
     </div>
   );
 };

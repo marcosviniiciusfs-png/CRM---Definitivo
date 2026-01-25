@@ -943,21 +943,27 @@ export type Database = {
           assigned_at: string
           assigned_by: string | null
           card_id: string
+          completed_at: string | null
           id: string
+          is_completed: boolean | null
           user_id: string
         }
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
           card_id: string
+          completed_at?: string | null
           id?: string
+          is_completed?: boolean | null
           user_id: string
         }
         Update: {
           assigned_at?: string
           assigned_by?: string | null
           card_id?: string
+          completed_at?: string | null
           id?: string
+          is_completed?: boolean | null
           user_id?: string
         }
         Relationships: [
@@ -982,8 +988,10 @@ export type Database = {
           due_date: string | null
           estimated_time: number | null
           id: string
+          is_collaborative: boolean | null
           lead_id: string | null
           position: number
+          requires_all_approval: boolean | null
           timer_started_at: string | null
           updated_at: string
         }
@@ -998,8 +1006,10 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          is_collaborative?: boolean | null
           lead_id?: string | null
           position?: number
+          requires_all_approval?: boolean | null
           timer_started_at?: string | null
           updated_at?: string
         }
@@ -1014,8 +1024,10 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          is_collaborative?: boolean | null
           lead_id?: string | null
           position?: number
+          requires_all_approval?: boolean | null
           timer_started_at?: string | null
           updated_at?: string
         }
