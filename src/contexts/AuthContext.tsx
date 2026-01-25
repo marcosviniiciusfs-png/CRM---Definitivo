@@ -302,6 +302,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    // Limpar cache de organização para garantir verificação limpa
+    try {
+      localStorage.removeItem('kairoz_org_cache');
+    } catch {}
+    
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
