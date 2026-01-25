@@ -3,7 +3,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, X, Settings } from "lucide-react";
+import { Plus, X, Settings, ChevronDown } from "lucide-react";
 import { KanbanCard } from "./KanbanCard";
 import { StageSettingsModal } from "./StageSettingsModal";
 
@@ -109,13 +109,13 @@ export const KanbanColumn = ({
 
   return (
     <div 
-      className="flex-shrink-0 w-80 bg-background rounded-lg p-4 shadow-md border"
+      className="flex-shrink-0 w-80 bg-background rounded-lg p-4 shadow-md border flex flex-col max-h-[calc(100vh-200px)]"
       style={{
         borderTopColor: column.stage_color || undefined,
         borderTopWidth: column.stage_color ? "3px" : undefined,
       }}
     >
-      <div className="flex items-center justify-between mb-4 gap-1">
+      <div className="flex items-center justify-between mb-2 gap-1 flex-shrink-0">
         <Input
           value={localTitle}
           onChange={handleTitleChange}
@@ -140,9 +140,15 @@ export const KanbanColumn = ({
         </Button>
       </div>
 
+      {/* Task counter indicator */}
+      <div className="flex items-center justify-center gap-1.5 py-1.5 mb-2 text-amber-600 dark:text-amber-400 text-xs font-medium flex-shrink-0">
+        <span>{column.cards.length} tarefa{column.cards.length !== 1 ? 's' : ''}</span>
+        <ChevronDown className="h-3.5 w-3.5" />
+      </div>
+
       <div
         ref={setNodeRef}
-        className={`kanban-column space-y-2 min-h-[100px] ${
+        className={`kanban-column space-y-2 min-h-[100px] flex-1 overflow-y-auto scrollbar-subtle pr-1 ${
           !isDraggingActive ? "transition-colors" : ""
         } ${isOver ? "bg-accent/30" : ""}`}
       >
@@ -168,7 +174,7 @@ export const KanbanColumn = ({
       <Button
         variant="ghost"
         size="sm"
-        className="w-full mt-2"
+        className="w-full mt-2 flex-shrink-0"
         onClick={() => onAddCard(column.id)}
       >
         <Plus className="mr-2 h-4 w-4" />
