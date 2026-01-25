@@ -3,7 +3,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, X, Settings, ChevronDown } from "lucide-react";
+import { Plus, X, Settings, ChevronDown, User } from "lucide-react";
 import { KanbanCard } from "./KanbanCard";
 import { StageSettingsModal } from "./StageSettingsModal";
 
@@ -43,6 +43,8 @@ interface Column {
 
 interface KanbanColumnProps {
   column: Column;
+  currentUserId?: string | null;
+  cardAssigneesMap?: Record<string, string[]>;
   onUpdateTitle: (columnId: string, title: string) => void;
   onDelete: (columnId: string) => void;
   onAddCard: (columnId: string) => void;
@@ -60,6 +62,8 @@ interface KanbanColumnProps {
 
 export const KanbanColumn = ({
   column,
+  currentUserId,
+  cardAssigneesMap,
   onUpdateTitle,
   onDelete,
   onAddCard,
@@ -141,9 +145,26 @@ export const KanbanColumn = ({
       </div>
 
       {/* Task counter indicator */}
-      <div className="flex items-center justify-center gap-1.5 py-1.5 mb-2 text-amber-600 dark:text-amber-400 text-xs font-medium flex-shrink-0">
-        <span>{column.cards.length} tarefa{column.cards.length !== 1 ? 's' : ''}</span>
-        <ChevronDown className="h-3.5 w-3.5" />
+      <div className="flex flex-col items-center gap-0.5 mb-2 flex-shrink-0">
+        {/* Total de tarefas - amarelo */}
+        <div className="flex items-center justify-center gap-1.5 py-1 text-amber-600 dark:text-amber-400 text-xs font-medium">
+          <span>{column.cards.length} tarefa{column.cards.length !== 1 ? 's' : ''}</span>
+          <ChevronDown className="h-3.5 w-3.5" />
+        </div>
+        
+        {/* Tarefas do usuário - azul */}
+        {currentUserId && (() => {
+          const myTasksCount = column.cards.filter(card => 
+            cardAssigneesMap?.[card.id]?.includes(currentUserId)
+          ).length;
+          
+          return myTasksCount > 0 ? (
+            <div className="flex items-center justify-center gap-1.5 py-1 text-blue-600 dark:text-blue-400 text-xs font-medium">
+              <User className="h-3 w-3" />
+              <span>{myTasksCount} sua{myTasksCount !== 1 ? 's' : ''}</span>
+            </div>
+          ) : null;
+        })()}
       </div>
 
       <div
