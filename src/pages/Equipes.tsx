@@ -14,6 +14,8 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { CreateTeamModal } from "@/components/CreateTeamModal";
 import { EditTeamModal } from "@/components/EditTeamModal";
 import { TeamGoalsCard } from "@/components/TeamGoalsCard";
+import { MemberTaskBadge } from "@/components/MemberTaskBadge";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -46,9 +48,10 @@ interface DraggableMemberProps {
   member: Member;
   teamId?: string;
   isLeader?: boolean;
+  organizationId: string;
 }
 
-function DraggableMember({ member, teamId, isLeader }: DraggableMemberProps) {
+function DraggableMember({ member, teamId, isLeader, organizationId }: DraggableMemberProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `${teamId || 'no-team'}-${member.user_id}`,
     data: { member, fromTeamId: teamId },
@@ -77,7 +80,10 @@ function DraggableMember({ member, teamId, isLeader }: DraggableMemberProps) {
         </Avatar>
         <span className="text-sm font-medium text-foreground">{member.full_name || member.email}</span>
       </div>
-      {isLeader && <Crown className="h-4 w-4 text-yellow-500" />}
+      <div className="flex items-center gap-2">
+        <MemberTaskBadge userId={member.user_id} organizationId={organizationId} />
+        {isLeader && <Crown className="h-4 w-4 text-yellow-500" />}
+      </div>
     </div>
   );
 }
@@ -301,6 +307,7 @@ const Equipes = () => {
   }
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-background p-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
@@ -479,6 +486,7 @@ const Equipes = () => {
                               member={member}
                               teamId={team.id}
                               isLeader={isLeader}
+                              organizationId={organizationId!}
                             />
                           );
                         })}
@@ -561,6 +569,7 @@ const Equipes = () => {
           </>
         )}
     </div>
+    </TooltipProvider>
   );
 };
 

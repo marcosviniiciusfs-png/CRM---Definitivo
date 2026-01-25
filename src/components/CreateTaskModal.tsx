@@ -8,9 +8,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, User, Search, Calendar, Clock } from "lucide-react";
+import { ClipboardList, User, Search, Calendar, Clock, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MentionInput } from "./MentionInput";
+import { MultiSelectUsers, UserOption } from "./MultiSelectUsers";
 import {
   Command,
   CommandEmpty,
@@ -44,6 +45,7 @@ interface CreateTaskModalProps {
     estimated_time?: number;
     lead_id?: string;
     lead?: Lead;
+    assignees?: string[];
   }) => void;
 }
 
@@ -64,12 +66,49 @@ export const CreateTaskModal = ({
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadSearchOpen, setLeadSearchOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const [assignees, setAssignees] = useState<string[]>([]);
+  const [orgMembers, setOrgMembers] = useState<UserOption[]>([]);
   useEffect(() => {
-    if (open && taskType === "lead") {
-      loadLeads();
+    if (open) {
+      loadOrgMembers();
+      if (taskType === "lead") {
+        loadLeads();
+      }
     }
   }, [open, taskType]);
+
+  const loadOrgMembers = async () => {
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+      .single();
+
+    if (orgMember) {
+      const { data: members } = await supabase.rpc('get_organization_members_masked');
+      
+      if (members) {
+        const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, avatar_url")
+          .in("user_id", userIds);
+
+        const memberOptions: UserOption[] = members
+          .filter((m: any) => m.user_id)
+          .map((m: any) => {
+            const profile = profiles?.find(p => p.user_id === m.user_id);
+            return {
+              user_id: m.user_id,
+              full_name: profile?.full_name || null,
+              avatar_url: profile?.avatar_url || null,
+            };
+          });
+
+        setOrgMembers(memberOptions);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!open) {
@@ -80,6 +119,7 @@ export const CreateTaskModal = ({
       setDueDate("");
       setEstimatedTime("");
       setSelectedLead(null);
+      setAssignees([]);
     }
   }, [open]);
 
@@ -114,6 +154,7 @@ export const CreateTaskModal = ({
       estimated_time: estimatedTime ? parseInt(estimatedTime) : undefined,
       lead_id: selectedLead?.id,
       lead: selectedLead || undefined,
+      assignees: assignees.length > 0 ? assignees : undefined,
     });
 
     setLoading(false);
@@ -253,6 +294,20 @@ export const CreateTaskModal = ({
               value={description}
               onChange={setDescription}
               placeholder="Adicione detalhes... Use @ para mencionar usuários"
+            />
+          </div>
+
+          {/* Responsáveis */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              Responsáveis (opcional)
+            </Label>
+            <MultiSelectUsers
+              value={assignees}
+              onChange={setAssignees}
+              users={orgMembers}
+              placeholder="Atribuir responsáveis..."
             />
           </div>
 
