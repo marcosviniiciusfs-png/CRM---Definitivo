@@ -992,6 +992,7 @@ export type Database = {
           lead_id: string | null
           position: number
           requires_all_approval: boolean | null
+          timer_start_column_id: string | null
           timer_started_at: string | null
           updated_at: string
         }
@@ -1010,6 +1011,7 @@ export type Database = {
           lead_id?: string | null
           position?: number
           requires_all_approval?: boolean | null
+          timer_start_column_id?: string | null
           timer_started_at?: string | null
           updated_at?: string
         }
@@ -1028,6 +1030,7 @@ export type Database = {
           lead_id?: string | null
           position?: number
           requires_all_approval?: boolean | null
+          timer_start_column_id?: string | null
           timer_started_at?: string | null
           updated_at?: string
         }
@@ -1044,6 +1047,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_cards_timer_start_column_id_fkey"
+            columns: ["timer_start_column_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_columns"
             referencedColumns: ["id"]
           },
         ]

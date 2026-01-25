@@ -9,7 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ClipboardList, User, Search, Calendar, Clock, Users } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ClipboardList, User, Search, Calendar, Clock, Users, Timer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MentionInput } from "./MentionInput";
 import { MultiSelectUsers, UserOption } from "./MultiSelectUsers";
@@ -49,7 +56,13 @@ interface CreateTaskModalProps {
     assignees?: string[];
     is_collaborative?: boolean;
     requires_all_approval?: boolean;
+    timer_start_column_id?: string | null;
   }) => void;
+}
+
+interface KanbanColumn {
+  id: string;
+  title: string;
 }
 
 type TaskType = "normal" | "lead" | "collaborative";
@@ -72,10 +85,13 @@ export const CreateTaskModal = ({
   const [assignees, setAssignees] = useState<string[]>([]);
   const [orgMembers, setOrgMembers] = useState<UserOption[]>([]);
   const [requiresAllApproval, setRequiresAllApproval] = useState(true);
+  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumn[]>([]);
+  const [timerStartColumnId, setTimerStartColumnId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       loadOrgMembers();
+      loadKanbanColumns();
       if (taskType === "lead") {
         loadLeads();
       }
@@ -126,8 +142,35 @@ export const CreateTaskModal = ({
       setSelectedLead(null);
       setAssignees([]);
       setRequiresAllApproval(true);
+      setTimerStartColumnId(null);
     }
   }, [open]);
+
+  const loadKanbanColumns = async () => {
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+      .single();
+
+    if (orgMember) {
+      const { data: board } = await supabase
+        .from("kanban_boards")
+        .select("id")
+        .eq("organization_id", orgMember.organization_id)
+        .maybeSingle();
+
+      if (board) {
+        const { data: cols } = await supabase
+          .from("kanban_columns")
+          .select("id, title")
+          .eq("board_id", board.id)
+          .order("position");
+        
+        setKanbanColumns(cols || []);
+      }
+    }
+  };
 
   const loadLeads = async () => {
     const { data: orgMember } = await supabase
@@ -166,6 +209,7 @@ export const CreateTaskModal = ({
       assignees: assignees.length > 0 ? assignees : undefined,
       is_collaborative: isCollaborative,
       requires_all_approval: isCollaborative ? requiresAllApproval : undefined,
+      timer_start_column_id: estimatedTime && !dueDate ? timerStartColumnId : null,
     });
 
     setLoading(false);
@@ -400,6 +444,45 @@ export const CreateTaskModal = ({
               />
             </div>
           </div>
+
+          {/* Seletor de coluna para início do timer */}
+          {estimatedTime && !dueDate && (
+            <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+              <Label className="flex items-center gap-1 text-sm font-medium">
+                <Timer className="h-3 w-3" />
+                Quando o cronômetro deve começar?
+              </Label>
+              <Select 
+                value={timerStartColumnId || "immediate"} 
+                onValueChange={(val) => setTimerStartColumnId(val === "immediate" ? null : val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione quando iniciar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="immediate">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-primary" />
+                      <span>Imediatamente (ao criar)</span>
+                    </div>
+                  </SelectItem>
+                  {kanbanColumns.map(col => (
+                    <SelectItem key={col.id} value={col.id}>
+                      <div className="flex items-center gap-2">
+                        <Timer className="h-4 w-4 text-muted-foreground" />
+                        <span>Quando entrar em "{col.title}"</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {timerStartColumnId && (
+                <p className="text-xs text-muted-foreground">
+                  O cronômetro iniciará automaticamente quando o card entrar nesta coluna.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Botões */}
           <div className="flex justify-end gap-2 pt-2">
