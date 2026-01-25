@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
 interface UpdateMemberRequest {
@@ -33,22 +34,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create client with user's token to get claims
+    // Create client with user's token to get user info
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
 
-    if (claimsError || !claimsData?.claims?.sub) {
+    if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(JSON.stringify({ error: "Token inválido" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const currentUserId = claimsData.claims.sub;
+    const currentUserId = user.id;
 
     // Parse body
     const body: UpdateMemberRequest = await req.json();
@@ -132,10 +133,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update organization_members table (role and is_active)
+    // Update organization_members table (role, is_active, and display_name for users without user_id)
     const memberUpdates: Record<string, unknown> = {};
     if (role !== undefined) memberUpdates.role = role;
     if (is_active !== undefined) memberUpdates.is_active = is_active;
+    
+    // If no user_id, store name in display_name column
+    if (!targetMember.user_id && name !== undefined) {
+      memberUpdates.display_name = name;
+    }
 
     if (Object.keys(memberUpdates).length > 0) {
       const { error: memberUpdateError } = await adminClient
@@ -154,15 +160,20 @@ Deno.serve(async (req) => {
 
     // If there's a user_id, update auth and profile
     if (targetMember.user_id) {
-      // Update profile name
+      // Update profile name - use upsert to handle missing profiles
       if (name !== undefined) {
         const { error: profileError } = await adminClient
           .from("profiles")
-          .update({ full_name: name })
-          .eq("user_id", targetMember.user_id);
+          .upsert({ 
+            user_id: targetMember.user_id, 
+            full_name: name 
+          }, { 
+            onConflict: 'user_id' 
+          });
 
         if (profileError) {
           console.error("Error updating profile:", profileError);
+          // Don't fail the whole operation, just log
         }
       }
 

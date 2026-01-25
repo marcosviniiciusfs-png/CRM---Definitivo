@@ -28,6 +28,7 @@ interface Colaborador {
   full_name?: string;
   avatar_url?: string;
   is_active?: boolean;
+  display_name?: string;
 }
 
 const Colaboradores = () => {
@@ -114,11 +115,11 @@ const Colaboradores = () => {
       setUserRole(memberData.role);
       setCurrentUserId(user.id);
 
-      // Fetch members with is_active column
+      // Fetch members with is_active and display_name columns
       const [membersResult, subResult] = await Promise.all([
         supabase
           .from('organization_members')
-          .select('id, user_id, organization_id, role, created_at, email, is_active')
+          .select('id, user_id, organization_id, role, created_at, email, is_active, display_name')
           .eq('organization_id', orgId),
         supabase.functions.invoke('check-subscription')
       ]);
@@ -156,17 +157,22 @@ const Colaboradores = () => {
         }
       }
       
-      // Transform and set data
-      const transformedMembers = members.map((member: any) => ({
-        ...member,
-        is_active: member.is_active ?? true,
-        full_name: member.user_id && profilesMap[member.user_id] 
+      // Transform and set data - use profile full_name OR display_name for collaborators without user_id
+      const transformedMembers = members.map((member: any) => {
+        const profileName = member.user_id && profilesMap[member.user_id] 
           ? profilesMap[member.user_id].full_name 
-          : null,
-        avatar_url: member.user_id && profilesMap[member.user_id]
-          ? profilesMap[member.user_id].avatar_url
-          : null
-      }));
+          : null;
+        
+        return {
+          ...member,
+          is_active: member.is_active ?? true,
+          // Use profile name if available, otherwise use display_name from organization_members
+          full_name: profileName || member.display_name || null,
+          avatar_url: member.user_id && profilesMap[member.user_id]
+            ? profilesMap[member.user_id].avatar_url
+            : null
+        };
+      });
       
       setColaboradores(transformedMembers);
       
