@@ -7,7 +7,7 @@ import { StarsBackground } from "@/components/ui/stars-background";
 import { Login1 } from "@/components/ui/login-1";
 import { OrganizationSelectorModal, OrganizationMembership } from "@/components/OrganizationSelectorModal";
 import { supabase } from "@/integrations/supabase/client";
-import kairozLogo from "@/assets/kairoz-logo-full.png";
+import kairozLogo from "@/assets/kairoz-logo-red.png";
 
 const Auth = () => {
   const { signUp, signIn, signInWithGoogle, resetPassword, user, loading: authLoading } = useAuth();
@@ -230,7 +230,7 @@ const Auth = () => {
 
   return (
     <>
-      <StarsBackground className="min-h-screen" speed={30} factor={0.08}>
+      <StarsBackground className="min-h-screen" speed={30} factor={0.08} starColor="#E02A32">
         <Login1
           logo={{
             src: kairozLogo,
