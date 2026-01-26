@@ -2190,6 +2190,72 @@ export type Database = {
           },
         ]
       }
+      task_completion_logs: {
+        Row: {
+          base_points: number
+          bonus_due_date: number | null
+          bonus_timer: number | null
+          card_id: string
+          completed_at: string
+          created_at: string | null
+          had_due_date: boolean | null
+          had_timer: boolean | null
+          id: string
+          organization_id: string
+          total_points: number | null
+          user_id: string
+          was_on_time_due_date: boolean | null
+          was_on_time_timer: boolean | null
+        }
+        Insert: {
+          base_points?: number
+          bonus_due_date?: number | null
+          bonus_timer?: number | null
+          card_id: string
+          completed_at?: string
+          created_at?: string | null
+          had_due_date?: boolean | null
+          had_timer?: boolean | null
+          id?: string
+          organization_id: string
+          total_points?: number | null
+          user_id: string
+          was_on_time_due_date?: boolean | null
+          was_on_time_timer?: boolean | null
+        }
+        Update: {
+          base_points?: number
+          bonus_due_date?: number | null
+          bonus_timer?: number | null
+          card_id?: string
+          completed_at?: string
+          created_at?: string | null
+          had_due_date?: boolean | null
+          had_timer?: boolean | null
+          id?: string
+          organization_id?: string
+          total_points?: number | null
+          user_id?: string
+          was_on_time_due_date?: boolean | null
+          was_on_time_timer?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_completion_logs_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_completion_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_goals: {
         Row: {
           created_at: string

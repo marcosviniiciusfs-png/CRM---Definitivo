@@ -155,6 +155,57 @@ export const CollaborativeTaskApproval = ({
               if (!moveError) {
                 movedToColumn = completionColumn.title;
                 console.log("✅ Tarefa movida para etapa de conclusão:", completionColumn.title);
+
+                // === REGISTRAR PONTUAÇÃO PARA TODOS OS COLABORADORES ===
+                const { data: cardDetails } = await supabase
+                  .from("kanban_cards")
+                  .select("due_date, estimated_time, timer_started_at, created_by")
+                  .eq("id", cardId)
+                  .single();
+
+                const { data: boardData } = await supabase
+                  .from("kanban_boards")
+                  .select("organization_id")
+                  .eq("id", boardId)
+                  .single();
+
+                if (cardDetails && boardData) {
+                  const now = new Date();
+                  const hadDueDate = !!cardDetails.due_date;
+                  const wasOnTimeDueDate = hadDueDate && new Date(cardDetails.due_date) >= now;
+                  
+                  const hadTimer = !!(cardDetails.estimated_time && cardDetails.timer_started_at && !cardDetails.due_date);
+                  let wasOnTimeTimer = false;
+                  
+                  if (hadTimer && cardDetails.timer_started_at && cardDetails.estimated_time) {
+                    const timerStart = new Date(cardDetails.timer_started_at);
+                    const elapsedMinutes = Math.floor((now.getTime() - timerStart.getTime()) / 60000);
+                    wasOnTimeTimer = elapsedMinutes <= cardDetails.estimated_time;
+                  }
+
+                  // Registrar pontuação para cada colaborador
+                  for (const assignee of assignees) {
+                    await supabase.from("task_completion_logs").upsert({
+                      organization_id: boardData.organization_id,
+                      card_id: cardId,
+                      user_id: assignee.user_id,
+                      had_due_date: hadDueDate,
+                      was_on_time_due_date: wasOnTimeDueDate,
+                      had_timer: hadTimer,
+                      was_on_time_timer: wasOnTimeTimer,
+                      base_points: 2,
+                      bonus_due_date: wasOnTimeDueDate ? 1 : 0,
+                      bonus_timer: wasOnTimeTimer ? 3 : 0,
+                    }, { onConflict: 'card_id,user_id' });
+                  }
+
+                  console.log("📊 Pontuação colaborativa registrada:", {
+                    card: cardId,
+                    users: assignees.length,
+                    hadTimer,
+                    wasOnTimeTimer,
+                  });
+                }
               }
             }
           } else if (newCompletedCount === 1) {
@@ -246,12 +297,12 @@ export const CollaborativeTaskApproval = ({
         onOpenChange(false);
       }, 1000);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("🔴 Erro completo na mutation:", error);
       
       toast({
         title: "Erro ao Confirmar",
-        description: error?.message || "Não foi possível confirmar a conclusão. Verifique sua conexão.",
+        description: (error as Error)?.message || "Não foi possível confirmar a conclusão. Verifique sua conexão.",
         variant: "destructive",
       });
     },
