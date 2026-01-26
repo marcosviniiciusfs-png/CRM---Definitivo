@@ -343,6 +343,7 @@ export default function Ranking() {
           isLoading={isLoading} 
           sortBy={sortBy}
           type={rankingType}
+          period={period}
         />
 
         {/* Teams Footer */}
