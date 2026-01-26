@@ -38,6 +38,7 @@ interface Card {
   position: number;
   column_id: string;
   created_at: string;
+  created_by: string;
   timer_started_at?: string;
   calendar_event_id?: string;
   calendar_event_link?: string;
@@ -806,6 +807,59 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         }
         return col;
       }));
+
+      // === REGISTRO DE PONTUAÇÃO AO ENTRAR EM ETAPA DE CONCLUSÃO ===
+      if (targetColumn.is_completion_stage && !sourceColumn.is_completion_stage && organizationId) {
+        const now = new Date();
+        
+        // Verificar critérios de pontuação
+        const hadDueDate = !!card.due_date;
+        const wasOnTimeDueDate = hadDueDate && new Date(card.due_date) >= now;
+        
+        const hadTimer = !!(card.estimated_time && card.timer_started_at && !card.due_date);
+        let wasOnTimeTimer = false;
+        
+        if (hadTimer && card.timer_started_at && card.estimated_time) {
+          const timerStart = new Date(card.timer_started_at);
+          const elapsedMinutes = Math.floor((now.getTime() - timerStart.getTime()) / 60000);
+          wasOnTimeTimer = elapsedMinutes <= card.estimated_time;
+        }
+        
+        // Buscar assignees para dar pontos a cada um
+        const { data: cardAssignees } = await supabase
+          .from("kanban_card_assignees")
+          .select("user_id")
+          .eq("card_id", card.id);
+        
+        const usersToScore = cardAssignees && cardAssignees.length > 0 
+          ? cardAssignees 
+          : [{ user_id: card.created_by }];
+        
+        // Registrar pontuação para cada responsável
+        for (const assignee of usersToScore) {
+          await supabase.from("task_completion_logs").upsert({
+            organization_id: organizationId,
+            card_id: card.id,
+            user_id: assignee.user_id,
+            had_due_date: hadDueDate,
+            was_on_time_due_date: wasOnTimeDueDate,
+            had_timer: hadTimer,
+            was_on_time_timer: wasOnTimeTimer,
+            base_points: 2,
+            bonus_due_date: wasOnTimeDueDate ? 1 : 0,
+            bonus_timer: wasOnTimeTimer ? 3 : 0,
+          }, { onConflict: 'card_id,user_id' });
+        }
+
+        console.log("📊 Pontuação registrada:", {
+          card: card.content,
+          users: usersToScore.length,
+          hadTimer,
+          wasOnTimeTimer,
+          hadDueDate,
+          wasOnTimeDueDate,
+        });
+      }
     }
 
     // Reordenação dentro da mesma coluna

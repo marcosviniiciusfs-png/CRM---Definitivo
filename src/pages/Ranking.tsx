@@ -1,28 +1,33 @@
 import { useState, useEffect } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { supabase } from "@/integrations/supabase/client";
-import { SalesLeaderboard, SalesRepData } from "@/components/dashboard/SalesLeaderboard";
+import { TaskLeaderboard, LeaderboardData } from "@/components/dashboard/TaskLeaderboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Trophy, Settings2 } from "lucide-react";
-import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear } from "date-fns";
+import { Trophy, Settings2, TrendingUp, CheckSquare } from "lucide-react";
+import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear, startOfWeek, endOfWeek } from "date-fns";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type PeriodType = "month" | "quarter" | "year";
-type SortType = "revenue" | "won_leads" | "percentage";
+type PeriodType = "week" | "month" | "quarter" | "year";
+type RankingType = "sales" | "tasks";
+type SortType = "revenue" | "won_leads" | "percentage" | "task_points";
 
 export default function Ranking() {
   const { organizationId, isReady } = useOrganizationReady();
   const [period, setPeriod] = useState<PeriodType>("month");
-  const [sortBy, setSortBy] = useState<SortType>("revenue");
-  const [reps, setReps] = useState<SalesRepData[]>([]);
+  const [rankingType, setRankingType] = useState<RankingType>("tasks");
+  const [sortBy, setSortBy] = useState<SortType>("task_points");
+  const [data, setData] = useState<LeaderboardData[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const getDateRange = (periodType: PeriodType) => {
     const now = new Date();
     switch (periodType) {
+      case "week":
+        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
       case "month":
         return { start: startOfMonth(now), end: endOfMonth(now) };
       case "quarter":
@@ -50,7 +55,7 @@ export default function Ranking() {
       const userIds = (members || []).map(m => m.user_id).filter(Boolean);
 
       if (userIds.length === 0) {
-        setReps([]);
+        setData([]);
         setIsLoading(false);
         return;
       }
@@ -97,16 +102,8 @@ export default function Ranking() {
 
       if (goalsError) throw goalsError;
 
-      // Buscar times
-      const { data: teamsData } = await supabase
-        .from('teams')
-        .select('id, name, avatar_url, color')
-        .eq('organization_id', organizationId);
-
-      setTeams(teamsData || []);
-
       // Calcular métricas por colaborador
-      const salesData: SalesRepData[] = userIds.map(userId => {
+      const salesData: LeaderboardData[] = userIds.map(userId => {
         const profile = (profiles || []).find(p => p.user_id === userId);
         const userTotalLeads = (leads || []).filter(l => l.responsavel_user_id === userId);
         const userWonLeads = wonLeadsInPeriod.filter(l => l.responsavel_user_id === userId);
@@ -120,10 +117,13 @@ export default function Ranking() {
           total_leads: userTotalLeads.length,
           total_revenue: userWonLeads.reduce((sum, l) => sum + (l.valor || 0), 0),
           target: userGoal?.target_value || 10,
+          task_points: 0,
+          tasks_completed: 0,
+          tasks_on_time: 0,
         };
       });
 
-      setReps(salesData);
+      setData(salesData);
     } catch (error) {
       console.error('Erro ao carregar dados de vendas:', error);
     } finally {
@@ -131,9 +131,109 @@ export default function Ranking() {
     }
   };
 
+  const loadTasksData = async () => {
+    if (!organizationId) return;
+    
+    setIsLoading(true);
+    try {
+      const { start, end } = getDateRange(period);
+
+      // Buscar membros da organização
+      const { data: members } = await supabase
+        .from('organization_members')
+        .select('user_id')
+        .eq('organization_id', organizationId);
+
+      const userIds = (members || []).map(m => m.user_id).filter(Boolean);
+
+      if (userIds.length === 0) {
+        setData([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Buscar perfis
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, avatar_url')
+        .in('user_id', userIds);
+
+      // Buscar logs de pontuação de tarefas
+      const { data: taskLogs } = await supabase
+        .from('task_completion_logs')
+        .select('user_id, total_points, was_on_time_due_date, was_on_time_timer')
+        .eq('organization_id', organizationId)
+        .gte('completed_at', start.toISOString())
+        .lte('completed_at', end.toISOString());
+
+      // Agrupar por user_id
+      const tasksByUser = new Map<string, { points: number; completed: number; onTime: number }>();
+      
+      for (const log of taskLogs || []) {
+        const current = tasksByUser.get(log.user_id) || { points: 0, completed: 0, onTime: 0 };
+        current.points += log.total_points || 0;
+        current.completed += 1;
+        if (log.was_on_time_due_date || log.was_on_time_timer) {
+          current.onTime += 1;
+        }
+        tasksByUser.set(log.user_id, current);
+      }
+
+      // Calcular dados para ranking
+      const tasksData: LeaderboardData[] = userIds.map(userId => {
+        const profile = (profiles || []).find(p => p.user_id === userId);
+        const userTasks = tasksByUser.get(userId) || { points: 0, completed: 0, onTime: 0 };
+
+        return {
+          user_id: userId,
+          full_name: profile?.full_name || 'Colaborador',
+          avatar_url: profile?.avatar_url || null,
+          task_points: userTasks.points,
+          tasks_completed: userTasks.completed,
+          tasks_on_time: userTasks.onTime,
+          won_leads: 0,
+          total_leads: 0,
+          total_revenue: 0,
+          target: 0,
+        };
+      });
+
+      setData(tasksData);
+    } catch (error) {
+      console.error('Erro ao carregar dados de tarefas:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadTeams = async () => {
+    if (!organizationId) return;
+    
+    const { data: teamsData } = await supabase
+      .from('teams')
+      .select('id, name, avatar_url, color')
+      .eq('organization_id', organizationId);
+
+    setTeams(teamsData || []);
+  };
+
   useEffect(() => {
-    loadSalesData();
-  }, [organizationId, period]);
+    if (rankingType === "sales") {
+      loadSalesData();
+    } else {
+      loadTasksData();
+    }
+    loadTeams();
+  }, [organizationId, period, rankingType]);
+
+  // Atualizar sortBy quando muda o tipo de ranking
+  useEffect(() => {
+    if (rankingType === "tasks") {
+      setSortBy("task_points");
+    } else {
+      setSortBy("revenue");
+    }
+  }, [rankingType]);
 
   // Guard: Aguardar inicialização completa (auth + org)
   if (!isReady || !organizationId) {
@@ -145,20 +245,34 @@ export default function Ranking() {
       {/* Header */}
       <div className="flex items-center justify-center gap-3 py-4 border-b border-border">
         <Trophy className="h-6 w-6 text-yellow-400" />
-        <h1 className="text-xl font-bold text-foreground">Ranking de vendas</h1>
+        <h1 className="text-xl font-bold text-foreground">Ranking</h1>
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
           <Settings2 className="h-5 w-5" />
         </Button>
       </div>
 
       <div className="p-4 md:p-6">
+        {/* Ranking Type Tabs */}
+        <Tabs value={rankingType} onValueChange={(v) => setRankingType(v as RankingType)} className="mb-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="tasks" className="flex items-center gap-2">
+              <CheckSquare className="h-4 w-4" />
+              Tarefas
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Vendas
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Filters Row */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           {/* Left Filters */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>📊</span>
-              <span>Nome do Ranking</span>
+              <span>{rankingType === "tasks" ? "Ranking de Tarefas" : "Ranking de Vendas"}</span>
             </div>
             
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
@@ -166,9 +280,15 @@ export default function Ranking() {
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="revenue">Ord. Faturamento</SelectItem>
-                <SelectItem value="won_leads">Ord. Vendas</SelectItem>
-                <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
+                {rankingType === "tasks" ? (
+                  <SelectItem value="task_points">Ord. Pontos</SelectItem>
+                ) : (
+                  <>
+                    <SelectItem value="revenue">Ord. Faturamento</SelectItem>
+                    <SelectItem value="won_leads">Ord. Vendas</SelectItem>
+                    <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
 
@@ -177,6 +297,7 @@ export default function Ranking() {
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="week">Esta Semana</SelectItem>
                 <SelectItem value="month">Este Mês</SelectItem>
                 <SelectItem value="quarter">Este Trimestre</SelectItem>
                 <SelectItem value="year">Este Ano</SelectItem>
@@ -186,10 +307,11 @@ export default function Ranking() {
         </div>
 
         {/* Leaderboard */}
-        <SalesLeaderboard 
-          reps={reps} 
+        <TaskLeaderboard 
+          data={data} 
           isLoading={isLoading} 
           sortBy={sortBy}
+          type={rankingType}
         />
 
         {/* Teams Footer */}
