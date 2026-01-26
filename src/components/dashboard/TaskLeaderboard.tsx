@@ -252,7 +252,7 @@ const RankingCard = ({
 
   return (
     <div 
-      className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all"
+      className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:border-primary/40 transition-all max-w-lg"
     >
       {/* Position Badge */}
       <div 
