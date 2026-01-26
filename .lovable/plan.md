@@ -1,90 +1,216 @@
 
-Contexto do problema (o “porquê”)
-- O erro não está mais no “cargo” (permissões granulares) em si. O cargo do Marcos (“Gestor de Tráfego”) está corretamente configurado com can_view_kanban = true, e o frontend já checa isso.
-- O que ainda quebra a visualização do Kanban (e pode quebrar outras áreas do CRM) é um problema no backend: as funções usadas para validar organização ativa e papel do usuário foram criadas/alteradas usando uma coluna que não existe.
+# Plano: Correção da Criação de Contas de Colaboradores
 
-Evidência concreta (do que encontrei)
-1) Erro no banco: “column om.status does not exist”
-- Nos logs do banco aparecem erros “column om.status does not exist”.
-- Na tabela public.organization_members não existe a coluna status. O que existe é is_active (boolean).
-- Porém, as funções abaixo (que o sistema usa para multi-organização e para RLS) estão filtrando por om.status = 'active':
-  - public.get_user_organization_id
-  - public.get_user_organization_role
-  - public.set_user_active_organization
+## Diagnóstico do Problema
 
-2) Isso faz o “sync” da organização ativa falhar
-- O OrganizationContext chama supabase.rpc('set_user_active_organization', { _org_id: targetOrgId }).
-- Como a função está quebrada (usa om.status), o RPC falha (no console do Marcos aparece “Failed to sync active org …” e várias requisições 400).
-- Resultado: o backend não registra qual é a organização ativa do usuário.
+### Causa Raiz Identificada
+A função `handle_new_user()` no banco de dados **perdeu a lógica de vinculação de convidados** durante uma atualização anterior. 
 
-3) E isso impacta diretamente o Kanban e outras seções
-- As políticas de segurança (RLS) do Kanban e de várias tabelas fazem checagens baseadas em “qual organização o usuário pertence”.
-- Em especial: a tabela organization_members tem uma policy de SELECT que depende de get_user_organization_id(auth.uid()).
-- Como get_user_organization_id está quebrada, as queries que dependem de organization_members (inclusive as subqueries das policies do Kanban) não encontram a “membership” correta e acabam bloqueadas/retornando vazio → o app interpreta como “não achei board” e tenta criar ou falha com “Erro ao carregar quadro”.
+**Histórico:**
+1. Migração `20251121142206` implementou corretamente o UPDATE para vincular `user_id` por email
+2. Migração `20260125174807` reescreveu a função para prevenir duplicatas de owners, **mas removeu acidentalmente o UPDATE**
 
-Isso acontece só com multi-organização (caso Marcos) ou com todos?
-- Afeta especialmente quem tem múltiplas organizações, porque o app precisa “fixar” a organização ativa e isso está falhando.
-- Mas também pode afetar usuários de uma única organização em cenários onde alguma policy/função chamada no fluxo dependa dessas funções. Ou seja: não é um bug “só do Marcos”; ele apenas expõe o problema com mais frequência.
+**Resultado atual:**
+- O usuário é criado em `auth.users` com senha ✅
+- O registro de membro fica com `user_id = NULL` em `organization_members` ❌
+- O sistema não reconhece o usuário como membro válido da organização
+- Login com a senha funciona (auth.users existe), mas acesso ao CRM falha
 
-Como vai funcionar depois de resolvido (resultado esperado)
-1) Quando o Marcos selecionar uma organização no modal (ou trocar no switcher):
-   - O app chamará set_user_active_organization com sucesso (retorno true).
-   - O backend gravará public.user_active_org(user_id, active_organization_id).
-2) As funções get_user_organization_id e get_user_organization_role passarão a:
-   - Usar a organização ativa gravada (user_active_org) e validar membership via is_active = true.
-   - Fazer fallback para a primeira org ativa se necessário.
-3) Com isso, as policies RLS vão “entender” corretamente qual org está ativa, e:
-   - O Kanban board da organização do Mateus (onde o Marcos é member) será encontrado e carregado.
-   - O Marcos poderá visualizar e operar conforme o cargo (ex: criar/editar tarefas, etc.), sem 403/400.
-4) Se não existir board naquela organização:
-   - O KanbanBoard já foi ajustado para não tentar criar board para membros; ele mostrará uma tela amigável pedindo para um admin criar o quadro.
+### Evidência Concreta
+```
+Usuário: kerlyskauan@gmail.com
+auth.users.id: c6733123-c6a0-46a4-ba77-3f474283a06d (existe ✅)
+organization_members.user_id: NULL (não vinculado ❌)
+```
 
-Plano de correção (o que vou implementar no próximo passo, em modo de edição)
-A) Correção no backend (migração)
-1. Atualizar as funções quebradas para usar is_active = true (em vez de status = 'active'):
-   - public.get_user_organization_id(_user_id uuid)
-   - public.get_user_organization_role(_user_id uuid)
-   - public.set_user_active_organization(_org_id uuid)
-2. Garantir que:
-   - A validação de “o usuário é membro desta org” use organization_members.is_active = true
-   - A validação de fallback (primeira org) use organization_members.is_active = true
-3. (Verificação) Rodar um “sanity check” via query/leitura:
-   - Confirmar que set_user_active_organization retorna true para o Marcos ao selecionar a org e94d…
-   - Confirmar que public.user_active_org passa a ter uma linha para o user_id dele
+---
 
-B) Ajustes no frontend (robustez e UX)
-1. OrganizationContext:
-   - Tratar retorno “data === false” de set_user_active_organization como falha real (não só “sem erro”).
-   - Se o usuário tem múltiplas orgs e o sync falhar, evitar seguir adiante “silenciosamente”:
-     - Mostrar toast orientando a tentar novamente
-     - Manter o gate de seleção (para não entrar em estado inconsistente que quebra RLS e telas)
-2. KanbanBoard:
-   - Já existe tratamento para impedir criação automática por membros; manter e melhorar mensagem quando ocorrer “fetchError” por RLS (após a correção do backend isso deve desaparecer, mas manter o guard melhora a confiabilidade).
+## Solução
 
-C) Correção de conformidade (tipos gerados automaticamente)
-- Verificar e reverter qualquer edição manual feita em src/integrations/supabase/types.ts (esse arquivo não deve ser alterado manualmente).
-- Após a migração, garantir que o projeto use os tipos gerados corretamente (sem divergência que cause bugs em runtime/build).
+### 1. Corrigir a Função `handle_new_user()` (Migração)
 
-Checklist de validação (antes de considerar “resolvido”)
-1) Usuário Marcos (2 organizações)
-- Login → modal de seleção aparece
-- Seleciona “mateusabcck… Organization”:
-  - Network: set_user_active_organization → 200 com true
-  - user_active_org contém active_organization_id = e94d…
-  - /tarefas carrega o board a285… e as colunas/cards
-  - Sem toast “Erro ao carregar quadro”
-- Troca para org “marcosviniicius… Organization”:
-  - Sync novamente → 200 true
-  - /tarefas carrega o outro board ef71…
-2) Usuário member (uma org) com cargo can_view_kanban = true
-- /tarefas carrega board normalmente
-3) Usuário member sem can_view_kanban
-- Continua vendo “Acesso Restrito” (comportamento esperado)
+Reescrever a função para:
+1. Manter a prevenção de duplicatas de owners (lógica existente)
+2. **Adicionar** verificação por EMAIL além de user_id
+3. **Restaurar** o UPDATE que vincula convidados
 
-Risco/observação importante
-- A tabela organization_members tem user_id nullable (isso é usado para convites pendentes). Então não vamos “forçar NOT NULL” agora para não quebrar convites. A validação de membership para permissões continuará usando user_id = auth.uid() e is_active = true, o que ignora convites pendentes corretamente.
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  new_org_id UUID;
+  existing_owner_count INT;
+  existing_member_count INT;
+  invited_member_count INT;
+BEGIN
+  -- PREVENÇÃO DE DUPLICATAS: Verificar se usuário JÁ É OWNER
+  SELECT COUNT(*) INTO existing_owner_count
+  FROM public.organization_members
+  WHERE user_id = NEW.id AND role = 'owner';
+  
+  IF existing_owner_count > 0 THEN
+    RAISE LOG 'User % already owns organization(s). Skipping.', NEW.id;
+    RETURN NEW;
+  END IF;
+  
+  -- Verificar se foi CONVIDADO (registro com email mas sem user_id)
+  SELECT COUNT(*) INTO invited_member_count
+  FROM public.organization_members
+  WHERE email = NEW.email AND user_id IS NULL;
+  
+  IF invited_member_count > 0 THEN
+    -- VINCULAR: Atualizar registros pendentes com o user_id
+    UPDATE public.organization_members
+    SET user_id = NEW.id,
+        is_active = true
+    WHERE email = NEW.email AND user_id IS NULL;
+    
+    RAISE LOG 'User % linked to % invited membership(s).', NEW.id, invited_member_count;
+    RETURN NEW;
+  END IF;
+  
+  -- Verificar se já é membro de alguma org (por user_id)
+  SELECT COUNT(*) INTO existing_member_count
+  FROM public.organization_members
+  WHERE user_id = NEW.id;
+  
+  IF existing_member_count > 0 THEN
+    RAISE LOG 'User % is already a member. Skipping org creation.', NEW.id;
+    RETURN NEW;
+  END IF;
+  
+  -- Criar nova organização para usuários completamente novos
+  INSERT INTO public.organizations (name)
+  VALUES (COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)) || '''s Organization')
+  RETURNING id INTO new_org_id;
+  
+  INSERT INTO public.organization_members (organization_id, user_id, email, role, is_active)
+  VALUES (new_org_id, NEW.id, NEW.email, 'owner', true);
+  
+  RAISE LOG 'Created organization % for user %', new_org_id, NEW.id;
+  
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE WARNING 'Error in handle_new_user for %: %', NEW.id, SQLERRM;
+    RETURN NEW;
+END;
+$function$;
+```
 
-Entregáveis (o que será alterado)
-- Nova migração corrigindo as 3 funções para is_active
-- Ajustes pontuais no OrganizationContext para não continuar quando o sync falhar em multi-org
-- Auditoria/ajuste para remover edições manuais de types.ts (conformidade)
+### 2. Corrigir Usuários Pendentes Existentes (Query de Correção)
+
+Executar um UPDATE para vincular usuários que já foram criados mas não vinculados:
+
+```sql
+UPDATE public.organization_members om
+SET user_id = u.id,
+    is_active = true
+FROM auth.users u
+WHERE om.email = u.email
+  AND om.user_id IS NULL;
+```
+
+Isso irá corrigir o "kerlys kauan" e qualquer outro colaborador na mesma situação.
+
+### 3. Adicionar Fallback na Edge Function (Segurança Extra)
+
+Como medida de segurança, modificar `add-organization-member` para fazer o UPDATE explicitamente após criar o usuário, não dependendo apenas do trigger:
+
+```typescript
+// Após criar o usuário com sucesso (linha 277)
+userId = newUser.user.id;
+
+// FALLBACK: Atualizar o registro pré-inserido com o user_id
+const { error: linkError } = await supabaseAdmin
+  .from('organization_members')
+  .update({ user_id: userId, is_active: true })
+  .match({ email: emailLower, organization_id: organizationId, user_id: null });
+
+if (linkError) {
+  console.warn('Failed to link user via fallback, trigger should handle:', linkError);
+}
+```
+
+---
+
+## Fluxo Corrigido
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Admin clica "Adicionar Colaborador"                         │
+│ Nome: kerlys kauan | Email: kerlys@... | Senha: ****        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Edge Function: add-organization-member                      │
+│ 1. INSERT organization_members (user_id=NULL, email=kerlys) │
+│ 2. CREATE USER in auth.users (com senha)                    │
+│ 3. FALLBACK: UPDATE organization_members SET user_id=...    │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Trigger: handle_new_user (em auth.users)                    │
+│ - Detecta email em organization_members com user_id=NULL    │
+│ - UPDATE organization_members SET user_id = NEW.id          │
+│ - Não cria organização nova (é convidado)                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│ RESULTADO:                                                  │
+│ auth.users.id = c6733123-...                         ✅     │
+│ organization_members.user_id = c6733123-...          ✅     │
+│ organization_members.is_active = true                ✅     │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Colaborador faz LOGIN                                       │
+│ Email: kerlys@... | Senha: (a que foi definida)             │
+│ → Autenticado ✅                                            │
+│ → Reconhecido como membro da organização ✅                 │
+│ → Acessa Kanban, Pipeline, Chat conforme cargo ✅           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| **Nova migração SQL** | Reescrever `handle_new_user()` com lógica de UPDATE por email + query para corrigir registros existentes |
+| `supabase/functions/add-organization-member/index.ts` | Adicionar UPDATE fallback explícito após criar usuário |
+
+---
+
+## Checklist de Validação
+
+Após implementação:
+
+1. **Corrigir usuário existente:**
+   - [ ] Query: `SELECT user_id FROM organization_members WHERE email = 'kerlyskauan@gmail.com'`
+   - [ ] Esperado: `user_id = c6733123-c6a0-46a4-ba77-3f474283a06d` (não mais NULL)
+
+2. **Testar login do Kerlys:**
+   - [ ] Login com `kerlyskauan@gmail.com` + senha definida
+   - [ ] Deve acessar o dashboard sem erros
+   - [ ] Deve ver as funcionalidades conforme cargo "Gestor de Trafego"
+
+3. **Testar criação de novo colaborador:**
+   - [ ] Admin cria novo colaborador com email/senha
+   - [ ] Verificar que `organization_members.user_id` é preenchido
+   - [ ] Novo colaborador consegue fazer login
+   - [ ] Status muda de "Pendente" para "Ativo"
+
+4. **Verificar que não quebra usuários existentes:**
+   - [ ] Owners continuam funcionando
+   - [ ] Admins continuam funcionando
+   - [ ] Membros já ativos continuam funcionando
