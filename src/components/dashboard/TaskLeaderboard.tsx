@@ -246,7 +246,7 @@ const RankingCard = ({
 
   return (
     <div 
-      className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all w-full"
+      className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all"
     >
       {/* Position Badge */}
       <div 
@@ -420,7 +420,7 @@ export function TaskLeaderboard({
           )}
         </h3>
         
-        <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[500px] overflow-y-auto pr-2">
           {sortedData.map((rep, index) => (
             <RankingCard key={rep.user_id} rep={rep} position={index + 1} type={type} />
           ))}

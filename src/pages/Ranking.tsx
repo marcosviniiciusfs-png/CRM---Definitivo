@@ -280,15 +280,12 @@ export default function Ranking() {
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
               <SelectContent>
-                {rankingType === "tasks" ? (
+                {rankingType === "tasks" && (
                   <SelectItem value="task_points">Ord. Pontos</SelectItem>
-                ) : (
-                  <>
-                    <SelectItem value="revenue">Ord. Faturamento</SelectItem>
-                    <SelectItem value="won_leads">Ord. Vendas</SelectItem>
-                    <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
-                  </>
                 )}
+                <SelectItem value="revenue">Ord. Faturamento</SelectItem>
+                <SelectItem value="won_leads">Ord. Vendas</SelectItem>
+                <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
               </SelectContent>
             </Select>
 
