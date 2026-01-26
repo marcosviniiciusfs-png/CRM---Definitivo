@@ -1,195 +1,249 @@
 
-# Plano: Otimizações das Tarefas Colaborativas no Kanban
+# Plano: Correção de Bugs Críticos no Kanban
 
-## Resumo dos Problemas Identificados
+## Problemas Identificados
 
-### 1. Movimentação Automática de Tarefas Colaborativas
-**Problema:** Quando um colaborador marca sua parte como concluída, nada acontece automaticamente. A tarefa permanece na mesma etapa, mesmo quando TODOS os colaboradores confirmam.
+### 1. Bloqueio de Movimento Retroativo Falha (+ Move TODAS as tarefas)
 
-**Comportamento Esperado:**
-- Quando **o primeiro colaborador** confirma → tarefa avança para **próxima etapa**
-- Quando **todos os colaboradores** confirmam → tarefa move para a **etapa de conclusão** (`is_completion_stage = true`)
+**Causa Raiz:**
+O `handleDragOver` está atualizando o state `setColumns()` ANTES da validação completa no `handleDragEnd`. O problema é:
 
-### 2. Cronômetro Não Ativa na Etapa Selecionada
-**Problema:** O timer não está iniciando quando a tarefa entra na coluna configurada porque:
-- Tarefas antigas não possuem `timer_start_column_id` definido
-- A lógica de ativação do timer existe apenas no `handleDragEnd`, mas não verifica corretamente todos os casos
+1. Usuário arrasta card para etapa anterior
+2. `handleDragOver` valida e retorna early se `block_backward_movement` (linha 719-727) - **MAS o dnd-kit já fez o "swap" visual**
+3. Na segunda tentativa, o React está em estado inconsistente
+4. O `handleDragOver` atualiza `setColumns()` na linha 729-739, **afetando TODAS as tarefas porque está sobrescrevendo todo o array de colunas**
 
-### 3. Edição do Timer em Tarefas Existentes
-**Problema:** No formulário de edição (`KanbanCard.tsx`), não existe a opção de selecionar/alterar a etapa onde o cronômetro deve iniciar. Esta funcionalidade existe apenas na criação de novas tarefas.
+O bug está aqui (linhas 729-739):
+```typescript
+const newColumns = columns.map(col => {
+  if (col.id === sourceColumn.id) {
+    return { ...col, cards: col.cards.filter(c => c.id !== activeCardId) };
+  }
+  if (col.id === targetColumn.id) {
+    return { ...col, cards: [...col.cards, card] };
+  }
+  return col;
+});
+setColumns(newColumns); // PROBLEMÁTICO: atualiza state durante drag!
+```
+
+**Problema:** O `handleDragOver` está sendo chamado MÚLTIPLAS vezes durante o drag, e cada vez está manipulando o state. Quando o bloqueio falha, as atualizações anteriores já modificaram o estado de forma incorreta.
+
+**Solução:**
+1. **Remover a atualização de state do `handleDragOver`** - o dnd-kit já cuida do feedback visual
+2. Mover TODA a lógica de atualização para o `handleDragEnd`
+3. O `handleDragOver` deve apenas validar e mostrar toasts de bloqueio, sem modificar state
 
 ---
 
-## Solução Proposta
+### 2. Cronômetro Não Ativa Imediatamente
 
-### Parte 1: Movimentação Automática de Tarefas Colaborativas
+**Causa Raiz:**
+Quando o card é movido para a coluna de início do timer:
 
-**Arquivo:** `src/components/CollaborativeTaskApproval.tsx`
+1. O banco de dados é atualizado com `timer_started_at` (linhas 851-857) ✅
+2. O state local é atualizado (linhas 865-877)
+3. **MAS** o card no state mantém o `timer_started_at` antigo porque a linha 872 só atualiza se `updateData.timer_started_at` existir
 
-Adicionar lógica na `confirmMutation` para mover a tarefa automaticamente:
-
+O problema está aqui:
 ```typescript
-// Após confirmar conclusão do usuário atual:
-const totalAssignees = assignees.length;
-const newCompletedCount = completedCount + 1;
-
-// Buscar posição atual e próxima coluna
-const { data: card } = await supabase
-  .from("kanban_cards")
-  .select("column_id")
-  .eq("id", cardId)
-  .single();
-
-const { data: columns } = await supabase
-  .from("kanban_columns")
-  .select("id, title, position, is_completion_stage")
-  .eq("board_id", boardId)
-  .order("position");
-
-const currentColumnIndex = columns.findIndex(c => c.id === card.column_id);
-
-if (newCompletedCount === totalAssignees) {
-  // TODOS confirmaram → mover para etapa de conclusão
-  const completionColumn = columns.find(c => c.is_completion_stage);
-  if (completionColumn) {
-    await supabase
-      .from("kanban_cards")
-      .update({ column_id: completionColumn.id })
-      .eq("id", cardId);
-  }
-} else if (newCompletedCount === 1) {
-  // PRIMEIRO a confirmar → mover para próxima etapa
-  const nextColumn = columns[currentColumnIndex + 1];
-  if (nextColumn && !nextColumn.is_completion_stage) {
-    await supabase
-      .from("kanban_cards")
-      .update({ column_id: nextColumn.id })
-      .eq("id", cardId);
-  }
-}
-```
-
-### Parte 2: Seletor de Etapa do Timer na Edição
-
-**Arquivo:** `src/components/KanbanCard.tsx`
-
-Adicionar no formulário de edição:
-1. Estado para armazenar `editTimerStartColumnId`
-2. Carregar colunas do Kanban disponíveis
-3. Componente `Select` para escolher a etapa do timer
-4. Incluir no objeto `updates` ao salvar
-
-```tsx
-// Novo estado
-const [editTimerStartColumnId, setEditTimerStartColumnId] = useState<string | null>(null);
-const [kanbanColumns, setKanbanColumns] = useState<{id: string, title: string}[]>([]);
-
-// Carregar ao entrar em modo de edição
-useEffect(() => {
-  if (isEditing) {
-    // ... código existente
-    loadKanbanColumns();
-    setEditTimerStartColumnId(card.timer_start_column_id || null);
-  }
-}, [isEditing]);
-
-// No formulário de edição (quando há tempo estimado)
-{editEstimatedTime && !editDueDate && (
-  <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
-    <label className="text-xs font-medium flex items-center gap-1">
-      <Timer className="h-3 w-3" />
-      Iniciar cronômetro quando entrar em:
-    </label>
-    <Select 
-      value={editTimerStartColumnId || "immediate"} 
-      onValueChange={(val) => setEditTimerStartColumnId(val === "immediate" ? null : val)}
-    >
-      <SelectTrigger>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="immediate">Imediatamente</SelectItem>
-        {kanbanColumns.map(col => (
-          <SelectItem key={col.id} value={col.id}>
-            Quando entrar em "{col.title}"
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-)}
-```
-
-### Parte 3: Corrigir Lógica de Ativação do Timer
-
-**Arquivo:** `src/components/KanbanBoard.tsx`
-
-Atualizar a função `updateCard` para incluir `timer_start_column_id`:
-
-```typescript
-const updateCard = async (...) => {
-  const dbUpdates: any = {
-    // ... campos existentes
-    timer_start_column_id: cardUpdates.timer_start_column_id !== undefined 
-      ? cardUpdates.timer_start_column_id 
-      : undefined,
-  };
-
-  // Se timer_start_column_id foi definido para a coluna atual, iniciar timer
-  if (cardUpdates.timer_start_column_id && cardUpdates.estimated_time && !cardUpdates.due_date) {
-    const column = columns.find(col => col.cards.some(c => c.id === cardId));
-    if (column?.id === cardUpdates.timer_start_column_id) {
-      dbUpdates.timer_started_at = new Date().toISOString();
-    }
-  }
+const updatedCard = { 
+  ...card, 
+  timer_started_at: updateData.timer_started_at || card.timer_started_at // ⚠️ card.timer_started_at ainda é undefined
 };
 ```
 
+Além disso, o `KanbanCard` usa `useCardTimer` que depende de:
+- `isTimerActive` calculado como `card.estimated_time && !card.due_date`
+- `timerStartedAt` que vem do card local
+
+Se o card local não for atualizado, o timer não exibe.
+
+**Solução:**
+1. Garantir que `timer_started_at` é corretamente propagado no state local
+2. Forçar re-render do card após atualização do timer
+3. Considerar invalidar queries e recarregar dados para garantir sincronização
+
 ---
 
-## Fluxo Esperado Após Correções
+### 3. Auto-Delete de Tarefas Não Implementado
 
-### Cenário 1: Tarefa Colaborativa com 3 Membros
+**Causa Raiz:**
+A configuração `auto_delete_enabled` e `auto_delete_hours` existe no banco de dados e pode ser configurada via UI, mas **não existe nenhuma lógica que execute a exclusão automática**.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Tarefa "Relatórios" - Etapa: "A Fazer" - Colaboradores: 0/3        │
-└─────────────────────────────────────────────────────────────────────┘
-                            │
-      Marcos clica "Confirmar Conclusão" ───────────────────────────────►
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Tarefa "Relatórios" - Etapa: "Fazendo" ← MOVEU AUTOMATICAMENTE     │
-│ Colaboradores: 1/3 (Marcos ✓, Mateus ⏳, Kerlys ⏳)                 │
-└─────────────────────────────────────────────────────────────────────┘
-                            │
-      Mateus confirma... Kerlys confirma... ────────────────────────────►
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Tarefa "Relatórios" - Etapa: "Concluído" ← TODOS CONFIRMARAM       │
-│ Colaboradores: 3/3 ✓ - TAREFA FINALIZADA                           │
-└─────────────────────────────────────────────────────────────────────┘
+Não há:
+- Nenhum cron job ou Edge Function para deletar cards antigos
+- Nenhuma lógica client-side que verifique periodicamente
+- Nenhum database trigger que monitore isso
+
+**Solução:**
+Implementar uma Edge Function (ou usar pg_cron no banco) que:
+1. Roda periodicamente (a cada hora)
+2. Busca colunas com `auto_delete_enabled = true`
+3. Deleta cards nessas colunas onde `created_at + auto_delete_hours < now()`
+
+---
+
+## Soluções Detalhadas
+
+### Correção 1: Refatorar handleDragOver e handleDragEnd
+
+**Arquivo:** `src/components/KanbanBoard.tsx`
+
+**Mudanças no `handleDragOver` (linhas 655-740):**
+```typescript
+const handleDragOver = async (event: DragOverEvent) => {
+  const { active, over } = event;
+  if (!over) return;
+
+  const activeCardId = active.id as string;
+  const overContainerId = over.id as string;
+
+  const sourceColumn = columns.find(col => col.cards.some(card => card.id === activeCardId));
+  if (!sourceColumn) return;
+
+  let targetColumn = columns.find(col => col.id === overContainerId);
+  if (!targetColumn) {
+    targetColumn = columns.find(col => col.cards.some(card => card.id === overContainerId));
+  }
+
+  if (!targetColumn || sourceColumn.id === targetColumn.id) return;
+
+  // APENAS validações - SEM modificar state
+  // Validação de bloqueio reverso
+  if (sourceColumn.block_backward_movement) {
+    const sourcePos = columns.findIndex(c => c.id === sourceColumn.id);
+    const targetPos = columns.findIndex(c => c.id === targetColumn.id);
+    
+    if (targetPos < sourcePos) {
+      // Bloquear - NÃO mostrar toast aqui para evitar spam (mostrar só no handleDragEnd)
+      return;
+    }
+  }
+
+  // Validação de tarefa colaborativa - igual, apenas validar sem modificar state
+  // (deixar handleDragEnd fazer as queries e mostrar toasts)
+};
 ```
 
-### Cenário 2: Timer na Etapa Específica
+**Mudanças no `handleDragEnd`:**
+- Manter a lógica de validação com queries ao banco
+- Sempre recarregar colunas após bloqueio para garantir state consistente
+- Atualizar corretamente o `timer_started_at` no state local
 
+---
+
+### Correção 2: Timer Atualizar Imediatamente
+
+**Arquivo:** `src/components/KanbanBoard.tsx`
+
+Corrigir a atualização do state local após mover o card:
+
+```typescript
+// Atualizar no banco se mudou de coluna
+if (sourceColumn.id !== targetColumn.id) {
+  const updateData: any = { column_id: targetColumn.id };
+  
+  // Verificar se deve iniciar o timer ao entrar nesta coluna
+  if (card.timer_start_column_id === targetColumn.id && !card.timer_started_at && card.estimated_time && !card.due_date) {
+    updateData.timer_started_at = new Date().toISOString();
+    toast({
+      title: "⏱️ Cronômetro Iniciado",
+      description: `Timer da tarefa "${card.content}" começou a contar!`,
+    });
+  }
+  
+  await supabase
+    .from("kanban_cards")
+    .update(updateData)
+    .eq("id", activeCardId);
+  
+  // CORRIGIDO: Atualizar state com timer_started_at correto
+  setColumns(prevColumns => prevColumns.map(col => {
+    if (col.id === sourceColumn.id) {
+      return { ...col, cards: col.cards.filter(c => c.id !== activeCardId) };
+    }
+    if (col.id === targetColumn.id) {
+      const updatedCard: Card = { 
+        ...card, 
+        column_id: targetColumn.id,
+        timer_started_at: updateData.timer_started_at ?? card.timer_started_at,
+      };
+      return { ...col, cards: [...col.cards, updatedCard] };
+    }
+    return col;
+  }));
+}
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Tarefa "Nortecon" - Etapa: "A Fazer"                                │
-│ Tempo: 3h 40m | Timer: Aguardando entrar em "Fazendo"              │
-└─────────────────────────────────────────────────────────────────────┘
-                            │
-      Usuário arrasta para "Fazendo" ───────────────────────────────────►
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Tarefa "Nortecon" - Etapa: "Fazendo"                                │
-│ Timer: ⏱️ 3h 39m restante ← TIMER INICIOU AUTOMATICAMENTE           │
-│ Toast: "Cronômetro Iniciado"                                        │
-└─────────────────────────────────────────────────────────────────────┘
+
+---
+
+### Correção 3: Implementar Auto-Delete
+
+**Nova Edge Function:** `supabase/functions/cleanup-kanban-cards/index.ts`
+
+```typescript
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Buscar colunas com auto-delete habilitado
+    const { data: columns, error: colError } = await supabaseAdmin
+      .from('kanban_columns')
+      .select('id, auto_delete_hours')
+      .eq('auto_delete_enabled', true)
+      .not('auto_delete_hours', 'is', null)
+
+    if (colError) throw colError
+
+    let totalDeleted = 0
+
+    for (const column of columns || []) {
+      // Calcular threshold time
+      const hoursAgo = new Date()
+      hoursAgo.setHours(hoursAgo.getHours() - (column.auto_delete_hours || 72))
+
+      // Deletar cards antigos
+      const { data: deleted, error: delError } = await supabaseAdmin
+        .from('kanban_cards')
+        .delete()
+        .eq('column_id', column.id)
+        .lt('created_at', hoursAgo.toISOString())
+        .select('id')
+
+      if (!delError && deleted) {
+        totalDeleted += deleted.length
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, deleted: totalDeleted }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
 ```
+
+Esta Edge Function pode ser chamada manualmente ou configurada como cron job via Supabase Dashboard.
 
 ---
 
@@ -197,37 +251,26 @@ const updateCard = async (...) => {
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/CollaborativeTaskApproval.tsx` | Adicionar lógica de movimentação automática após confirmação |
-| `src/components/KanbanCard.tsx` | Adicionar seletor de etapa do timer no formulário de edição |
-| `src/components/KanbanBoard.tsx` | Atualizar `updateCard` para suportar `timer_start_column_id` |
+| `src/components/KanbanBoard.tsx` | Refatorar `handleDragOver` para não modificar state; Corrigir `handleDragEnd` para atualizar timer corretamente e bloquear movimento consistentemente |
+| `supabase/functions/cleanup-kanban-cards/index.ts` | **Nova Edge Function** para exclusão automática de cards |
 
 ---
 
-## Detalhes Técnicos
+## Resumo das Correções
 
-### Regras de Negócio para Movimentação Colaborativa
+1. **Bloqueio Retroativo:**
+   - Remover `setColumns()` do `handleDragOver` 
+   - Manter apenas validação no `handleDragEnd`
+   - Sempre recarregar colunas via `loadColumns()` após qualquer bloqueio
 
-1. **Primeira confirmação** (1/N):
-   - Mover tarefa para a **próxima coluna** (posição + 1)
-   - Não mover se a próxima for `is_completion_stage`
+2. **Timer Imediato:**
+   - Usar spread operator corretamente ao atualizar card
+   - Garantir que `timer_started_at` seja propagado para o state local
+   - Considerar também condição `!card.due_date` na verificação
 
-2. **Confirmação final** (N/N):
-   - Mover tarefa para a coluna com `is_completion_stage = true`
-   - Se não existir coluna de conclusão, manter na atual
-
-3. **Confirmações intermediárias** (2/N até N-1/N):
-   - Apenas atualiza o progresso visual
-   - Não move a tarefa
-
-### Lógica do Timer
-
-1. Timer só ativa se:
-   - `estimated_time` está definido
-   - `due_date` NÃO está definido (timer substitui prazo)
-   - A tarefa está na coluna definida em `timer_start_column_id`
-
-2. Se `timer_start_column_id` for `NULL`:
-   - Timer inicia imediatamente ao criar a tarefa
+3. **Auto-Delete:**
+   - Criar Edge Function `cleanup-kanban-cards`
+   - Configurar para rodar periodicamente
 
 ---
 
@@ -235,18 +278,18 @@ const updateCard = async (...) => {
 
 Após implementação:
 
-1. **Tarefas Colaborativas:**
-   - [ ] Primeiro a confirmar → tarefa move para próxima etapa
-   - [ ] Todos confirmarem → tarefa move para "Concluído"
-   - [ ] Toast de feedback aparece após movimentação
-   - [ ] Interface atualiza em tempo real
+1. **Bloqueio Retroativo:**
+   - [ ] Arrastar card de "Fazendo" para "A Fazer" é bloqueado
+   - [ ] Toast aparece uma vez com mensagem clara
+   - [ ] Apenas o card arrastado é afetado, não todos
+   - [ ] Após várias tentativas, o bloqueio continua funcionando
 
-2. **Cronômetro:**
-   - [ ] Editar tarefa antiga mostra seletor de etapa
-   - [ ] Timer inicia ao entrar na etapa configurada
+2. **Timer:**
+   - [ ] Mover card para etapa de início do timer ativa imediatamente
+   - [ ] Timer exibe "Xh Ym restante" em tempo real
    - [ ] Toast "Cronômetro Iniciado" aparece
-   - [ ] Contagem regressiva funciona corretamente
 
-3. **Edição Geral:**
-   - [ ] Todos os campos salvam corretamente
-   - [ ] Tarefas antigas podem ter timer configurado
+3. **Auto-Delete:**
+   - [ ] Edge Function deleta cards corretamente
+   - [ ] Apenas cards mais antigos que `auto_delete_hours` são deletados
+   - [ ] Cards em colunas sem `auto_delete_enabled` não são afetados
