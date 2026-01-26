@@ -69,6 +69,10 @@ interface KanbanColumnProps {
   isOwnerOrAdmin?: boolean;
   // Org members for assignee selection
   orgMembers?: UserOption[];
+  // New props for timer and collaborative tasks
+  boardId?: string;
+  kanbanColumns?: { id: string; title: string }[];
+  onCardMoved?: () => void;
 }
 
 export const KanbanColumn = ({
@@ -89,6 +93,9 @@ export const KanbanColumn = ({
   canDeleteTasks = false,
   isOwnerOrAdmin = false,
   orgMembers = [],
+  boardId,
+  kanbanColumns = [],
+  onCardMoved,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -255,6 +262,9 @@ export const KanbanColumn = ({
               canDelete={canDeleteCard(card)}
               orgMembers={orgMembers}
               initialAssignees={cardAssigneesMap?.[card.id] || []}
+              boardId={boardId}
+              kanbanColumns={kanbanColumns}
+              onCardMoved={onCardMoved}
             />
           ))}
         </SortableContext>

@@ -4,7 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink, User, Users, Check } from "lucide-react";
+import { Settings, X, Calendar, Clock, CalendarCheck, ExternalLink, User, Users, Check, Timer } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MentionInput } from "./MentionInput";
 import { format } from "date-fns";
 import { useCardTimer } from "@/hooks/useCardTimer";
@@ -59,6 +66,9 @@ interface KanbanCardProps {
   canDelete?: boolean;
   orgMembers?: UserOption[];
   initialAssignees?: string[];
+  boardId?: string;
+  kanbanColumns?: { id: string; title: string }[];
+  onCardMoved?: () => void;
 }
 
 export const KanbanCard = ({ 
@@ -71,6 +81,9 @@ export const KanbanCard = ({
   canDelete = true,
   orgMembers = [],
   initialAssignees = [],
+  boardId,
+  kanbanColumns = [],
+  onCardMoved,
 }: KanbanCardProps) => {
   const navigate = useNavigate();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -88,8 +101,9 @@ export const KanbanCard = ({
   const [editAssignees, setEditAssignees] = useState<string[]>(initialAssignees);
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [completedAssignees, setCompletedAssignees] = useState<string[]>([]);
+  const [editTimerStartColumnId, setEditTimerStartColumnId] = useState<string | null>(null);
 
-  // Carregar assignees atuais ao entrar no modo de edição
+  // Carregar assignees atuais e timer_start_column_id ao entrar no modo de edição
   useEffect(() => {
     if (isEditing) {
       const loadAssignees = async () => {
@@ -104,8 +118,9 @@ export const KanbanCard = ({
         }
       };
       loadAssignees();
+      setEditTimerStartColumnId(card.timer_start_column_id || null);
     }
-  }, [isEditing, card.id]);
+  }, [isEditing, card.id, card.timer_start_column_id]);
 
   const colorOptions = [
     { value: "", label: "Sem cor" },
@@ -141,6 +156,7 @@ export const KanbanCard = ({
         estimated_time: editEstimatedTime ? parseInt(editEstimatedTime) : undefined,
         color: editColor || null,
         assignees: editAssignees,
+        timer_start_column_id: editTimerStartColumnId,
       },
       oldDescription
     );
@@ -296,6 +312,35 @@ export const KanbanCard = ({
                       {completedAssignees.length} membro(s) já confirmaram e não podem ser removidos.
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Seletor de etapa do timer */}
+              {editEstimatedTime && !editDueDate && kanbanColumns.length > 0 && (
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                  <label className="text-xs font-medium flex items-center gap-1">
+                    <Timer className="h-3 w-3" />
+                    Iniciar cronômetro quando entrar em:
+                  </label>
+                  <Select 
+                    value={editTimerStartColumnId || "immediate"} 
+                    onValueChange={(val) => setEditTimerStartColumnId(val === "immediate" ? null : val)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Selecionar etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="immediate">Imediatamente</SelectItem>
+                      {kanbanColumns.map(col => (
+                        <SelectItem key={col.id} value={col.id}>
+                          Quando entrar em "{col.title}"
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    O cronômetro iniciará automaticamente quando a tarefa for movida para esta etapa.
+                  </p>
                 </div>
               )}
 
@@ -499,6 +544,8 @@ export const KanbanCard = ({
           onOpenChange={setApprovalModalOpen}
           cardId={card.id}
           cardTitle={card.content}
+          boardId={boardId}
+          onCardMoved={onCardMoved}
         />
       )}
     </div>
