@@ -98,8 +98,12 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     loadOrCreateBoard();
   }, [organizationId]);
 
+  // State for board not found scenario
+  const [boardNotFound, setBoardNotFound] = useState(false);
+
   const loadOrCreateBoard = async () => {
     console.log('[KANBAN] Loading board for organization:', organizationId);
+    setBoardNotFound(false);
     
     // Validar organizationId antes de prosseguir
     if (!organizationId || organizationId.length < 10) {
@@ -119,8 +123,21 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       console.log('[KANBAN] Existing board result:', { existingBoard, fetchError });
 
       if (fetchError) {
-        console.error('[KANBAN] Error fetching board:', fetchError);
-        toast({ title: "Erro ao carregar quadro", variant: "destructive" });
+        // Check if it's a 403/permission error
+        const errorCode = (fetchError as any)?.code;
+        const errorMessage = fetchError?.message?.toLowerCase() || '';
+        
+        if (errorCode === '42501' || errorMessage.includes('permission') || errorMessage.includes('policy')) {
+          console.error('[KANBAN] Permission error - RLS may be blocking access:', fetchError);
+          toast({ 
+            title: "Erro de permissão", 
+            description: "Verifique se a organização ativa está correta. Tente trocar de organização e voltar.",
+            variant: "destructive" 
+          });
+        } else {
+          console.error('[KANBAN] Error fetching board:', fetchError);
+          toast({ title: "Erro ao carregar quadro", variant: "destructive" });
+        }
         setLoading(false);
         return;
       }
@@ -128,7 +145,18 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       let currentBoardId = existingBoard?.id;
 
       if (!currentBoardId) {
-        console.log('[KANBAN] No board found, creating new one...');
+        console.log('[KANBAN] No board found for organization:', organizationId);
+        
+        // CRITICAL: Only owners/admins can create boards automatically
+        // Members should see a friendly message instead of getting 403 error
+        if (!isOwnerOrAdmin) {
+          console.log('[KANBAN] User is not owner/admin, cannot create board');
+          setBoardNotFound(true);
+          setLoading(false);
+          return;
+        }
+
+        console.log('[KANBAN] Owner/Admin creating new board...');
         // Criar novo board com colunas padrão
         const { data: newBoard, error: createError } = await supabase
           .from("kanban_boards")
@@ -138,7 +166,17 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
         if (createError) {
           console.error('[KANBAN] Error creating board:', createError);
-          toast({ title: "Erro ao criar quadro", variant: "destructive" });
+          // Better error message for 403
+          const createErrorCode = (createError as any)?.code;
+          if (createErrorCode === '42501') {
+            toast({ 
+              title: "Sem permissão para criar quadro", 
+              description: "Apenas administradores podem criar o quadro de tarefas.",
+              variant: "destructive" 
+            });
+          } else {
+            toast({ title: "Erro ao criar quadro", variant: "destructive" });
+          }
           setLoading(false);
           return;
         }
@@ -737,6 +775,26 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
   if (loading) {
     return <LoadingAnimation text="Carregando quadro Kanban..." />;
+  }
+
+  // Board not found - show friendly message for members
+  if (boardNotFound) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] text-center px-4">
+        <div className="p-4 bg-muted rounded-full mb-4">
+          <CalendarCheck className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Quadro não encontrado</h2>
+        <p className="text-muted-foreground max-w-md mb-4">
+          O quadro de tarefas ainda não foi criado para esta organização.
+          Peça ao administrador para acessar a seção de Tarefas e criar o quadro.
+        </p>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <User className="h-4 w-4" />
+          <span>Aguardando criação pelo administrador</span>
+        </div>
+      </div>
+    );
   }
 
   return (
