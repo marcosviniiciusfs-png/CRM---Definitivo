@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import profileFrameGold from "@/assets/profile-frame-gold.gif";
+import { RankingSidePanel } from "./RankingSidePanel";
 
 export interface LeaderboardData {
   user_id: string;
@@ -37,6 +38,7 @@ interface TaskLeaderboardProps {
   isLoading?: boolean;
   sortBy?: "revenue" | "won_leads" | "percentage" | "task_points";
   type?: "sales" | "tasks";
+  period?: string;
 }
 
 const getInitials = (name: string | null) => {
@@ -382,6 +384,7 @@ export function TaskLeaderboard({
   isLoading = false,
   sortBy = "task_points",
   type = "tasks",
+  period = "month",
 }: TaskLeaderboardProps) {
   const sortedData = useMemo(() => {
     const sorted = [...data];
@@ -427,13 +430,13 @@ export function TaskLeaderboard({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[auto_auto_1fr] gap-6 items-start">
       {/* Left - Podium */}
       <div className="flex items-center justify-center">
         <Top3Section top3={top3} type={type} />
       </div>
 
-      {/* Right - Complete Collaborators List */}
+      {/* Center - Complete Collaborators List */}
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-muted-foreground px-2 flex items-center gap-2">
           {type === "tasks" ? (
@@ -460,6 +463,14 @@ export function TaskLeaderboard({
           <span>© Ranking Kairoz em tempo real</span>
         </div>
       </div>
+
+      {/* Right - Side Panel with Stats & Highlights */}
+      <RankingSidePanel 
+        data={data} 
+        sortBy={sortBy} 
+        type={type} 
+        period={period} 
+      />
     </div>
   );
 }
