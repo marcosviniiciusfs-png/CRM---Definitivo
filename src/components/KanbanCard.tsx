@@ -53,9 +53,19 @@ interface KanbanCardProps {
   onDelete: (id: string) => void;
   onSyncCalendar?: (card: Card) => void;
   isInCompletionStage?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar, isInCompletionStage }: KanbanCardProps) => {
+export const KanbanCard = ({ 
+  card, 
+  onEdit, 
+  onDelete, 
+  onSyncCalendar, 
+  isInCompletionStage,
+  canEdit = true,
+  canDelete = true,
+}: KanbanCardProps) => {
   const navigate = useNavigate();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
@@ -233,8 +243,8 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar, isInComplet
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div
-                  onClick={() => !card.is_collaborative && setIsEditing(true)}
-                  className="cursor-pointer flex-1 font-medium flex items-center gap-2 flex-wrap"
+                  onClick={() => canEdit && !card.is_collaborative && setIsEditing(true)}
+                  className={`flex-1 font-medium flex items-center gap-2 flex-wrap ${canEdit ? 'cursor-pointer' : ''}`}
                 >
                   {card.content}
                   {card.is_collaborative && (
@@ -376,10 +386,12 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar, isInComplet
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>Opções do Cartão</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setIsEditing(true)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Editar
-            </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                <Settings className="h-4 w-4 mr-2" />
+                Editar
+              </DropdownMenuItem>
+            )}
             {card.calendar_event_id ? (
               <DropdownMenuItem
                 onClick={() => card.calendar_event_link && window.open(card.calendar_event_link, '_blank')}
@@ -388,21 +400,25 @@ export const KanbanCard = ({ card, onEdit, onDelete, onSyncCalendar, isInComplet
                 Abrir no Calendar
               </DropdownMenuItem>
             ) : (
-              onSyncCalendar && (
+              onSyncCalendar && canEdit && (
                 <DropdownMenuItem onClick={() => onSyncCalendar(card)}>
                   <Calendar className="h-4 w-4 mr-2" />
                   Sincronizar Calendar
                 </DropdownMenuItem>
               )
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => onDelete(card.id)}
-              className="text-destructive"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Excluir
-            </DropdownMenuItem>
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onDelete(card.id)}
+                  className="text-destructive"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Excluir
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -2659,6 +2659,35 @@ export type Database = {
           token_expires_at: string
         }[]
       }
+      get_member_custom_role_permissions: {
+        Args: { org_id: string }
+        Returns: {
+          can_assign_leads: boolean
+          can_create_leads: boolean
+          can_create_tasks: boolean
+          can_delete_leads: boolean
+          can_delete_tasks: boolean
+          can_edit_all_tasks: boolean
+          can_edit_leads: boolean
+          can_edit_own_tasks: boolean
+          can_manage_automations: boolean
+          can_manage_collaborators: boolean
+          can_manage_integrations: boolean
+          can_manage_tags: boolean
+          can_move_leads_pipeline: boolean
+          can_send_messages: boolean
+          can_view_all_conversations: boolean
+          can_view_all_leads: boolean
+          can_view_assigned_leads: boolean
+          can_view_chat: boolean
+          can_view_kanban: boolean
+          can_view_pipeline: boolean
+          can_view_reports: boolean
+          custom_role_color: string
+          custom_role_id: string
+          custom_role_name: string
+        }[]
+      }
       get_meta_pixel_integrations_masked: {
         Args: never
         Returns: {
