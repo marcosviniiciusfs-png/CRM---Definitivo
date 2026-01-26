@@ -463,6 +463,22 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           targetOrgId = sortedMemberships[0].organization_id;
         }
 
+        // CRITICAL: Sync to backend for RLS policies BEFORE setting state
+        // This ensures all subsequent queries will use the correct organization
+        console.log('[ORG] Syncing active org to backend:', targetOrgId);
+        try {
+          const { error: syncError } = await supabase.rpc('set_user_active_organization', {
+            _org_id: targetOrgId
+          });
+          if (syncError) {
+            console.warn('[ORG] Failed to sync active org:', syncError);
+          } else {
+            console.log('[ORG] Active org synced successfully');
+          }
+        } catch (syncErr) {
+          console.warn('[ORG] Error syncing active org:', syncErr);
+        }
+
         setOrganizationId(targetOrgId);
         setNeedsOrgSelection(false);
 
@@ -505,6 +521,27 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   // Ref para prevenir cliques duplos durante seleção
   const isProcessingSelection = useRef(false);
 
+  // Sync active organization to backend for RLS
+  const syncActiveOrgToBackend = useCallback(async (orgId: string): Promise<boolean> => {
+    try {
+      console.log('[ORG] Syncing active organization to backend:', orgId);
+      const { data, error } = await supabase.rpc('set_user_active_organization', {
+        _org_id: orgId
+      });
+      
+      if (error) {
+        console.error('[ORG] Failed to sync active org to backend:', error);
+        return false;
+      }
+      
+      console.log('[ORG] Active organization synced successfully:', data);
+      return data === true;
+    } catch (error) {
+      console.error('[ORG] Error syncing active org:', error);
+      return false;
+    }
+  }, []);
+
   const handleOrgSelect = useCallback(async (orgId: string) => {
     // Prevenir cliques duplos
     if (!user || isProcessingSelection.current) {
@@ -526,6 +563,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      // CRITICAL: Sync to backend FIRST before any data loads
+      // This ensures RLS policies will use the correct organization
+      const syncSuccess = await syncActiveOrgToBackend(orgId);
+      if (!syncSuccess) {
+        console.warn('[ORG] Backend sync failed, but continuing with local state');
+      }
+
       const role = targetMembership.role;
       
       // Fetch custom role permissions for members
@@ -559,7 +603,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         isProcessingSelection.current = false;
       }, 500);
     }
-  }, [user, availableOrganizations, refreshSubscription]);
+  }, [user, availableOrganizations, refreshSubscription, syncActiveOrgToBackend]);
 
   const switchOrganization = useCallback(async (orgId: string) => {
     if (!user) return;
@@ -573,6 +617,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     if (!targetMembership) {
       console.error('[ORG] Organization not found in available organizations');
       return;
+    }
+
+    // CRITICAL: Sync to backend FIRST before any data loads
+    // This ensures RLS policies will use the correct organization
+    const syncSuccess = await syncActiveOrgToBackend(orgId);
+    if (!syncSuccess) {
+      console.warn('[ORG] Backend sync failed during switch, but continuing');
     }
 
     setOrganizationId(orgId);
@@ -594,7 +645,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     // IMPORTANTE: Atualizar subscription com a nova organização
     console.log('[ORG] Refreshing subscription after org switch:', orgId);
     await refreshSubscription(orgId);
-  }, [user, availableOrganizations, refreshSubscription]);
+  }, [user, availableOrganizations, refreshSubscription, syncActiveOrgToBackend]);
 
   // Initial load with cache - OPTIMIZED: Wait for initialization before rendering
   useEffect(() => {

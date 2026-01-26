@@ -2323,6 +2323,24 @@ export type Database = {
           },
         ]
       }
+      user_active_org: {
+        Row: {
+          active_organization_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          active_organization_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          active_organization_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2795,6 +2813,10 @@ export type Database = {
           id: string
           last_sign_in_at: string
         }[]
+      }
+      set_user_active_organization: {
+        Args: { _org_id: string }
+        Returns: boolean
       }
       update_facebook_tokens_secure: {
         Args: {
