@@ -567,7 +567,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // This ensures RLS policies will use the correct organization
       const syncSuccess = await syncActiveOrgToBackend(orgId);
       if (!syncSuccess) {
-        console.warn('[ORG] Backend sync failed, but continuing with local state');
+        console.error('[ORG] Backend sync FAILED for organization:', orgId);
+        // Se o sync falhou e o usuário tem múltiplas orgs, NÃO continuar
+        // porque as queries subsequentes vão falhar com 403
+        if (availableOrganizations.length > 1) {
+          console.warn('[ORG] Multi-org user sync failed - keeping selection modal open');
+          isProcessingSelection.current = false;
+          // Não fechar o modal, deixar usuário tentar novamente
+          return;
+        }
+        // Para usuário de org única, continuar mesmo com falha (fallback)
+        console.warn('[ORG] Single-org user - continuing despite sync failure');
       }
 
       const role = targetMembership.role;
