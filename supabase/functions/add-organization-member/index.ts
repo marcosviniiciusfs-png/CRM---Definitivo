@@ -276,6 +276,21 @@ serve(async (req) => {
 
       userId = newUser.user.id
       console.log('Created new user:', userId)
+
+      // FALLBACK: Explicitly link the pre-inserted record with the new user_id
+      // This ensures linking even if the database trigger has any issues
+      const { error: linkError } = await supabaseAdmin
+        .from('organization_members')
+        .update({ user_id: userId, is_active: true })
+        .eq('email', emailLower)
+        .eq('organization_id', organizationId)
+        .is('user_id', null)
+
+      if (linkError) {
+        console.warn('⚠️ Fallback link failed (trigger should handle):', linkError.message)
+      } else {
+        console.log(`✅ Fallback linked membership record for user ${userId}`)
+      }
     } else {
       // Se o usuário já existe, apenas adiciona à organização
       const { error: memberError } = await supabaseAdmin
