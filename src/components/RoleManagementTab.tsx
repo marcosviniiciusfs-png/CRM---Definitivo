@@ -458,7 +458,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>
               {editingRole ? "Editar Cargo" : "Criar Novo Cargo"}
@@ -468,8 +468,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 max-h-[calc(85vh-180px)] pr-4">
-            <div className="space-y-6">
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-6 pb-6">
               {/* Basic Info */}
               <div className="space-y-4">
                 <div>
@@ -701,7 +701,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             </div>
           </ScrollArea>
 
-          <DialogFooter className="flex-shrink-0 pt-4 border-t">
+          <DialogFooter className="flex-shrink-0 pt-4 border-t mt-auto">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>

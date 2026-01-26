@@ -29,6 +29,7 @@ interface Card {
   lead_id?: string;
   lead?: Lead;
   color?: string | null;
+  created_by?: string;
 }
 
 interface Column {
@@ -59,6 +60,12 @@ interface KanbanColumnProps {
   onSyncCalendar?: (card: Card) => void;
   isDraggingActive: boolean;
   onSettingsUpdated?: () => void;
+  // Permission props
+  canCreateTasks?: boolean;
+  canEditOwnTasks?: boolean;
+  canEditAllTasks?: boolean;
+  canDeleteTasks?: boolean;
+  isOwnerOrAdmin?: boolean;
 }
 
 export const KanbanColumn = ({
@@ -73,6 +80,11 @@ export const KanbanColumn = ({
   onSyncCalendar,
   isDraggingActive,
   onSettingsUpdated,
+  canCreateTasks = true,
+  canEditOwnTasks = true,
+  canEditAllTasks = false,
+  canDeleteTasks = false,
+  isOwnerOrAdmin = false,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -112,6 +124,26 @@ export const KanbanColumn = ({
     };
   }, []);
 
+  // Check if user can edit a specific card
+  const canEditCard = (card: Card): boolean => {
+    if (isOwnerOrAdmin || canEditAllTasks) return true;
+    if (canEditOwnTasks) {
+      // Check if user created the card or is assigned to it
+      const isCreator = card.created_by === currentUserId;
+      const isAssigned = cardAssigneesMap?.[card.id]?.includes(currentUserId || '');
+      return isCreator || isAssigned;
+    }
+    return false;
+  };
+
+  // Check if user can delete a specific card
+  const canDeleteCard = (card: Card): boolean => {
+    if (isOwnerOrAdmin || canDeleteTasks) return true;
+    // Allow users to delete their own cards if they can edit them
+    if (canEditOwnTasks && card.created_by === currentUserId) return true;
+    return false;
+  };
+
   return (
     <div 
       className="flex-shrink-0 w-[346px] bg-background rounded-lg p-4 shadow-md border flex flex-col max-h-[calc(100vh-200px)]"
@@ -125,24 +157,29 @@ export const KanbanColumn = ({
           value={localTitle}
           onChange={handleTitleChange}
           className="font-semibold border-none focus-visible:ring-0 px-0 h-auto flex-1"
+          disabled={!isOwnerOrAdmin}
         />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setSettingsOpen(true)}
-          className="h-6 w-6 p-0"
-          title="Configurações da etapa"
-        >
-          <Settings className="h-4 w-4 text-muted-foreground" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onDelete(column.id)}
-          className="h-6 w-6 p-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        {isOwnerOrAdmin && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSettingsOpen(true)}
+              className="h-6 w-6 p-0"
+              title="Configurações da etapa"
+            >
+              <Settings className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(column.id)}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Task counter indicator - Layout horizontal otimizado */}
@@ -210,28 +247,34 @@ export const KanbanColumn = ({
               onDelete={(id) => onDeleteCard(column.id, id)}
               onSyncCalendar={onSyncCalendar}
               isInCompletionStage={column.is_completion_stage}
+              canEdit={canEditCard(card)}
+              canDelete={canDeleteCard(card)}
             />
           ))}
         </SortableContext>
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full mt-2 flex-shrink-0"
-        onClick={() => onAddCard(column.id)}
-      >
-        <Plus className="mr-2 h-4 w-4" />
-        Adicionar Cartão
-      </Button>
+      {canCreateTasks && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full mt-2 flex-shrink-0"
+          onClick={() => onAddCard(column.id)}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Adicionar Cartão
+        </Button>
+      )}
 
-      <StageSettingsModal
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        columnId={column.id}
-        columnTitle={column.title}
-        onSettingsUpdated={onSettingsUpdated || (() => {})}
-      />
+      {isOwnerOrAdmin && (
+        <StageSettingsModal
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          columnId={column.id}
+          columnTitle={column.title}
+          onSettingsUpdated={onSettingsUpdated || (() => {})}
+        />
+      )}
     </div>
   );
 };

@@ -19,6 +19,7 @@ import { LoadingAnimation } from "./LoadingAnimation";
 import { CreateTaskEventModal } from "./CreateTaskEventModal";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { format } from "date-fns";
+import { useOrganization } from "@/contexts/OrganizationContext";
 
 interface Lead {
   id: string;
@@ -77,6 +78,14 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const [cardAssigneesMap, setCardAssigneesMap] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  
+  // Get granular permissions from context
+  const { permissions } = useOrganization();
+  const isOwnerOrAdmin = permissions.role === 'owner' || permissions.role === 'admin';
+  const canCreateTasks = isOwnerOrAdmin || permissions.canCreateTasks;
+  const canEditOwnTasks = isOwnerOrAdmin || permissions.canEditOwnTasks;
+  const canEditAllTasks = isOwnerOrAdmin || permissions.canEditAllTasks;
+  const canDeleteTasks = isOwnerOrAdmin || permissions.canDeleteTasks;
 
   // Buscar usuário atual
   useEffect(() => {
@@ -757,17 +766,24 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               onSyncCalendar={handleSyncCalendar}
               isDraggingActive={isDraggingActive}
               onSettingsUpdated={() => loadColumns(boardId || "")}
+              canCreateTasks={canCreateTasks}
+              canEditOwnTasks={canEditOwnTasks}
+              canEditAllTasks={canEditAllTasks}
+              canDeleteTasks={canDeleteTasks}
+              isOwnerOrAdmin={isOwnerOrAdmin}
             />
           ))}
 
-          <Button
-            variant="outline"
-            className="flex-shrink-0 w-80 h-auto py-8"
-            onClick={addColumn}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Coluna
-          </Button>
+          {isOwnerOrAdmin && (
+            <Button
+              variant="outline"
+              className="flex-shrink-0 w-80 h-auto py-8"
+              onClick={addColumn}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Coluna
+            </Button>
+          )}
         </div>
 
         <DragOverlay>

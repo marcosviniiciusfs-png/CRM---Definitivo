@@ -3,7 +3,36 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { OrganizationSelectorModal, OrganizationMembership } from "@/components/OrganizationSelectorModal";
 
+// Custom role permissions from organization_custom_roles table
+interface CustomRolePermissions {
+  can_view_kanban: boolean;
+  can_create_tasks: boolean;
+  can_edit_own_tasks: boolean;
+  can_edit_all_tasks: boolean;
+  can_delete_tasks: boolean;
+  can_view_all_leads: boolean;
+  can_view_assigned_leads: boolean;
+  can_create_leads: boolean;
+  can_edit_leads: boolean;
+  can_delete_leads: boolean;
+  can_assign_leads: boolean;
+  can_view_pipeline: boolean;
+  can_move_leads_pipeline: boolean;
+  can_view_chat: boolean;
+  can_send_messages: boolean;
+  can_view_all_conversations: boolean;
+  can_manage_collaborators: boolean;
+  can_manage_integrations: boolean;
+  can_manage_tags: boolean;
+  can_manage_automations: boolean;
+  can_view_reports: boolean;
+  custom_role_id: string | null;
+  custom_role_name: string | null;
+  custom_role_color: string | null;
+}
+
 interface Permissions {
+  // Base role permissions (owner/admin/member)
   canManageCollaborators: boolean;
   canDeleteCollaborators: boolean;
   canChangeRoles: boolean;
@@ -20,6 +49,28 @@ interface Permissions {
   canViewTeamMetrics: boolean;
   canAccessAdminSection: boolean;
   canManageAgentSettings: boolean;
+  
+  // Granular custom role permissions
+  canViewKanban: boolean;
+  canCreateTasks: boolean;
+  canEditOwnTasks: boolean;
+  canEditAllTasks: boolean;
+  canDeleteTasks: boolean;
+  canViewAssignedLeads: boolean;
+  canCreateLeads: boolean;
+  canEditLeads: boolean;
+  canViewPipeline: boolean;
+  canMoveLeadsPipeline: boolean;
+  canViewChat: boolean;
+  canSendMessages: boolean;
+  canViewAllConversations: boolean;
+  canViewReports: boolean;
+  
+  // Custom role info
+  customRoleId: string | null;
+  customRoleName: string | null;
+  customRoleColor: string | null;
+  
   role: 'owner' | 'admin' | 'member' | null;
   loading: boolean;
 }
@@ -37,6 +88,7 @@ interface OrganizationContextType {
 }
 
 const defaultPermissions: Permissions = {
+  // Base permissions
   canManageCollaborators: false,
   canDeleteCollaborators: false,
   canChangeRoles: false,
@@ -53,6 +105,25 @@ const defaultPermissions: Permissions = {
   canViewTeamMetrics: false,
   canAccessAdminSection: false,
   canManageAgentSettings: false,
+  // Granular permissions
+  canViewKanban: false,
+  canCreateTasks: false,
+  canEditOwnTasks: false,
+  canEditAllTasks: false,
+  canDeleteTasks: false,
+  canViewAssignedLeads: false,
+  canCreateLeads: false,
+  canEditLeads: false,
+  canViewPipeline: false,
+  canMoveLeadsPipeline: false,
+  canViewChat: false,
+  canSendMessages: false,
+  canViewAllConversations: false,
+  canViewReports: false,
+  // Custom role info
+  customRoleId: null,
+  customRoleName: null,
+  customRoleColor: null,
   role: null,
   loading: true,
 };
@@ -119,29 +190,120 @@ const clearOrgCache = () => {
   }
 };
 
-const calculatePermissions = (role: 'owner' | 'admin' | 'member' | null): Permissions => {
+// Calculate base permissions from role
+const calculateBasePermissions = (role: 'owner' | 'admin' | 'member' | null): Partial<Permissions> => {
   const isOwner = role === 'owner';
   const isAdmin = role === 'admin';
+  const isOwnerOrAdmin = isOwner || isAdmin;
 
   return {
-    canManageCollaborators: isOwner || isAdmin,
+    canManageCollaborators: isOwnerOrAdmin,
     canDeleteCollaborators: isOwner,
     canChangeRoles: isOwner,
-    canCreateRoulettes: isOwner || isAdmin,
+    canCreateRoulettes: isOwnerOrAdmin,
     canDeleteRoulettes: isOwner,
-    canManualDistribute: isOwner || isAdmin,
-    canViewAllLeads: isOwner || isAdmin,
-    canAssignLeads: isOwner || isAdmin,
-    canDeleteLeads: isOwner || isAdmin,
-    canManageAutomation: isOwner || isAdmin,
-    canManageIntegrations: isOwner || isAdmin,
-    canManageTags: isOwner || isAdmin,
-    canManagePipeline: isOwner || isAdmin,
-    canViewTeamMetrics: isOwner || isAdmin,
-    canAccessAdminSection: isOwner || isAdmin,
-    canManageAgentSettings: isOwner || isAdmin,
+    canManualDistribute: isOwnerOrAdmin,
+    canViewAllLeads: isOwnerOrAdmin,
+    canAssignLeads: isOwnerOrAdmin,
+    canDeleteLeads: isOwnerOrAdmin,
+    canManageAutomation: isOwnerOrAdmin,
+    canManageIntegrations: isOwnerOrAdmin,
+    canManageTags: isOwnerOrAdmin,
+    canManagePipeline: isOwnerOrAdmin,
+    canViewTeamMetrics: isOwnerOrAdmin,
+    canAccessAdminSection: isOwnerOrAdmin,
+    canManageAgentSettings: isOwnerOrAdmin,
     role,
     loading: false,
+  };
+};
+
+// Calculate full permissions merging base role and custom role
+const calculatePermissions = (
+  role: 'owner' | 'admin' | 'member' | null,
+  customRolePerms: CustomRolePermissions | null
+): Permissions => {
+  const basePerms = calculateBasePermissions(role);
+  const isOwnerOrAdmin = role === 'owner' || role === 'admin';
+
+  // Owners and Admins always have all granular permissions
+  if (isOwnerOrAdmin) {
+    return {
+      ...defaultPermissions,
+      ...basePerms,
+      canViewKanban: true,
+      canCreateTasks: true,
+      canEditOwnTasks: true,
+      canEditAllTasks: true,
+      canDeleteTasks: true,
+      canViewAssignedLeads: true,
+      canCreateLeads: true,
+      canEditLeads: true,
+      canViewPipeline: true,
+      canMoveLeadsPipeline: true,
+      canViewChat: true,
+      canSendMessages: true,
+      canViewAllConversations: true,
+      canViewReports: true,
+      customRoleId: null,
+      customRoleName: null,
+      customRoleColor: null,
+    };
+  }
+
+  // For members, use custom role permissions if available
+  if (customRolePerms) {
+    return {
+      ...defaultPermissions,
+      ...basePerms,
+      canViewKanban: customRolePerms.can_view_kanban,
+      canCreateTasks: customRolePerms.can_create_tasks,
+      canEditOwnTasks: customRolePerms.can_edit_own_tasks,
+      canEditAllTasks: customRolePerms.can_edit_all_tasks,
+      canDeleteTasks: customRolePerms.can_delete_tasks,
+      canViewAllLeads: customRolePerms.can_view_all_leads,
+      canViewAssignedLeads: customRolePerms.can_view_assigned_leads,
+      canCreateLeads: customRolePerms.can_create_leads,
+      canEditLeads: customRolePerms.can_edit_leads,
+      canDeleteLeads: customRolePerms.can_delete_leads,
+      canAssignLeads: customRolePerms.can_assign_leads,
+      canViewPipeline: customRolePerms.can_view_pipeline,
+      canMoveLeadsPipeline: customRolePerms.can_move_leads_pipeline,
+      canViewChat: customRolePerms.can_view_chat,
+      canSendMessages: customRolePerms.can_send_messages,
+      canViewAllConversations: customRolePerms.can_view_all_conversations,
+      canManageCollaborators: customRolePerms.can_manage_collaborators,
+      canManageIntegrations: customRolePerms.can_manage_integrations,
+      canManageTags: customRolePerms.can_manage_tags,
+      canManageAutomation: customRolePerms.can_manage_automations,
+      canViewReports: customRolePerms.can_view_reports,
+      customRoleId: customRolePerms.custom_role_id,
+      customRoleName: customRolePerms.custom_role_name,
+      customRoleColor: customRolePerms.custom_role_color,
+    };
+  }
+
+  // Member without custom role: minimal permissions
+  return {
+    ...defaultPermissions,
+    ...basePerms,
+    canViewKanban: false,
+    canCreateTasks: false,
+    canEditOwnTasks: false,
+    canEditAllTasks: false,
+    canDeleteTasks: false,
+    canViewAssignedLeads: true, // Members can at least see their assigned leads
+    canCreateLeads: false,
+    canEditLeads: false,
+    canViewPipeline: false,
+    canMoveLeadsPipeline: false,
+    canViewChat: false,
+    canSendMessages: false,
+    canViewAllConversations: false,
+    canViewReports: false,
+    customRoleId: null,
+    customRoleName: null,
+    customRoleColor: null,
   };
 };
 
@@ -163,6 +325,55 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [needsOrgSelection, setNeedsOrgSelection] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const dataLoadedRef = useRef(false);
+
+  // Fetch custom role permissions for a specific organization
+  const fetchCustomRolePermissions = async (orgId: string): Promise<CustomRolePermissions | null> => {
+    try {
+      const { data, error } = await supabase.rpc('get_member_custom_role_permissions', {
+        org_id: orgId
+      });
+
+      if (error) {
+        console.log('[ORG] No custom role permissions found:', error.message);
+        return null;
+      }
+
+      if (data && data.length > 0) {
+        const perms = data[0];
+        return {
+          can_view_kanban: perms.can_view_kanban ?? false,
+          can_create_tasks: perms.can_create_tasks ?? false,
+          can_edit_own_tasks: perms.can_edit_own_tasks ?? false,
+          can_edit_all_tasks: perms.can_edit_all_tasks ?? false,
+          can_delete_tasks: perms.can_delete_tasks ?? false,
+          can_view_all_leads: perms.can_view_all_leads ?? false,
+          can_view_assigned_leads: perms.can_view_assigned_leads ?? false,
+          can_create_leads: perms.can_create_leads ?? false,
+          can_edit_leads: perms.can_edit_leads ?? false,
+          can_delete_leads: perms.can_delete_leads ?? false,
+          can_assign_leads: perms.can_assign_leads ?? false,
+          can_view_pipeline: perms.can_view_pipeline ?? false,
+          can_move_leads_pipeline: perms.can_move_leads_pipeline ?? false,
+          can_view_chat: perms.can_view_chat ?? false,
+          can_send_messages: perms.can_send_messages ?? false,
+          can_view_all_conversations: perms.can_view_all_conversations ?? false,
+          can_manage_collaborators: perms.can_manage_collaborators ?? false,
+          can_manage_integrations: perms.can_manage_integrations ?? false,
+          can_manage_tags: perms.can_manage_tags ?? false,
+          can_manage_automations: perms.can_manage_automations ?? false,
+          can_view_reports: perms.can_view_reports ?? false,
+          custom_role_id: perms.custom_role_id ?? null,
+          custom_role_name: perms.custom_role_name ?? null,
+          custom_role_color: perms.custom_role_color ?? null,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[ORG] Error fetching custom role permissions:', error);
+      return null;
+    }
+  };
 
   const loadOrganizationData = useCallback(async (forceRefresh = false, selectedOrgId?: string) => {
     if (!user) {
@@ -255,12 +466,21 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setOrganizationId(targetOrgId);
         setNeedsOrgSelection(false);
 
-        // Calcular permissões baseado na org selecionada
+        // Get base role from membership
         const selectedMembership = formattedMemberships.find(
           m => m.organization_id === targetOrgId
         );
         const role = selectedMembership?.role || null;
-        const newPermissions = calculatePermissions(role);
+
+        // Fetch custom role permissions for members
+        let customRolePerms: CustomRolePermissions | null = null;
+        if (role === 'member') {
+          customRolePerms = await fetchCustomRolePermissions(targetOrgId);
+          console.log('[ORG] Custom role permissions loaded:', customRolePerms);
+        }
+
+        // Calculate full permissions
+        const newPermissions = calculatePermissions(role, customRolePerms);
 
         setPermissions(newPermissions);
         setOrgCache(targetOrgId, formattedMemberships, newPermissions, user.id);
@@ -306,13 +526,21 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // 1. Calcular permissões
-      const newPermissions = calculatePermissions(targetMembership.role);
+      const role = targetMembership.role;
       
-      // 2. Salvar no cache ANTES de atualizar estados (crítico para evitar race conditions)
+      // Fetch custom role permissions for members
+      let customRolePerms: CustomRolePermissions | null = null;
+      if (role === 'member') {
+        customRolePerms = await fetchCustomRolePermissions(orgId);
+      }
+
+      // Calculate full permissions
+      const newPermissions = calculatePermissions(role, customRolePerms);
+      
+      // Salvar no cache ANTES de atualizar estados (crítico para evitar race conditions)
       setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
       
-      // 3. Atualizar todos os estados de forma síncrona
+      // Atualizar todos os estados de forma síncrona
       setOrganizationId(orgId);
       setPermissions(newPermissions);
       setNeedsOrgSelection(false);
@@ -321,7 +549,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       
       console.log('[ORG] Organization selected successfully:', orgId);
       
-      // 4. Atualizar subscription em background
+      // Atualizar subscription em background
       refreshSubscription(orgId);
     } catch (error) {
       console.error('[ORG] Error during organization selection:', error);
@@ -349,7 +577,15 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
     setOrganizationId(orgId);
     
-    const newPermissions = calculatePermissions(targetMembership.role);
+    const role = targetMembership.role;
+    
+    // Fetch custom role permissions for members
+    let customRolePerms: CustomRolePermissions | null = null;
+    if (role === 'member') {
+      customRolePerms = await fetchCustomRolePermissions(orgId);
+    }
+
+    const newPermissions = calculatePermissions(role, customRolePerms);
     setPermissions(newPermissions);
     
     // Atualizar cache com a nova seleção
