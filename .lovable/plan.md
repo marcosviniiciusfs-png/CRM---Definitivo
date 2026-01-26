@@ -1,54 +1,170 @@
 
-# Plano: Ajustes no Ranking - Ordenação e Largura dos Cards
 
-## Problemas Identificados
+# Plano: Otimização do Layout do Ranking com Equipes
 
-### 1. Ordenação Incompleta
-Atualmente, quando o usuário seleciona "Tarefas", o seletor de ordenação mostra apenas "Ord. Pontos". O esperado é que todas as opções de ordenação estejam disponíveis para ambos os tipos de ranking.
+## Problema Atual
 
-### 2. Cards Muito Largos
-Os cards de ranking ocupam 100% da largura (`w-full`), deixando muito espaço vazio e poucas informações visíveis. A solução é exibir os cards em grid de 2 colunas e reduzir a largura individual.
+Na imagem fornecida, os cards de colaboradores estão aparecendo em **2 colunas** (um do lado do outro), quando o esperado é que apareçam em **1 coluna** (um embaixo do outro). O espaço vazio à direita deve ser preenchido com as **equipes que cada colaborador pertence**.
 
 ---
 
 ## Solução Proposta
 
-### Parte 1: Corrigir Ordenação no Ranking.tsx
+### Layout Atualizado
 
-**Arquivo:** `src/pages/Ranking.tsx`
-
-Modificar o Select de ordenação (linhas 278-293) para mostrar todas as opções disponíveis, independente do tipo de ranking:
-
-```tsx
-<Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
-  <SelectTrigger className="w-[160px]">
-    <SelectValue placeholder="Ordenar por" />
-  </SelectTrigger>
-  <SelectContent>
-    {/* Opções de Tarefas */}
-    {rankingType === "tasks" && (
-      <SelectItem value="task_points">Ord. Pontos</SelectItem>
-    )}
-    {/* Opções de Vendas - sempre visíveis em ambos os tipos */}
-    <SelectItem value="revenue">Ord. Faturamento</SelectItem>
-    <SelectItem value="won_leads">Ord. Vendas</SelectItem>
-    <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
-  </SelectContent>
-</Select>
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Card do Colaborador (Coluna Única)                                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ [1] [Avatar] Mateus Brito          │  [Equipe A] [Equipe B]     │  [⭐ 0 pts] │
+│              0 tarefas • 0 no prazo │                            │            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ [2] [Avatar] Marcos                │  [Equipe A]                │  [⭐ 0 pts] │
+│              0 tarefas • 0 no prazo │                            │            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ [3] [Avatar] Kerlys kauan          │  (sem equipes)             │  [⭐ 0 pts] │
+│              0 tarefas • 0 no prazo │                            │            │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Parte 2: Reduzir Largura dos Cards no TaskLeaderboard.tsx
+---
+
+## Mudanças Técnicas
+
+### Parte 1: Expandir LeaderboardData para incluir equipes
 
 **Arquivo:** `src/components/dashboard/TaskLeaderboard.tsx`
 
-1. **Mudar layout da lista para grid de 2 colunas** (linha 423):
-   - De: `<div className="space-y-2 max-h-[500px]...">`
-   - Para: `<div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[500px]...">`
+Adicionar campo `teams` na interface:
 
-2. **Ajustar largura máxima do RankingCard** (linha 248-249):
-   - De: `className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all w-full"`
-   - Para: `className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all"`
-   - Remover o `w-full` para que o card seja dimensionado pelo grid
+```typescript
+export interface LeaderboardData {
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  // ... campos existentes ...
+  // NOVO: Equipes do colaborador
+  teams?: Array<{
+    id: string;
+    name: string;
+    color: string | null;
+  }>;
+}
+```
+
+---
+
+### Parte 2: Buscar membros de equipes no Ranking.tsx
+
+**Arquivo:** `src/pages/Ranking.tsx`
+
+Nas funções `loadSalesData` e `loadTasksData`, adicionar busca das equipes de cada usuário:
+
+```typescript
+// Buscar team_members para associar equipes aos usuários
+const { data: teamMembers } = await supabase
+  .from('team_members')
+  .select('user_id, team_id, teams(id, name, color)')
+  .in('user_id', userIds);
+
+// Agrupar equipes por user_id
+const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
+for (const tm of teamMembers || []) {
+  const team = tm.teams as any;
+  if (!team) continue;
+  const current = teamsByUser.get(tm.user_id) || [];
+  current.push({ id: team.id, name: team.name, color: team.color });
+  teamsByUser.set(tm.user_id, current);
+}
+
+// Incluir equipes no retorno
+return {
+  user_id: userId,
+  // ... outros campos ...
+  teams: teamsByUser.get(userId) || [],
+};
+```
+
+---
+
+### Parte 3: Alterar Layout para Coluna Única
+
+**Arquivo:** `src/components/dashboard/TaskLeaderboard.tsx`
+
+Mudar o grid de 2 colunas para 1 coluna (linha ~423):
+
+De:
+```tsx
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[500px] overflow-y-auto pr-2">
+```
+
+Para:
+```tsx
+<div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2">
+```
+
+---
+
+### Parte 4: Adicionar Exibição de Equipes no RankingCard
+
+**Arquivo:** `src/components/dashboard/TaskLeaderboard.tsx`
+
+Modificar o componente `RankingCard` para receber e exibir as equipes. Adicionar uma nova seção entre as informações do colaborador e o badge de pontos:
+
+```tsx
+const RankingCard = ({
+  rep,
+  position,
+  type,
+}: {
+  rep: LeaderboardData;
+  position: number;
+  type: "sales" | "tasks";
+}) => {
+  // ... código existente ...
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all">
+      {/* Position Badge */}
+      {/* ... */}
+      
+      {/* Avatar */}
+      {/* ... */}
+      
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        {/* Nome e métricas */}
+      </div>
+      
+      {/* NOVO: Teams Badges */}
+      {rep.teams && rep.teams.length > 0 && (
+        <div className="flex items-center gap-1.5 shrink-0">
+          {rep.teams.slice(0, 3).map(team => (
+            <div 
+              key={team.id}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium"
+              style={{ 
+                borderColor: team.color || 'hsl(var(--border))',
+                color: team.color || 'hsl(var(--muted-foreground))',
+                backgroundColor: `${team.color}15` || 'transparent'
+              }}
+            >
+              <Users className="h-2.5 w-2.5" />
+              <span className="truncate max-w-[60px]">{team.name}</span>
+            </div>
+          ))}
+          {rep.teams.length > 3 && (
+            <span className="text-[10px] text-muted-foreground">+{rep.teams.length - 3}</span>
+          )}
+        </div>
+      )}
+      
+      {/* Stats Badge */}
+      {/* ... */}
+    </div>
+  );
+};
+```
 
 ---
 
@@ -56,44 +172,48 @@ Modificar o Select de ordenação (linhas 278-293) para mostrar todas as opçõe
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/pages/Ranking.tsx` | Mostrar todas as opções de ordenação para ambos os tipos |
-| `src/components/dashboard/TaskLeaderboard.tsx` | Grid de 2 colunas para a lista de ranking |
+| `src/components/dashboard/TaskLeaderboard.tsx` | 1. Adicionar `teams` à interface LeaderboardData<br>2. Mudar grid para coluna única<br>3. Exibir badges de equipes no RankingCard |
+| `src/pages/Ranking.tsx` | 1. Buscar `team_members` com join em `teams`<br>2. Agrupar equipes por `user_id`<br>3. Incluir `teams` no objeto de dados |
 
 ---
 
 ## Resultado Visual Esperado
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Filtros: [Tarefas ▼] [Ord. Pontos ▼] [Esta Semana ▼]               │
-│                       ├─ Ord. Pontos ✓                              │
-│                       ├─ Ord. Faturamento                           │
-│                       ├─ Ord. Vendas                                │
-│                       └─ Ord. Porcentagem                           │
-└─────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────┐
-│ Pódio Top 3                     │  Lista em 2 colunas:             │
-│                                 │  ┌──────────────┬──────────────┐ │
-│   🥈      🥇      🥉            │  │ 1. Mateus    │ 2. Marcos    │ │
-│  Marcos  Mateus  Kerlys         │  │ 5 pts        │ 4 pts        │ │
-│                                 │  ├──────────────┼──────────────┤ │
-│                                 │  │ 3. Kerlys    │ 4. User      │ │
-│                                 │  │ 3 pts        │ 2 pts        │ │
-│                                 │  └──────────────┴──────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Pódio Top 3 (Esquerda)              │  Lista em COLUNA ÚNICA (Direita)     │
+│                                     │                                       │
+│   🥈      🥇      🥉                │  ┌─────────────────────────────────┐  │
+│  Marcos  Mateus  Kerlys             │  │ [1] Mateus    [Equipe A]  0pts │  │
+│                                     │  └─────────────────────────────────┘  │
+│                                     │  ┌─────────────────────────────────┐  │
+│                                     │  │ [2] Marcos    [Equipe B]  0pts │  │
+│                                     │  └─────────────────────────────────┘  │
+│                                     │  ┌─────────────────────────────────┐  │
+│                                     │  │ [3] Kerlys    (sem equipe) 0pts│  │
+│                                     │  └─────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Checklist de Validação
 
-1. **Ordenação:**
-   - [ ] Tipo "Tarefas" mostra opções: Pontos, Faturamento, Vendas, Porcentagem
-   - [ ] Tipo "Vendas" mostra opções: Faturamento, Vendas, Porcentagem
-   - [ ] Ordenação default é correta para cada tipo
+1. **Layout de Coluna Única:**
+   - Os cards aparecem um embaixo do outro (não lado a lado)
+   - Largura total do container é utilizada
 
-2. **Layout dos Cards:**
-   - [ ] Cards aparecem em 2 colunas no desktop
-   - [ ] Cards aparecem em 1 coluna no mobile
-   - [ ] Largura reduzida em ~50% comparado ao atual
+2. **Exibição de Equipes:**
+   - Cada card mostra badges coloridos das equipes
+   - Cor da borda e texto segue a cor da equipe
+   - Limite de 3 equipes visíveis + indicador "+N" se houver mais
+   - Colaboradores sem equipe não mostram nada (sem "sem equipes")
+
+3. **Responsividade:**
+   - Em mobile, equipes ficam menores ou ocultas
+   - Layout permanece funcional em todas as telas
+
+4. **Integridade dos Dados:**
+   - Query de `team_members` funciona corretamente
+   - Colaboradores sem equipes não causam erro
+
