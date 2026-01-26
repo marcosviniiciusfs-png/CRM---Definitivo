@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Trophy, Medal, Award, CheckSquare, Clock, Star } from "lucide-react";
+import { Trophy, Medal, Award, CheckSquare, Clock, Star, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,12 @@ export interface LeaderboardData {
   task_points?: number;
   tasks_completed?: number;
   tasks_on_time?: number;
+  // Equipes do colaborador
+  teams?: Array<{
+    id: string;
+    name: string;
+    color: string | null;
+  }>;
 }
 
 interface TaskLeaderboardProps {
@@ -289,6 +295,29 @@ const RankingCard = ({
         )}
       </div>
 
+      {/* Teams Badges */}
+      {rep.teams && rep.teams.length > 0 && (
+        <div className="flex items-center gap-1.5 shrink-0">
+          {rep.teams.slice(0, 3).map(team => (
+            <div 
+              key={team.id}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium"
+              style={{ 
+                borderColor: team.color || 'hsl(var(--border))',
+                color: team.color || 'hsl(var(--muted-foreground))',
+                backgroundColor: team.color ? `${team.color}15` : 'transparent'
+              }}
+            >
+              <Users className="h-2.5 w-2.5" />
+              <span className="truncate max-w-[60px]">{team.name}</span>
+            </div>
+          ))}
+          {rep.teams.length > 3 && (
+            <span className="text-[10px] text-muted-foreground">+{rep.teams.length - 3}</span>
+          )}
+        </div>
+      )}
+
       {/* Stats Badge */}
       <TooltipProvider>
         <Tooltip>
@@ -420,7 +449,7 @@ export function TaskLeaderboard({
           )}
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[500px] overflow-y-auto pr-2">
+        <div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2">
           {sortedData.map((rep, index) => (
             <RankingCard key={rep.user_id} rep={rep} position={index + 1} type={type} />
           ))}

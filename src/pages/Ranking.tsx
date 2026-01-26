@@ -68,6 +68,22 @@ export default function Ranking() {
 
       if (profilesError) throw profilesError;
 
+      // Buscar team_members para associar equipes aos usuários
+      const { data: teamMembers } = await supabase
+        .from('team_members')
+        .select('user_id, team_id, teams(id, name, color)')
+        .in('user_id', userIds);
+
+      // Agrupar equipes por user_id
+      const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
+      for (const tm of teamMembers || []) {
+        const team = tm.teams as any;
+        if (!team) continue;
+        const current = teamsByUser.get(tm.user_id) || [];
+        current.push({ id: team.id, name: team.name, color: team.color });
+        teamsByUser.set(tm.user_id, current);
+      }
+
       // Buscar leads com stages para calcular métricas
       const { data: leads, error: leadsError } = await supabase
         .from('leads')
@@ -120,6 +136,7 @@ export default function Ranking() {
           task_points: 0,
           tasks_completed: 0,
           tasks_on_time: 0,
+          teams: teamsByUser.get(userId) || [],
         };
       });
 
@@ -158,6 +175,22 @@ export default function Ranking() {
         .select('user_id, full_name, avatar_url')
         .in('user_id', userIds);
 
+      // Buscar team_members para associar equipes aos usuários
+      const { data: teamMembers } = await supabase
+        .from('team_members')
+        .select('user_id, team_id, teams(id, name, color)')
+        .in('user_id', userIds);
+
+      // Agrupar equipes por user_id
+      const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
+      for (const tm of teamMembers || []) {
+        const team = tm.teams as any;
+        if (!team) continue;
+        const current = teamsByUser.get(tm.user_id) || [];
+        current.push({ id: team.id, name: team.name, color: team.color });
+        teamsByUser.set(tm.user_id, current);
+      }
+
       // Buscar logs de pontuação de tarefas
       const { data: taskLogs } = await supabase
         .from('task_completion_logs')
@@ -195,6 +228,7 @@ export default function Ranking() {
           total_leads: 0,
           total_revenue: 0,
           target: 0,
+          teams: teamsByUser.get(userId) || [],
         };
       });
 
