@@ -2775,10 +2775,7 @@ export type Database = {
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       get_user_organization_role: {
         Args: { _user_id: string }
-        Returns: {
-          organization_id: string
-          role: Database["public"]["Enums"]["organization_role"]
-        }[]
+        Returns: Database["public"]["Enums"]["organization_role"]
       }
       get_webhook_configs_masked: {
         Args: never
