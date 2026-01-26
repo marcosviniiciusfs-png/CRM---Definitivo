@@ -427,7 +427,7 @@ export function TaskLeaderboard({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[auto_auto] gap-8 items-start justify-center mx-auto">
       {/* Left - Podium */}
       <div className="flex items-center justify-center">
         <Top3Section top3={top3} type={type} />
