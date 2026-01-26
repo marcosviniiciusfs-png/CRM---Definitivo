@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { useNavigate } from "react-router-dom";
 import { AssigneeAvatarGroup } from "./AssigneeAvatarGroup";
 import { CollaborativeTaskApproval } from "./CollaborativeTaskApproval";
+import { MultiSelectUsers, UserOption } from "./MultiSelectUsers";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Lead {
   id: string;
@@ -49,12 +51,14 @@ interface Card {
 
 interface KanbanCardProps {
   card: Card;
-  onEdit: (id: string, updates: Partial<Card>, oldDescription?: string) => void;
+  onEdit: (id: string, updates: Partial<Card> & { assignees?: string[] }, oldDescription?: string) => void;
   onDelete: (id: string) => void;
   onSyncCalendar?: (card: Card) => void;
   isInCompletionStage?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  orgMembers?: UserOption[];
+  initialAssignees?: string[];
 }
 
 export const KanbanCard = ({ 
@@ -65,6 +69,8 @@ export const KanbanCard = ({
   isInCompletionStage,
   canEdit = true,
   canDelete = true,
+  orgMembers = [],
+  initialAssignees = [],
 }: KanbanCardProps) => {
   const navigate = useNavigate();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -79,7 +85,27 @@ export const KanbanCard = ({
     card.estimated_time?.toString() || ""
   );
   const [editColor, setEditColor] = useState(card.color || "");
+  const [editAssignees, setEditAssignees] = useState<string[]>(initialAssignees);
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [completedAssignees, setCompletedAssignees] = useState<string[]>([]);
+
+  // Carregar assignees atuais ao entrar no modo de edição
+  useEffect(() => {
+    if (isEditing) {
+      const loadAssignees = async () => {
+        const { data } = await supabase
+          .from("kanban_card_assignees")
+          .select("user_id, is_completed")
+          .eq("card_id", card.id);
+        
+        if (data) {
+          setEditAssignees(data.map(a => a.user_id));
+          setCompletedAssignees(data.filter(a => a.is_completed).map(a => a.user_id));
+        }
+      };
+      loadAssignees();
+    }
+  }, [isEditing, card.id]);
 
   const colorOptions = [
     { value: "", label: "Sem cor" },
@@ -114,10 +140,26 @@ export const KanbanCard = ({
         due_date: editDueDate || undefined,
         estimated_time: editEstimatedTime ? parseInt(editEstimatedTime) : undefined,
         color: editColor || null,
+        assignees: editAssignees,
       },
       oldDescription
     );
     setIsEditing(false);
+  };
+
+  // Filtrar usuários que já confirmaram (não podem ser removidos em tarefas colaborativas)
+  const handleAssigneeChange = (newAssignees: string[]) => {
+    if (card.is_collaborative) {
+      // Garantir que membros que já completaram não podem ser removidos
+      const safeAssignees = [...new Set([...newAssignees, ...completedAssignees])];
+      // Garantir mínimo de 2 para tarefas colaborativas
+      if (safeAssignees.length < 2 && editAssignees.length >= 2) {
+        return; // Não permitir reduzir abaixo de 2
+      }
+      setEditAssignees(safeAssignees);
+    } else {
+      setEditAssignees(newAssignees);
+    }
   };
 
   const formatDueDate = (dateString?: string) => {
@@ -229,6 +271,33 @@ export const KanbanCard = ({
                   ))}
                 </div>
               </div>
+
+              {/* Responsáveis */}
+              {orgMembers.length > 0 && (
+                <div>
+                  <label className="text-xs font-medium mb-1 block flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    Responsáveis
+                    {card.is_collaborative && (
+                      <Badge variant="secondary" className="text-[10px] px-1 ml-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        Colaborativa
+                      </Badge>
+                    )}
+                  </label>
+                  <MultiSelectUsers
+                    value={editAssignees}
+                    onChange={handleAssigneeChange}
+                    users={orgMembers}
+                    placeholder="Selecionar responsáveis..."
+                  />
+                  {card.is_collaborative && completedAssignees.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <Check className="h-3 w-3 inline mr-1 text-green-500" />
+                      {completedAssignees.length} membro(s) já confirmaram e não podem ser removidos.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSave}>

@@ -20,6 +20,7 @@ import { CreateTaskEventModal } from "./CreateTaskEventModal";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { format } from "date-fns";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { UserOption } from "./MultiSelectUsers";
 
 interface Lead {
   id: string;
@@ -76,6 +77,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const [selectedColumnForTask, setSelectedColumnForTask] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [cardAssigneesMap, setCardAssigneesMap] = useState<Record<string, string[]>>({});
+  const [orgMembers, setOrgMembers] = useState<UserOption[]>([]);
   const { toast } = useToast();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   
@@ -96,7 +98,38 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
   useEffect(() => {
     loadOrCreateBoard();
+    loadOrgMembers();
   }, [organizationId]);
+
+  // Carregar membros da organização
+  const loadOrgMembers = async () => {
+    try {
+      const { data: members } = await supabase.rpc('get_organization_members_masked');
+      
+      if (members) {
+        const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, avatar_url")
+          .in("user_id", userIds);
+
+        const memberOptions: UserOption[] = members
+          .filter((m: any) => m.user_id)
+          .map((m: any) => {
+            const profile = profiles?.find(p => p.user_id === m.user_id);
+            return {
+              user_id: m.user_id,
+              full_name: profile?.full_name || null,
+              avatar_url: profile?.avatar_url || null,
+            };
+          });
+
+        setOrgMembers(memberOptions);
+      }
+    } catch (error) {
+      console.error("[KANBAN] Error loading org members:", error);
+    }
+  };
 
   // State for board not found scenario
   const [boardNotFound, setBoardNotFound] = useState(false);
@@ -441,21 +474,24 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const updateCard = async (
     columnId: string,
     cardId: string,
-    updates: Partial<Card>,
+    updates: Partial<Card> & { assignees?: string[] },
     oldDescription?: string
   ) => {
+    // Separar assignees dos updates normais do card
+    const { assignees, ...cardUpdates } = updates as any;
+
     // Garantir que campos vazios sejam null e valores sejam salvos corretamente
     const dbUpdates: any = {
-      content: updates.content,
-      description: updates.description || null,
-      due_date: updates.due_date || null,
-      estimated_time: updates.estimated_time ?? null,
-      color: updates.color !== undefined ? (updates.color || null) : undefined,
+      content: cardUpdates.content,
+      description: cardUpdates.description || null,
+      due_date: cardUpdates.due_date || null,
+      estimated_time: cardUpdates.estimated_time ?? null,
+      color: cardUpdates.color !== undefined ? (cardUpdates.color || null) : undefined,
     };
 
     // Gerenciar timer_started_at baseado em estimated_time e due_date
-    if (updates.estimated_time !== undefined) {
-      if (updates.estimated_time && !updates.due_date) {
+    if (cardUpdates.estimated_time !== undefined) {
+      if (cardUpdates.estimated_time && !cardUpdates.due_date) {
         // Timer ativo: definir timer_started_at para agora
         dbUpdates.timer_started_at = new Date().toISOString();
       } else {
@@ -476,22 +512,95 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       .update(dbUpdates)
       .eq("id", cardId);
 
+    // Sincronizar assignees se foram alterados
+    if (assignees !== undefined) {
+      await syncCardAssignees(cardId, assignees, cardUpdates.content || '');
+    }
+
     const column = columns.find(col => col.id === columnId);
     const card = column?.cards.find(c => c.id === cardId);
 
-    if (card && updates.description && updates.description !== oldDescription) {
+    if (card && cardUpdates.description && cardUpdates.description !== oldDescription) {
       createNotificationsForMentions(
-        updates.description,
+        cardUpdates.description,
         oldDescription || "",
-        { ...card, ...updates }
+        { ...card, ...cardUpdates }
       );
     }
 
     setColumns(columns.map(col =>
       col.id === columnId
-        ? { ...col, cards: col.cards.map(c => c.id === cardId ? { ...c, ...updates } : c) }
+        ? { ...col, cards: col.cards.map(c => c.id === cardId ? { ...c, ...cardUpdates } : c) }
         : col
     ));
+
+    // Atualizar mapa de assignees local
+    if (assignees !== undefined) {
+      setCardAssigneesMap(prev => ({ ...prev, [cardId]: assignees }));
+    }
+  };
+
+  // Sincronizar assignees no banco de dados
+  const syncCardAssignees = async (cardId: string, newAssignees: string[], cardTitle: string) => {
+    try {
+      // Buscar assignees atuais
+      const { data: currentAssignees } = await supabase
+        .from("kanban_card_assignees")
+        .select("id, user_id, is_completed")
+        .eq("card_id", cardId);
+
+      const currentIds = currentAssignees?.map(a => a.user_id) || [];
+
+      // Identificar adições e remoções
+      const toAdd = newAssignees.filter(id => !currentIds.includes(id));
+      const toRemove = currentAssignees?.filter(a => 
+        !newAssignees.includes(a.user_id) && !a.is_completed // Não remover quem já confirmou
+      ) || [];
+
+      // Inserir novos assignees
+      if (toAdd.length > 0) {
+        await supabase.from("kanban_card_assignees").insert(
+          toAdd.map(userId => ({
+            card_id: cardId,
+            user_id: userId,
+            assigned_by: currentUserId,
+          }))
+        );
+
+        // Criar notificações para novos atribuídos
+        for (const userId of toAdd) {
+          if (userId !== currentUserId) {
+            await supabase.from("notifications").insert({
+              user_id: userId,
+              type: "task_assigned",
+              title: "Tarefa atribuída",
+              message: `Você foi atribuído à tarefa "${cardTitle}"`,
+              card_id: cardId,
+            });
+          }
+        }
+      }
+
+      // Remover os que foram desmarcados (exceto quem já confirmou)
+      if (toRemove.length > 0) {
+        await supabase.from("kanban_card_assignees")
+          .delete()
+          .in("id", toRemove.map(a => a.id));
+      }
+
+      console.log('[KANBAN] Assignees sincronizados:', {
+        cardId,
+        added: toAdd,
+        removed: toRemove.map(a => a.user_id),
+      });
+    } catch (error) {
+      console.error('[KANBAN] Erro ao sincronizar assignees:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar os responsáveis.",
+        variant: "destructive",
+      });
+    }
   };
 
   const deleteCard = async (columnId: string, cardId: string) => {
@@ -829,6 +938,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               canEditAllTasks={canEditAllTasks}
               canDeleteTasks={canDeleteTasks}
               isOwnerOrAdmin={isOwnerOrAdmin}
+              orgMembers={orgMembers}
             />
           ))}
 

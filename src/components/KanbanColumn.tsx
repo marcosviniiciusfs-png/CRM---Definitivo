@@ -7,6 +7,7 @@ import { Plus, X, Settings, ChevronDown, User } from "lucide-react";
 import { KanbanCard } from "./KanbanCard";
 import { StageSettingsModal } from "./StageSettingsModal";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { UserOption } from "./MultiSelectUsers";
 
 interface Lead {
   id: string;
@@ -53,7 +54,7 @@ interface KanbanColumnProps {
   onEditCard: (
     columnId: string,
     cardId: string,
-    updates: Partial<Card>,
+    updates: Partial<Card> & { assignees?: string[] },
     oldDescription?: string
   ) => void;
   onDeleteCard: (columnId: string, cardId: string) => void;
@@ -66,6 +67,8 @@ interface KanbanColumnProps {
   canEditAllTasks?: boolean;
   canDeleteTasks?: boolean;
   isOwnerOrAdmin?: boolean;
+  // Org members for assignee selection
+  orgMembers?: UserOption[];
 }
 
 export const KanbanColumn = ({
@@ -85,6 +88,7 @@ export const KanbanColumn = ({
   canEditAllTasks = false,
   canDeleteTasks = false,
   isOwnerOrAdmin = false,
+  orgMembers = [],
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -249,6 +253,8 @@ export const KanbanColumn = ({
               isInCompletionStage={column.is_completion_stage}
               canEdit={canEditCard(card)}
               canDelete={canDeleteCard(card)}
+              orgMembers={orgMembers}
+              initialAssignees={cardAssigneesMap?.[card.id] || []}
             />
           ))}
         </SortableContext>
