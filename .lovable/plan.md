@@ -1,14 +1,14 @@
 
 
-# Plano: Reduzir Largura dos Cards de Ranking
+# Plano: Centralizar Conteúdo do Ranking
 
-## Problema Identificado
+## Problema Atual
 
-Na imagem, os cards de colaboradores na lista de ranking estão ocupando 100% da largura disponível, criando muito espaço vazio entre as informações do colaborador e os badges de equipe/pontos à direita. Isso deixa o layout pouco atrativo.
+Na imagem, o pódio (Top 3) e a lista de ranking estão posicionados à esquerda da tela, deixando muito espaço vazio à direita. O layout usa `grid-cols-[auto_1fr]` que faz a segunda coluna ocupar todo o espaço disponível.
 
 ## Solução Proposta
 
-Limitar a largura máxima dos cards de ranking para que fiquem mais compactos e visualmente agradáveis.
+Modificar o container principal para centralizar todo o conteúdo horizontalmente na tela.
 
 ---
 
@@ -16,58 +16,42 @@ Limitar a largura máxima dos cards de ranking para que fiquem mais compactos e 
 
 **Arquivo:** `src/components/dashboard/TaskLeaderboard.tsx`
 
-### 1. Adicionar largura máxima ao container da lista (linha 452)
+### Alterar o container principal (linha 430)
 
 De:
 ```tsx
-<div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2">
+<div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
 ```
 
 Para:
 ```tsx
-<div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2 max-w-xl">
-```
-
-### 2. Alternativa: Ajustar o RankingCard diretamente (linha 253-255)
-
-De:
-```tsx
-<div 
-  className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all"
->
-```
-
-Para:
-```tsx
-<div 
-  className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:border-primary/40 transition-all max-w-lg"
->
+<div className="grid grid-cols-1 lg:grid-cols-[auto_auto] gap-8 items-start justify-center mx-auto">
 ```
 
 Isso irá:
-- Limitar a largura máxima do card para aproximadamente 512px (`max-w-lg`)
-- Reduzir o padding de `p-3` para `p-2` para cards mais compactos
+- Mudar de `1fr` para `auto` na segunda coluna, permitindo que ela tenha apenas o tamanho do conteúdo
+- Adicionar `justify-center` para centralizar horizontalmente as colunas do grid
+- Adicionar `mx-auto` para garantir que o grid fique centralizado no container pai
 
 ---
 
 ## Resultado Visual Esperado
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│ Pódio Top 3            │  Lista Compacta                          │
-│                        │                                          │
-│   🥈    🥇    🥉       │  ┌─────────────────────────────────────┐ │
-│  Marcos Mateus Kerlys  │  │ [1] [🔵] Mateus Brito  [Eq] [0pts] │ │
-│                        │  └─────────────────────────────────────┘ │
-│                        │  ┌─────────────────────────────────────┐ │
-│                        │  │ [2] [🔵] Marcos        [Eq] [0pts] │ │
-│                        │  └─────────────────────────────────────┘ │
-│                        │  ┌─────────────────────────────────────┐ │
-│                        │  │ [3] [🔵] Kerlys kauan  [Eq] [0pts] │ │
-│                        │  └─────────────────────────────────────┘ │
-│                        │                                          │
-│                        │                    (espaço livre)        │
-└────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│            ┌───────────────────┐    ┌──────────────────────┐                 │
+│            │    Pódio Top 3    │    │  Ranking de Tarefas  │                 │
+│            │                   │    │                      │                 │
+│            │  🥈   🥇   🥉     │    │ [1] Mateus  [Eq] 0pt│                 │
+│            │ Marcos Mateus     │    │ [2] Marcos  [Eq] 0pt│                 │
+│            │        Kerlys     │    │ [3] Kerlys  [Eq] 0pt│                 │
+│            │                   │    │                      │                 │
+│            └───────────────────┘    └──────────────────────┘                 │
+│                                                                              │
+│         (espaço equilibrado)    CENTRO    (espaço equilibrado)               │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -76,19 +60,18 @@ Isso irá:
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/dashboard/TaskLeaderboard.tsx` | Adicionar `max-w-lg` ao RankingCard e reduzir padding |
+| `src/components/dashboard/TaskLeaderboard.tsx` | Centralizar grid com `justify-center` e `mx-auto` |
 
 ---
 
 ## Checklist de Validação
 
-1. **Largura dos Cards:**
-   - [ ] Cards ocupam no máximo ~512px de largura
-   - [ ] Espaço vazio fica à direita (fora dos cards)
-   - [ ] Informações continuam visíveis e legíveis
+1. **Centralização:**
+   - [ ] Pódio e lista aparecem centralizados na tela
+   - [ ] Espaço equilibrado à esquerda e à direita
+   - [ ] Layout responsivo mantido em mobile (coluna única)
 
 2. **Visual:**
-   - [ ] Cards mais compactos e elegantes
-   - [ ] Badges de equipe e pontos próximos ao nome
-   - [ ] Layout responsivo em telas menores
+   - [ ] Cards de ranking mantêm largura compacta
+   - [ ] Espaço entre pódio e lista adequado
 
