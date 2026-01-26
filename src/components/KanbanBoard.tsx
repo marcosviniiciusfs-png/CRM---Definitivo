@@ -478,7 +478,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     oldDescription?: string
   ) => {
     // Separar assignees dos updates normais do card
-    const { assignees, ...cardUpdates } = updates as any;
+    const { assignees, timer_start_column_id, ...cardUpdates } = updates as any;
 
     // Garantir que campos vazios sejam null e valores sejam salvos corretamente
     const dbUpdates: any = {
@@ -489,11 +489,30 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       color: cardUpdates.color !== undefined ? (cardUpdates.color || null) : undefined,
     };
 
-    // Gerenciar timer_started_at baseado em estimated_time e due_date
+    // Atualizar timer_start_column_id se fornecido
+    if (timer_start_column_id !== undefined) {
+      dbUpdates.timer_start_column_id = timer_start_column_id;
+    }
+
+    // Gerenciar timer_started_at baseado em estimated_time, due_date e timer_start_column_id
     if (cardUpdates.estimated_time !== undefined) {
       if (cardUpdates.estimated_time && !cardUpdates.due_date) {
-        // Timer ativo: definir timer_started_at para agora
-        dbUpdates.timer_started_at = new Date().toISOString();
+        // Se timer_start_column_id foi definido, verificar se é a coluna atual
+        if (timer_start_column_id !== undefined) {
+          if (timer_start_column_id === columnId) {
+            // Timer inicia agora pois está na coluna correta
+            dbUpdates.timer_started_at = new Date().toISOString();
+          } else if (timer_start_column_id === null) {
+            // Timer inicia imediatamente (sem coluna específica)
+            dbUpdates.timer_started_at = new Date().toISOString();
+          } else {
+            // Timer aguarda chegar na coluna configurada - resetar timer
+            dbUpdates.timer_started_at = null;
+          }
+        } else {
+          // Manter comportamento padrão: timer começa agora
+          dbUpdates.timer_started_at = new Date().toISOString();
+        }
       } else {
         // Timer não ativo: limpar timer_started_at
         dbUpdates.timer_started_at = null;
@@ -939,6 +958,9 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               canDeleteTasks={canDeleteTasks}
               isOwnerOrAdmin={isOwnerOrAdmin}
               orgMembers={orgMembers}
+              boardId={boardId || undefined}
+              kanbanColumns={columns.map(c => ({ id: c.id, title: c.title }))}
+              onCardMoved={() => loadColumns(boardId || "")}
             />
           ))}
 

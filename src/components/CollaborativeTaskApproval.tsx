@@ -27,6 +27,8 @@ interface CollaborativeTaskApprovalProps {
   onOpenChange: (open: boolean) => void;
   cardId: string;
   cardTitle: string;
+  boardId?: string;
+  onCardMoved?: () => void;
 }
 
 interface AssigneeWithProfile {
@@ -45,6 +47,8 @@ export const CollaborativeTaskApproval = ({
   onOpenChange,
   cardId,
   cardTitle,
+  boardId,
+  onCardMoved,
 }: CollaborativeTaskApprovalProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -111,6 +115,70 @@ export const CollaborativeTaskApproval = ({
 
       console.log("✅ Confirmação salva com sucesso:", data);
 
+      // === NOVA LÓGICA: MOVIMENTAÇÃO AUTOMÁTICA ===
+      const totalAssignees = assignees.length;
+      const newCompletedCount = completedCount + 1;
+
+      console.log("🔄 Verificando movimentação automática:", {
+        totalAssignees,
+        newCompletedCount,
+        boardId,
+      });
+
+      // Buscar dados do card e colunas para movimentação
+      if (boardId) {
+        const { data: cardData } = await supabase
+          .from("kanban_cards")
+          .select("column_id")
+          .eq("id", cardId)
+          .single();
+
+        const { data: columnsData } = await supabase
+          .from("kanban_columns")
+          .select("id, title, position, is_completion_stage")
+          .eq("board_id", boardId)
+          .order("position");
+
+        if (cardData && columnsData) {
+          const currentColumnIndex = columnsData.findIndex(c => c.id === cardData.column_id);
+          let movedToColumn: string | null = null;
+
+          if (newCompletedCount === totalAssignees) {
+            // TODOS confirmaram → mover para etapa de conclusão
+            const completionColumn = columnsData.find(c => c.is_completion_stage);
+            if (completionColumn && completionColumn.id !== cardData.column_id) {
+              const { error: moveError } = await supabase
+                .from("kanban_cards")
+                .update({ column_id: completionColumn.id })
+                .eq("id", cardId);
+
+              if (!moveError) {
+                movedToColumn = completionColumn.title;
+                console.log("✅ Tarefa movida para etapa de conclusão:", completionColumn.title);
+              }
+            }
+          } else if (newCompletedCount === 1) {
+            // PRIMEIRO a confirmar → mover para próxima etapa
+            const nextColumn = columnsData[currentColumnIndex + 1];
+            if (nextColumn && !nextColumn.is_completion_stage) {
+              const { error: moveError } = await supabase
+                .from("kanban_cards")
+                .update({ column_id: nextColumn.id })
+                .eq("id", cardId);
+
+              if (!moveError) {
+                movedToColumn = nextColumn.title;
+                console.log("✅ Tarefa movida para próxima etapa:", nextColumn.title);
+              }
+            }
+          }
+
+          if (movedToColumn) {
+            return { moved: true, toColumn: movedToColumn };
+          }
+        }
+      }
+
       // Notificar outros membros
       const otherAssignees = assignees.filter((a) => a.user_id !== user?.id);
       if (otherAssignees.length > 0) {
@@ -132,20 +200,22 @@ export const CollaborativeTaskApproval = ({
       }
 
       // Se todos concluíram, notificar que tarefa está pronta
-      if (completedCount + 1 === assignees.length) {
+      if (newCompletedCount === totalAssignees) {
         for (const assignee of assignees) {
           await supabase.from("notifications").insert({
             user_id: assignee.user_id,
             type: "task_ready",
-            title: "Tarefa pronta para avançar",
-            message: `A tarefa colaborativa "${cardTitle}" está pronta para ser movida!`,
+            title: "Tarefa finalizada!",
+            message: `Todos concluíram a tarefa colaborativa "${cardTitle}"!`,
             card_id: cardId,
           });
         }
       }
+
+      return { moved: false };
     },
-    onSuccess: async () => {
-      console.log("✅ Mutation success - invalidando queries...");
+    onSuccess: async (result) => {
+      console.log("✅ Mutation success - invalidando queries...", result);
       
       // Invalidar TODAS as queries relacionadas
       await queryClient.invalidateQueries({ queryKey: ["card-assignees-approval", cardId] });
@@ -154,11 +224,20 @@ export const CollaborativeTaskApproval = ({
       
       // Forçar refetch imediato
       await queryClient.refetchQueries({ queryKey: ["card-assignees-approval", cardId] });
-      
-      toast({
-        title: "✅ Concluído!",
-        description: "Sua parte na tarefa foi marcada como concluída.",
-      });
+
+      if (result?.moved) {
+        toast({
+          title: "✅ Concluído e Movido!",
+          description: `Sua parte foi confirmada e a tarefa foi movida para "${result.toColumn}".`,
+        });
+        // Notificar o componente pai para recarregar
+        onCardMoved?.();
+      } else {
+        toast({
+          title: "✅ Concluído!",
+          description: "Sua parte na tarefa foi marcada como concluída.",
+        });
+      }
       
       setConfirmChecked(false);
       
