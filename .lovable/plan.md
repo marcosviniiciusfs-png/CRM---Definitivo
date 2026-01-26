@@ -1,219 +1,94 @@
 
 
-# Plano: Otimização do Layout do Ranking com Equipes
+# Plano: Reduzir Largura dos Cards de Ranking
 
-## Problema Atual
+## Problema Identificado
 
-Na imagem fornecida, os cards de colaboradores estão aparecendo em **2 colunas** (um do lado do outro), quando o esperado é que apareçam em **1 coluna** (um embaixo do outro). O espaço vazio à direita deve ser preenchido com as **equipes que cada colaborador pertence**.
-
----
+Na imagem, os cards de colaboradores na lista de ranking estão ocupando 100% da largura disponível, criando muito espaço vazio entre as informações do colaborador e os badges de equipe/pontos à direita. Isso deixa o layout pouco atrativo.
 
 ## Solução Proposta
 
-### Layout Atualizado
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Card do Colaborador (Coluna Única)                                           │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ [1] [Avatar] Mateus Brito          │  [Equipe A] [Equipe B]     │  [⭐ 0 pts] │
-│              0 tarefas • 0 no prazo │                            │            │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ [2] [Avatar] Marcos                │  [Equipe A]                │  [⭐ 0 pts] │
-│              0 tarefas • 0 no prazo │                            │            │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ [3] [Avatar] Kerlys kauan          │  (sem equipes)             │  [⭐ 0 pts] │
-│              0 tarefas • 0 no prazo │                            │            │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+Limitar a largura máxima dos cards de ranking para que fiquem mais compactos e visualmente agradáveis.
 
 ---
 
 ## Mudanças Técnicas
 
-### Parte 1: Expandir LeaderboardData para incluir equipes
-
 **Arquivo:** `src/components/dashboard/TaskLeaderboard.tsx`
 
-Adicionar campo `teams` na interface:
-
-```typescript
-export interface LeaderboardData {
-  user_id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  // ... campos existentes ...
-  // NOVO: Equipes do colaborador
-  teams?: Array<{
-    id: string;
-    name: string;
-    color: string | null;
-  }>;
-}
-```
-
----
-
-### Parte 2: Buscar membros de equipes no Ranking.tsx
-
-**Arquivo:** `src/pages/Ranking.tsx`
-
-Nas funções `loadSalesData` e `loadTasksData`, adicionar busca das equipes de cada usuário:
-
-```typescript
-// Buscar team_members para associar equipes aos usuários
-const { data: teamMembers } = await supabase
-  .from('team_members')
-  .select('user_id, team_id, teams(id, name, color)')
-  .in('user_id', userIds);
-
-// Agrupar equipes por user_id
-const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
-for (const tm of teamMembers || []) {
-  const team = tm.teams as any;
-  if (!team) continue;
-  const current = teamsByUser.get(tm.user_id) || [];
-  current.push({ id: team.id, name: team.name, color: team.color });
-  teamsByUser.set(tm.user_id, current);
-}
-
-// Incluir equipes no retorno
-return {
-  user_id: userId,
-  // ... outros campos ...
-  teams: teamsByUser.get(userId) || [],
-};
-```
-
----
-
-### Parte 3: Alterar Layout para Coluna Única
-
-**Arquivo:** `src/components/dashboard/TaskLeaderboard.tsx`
-
-Mudar o grid de 2 colunas para 1 coluna (linha ~423):
+### 1. Adicionar largura máxima ao container da lista (linha 452)
 
 De:
-```tsx
-<div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[500px] overflow-y-auto pr-2">
-```
-
-Para:
 ```tsx
 <div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2">
 ```
 
----
-
-### Parte 4: Adicionar Exibição de Equipes no RankingCard
-
-**Arquivo:** `src/components/dashboard/TaskLeaderboard.tsx`
-
-Modificar o componente `RankingCard` para receber e exibir as equipes. Adicionar uma nova seção entre as informações do colaborador e o badge de pontos:
-
+Para:
 ```tsx
-const RankingCard = ({
-  rep,
-  position,
-  type,
-}: {
-  rep: LeaderboardData;
-  position: number;
-  type: "sales" | "tasks";
-}) => {
-  // ... código existente ...
-
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all">
-      {/* Position Badge */}
-      {/* ... */}
-      
-      {/* Avatar */}
-      {/* ... */}
-      
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        {/* Nome e métricas */}
-      </div>
-      
-      {/* NOVO: Teams Badges */}
-      {rep.teams && rep.teams.length > 0 && (
-        <div className="flex items-center gap-1.5 shrink-0">
-          {rep.teams.slice(0, 3).map(team => (
-            <div 
-              key={team.id}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium"
-              style={{ 
-                borderColor: team.color || 'hsl(var(--border))',
-                color: team.color || 'hsl(var(--muted-foreground))',
-                backgroundColor: `${team.color}15` || 'transparent'
-              }}
-            >
-              <Users className="h-2.5 w-2.5" />
-              <span className="truncate max-w-[60px]">{team.name}</span>
-            </div>
-          ))}
-          {rep.teams.length > 3 && (
-            <span className="text-[10px] text-muted-foreground">+{rep.teams.length - 3}</span>
-          )}
-        </div>
-      )}
-      
-      {/* Stats Badge */}
-      {/* ... */}
-    </div>
-  );
-};
+<div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2 max-w-xl">
 ```
 
----
+### 2. Alternativa: Ajustar o RankingCard diretamente (linha 253-255)
 
-## Arquivos a Modificar
+De:
+```tsx
+<div 
+  className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-all"
+>
+```
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/dashboard/TaskLeaderboard.tsx` | 1. Adicionar `teams` à interface LeaderboardData<br>2. Mudar grid para coluna única<br>3. Exibir badges de equipes no RankingCard |
-| `src/pages/Ranking.tsx` | 1. Buscar `team_members` com join em `teams`<br>2. Agrupar equipes por `user_id`<br>3. Incluir `teams` no objeto de dados |
+Para:
+```tsx
+<div 
+  className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:border-primary/40 transition-all max-w-lg"
+>
+```
+
+Isso irá:
+- Limitar a largura máxima do card para aproximadamente 512px (`max-w-lg`)
+- Reduzir o padding de `p-3` para `p-2` para cards mais compactos
 
 ---
 
 ## Resultado Visual Esperado
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Pódio Top 3 (Esquerda)              │  Lista em COLUNA ÚNICA (Direita)     │
-│                                     │                                       │
-│   🥈      🥇      🥉                │  ┌─────────────────────────────────┐  │
-│  Marcos  Mateus  Kerlys             │  │ [1] Mateus    [Equipe A]  0pts │  │
-│                                     │  └─────────────────────────────────┘  │
-│                                     │  ┌─────────────────────────────────┐  │
-│                                     │  │ [2] Marcos    [Equipe B]  0pts │  │
-│                                     │  └─────────────────────────────────┘  │
-│                                     │  ┌─────────────────────────────────┐  │
-│                                     │  │ [3] Kerlys    (sem equipe) 0pts│  │
-│                                     │  └─────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│ Pódio Top 3            │  Lista Compacta                          │
+│                        │                                          │
+│   🥈    🥇    🥉       │  ┌─────────────────────────────────────┐ │
+│  Marcos Mateus Kerlys  │  │ [1] [🔵] Mateus Brito  [Eq] [0pts] │ │
+│                        │  └─────────────────────────────────────┘ │
+│                        │  ┌─────────────────────────────────────┐ │
+│                        │  │ [2] [🔵] Marcos        [Eq] [0pts] │ │
+│                        │  └─────────────────────────────────────┘ │
+│                        │  ┌─────────────────────────────────────┐ │
+│                        │  │ [3] [🔵] Kerlys kauan  [Eq] [0pts] │ │
+│                        │  └─────────────────────────────────────┘ │
+│                        │                                          │
+│                        │                    (espaço livre)        │
+└────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Arquivo a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/dashboard/TaskLeaderboard.tsx` | Adicionar `max-w-lg` ao RankingCard e reduzir padding |
 
 ---
 
 ## Checklist de Validação
 
-1. **Layout de Coluna Única:**
-   - Os cards aparecem um embaixo do outro (não lado a lado)
-   - Largura total do container é utilizada
+1. **Largura dos Cards:**
+   - [ ] Cards ocupam no máximo ~512px de largura
+   - [ ] Espaço vazio fica à direita (fora dos cards)
+   - [ ] Informações continuam visíveis e legíveis
 
-2. **Exibição de Equipes:**
-   - Cada card mostra badges coloridos das equipes
-   - Cor da borda e texto segue a cor da equipe
-   - Limite de 3 equipes visíveis + indicador "+N" se houver mais
-   - Colaboradores sem equipe não mostram nada (sem "sem equipes")
-
-3. **Responsividade:**
-   - Em mobile, equipes ficam menores ou ocultas
-   - Layout permanece funcional em todas as telas
-
-4. **Integridade dos Dados:**
-   - Query de `team_members` funciona corretamente
-   - Colaboradores sem equipes não causam erro
+2. **Visual:**
+   - [ ] Cards mais compactos e elegantes
+   - [ ] Badges de equipe e pontos próximos ao nome
+   - [ ] Layout responsivo em telas menores
 
