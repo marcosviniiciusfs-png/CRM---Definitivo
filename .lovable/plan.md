@@ -1,80 +1,136 @@
 
 
-# Corrigir Erro "invalid_client: Unauthorized" no Google Calendar
+# Corrigir Google Calendar para Usuarios Multi-Org
 
-## Diagnóstico
+## Diagnostico
 
-Os logs da edge function mostram claramente o problema:
+Os logs mostram claramente o problema:
 
 ```
-❌ Erro ao trocar código: {
-  "error": "invalid_client",
-  "error_description": "Unauthorized"
-}
+❌ Erro no callback OAuth: Error: Organização do usuário não encontrada
 ```
 
-Este erro significa que o **GOOGLE_CLIENT_SECRET** configurado no backend **não corresponde** ao **GOOGLE_CLIENT_ID** que você forneceu.
+### Causa Raiz
 
-### Por que o erro acontece?
+A edge function `google-calendar-oauth-callback` usa `.single()` para buscar a organizacao do usuario:
 
-O fluxo OAuth funciona assim:
-1. Usuario seleciona conta Google (funciona - CLIENT_ID correto)
-2. Google redireciona de volta com codigo de autorizacao (funciona)
-3. Edge function tenta trocar codigo por tokens usando CLIENT_ID + CLIENT_SECRET
-4. Google retorna "invalid_client" porque o SECRET nao corresponde ao ID
+```typescript
+const { data: memberData } = await supabase
+  .from('organization_members')
+  .select('organization_id')
+  .eq('user_id', user_id)
+  .single();  // ← FALHA quando usuario tem 2+ organizações!
+```
 
-## Causa Provavel
-
-Voce atualizou o **GOOGLE_CLIENT_ID** para o valor correto (`543944011390-...`), mas o **GOOGLE_CLIENT_SECRET** ainda e do projeto/credencial anterior.
-
-Cada Client ID tem seu proprio Client Secret. Eles sao um par e devem vir da mesma credencial OAuth no Google Cloud Console.
+Para usuarios multi-org, `.single()` retorna erro porque encontra mais de um registro.
 
 ## Solucao
 
-### Passo 1: Obter o Client Secret Correto
+Passar a `organization_id` ativa do usuario no fluxo OAuth, garantindo que a integracao seja vinculada a organizacao correta.
 
-1. Acesse [Google Cloud Console - Credenciais](https://console.cloud.google.com/apis/credentials)
-2. Clique no OAuth Client que tem o ID `543944011390-32bc853m6jc08jjn25jmf9c98b0qbh2r.apps.googleusercontent.com`
-3. Copie o **Segredo do cliente** (Client Secret)
+### Mudanca 1: Edge Function `google-calendar-oauth-initiate`
 
-**IMPORTANTE:** O segredo deve vir da **mesma credencial** onde voce copiou o Client ID!
-
-### Passo 2: Atualizar o Secret no Backend
-
-Apos aprovar este plano, vou solicitar que voce insira o **GOOGLE_CLIENT_SECRET** correto.
-
-### Passo 3: Testar Novamente
-
-1. Va em **Configuracoes → Integracoes**
-2. Clique em **Google Calendar → Conectar**
-3. Selecione sua conta Google
-4. Deve funcionar!
-
-## Checklist de Verificacao
-
-| Componente | Status | Acao |
-|------------|--------|------|
-| GOOGLE_CLIENT_ID | Correto | Nenhuma |
-| GOOGLE_CLIENT_SECRET | **INCORRETO** | Atualizar com o segredo correspondente ao Client ID |
-| URI de Redirect | Correto | Nenhuma |
-| Origens JavaScript | Correto | Nenhuma |
-
-## Secao Tecnica
-
-O codigo da edge function `google-calendar-oauth-callback` faz a troca de codigo por tokens na linha 96-108:
+Buscar a organizacao ativa do usuario usando a tabela `user_active_org` ou fallback para primeira organizacao, e incluir no `state` do OAuth:
 
 ```typescript
-const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-  method: 'POST',
-  body: new URLSearchParams({
-    code,
-    client_id: googleClientId,       // GOOGLE_CLIENT_ID do backend
-    client_secret: googleClientSecret, // GOOGLE_CLIENT_SECRET do backend - ESTE ESTA ERRADO
-    redirect_uri: redirectUri,
-    grant_type: 'authorization_code',
-  }),
-});
+// Buscar organizacao ativa do usuario (multi-org aware)
+const { data: activeOrg } = await supabase
+  .from('user_active_org')
+  .select('active_organization_id')
+  .eq('user_id', user.id)
+  .maybeSingle();
+
+let organizationId = activeOrg?.active_organization_id;
+
+// Fallback: buscar primeira organizacao do usuario
+if (!organizationId) {
+  const { data: memberData } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single();
+  
+  organizationId = memberData?.organization_id;
+}
+
+if (!organizationId) {
+  throw new Error('Organizacao do usuario nao encontrada');
+}
+
+// Incluir organization_id no state
+const state = btoa(JSON.stringify({ 
+  user_id: user.id, 
+  organization_id: organizationId,  // ← NOVO
+  origin 
+}));
 ```
 
-O Google valida que `client_id` e `client_secret` formam um par valido. Como o secret atual nao corresponde ao ID, retorna `invalid_client`.
+### Mudanca 2: Edge Function `google-calendar-oauth-callback`
+
+Usar a `organization_id` do state ao inves de buscar no banco:
+
+```typescript
+// Decodificar state com organization_id
+const { user_id, organization_id, origin } = JSON.parse(atob(state));
+
+// Validar que organization_id existe
+if (!organization_id) {
+  throw new Error('Organization ID ausente no state');
+}
+
+// Validar que usuario pertence a organizacao (seguranca)
+const { data: membership } = await supabase
+  .from('organization_members')
+  .select('id')
+  .eq('user_id', user_id)
+  .eq('organization_id', organization_id)
+  .eq('is_active', true)
+  .maybeSingle();
+
+if (!membership) {
+  throw new Error('Usuario nao pertence a esta organizacao');
+}
+
+// Usar organization_id diretamente ao salvar integracao
+const { data: integration } = await supabase
+  .from('google_calendar_integrations')
+  .insert({
+    organization_id: organization_id,  // ← Do state, nao de query
+    user_id,
+    token_expires_at: expiresAt,
+    calendar_id: 'primary',
+    is_active: true,
+  })
+  .select('id')
+  .single();
+```
+
+## Fluxo Corrigido
+
+```
+1. Usuario clica "Conectar Google Calendar"
+2. Frontend chama google-calendar-oauth-initiate
+3. Initiate busca org ativa via user_active_org
+4. Initiate gera state com {user_id, organization_id, origin}
+5. Usuario autoriza no Google
+6. Google redireciona para callback com state
+7. Callback extrai organization_id do state
+8. Callback valida que usuario pertence a org
+9. Callback salva integracao com org correta
+10. Usuario redirecionado com sucesso
+```
+
+## Arquivos a Modificar
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `supabase/functions/google-calendar-oauth-initiate/index.ts` | Buscar org ativa e incluir no state |
+| `supabase/functions/google-calendar-oauth-callback/index.ts` | Usar org_id do state ao inves de buscar com .single() |
+
+## Validacao de Seguranca
+
+O callback ainda valida que o usuario realmente pertence a organizacao antes de criar a integracao, prevenindo manipulacao do state.
 
