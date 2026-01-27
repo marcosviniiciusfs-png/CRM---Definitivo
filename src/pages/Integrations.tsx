@@ -8,12 +8,10 @@ import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
 import { WebhookIntegrationsTab } from "@/components/WebhookIntegrationsTab";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
-import { usePermissions } from "@/hooks/usePermissions";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 const Integrations = () => {
-  const { user, organizationId, isReady } = useOrganizationReady();
-  const permissions = usePermissions();
+  const { organizationId, isReady } = useOrganizationReady();
 
   // Guard: Aguardar inicialização completa (auth + org)
   if (!isReady || !organizationId) {
