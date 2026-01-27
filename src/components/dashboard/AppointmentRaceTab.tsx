@@ -4,10 +4,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, Flag, Calendar, Trophy, Users, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Crown, Flag, Calendar, Trophy, Users, TrendingUp, Target, Edit2, Check, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear, startOfWeek, endOfWeek } from "date-fns";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { toast } from "sonner";
 
 type PeriodType = "week" | "month" | "quarter" | "year";
 
@@ -52,19 +56,22 @@ const getDateRange = (periodType: PeriodType) => {
 const RaceTrack = ({ 
   racer, 
   position, 
-  maxAppointments, 
+  maxProgress, 
   isLeader,
-  index 
+  index,
+  goalTarget
 }: { 
   racer: RacerData; 
   position: number;
-  maxAppointments: number; 
+  maxProgress: number; 
   isLeader: boolean;
   index: number;
+  goalTarget: number;
 }) => {
-  // Calculate position percentage (0-95% to leave room for finish line)
-  const progressPercent = maxAppointments > 0 
-    ? Math.min((racer.appointments_count / maxAppointments) * 90, 90) 
+  // Calculate position percentage based on goal or max appointments
+  const baseForProgress = goalTarget > 0 ? goalTarget : maxProgress;
+  const progressPercent = baseForProgress > 0 
+    ? Math.min((racer.appointments_count / baseForProgress) * 85, 85) 
     : 0;
 
   // Alternating track colors for visual distinction
@@ -78,10 +85,10 @@ const RaceTrack = ({
 
   return (
     <div className="relative">
-      {/* Track Lane */}
+      {/* Track Lane - increased height to accommodate crown */}
       <div 
         className={cn(
-          "relative h-20 rounded-lg border border-border/50 overflow-hidden",
+          "relative h-24 rounded-lg border border-border/50",
           trackColors[index % trackColors.length]
         )}
       >
@@ -107,30 +114,30 @@ const RaceTrack = ({
             type: "spring", 
             stiffness: 50, 
             damping: 15,
-            delay: index * 0.15 // Staggered entrance
+            delay: index * 0.15
           }}
         >
           <div className="relative">
-            {/* Crown for leader */}
+            {/* Crown for leader - positioned above and centered */}
             {isLeader && racer.appointments_count > 0 && (
               <motion.div 
-                className="absolute -top-6 left-1/2 -translate-x-1/2"
+                className="absolute -top-7 left-1/2 z-20"
+                style={{ transform: 'translateX(-50%)' }}
                 initial={{ scale: 0, rotate: -20 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ delay: 0.5 + index * 0.15, type: "spring" }}
               >
-                <Crown className="h-5 w-5 text-yellow-500 fill-yellow-400" />
+                <Crown className="h-6 w-6 text-yellow-500 fill-yellow-400 drop-shadow-lg" />
               </motion.div>
             )}
             
-            {/* Avatar with running animation */}
+            {/* Avatar with subtle pulse animation */}
             <motion.div
               animate={{ 
-                y: [0, -3, 0],
-                rotate: [-2, 2, -2]
+                scale: [1, 1.05, 1],
               }}
               transition={{ 
-                duration: 0.4, 
+                duration: 2, 
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
@@ -175,11 +182,108 @@ const RaceTrack = ({
 };
 
 // ============================================
+// GOAL EDITOR COMPONENT
+// ============================================
+const GoalEditor = ({ 
+  currentGoal, 
+  onSave, 
+  canEdit 
+}: { 
+  currentGoal: number; 
+  onSave: (value: number) => Promise<void>;
+  canEdit: boolean;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(currentGoal.toString());
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue) || numValue < 1) {
+      toast.error("Meta deve ser um número maior que zero");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSave(numValue);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setValue(currentGoal.toString());
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-2">
+        <Target className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium text-muted-foreground">Meta:</span>
+        <Input
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="w-20 h-8 text-sm"
+          min={1}
+          autoFocus
+        />
+        <Button 
+          size="icon" 
+          variant="ghost" 
+          className="h-7 w-7" 
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          <Check className="h-4 w-4 text-green-500" />
+        </Button>
+        <Button 
+          size="icon" 
+          variant="ghost" 
+          className="h-7 w-7" 
+          onClick={handleCancel}
+          disabled={isSaving}
+        >
+          <X className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Target className="h-4 w-4 text-primary" />
+      <span className="text-sm font-medium text-muted-foreground">
+        Meta: <span className="text-foreground font-bold">{currentGoal}</span> agendamentos
+      </span>
+      {canEdit && (
+        <Button 
+          size="icon" 
+          variant="ghost" 
+          className="h-7 w-7" 
+          onClick={() => setIsEditing(true)}
+        >
+          <Edit2 className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      )}
+    </div>
+  );
+};
+
+// ============================================
 // STATS CARD
 // ============================================
-const StatsCard = ({ racers, period }: { racers: RacerData[]; period: string }) => {
+const StatsCard = ({ racers, period, goalTarget }: { racers: RacerData[]; period: string; goalTarget: number }) => {
   const totalAppointments = racers.reduce((sum, r) => sum + r.appointments_count, 0);
-  const avgAppointments = racers.length > 0 ? (totalAppointments / racers.length).toFixed(1) : "0";
+  
+  // Calculate average based only on members who have at least 1 appointment
+  const activeRacers = racers.filter(r => r.appointments_count > 0);
+  const avgAppointments = activeRacers.length > 0 
+    ? (totalAppointments / activeRacers.length).toFixed(1) 
+    : "0";
+  
   const leader = racers.length > 0 ? racers[0] : null;
 
   const periodLabels: Record<string, string> = {
@@ -188,6 +292,9 @@ const StatsCard = ({ racers, period }: { racers: RacerData[]; period: string }) 
     quarter: "Este Trimestre",
     year: "Este Ano",
   };
+
+  // Calculate goal progress percentage
+  const goalProgress = goalTarget > 0 ? Math.min((totalAppointments / goalTarget) * 100, 100) : 0;
 
   return (
     <Card className="mt-6">
@@ -205,6 +312,22 @@ const StatsCard = ({ racers, period }: { racers: RacerData[]; period: string }) 
               <Calendar className="h-3 w-3" />
               Total de Agendamentos
             </p>
+            {goalTarget > 0 && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-muted-foreground">Progresso da meta</span>
+                  <span className="font-medium">{goalProgress.toFixed(0)}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-gradient-to-r from-primary to-primary/80"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${goalProgress}%` }}
+                    transition={{ duration: 1, delay: 0.3 }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="space-y-1">
@@ -212,6 +335,9 @@ const StatsCard = ({ racers, period }: { racers: RacerData[]; period: string }) 
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Users className="h-3 w-3" />
               Média por Colaborador
+            </p>
+            <p className="text-[10px] text-muted-foreground/70 italic">
+              (apenas ativos)
             </p>
           </div>
           
@@ -258,7 +384,7 @@ const StatsCard = ({ racers, period }: { racers: RacerData[]; period: string }) 
 const RaceSkeleton = () => (
   <div className="space-y-4">
     {Array.from({ length: 4 }).map((_, i) => (
-      <Skeleton key={i} className="h-20 w-full rounded-lg" />
+      <Skeleton key={i} className="h-24 w-full rounded-lg" />
     ))}
   </div>
 );
@@ -270,6 +396,10 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
   const [period, setPeriod] = useState<PeriodType>("month");
   const [racers, setRacers] = useState<RacerData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [goalTarget, setGoalTarget] = useState(10);
+  const { permissions } = useOrganization();
+
+  const canEditGoal = permissions.role === 'owner' || permissions.role === 'admin';
 
   const loadRaceData = async () => {
     if (!organizationId) return;
@@ -277,6 +407,24 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
     setIsLoading(true);
     try {
       const { start, end } = getDateRange(period);
+      const now = new Date();
+
+      // Load goal for current month (only relevant when period is "month")
+      if (period === "month") {
+        const { data: goalData } = await supabase
+          .from('appointment_goals')
+          .select('target_value')
+          .eq('organization_id', organizationId)
+          .eq('month', now.getMonth() + 1)
+          .eq('year', now.getFullYear())
+          .maybeSingle();
+
+        if (goalData) {
+          setGoalTarget(goalData.target_value);
+        } else {
+          setGoalTarget(10); // Default goal
+        }
+      }
 
       // Get organization members
       const { data: members } = await supabase
@@ -339,6 +487,30 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
     }
   };
 
+  const handleSaveGoal = async (value: number) => {
+    const now = new Date();
+    
+    const { error } = await supabase
+      .from('appointment_goals')
+      .upsert({
+        organization_id: organizationId,
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+        target_value: value,
+      }, {
+        onConflict: 'organization_id,month,year'
+      });
+
+    if (error) {
+      console.error('Erro ao salvar meta:', error);
+      toast.error("Erro ao salvar meta de agendamentos");
+      throw error;
+    }
+
+    setGoalTarget(value);
+    toast.success("Meta de agendamentos atualizada!");
+  };
+
   useEffect(() => {
     loadRaceData();
   }, [organizationId, period]);
@@ -374,6 +546,17 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
         </Select>
       </div>
 
+      {/* Goal Editor - Only shown for month period */}
+      {period === "month" && (
+        <Card className="p-4">
+          <GoalEditor 
+            currentGoal={goalTarget} 
+            onSave={handleSaveGoal} 
+            canEdit={canEditGoal}
+          />
+        </Card>
+      )}
+
       {/* Race Track Container */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
@@ -404,9 +587,10 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
                 key={racer.user_id}
                 racer={racer}
                 position={index + 1}
-                maxAppointments={maxAppointments}
+                maxProgress={maxAppointments}
                 isLeader={index === 0 && racer.appointments_count > 0}
                 index={index}
+                goalTarget={period === "month" ? goalTarget : 0}
               />
             ))}
           </div>
@@ -415,7 +599,7 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
 
       {/* Stats */}
       {!isLoading && racers.length > 0 && (
-        <StatsCard racers={racers} period={period} />
+        <StatsCard racers={racers} period={period} goalTarget={period === "month" ? goalTarget : 0} />
       )}
     </div>
   );
