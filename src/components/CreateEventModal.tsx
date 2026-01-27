@@ -57,7 +57,30 @@ export const CreateEventModal = ({ open, onOpenChange, leadId, leadName, leadEma
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Try to get the actual error message from the response
+        let errorMessage = "Não foi possível criar o evento";
+        try {
+          const errorData = await error.context?.json?.();
+          if (errorData?.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // Fallback to generic message
+        }
+        
+        // Check if it's a "not connected" error
+        if (errorMessage.includes("não conectado") || errorMessage.includes("not connected")) {
+          toast({
+            title: "Google Calendar não conectado",
+            description: "Vá em Configurações → Integrações → Mais Integrações para conectar seu Google Calendar",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       if (data?.success) {
         toast({
