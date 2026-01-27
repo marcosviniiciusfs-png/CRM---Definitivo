@@ -488,10 +488,11 @@ export function IntegratedLogsViewer() {
             </SelectContent>
           </Select>
           <Button 
+            variant="outline"
             size="sm" 
             onClick={loadLogs} 
             disabled={loading}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white border-0"
+            className="border-warning text-warning hover:bg-warning/10 hover:text-warning"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Atualizar
