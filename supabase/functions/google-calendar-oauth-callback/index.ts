@@ -74,10 +74,16 @@ serve(async (req) => {
       throw new Error('Código ou state ausente');
     }
 
-    // Decodificar state completo
-    const { user_id, origin } = JSON.parse(atob(state));
+    // Decodificar state completo (agora inclui organization_id para multi-org)
+    const { user_id, organization_id, origin } = JSON.parse(atob(state));
     if (origin) redirectUrl = origin;
-    console.log('🔄 Processando callback para usuário:', user_id, 'redirect:', redirectUrl);
+    console.log('🔄 Processando callback para usuário:', user_id, 'org:', organization_id, 'redirect:', redirectUrl);
+
+    // Validar que organization_id existe no state
+    if (!organization_id) {
+      console.error('❌ Organization ID ausente no state OAuth');
+      throw new Error('Organization ID ausente no state. Por favor, tente conectar novamente.');
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -87,6 +93,22 @@ serve(async (req) => {
     if (!encryptionKey) {
       throw new Error('Chave de criptografia não configurada');
     }
+
+    // Validar que usuário pertence à organização (segurança contra manipulação do state)
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('organization_id', organization_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!membership) {
+      console.error('❌ Usuário não pertence à organização:', organization_id);
+      throw new Error('Usuário não pertence a esta organização');
+    }
+
+    console.log('✅ Membership validado para org:', organization_id);
 
     // Trocar código por tokens
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')!;
@@ -124,28 +146,17 @@ serve(async (req) => {
     // Calcular expiração
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
-    // Buscar organization_id do usuário
-    const { data: memberData } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user_id)
-      .single();
-
-    if (!memberData) {
-      throw new Error('Organização do usuário não encontrada');
-    }
-
     // Desativar integrações anteriores
     await supabase
       .from('google_calendar_integrations')
       .update({ is_active: false })
       .eq('user_id', user_id);
 
-    // Salvar integração (apenas metadados, sem tokens)
+    // Salvar integração (usando organization_id do state, não de query)
     const { data: integration, error: insertError } = await supabase
       .from('google_calendar_integrations')
       .insert({
-        organization_id: memberData.organization_id,
+        organization_id: organization_id,
         user_id,
         token_expires_at: expiresAt,
         calendar_id: 'primary',
