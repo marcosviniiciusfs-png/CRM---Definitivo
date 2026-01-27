@@ -94,6 +94,47 @@ export type Database = {
         }
         Relationships: []
       }
+      appointment_goals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          month: number
+          organization_id: string
+          target_value: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month: number
+          organization_id: string
+          target_value?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month?: number
+          organization_id?: string
+          target_value?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_goals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_logs: {
         Row: {
           actions_executed: Json | null
