@@ -1,24 +1,62 @@
 
-## Atualização do Google Client ID
 
-Vou atualizar a secret **GOOGLE_CLIENT_ID** com o valor correto:
+# Corrigir Erro redirect_uri_mismatch no Google Calendar
 
-**Novo valor:**
+## Diagnóstico
+
+O erro ocorre porque a URI de callback configurada no Google Cloud Console aponta para um projeto Supabase diferente do que esta realmente rodando o app.
+
+| Configurado no Google Cloud | Valor Correto |
+|----------------------------|---------------|
+| `https://uwwanpztskkhzdqifbai.supabase.co/...` | `https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback` |
+
+## Passos para Corrigir
+
+### 1. Atualizar URI de Redirecionamento no Google Cloud
+
+1. Acesse [Google Cloud Console - Credenciais](https://console.cloud.google.com/apis/credentials)
+2. Clique no OAuth Client "Kairoz CRM"
+3. Em **URIs de redirecionamento autorizados**:
+   - **Remova** a URI antiga (`...uwwanpztskkhzdqifbai...`)
+   - **Adicione** a URI correta:
+   ```
+   https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback
+   ```
+4. Clique em **Salvar**
+
+### 2. Adicionar Origem JavaScript Autorizada
+
+Para seu dominio proprio funcionar, adicione em **Origens JavaScript autorizadas**:
+
 ```
-543944011390-32bc853m6jc08jjn25jmf9c98b0qbh2r.apps.googleusercontent.com
+https://www.kairozcrm.com.br
 ```
 
-### Checklist de configuração:
+### 3. Testar Novamente
 
-| Item | Status |
-|------|--------|
-| GOOGLE_CLIENT_ID | Atualizar agora |
-| GOOGLE_CLIENT_SECRET | Ja configurado |
-| GOOGLE_CALENDAR_ENCRYPTION_KEY | Ja configurado |
-| Redirect URI no Google Cloud | Verificar depois |
+Apos salvar (pode levar ate 5 minutos para propagar):
+1. Va em **Configuracoes → Integracoes**
+2. Clique em **Mais Integracoes → Google Calendar**
+3. Clique em **Conectar Google Calendar**
 
-### Proximo passo apos aprovar:
+## Resumo das Configuracoes Necessarias
 
-1. Atualizo a secret no backend
-2. Voce testa a conexao em **Configuracoes → Integracoes → Google Calendar**
-3. Se der erro de "redirect_uri_mismatch", precisaremos verificar se a URI de callback esta configurada corretamente no Google Cloud Console
+| Campo | Valor |
+|-------|-------|
+| **URIs de redirecionamento autorizados** | `https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback` |
+| **Origens JavaScript autorizadas** | `https://www.kairozcrm.com.br` |
+
+## Secao Tecnica
+
+O fluxo OAuth funciona assim:
+
+1. Usuario clica em "Conectar Google Calendar"
+2. Frontend chama edge function `google-calendar-oauth-initiate`
+3. Edge function gera URL do Google com `redirect_uri=https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback`
+4. Usuario autoriza no Google
+5. Google redireciona para a URI de callback com o codigo de autorizacao
+6. Edge function `google-calendar-oauth-callback` troca o codigo por tokens
+7. Usuario e redirecionado de volta ao app com sucesso
+
+O erro acontece no passo 5: o Google verifica se a `redirect_uri` enviada corresponde a uma das URIs autorizadas. Como voce tinha a URI de outro projeto, o Google bloqueou.
+
