@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle } from "lucide-react";
+import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle, ExternalLink, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
@@ -35,6 +35,7 @@ interface LeadDetails {
   email: string | null;
   duplicate_attempts_count: number | null;
   duplicate_attempts_history: Json | null;
+  calendar_event_id: string | null;
 }
 
 interface Activity {
@@ -51,17 +52,70 @@ interface ActivityWithUser extends Activity {
   user_name: string | null;
 }
 
+interface CalendarEventDetails {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  htmlLink: string;
+  description?: string;
+}
+
 export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: LeadDetailsDialogProps) => {
   const [details, setDetails] = useState<LeadDetails | null>(null);
   const [activities, setActivities] = useState<ActivityWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [calendarEvent, setCalendarEvent] = useState<CalendarEventDetails | null>(null);
+  const [loadingCalendarEvent, setLoadingCalendarEvent] = useState(false);
 
   useEffect(() => {
     if (open && leadId) {
       loadLeadDetails();
     }
   }, [open, leadId]);
+
+  // Buscar evento do Google Calendar quando tiver calendar_event_id
+  useEffect(() => {
+    if (details?.calendar_event_id && open) {
+      loadCalendarEvent(details.calendar_event_id);
+    } else {
+      setCalendarEvent(null);
+    }
+  }, [details?.calendar_event_id, open]);
+
+  const loadCalendarEvent = async (eventId: string) => {
+    setLoadingCalendarEvent(true);
+    try {
+      // Buscar evento usando a edge function list-calendar-events com filtro
+      const { data, error } = await supabase.functions.invoke('list-calendar-events', {
+        body: {
+          eventId,
+          // Buscar eventos de 1 ano atrás até 1 ano no futuro para garantir que encontramos
+          timeMin: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+          timeMax: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        }
+      });
+
+      if (!error && data?.events) {
+        const event = data.events.find((e: any) => e.id === eventId);
+        if (event) {
+          setCalendarEvent({
+            id: event.id,
+            title: event.title || event.summary || 'Evento',
+            start: event.start,
+            end: event.end,
+            htmlLink: event.htmlLink,
+            description: event.description,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar evento do calendário:', err);
+    } finally {
+      setLoadingCalendarEvent(false);
+    }
+  };
 
   const loadLeadDetails = async () => {
     try {
@@ -70,7 +124,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history")
+        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id")
         .eq("id", leadId)
         .single();
 
@@ -290,11 +344,46 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                 <h3 className="font-semibold text-sm">Histórico de Atividades</h3>
               </div>
 
-              {activities.length === 0 ? (
+              {/* Evento do Google Calendar */}
+              {loadingCalendarEvent ? (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">Carregando evento do calendário...</span>
+                </div>
+              ) : calendarEvent && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-medium text-primary">Agendamento</span>
+                    </div>
+                    <a
+                      href={calendarEvent.htmlLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Abrir no Calendar
+                    </a>
+                  </div>
+                  <p className="text-sm font-medium">{calendarEvent.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(calendarEvent.start), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    {' - '}
+                    {format(new Date(calendarEvent.end), "HH:mm", { locale: ptBR })}
+                  </p>
+                  {calendarEvent.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{calendarEvent.description}</p>
+                  )}
+                </div>
+              )}
+
+              {activities.length === 0 && !calendarEvent && !loadingCalendarEvent ? (
                 <p className="text-sm text-muted-foreground italic">
                   Nenhuma atividade registrada
                 </p>
-              ) : (
+              ) : activities.length > 0 && (
                 <div className="space-y-3">
                   {activities.map((activity) => (
                     <div

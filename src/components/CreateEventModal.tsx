@@ -38,6 +38,16 @@ export const CreateEventModal = ({ open, onOpenChange, leadId, leadName, leadEma
     }
 
     setCreating(true);
+    
+    // Fechar modal imediatamente para melhor UX
+    onOpenChange(false);
+    
+    // Toast de feedback imediato
+    toast({
+      title: "Criando evento...",
+      description: "Aguarde enquanto o evento é criado no Google Calendar",
+    });
+
     try {
       // Construir data/hora de início
       const startDateTime = new Date(`${formData.date}T${formData.time}:00`);
@@ -88,12 +98,10 @@ export const CreateEventModal = ({ open, onOpenChange, leadId, leadName, leadEma
           description: "O evento foi adicionado ao seu Google Calendar",
         });
 
-        // Abrir link do evento (opcional)
+        // Abrir link do evento imediatamente
         if (data.eventLink) {
           window.open(data.eventLink, '_blank');
         }
-
-        onOpenChange(false);
       }
     } catch (error: any) {
       console.error("Erro ao criar evento:", error);
