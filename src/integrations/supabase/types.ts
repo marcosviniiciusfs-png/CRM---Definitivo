@@ -2675,6 +2675,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_integration_logs: { Args: never; Returns: undefined }
       count_main_users: { Args: never; Returns: number }
       decrypt_oauth_token: {
         Args: { encrypted_token: string; encryption_key: string }

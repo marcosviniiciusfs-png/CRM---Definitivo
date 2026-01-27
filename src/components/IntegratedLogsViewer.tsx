@@ -8,8 +8,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Trash2, RefreshCw, AlertCircle, CheckCircle2, Clock, 
-  FileText, MessageSquare, Link2, BarChart3, ChevronDown, ChevronUp 
+  FileText, Link2, ChevronDown, ChevronUp 
 } from "lucide-react";
+import { FaWhatsapp, FaFacebook } from "react-icons/fa";
+import { SiMeta } from "react-icons/si";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -25,6 +27,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Json } from "@/integrations/supabase/types";
+
+// Componentes de ícone para cada fonte
+const FacebookIcon = () => <FaFacebook className="h-4 w-4 text-[#1877F2]" />;
+const WhatsAppIcon = () => <FaWhatsapp className="h-4 w-4 text-[#25D366]" />;
+const MetaPixelIcon = () => <SiMeta className="h-4 w-4 text-[#0081FB]" />;
+const WebhookIcon = () => <Link2 className="h-4 w-4 text-orange-600" />;
 
 type LogSource = "facebook" | "whatsapp" | "webhook" | "meta_pixel";
 
@@ -86,26 +94,26 @@ interface MetaPixelLog {
 const sourceConfig = {
   facebook: {
     label: "Facebook Leads",
-    icon: MessageSquare,
-    color: "text-blue-600",
+    IconComponent: FacebookIcon,
+    color: "text-[#1877F2]",
     bgColor: "bg-blue-50 dark:bg-blue-950/30",
   },
   whatsapp: {
     label: "WhatsApp",
-    icon: MessageSquare,
-    color: "text-green-600",
+    IconComponent: WhatsAppIcon,
+    color: "text-[#25D366]",
     bgColor: "bg-green-50 dark:bg-green-950/30",
   },
   webhook: {
     label: "Webhook",
-    icon: Link2,
+    IconComponent: WebhookIcon,
     color: "text-orange-600",
     bgColor: "bg-orange-50 dark:bg-orange-950/30",
   },
   meta_pixel: {
     label: "Meta Pixel",
-    icon: BarChart3,
-    color: "text-purple-600",
+    IconComponent: MetaPixelIcon,
+    color: "text-[#0081FB]",
     bgColor: "bg-purple-50 dark:bg-purple-950/30",
   },
 };
@@ -431,7 +439,7 @@ export function IntegratedLogsViewer() {
   };
 
   const config = sourceConfig[selectedSource];
-  const Icon = config.icon;
+  const IconComponent = config.IconComponent;
 
   return (
     <Card>
@@ -455,13 +463,13 @@ export function IntegratedLogsViewer() {
             <SelectContent>
               <SelectItem value="facebook">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-blue-600" />
+                  <FaFacebook className="h-4 w-4 text-[#1877F2]" />
                   Facebook Leads
                 </div>
               </SelectItem>
               <SelectItem value="whatsapp">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-green-600" />
+                  <FaWhatsapp className="h-4 w-4 text-[#25D366]" />
                   WhatsApp
                 </div>
               </SelectItem>
@@ -473,13 +481,18 @@ export function IntegratedLogsViewer() {
               </SelectItem>
               <SelectItem value="meta_pixel">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-purple-600" />
+                  <SiMeta className="h-4 w-4 text-[#0081FB]" />
                   Meta Pixel
                 </div>
               </SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={loadLogs} disabled={loading}>
+          <Button 
+            size="sm" 
+            onClick={loadLogs} 
+            disabled={loading}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white border-0"
+          >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
@@ -503,7 +516,9 @@ export function IntegratedLogsViewer() {
           </div>
         ) : logs.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <Icon className={`h-12 w-12 mx-auto mb-4 ${config.color} opacity-50`} />
+            <div className={`mx-auto mb-4 ${config.color} opacity-50 flex justify-center`}>
+              <IconComponent />
+            </div>
             <p>Nenhum log de {config.label} encontrado</p>
           </div>
         ) : (
