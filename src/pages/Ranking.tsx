@@ -2,16 +2,17 @@ import { useState, useEffect } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { supabase } from "@/integrations/supabase/client";
 import { TaskLeaderboard, LeaderboardData } from "@/components/dashboard/TaskLeaderboard";
+import { AppointmentRaceTab } from "@/components/dashboard/AppointmentRaceTab";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Trophy, Settings2, TrendingUp, CheckSquare } from "lucide-react";
+import { Trophy, Settings2, TrendingUp, CheckSquare, Calendar } from "lucide-react";
 import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear, startOfWeek, endOfWeek } from "date-fns";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type PeriodType = "week" | "month" | "quarter" | "year";
-type RankingType = "sales" | "tasks";
+type RankingType = "sales" | "tasks" | "appointments";
 type SortType = "revenue" | "won_leads" | "percentage" | "task_points";
 
 export default function Ranking() {
@@ -287,8 +288,8 @@ export default function Ranking() {
 
       <div className="p-4 md:p-6">
         {/* Ranking Type Tabs */}
-        <Tabs value={rankingType} onValueChange={(v) => setRankingType(v as RankingType)} className="mb-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+        <Tabs value={rankingType} onValueChange={(v) => setRankingType(v as RankingType)} className="space-y-6">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="tasks" className="flex items-center gap-2">
               <CheckSquare className="h-4 w-4" />
               Tarefas
@@ -297,73 +298,142 @@ export default function Ranking() {
               <TrendingUp className="h-4 w-4" />
               Vendas
             </TabsTrigger>
+            <TabsTrigger value="appointments" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Agendamentos
+            </TabsTrigger>
           </TabsList>
-        </Tabs>
 
-        {/* Filters Row */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          {/* Left Filters */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>📊</span>
-              <span>{rankingType === "tasks" ? "Ranking de Tarefas" : "Ranking de Vendas"}</span>
-            </div>
-            
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Ordenar por" />
-              </SelectTrigger>
-              <SelectContent>
-                {rankingType === "tasks" && (
-                  <SelectItem value="task_points">Ord. Pontos</SelectItem>
-                )}
-                <SelectItem value="revenue">Ord. Faturamento</SelectItem>
-                <SelectItem value="won_leads">Ord. Vendas</SelectItem>
-                <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="week">Esta Semana</SelectItem>
-                <SelectItem value="month">Este Mês</SelectItem>
-                <SelectItem value="quarter">Este Trimestre</SelectItem>
-                <SelectItem value="year">Este Ano</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Leaderboard */}
-        <TaskLeaderboard 
-          data={data} 
-          isLoading={isLoading} 
-          sortBy={sortBy}
-          type={rankingType}
-          period={period}
-        />
-
-        {/* Teams Footer */}
-        {teams.length > 0 && (
-          <div className="mt-6 flex items-center gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border">
-            <span className="text-sm text-muted-foreground">Times Ativos:</span>
-            <div className="flex items-center gap-2">
-              {teams.map(team => (
-                <div key={team.id} className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8 border-2" style={{ borderColor: team.color || 'hsl(var(--primary))' }}>
-                    <AvatarImage src={team.avatar_url} />
-                    <AvatarFallback className="bg-muted text-foreground text-xs">
-                      {team.name?.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+          {/* Tasks & Sales Content */}
+          <TabsContent value="tasks" className="mt-0">
+            {/* Filters Row */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>📊</span>
+                  <span>Ranking de Tarefas</span>
                 </div>
-              ))}
+                
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Ordenar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="task_points">Ord. Pontos</SelectItem>
+                    <SelectItem value="revenue">Ord. Faturamento</SelectItem>
+                    <SelectItem value="won_leads">Ord. Vendas</SelectItem>
+                    <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="week">Esta Semana</SelectItem>
+                    <SelectItem value="month">Este Mês</SelectItem>
+                    <SelectItem value="quarter">Este Trimestre</SelectItem>
+                    <SelectItem value="year">Este Ano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-        )}
+
+            <TaskLeaderboard 
+              data={data} 
+              isLoading={isLoading} 
+              sortBy={sortBy}
+              type="tasks"
+              period={period}
+            />
+
+            {/* Teams Footer */}
+            {teams.length > 0 && (
+              <div className="mt-6 flex items-center gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border">
+                <span className="text-sm text-muted-foreground">Times Ativos:</span>
+                <div className="flex items-center gap-2">
+                  {teams.map(team => (
+                    <div key={team.id} className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8 border-2" style={{ borderColor: team.color || 'hsl(var(--primary))' }}>
+                        <AvatarImage src={team.avatar_url} />
+                        <AvatarFallback className="bg-muted text-foreground text-xs">
+                          {team.name?.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sales" className="mt-0">
+            {/* Filters Row */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>📊</span>
+                  <span>Ranking de Vendas</span>
+                </div>
+                
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Ordenar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="revenue">Ord. Faturamento</SelectItem>
+                    <SelectItem value="won_leads">Ord. Vendas</SelectItem>
+                    <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="week">Esta Semana</SelectItem>
+                    <SelectItem value="month">Este Mês</SelectItem>
+                    <SelectItem value="quarter">Este Trimestre</SelectItem>
+                    <SelectItem value="year">Este Ano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <TaskLeaderboard 
+              data={data} 
+              isLoading={isLoading} 
+              sortBy={sortBy}
+              type="sales"
+              period={period}
+            />
+
+            {/* Teams Footer */}
+            {teams.length > 0 && (
+              <div className="mt-6 flex items-center gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border">
+                <span className="text-sm text-muted-foreground">Times Ativos:</span>
+                <div className="flex items-center gap-2">
+                  {teams.map(team => (
+                    <div key={team.id} className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8 border-2" style={{ borderColor: team.color || 'hsl(var(--primary))' }}>
+                        <AvatarImage src={team.avatar_url} />
+                        <AvatarFallback className="bg-muted text-foreground text-xs">
+                          {team.name?.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="appointments" className="mt-0">
+            <AppointmentRaceTab organizationId={organizationId} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
