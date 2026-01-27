@@ -59,27 +59,43 @@ const Integrations = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" asChild className="justify-start">
+                  <Button 
+                    variant="outline" 
+                    asChild 
+                    className="justify-start border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-400"
+                  >
                     <Link to="/facebook-webhook-logs">
-                      <MessageSquare className="h-4 w-4 mr-2 text-blue-600" />
+                      <MessageSquare className="h-4 w-4 mr-2" />
                       Logs Facebook Leads
                     </Link>
                   </Button>
-                  <Button variant="outline" asChild className="justify-start">
+                  <Button 
+                    variant="outline" 
+                    asChild 
+                    className="justify-start border-green-200 bg-green-50/50 hover:bg-green-100/50 text-green-600 dark:border-green-800 dark:bg-green-950/30 dark:hover:bg-green-950/50 dark:text-green-400"
+                  >
                     <Link to="/whatsapp-webhook-logs">
-                      <MessageSquare className="h-4 w-4 mr-2 text-green-600" />
+                      <MessageSquare className="h-4 w-4 mr-2" />
                       Logs WhatsApp
                     </Link>
                   </Button>
-                  <Button variant="outline" asChild className="justify-start">
+                  <Button 
+                    variant="outline" 
+                    asChild 
+                    className="justify-start border-orange-200 bg-orange-50/50 hover:bg-orange-100/50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/30 dark:hover:bg-orange-950/50 dark:text-orange-400"
+                  >
                     <Link to="/form-webhook-logs">
-                      <Link2 className="h-4 w-4 mr-2 text-orange-600" />
+                      <Link2 className="h-4 w-4 mr-2" />
                       Logs Webhook
                     </Link>
                   </Button>
-                  <Button variant="outline" asChild className="justify-start">
+                  <Button 
+                    variant="outline" 
+                    asChild 
+                    className="justify-start border-purple-200 bg-purple-50/50 hover:bg-purple-100/50 text-purple-600 dark:border-purple-800 dark:bg-purple-950/30 dark:hover:bg-purple-950/50 dark:text-purple-400"
+                  >
                     <Link to="/meta-pixel-logs">
-                      <BarChart3 className="h-4 w-4 mr-2 text-purple-600" />
+                      <BarChart3 className="h-4 w-4 mr-2" />
                       Logs Meta Pixel
                     </Link>
                   </Button>
