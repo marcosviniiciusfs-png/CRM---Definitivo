@@ -1,342 +1,161 @@
 
-# Plano: Separar Webhook de Formulários em Nova Aba com Cards Estilo CRM
+## Diagnóstico (o que está acontecendo e por quê)
 
-## Visão Geral
+### Sintoma
+Ao clicar em **Conectar Google Calendar** você vai para a tela do Google para escolher a conta e aparece erro (normalmente “invalid_client”).
 
-Refatorar a seção de Integrações para:
-1. Criar uma estrutura com **Tabs** separando as integrações atuais dos "Webhooks de Formulários"
-2. Permitir **múltiplos webhooks** por organização (atualmente limitado a 1)
-3. Exibir cada webhook como um **card no estilo da imagem de referência** com:
-   - Nome/Tag do webhook
-   - Badge de status (Ativa/Inativa)
-   - Badge "Receber Webhook"
-   - Etapa padrão configurada
-   - Responsável pela distribuição
-   - Tags associadas
-   - Estatísticas (Total, Convertidos, Perdidos)
-   - Ações (visualizar, configurar, deletar)
+### Causa real (confirmada)
+O CRM não está usando o **Client ID real** do Google. A função do backend que monta o link de login do Google está enviando:
 
----
+- `client_id=PLACEHOLDER_VALUE_TO_BE_REPLACED`
 
-## Layout Proposto
+Isso faz o Google rejeitar imediatamente com **invalid_client**.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│  Integrações                                                                    │
-│  Conecte e gerencie suas integrações com serviços externos                      │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│  [ Conexões ]     [ Webhooks ]                                                  │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ABA "Conexões" (atual):                                                        │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐│
-│  │ WhatsApp Connection                                                         ││
-│  │ Mais Integrações (Hub)                                                      ││
-│  │ Facebook Leads Connection                                                   ││
-│  │ Logs de Acompanhamento                                                      ││
-│  └─────────────────────────────────────────────────────────────────────────────┘│
-│                                                                                 │
-│  ABA "Webhooks" (nova):                                                         │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐│
-│  │  🔗 Integrações   2                                          🔌 Ativas (1)  ││
-│  │ ─────────────────────────────────────────────────────────────────────────── ││
-│  │                                                                             ││
-│  │  ┌─────────────────────────────────────────────────────────────────────────┐││
-│  │  │ 🔗 SIMULADOR                                                 [ Ativa ] │││
-│  │  │     [ 🔗 Receber Webhook ]                                              │││
-│  │  │                                                                         │││
-│  │  │  Etapa Padrão: NOVO LEAD                                                │││
-│  │  │  Responsável: Distribuição Automática                                   │││
-│  │  │  Tags: (SIMULADOR)                                                      │││
-│  │  │  📊 Total: 75   ✓ 57   ✕ 18                                             │││
-│  │  │                                                                         │││
-│  │  │  [ 👁 ]  [ ⚙ ]                                                  [ 🗑 ]  │││
-│  │  └─────────────────────────────────────────────────────────────────────────┘││
-│  │                                                                             ││
-│  │  ┌─────────────────────────────────────────────────────────────────────────┐││
-│  │  │ 🔗 LANDING PAGE                                             [ Inativa ] │││
-│  │  │     [ 🔗 Receber Webhook ]                                              │││
-│  │  │  ...                                                                    │││
-│  │  └─────────────────────────────────────────────────────────────────────────┘││
-│  │                                                                             ││
-│  │            [ + Criar Novo Webhook ]                                         ││
-│  └─────────────────────────────────────────────────────────────────────────────┘│
-│                                                                                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+### Por que isso acontece mesmo você “colocando no SQL”
+Porque **essas credenciais não podem ficar no banco (SQL)** e **o CRM não lê do banco** para isso.
+
+O fluxo é assim:
+
+1) Frontend (CRM) chama uma função do backend: `google-calendar-oauth-initiate`  
+2) Essa função precisa ler as credenciais **de variáveis secretas do backend** (secrets):
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+3) Como hoje essas secrets estão com valor “PLACEHOLDER…”, a URL do Google sai inválida.
+
+Ou seja: **colocar ID/secret no banco não muda nada** para essa integração, e ainda é inseguro.
 
 ---
 
-## Mudanças no Banco de Dados
-
-### 1. Alterar tabela `webhook_configs` para suportar múltiplos webhooks
-
-**Migration SQL:**
-```sql
--- Remover constraint unique para permitir múltiplos webhooks por organização
-ALTER TABLE webhook_configs 
-DROP CONSTRAINT IF EXISTS webhook_configs_organization_id_key;
-
--- Adicionar nome/título para identificação do webhook
-ALTER TABLE webhook_configs 
-ADD COLUMN IF NOT EXISTS name TEXT DEFAULT 'Webhook';
-
--- Adicionar campo para responsável padrão
-ALTER TABLE webhook_configs 
-ADD COLUMN IF NOT EXISTS default_responsible_user_id UUID REFERENCES auth.users(id);
-
--- Criar índice para performance
-CREATE INDEX IF NOT EXISTS idx_webhook_configs_organization 
-ON webhook_configs(organization_id);
-```
+## Objetivo da correção
+Trocar os valores “PLACEHOLDER” pelos valores reais do (a) **Client ID OAuth 2.0** e (b) **Client Secret OAuth 2.0** no local correto: **Secrets do Backend (Lovable Cloud)**.
 
 ---
 
-## Novos Componentes
+## Passo a passo (bem preciso)
 
-### 1. `WebhookIntegrationsTab.tsx` (Nova aba)
+### Parte 1 — Pegar os valores corretos no Google Cloud
+Você precisa ter um **OAuth Client ID (Aplicativo Web)**. Não é “API Key” e não é “Calendar ID”.
 
-Componente que gerencia a lista de webhooks com:
-- Contador de integrações ativas
-- Lista de cards de webhook
-- Botão para criar novo webhook
+No Google Cloud Console:
+1. Vá em **APIs e serviços → Biblioteca**
+2. Ative **Google Calendar API**
+3. Vá em **APIs e serviços → Tela de consentimento OAuth**
+   - Tipo: **Externo** (ou Interno, se for Workspace)
+   - Adicione os escopos (pelo menos):
+     - `.../auth/userinfo.email`
+     - `.../auth/userinfo.profile`
+     - `openid`
+     - `https://www.googleapis.com/auth/calendar`
+   - Se estiver em “Teste”, adicione seu e-mail em **Usuários de teste**
+4. Vá em **APIs e serviços → Credenciais → Criar credenciais → ID do cliente OAuth**
+   - Tipo: **Aplicativo da Web**
+   - Você vai obter:
+     - **ID do cliente** (termina com `apps.googleusercontent.com`)
+     - **Segredo do cliente**
 
-```typescript
-interface WebhookIntegrationsTabProps {
-  organizationId: string;
-}
-
-export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTabProps) => {
-  const [webhooks, setWebhooks] = useState<WebhookConfig[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Carregar webhooks da organização
-  // Abrir modal de criação
-  // Listar WebhookCard para cada webhook
-};
-```
-
-### 2. `WebhookCard.tsx` (Card individual)
-
-Card estilizado conforme a imagem de referência:
-
-```typescript
-interface WebhookCardProps {
-  webhook: WebhookConfig;
-  onEdit: () => void;
-  onDelete: () => void;
-  onToggleStatus: () => void;
-}
-
-export const WebhookCard = ({ webhook, onEdit, onDelete, onToggleStatus }: WebhookCardProps) => {
-  // Exibir:
-  // - Nome do webhook (da tag ou name)
-  // - Badge de status (Ativa/Inativa)
-  // - Badge "Receber Webhook"
-  // - Etapa padrão (buscar do mapeamento de funil)
-  // - Responsável (se configurado)
-  // - Tag associada
-  // - Estatísticas (total, won, lost)
-  // - Ícones de ação (visualizar URL, configurar, deletar)
-};
-```
-
-### 3. `CreateWebhookModal.tsx` (Modal de criação)
-
-Modal para criar novo webhook com campos:
-- Nome do webhook
-- Nome da tag a ser criada
-- Seletor de funil de destino
-- Responsável padrão (opcional)
-
-### 4. `WebhookConfigModal.tsx` (Modal de configuração)
-
-Modal para editar webhook existente:
-- Editar nome/tag
-- Alterar funil de destino
-- Regenerar token
-- Copiar URL
-- Ativar/desativar
+Guarde exatamente esses 2 valores.
 
 ---
 
-## Arquivo Principal: `src/pages/Integrations.tsx`
+### Parte 2 — Colocar os valores no lugar certo (Secrets do Backend)
+Você deve atualizar as secrets do backend, NÃO o banco SQL.
 
-### Mudanças:
+#### Desktop (computador)
+1. No editor do seu projeto, clique em **View Backend / Backend**
+   - Normalmente fica na barra superior (ícones de “Cloud/Backend”)
+2. Procure uma seção chamada **Secrets** ou **Environment Variables**
+3. Encontre estas chaves (já existem no seu projeto):
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+4. Clique para **editar** cada uma e cole os valores corretos do Google Cloud:
+   - `GOOGLE_CLIENT_ID` = o “ID do cliente” (ex: `xxxxx.apps.googleusercontent.com`)
+   - `GOOGLE_CLIENT_SECRET` = o “Segredo do cliente” (string curta)
+5. Salve
 
-1. **Importar componentes de Tabs**
-2. **Criar estado para aba ativa**
-3. **Mover lógica de webhook para novo componente**
-4. **Estrutura com Tabs:**
+#### Mobile (celular)
+1. Abra o menu **…** (canto inferior direito) no modo Chat
+2. Entre em **Backend / Cloud**
+3. Procure **Secrets / Variáveis**
+4. Edite:
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+5. Salve
 
-```tsx
-<Tabs defaultValue="conexoes">
-  <TabsList>
-    <TabsTrigger value="conexoes">Conexões</TabsTrigger>
-    <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
-  </TabsList>
-  
-  <TabsContent value="conexoes">
-    <WhatsAppConnection />
-    <IntegrationsHub />
-    <FacebookLeadsConnection />
-    <LogsCard />
-  </TabsContent>
-  
-  <TabsContent value="webhooks">
-    <WebhookIntegrationsTab organizationId={organizationId} />
-  </TabsContent>
-</Tabs>
-```
-
----
-
-## Detalhes do Card de Webhook (baseado na imagem)
-
-```tsx
-<Card className="border">
-  {/* Header com nome e status */}
-  <div className="flex items-start justify-between p-4 pb-2">
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-primary/10 rounded-lg">
-        <Link2 className="h-5 w-5 text-primary" />
-      </div>
-      <div>
-        <h3 className="font-semibold text-lg uppercase">{webhook.name || tagName}</h3>
-        <Badge variant="outline" className="text-xs mt-1">
-          <Link2 className="h-3 w-3 mr-1" />
-          Receber Webhook
-        </Badge>
-      </div>
-    </div>
-    <Badge variant={webhook.is_active ? "success" : "secondary"}>
-      {webhook.is_active ? "Ativa" : "Inativa"}
-    </Badge>
-  </div>
-  
-  {/* Informações */}
-  <CardContent className="pt-3 space-y-2 text-sm">
-    <div>
-      <span className="text-muted-foreground">Etapa Padrão:</span>{" "}
-      <span className="font-medium">{stageName || "NOVO LEAD"}</span>
-    </div>
-    <div>
-      <span className="text-muted-foreground">Responsável:</span>{" "}
-      <span className="font-medium">{responsibleName || "Distribuição Automática"}</span>
-    </div>
-    <div className="flex items-center gap-1">
-      <span className="text-muted-foreground">Tags:</span>
-      <Badge variant="secondary" className="text-xs">
-        {tagName}
-      </Badge>
-    </div>
-    
-    {/* Estatísticas */}
-    <div className="flex items-center gap-3 pt-2">
-      <span className="text-muted-foreground text-xs flex items-center gap-1">
-        <Activity className="h-3 w-3" />
-        Total: {stats.total}
-      </span>
-      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-        ✓ {stats.won}
-      </Badge>
-      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-        ✕ {stats.lost}
-      </Badge>
-    </div>
-  </CardContent>
-  
-  {/* Footer com ações */}
-  <div className="flex items-center justify-between px-4 py-3 border-t">
-    <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon" onClick={handleViewUrl}>
-        <Eye className="h-4 w-4" />
-      </Button>
-      <Button variant="ghost" size="icon" onClick={onEdit}>
-        <Settings className="h-4 w-4" />
-      </Button>
-    </div>
-    <Button variant="ghost" size="icon" className="text-destructive" onClick={onDelete}>
-      <Trash2 className="h-4 w-4" />
-    </Button>
-  </div>
-</Card>
-```
+#### Atenções importantíssimas ao colar
+- Não coloque aspas (`" "`).
+- Não coloque espaço antes/depois.
+- `GOOGLE_CLIENT_ID` precisa terminar com **`.apps.googleusercontent.com`**.
 
 ---
 
-## Consulta para Estatísticas do Webhook
+### Parte 3 — Conferir a chave de criptografia (necessária para finalizar a conexão)
+Existe mais uma secret envolvida depois que você escolhe a conta Google:
 
-```typescript
-const loadWebhookStats = async (webhookId: string, tagId: string) => {
-  // Total de leads com a tag do webhook
-  const { count: total } = await supabase
-    .from('lead_tag_assignments')
-    .select('*, leads!inner(*)', { count: 'exact', head: true })
-    .eq('tag_id', tagId);
+- `GOOGLE_CALENDAR_ENCRYPTION_KEY`
 
-  // Leads convertidos (stage_type = 'won')
-  const { count: won } = await supabase
-    .from('lead_tag_assignments')
-    .select('*, leads!inner(funnel_stage_id, funnel_stages!inner(stage_type))', { count: 'exact', head: true })
-    .eq('tag_id', tagId)
-    .eq('leads.funnel_stages.stage_type', 'won');
+Garanta que:
+- Ela existe (no seu projeto já existe)
+- Ela tem um valor forte (recomendado: **32+ caracteres aleatórios**)
 
-  // Leads perdidos (stage_type = 'lost')
-  const { count: lost } = await supabase
-    .from('lead_tag_assignments')
-    .select('*, leads!inner(funnel_stage_id, funnel_stages!inner(stage_type))', { count: 'exact', head: true })
-    .eq('tag_id', tagId)
-    .eq('leads.funnel_stages.stage_type', 'lost');
-
-  return { total, won, lost };
-};
-```
+Se ela estiver fraca/placeholder, a conexão pode falhar no final (depois do Google), com erro de “callback”.
 
 ---
 
-## Arquivos a Criar/Modificar
+### Parte 4 — Configurar o “Redirect URI” correto no Google Cloud (muito comum errar)
+No mesmo OAuth Client (Aplicativo Web), você precisa configurar o **URI de redirecionamento autorizado** apontando para o callback do seu backend.
 
-| Arquivo | Ação | Descrição |
-|---------|------|-----------|
-| **Migration SQL** | CRIAR | Alterar `webhook_configs` para suportar múltiplos |
-| `src/components/WebhookIntegrationsTab.tsx` | CRIAR | Nova aba com lista de webhooks |
-| `src/components/WebhookCard.tsx` | CRIAR | Card individual estilo CRM |
-| `src/components/CreateWebhookModal.tsx` | CRIAR | Modal para criar webhook |
-| `src/components/WebhookConfigModal.tsx` | CRIAR | Modal para configurar webhook |
-| `src/pages/Integrations.tsx` | MODIFICAR | Adicionar Tabs e reorganizar |
+1. No Google Cloud: **Credenciais → Seu OAuth Client**
+2. Em **URIs de redirecionamento autorizados**, adicione o callback do seu backend que termina exatamente com:
+   - `/functions/v1/google-calendar-oauth-callback`
 
----
+Como você pega a URL completa correta sem eu te passar link técnico:
+- Abra **View Backend**
+- Vá em **Backend Functions / Edge Functions**
+- Abra a função **google-calendar-oauth-callback**
+- Copie a **URL pública** que o painel mostra
+- Cole essa URL no Google Cloud em “URIs de redirecionamento autorizados”
 
-## Checklist de Validação
-
-1. **Banco de Dados:**
-   - [ ] Migration aplica sem erros
-   - [ ] Múltiplos webhooks podem ser criados por org
-   - [ ] Campo `name` adicionado com default
-
-2. **Interface:**
-   - [ ] Tabs funcionam corretamente
-   - [ ] Cards exibem todas as informações
-   - [ ] Estatísticas calculadas corretamente
-   - [ ] Ações (criar, editar, deletar) funcionam
-
-3. **Funcionalidade:**
-   - [ ] Webhooks novos recebem leads corretamente
-   - [ ] Tags são atribuídas aos leads
-   - [ ] Mapeamento de funil funciona por webhook
-   - [ ] URL copiável para cada webhook
-
-4. **Estilo:**
-   - [ ] Cards seguem o design da imagem de referência
-   - [ ] Badges de status com cores corretas
-   - [ ] Responsivo em mobile
+Também ajuste **Origens JavaScript autorizadas** com:
+- O endereço do site onde você abre o CRM (copie da barra do navegador)
+- Se você testa no Preview, adicione também a origem do Preview
 
 ---
 
-## Considerações de Performance
+### Parte 5 — Testar novamente
+1. Volte no CRM
+2. Vá em **Configurações → Integrações → Google Calendar → Conectar**
+3. Escolha a conta Google
+4. Se concluir, o CRM vai marcar como **Conectado**
+5. Teste criar um evento
 
-- Usar `useMemo` para cálculos de estatísticas
-- Carregar estatísticas de forma lazy (não bloquear lista)
-- Implementar skeleton loading para os cards
-- Cache das consultas de funnel/stages
+---
+
+## Como vamos garantir que resolveu (validação técnica)
+Depois de você atualizar as secrets, eu vou:
+1. Re-testar a função `google-calendar-oauth-initiate` (por trás) e confirmar que:
+   - o `client_id` na URL não é mais `PLACEHOLDER...`
+2. Se ainda falhar, o próximo ponto a checar será:
+   - Redirect URI errado no Google Cloud
+   - App em modo “Teste” sem você estar em “Usuários de teste”
+   - OAuth Client criado como tipo errado (tem que ser **Web**)
+
+---
+
+## Melhorias de produto (para você nunca travar nisso de novo)
+Além de te guiar para corrigir agora, eu vou implementar no código:
+1. **Validação anti-placeholder** na função `google-calendar-oauth-initiate`:
+   - Se `GOOGLE_CLIENT_ID` estiver como placeholder, retornar erro claro:
+     - “Credenciais do Google não configuradas no Backend Secrets…”
+2. **Mensagem amigável no UI** (tela de Integrações):
+   - Mostrar “Credenciais pendentes” e abrir instruções em 1 clique (sem “invalid_client” do Google)
+3. (Opcional) Botão “Diagnosticar integração” que testa:
+   - se existe integração ativa para o usuário
+   - se secrets estão configuradas (sem expor valores)
+
+---
+
+## O que eu preciso de você (para não errar o ambiente)
+1) Você está tentando conectar pelo **Preview** (ambiente de teste) ou pelo **site publicado/domínio final**?  
+2) Você consegue abrir o **View Backend** aí? (sim/não)
+
+Com essas 2 respostas, eu ajusto as instruções exatamente para o seu caso (principalmente as “Origens JavaScript autorizadas” e qual URL copiar no Redirect URI).
