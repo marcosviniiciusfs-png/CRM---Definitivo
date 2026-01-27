@@ -49,8 +49,41 @@ serve(async (req) => {
     const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
     const redirectUri = `${supabaseUrl}/functions/v1/google-calendar-oauth-callback`;
 
+    // Validação anti-placeholder: detectar se as secrets ainda estão com valores de exemplo
+    const isPlaceholder = (value: string | undefined): boolean => {
+      if (!value) return true;
+      const placeholderPatterns = [
+        'PLACEHOLDER',
+        'YOUR_',
+        'CHANGE_ME',
+        'TODO',
+        'xxx',
+        'example',
+      ];
+      return placeholderPatterns.some(pattern => 
+        value.toUpperCase().includes(pattern.toUpperCase())
+      );
+    };
+
     if (!googleClientId || !googleClientSecret) {
-      throw new Error('Credenciais do Google não configuradas');
+      console.error('❌ Credenciais do Google não configuradas');
+      throw new Error('SETUP_REQUIRED: Credenciais do Google Calendar não configuradas. Acesse View Backend → Secrets e configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET com os valores do Google Cloud Console.');
+    }
+
+    if (isPlaceholder(googleClientId)) {
+      console.error('❌ GOOGLE_CLIENT_ID contém valor placeholder:', googleClientId?.substring(0, 20) + '...');
+      throw new Error('SETUP_REQUIRED: O GOOGLE_CLIENT_ID está com valor de exemplo. Substitua pelo ID real do OAuth Client (termina com .apps.googleusercontent.com) em View Backend → Secrets.');
+    }
+
+    if (isPlaceholder(googleClientSecret)) {
+      console.error('❌ GOOGLE_CLIENT_SECRET contém valor placeholder');
+      throw new Error('SETUP_REQUIRED: O GOOGLE_CLIENT_SECRET está com valor de exemplo. Substitua pelo segredo real do OAuth Client em View Backend → Secrets.');
+    }
+
+    // Validação de formato do Client ID
+    if (!googleClientId.endsWith('.apps.googleusercontent.com')) {
+      console.error('❌ GOOGLE_CLIENT_ID com formato inválido:', googleClientId?.substring(0, 30) + '...');
+      throw new Error('SETUP_REQUIRED: O GOOGLE_CLIENT_ID tem formato inválido. Ele deve terminar com ".apps.googleusercontent.com". Verifique se você copiou o ID correto do Google Cloud Console.');
     }
 
     // Construir URL de autorização do Google
