@@ -1,62 +1,80 @@
 
 
-# Corrigir Erro redirect_uri_mismatch no Google Calendar
+# Corrigir Erro "invalid_client: Unauthorized" no Google Calendar
 
 ## Diagnóstico
 
-O erro ocorre porque a URI de callback configurada no Google Cloud Console aponta para um projeto Supabase diferente do que esta realmente rodando o app.
+Os logs da edge function mostram claramente o problema:
 
-| Configurado no Google Cloud | Valor Correto |
-|----------------------------|---------------|
-| `https://uwwanpztskkhzdqifbai.supabase.co/...` | `https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback` |
+```
+❌ Erro ao trocar código: {
+  "error": "invalid_client",
+  "error_description": "Unauthorized"
+}
+```
 
-## Passos para Corrigir
+Este erro significa que o **GOOGLE_CLIENT_SECRET** configurado no backend **não corresponde** ao **GOOGLE_CLIENT_ID** que você forneceu.
 
-### 1. Atualizar URI de Redirecionamento no Google Cloud
+### Por que o erro acontece?
+
+O fluxo OAuth funciona assim:
+1. Usuario seleciona conta Google (funciona - CLIENT_ID correto)
+2. Google redireciona de volta com codigo de autorizacao (funciona)
+3. Edge function tenta trocar codigo por tokens usando CLIENT_ID + CLIENT_SECRET
+4. Google retorna "invalid_client" porque o SECRET nao corresponde ao ID
+
+## Causa Provavel
+
+Voce atualizou o **GOOGLE_CLIENT_ID** para o valor correto (`543944011390-...`), mas o **GOOGLE_CLIENT_SECRET** ainda e do projeto/credencial anterior.
+
+Cada Client ID tem seu proprio Client Secret. Eles sao um par e devem vir da mesma credencial OAuth no Google Cloud Console.
+
+## Solucao
+
+### Passo 1: Obter o Client Secret Correto
 
 1. Acesse [Google Cloud Console - Credenciais](https://console.cloud.google.com/apis/credentials)
-2. Clique no OAuth Client "Kairoz CRM"
-3. Em **URIs de redirecionamento autorizados**:
-   - **Remova** a URI antiga (`...uwwanpztskkhzdqifbai...`)
-   - **Adicione** a URI correta:
-   ```
-   https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback
-   ```
-4. Clique em **Salvar**
+2. Clique no OAuth Client que tem o ID `543944011390-32bc853m6jc08jjn25jmf9c98b0qbh2r.apps.googleusercontent.com`
+3. Copie o **Segredo do cliente** (Client Secret)
 
-### 2. Adicionar Origem JavaScript Autorizada
+**IMPORTANTE:** O segredo deve vir da **mesma credencial** onde voce copiou o Client ID!
 
-Para seu dominio proprio funcionar, adicione em **Origens JavaScript autorizadas**:
+### Passo 2: Atualizar o Secret no Backend
 
-```
-https://www.kairozcrm.com.br
-```
+Apos aprovar este plano, vou solicitar que voce insira o **GOOGLE_CLIENT_SECRET** correto.
 
-### 3. Testar Novamente
+### Passo 3: Testar Novamente
 
-Apos salvar (pode levar ate 5 minutos para propagar):
 1. Va em **Configuracoes → Integracoes**
-2. Clique em **Mais Integracoes → Google Calendar**
-3. Clique em **Conectar Google Calendar**
+2. Clique em **Google Calendar → Conectar**
+3. Selecione sua conta Google
+4. Deve funcionar!
 
-## Resumo das Configuracoes Necessarias
+## Checklist de Verificacao
 
-| Campo | Valor |
-|-------|-------|
-| **URIs de redirecionamento autorizados** | `https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback` |
-| **Origens JavaScript autorizadas** | `https://www.kairozcrm.com.br` |
+| Componente | Status | Acao |
+|------------|--------|------|
+| GOOGLE_CLIENT_ID | Correto | Nenhuma |
+| GOOGLE_CLIENT_SECRET | **INCORRETO** | Atualizar com o segredo correspondente ao Client ID |
+| URI de Redirect | Correto | Nenhuma |
+| Origens JavaScript | Correto | Nenhuma |
 
 ## Secao Tecnica
 
-O fluxo OAuth funciona assim:
+O codigo da edge function `google-calendar-oauth-callback` faz a troca de codigo por tokens na linha 96-108:
 
-1. Usuario clica em "Conectar Google Calendar"
-2. Frontend chama edge function `google-calendar-oauth-initiate`
-3. Edge function gera URL do Google com `redirect_uri=https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback`
-4. Usuario autoriza no Google
-5. Google redireciona para a URI de callback com o codigo de autorizacao
-6. Edge function `google-calendar-oauth-callback` troca o codigo por tokens
-7. Usuario e redirecionado de volta ao app com sucesso
+```typescript
+const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+  method: 'POST',
+  body: new URLSearchParams({
+    code,
+    client_id: googleClientId,       // GOOGLE_CLIENT_ID do backend
+    client_secret: googleClientSecret, // GOOGLE_CLIENT_SECRET do backend - ESTE ESTA ERRADO
+    redirect_uri: redirectUri,
+    grant_type: 'authorization_code',
+  }),
+});
+```
 
-O erro acontece no passo 5: o Google verifica se a `redirect_uri` enviada corresponde a uma das URIs autorizadas. Como voce tinha a URI de outro projeto, o Google bloqueou.
+O Google valida que `client_id` e `client_secret` formam um par valido. Como o secret atual nao corresponde ao ID, retorna `invalid_client`.
 
