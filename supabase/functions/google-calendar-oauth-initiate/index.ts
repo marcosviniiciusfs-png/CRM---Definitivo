@@ -44,6 +44,36 @@ serve(async (req) => {
 
     console.log('📍 Origin para redirect:', origin);
 
+    // Buscar organização ativa do usuário (multi-org aware)
+    const { data: activeOrg } = await supabase
+      .from('user_active_org')
+      .select('active_organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    let organizationId = activeOrg?.active_organization_id;
+
+    // Fallback: buscar primeira organização ativa do usuário
+    if (!organizationId) {
+      const { data: memberData } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      
+      organizationId = memberData?.organization_id;
+    }
+
+    if (!organizationId) {
+      console.error('❌ Organização do usuário não encontrada');
+      throw new Error('Organização do usuário não encontrada. Verifique se você está vinculado a uma organização.');
+    }
+
+    console.log('🏢 Organização ativa:', organizationId);
+
     // Buscar credenciais do Google (devem estar configuradas como secrets)
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
@@ -88,7 +118,7 @@ serve(async (req) => {
 
     // Construir URL de autorização do Google
     const scope = 'https://www.googleapis.com/auth/calendar';
-    const state = btoa(JSON.stringify({ user_id: user.id, origin }));
+    const state = btoa(JSON.stringify({ user_id: user.id, organization_id: organizationId, origin }));
     
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleClientId}` +
