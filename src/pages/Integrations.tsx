@@ -1,12 +1,11 @@
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, MessageSquare, BarChart3, Link2, Plug } from "lucide-react";
+import { FileText, Link2, Plug } from "lucide-react";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { IntegrationsHub } from "@/components/IntegrationsHub";
 import { WebhookIntegrationsTab } from "@/components/WebhookIntegrationsTab";
+import { IntegratedLogsViewer } from "@/components/IntegratedLogsViewer";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
@@ -58,61 +57,7 @@ const Integrations = () => {
         </TabsContent>
 
         <TabsContent value="logs" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                Logs de Acompanhamento
-              </CardTitle>
-              <CardDescription>
-                Monitore os webhooks e eventos das suas integrações
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  variant="outline" 
-                  asChild 
-                  className="justify-start border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-400"
-                >
-                  <Link to="/facebook-webhook-logs">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Logs Facebook Leads
-                  </Link>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  asChild 
-                  className="justify-start border-green-200 bg-green-50/50 hover:bg-green-100/50 text-green-600 dark:border-green-800 dark:bg-green-950/30 dark:hover:bg-green-950/50 dark:text-green-400"
-                >
-                  <Link to="/whatsapp-webhook-logs">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Logs WhatsApp
-                  </Link>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  asChild 
-                  className="justify-start border-orange-200 bg-orange-50/50 hover:bg-orange-100/50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/30 dark:hover:bg-orange-950/50 dark:text-orange-400"
-                >
-                  <Link to="/form-webhook-logs">
-                    <Link2 className="h-4 w-4 mr-2" />
-                    Logs Webhook
-                  </Link>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  asChild 
-                  className="justify-start border-purple-200 bg-purple-50/50 hover:bg-purple-100/50 text-purple-600 dark:border-purple-800 dark:bg-purple-950/30 dark:hover:bg-purple-950/50 dark:text-purple-400"
-                >
-                  <Link to="/meta-pixel-logs">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Logs Meta Pixel
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <IntegratedLogsViewer />
         </TabsContent>
       </Tabs>
     </div>
