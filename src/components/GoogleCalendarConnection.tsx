@@ -64,17 +64,40 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
         body: { origin: window.location.origin },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Tentar extrair mensagem do erro
+        let errorMessage = "Não foi possível iniciar a conexão";
+        try {
+          const errorData = await error.context?.json?.();
+          if (errorData?.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // Fallback para mensagem padrão
+        }
+        throw new Error(errorMessage);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       if (data?.authUrl) {
         window.location.href = data.authUrl;
       }
     } catch (error: any) {
       console.error("Erro ao iniciar conexão:", error);
+      
+      const errorMsg = error.message || "";
+      const isSetupError = errorMsg.includes("SETUP_REQUIRED");
+      
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível iniciar a conexão",
+        title: isSetupError ? "Configuração necessária" : "Erro",
+        description: isSetupError 
+          ? errorMsg.replace("SETUP_REQUIRED: ", "")
+          : errorMsg || "Não foi possível iniciar a conexão",
         variant: "destructive",
+        duration: isSetupError ? 10000 : 5000, // Mais tempo para ler instruções
       });
       setConnecting(false);
     }
