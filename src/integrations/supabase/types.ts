@@ -2469,8 +2469,10 @@ export type Database = {
       webhook_configs: {
         Row: {
           created_at: string
+          default_responsible_user_id: string | null
           id: string
           is_active: boolean
+          name: string | null
           organization_id: string
           tag_id: string | null
           updated_at: string
@@ -2478,8 +2480,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_responsible_user_id?: string | null
           id?: string
           is_active?: boolean
+          name?: string | null
           organization_id: string
           tag_id?: string | null
           updated_at?: string
@@ -2487,8 +2491,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_responsible_user_id?: string | null
           id?: string
           is_active?: boolean
+          name?: string | null
           organization_id?: string
           tag_id?: string | null
           updated_at?: string
@@ -2498,7 +2504,7 @@ export type Database = {
           {
             foreignKeyName: "webhook_configs_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
