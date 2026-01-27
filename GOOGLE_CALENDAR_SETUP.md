@@ -50,10 +50,10 @@ Para usar a integração do Google Calendar, você precisa:
 4. Configure:
    - **Nome**: CRM Calendar Integration
    - **Origens JavaScript autorizadas**: 
-     - `https://uvwanpztskkhzdqifbai.supabase.co`
-     - Seu domínio customizado (se tiver)
+     - `https://www.kairozcrm.com.br`
+     - `https://sale-shine-flow.lovable.app` (para testes)
    - **URIs de redirecionamento autorizados**:
-     - `https://uvwanpztskkhzdqifbai.supabase.co/functions/v1/google-calendar-oauth-callback`
+     - `https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/google-calendar-oauth-callback`
 5. Clique em "Criar"
 6. Copie o **ID do cliente** e o **Segredo do cliente**
 
