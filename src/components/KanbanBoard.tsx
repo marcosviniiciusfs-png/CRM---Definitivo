@@ -387,21 +387,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
             assigned_by: user.id,
           }))
         );
-
-        // Criar notificações para os atribuídos
-        for (const assigneeId of task.assignees) {
-          if (assigneeId !== user.id) {
-            await supabase.from("notifications").insert({
-              user_id: assigneeId,
-              type: "task_assigned",
-              title: "Tarefa atribuída",
-              message: `Você foi atribuído à tarefa "${task.content}"`,
-              card_id: data.id,
-              due_date: task.due_date || null,
-              time_estimate: task.estimated_time || null,
-            });
-          }
-        }
+        // Notificações são criadas automaticamente via trigger no banco
       }
 
       const newCard: Card = {
@@ -445,31 +431,9 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
     if (addedMentions.length === 0) return;
 
-    try {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, user_id, full_name");
-
-      for (const mentionName of addedMentions) {
-        const matchedProfile = profiles?.find(
-          (p) => p.full_name.toLowerCase() === mentionName.toLowerCase()
-        );
-
-        if (matchedProfile) {
-          await supabase.from("notifications").insert({
-            user_id: matchedProfile.user_id,
-            type: "task_mention",
-            title: "Mencionado em tarefa",
-            message: `Você foi mencionado na tarefa "${card.content}"`,
-            card_id: card.id,
-            due_date: card.due_date || null,
-            time_estimate: card.estimated_time || null,
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao criar notificações:", error);
-    }
+    // Menções: notificações via RLS não funcionam no frontend
+    // TODO: migrar para trigger no banco se menções precisarem notificar
+    console.log("[KANBAN] Menções detectadas (notificação pendente de implementação):", addedMentions);
   };
 
   const updateCard = async (
