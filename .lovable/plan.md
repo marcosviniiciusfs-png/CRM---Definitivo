@@ -1,136 +1,120 @@
 
+# Corrigir Flash da Landing Page para Usuarios Autenticados
 
-# Corrigir Google Calendar para Usuarios Multi-Org
+## Problema Identificado
 
-## Diagnostico
+Quando um usuário já autenticado acessa a rota `/`, ele vê rapidamente a Landing page (tela de apresentação) antes de ser redirecionado para o Dashboard. Isso acontece porque:
 
-Os logs mostram claramente o problema:
+1. O componente Landing renderiza imediatamente todo o conteúdo visual
+2. Enquanto o `AuthContext` verifica a sessão (`loading=true`), a Landing já está visível
+3. Só após o loading terminar (`loading=false`) E o usuário ser detectado, o redirect acontece
+4. Resultado: Flash indesejado da tela de apresentação
 
-```
-❌ Erro no callback OAuth: Error: Organização do usuário não encontrada
-```
+## Solução
 
-### Causa Raiz
+Modificar a Landing page para **mostrar um loading enquanto verifica a autenticação**, ao invés de mostrar o conteúdo completo.
 
-A edge function `google-calendar-oauth-callback` usa `.single()` para buscar a organizacao do usuario:
+### Mudança no Landing.tsx
 
-```typescript
-const { data: memberData } = await supabase
-  .from('organization_members')
-  .select('organization_id')
-  .eq('user_id', user_id)
-  .single();  // ← FALHA quando usuario tem 2+ organizações!
-```
+```tsx
+const Landing = () => {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
-Para usuarios multi-org, `.single()` retorna erro porque encontra mais de um registro.
+  // CRÍTICO: Mostrar loading enquanto verifica autenticação
+  // Isso previne o flash da Landing para usuários autenticados
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <img 
+          src={kairozLogo} 
+          alt="KairoZ" 
+          className="h-16 animate-pulse"
+        />
+      </div>
+    );
+  }
 
-## Solucao
-
-Passar a `organization_id` ativa do usuario no fluxo OAuth, garantindo que a integracao seja vinculada a organizacao correta.
-
-### Mudanca 1: Edge Function `google-calendar-oauth-initiate`
-
-Buscar a organizacao ativa do usuario usando a tabela `user_active_org` ou fallback para primeira organizacao, e incluir no `state` do OAuth:
-
-```typescript
-// Buscar organizacao ativa do usuario (multi-org aware)
-const { data: activeOrg } = await supabase
-  .from('user_active_org')
-  .select('active_organization_id')
-  .eq('user_id', user.id)
-  .maybeSingle();
-
-let organizationId = activeOrg?.active_organization_id;
-
-// Fallback: buscar primeira organizacao do usuario
-if (!organizationId) {
-  const { data: memberData } = await supabase
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .single();
+  // Redirect authenticated users to dashboard
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
   
-  organizationId = memberData?.organization_id;
-}
-
-if (!organizationId) {
-  throw new Error('Organizacao do usuario nao encontrada');
-}
-
-// Incluir organization_id no state
-const state = btoa(JSON.stringify({ 
-  user_id: user.id, 
-  organization_id: organizationId,  // ← NOVO
-  origin 
-}));
+  // Resto do componente (só renderiza para usuários NÃO autenticados)
+  // ...
+};
 ```
 
-### Mudanca 2: Edge Function `google-calendar-oauth-callback`
+### Por Que Isso Funciona
 
-Usar a `organization_id` do state ao inves de buscar no banco:
+| Estado | Antes | Depois |
+|--------|-------|--------|
+| `loading=true` | Renderiza Landing completa | Mostra loading simples |
+| `loading=false, user=null` | Renderiza Landing | Renderiza Landing |
+| `loading=false, user=existe` | Renderiza Landing → Redirect | Nunca renderiza Landing |
 
-```typescript
-// Decodificar state com organization_id
-const { user_id, organization_id, origin } = JSON.parse(atob(state));
+### Experiência do Usuario
 
-// Validar que organization_id existe
-if (!organization_id) {
-  throw new Error('Organization ID ausente no state');
-}
+**Usuario autenticado acessando `/`:**
+- Antes: Ve Landing (flash) → Dashboard
+- Depois: Ve logo animado (0.5s) → Dashboard
 
-// Validar que usuario pertence a organizacao (seguranca)
-const { data: membership } = await supabase
-  .from('organization_members')
-  .select('id')
-  .eq('user_id', user_id)
-  .eq('organization_id', organization_id)
-  .eq('is_active', true)
-  .maybeSingle();
+**Usuario nao autenticado acessando `/`:**
+- Antes: Ve Loading → Landing
+- Depois: Ve logo animado → Landing
 
-if (!membership) {
-  throw new Error('Usuario nao pertence a esta organizacao');
-}
+### Consideracoes de UX
 
-// Usar organization_id diretamente ao salvar integracao
-const { data: integration } = await supabase
-  .from('google_calendar_integrations')
-  .insert({
-    organization_id: organization_id,  // ← Do state, nao de query
-    user_id,
-    token_expires_at: expiresAt,
-    calendar_id: 'primary',
-    is_active: true,
-  })
-  .select('id')
-  .single();
-```
+O loading com o logo do KairoZ serve dois propositos:
+1. Feedback visual de que algo está carregando
+2. Branding consistente durante a transicao
 
-## Fluxo Corrigido
-
-```
-1. Usuario clica "Conectar Google Calendar"
-2. Frontend chama google-calendar-oauth-initiate
-3. Initiate busca org ativa via user_active_org
-4. Initiate gera state com {user_id, organization_id, origin}
-5. Usuario autoriza no Google
-6. Google redireciona para callback com state
-7. Callback extrai organization_id do state
-8. Callback valida que usuario pertence a org
-9. Callback salva integracao com org correta
-10. Usuario redirecionado com sucesso
-```
+Como a verificacao de sessao leva apenas ~200-500ms na maioria dos casos (especialmente com cache), o usuario vera o logo brevemente antes do redirecionamento.
 
 ## Arquivos a Modificar
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `supabase/functions/google-calendar-oauth-initiate/index.ts` | Buscar org ativa e incluir no state |
-| `supabase/functions/google-calendar-oauth-callback/index.ts` | Usar org_id do state ao inves de buscar com .single() |
+| `src/pages/Landing.tsx` | Adicionar tela de loading durante verificacao de auth |
 
-## Validacao de Seguranca
+## Fluxo Visual Corrigido
 
-O callback ainda valida que o usuario realmente pertence a organizacao antes de criar a integracao, prevenindo manipulacao do state.
+```
+Usuario autenticado acessa /
+        |
+        v
+  [Loading State]
+   (logo animado)
+        |
+  Auth verifica
+   sessao (cache)
+        |
+        v
+  user detectado
+        |
+        v
+  <Navigate to="/dashboard">
+        |
+        v
+  [Dashboard carrega]
+```
 
+## Beneficios
+
+1. **Sem flash da Landing** - Usuario autenticado nunca ve conteudo da apresentacao
+2. **Branding consistente** - Logo aparece durante transicao
+3. **Transicao suave** - Experiencia profissional sem glitches visuais
+4. **Performance mantida** - Nao adiciona delays, apenas muda o que e renderizado
+
+## Secao Tecnica
+
+A verificacao de auth no Supabase funciona assim:
+
+1. `supabase.auth.onAuthStateChange()` registra listener
+2. `supabase.auth.getSession()` verifica sessao local/cookie
+3. Se houver token valido em cache, retorna imediatamente
+4. Se precisar refresh, faz chamada ao backend (~200ms)
+5. State `loading` muda para `false`
+6. Se usuario existe, `user` e populado
+
+O ponto critico e que durante os passos 2-4, o componente Landing ja esta renderizado. A solucao e simplesmente nao renderizar o conteudo completo durante esse periodo.
