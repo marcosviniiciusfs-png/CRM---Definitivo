@@ -252,10 +252,23 @@ export function TaskAlertProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useTaskAlert() {
+// Hook que retorna valores padrão seguros quando fora do provider
+export function useTaskAlert(): TaskAlertContextType {
   const context = useContext(TaskAlertContext);
+  
+  // Retornar valores padrão seguros se o contexto não estiver disponível
+  // Isso evita erros durante a renderização inicial ou em componentes fora do provider
   if (context === undefined) {
-    throw new Error('useTaskAlert must be used within a TaskAlertProvider');
+    return {
+      hasPendingTasks: false,
+      audioPermissionGranted: false,
+      needsAudioPermission: false,
+      pendingTaskCount: 0,
+      markTasksAsViewed: async () => {},
+      requestAudioPermission: async () => {},
+      isOnTasksPage: false,
+    };
   }
+  
   return context;
 }
