@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
+import { TaskAlertProvider } from "@/contexts/TaskAlertContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -81,39 +82,41 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <OrganizationProvider>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/leads" element={<ProtectedRoute><DashboardLayout><LazyPage><Leads /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDetails /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/lead-metrics" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadMetrics /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/lead-distribution" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></ProtectedRoute>} />
-<Route path="/chat" element={<ProtectedRoute><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/integrations" element={<ProtectedRoute><DashboardLayout><LazyPage><Integrations /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/facebook-webhook-logs" element={<ProtectedRoute><LazyPage><FacebookWebhookLogs /></LazyPage></ProtectedRoute>} />
-              <Route path="/whatsapp-webhook-logs" element={<ProtectedRoute><LazyPage><WhatsAppWebhookLogs /></LazyPage></ProtectedRoute>} />
-              <Route path="/form-webhook-logs" element={<ProtectedRoute><LazyPage><FormWebhookLogs /></LazyPage></ProtectedRoute>} />
-              <Route path="/meta-pixel-logs" element={<ProtectedRoute><DashboardLayout><LazyPage><MetaPixelLogs /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/admin" element={<SuperAdminRoute><LazyPage><AdminDashboard /></LazyPage></SuperAdminRoute>} />
-              <Route path="/admin/user/:userId" element={<SuperAdminRoute><LazyPage><AdminUserDetails /></LazyPage></SuperAdminRoute>} />
-              <Route path="/privacy-policy" element={<LazyPage><PrivacyPolicy /></LazyPage>} />
-              <Route path="/terms-of-service" element={<LazyPage><TermsOfService /></LazyPage>} />
-              <Route path="/data-deletion" element={<LazyPage><DataDeletion /></LazyPage>} />
-              <Route path="/pricing" element={<ProtectedRoute><DashboardLayout><LazyPage><Pricing /></LazyPage></DashboardLayout></ProtectedRoute>} />
-              <Route path="/success" element={<ProtectedRoute><LazyPage><PaymentSuccess /></LazyPage></ProtectedRoute>} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<LazyPage><NotFound /></LazyPage>} />
-            </Routes>
+            <TaskAlertProvider>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/leads" element={<ProtectedRoute><DashboardLayout><LazyPage><Leads /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDetails /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/lead-metrics" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadMetrics /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/lead-distribution" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/chat" element={<ProtectedRoute><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/integrations" element={<ProtectedRoute><DashboardLayout><LazyPage><Integrations /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/facebook-webhook-logs" element={<ProtectedRoute><LazyPage><FacebookWebhookLogs /></LazyPage></ProtectedRoute>} />
+                <Route path="/whatsapp-webhook-logs" element={<ProtectedRoute><LazyPage><WhatsAppWebhookLogs /></LazyPage></ProtectedRoute>} />
+                <Route path="/form-webhook-logs" element={<ProtectedRoute><LazyPage><FormWebhookLogs /></LazyPage></ProtectedRoute>} />
+                <Route path="/meta-pixel-logs" element={<ProtectedRoute><DashboardLayout><LazyPage><MetaPixelLogs /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/admin" element={<SuperAdminRoute><LazyPage><AdminDashboard /></LazyPage></SuperAdminRoute>} />
+                <Route path="/admin/user/:userId" element={<SuperAdminRoute><LazyPage><AdminUserDetails /></LazyPage></SuperAdminRoute>} />
+                <Route path="/privacy-policy" element={<LazyPage><PrivacyPolicy /></LazyPage>} />
+                <Route path="/terms-of-service" element={<LazyPage><TermsOfService /></LazyPage>} />
+                <Route path="/data-deletion" element={<LazyPage><DataDeletion /></LazyPage>} />
+                <Route path="/pricing" element={<ProtectedRoute><DashboardLayout><LazyPage><Pricing /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/success" element={<ProtectedRoute><LazyPage><PaymentSuccess /></LazyPage></ProtectedRoute>} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<LazyPage><NotFound /></LazyPage>} />
+              </Routes>
+            </TaskAlertProvider>
           </OrganizationProvider>
         </AuthProvider>
       </BrowserRouter>
