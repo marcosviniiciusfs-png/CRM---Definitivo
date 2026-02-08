@@ -12,8 +12,22 @@ const Landing = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
 
+  // CRÍTICO: Mostrar loading enquanto verifica autenticação
+  // Isso previne o flash da Landing para usuários autenticados
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <img 
+          src={kairozLogo} 
+          alt="KairoZ" 
+          className="h-16 animate-pulse"
+        />
+      </div>
+    );
+  }
+
   // Redirect authenticated users to dashboard
-  if (!loading && user) {
+  if (user) {
     return <Navigate to="/dashboard" replace />;
   }
  
