@@ -1778,6 +1778,7 @@ export type Database = {
           type: string
           updated_at: string
           user_id: string
+          viewed_at: string | null
         }
         Insert: {
           card_id?: string | null
@@ -1793,6 +1794,7 @@ export type Database = {
           type: string
           updated_at?: string
           user_id: string
+          viewed_at?: string | null
         }
         Update: {
           card_id?: string | null
@@ -1808,6 +1810,7 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+          viewed_at?: string | null
         }
         Relationships: [
           {

@@ -3,6 +3,7 @@ import { useOrganization } from "@/contexts/OrganizationContext";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Shield } from "lucide-react";
+import { TaskPermissionAlert } from "@/components/TaskPermissionAlert";
 
 const Tasks = () => {
   const { organizationId, isReady } = useOrganizationReady();
@@ -39,6 +40,9 @@ const Tasks = () => {
         <h1 className="text-3xl font-bold tracking-tight">Tarefas</h1>
         <p className="text-muted-foreground">Gerencie suas atividades com o quadro Kanban</p>
       </div>
+
+      {/* Card de alerta para ativar som de notificação */}
+      <TaskPermissionAlert />
 
       <KanbanBoard organizationId={organizationId} />
     </div>

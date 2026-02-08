@@ -1,4 +1,4 @@
-import { Home, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle, Puzzle, Trophy } from "lucide-react";
+import { Home, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle, Puzzle, Trophy, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -9,6 +9,7 @@ import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import React, { useState, useEffect, useCallback } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
+import { useTaskAlert } from "@/contexts/TaskAlertContext";
 import {
   Sidebar,
   SidebarContent,
@@ -63,6 +64,7 @@ function AppSidebarComponent() {
   const { open, setOpen } = useSidebar();
   const { signOut, user, subscriptionData } = useAuth();
   const permissions = usePermissions();
+  const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
   
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
@@ -75,7 +77,6 @@ function AppSidebarComponent() {
     return saved === 'true';
   });
   const [administrativoOpen, setAdministrativoOpen] = useState(false);
-
   // Persistir estado de bloqueio no localStorage
   useEffect(() => {
     localStorage.setItem(SIDEBAR_LOCK_KEY, String(isLocked));
@@ -187,20 +188,39 @@ function AppSidebarComponent() {
                 </Collapsible>
               )}
 
-              {bottomItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}
-                      activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {bottomItems.map((item) => {
+                // Indicador especial para Tarefas
+                const isTasksItem = item.url === '/tasks';
+                const showTaskIndicator = isTasksItem && hasPendingTasks;
+                const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
+                
+                return (
+                  <SidebarMenuItem key={item.title} className="relative">
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5 relative")}
+                        activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span>{item.title}</span>
+                        
+                        {/* Indicador de tarefas pendentes */}
+                        {showTaskIndicator && !showWarningIndicator && (
+                          <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full animate-pulse" />
+                        )}
+                        
+                        {/* Indicador de aviso (precisa ativar som) */}
+                        {showWarningIndicator && (
+                          <span className="absolute top-0.5 right-0.5 text-amber-400 animate-pulse">
+                            <AlertTriangle className="h-4 w-4" />
+                          </span>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
