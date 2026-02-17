@@ -13,12 +13,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3, Pencil, Shield } from "lucide-react";
+import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3, Pencil, Shield, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { CollaboratorDashboard } from "@/components/CollaboratorDashboard";
 import { RoleManagementTab } from "@/components/RoleManagementTab";
+import { CommissionsTab } from "@/components/CommissionsTab";
 
 const emailSchema = z.string().email({ message: "Email inválido" });
 
@@ -72,6 +73,8 @@ const Colaboradores = () => {
     saidas: 0,
     inativos: 0
   });
+  const [salesByUser, setSalesByUser] = useState<Record<string, { count: number; revenue: number }>>({});
+  const [pendingCommissionsByUser, setPendingCommissionsByUser] = useState<Record<string, number>>({});
   const [subscriptionLimits, setSubscriptionLimits] = useState<{
     total: number;
     current: number;
@@ -227,6 +230,40 @@ const Colaboradores = () => {
           total: subData.total_collaborators,
           current: activeMembers.length
         });
+      }
+
+      // Load sales KPIs for all members
+      try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const [wonStagesRes, wonLeadsRes, commissionsRes] = await Promise.all([
+          supabase.from('funnel_stages').select('id').eq('stage_type', 'won'),
+          supabase.from('leads').select('responsavel_user_id, valor, funnel_stage_id')
+            .eq('organization_id', orgId).gte('updated_at', startOfMonth),
+          supabase.from('commissions').select('user_id, commission_value, status')
+            .eq('organization_id', orgId).eq('status', 'pending')
+        ]);
+        
+        const wonIds = new Set(wonStagesRes.data?.map(s => s.id) || []);
+        const wonLeads = (wonLeadsRes.data || []).filter(l => l.funnel_stage_id && wonIds.has(l.funnel_stage_id));
+        
+        const salesMap: Record<string, { count: number; revenue: number }> = {};
+        wonLeads.forEach(l => {
+          if (l.responsavel_user_id) {
+            if (!salesMap[l.responsavel_user_id]) salesMap[l.responsavel_user_id] = { count: 0, revenue: 0 };
+            salesMap[l.responsavel_user_id].count++;
+            salesMap[l.responsavel_user_id].revenue += l.valor || 0;
+          }
+        });
+        setSalesByUser(salesMap);
+
+        const commMap: Record<string, number> = {};
+        (commissionsRes.data || []).forEach(c => {
+          commMap[c.user_id] = (commMap[c.user_id] || 0) + c.commission_value;
+        });
+        setPendingCommissionsByUser(commMap);
+      } catch (e) {
+        console.error('Error loading sales KPIs:', e);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -601,6 +638,10 @@ const Colaboradores = () => {
             <Shield className="h-4 w-4" />
             Cargos
           </TabsTrigger>
+          <TabsTrigger value="comissoes" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <DollarSign className="h-4 w-4" />
+            Comissões
+          </TabsTrigger>
           <TabsTrigger value="dashboard" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <BarChart3 className="h-4 w-4" />
             Dashboard de Colaboradores
@@ -738,21 +779,22 @@ const Colaboradores = () => {
                   <TableRow className="bg-muted/50">
                     <TableHead className="font-semibold">INFO</TableHead>
                     <TableHead className="font-semibold">CARGO</TableHead>
+                    <TableHead className="font-semibold">VENDAS</TableHead>
+                    <TableHead className="font-semibold">RECEITA</TableHead>
                     <TableHead className="font-semibold">STATUS</TableHead>
-                    <TableHead className="font-semibold">CRIAÇÃO</TableHead>
                     {(userRole === 'owner' || userRole === 'admin') && <TableHead className="font-semibold">AÇÕES</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 5 : 4} className="text-center py-8">
+                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 6 : 5} className="text-center py-8">
                         <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
                       </TableCell>
                     </TableRow>
                   ) : filteredColaboradores.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 5 : 4} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 6 : 5} className="text-center py-8 text-muted-foreground">
                         {showInactive ? "Nenhum colaborador inativo" : "Nenhum colaborador encontrado"}
                       </TableCell>
                     </TableRow>
@@ -803,6 +845,25 @@ const Colaboradores = () => {
                           </div>
                         </TableCell>
                         <TableCell>
+                          <div className="text-center">
+                            <span className="text-sm font-semibold text-foreground">
+                              {colab.user_id ? (salesByUser[colab.user_id]?.count || 0) : 0}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="text-sm font-semibold text-green-600">
+                              R$ {(colab.user_id ? (salesByUser[colab.user_id]?.revenue || 0) : 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                            </span>
+                            {colab.user_id && pendingCommissionsByUser[colab.user_id] > 0 && (
+                              <p className="text-xs text-amber-600">
+                                Comissão: R$ {pendingCommissionsByUser[colab.user_id].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           {colab.is_active === false ? (
                             <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
                               Inativo
@@ -816,9 +877,6 @@ const Colaboradores = () => {
                               Pendente
                             </Badge>
                           )}
-                        </TableCell>
-                        <TableCell className="text-gray-600">
-                          {new Date(colab.created_at).toLocaleDateString('pt-BR')}
                         </TableCell>
                         {(userRole === 'owner' || userRole === 'admin') && (
                           <TableCell>
@@ -1183,6 +1241,15 @@ const Colaboradores = () => {
           {organizationId && (
             <RoleManagementTab 
               organizationId={organizationId} 
+              userRole={userRole}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="comissoes">
+          {organizationId && (
+            <CommissionsTab
+              organizationId={organizationId}
               userRole={userRole}
             />
           )}

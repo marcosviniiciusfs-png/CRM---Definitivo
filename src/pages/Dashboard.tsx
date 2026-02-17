@@ -120,8 +120,8 @@ const Dashboard = () => {
   // Métricas reais do banco de dados
   const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [newCustomersCount, setNewCustomersCount] = useState(0);
-  const [currentTasksCount, setCurrentTasksCount] = useState(0);
-  const [overdueTasksCount, setOverdueTasksCount] = useState(0);
+  const [monthRevenue, setMonthRevenue] = useState(0);
+  const [avgTicket, setAvgTicket] = useState(0);
   const [lossRate, setLossRate] = useState(0);
 
   // Taxa de Conversão real
@@ -149,61 +149,33 @@ const Dashboard = () => {
       const today = now.toISOString().split('T')[0];
 
       // Buscar todas as métricas em paralelo
-      const [leadsResult, wonStagesResult, boardResult] = await Promise.all([
+      const [leadsResult, wonStagesResult] = await Promise.all([
       // Novos leads do mês
       supabase.from('leads').select('id, funnel_stage_id', {
         count: 'exact'
       }).eq('organization_id', organizationId).gte('created_at', startOfMonth),
       // Estágios do tipo 'won'
-      supabase.from('funnel_stages').select('id').eq('stage_type', 'won'),
-      // Board da organização para filtrar colunas
-      supabase.from('kanban_boards').select('id').eq('organization_id', organizationId).maybeSingle()]);
+      supabase.from('funnel_stages').select('id').eq('stage_type', 'won')]);
 
       // Novos Leads
       setNewLeadsCount(leadsResult.count || 0);
 
-      // Novos Clientes (leads em estágios 'won' do mês)
+      // Novos Clientes e Receita do Mês (leads em estágios 'won' do mês)
       if (wonStagesResult.data && wonStagesResult.data.length > 0) {
         const wonStageIds = wonStagesResult.data.map(s => s.id);
         const {
+          data: wonLeadsMonth,
           count: customersCount
-        } = await supabase.from('leads').select('id', {
+        } = await supabase.from('leads').select('id, valor', {
           count: 'exact',
-          head: true
         }).eq('organization_id', organizationId).in('funnel_stage_id', wonStageIds).gte('updated_at', startOfMonth);
         setNewCustomersCount(customersCount || 0);
-      }
-
-      // Métricas de Kanban - só se tiver board
-      if (boardResult.data) {
-        const boardId = boardResult.data.id;
-
-        // Buscar colunas do board
-        const {
-          data: columns
-        } = await supabase.from('kanban_columns').select('id, position').eq('board_id', boardId).order('position', {
-          ascending: true
-        });
-        if (columns && columns.length > 0) {
-          // Identificar coluna "Concluído" (última posição)
-          const completedColumnId = columns[columns.length - 1].id;
-          const activeColumnIds = columns.slice(0, -1).map(c => c.id);
-
-          // Buscar todas as cards em paralelo
-          const [currentTasksResult, overdueTasksResult] = await Promise.all([
-          // Tarefas atuais (não concluídas)
-          supabase.from('kanban_cards').select('id', {
-            count: 'exact',
-            head: true
-          }).in('column_id', activeColumnIds),
-          // Tarefas atrasadas (due_date < hoje e não concluídas)
-          supabase.from('kanban_cards').select('id', {
-            count: 'exact',
-            head: true
-          }).in('column_id', activeColumnIds).lt('due_date', today)]);
-          setCurrentTasksCount(currentTasksResult.count || 0);
-          setOverdueTasksCount(overdueTasksResult.count || 0);
-        }
+        
+        // Calcular Receita do Mês e Ticket Médio
+        const revenue = (wonLeadsMonth || []).reduce((sum, lead) => sum + (lead.valor || 0), 0);
+        const salesCount = wonLeadsMonth?.length || 0;
+        setMonthRevenue(revenue);
+        setAvgTicket(salesCount > 0 ? revenue / salesCount : 0);
       }
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
@@ -758,8 +730,8 @@ const Dashboard = () => {
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <MetricCard title="Novos Leads" value={newLeadsCount} icon={TrendingUp} iconColor="text-cyan-500" />
         <MetricCard title="Novos Clientes" value={newCustomersCount} icon={Users} iconColor="text-green-500" />
-        <MetricCard title="Tarefas Atuais" value={currentTasksCount} icon={CheckSquare} iconColor="text-purple-500" />
-        <MetricCard title="Tarefas Atrasadas" value={overdueTasksCount} icon={AlertCircle} iconColor="text-red-500" />
+        <MetricCard title="Receita do Mês" value={`R$ ${monthRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} icon={FileText} iconColor="text-emerald-500" />
+        <MetricCard title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} icon={Target} iconColor="text-blue-500" />
         <MetricCard title="Taxa de Perda" value={`${lossRate}%`} icon={XCircle} iconColor="text-rose-500" />
       </div>
 
