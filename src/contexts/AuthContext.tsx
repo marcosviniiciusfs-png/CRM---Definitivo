@@ -147,6 +147,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!memberData?.organization_id) return;
 
       if (isLogin) {
+        // Verificar se já existe sessão ativa para este usuário
+        const { data: existingSession } = await supabase
+          .from('user_sessions')
+          .select('id')
+          .eq('user_id', userId)
+          .is('logout_at', null)
+          .order('login_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingSession) {
+          // Reutilizar sessão existente
+          currentSessionIdRef.current = existingSession.id;
+          return;
+        }
+
+        // Criar nova sessão apenas se não existir ativa
         const { data, error } = await supabase
           .from('user_sessions')
           .insert({
@@ -254,8 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
 
         if (session?.user && session?.access_token) {
-          // Log session em background
-          setTimeout(() => logUserSession(session.user.id, true), 0);
+          // NÃO logar sessão aqui - já é feito no SIGNED_IN
           
           // Check cache first para UI rápida
           const cachedData = getSubscriptionCache(session.user.id);

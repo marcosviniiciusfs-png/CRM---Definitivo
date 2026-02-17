@@ -2720,6 +2720,7 @@ export type Database = {
     }
     Functions: {
       cleanup_old_integration_logs: { Args: never; Returns: undefined }
+      cleanup_old_user_sessions: { Args: never; Returns: undefined }
       count_main_users: { Args: never; Returns: number }
       decrypt_oauth_token: {
         Args: { encrypted_token: string; encryption_key: string }
