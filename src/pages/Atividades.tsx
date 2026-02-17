@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Activity, MessageSquare, Search, Calendar, Clock, LogIn, LogOut, Tag, UserCheck, GitBranch } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface MessageActivity {
@@ -496,11 +496,11 @@ export default function Atividades() {
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <LogIn className="h-4 w-4" />
                                 <span>
-                                  Login:{' '}
-                                  {formatDistanceToNow(new Date(session.login_at), {
+                                  Login: {format(new Date(session.login_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                  {' '}({formatDistanceToNow(new Date(session.login_at), {
                                     addSuffix: true,
                                     locale: ptBR,
-                                  })}
+                                  })})
                                 </span>
                               </div>
 
@@ -508,11 +508,11 @@ export default function Atividades() {
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                   <LogOut className="h-4 w-4" />
                                   <span>
-                                    Logout:{' '}
-                                    {formatDistanceToNow(new Date(session.logout_at), {
+                                    Logout: {format(new Date(session.logout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                    {' '}({formatDistanceToNow(new Date(session.logout_at), {
                                       addSuffix: true,
                                       locale: ptBR,
-                                    })}
+                                    })})
                                   </span>
                                 </div>
                               )}
