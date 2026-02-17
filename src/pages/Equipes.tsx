@@ -15,6 +15,7 @@ import { CreateTeamModal } from "@/components/CreateTeamModal";
 import { EditTeamModal } from "@/components/EditTeamModal";
 import { TeamGoalsCard } from "@/components/TeamGoalsCard";
 import { MemberTaskBadge } from "@/components/MemberTaskBadge";
+import { TeamSalesMetrics } from "@/components/TeamSalesMetrics";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
@@ -391,6 +392,15 @@ const Equipes = () => {
             />
           </div>
         </div>
+
+        {/* Team Sales Metrics */}
+        {organizationId && teams.length > 0 && (
+          <TeamSalesMetrics
+            organizationId={organizationId}
+            teams={teams.map(t => ({ id: t.id, name: t.name, color: t.color }))}
+            teamMembers={teamMembers.map(tm => ({ team_id: tm.team_id, user_id: tm.user_id }))}
+          />
+        )}
 
         {/* Board with Drag & Drop */}
         <DndContext
