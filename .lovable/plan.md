@@ -1,240 +1,143 @@
 
-# Corrigir Card de Permissão de Áudio e Visual do Menu
+# Evolucao do Dashboard e Gestao de Equipe/Financeiro
+
+## Contexto Atual
+
+O sistema hoje tem:
+- **Dashboard principal**: 5 metricas no topo (Novos Leads, Novos Clientes, Tarefas Atuais, Tarefas Atrasadas, Taxa de Perda) + Meta pessoal + Taxa de Conversao + Top 5 Vendedores
+- **Colaboradores**: CRUD basico (add/edit/delete/ativar/desativar) + dashboard de metricas por colaborador
+- **Equipes**: Drag-and-drop de membros entre equipes + metas de equipe
+- **Producao**: Blocos de producao mensais + catalogo de produtos
+- **Ranking**: Vendas vs Tarefas vs Agendamentos
+- **Comissoes**: Tabela `commissions` e `commission_configs` existem no banco mas NAO ha interface para gerencia-las
 
 ## Problemas Identificados
 
-### 1. Card some após 5 segundos (comportamento errado)
-O card desaparece porque a lógica atual marca as tarefas como "visualizadas" após 5 segundos na página `/tasks`, o que define `hasPendingTasks = false`, e o card depende dessa variável.
+1. **Dashboard focado em tarefas**: 2 de 5 cards sao sobre tarefas (Tarefas Atuais, Tarefas Atrasadas), nao sobre vendas/financeiro
+2. **Sem visao financeira consolidada**: Nao ha receita do mes, ticket medio, comissoes pendentes, lucro
+3. **Gestao de equipe superficial**: Nao ha metricas de performance por equipe, comparativo entre equipes, metas por equipe com progresso visual
+4. **Comissoes sem interface**: Existe no banco mas o admin nao consegue ver/gerenciar comissoes dos vendedores
+5. **Colaboradores sem KPIs rapidos**: O admin nao ve de forma pratica quanto cada colaborador vendeu, sua taxa de conversao, comissao pendente
 
-**Lógica atual incorreta:**
-```
-Usuário entra em /tasks
-    ↓
-Timer de 5s inicia
-    ↓
-markTasksAsViewed() é chamado
-    ↓
-hasPendingTasks = false
-    ↓
-Card some (porque depende de hasPendingTasks)
-```
+## Plano de Implementacao
 
-**O correto deveria ser:**
-- O card de permissão de áudio deve permanecer **até o usuário ativar o som** OU **clicar no X para dispensar**
-- A lógica de marcar tarefas como visualizadas NÃO deve afetar a exibição do card de permissão
+### Fase 1 - Dashboard Focado em Vendas e Financeiro
 
-### 2. Card muito grande
-O card atual ocupa muito espaço vertical com texto longo e padding excessivo.
+Substituir os cards de metricas do topo por metricas de vendas/financeiro:
 
-### 3. Menu sem fundo amarelo
-O item "Tarefas" mostra apenas um ícone amarelo, mas não tem o fundo destacado.
+| Posicao | Antes | Depois |
+|---------|-------|--------|
+| 1 | Novos Leads | Novos Leads (mantem) |
+| 2 | Novos Clientes | Novos Clientes (mantem) |
+| 3 | **Tarefas Atuais** | **Receita do Mes** (R$ total de leads ganhos no mes) |
+| 4 | **Tarefas Atrasadas** | **Ticket Medio** (receita / numero de vendas) |
+| 5 | Taxa de Perda | Taxa de Perda (mantem) |
 
-## Solução
+A receita do mes ja e calculada em `loadSalesTotal()`. O ticket medio e `totalRevenue / salesCount`.
 
-### A) Separar lógica do card de permissão da lógica de tarefas pendentes
+### Fase 2 - Painel de Comissoes (Nova Aba em Colaboradores)
 
-O card `TaskPermissionAlert` deve ter sua própria lógica de visibilidade:
-- Mostrar se: `needsAudioPermission = true` E usuário NÃO dispensou manualmente
-- Esconder se: usuário clicou no X OU ativou o som com sucesso
+Adicionar aba "Comissoes" na pagina de Colaboradores com:
 
-A condição `hasPendingTasks` deve ser removida da lógica de exibição do card, pois:
-- Se o usuário precisa ativar o som, ele precisa ver o card
-- O fato de ter ou não tarefas pendentes é secundário para essa instrução
+1. **Resumo de Comissoes**:
+   - Total de comissoes pendentes (status = 'pending')
+   - Total de comissoes pagas no mes (status = 'paid')
+   - Configuracao atual (percentual ou valor fixo)
 
-### B) Redesenhar o card para ser mais minimalista
+2. **Lista de Comissoes por Colaborador**:
+   - Tabela com: Colaborador | Lead | Valor da Venda | Comissao | Status | Acoes
+   - Acoes: Marcar como paga / Ver detalhes
 
-Layout compacto em uma única linha:
-```
-[🔔 ícone] Ative as notificações para receber alertas de tarefas. [Ativar] [X]
-```
+3. **Configuracao de Comissao**:
+   - Editar tipo (percentual ou fixo) e valor na tabela `commission_configs`
+   - Ja existe no banco, so falta a UI
 
-Características:
-- Padding reduzido (`py-2 px-3`)
-- Tudo em uma linha com flexbox
-- Sem título separado
-- Texto curto e direto
-- Botão pequeno inline
-- X de fechar no final
+### Fase 3 - Metricas de Equipe (Aprimorar Equipes)
 
-### C) Adicionar fundo amarelo ao item Tarefas no menu
+Na pagina de Equipes, adicionar para cada equipe:
 
-Quando há tarefas pendentes e o usuário precisa ativar o som, o item inteiro terá:
-- Fundo amarelo com opacidade baixa (`bg-amber-400/10`)
-- Mantém o ícone de aviso
+1. **Vendas da equipe no mes**: Soma dos leads ganhos por membros da equipe
+2. **Meta da equipe vs realizado**: Barra de progresso
+3. **Melhor vendedor da equipe**: Avatar + nome + valor
+4. **Comparativo entre equipes**: Card no topo mostrando ranking de equipes por receita
 
-## Mudanças nos Arquivos
+Dados vem de `leads` (filtrado por `responsavel_user_id` dos membros da equipe) + `funnel_stages` (stage_type = 'won').
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/TaskPermissionAlert.tsx` | Redesenhar para layout compacto e remover dependência de `hasPendingTasks` |
-| `src/components/AppSidebar.tsx` | Adicionar classe de fundo amarelo ao item Tarefas quando necessário |
+### Fase 4 - Visao Financeira Rapida do Colaborador
 
-## Código Proposto
+Na pagina de Colaboradores, na listagem, adicionar colunas visuais:
 
-### TaskPermissionAlert.tsx (novo design)
+1. **Vendas no mes**: Quantidade de leads ganhos
+2. **Receita gerada**: Valor total vendido
+3. **Comissao pendente**: Valor calculado a receber
 
-```tsx
-import { Bell, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useTaskAlert } from "@/contexts/TaskAlertContext";
-import { useState } from "react";
+Essas informacoes aparecem como badges ou colunas extras na tabela de colaboradores.
 
-export function TaskPermissionAlert() {
-  const { needsAudioPermission, requestAudioPermission } = useTaskAlert();
-  const [dismissed, setDismissed] = useState(false);
+## Arquivos a Criar/Modificar
 
-  // Mostrar apenas se precisa de permissão e não foi dispensado
-  // NÃO depende de hasPendingTasks
-  if (!needsAudioPermission || dismissed) {
-    return null;
-  }
+| Arquivo | Acao | Descricao |
+|---------|------|-----------|
+| `src/pages/Dashboard.tsx` | MODIFICAR | Trocar cards de tarefas por Receita do Mes e Ticket Medio |
+| `src/pages/Colaboradores.tsx` | MODIFICAR | Adicionar aba Comissoes + metricas na listagem |
+| `src/components/CommissionsTab.tsx` | CRIAR | Componente da aba de comissoes |
+| `src/components/CommissionConfigModal.tsx` | CRIAR | Modal para configurar regras de comissao |
+| `src/pages/Equipes.tsx` | MODIFICAR | Adicionar metricas de vendas por equipe e comparativo |
+| `src/components/TeamSalesMetrics.tsx` | CRIAR | Componente de metricas de vendas por equipe |
 
-  const handleActivate = async () => {
-    await requestAudioPermission();
-  };
+## Secao Tecnica
 
-  return (
-    <div className="mb-3 py-2 px-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md flex items-center gap-2">
-      <Bell className="h-4 w-4 text-amber-500 flex-shrink-0" />
-      <span className="text-sm text-amber-700 dark:text-amber-300 flex-1">
-        Ative o som para receber alertas de tarefas
-      </span>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="h-7 px-2 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-800/40"
-        onClick={handleActivate}
-      >
-        Ativar
-      </Button>
-      <button
-        onClick={() => setDismissed(true)}
-        className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 p-1"
-        aria-label="Fechar"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
+### Dashboard - Calculo de Receita e Ticket Medio
+
+```typescript
+// Receita do mes - reutiliza logica existente de loadMetrics
+const monthRevenue = wonLeads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+const avgTicket = wonLeads.length > 0 ? monthRevenue / wonLeads.length : 0;
 ```
 
-### AppSidebar.tsx (fundo amarelo no item)
+Nao precisa de nova tabela. Dados ja existem em `leads` + `funnel_stages`.
 
-No mapeamento de `bottomItems`, adicionar classe de fundo ao NavLink quando necessário:
+### Comissoes - Interface para dados existentes
 
-```tsx
-{bottomItems.map((item) => {
-  const isTasksItem = item.url === '/tasks';
-  const showTaskIndicator = isTasksItem && hasPendingTasks;
-  const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
-  
-  // Classe de fundo amarelo quando há aviso
-  const warningBgClass = showWarningIndicator ? "bg-amber-400/10" : "";
-  
-  return (
-    <SidebarMenuItem key={item.title} className="relative">
-      <SidebarMenuButton asChild>
-        <NavLink
-          to={item.url}
-          className={cn(
-            hoverClass, 
-            warningBgClass,
-            "text-sidebar-foreground text-base px-3 py-2.5 relative"
-          )}
-          activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
-        >
-          {/* ... resto do conteúdo */}
-        </NavLink>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
-})}
+A tabela `commissions` ja tem:
+- `user_id`, `lead_id`, `sale_value`, `commission_value`, `commission_rate`, `status`, `paid_at`
+
+A tabela `commission_configs` ja tem:
+- `organization_id`, `commission_type` (percentage/fixed), `commission_value`, `is_active`
+
+Nao precisa de migracao. So UI.
+
+### Metricas de Equipe
+
+```sql
+-- Vendas por equipe no mes
+SELECT t.id, t.name, COUNT(l.id) as sales, SUM(l.valor) as revenue
+FROM teams t
+JOIN team_members tm ON tm.team_id = t.id
+JOIN leads l ON l.responsavel_user_id = tm.user_id
+JOIN funnel_stages fs ON fs.id = l.funnel_stage_id AND fs.stage_type = 'won'
+WHERE l.updated_at >= start_of_month
+GROUP BY t.id, t.name
+ORDER BY revenue DESC
 ```
 
-## Visual Antes vs Depois
+### Colaboradores com KPIs
 
-### Card de Permissão
-
-**ANTES:**
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ 🔊  Ative as notificações sonoras                           [X] │
-│                                                                  │
-│     Você tem 2 tarefas atribuídas a você. Clique no botão       │
-│     abaixo para ativar o som de notificação.                    │
-│                                                                  │
-│     ┌─────────────────────────────────┐                         │
-│     │  🔔 Ativar som de notificação   │                         │
-│     └─────────────────────────────────┘                         │
-└──────────────────────────────────────────────────────────────────┘
+Na listagem de colaboradores, adicionar query paralela:
+```typescript
+// Para cada colaborador, buscar vendas do mes
+const salesByUser = wonLeads.reduce((acc, lead) => {
+  const userId = lead.responsavel_user_id;
+  if (!acc[userId]) acc[userId] = { count: 0, revenue: 0 };
+  acc[userId].count++;
+  acc[userId].revenue += lead.valor || 0;
+  return acc;
+}, {});
 ```
 
-**DEPOIS:**
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ 🔔 Ative o som para receber alertas de tarefas    [Ativar] [X] │
-└──────────────────────────────────────────────────────────────────┘
-```
+### Ordem de Implementacao
 
-### Menu Tarefas (quando há aviso)
+1. Dashboard (mais impacto visual, menos risco)
+2. Colaboradores + Comissoes (funcionalidade nova mais pedida)
+3. Equipes + Metricas (complemento)
 
-**ANTES:**
-```
-│ ✓ Tarefas                    ⚠️│
-```
-
-**DEPOIS:**
-```
-│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│  ← fundo amarelo/10
-│ ✓ Tarefas                    ⚠️│
-│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│
-```
-
-## Comportamento Corrigido
-
-| Cenário | Card de Permissão |
-|---------|-------------------|
-| Usuário precisa ativar som | Aparece |
-| Usuário fica 5s em /tasks | Continua aparecendo (tarefas são marcadas como vistas, mas card permanece) |
-| Usuário clica em "Ativar" | Some (som ativado) |
-| Usuário clica no X | Some (dispensado manualmente) |
-| Som já ativado anteriormente | Não aparece |
-
-## Seção Técnica
-
-### Por que o card sumia após 5 segundos?
-
-A condição no `TaskPermissionAlert.tsx` era:
-```tsx
-if (!needsAudioPermission || dismissed || !hasPendingTasks) {
-  return null;
-}
-```
-
-E no `TaskAlertContext.tsx`:
-```tsx
-// Linha 224-227: Após 5s na página de tarefas
-if (isOnTasksPage && hasPendingTasks) {
-  viewTimerRef.current = setTimeout(() => {
-    markTasksAsViewed(); // Define hasPendingTasks = false
-  }, 5000);
-}
-```
-
-Quando `hasPendingTasks` vira `false`, o card some por causa da condição `!hasPendingTasks`.
-
-### Correção
-
-Remover a dependência de `hasPendingTasks` da exibição do card:
-```tsx
-// ANTES
-if (!needsAudioPermission || dismissed || !hasPendingTasks) { ... }
-
-// DEPOIS
-if (!needsAudioPermission || dismissed) { ... }
-```
-
-Assim o card só some quando:
-1. `needsAudioPermission` vira `false` (som ativado)
-2. `dismissed` vira `true` (usuário clicou no X)
+Todas as mudancas usam dados ja existentes no banco. Nenhuma migracao SQL necessaria.
