@@ -1,159 +1,240 @@
 
-## Diagnóstico (com evidência)
+# Corrigir Card de Permissão de Áudio e Visual do Menu
 
-Hoje **não está funcionando** (sem som e sem ícone amarelo) porque **não existe nenhuma notificação sendo criada na tabela `notifications`** quando uma tarefa é atribuída.
+## Problemas Identificados
 
-Eu conferi no banco (ambiente de teste) e encontrei:
+### 1. Card some após 5 segundos (comportamento errado)
+O card desaparece porque a lógica atual marca as tarefas como "visualizadas" após 5 segundos na página `/tasks`, o que define `hasPendingTasks = false`, e o card depende dessa variável.
 
-1) Existem atribuições reais:
-- A tabela `kanban_card_assignees` tem registros recentes para o colaborador `kerlyskauan@gmail.com` (user_id `c673...`) em cards criados em `2026-02-08`.
+**Lógica atual incorreta:**
+```
+Usuário entra em /tasks
+    ↓
+Timer de 5s inicia
+    ↓
+markTasksAsViewed() é chamado
+    ↓
+hasPendingTasks = false
+    ↓
+Card some (porque depende de hasPendingTasks)
+```
 
-2) Mas **a tabela `notifications` está vazia**:
-- Não há nenhuma linha `task_assigned` (na verdade, não há linhas de notificação de nenhum tipo).
+**O correto deveria ser:**
+- O card de permissão de áudio deve permanecer **até o usuário ativar o som** OU **clicar no X para dispensar**
+- A lógica de marcar tarefas como visualizadas NÃO deve afetar a exibição do card de permissão
 
-3) Por que isso acontece?
-- A tabela `notifications` está com RLS ativo e **não existe policy de INSERT**.
-- Além disso, existe uma policy “Deny public access to notifications” com `FOR ALL USING (false)`, que efetivamente impede INSERTs vindos do app.
-- O frontend (`KanbanBoard.tsx`) tenta fazer `supabase.from("notifications").insert(...)`, porém esse INSERT **é bloqueado** pela segurança e o código **não checa/mostra erro**, então “parece que não aconteceu nada”.
+### 2. Card muito grande
+O card atual ocupa muito espaço vertical com texto longo e padding excessivo.
 
-Resultado: o `TaskAlertContext` consulta por notificações pendentes, encontra 0, então:
-- `hasPendingTasks = false`
-- não aparece bolinha/triângulo no menu
-- não toca som
-- não aparece card amarelo no topo
+### 3. Menu sem fundo amarelo
+O item "Tarefas" mostra apenas um ícone amarelo, mas não tem o fundo destacado.
 
-## Objetivo da correção
+## Solução
 
-Garantir que **sempre** que um colaborador for atribuído a uma tarefa (assignee), o sistema crie uma notificação “task_assigned” de forma confiável e segura (sem depender do cliente ter permissão de inserir em `notifications`).
+### A) Separar lógica do card de permissão da lógica de tarefas pendentes
 
-## Solução proposta (robusta e “à prova de falhas”)
+O card `TaskPermissionAlert` deve ter sua própria lógica de visibilidade:
+- Mostrar se: `needsAudioPermission = true` E usuário NÃO dispensou manualmente
+- Esconder se: usuário clicou no X OU ativou o som com sucesso
 
-### A) Mover a criação da notificação para o banco (gatilho/trigger)
-Criar uma função SQL `SECURITY DEFINER` + trigger em `kanban_card_assignees`:
+A condição `hasPendingTasks` deve ser removida da lógica de exibição do card, pois:
+- Se o usuário precisa ativar o som, ele precisa ver o card
+- O fato de ter ou não tarefas pendentes é secundário para essa instrução
 
-- Quando um assignee é inserido (novo responsável),
-- o banco automaticamente insere em `notifications`:
-  - `user_id` = `NEW.user_id` (responsável)
-  - `type` = `'task_assigned'`
-  - `title` = `'Tarefa atribuída'`
-  - `message` = texto com o título do card
-  - `card_id` = `NEW.card_id`
-  - `due_date` e `time_estimate` = puxados de `kanban_cards`
-  - `from_user_id` = `COALESCE(NEW.assigned_by, auth.uid())`
+### B) Redesenhar o card para ser mais minimalista
 
-**Validações dentro da função (para não gerar notificações erradas/abusos):**
-1. Confirmar que o card pertence a uma organização em que o usuário que está atribuindo tem acesso (o RLS de assignees já garante isso, mas vamos validar também).
-2. Confirmar que o `NEW.user_id` (destinatário) é membro da mesma organização do card antes de notificar.
-3. (Opcional – decisão) Não notificar quando alguém se atribui a si mesmo (reduz ruído). Se você quiser “notificar até quando for o próprio”, a gente não faz essa exceção.
+Layout compacto em uma única linha:
+```
+[🔔 ícone] Ative as notificações para receber alertas de tarefas. [Ativar] [X]
+```
 
-**Por que isso garante que vai funcionar?**
-- O INSERT em `notifications` passa a ser feito pelo próprio banco via `SECURITY DEFINER`, sem depender de policy de INSERT no cliente.
-- Isso é exatamente o padrão já usado no projeto para notificar atribuição de lead (há função `SECURITY DEFINER` no schema).
+Características:
+- Padding reduzido (`py-2 px-3`)
+- Tudo em uma linha com flexbox
+- Sem título separado
+- Texto curto e direto
+- Botão pequeno inline
+- X de fechar no final
 
-### B) Backfill (corrigir tarefas já atribuídas que não geraram notificação)
-Como você já atribuiu tarefas e “nada aconteceu”, precisamos “reparar” o estado atual.
+### C) Adicionar fundo amarelo ao item Tarefas no menu
 
-Na mesma migração, executar um INSERT em lote:
-- Para cada linha em `kanban_card_assignees` recente (ex.: últimos 90 dias) que **não tenha** ainda uma notificação `task_assigned` correspondente (`NOT EXISTS` por `user_id + card_id + type`),
-- criar a notificação.
+Quando há tarefas pendentes e o usuário precisa ativar o som, o item inteiro terá:
+- Fundo amarelo com opacidade baixa (`bg-amber-400/10`)
+- Mantém o ícone de aviso
 
-Isso vai fazer o colaborador passar a ver o indicador e o card imediatamente, e o som (depois que ele ativar o áudio, se necessário).
+## Mudanças nos Arquivos
 
-### C) Ajustes no frontend para evitar duplicidade e “falha silenciosa”
-Depois que o trigger existir:
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/TaskPermissionAlert.tsx` | Redesenhar para layout compacto e remover dependência de `hasPendingTasks` |
+| `src/components/AppSidebar.tsx` | Adicionar classe de fundo amarelo ao item Tarefas quando necessário |
 
-1) **Remover** (ou desativar) os `supabase.from("notifications").insert({ type: "task_assigned" ... })` do `KanbanBoard.tsx`, porque:
-- eles hoje falham por RLS
-- e depois do trigger, seriam redundantes (e poderiam gerar duplicidade se um dia as policies mudarem)
+## Código Proposto
 
-2) Adicionar logging/handling mínimo para o fluxo de atribuição:
-- se a inserção em `kanban_card_assignees` falhar, mostrar toast de erro.
-- (Opcional temporário) durante validação, logar no console quando `checkPendingTasks()` encontrar pendências e qual o `count`.
+### TaskPermissionAlert.tsx (novo design)
 
-### D) Garantir que o som usado é o arquivo que você enviou
-Substituir o áudio atual por **exatamente** o arquivo enviado:
-- `user-uploads://dragon-studio-bell-ring-390294.mp3` → `public/task-notification.mp3`
+```tsx
+import { Bell, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTaskAlert } from "@/contexts/TaskAlertContext";
+import { useState } from "react";
 
-Assim o `/task-notification.mp3` é sempre o sino correto.
+export function TaskPermissionAlert() {
+  const { needsAudioPermission, requestAudioPermission } = useTaskAlert();
+  const [dismissed, setDismissed] = useState(false);
 
-## Mudanças (o que será alterado)
+  // Mostrar apenas se precisa de permissão e não foi dispensado
+  // NÃO depende de hasPendingTasks
+  if (!needsAudioPermission || dismissed) {
+    return null;
+  }
 
-### 1) Migração SQL (banco)
-Criar uma nova migration contendo:
+  const handleActivate = async () => {
+    await requestAudioPermission();
+  };
 
-1. Função `public.notify_task_assignment()` (SECURITY DEFINER)
-2. Trigger `AFTER INSERT ON public.kanban_card_assignees`
-3. Backfill de notificações para atribuições existentes sem notificação
-4. (Manter) `viewed_at` e índice já criados (se já existem, não mexe)
+  return (
+    <div className="mb-3 py-2 px-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md flex items-center gap-2">
+      <Bell className="h-4 w-4 text-amber-500 flex-shrink-0" />
+      <span className="text-sm text-amber-700 dark:text-amber-300 flex-1">
+        Ative o som para receber alertas de tarefas
+      </span>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="h-7 px-2 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-800/40"
+        onClick={handleActivate}
+      >
+        Ativar
+      </Button>
+      <button
+        onClick={() => setDismissed(true)}
+        className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 p-1"
+        aria-label="Fechar"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+```
 
-### 2) Arquivos do frontend
-- `src/components/KanbanBoard.tsx`
-  - remover as inserções diretas de `notifications` para `task_assigned` (a criação passa a ser automática pelo banco)
-- `public/task-notification.mp3`
-  - substituir pelo arquivo novo enviado
+### AppSidebar.tsx (fundo amarelo no item)
 
-Nenhuma mudança estrutural é necessária no:
-- `TaskAlertContext.tsx`
-- `AppSidebar.tsx`
-- `TaskPermissionAlert.tsx`
-porque a lógica deles já funciona desde que existam notificações pendentes de verdade.
+No mapeamento de `bottomItems`, adicionar classe de fundo ao NavLink quando necessário:
 
-## Plano de validação (para ter certeza absoluta)
+```tsx
+{bottomItems.map((item) => {
+  const isTasksItem = item.url === '/tasks';
+  const showTaskIndicator = isTasksItem && hasPendingTasks;
+  const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
+  
+  // Classe de fundo amarelo quando há aviso
+  const warningBgClass = showWarningIndicator ? "bg-amber-400/10" : "";
+  
+  return (
+    <SidebarMenuItem key={item.title} className="relative">
+      <SidebarMenuButton asChild>
+        <NavLink
+          to={item.url}
+          className={cn(
+            hoverClass, 
+            warningBgClass,
+            "text-sidebar-foreground text-base px-3 py-2.5 relative"
+          )}
+          activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
+        >
+          {/* ... resto do conteúdo */}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+})}
+```
 
-### Teste 1 — Criação de tarefa com atribuição (colaborador fora de /tasks)
-1. Logar como Admin/Owner.
-2. Criar uma tarefa e atribuir ao colaborador (aquele que aparece com “fotinho”).
-3. Verificar no banco:
-   - existe linha em `notifications` com:
-     - `user_id = colaborador`
-     - `type = 'task_assigned'`
-     - `card_id = id do card`
-     - `viewed_at IS NULL`
-4. Logar como colaborador (em outra aba/navegador):
-   - o menu “Tarefas” deve mostrar:
-     - bolinha amarela pulsando, ou
-     - triângulo amarelo pulsando (se áudio ainda não liberado)
-   - se o navegador bloquear autoplay:
-     - o card amarelo na página /tasks deve aparecer com o botão “Ativar som”
-   - após clicar em “Ativar som”, o som deve começar a tocar a cada 5s (quando houver pendência e ele não estiver em /tasks)
+## Visual Antes vs Depois
 
-### Teste 2 — Parada do som ao “ver” tarefas
-1. Com pendências ativas e som tocando fora de /tasks,
-2. Navegar para `/tasks`
-3. Permanecer por pelo menos 5 segundos
-4. Verificar:
-   - `viewed_at` foi preenchido nas notificações `task_assigned` pendentes
-   - o indicador do menu some
-   - o som para
+### Card de Permissão
 
-### Teste 3 — Funciona para todos (inclusive dono)
-1. Atribuir tarefa ao Owner e repetir os testes acima.
+**ANTES:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 🔊  Ative as notificações sonoras                           [X] │
+│                                                                  │
+│     Você tem 2 tarefas atribuídas a você. Clique no botão       │
+│     abaixo para ativar o som de notificação.                    │
+│                                                                  │
+│     ┌─────────────────────────────────┐                         │
+│     │  🔔 Ativar som de notificação   │                         │
+│     └─────────────────────────────────┘                         │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-### Teste 4 — Reatribuição / novos assignees em tarefa existente
-1. Pegar um card existente
-2. Adicionar um novo responsável
-3. Confirmar que a notificação aparece para esse novo responsável
+**DEPOIS:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 🔔 Ative o som para receber alertas de tarefas    [Ativar] [X] │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-## Riscos e como vamos mitigar
+### Menu Tarefas (quando há aviso)
 
-1) **Duplicidade de notificações**
-- Mitigação:
-  - backfill usa `NOT EXISTS`
-  - trigger cria apenas quando há INSERT em `kanban_card_assignees` (que é UNIQUE por `card_id,user_id`)
+**ANTES:**
+```
+│ ✓ Tarefas                    ⚠️│
+```
 
-2) **Atribuir tarefa para um usuário que não é membro da organização**
-- Mitigação:
-  - trigger valida membership antes de criar notificação
+**DEPOIS:**
+```
+│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│  ← fundo amarelo/10
+│ ✓ Tarefas                    ⚠️│
+│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│
+```
 
-3) **Autoplay bloqueado (comportamento do navegador)**
-- Mitigação:
-  - indicador no menu + card amarelo com botão “Ativar som”
-  - (Importante) não existe “permissão do navegador” específica para som; o requisito real é “interação do usuário” para liberar áudio. O botão resolve isso.
+## Comportamento Corrigido
 
-## Checklist final antes de publicar em produção
-- Confirmar em teste: notificações surgindo no banco + indicador no menu + som/stop após 5s em /tasks.
-- Publicar o frontend (Update no Publish) para refletir as mudanças no site publicado.
-- Garantir que a migration também foi aplicada no ambiente publicado (via Publish).
+| Cenário | Card de Permissão |
+|---------|-------------------|
+| Usuário precisa ativar som | Aparece |
+| Usuário fica 5s em /tasks | Continua aparecendo (tarefas são marcadas como vistas, mas card permanece) |
+| Usuário clica em "Ativar" | Some (som ativado) |
+| Usuário clica no X | Some (dispensado manualmente) |
+| Som já ativado anteriormente | Não aparece |
 
-## Observação importante (manutenção)
-Como o projeto está com RLS impedindo INSERT direto em `notifications`, qualquer notificação criada pelo frontend (ex.: `task_mention`) também tende a falhar. Se você quiser que “menções @nome” também notifiquem sempre, eu proponho um passo 2 depois: criar um caminho seguro (função no backend) para essas notificações também. Para o que você pediu agora (atribuição de responsável com foto), o trigger resolve 100%.
+## Seção Técnica
+
+### Por que o card sumia após 5 segundos?
+
+A condição no `TaskPermissionAlert.tsx` era:
+```tsx
+if (!needsAudioPermission || dismissed || !hasPendingTasks) {
+  return null;
+}
+```
+
+E no `TaskAlertContext.tsx`:
+```tsx
+// Linha 224-227: Após 5s na página de tarefas
+if (isOnTasksPage && hasPendingTasks) {
+  viewTimerRef.current = setTimeout(() => {
+    markTasksAsViewed(); // Define hasPendingTasks = false
+  }, 5000);
+}
+```
+
+Quando `hasPendingTasks` vira `false`, o card some por causa da condição `!hasPendingTasks`.
+
+### Correção
+
+Remover a dependência de `hasPendingTasks` da exibição do card:
+```tsx
+// ANTES
+if (!needsAudioPermission || dismissed || !hasPendingTasks) { ... }
+
+// DEPOIS
+if (!needsAudioPermission || dismissed) { ... }
+```
+
+Assim o card só some quando:
+1. `needsAudioPermission` vira `false` (som ativado)
+2. `dismissed` vira `true` (usuário clicou no X)
