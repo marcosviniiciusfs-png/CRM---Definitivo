@@ -193,13 +193,14 @@ function AppSidebarComponent() {
                 const isTasksItem = item.url === '/tasks';
                 const showTaskIndicator = isTasksItem && hasPendingTasks;
                 const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
+                const warningBgClass = showWarningIndicator ? "bg-amber-400/10" : "";
                 
                 return (
                   <SidebarMenuItem key={item.title} className="relative">
                     <SidebarMenuButton asChild>
                       <NavLink
                         to={item.url}
-                        className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5 relative")}
+                        className={cn(hoverClass, warningBgClass, "text-sidebar-foreground text-base px-3 py-2.5 relative")}
                         activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
                       >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
