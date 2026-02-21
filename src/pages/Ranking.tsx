@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { supabase } from "@/integrations/supabase/client";
 import { TaskLeaderboard, LeaderboardData } from "@/components/dashboard/TaskLeaderboard";
@@ -10,265 +10,187 @@ import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, en
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useQuery } from "@tanstack/react-query";
 
 type PeriodType = "week" | "month" | "quarter" | "year";
 type RankingType = "sales" | "tasks" | "appointments";
 type SortType = "revenue" | "won_leads" | "percentage" | "task_points";
+
+const getDateRange = (periodType: PeriodType) => {
+  const now = new Date();
+  switch (periodType) {
+    case "week":
+      return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+    case "month":
+      return { start: startOfMonth(now), end: endOfMonth(now) };
+    case "quarter":
+      return { start: startOfQuarter(now), end: endOfQuarter(now) };
+    case "year":
+      return { start: startOfYear(now), end: endOfYear(now) };
+  }
+};
+
+const fetchSalesData = async (organizationId: string, period: PeriodType): Promise<LeaderboardData[]> => {
+  const { start, end } = getDateRange(period);
+
+  const { data: members, error: membersError } = await supabase
+    .from('organization_members')
+    .select('user_id')
+    .eq('organization_id', organizationId);
+
+  if (membersError) throw membersError;
+  const userIds = (members || []).map(m => m.user_id).filter(Boolean);
+  if (userIds.length === 0) return [];
+
+  const [profilesRes, teamMembersRes, leadsRes, goalsRes] = await Promise.all([
+    supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', userIds),
+    supabase.from('team_members').select('user_id, team_id, teams(id, name, color)').in('user_id', userIds),
+    supabase.from('leads').select(`id, valor, responsavel_user_id, updated_at, funnel_stage_id, funnel_stages!leads_funnel_stage_id_fkey (stage_type)`).eq('organization_id', organizationId).in('responsavel_user_id', userIds),
+    supabase.from('goals').select('user_id, target_value').eq('organization_id', organizationId),
+  ]);
+
+  const profiles = profilesRes.data || [];
+  const leads = leadsRes.data || [];
+  const goals = goalsRes.data || [];
+
+  const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
+  for (const tm of teamMembersRes.data || []) {
+    const team = tm.teams as any;
+    if (!team) continue;
+    const current = teamsByUser.get(tm.user_id) || [];
+    current.push({ id: team.id, name: team.name, color: team.color });
+    teamsByUser.set(tm.user_id, current);
+  }
+
+  const wonLeadsInPeriod = leads.filter(l => {
+    const stageType = (l.funnel_stages as any)?.stage_type;
+    if (stageType !== 'won') return false;
+    const updatedAt = new Date(l.updated_at);
+    return updatedAt >= start && updatedAt <= end;
+  });
+
+  return userIds.map(userId => {
+    const profile = profiles.find(p => p.user_id === userId);
+    const userTotalLeads = leads.filter(l => l.responsavel_user_id === userId);
+    const userWonLeads = wonLeadsInPeriod.filter(l => l.responsavel_user_id === userId);
+    const userGoal = goals.find(g => g.user_id === userId);
+
+    return {
+      user_id: userId,
+      full_name: profile?.full_name || 'Colaborador',
+      avatar_url: profile?.avatar_url || null,
+      won_leads: userWonLeads.length,
+      total_leads: userTotalLeads.length,
+      total_revenue: userWonLeads.reduce((sum, l) => sum + (l.valor || 0), 0),
+      target: userGoal?.target_value || 10,
+      task_points: 0,
+      tasks_completed: 0,
+      tasks_on_time: 0,
+      teams: teamsByUser.get(userId) || [],
+    };
+  });
+};
+
+const fetchTasksData = async (organizationId: string, period: PeriodType): Promise<LeaderboardData[]> => {
+  const { start, end } = getDateRange(period);
+
+  const { data: members } = await supabase
+    .from('organization_members')
+    .select('user_id')
+    .eq('organization_id', organizationId);
+
+  const userIds = (members || []).map(m => m.user_id).filter(Boolean);
+  if (userIds.length === 0) return [];
+
+  const [profilesRes, teamMembersRes, taskLogsRes] = await Promise.all([
+    supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', userIds),
+    supabase.from('team_members').select('user_id, team_id, teams(id, name, color)').in('user_id', userIds),
+    supabase.from('task_completion_logs').select('user_id, total_points, was_on_time_due_date, was_on_time_timer').eq('organization_id', organizationId).gte('completed_at', start.toISOString()).lte('completed_at', end.toISOString()),
+  ]);
+
+  const profiles = profilesRes.data || [];
+
+  const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
+  for (const tm of teamMembersRes.data || []) {
+    const team = tm.teams as any;
+    if (!team) continue;
+    const current = teamsByUser.get(tm.user_id) || [];
+    current.push({ id: team.id, name: team.name, color: team.color });
+    teamsByUser.set(tm.user_id, current);
+  }
+
+  const tasksByUser = new Map<string, { points: number; completed: number; onTime: number }>();
+  for (const log of taskLogsRes.data || []) {
+    const current = tasksByUser.get(log.user_id) || { points: 0, completed: 0, onTime: 0 };
+    current.points += log.total_points || 0;
+    current.completed += 1;
+    if (log.was_on_time_due_date || log.was_on_time_timer) current.onTime += 1;
+    tasksByUser.set(log.user_id, current);
+  }
+
+  return userIds.map(userId => {
+    const profile = profiles.find(p => p.user_id === userId);
+    const userTasks = tasksByUser.get(userId) || { points: 0, completed: 0, onTime: 0 };
+
+    return {
+      user_id: userId,
+      full_name: profile?.full_name || 'Colaborador',
+      avatar_url: profile?.avatar_url || null,
+      task_points: userTasks.points,
+      tasks_completed: userTasks.completed,
+      tasks_on_time: userTasks.onTime,
+      won_leads: 0,
+      total_leads: 0,
+      total_revenue: 0,
+      target: 0,
+      teams: teamsByUser.get(userId) || [],
+    };
+  });
+};
+
+const fetchTeams = async (organizationId: string) => {
+  const { data } = await supabase
+    .from('teams')
+    .select('id, name, avatar_url, color')
+    .eq('organization_id', organizationId);
+  return data || [];
+};
 
 export default function Ranking() {
   const { organizationId, isReady } = useOrganizationReady();
   const [period, setPeriod] = useState<PeriodType>("month");
   const [rankingType, setRankingType] = useState<RankingType>("tasks");
   const [sortBy, setSortBy] = useState<SortType>("task_points");
-  const [data, setData] = useState<LeaderboardData[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const getDateRange = (periodType: PeriodType) => {
-    const now = new Date();
-    switch (periodType) {
-      case "week":
-        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
-      case "month":
-        return { start: startOfMonth(now), end: endOfMonth(now) };
-      case "quarter":
-        return { start: startOfQuarter(now), end: endOfQuarter(now) };
-      case "year":
-        return { start: startOfYear(now), end: endOfYear(now) };
-    }
+  const { data: salesData = [], isLoading: salesLoading } = useQuery({
+    queryKey: ['ranking-sales', organizationId, period],
+    queryFn: () => fetchSalesData(organizationId!, period),
+    enabled: !!organizationId && rankingType === 'sales',
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: tasksData = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ['ranking-tasks', organizationId, period],
+    queryFn: () => fetchTasksData(organizationId!, period),
+    enabled: !!organizationId && rankingType === 'tasks',
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ['ranking-teams', organizationId],
+    queryFn: () => fetchTeams(organizationId!),
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const data = rankingType === 'sales' ? salesData : tasksData;
+  const isLoading = rankingType === 'sales' ? salesLoading : tasksLoading;
+
+  const handleRankingTypeChange = (v: string) => {
+    setRankingType(v as RankingType);
+    if (v === "tasks") setSortBy("task_points");
+    else setSortBy("revenue");
   };
-
-  const loadSalesData = async () => {
-    if (!organizationId) return;
-    
-    setIsLoading(true);
-    try {
-      const { start, end } = getDateRange(period);
-
-      // Buscar membros da organização
-      const { data: members, error: membersError } = await supabase
-        .from('organization_members')
-        .select('user_id')
-        .eq('organization_id', organizationId);
-
-      if (membersError) throw membersError;
-
-      const userIds = (members || []).map(m => m.user_id).filter(Boolean);
-
-      if (userIds.length === 0) {
-        setData([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Buscar perfis separadamente
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, avatar_url')
-        .in('user_id', userIds);
-
-      if (profilesError) throw profilesError;
-
-      // Buscar team_members para associar equipes aos usuários
-      const { data: teamMembers } = await supabase
-        .from('team_members')
-        .select('user_id, team_id, teams(id, name, color)')
-        .in('user_id', userIds);
-
-      // Agrupar equipes por user_id
-      const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
-      for (const tm of teamMembers || []) {
-        const team = tm.teams as any;
-        if (!team) continue;
-        const current = teamsByUser.get(tm.user_id) || [];
-        current.push({ id: team.id, name: team.name, color: team.color });
-        teamsByUser.set(tm.user_id, current);
-      }
-
-      // Buscar leads com stages para calcular métricas
-      const { data: leads, error: leadsError } = await supabase
-        .from('leads')
-        .select(`
-          id,
-          valor,
-          responsavel_user_id,
-          updated_at,
-          funnel_stage_id,
-          funnel_stages!leads_funnel_stage_id_fkey (
-            stage_type
-          )
-        `)
-        .eq('organization_id', organizationId)
-        .in('responsavel_user_id', userIds);
-
-      if (leadsError) throw leadsError;
-
-      // Filtrar leads won pelo período baseado em updated_at
-      const wonLeadsInPeriod = (leads || []).filter(l => {
-        const stageType = (l.funnel_stages as any)?.stage_type;
-        if (stageType !== 'won') return false;
-        const updatedAt = new Date(l.updated_at);
-        return updatedAt >= start && updatedAt <= end;
-      });
-
-      // Buscar metas dos usuários
-      const { data: goals, error: goalsError } = await supabase
-        .from('goals')
-        .select('user_id, target_value')
-        .eq('organization_id', organizationId);
-
-      if (goalsError) throw goalsError;
-
-      // Calcular métricas por colaborador
-      const salesData: LeaderboardData[] = userIds.map(userId => {
-        const profile = (profiles || []).find(p => p.user_id === userId);
-        const userTotalLeads = (leads || []).filter(l => l.responsavel_user_id === userId);
-        const userWonLeads = wonLeadsInPeriod.filter(l => l.responsavel_user_id === userId);
-        const userGoal = (goals || []).find(g => g.user_id === userId);
-
-        return {
-          user_id: userId,
-          full_name: profile?.full_name || 'Colaborador',
-          avatar_url: profile?.avatar_url || null,
-          won_leads: userWonLeads.length,
-          total_leads: userTotalLeads.length,
-          total_revenue: userWonLeads.reduce((sum, l) => sum + (l.valor || 0), 0),
-          target: userGoal?.target_value || 10,
-          task_points: 0,
-          tasks_completed: 0,
-          tasks_on_time: 0,
-          teams: teamsByUser.get(userId) || [],
-        };
-      });
-
-      setData(salesData);
-    } catch (error) {
-      console.error('Erro ao carregar dados de vendas:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadTasksData = async () => {
-    if (!organizationId) return;
-    
-    setIsLoading(true);
-    try {
-      const { start, end } = getDateRange(period);
-
-      // Buscar membros da organização
-      const { data: members } = await supabase
-        .from('organization_members')
-        .select('user_id')
-        .eq('organization_id', organizationId);
-
-      const userIds = (members || []).map(m => m.user_id).filter(Boolean);
-
-      if (userIds.length === 0) {
-        setData([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Buscar perfis
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, avatar_url')
-        .in('user_id', userIds);
-
-      // Buscar team_members para associar equipes aos usuários
-      const { data: teamMembers } = await supabase
-        .from('team_members')
-        .select('user_id, team_id, teams(id, name, color)')
-        .in('user_id', userIds);
-
-      // Agrupar equipes por user_id
-      const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
-      for (const tm of teamMembers || []) {
-        const team = tm.teams as any;
-        if (!team) continue;
-        const current = teamsByUser.get(tm.user_id) || [];
-        current.push({ id: team.id, name: team.name, color: team.color });
-        teamsByUser.set(tm.user_id, current);
-      }
-
-      // Buscar logs de pontuação de tarefas
-      const { data: taskLogs } = await supabase
-        .from('task_completion_logs')
-        .select('user_id, total_points, was_on_time_due_date, was_on_time_timer')
-        .eq('organization_id', organizationId)
-        .gte('completed_at', start.toISOString())
-        .lte('completed_at', end.toISOString());
-
-      // Agrupar por user_id
-      const tasksByUser = new Map<string, { points: number; completed: number; onTime: number }>();
-      
-      for (const log of taskLogs || []) {
-        const current = tasksByUser.get(log.user_id) || { points: 0, completed: 0, onTime: 0 };
-        current.points += log.total_points || 0;
-        current.completed += 1;
-        if (log.was_on_time_due_date || log.was_on_time_timer) {
-          current.onTime += 1;
-        }
-        tasksByUser.set(log.user_id, current);
-      }
-
-      // Calcular dados para ranking
-      const tasksData: LeaderboardData[] = userIds.map(userId => {
-        const profile = (profiles || []).find(p => p.user_id === userId);
-        const userTasks = tasksByUser.get(userId) || { points: 0, completed: 0, onTime: 0 };
-
-        return {
-          user_id: userId,
-          full_name: profile?.full_name || 'Colaborador',
-          avatar_url: profile?.avatar_url || null,
-          task_points: userTasks.points,
-          tasks_completed: userTasks.completed,
-          tasks_on_time: userTasks.onTime,
-          won_leads: 0,
-          total_leads: 0,
-          total_revenue: 0,
-          target: 0,
-          teams: teamsByUser.get(userId) || [],
-        };
-      });
-
-      setData(tasksData);
-    } catch (error) {
-      console.error('Erro ao carregar dados de tarefas:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadTeams = async () => {
-    if (!organizationId) return;
-    
-    const { data: teamsData } = await supabase
-      .from('teams')
-      .select('id, name, avatar_url, color')
-      .eq('organization_id', organizationId);
-
-    setTeams(teamsData || []);
-  };
-
-  useEffect(() => {
-    if (rankingType === "sales") {
-      loadSalesData();
-    } else {
-      loadTasksData();
-    }
-    loadTeams();
-  }, [organizationId, period, rankingType]);
-
-  // Atualizar sortBy quando muda o tipo de ranking
-  useEffect(() => {
-    if (rankingType === "tasks") {
-      setSortBy("task_points");
-    } else {
-      setSortBy("revenue");
-    }
-  }, [rankingType]);
 
   // Guard: Aguardar inicialização completa (auth + org)
   if (!isReady || !organizationId) {
@@ -288,7 +210,7 @@ export default function Ranking() {
 
       <div className="p-4 md:p-6">
         {/* Ranking Type Tabs */}
-        <Tabs value={rankingType} onValueChange={(v) => setRankingType(v as RankingType)} className="space-y-6">
+        <Tabs value={rankingType} onValueChange={handleRankingTypeChange} className="space-y-6">
           <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="tasks" className="flex items-center gap-2">
               <CheckSquare className="h-4 w-4" />
@@ -304,9 +226,8 @@ export default function Ranking() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Tasks & Sales Content */}
+          {/* Tasks Content */}
           <TabsContent value="tasks" className="mt-0">
-            {/* Filters Row */}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -369,7 +290,6 @@ export default function Ranking() {
           </TabsContent>
 
           <TabsContent value="sales" className="mt-0">
-            {/* Filters Row */}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
