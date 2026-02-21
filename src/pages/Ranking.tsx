@@ -35,7 +35,8 @@ const fetchSalesData = async (organizationId: string, periodType: PeriodType): P
 
   const { start, end } = getDateRange(periodType);
 
-  const { data } = await supabase
+  // Fetch won leads with funnel stage info
+  const { data: leads } = await supabase
     .from('leads')
     .select(`
       responsavel_user_id,
@@ -43,17 +44,26 @@ const fetchSalesData = async (organizationId: string, periodType: PeriodType): P
       funnel_stage_id,
       funnel_stages (
         stage_type
-      ),
-      profiles (
-        full_name,
-        avatar_url
       )
     `)
     .eq('organization_id', organizationId)
     .gte('data_conclusao', start.toISOString())
     .lte('data_conclusao', end.toISOString());
 
-  const validData = data?.filter(item => item.funnel_stages?.stage_type === 'won') || [];
+  const validData = (leads as any[])?.filter(item => item.funnel_stages?.stage_type === 'won') || [];
+
+  // Get unique user IDs to fetch profiles
+  const userIds = [...new Set(validData.map(item => item.responsavel_user_id).filter(Boolean))];
+  
+  // Fetch profiles for these users
+  const profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, avatar_url')
+      .in('user_id', userIds);
+    profiles?.forEach(p => { profilesMap[p.user_id] = p; });
+  }
 
   // Aggregate sales data by user
   const userSalesMap: { [userId: string]: LeaderboardData } = {};
@@ -62,19 +72,19 @@ const fetchSalesData = async (organizationId: string, periodType: PeriodType): P
     if (!userId) return;
 
     if (!userSalesMap[userId]) {
+      const profile = profilesMap[userId];
       userSalesMap[userId] = {
         user_id: userId,
-        full_name: item.profiles?.full_name || 'Sem nome',
-        avatar_url: item.profiles?.avatar_url || null,
-        revenue: 0,
+        full_name: profile?.full_name || 'Sem nome',
+        avatar_url: profile?.avatar_url || null,
+        total_revenue: 0,
         won_leads: 0,
         task_points: 0,
-        percentage: 0,
       };
     }
 
-    userSalesMap[userId].revenue += item.valor || 0;
-    userSalesMap[userId].won_leads++;
+    userSalesMap[userId].total_revenue = (userSalesMap[userId].total_revenue || 0) + (item.valor || 0);
+    userSalesMap[userId].won_leads = (userSalesMap[userId].won_leads || 0) + 1;
   });
 
   return Object.values(userSalesMap);
@@ -85,39 +95,46 @@ const fetchTasksData = async (organizationId: string, periodType: PeriodType): P
 
   const { start, end } = getDateRange(periodType);
 
-  const { data } = await supabase
-    .from('kanban_cards')
-    .select(`
-      responsavel_user_id,
-      task_points,
-      profiles (
-        full_name,
-        avatar_url
-      )
-    `)
-    .eq('organization_id', organizationId)
-    .gte('created_at', start.toISOString())
-    .lte('created_at', end.toISOString());
+  // Fetch completed task assignees within the period
+  const { data: assignees } = await supabase
+    .from('kanban_card_assignees')
+    .select('user_id, is_completed, completed_at')
+    .eq('is_completed', true)
+    .gte('completed_at', start.toISOString())
+    .lte('completed_at', end.toISOString());
+
+  // Get unique user IDs
+  const userIds = [...new Set((assignees || []).map(a => a.user_id))];
+  
+  // Fetch profiles
+  const profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, avatar_url')
+      .in('user_id', userIds);
+    profiles?.forEach(p => { profilesMap[p.user_id] = p; });
+  }
 
   // Aggregate tasks data by user
   const userTasksMap: { [userId: string]: LeaderboardData } = {};
-  data?.forEach(item => {
-    const userId = item.responsavel_user_id;
+  (assignees || []).forEach(item => {
+    const userId = item.user_id;
     if (!userId) return;
 
     if (!userTasksMap[userId]) {
+      const profile = profilesMap[userId];
       userTasksMap[userId] = {
         user_id: userId,
-        full_name: item.profiles?.full_name || 'Sem nome',
-        avatar_url: item.profiles?.avatar_url || null,
-        revenue: 0,
-        won_leads: 0,
+        full_name: profile?.full_name || 'Sem nome',
+        avatar_url: profile?.avatar_url || null,
         task_points: 0,
-        percentage: 0,
+        tasks_completed: 0,
       };
     }
 
-    userTasksMap[userId].task_points += item.task_points || 0;
+    userTasksMap[userId].tasks_completed = (userTasksMap[userId].tasks_completed || 0) + 1;
+    userTasksMap[userId].task_points = (userTasksMap[userId].task_points || 0) + 1;
   });
 
   return Object.values(userTasksMap);

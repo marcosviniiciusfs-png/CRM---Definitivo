@@ -733,11 +733,11 @@ const Colaboradores = () => {
         </TabsContent>
 
         <TabsContent value="cargos">
-          {organizationId && <RoleManagementTab organizationId={organizationId} />}
+          {organizationId && <RoleManagementTab organizationId={organizationId} userRole={userRole} />}
         </TabsContent>
 
         <TabsContent value="comissoes">
-          {organizationId && <CommissionsTab organizationId={organizationId} />}
+          {organizationId && <CommissionsTab organizationId={organizationId} userRole={userRole} />}
         </TabsContent>
 
         <TabsContent value="dashboard">
