@@ -226,7 +226,7 @@ export default function AdminUserDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -253,7 +253,7 @@ export default function AdminUserDetails() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -376,7 +376,7 @@ export default function AdminUserDetails() {
                   size="sm"
                   onClick={() => openResetConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword || deleting}
-                  className="gap-2 glass-warning"
+                  className="gap-2"
                 >
                   <Send className="w-4 h-4" />
                   Enviar Link de Reset
@@ -386,7 +386,7 @@ export default function AdminUserDetails() {
                   size="sm"
                   onClick={() => openTempPassConfirm(userDetails.user_id, userDetails.email)}
                   disabled={resettingPassword || deleting}
-                  className="gap-2 glass-destructive"
+                  className="gap-2"
                 >
                   <KeyRound className="w-4 h-4" />
                   Gerar Senha Temporária
@@ -396,7 +396,7 @@ export default function AdminUserDetails() {
                   size="sm"
                   onClick={openDeleteConfirm}
                   disabled={resettingPassword || deleting}
-                  className="gap-2 ml-auto glass-destructive"
+                  className="gap-2 ml-auto text-red-600 hover:text-red-700"
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir Conta
@@ -481,7 +481,7 @@ export default function AdminUserDetails() {
                               <Button
                                 variant="secondary"
                                 size="icon"
-                                className="h-8 w-8 glass-warning"
+                                className="h-8 w-8"
                                 onClick={() => openResetConfirm(member.user_id!, member.email)}
                                 disabled={resettingPassword}
                                 title="Enviar link de reset"
@@ -491,7 +491,7 @@ export default function AdminUserDetails() {
                               <Button
                                 variant="secondary"
                                 size="icon"
-                                className="h-8 w-8 glass-destructive"
+                                className="h-8 w-8"
                                 onClick={() => openTempPassConfirm(member.user_id!, member.email)}
                                 disabled={resettingPassword}
                                 title="Gerar senha temporária"
@@ -571,7 +571,7 @@ export default function AdminUserDetails() {
               </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleSendResetEmail}
-                className="glass-warning"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 Confirmar e Enviar
               </AlertDialogAction>
@@ -639,7 +639,7 @@ export default function AdminUserDetails() {
               </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleGenerateTempPassword}
-                className="glass-destructive"
+                className="bg-red-500 hover:bg-red-600 text-white"
               >
                 Sim, Gerar Senha
               </AlertDialogAction>
@@ -766,7 +766,7 @@ export default function AdminUserDetails() {
               <AlertDialogAction 
                 onClick={handleDeleteUser}
                 disabled={!adminPassword || deleting}
-                className="glass-destructive"
+                className="bg-red-500 hover:bg-red-600 text-white"
               >
                 {deleting ? 'Excluindo...' : 'Sim, Excluir Permanentemente'}
               </AlertDialogAction>
