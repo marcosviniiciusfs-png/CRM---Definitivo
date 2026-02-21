@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check, LucideIcon } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check, LucideIcon, CalendarClock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -52,7 +52,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editedStage, setEditedStage] = useState(lead.stage || "NOVO");
   const [editedEmpresa, setEditedEmpresa] = useState(lead.empresa || "");
   const [isSaving, setIsSaving] = useState(false);
-  const [isUpdatingStage, setIsUpdatingStage] = useState(false);
   const [activityContent, setActivityContent] = useState("");
   const [activities, setActivities] = useState<any[]>([]);
   const [currentTab, setCurrentTab] = useState("nota");
@@ -72,6 +71,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editingDataConclusao, setEditingDataConclusao] = useState(false);
   const [editingDescricao, setEditingDescricao] = useState(false);
   const [editingIdade, setEditingIdade] = useState(false);
+  const [editingAgendamentoVenda, setEditingAgendamentoVenda] = useState(false);
+  const [dataAgendamentoVenda, setDataAgendamentoVenda] = useState<Date | undefined>(undefined);
+  const [horaAgendamentoVenda, setHoraAgendamentoVenda] = useState("10:00");
   const [dataInicio, setDataInicio] = useState<Date | undefined>(new Date());
   const [dataConclusao, setDataConclusao] = useState<Date | undefined>(undefined);
   const [descricao, setDescricao] = useState("");
@@ -105,7 +107,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     try {
       const { data, error } = await supabase
         .from('leads')
-        .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor, idade')
+        .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor, idade, data_agendamento_venda')
         .eq('id', lead.id)
         .single();
 
@@ -117,6 +119,15 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         setDataConclusao(data.data_conclusao ? new Date(data.data_conclusao) : undefined);
         setDescricao(data.descricao_negocio || '');
         setIdade(data.idade || null);
+        // Agendamento de venda
+        if (data.data_agendamento_venda) {
+          const agDate = new Date(data.data_agendamento_venda);
+          setDataAgendamentoVenda(agDate);
+          setHoraAgendamentoVenda(`${agDate.getHours().toString().padStart(2, '0')}:${agDate.getMinutes().toString().padStart(2, '0')}`);
+        } else {
+          setDataAgendamentoVenda(undefined);
+          setHoraAgendamentoVenda("10:00");
+        }
         // Atualizar o valor com os dados mais recentes do banco
         setEditedValue(data.valor?.toString() || "0");
       } else {
@@ -685,29 +696,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     return icons[type] || Pencil;
   };
 
-  const handleStageClick = async (newStage: string) => {
-    if (newStage === editedStage || isUpdatingStage) return;
-    
-    setIsUpdatingStage(true);
-    
-    try {
-      const { error } = await supabase
-        .from("leads")
-        .update({ stage: newStage })
-        .eq("id", lead.id);
-
-      if (error) throw error;
-
-      setEditedStage(newStage);
-      toast.success(`Lead movido para ${getStageLabel(newStage)}`);
-      onUpdate();
-    } catch (error) {
-      console.error("Erro ao atualizar etapa:", error);
-      toast.error("Erro ao atualizar etapa do lead");
-    } finally {
-      setIsUpdatingStage(false);
-    }
-  };
+  // handleStageClick removed - funnel preview removed from modal
 
   const handleSaveChanges = async () => {
     if (!editedName.trim()) {
@@ -797,77 +786,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           <div className="flex-1 flex flex-col overflow-hidden">
             <ScrollArea className="flex-1">
               <div className="p-6 space-y-6">
-                {/* Funil de Vendas */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <FileText className="h-4 w-4" />
-                    <span>Funil de Vendas</span>
-                  </div>
-                  <div className="flex items-center w-full gap-[2px]">
-                    {/* Novo Lead - Primeira etapa (esquerda reta, direita com ponta) */}
-                    <div 
-                      onClick={() => handleStageClick('NOVO')}
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
-                        editedStage === 'NOVO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
-                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
-                      style={{
-                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%)'
-                      }}
-                    >
-                      <span className="relative z-10 pr-6 pl-4">Novo Lead</span>
-                    </div>
-                    
-                    {/* Em Atendimento - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
-                    <div 
-                      onClick={() => handleStageClick('EM_ATENDIMENTO')}
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
-                        editedStage === 'EM_ATENDIMENTO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
-                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
-                      style={{
-                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
-                      }}
-                    >
-                      <span className="relative z-10 pr-6 pl-8">Em Atendimento</span>
-                    </div>
-                    
-                    {/* Fechado - Etapa intermediária (esquerda com reentrância para dentro, direita com ponta) */}
-                    <div 
-                      onClick={() => handleStageClick('FECHADO')}
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
-                        editedStage === 'FECHADO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
-                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
-                      style={{
-                        clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 24px 50%)'
-                      }}
-                    >
-                      <span className="relative z-10 pr-6 pl-8">Fechado</span>
-                    </div>
-                    
-                    {/* Perdido - Última etapa (esquerda com reentrância para dentro, direita reta) */}
-                    <div 
-                      onClick={() => handleStageClick('PERDIDO')}
-                      className={`flex-1 relative h-12 flex items-center justify-center text-sm font-semibold transition-all duration-300 cursor-pointer ${
-                        editedStage === 'PERDIDO' 
-                          ? 'bg-[hsl(250,90%,60%)] text-white scale-105 shadow-lg' 
-                          : 'bg-[hsl(220,13%,18%)] text-gray-300 hover:brightness-125 hover:scale-102'
-                      } ${isUpdatingStage ? 'opacity-50 cursor-wait' : ''}`}
-                      style={{
-                        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 24px 50%)'
-                      }}
-                    >
-                      <span className="relative z-10 pl-8 pr-4">Perdido</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
                 {/* Tabs de Ações */}
                 <Tabs defaultValue="nota" className="w-full" onValueChange={setCurrentTab}>
                   <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0">
@@ -1536,31 +1454,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           {/* Sidebar de Ações e Dados */}
           <div className="w-80 border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto">
             <div className="p-4 space-y-4">
-              {/* Ações */}
-              <Card className="bg-primary/5 border-primary/10">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold">Ações</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-2">
-                  <Button className="justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 text-white h-auto py-3 flex-col items-center" size="sm">
-                    <Mail className="h-5 w-5" />
-                    <span className="text-xs">Enviar e-mail</span>
-                  </Button>
-                  <Button className="justify-start gap-2 bg-blue-600 hover:bg-blue-700 text-white h-auto py-3 flex-col items-center" size="sm">
-                    <Phone className="h-5 w-5" />
-                    <span className="text-xs">Fazer ligação</span>
-                  </Button>
-                  <Button className="justify-start gap-2 bg-purple-600 hover:bg-purple-700 text-white h-auto py-3 flex-col items-center" size="sm">
-                    <FileText className="h-5 w-5" />
-                    <span className="text-xs">Gerar proposta</span>
-                  </Button>
-                  <Button className="justify-start gap-2 bg-green-600 hover:bg-green-700 text-white h-auto py-3 flex-col items-center" size="sm">
-                    <MessageSquare className="h-5 w-5" />
-                    <span className="text-xs">Enviar WhatsApp</span>
-                  </Button>
-                </CardContent>
-              </Card>
-
               {/* Valor do negócio */}
               <Card className="bg-primary/5 border-primary/10">
                 <CardHeader className="pb-3">
@@ -2112,6 +2005,100 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 }}
                               >
                                 <Check className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  {/* Agendamento de Venda */}
+                  <div className="flex items-start justify-between group">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <CalendarClock className="h-3.5 w-3.5" />
+                      Agend. Venda
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("font-medium", !dataAgendamentoVenda && "text-muted-foreground")}>
+                        {dataAgendamentoVenda 
+                          ? format(dataAgendamentoVenda, "dd/MM/yy HH:mm", { locale: ptBR })
+                          : "Agendar"}
+                      </span>
+                      <Popover open={editingAgendamentoVenda} onOpenChange={setEditingAgendamentoVenda} modal={false}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0 hover:bg-accent/50"
+                            type="button"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                          <div className="p-3 space-y-3">
+                            <Calendar
+                              mode="single"
+                              selected={dataAgendamentoVenda}
+                              onSelect={(date) => setDataAgendamentoVenda(date)}
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                              locale={ptBR}
+                            />
+                            <div className="flex items-center gap-2 px-3">
+                              <Label className="text-xs whitespace-nowrap">Horário:</Label>
+                              <Input
+                                type="time"
+                                value={horaAgendamentoVenda}
+                                onChange={(e) => setHoraAgendamentoVenda(e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="flex gap-2 px-3 pb-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  setDataAgendamentoVenda(undefined);
+                                  setEditingAgendamentoVenda(false);
+                                  // Clear from DB
+                                  supabase.from('leads').update({ data_agendamento_venda: null }).eq('id', lead.id).then(() => {
+                                    toast.success("Agendamento removido");
+                                    onUpdate();
+                                  });
+                                }}
+                              >
+                                Limpar
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="flex-1"
+                                disabled={!dataAgendamentoVenda}
+                                onClick={async () => {
+                                  if (!dataAgendamentoVenda) return;
+                                  const [hours, minutes] = horaAgendamentoVenda.split(':').map(Number);
+                                  const dateTime = new Date(dataAgendamentoVenda);
+                                  dateTime.setHours(hours, minutes, 0, 0);
+                                  
+                                  try {
+                                    const { error } = await supabase
+                                      .from('leads')
+                                      .update({ data_agendamento_venda: dateTime.toISOString() })
+                                      .eq('id', lead.id);
+                                    if (error) throw error;
+                                    setDataAgendamentoVenda(dateTime);
+                                    setEditingAgendamentoVenda(false);
+                                    toast.success("Agendamento de venda salvo!");
+                                    onUpdate();
+                                  } catch (error) {
+                                    console.error('Erro ao salvar agendamento:', error);
+                                    toast.error('Erro ao salvar agendamento');
+                                  }
+                                }}
+                              >
+                                Salvar
                               </Button>
                             </div>
                           </div>

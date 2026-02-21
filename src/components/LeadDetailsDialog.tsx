@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle, ExternalLink, Loader2 } from "lucide-react";
+import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle, ExternalLink, Loader2, CalendarClock } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
@@ -36,6 +36,7 @@ interface LeadDetails {
   duplicate_attempts_count: number | null;
   duplicate_attempts_history: Json | null;
   calendar_event_id: string | null;
+  data_agendamento_venda: string | null;
 }
 
 interface Activity {
@@ -124,7 +125,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id")
+        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, data_agendamento_venda")
         .eq("id", leadId)
         .single();
 
@@ -215,6 +216,26 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                 {formatCurrency(details?.valor || 0)}
               </p>
             </div>
+
+            <Separator />
+
+            {/* Agendamento de Venda */}
+            {details?.data_agendamento_venda && (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-primary">
+                    <CalendarClock className="h-4 w-4" />
+                    <h3 className="font-semibold text-sm">Agendamento de Venda</h3>
+                  </div>
+                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <p className="text-sm font-medium">
+                      {format(new Date(details.data_agendamento_venda), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
 
             <Separator />
 

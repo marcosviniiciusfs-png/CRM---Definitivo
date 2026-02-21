@@ -1441,6 +1441,7 @@ export type Database = {
           avatar_url: string | null
           calendar_event_id: string | null
           created_at: string
+          data_agendamento_venda: string | null
           data_conclusao: string | null
           data_inicio: string | null
           descricao_negocio: string | null
@@ -1472,6 +1473,7 @@ export type Database = {
           avatar_url?: string | null
           calendar_event_id?: string | null
           created_at?: string
+          data_agendamento_venda?: string | null
           data_conclusao?: string | null
           data_inicio?: string | null
           descricao_negocio?: string | null
@@ -1503,6 +1505,7 @@ export type Database = {
           avatar_url?: string | null
           calendar_event_id?: string | null
           created_at?: string
+          data_agendamento_venda?: string | null
           data_conclusao?: string | null
           data_inicio?: string | null
           descricao_negocio?: string | null
