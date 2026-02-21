@@ -7,10 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Trophy, Settings2, TrendingUp, CheckSquare, Calendar } from "lucide-react";
 import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear, startOfWeek, endOfWeek } from "date-fns";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
+import { TeamSalesMetrics } from "@/components/TeamSalesMetrics";
 
 type PeriodType = "week" | "month" | "quarter" | "year";
 type RankingType = "sales" | "tasks" | "appointments";
@@ -30,130 +30,114 @@ const getDateRange = (periodType: PeriodType) => {
   }
 };
 
-const fetchSalesData = async (organizationId: string, period: PeriodType): Promise<LeaderboardData[]> => {
-  const { start, end } = getDateRange(period);
+const fetchSalesData = async (organizationId: string, periodType: PeriodType): Promise<LeaderboardData[]> => {
+  if (!organizationId) return [];
 
-  const { data: members, error: membersError } = await supabase
-    .from('organization_members')
-    .select('user_id')
-    .eq('organization_id', organizationId);
+  const { start, end } = getDateRange(periodType);
 
-  if (membersError) throw membersError;
-  const userIds = (members || []).map(m => m.user_id).filter(Boolean);
-  if (userIds.length === 0) return [];
-
-  const [profilesRes, teamMembersRes, leadsRes, goalsRes] = await Promise.all([
-    supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', userIds),
-    supabase.from('team_members').select('user_id, team_id, teams(id, name, color)').in('user_id', userIds),
-    supabase.from('leads').select(`id, valor, responsavel_user_id, updated_at, funnel_stage_id, funnel_stages!leads_funnel_stage_id_fkey (stage_type)`).eq('organization_id', organizationId).in('responsavel_user_id', userIds),
-    supabase.from('goals').select('user_id, target_value').eq('organization_id', organizationId),
-  ]);
-
-  const profiles = profilesRes.data || [];
-  const leads = leadsRes.data || [];
-  const goals = goalsRes.data || [];
-
-  const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
-  for (const tm of teamMembersRes.data || []) {
-    const team = tm.teams as any;
-    if (!team) continue;
-    const current = teamsByUser.get(tm.user_id) || [];
-    current.push({ id: team.id, name: team.name, color: team.color });
-    teamsByUser.set(tm.user_id, current);
-  }
-
-  const wonLeadsInPeriod = leads.filter(l => {
-    const stageType = (l.funnel_stages as any)?.stage_type;
-    if (stageType !== 'won') return false;
-    const updatedAt = new Date(l.updated_at);
-    return updatedAt >= start && updatedAt <= end;
-  });
-
-  return userIds.map(userId => {
-    const profile = profiles.find(p => p.user_id === userId);
-    const userTotalLeads = leads.filter(l => l.responsavel_user_id === userId);
-    const userWonLeads = wonLeadsInPeriod.filter(l => l.responsavel_user_id === userId);
-    const userGoal = goals.find(g => g.user_id === userId);
-
-    return {
-      user_id: userId,
-      full_name: profile?.full_name || 'Colaborador',
-      avatar_url: profile?.avatar_url || null,
-      won_leads: userWonLeads.length,
-      total_leads: userTotalLeads.length,
-      total_revenue: userWonLeads.reduce((sum, l) => sum + (l.valor || 0), 0),
-      target: userGoal?.target_value || 10,
-      task_points: 0,
-      tasks_completed: 0,
-      tasks_on_time: 0,
-      teams: teamsByUser.get(userId) || [],
-    };
-  });
-};
-
-const fetchTasksData = async (organizationId: string, period: PeriodType): Promise<LeaderboardData[]> => {
-  const { start, end } = getDateRange(period);
-
-  const { data: members } = await supabase
-    .from('organization_members')
-    .select('user_id')
-    .eq('organization_id', organizationId);
-
-  const userIds = (members || []).map(m => m.user_id).filter(Boolean);
-  if (userIds.length === 0) return [];
-
-  const [profilesRes, teamMembersRes, taskLogsRes] = await Promise.all([
-    supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', userIds),
-    supabase.from('team_members').select('user_id, team_id, teams(id, name, color)').in('user_id', userIds),
-    supabase.from('task_completion_logs').select('user_id, total_points, was_on_time_due_date, was_on_time_timer').eq('organization_id', organizationId).gte('completed_at', start.toISOString()).lte('completed_at', end.toISOString()),
-  ]);
-
-  const profiles = profilesRes.data || [];
-
-  const teamsByUser = new Map<string, Array<{id: string; name: string; color: string | null}>>();
-  for (const tm of teamMembersRes.data || []) {
-    const team = tm.teams as any;
-    if (!team) continue;
-    const current = teamsByUser.get(tm.user_id) || [];
-    current.push({ id: team.id, name: team.name, color: team.color });
-    teamsByUser.set(tm.user_id, current);
-  }
-
-  const tasksByUser = new Map<string, { points: number; completed: number; onTime: number }>();
-  for (const log of taskLogsRes.data || []) {
-    const current = tasksByUser.get(log.user_id) || { points: 0, completed: 0, onTime: 0 };
-    current.points += log.total_points || 0;
-    current.completed += 1;
-    if (log.was_on_time_due_date || log.was_on_time_timer) current.onTime += 1;
-    tasksByUser.set(log.user_id, current);
-  }
-
-  return userIds.map(userId => {
-    const profile = profiles.find(p => p.user_id === userId);
-    const userTasks = tasksByUser.get(userId) || { points: 0, completed: 0, onTime: 0 };
-
-    return {
-      user_id: userId,
-      full_name: profile?.full_name || 'Colaborador',
-      avatar_url: profile?.avatar_url || null,
-      task_points: userTasks.points,
-      tasks_completed: userTasks.completed,
-      tasks_on_time: userTasks.onTime,
-      won_leads: 0,
-      total_leads: 0,
-      total_revenue: 0,
-      target: 0,
-      teams: teamsByUser.get(userId) || [],
-    };
-  });
-};
-
-const fetchTeams = async (organizationId: string) => {
   const { data } = await supabase
+    .from('leads')
+    .select(`
+      responsavel_user_id,
+      valor,
+      funnel_stage_id,
+      funnel_stages (
+        stage_type
+      ),
+      profiles (
+        full_name,
+        avatar_url
+      )
+    `)
+    .eq('organization_id', organizationId)
+    .gte('data_conclusao', start.toISOString())
+    .lte('data_conclusao', end.toISOString());
+
+  const validData = data?.filter(item => item.funnel_stages?.stage_type === 'won') || [];
+
+  // Aggregate sales data by user
+  const userSalesMap: { [userId: string]: LeaderboardData } = {};
+  validData.forEach(item => {
+    const userId = item.responsavel_user_id;
+    if (!userId) return;
+
+    if (!userSalesMap[userId]) {
+      userSalesMap[userId] = {
+        user_id: userId,
+        full_name: item.profiles?.full_name || 'Sem nome',
+        avatar_url: item.profiles?.avatar_url || null,
+        revenue: 0,
+        won_leads: 0,
+        task_points: 0,
+        percentage: 0,
+      };
+    }
+
+    userSalesMap[userId].revenue += item.valor || 0;
+    userSalesMap[userId].won_leads++;
+  });
+
+  return Object.values(userSalesMap);
+};
+
+const fetchTasksData = async (organizationId: string, periodType: PeriodType): Promise<LeaderboardData[]> => {
+  if (!organizationId) return [];
+
+  const { start, end } = getDateRange(periodType);
+
+  const { data } = await supabase
+    .from('kanban_cards')
+    .select(`
+      responsavel_user_id,
+      task_points,
+      profiles (
+        full_name,
+        avatar_url
+      )
+    `)
+    .eq('organization_id', organizationId)
+    .gte('created_at', start.toISOString())
+    .lte('created_at', end.toISOString());
+
+  // Aggregate tasks data by user
+  const userTasksMap: { [userId: string]: LeaderboardData } = {};
+  data?.forEach(item => {
+    const userId = item.responsavel_user_id;
+    if (!userId) return;
+
+    if (!userTasksMap[userId]) {
+      userTasksMap[userId] = {
+        user_id: userId,
+        full_name: item.profiles?.full_name || 'Sem nome',
+        avatar_url: item.profiles?.avatar_url || null,
+        revenue: 0,
+        won_leads: 0,
+        task_points: 0,
+        percentage: 0,
+      };
+    }
+
+    userTasksMap[userId].task_points += item.task_points || 0;
+  });
+
+  return Object.values(userTasksMap);
+};
+
+const fetchTeamsData = async (organizationId: string) => {
+  const { data: teams } = await supabase
     .from('teams')
     .select('id, name, avatar_url, color')
     .eq('organization_id', organizationId);
-  return data || [];
+
+  const teamList = teams || [];
+  if (teamList.length === 0) return { teams: [], teamMembers: [] };
+
+  const { data: members } = await supabase
+    .from('team_members')
+    .select('team_id, user_id')
+    .in('team_id', teamList.map(t => t.id));
+
+  return { teams: teamList, teamMembers: (members || []) as Array<{ team_id: string; user_id: string }> };
 };
 
 export default function Ranking() {
@@ -176,12 +160,15 @@ export default function Ranking() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: teams = [] } = useQuery({
+  const { data: teamsData } = useQuery({
     queryKey: ['ranking-teams', organizationId],
-    queryFn: () => fetchTeams(organizationId!),
+    queryFn: () => fetchTeamsData(organizationId!),
     enabled: !!organizationId,
     staleTime: 1000 * 60 * 5,
   });
+
+  const teams = teamsData?.teams ?? [];
+  const teamMembers = teamsData?.teamMembers ?? [];
 
   const data = rankingType === 'sales' ? salesData : tasksData;
   const isLoading = rankingType === 'sales' ? salesLoading : tasksLoading;
@@ -269,22 +256,14 @@ export default function Ranking() {
               period={period}
             />
 
-            {/* Teams Footer */}
+            {/* Team Sales Ranking */}
             {teams.length > 0 && (
-              <div className="mt-6 flex items-center gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border">
-                <span className="text-sm text-muted-foreground">Times Ativos:</span>
-                <div className="flex items-center gap-2">
-                  {teams.map(team => (
-                    <div key={team.id} className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8 border-2" style={{ borderColor: team.color || 'hsl(var(--primary))' }}>
-                        <AvatarImage src={team.avatar_url} />
-                        <AvatarFallback className="bg-muted text-foreground text-xs">
-                          {team.name?.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-6">
+                <TeamSalesMetrics
+                  organizationId={organizationId}
+                  teams={teams.map(t => ({ id: t.id, name: t.name, color: t.color || '#3B82F6' }))}
+                  teamMembers={teamMembers}
+                />
               </div>
             )}
           </TabsContent>
@@ -330,22 +309,14 @@ export default function Ranking() {
               period={period}
             />
 
-            {/* Teams Footer */}
+            {/* Team Sales Ranking */}
             {teams.length > 0 && (
-              <div className="mt-6 flex items-center gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border">
-                <span className="text-sm text-muted-foreground">Times Ativos:</span>
-                <div className="flex items-center gap-2">
-                  {teams.map(team => (
-                    <div key={team.id} className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8 border-2" style={{ borderColor: team.color || 'hsl(var(--primary))' }}>
-                        <AvatarImage src={team.avatar_url} />
-                        <AvatarFallback className="bg-muted text-foreground text-xs">
-                          {team.name?.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-6">
+                <TeamSalesMetrics
+                  organizationId={organizationId}
+                  teams={teams.map(t => ({ id: t.id, name: t.name, color: t.color || '#3B82F6' }))}
+                  teamMembers={teamMembers}
+                />
               </div>
             )}
           </TabsContent>
@@ -358,3 +329,4 @@ export default function Ranking() {
     </div>
   );
 }
+
