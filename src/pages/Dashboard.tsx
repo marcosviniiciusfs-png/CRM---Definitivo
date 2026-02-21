@@ -6,6 +6,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as Recharts
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -99,7 +100,7 @@ const getBarColor = (value: number, data: ConversionDataPoint[]) => {
 };
 const Dashboard = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [isEditGoalOpen, setIsEditGoalOpen] = useState(false);
   const [currentValue, setCurrentValue] = useState(7580);
   const [totalValue, setTotalValue] = useState(8000);
@@ -117,241 +118,167 @@ const Dashboard = () => {
   const [goalCreatedAt, setGoalCreatedAt] = useState<Date | null>(null);
   const navigate = useNavigate();
 
-  // Métricas reais do banco de dados
-  const [newLeadsCount, setNewLeadsCount] = useState(0);
-  const [newCustomersCount, setNewCustomersCount] = useState(0);
-  const [monthRevenue, setMonthRevenue] = useState(0);
-  const [avgTicket, setAvgTicket] = useState(0);
-  const [lossRate, setLossRate] = useState(0);
-
-  // Taxa de Conversão real
-  const [conversionData, setConversionData] = useState<ConversionDataPoint[]>([]);
-  const [currentConversionRate, setCurrentConversionRate] = useState(0);
-  const [conversionTrend, setConversionTrend] = useState(0);
-
-  // Top 5 Vendedores
-  const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
-  const [topSellersLoading, setTopSellersLoading] = useState(true);
-
-  // Função para carregar todas as métricas
-  const loadMetrics = async () => {
-    try {
-      if (!user) return;
-
-      // Buscar organization_id do usuário
-      const {
-        data: orgMember
-      } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).maybeSingle();
-      if (!orgMember) return;
-      const organizationId = orgMember.organization_id;
+  // Cached queries for dashboard metrics
+  const { data: metricsData } = useQuery({
+    queryKey: ['dashboard-metrics', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const today = now.toISOString().split('T')[0];
 
-      // Buscar todas as métricas em paralelo
       const [leadsResult, wonStagesResult] = await Promise.all([
-      // Novos leads do mês
-      supabase.from('leads').select('id, funnel_stage_id', {
-        count: 'exact'
-      }).eq('organization_id', organizationId).gte('created_at', startOfMonth),
-      // Estágios do tipo 'won'
-      supabase.from('funnel_stages').select('id').eq('stage_type', 'won')]);
+        supabase.from('leads').select('id, funnel_stage_id', { count: 'exact' }).eq('organization_id', organizationId).gte('created_at', startOfMonth),
+        supabase.from('funnel_stages').select('id').eq('stage_type', 'won')
+      ]);
 
-      // Novos Leads
-      setNewLeadsCount(leadsResult.count || 0);
+      let newCustomersCount = 0;
+      let monthRevenue = 0;
+      let avgTicket = 0;
 
-      // Novos Clientes e Receita do Mês (leads em estágios 'won' do mês)
       if (wonStagesResult.data && wonStagesResult.data.length > 0) {
         const wonStageIds = wonStagesResult.data.map(s => s.id);
-        const {
-          data: wonLeadsMonth,
-          count: customersCount
-        } = await supabase.from('leads').select('id, valor', {
-          count: 'exact',
-        }).eq('organization_id', organizationId).in('funnel_stage_id', wonStageIds).gte('updated_at', startOfMonth);
-        setNewCustomersCount(customersCount || 0);
-        
-        // Calcular Receita do Mês e Ticket Médio
+        const { data: wonLeadsMonth, count: customersCount } = await supabase.from('leads').select('id, valor', { count: 'exact' }).eq('organization_id', organizationId).in('funnel_stage_id', wonStageIds).gte('updated_at', startOfMonth);
+        newCustomersCount = customersCount || 0;
         const revenue = (wonLeadsMonth || []).reduce((sum, lead) => sum + (lead.valor || 0), 0);
         const salesCount = wonLeadsMonth?.length || 0;
-        setMonthRevenue(revenue);
-        setAvgTicket(salesCount > 0 ? revenue / salesCount : 0);
+        monthRevenue = revenue;
+        avgTicket = salesCount > 0 ? revenue / salesCount : 0;
       }
-    } catch (error) {
-      console.error('Erro ao carregar métricas:', error);
-    }
-  };
 
-  // Função para carregar taxa de conversão real - OTIMIZADA com queries paralelas
-  const loadConversionData = async () => {
-    try {
-      if (!user) return;
-      const {
-        data: orgMember
-      } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).maybeSingle();
-      if (!orgMember) return;
+      return {
+        newLeadsCount: leadsResult.count || 0,
+        newCustomersCount,
+        monthRevenue,
+        avgTicket,
+      };
+    },
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 5,
+  });
 
-      // Preparar datas dos últimos 6 meses
+  const { data: conversionResult } = useQuery({
+    queryKey: ['dashboard-conversion', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
       const now = new Date();
       const monthRanges = [];
       for (let i = 5; i >= 0; i--) {
         const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const nextMonthDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-        const monthName = monthDate.toLocaleDateString('pt-BR', {
-          month: 'short'
-        }).replace('.', '');
-        monthRanges.push({
-          start: monthDate.toISOString(),
-          end: nextMonthDate.toISOString(),
-          name: monthName.charAt(0).toUpperCase() + monthName.slice(1)
-        });
+        const monthName = monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+        monthRanges.push({ start: monthDate.toISOString(), end: nextMonthDate.toISOString(), name: monthName.charAt(0).toUpperCase() + monthName.slice(1) });
       }
 
-      // Buscar estágios won e todos os leads dos últimos 6 meses em paralelo
       const sixMonthsAgo = monthRanges[0].start;
-      const [wonStagesResult, allLeadsResult] = await Promise.all([supabase.from('funnel_stages').select('id').eq('stage_type', 'won'), supabase.from('leads').select('id, created_at, updated_at, funnel_stage_id').eq('organization_id', orgMember.organization_id).gte('created_at', sixMonthsAgo)]);
+      const [wonStagesResult, allLeadsResult] = await Promise.all([
+        supabase.from('funnel_stages').select('id').eq('stage_type', 'won'),
+        supabase.from('leads').select('id, created_at, updated_at, funnel_stage_id').eq('organization_id', organizationId).gte('created_at', sixMonthsAgo)
+      ]);
       const wonStageIds = new Set(wonStagesResult.data?.map(s => s.id) || []);
       const allLeads = allLeadsResult.data || [];
 
-      // Processar dados localmente em vez de múltiplas queries
       const months: ConversionDataPoint[] = monthRanges.map(range => {
         const leadsInMonth = allLeads.filter(lead => lead.created_at >= range.start && lead.created_at < range.end);
         const convertedInMonth = allLeads.filter(lead => lead.funnel_stage_id && wonStageIds.has(lead.funnel_stage_id) && lead.updated_at >= range.start && lead.updated_at < range.end);
         const totalLeads = leadsInMonth.length;
         const convertedLeads = convertedInMonth.length;
         const rate = totalLeads > 0 ? convertedLeads / totalLeads * 100 : 0;
-        return {
-          month: range.name,
-          rate: parseFloat(rate.toFixed(1))
-        };
+        return { month: range.name, rate: parseFloat(rate.toFixed(1)) };
       });
-      setConversionData(months);
 
-      // Taxa atual (último mês)
-      if (months.length > 0) {
-        const currentRate = months[months.length - 1].rate;
-        setCurrentConversionRate(currentRate);
+      const currentRate = months.length > 0 ? months[months.length - 1].rate : 0;
+      const trend = months.length > 1 ? parseFloat((currentRate - months[months.length - 2].rate).toFixed(1)) : 0;
 
-        // Tendência (comparar com mês anterior)
-        if (months.length > 1) {
-          const previousRate = months[months.length - 2].rate;
-          setConversionTrend(parseFloat((currentRate - previousRate).toFixed(1)));
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao carregar taxa de conversão:', error);
-    }
-  };
+      return { conversionData: months, currentConversionRate: currentRate, conversionTrend: trend };
+    },
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 5,
+  });
 
-  // Função para carregar Top 5 Vendedores
-  const loadTopSellers = async () => {
-    try {
-      setTopSellersLoading(true);
-      if (!user) return;
-      const {
-        data: orgMember
-      } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).maybeSingle();
-      if (!orgMember) return;
+  const { data: topSellersResult } = useQuery({
+    queryKey: ['dashboard-top-sellers', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return { topSellers: [], loading: false };
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      // Buscar membros, perfis e estágios won em paralelo
-      const [membersResult, wonStagesResult] = await Promise.all([supabase.rpc('get_organization_members_masked'), supabase.from('funnel_stages').select('id').eq('stage_type', 'won')]);
+      const [membersResult, wonStagesResult] = await Promise.all([
+        supabase.rpc('get_organization_members_masked'),
+        supabase.from('funnel_stages').select('id').eq('stage_type', 'won')
+      ]);
       const members = membersResult.data || [];
       const wonStageIds = wonStagesResult.data?.map(s => s.id) || [];
-      if (wonStageIds.length === 0 || members.length === 0) {
-        setTopSellers([]);
-        return;
-      }
+      if (wonStageIds.length === 0 || members.length === 0) return { topSellers: [], loading: false };
 
-      // Buscar perfis dos membros
       const memberUserIds = members.filter(m => m.user_id).map(m => m.user_id);
-      const [profilesResult, wonLeadsResult] = await Promise.all([supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', memberUserIds), supabase.from('leads').select('responsavel_user_id, valor').eq('organization_id', orgMember.organization_id).in('funnel_stage_id', wonStageIds).gte('updated_at', startOfMonth)]);
+      const [profilesResult, wonLeadsResult] = await Promise.all([
+        supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', memberUserIds),
+        supabase.from('leads').select('responsavel_user_id, valor').eq('organization_id', organizationId).in('funnel_stage_id', wonStageIds).gte('updated_at', startOfMonth)
+      ]);
       const profiles = profilesResult.data || [];
       const wonLeads = wonLeadsResult.data || [];
 
-      // Agrupar vendas por colaborador
-      const salesByUser: Record<string, {
-        won_leads: number;
-        total_revenue: number;
-      }> = {};
+      const salesByUser: Record<string, { won_leads: number; total_revenue: number }> = {};
       wonLeads.forEach(lead => {
         if (lead.responsavel_user_id) {
-          if (!salesByUser[lead.responsavel_user_id]) {
-            salesByUser[lead.responsavel_user_id] = {
-              won_leads: 0,
-              total_revenue: 0
-            };
-          }
+          if (!salesByUser[lead.responsavel_user_id]) salesByUser[lead.responsavel_user_id] = { won_leads: 0, total_revenue: 0 };
           salesByUser[lead.responsavel_user_id].won_leads++;
           salesByUser[lead.responsavel_user_id].total_revenue += lead.valor || 0;
         }
       });
 
-      // Montar lista de top sellers (apenas quem tem pelo menos 1 venda)
       const sellers: TopSeller[] = memberUserIds.filter(userId => salesByUser[userId]?.won_leads > 0).map(userId => {
         const profile = profiles.find(p => p.user_id === userId);
         const sales = salesByUser[userId];
-        return {
-          user_id: userId,
-          full_name: profile?.full_name || 'Colaborador',
-          avatar_url: profile?.avatar_url || null,
-          won_leads: sales.won_leads,
-          total_revenue: sales.total_revenue
-        };
+        return { user_id: userId, full_name: profile?.full_name || 'Colaborador', avatar_url: profile?.avatar_url || null, won_leads: sales.won_leads, total_revenue: sales.total_revenue };
       }).sort((a, b) => b.total_revenue - a.total_revenue).slice(0, 5);
-      setTopSellers(sellers);
-    } catch (error) {
-      console.error('Erro ao carregar top vendedores:', error);
-    } finally {
-      setTopSellersLoading(false);
-    }
-  };
 
-  // Função para calcular Taxa de Perda de Vendas
-  const loadLossRate = async () => {
-    try {
-      if (!user) return;
-      const {
-        data: orgMember
-      } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).maybeSingle();
-      if (!orgMember) return;
+      return { topSellers: sellers, loading: false };
+    },
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 5,
+  });
 
-      // Buscar estágios do tipo 'lost'
-      const {
-        data: lostStages
-      } = await supabase.from('funnel_stages').select('id').eq('stage_type', 'lost');
+  const { data: lossRateData } = useQuery({
+    queryKey: ['dashboard-loss-rate', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return 0;
+      const { data: lostStages } = await supabase.from('funnel_stages').select('id').eq('stage_type', 'lost');
       const lostStageIds = lostStages?.map(s => s.id) || [];
 
-      // Contar total de leads e leads perdidos em paralelo
-      const [totalResult, lostResult] = await Promise.all([supabase.from('leads').select('id', {
-        count: 'exact',
-        head: true
-      }).eq('organization_id', orgMember.organization_id), lostStageIds.length > 0 ? supabase.from('leads').select('id', {
-        count: 'exact',
-        head: true
-      }).eq('organization_id', orgMember.organization_id).in('funnel_stage_id', lostStageIds) : Promise.resolve({
-        count: 0
-      })]);
+      const [totalResult, lostResult] = await Promise.all([
+        supabase.from('leads').select('id', { count: 'exact', head: true }).eq('organization_id', organizationId),
+        lostStageIds.length > 0
+          ? supabase.from('leads').select('id', { count: 'exact', head: true }).eq('organization_id', organizationId).in('funnel_stage_id', lostStageIds)
+          : Promise.resolve({ count: 0 })
+      ]);
       const totalLeads = totalResult.count || 0;
       const lostLeads = lostResult.count || 0;
+      return totalLeads > 0 ? parseFloat((lostLeads / totalLeads * 100).toFixed(1)) : 0;
+    },
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 5,
+  });
 
-      // Calcular taxa de perda
-      const rate = totalLeads > 0 ? lostLeads / totalLeads * 100 : 0;
-      setLossRate(parseFloat(rate.toFixed(1)));
-    } catch (error) {
-      console.error('Erro ao calcular taxa de perda:', error);
-    }
-  };
+  // Derive values from cached queries
+  const newLeadsCount = metricsData?.newLeadsCount ?? 0;
+  const newCustomersCount = metricsData?.newCustomersCount ?? 0;
+  const monthRevenue = metricsData?.monthRevenue ?? 0;
+  const avgTicket = metricsData?.avgTicket ?? 0;
+  const lossRate = lossRateData ?? 0;
+  const conversionData = conversionResult?.conversionData ?? [];
+  const currentConversionRate = conversionResult?.currentConversionRate ?? 0;
+  const conversionTrend = conversionResult?.conversionTrend ?? 0;
+  const topSellers = topSellersResult?.topSellers ?? [];
+  const topSellersLoading = !topSellersResult;
+  const loading = !metricsData && !conversionResult;
+
+  // Load goal and contribution (these have interactive state)
   useEffect(() => {
     loadGoal();
     loadLastContribution();
-    loadMetrics();
-    loadConversionData();
-    loadTopSellers();
-    loadLossRate();
 
-    // Real-time subscription para atualizar métricas
+    // Real-time subscription para atualizar métricas via cache invalidation
     const leadsChannel = supabase.channel('dashboard-leads-updates').on('postgres_changes', {
       event: '*',
       schema: 'public',
@@ -359,17 +286,17 @@ const Dashboard = () => {
     }, () => {
       loadLastContribution();
       loadSalesTotal();
-      loadMetrics();
-      loadConversionData();
-      loadTopSellers();
-      loadLossRate();
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-conversion'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-top-sellers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-loss-rate'] });
     }).subscribe();
     const kanbanChannel = supabase.channel('dashboard-kanban-updates').on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'kanban_cards'
     }, () => {
-      loadMetrics();
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
     }).subscribe();
     return () => {
       supabase.removeChannel(leadsChannel);
@@ -556,24 +483,17 @@ const Dashboard = () => {
   };
   const loadGoal = async () => {
     try {
-      setLoading(true);
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      if (!user) return;
 
-      // Buscar organization_id do usuário
       const {
         data: orgMember,
         error: orgError
       } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).maybeSingle();
       if (orgError || !orgMember) {
         console.error('Erro ao buscar organização:', orgError);
-        setLoading(false);
         return;
       }
 
-      // Buscar meta do usuário
       const {
         data: goals,
         error
@@ -582,7 +502,6 @@ const Dashboard = () => {
       }).limit(1);
       if (error) throw error;
       if (goals && goals.length > 0) {
-        // Meta encontrada
         const goal = goals[0];
         setGoalId(goal.id);
         setTotalValue(Number(goal.target_value));
@@ -591,17 +510,14 @@ const Dashboard = () => {
         setDeadline(goalDeadline);
         setGoalCreatedAt(goalCreated);
 
-        // Calcular duração da meta em dias
         if (goalDeadline) {
           const durationMs = goalDeadline.getTime() - goalCreated.getTime();
           const days = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
           setGoalDurationDays(Math.max(0, days));
         }
 
-        // Carregar vendas reais passando o deadline diretamente
         await loadSalesTotal(goalDeadline, goalCreated);
       } else {
-        // Criar meta padrão com valor 0
         const {
           data: newGoal,
           error: createError
@@ -617,15 +533,12 @@ const Dashboard = () => {
           setTotalValue(Number(newGoal.target_value));
           const newDeadline = newGoal.deadline ? new Date(newGoal.deadline) : null;
           setDeadline(newDeadline);
-          // Carregar vendas do mês atual
           await loadSalesTotal(newDeadline);
         }
       }
     } catch (error) {
       console.error('Erro ao carregar meta:', error);
       toast.error('Erro ao carregar meta');
-    } finally {
-      setLoading(false);
     }
   };
 

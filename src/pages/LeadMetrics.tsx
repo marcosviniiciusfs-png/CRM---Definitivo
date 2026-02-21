@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
@@ -189,7 +189,7 @@ const LeadMetrics = () => {
     from: subDays(new Date(), 30),
     to: new Date()
   });
-  const [shouldLoadMetrics, setShouldLoadMetrics] = useState(true);
+  const hasLoadedRef = useRef(false);
   
   // Ad account selection states
   const [selectedAdAccountId, setSelectedAdAccountId] = useState<string | null>(null);
@@ -269,11 +269,13 @@ const LeadMetrics = () => {
   };
 
   useEffect(() => {
-    if (user && dateRange?.from && dateRange?.to && shouldLoadMetrics) {
-      loadMetrics();
-      setShouldLoadMetrics(false);
+    if (organizationId && dateRange?.from && dateRange?.to) {
+      if (!hasLoadedRef.current) {
+        hasLoadedRef.current = true;
+        loadMetrics();
+      }
     }
-  }, [user, shouldLoadMetrics]);
+  }, [organizationId]);
 
   const getDateRange = () => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -293,21 +295,15 @@ const LeadMetrics = () => {
 
   const loadMetrics = async () => {
     try {
+      if (!organizationId) return;
+      
       if (!loading) {
         setUpdating(true);
       } else {
         setLoading(true);
       }
 
-      const { data: orgMember } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user!.id)
-        .single();
-
-      if (!orgMember) return;
-      
-      setLocalOrganizationId(orgMember.organization_id);
+      setLocalOrganizationId(organizationId);
 
       const { startDate, endDate } = getDateRange();
 
@@ -315,7 +311,7 @@ const LeadMetrics = () => {
         supabase
           .from('leads')
           .select('created_at')
-          .eq('organization_id', orgMember.organization_id)
+          .eq('organization_id', organizationId)
           .eq('source', 'Facebook Leads')
           .gte('created_at', startDate.toISOString())
           .lte('created_at', endDate.toISOString())
@@ -323,7 +319,7 @@ const LeadMetrics = () => {
         supabase
           .from('leads')
           .select('created_at')
-          .eq('organization_id', orgMember.organization_id)
+          .eq('organization_id', organizationId)
           .eq('source', 'WhatsApp')
           .gte('created_at', startDate.toISOString())
           .lte('created_at', endDate.toISOString())
@@ -331,7 +327,7 @@ const LeadMetrics = () => {
         supabase
           .from('leads')
           .select('created_at, source')
-          .eq('organization_id', orgMember.organization_id)
+          .eq('organization_id', organizationId)
           .in('source', ['Manual', 'Importação'])
           .gte('created_at', startDate.toISOString())
           .lte('created_at', endDate.toISOString())
@@ -340,7 +336,7 @@ const LeadMetrics = () => {
 
       if (facebookResult.data && facebookResult.data.length > 0) {
         setFacebookMetrics(processMetrics(facebookResult.data));
-        await loadFacebookAdvancedMetrics(orgMember.organization_id, startDate, endDate);
+        await loadFacebookAdvancedMetrics(organizationId!, startDate, endDate);
       } else {
         setFacebookMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
         setFacebookAdvanced({ mqlConversionRate: 0, discardRate: 0, leadsByForm: [] });
@@ -348,7 +344,7 @@ const LeadMetrics = () => {
 
       if (whatsappResult.data && whatsappResult.data.length > 0) {
         setWhatsappMetrics(processMetrics(whatsappResult.data));
-        await loadWhatsAppAdvancedMetrics(orgMember.organization_id, startDate, endDate);
+        await loadWhatsAppAdvancedMetrics(organizationId!, startDate, endDate);
       } else {
         setWhatsappMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
         setWhatsappAdvanced({ responseRate: 0, pipelineConversionRate: 0, avgResponseTimeMinutes: 0 });
@@ -356,8 +352,8 @@ const LeadMetrics = () => {
 
       if (manualResult.data && manualResult.data.length > 0) {
         setManualMetrics(processMetrics(manualResult.data));
-        await loadManualAdvancedMetrics(orgMember.organization_id, startDate, endDate);
-        await loadManualAgeMetrics(orgMember.organization_id, startDate, endDate);
+        await loadManualAdvancedMetrics(organizationId!, startDate, endDate);
+        await loadManualAgeMetrics(organizationId!, startDate, endDate);
       } else {
         setManualMetrics({ total: 0, growthRate: '0', chartData: [], lastWeekTotal: 0, thisWeekTotal: 0 });
         setManualAdvanced({ totalManual: 0, totalImported: 0, conversionRate: 0, leadsByType: [] });
@@ -365,7 +361,7 @@ const LeadMetrics = () => {
       }
 
       // Load ads metrics
-      await loadAdsMetrics(orgMember.organization_id, startDate, endDate);
+      await loadAdsMetrics(organizationId!, startDate, endDate);
 
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
@@ -980,7 +976,7 @@ const LeadMetrics = () => {
                       size="sm"
                       onClick={() => {
                         if (dateRange?.from && dateRange?.to) {
-                          setShouldLoadMetrics(true);
+                          loadMetrics();
                         }
                       }}
                       disabled={!dateRange?.from || !dateRange?.to || updating}
