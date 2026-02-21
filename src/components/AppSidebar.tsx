@@ -3,7 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
 import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import React, { useState, useEffect, useCallback } from "react";
@@ -106,6 +106,7 @@ function AppSidebarComponent() {
   }, [isLocked, setOpen]);
 
   return (
+    <TooltipProvider delayDuration={300}>
     <Sidebar 
       collapsible="icon"
       onMouseEnter={handleMouseEnter}
@@ -151,11 +152,14 @@ function AppSidebarComponent() {
                         <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base px-3 py-2.5")}>
                           <item.icon className="h-5 w-5 flex-shrink-0" />
                           <span className="truncate">{item.title}</span>
-                          {open && (
-                            <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 border-sidebar-foreground/30 text-sidebar-foreground/60">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="text-xs">
                               Em breve
-                            </Badge>
-                          )}
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       ) : (
                         <NavLink
@@ -221,11 +225,14 @@ function AppSidebarComponent() {
                         <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base w-full")}>
                           <item.icon className="h-5 w-5 flex-shrink-0" />
                           <span>{item.title}</span>
-                          {open && (
-                            <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 border-sidebar-foreground/30 text-sidebar-foreground/60">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="text-xs">
                               Em breve
-                            </Badge>
-                          )}
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -277,9 +284,9 @@ function AppSidebarComponent() {
             />
             {subscriptionData?.subscribed && subscriptionData.product_id && (
               <div className="flex items-center justify-center">
-                <Badge variant="secondary" className="text-xs">
+                <span className="text-xs font-semibold border border-sidebar-border rounded-full px-2.5 py-0.5 bg-sidebar-accent text-sidebar-foreground">
                   Plano {PLAN_NAMES[subscriptionData.product_id] || subscriptionData.product_id}
-                </Badge>
+                </span>
               </div>
             )}
             <p className="text-xs text-sidebar-foreground/60 truncate">
@@ -327,6 +334,7 @@ function AppSidebarComponent() {
         )}
       </SidebarFooter>
     </Sidebar>
+    </TooltipProvider>
   );
 }
 
