@@ -1,154 +1,93 @@
 
+# Limpeza do Modal de Edicao + Agendamento de Venda + Tooltips no Dashboard
 
-# Redesign do Dashboard - Metricas Automaticas com Previsao de Vendas
+## 3 tarefas principais
 
-## O que muda
+### Tarefa 1: Limpar o modal de edicao do lead (EditLeadModal.tsx)
 
-Reescrever o Dashboard (`/dashboard`) para ser um painel de metricas 100% automaticas, sem metas manuais, sem Facebook, sem WhatsApp. Adicionar previsao de vendas e faturamento baseada nos dados historicos do banco.
+**Remover:**
+- Card "Acoes" inteiro (linhas 1539-1562): os 4 botoes "Enviar e-mail", "Fazer ligacao", "Gerar proposta", "Enviar WhatsApp" que nao funcionam
+- Secao "Funil de Vendas" (linhas 800-867): a previa visual do funil com as etapas clicaveis (Novo Lead, Em Atendimento, Fechado, Perdido) e o Separator logo abaixo
+- Remover tambem os estados e funcoes associados: `isUpdatingStage`, `handleStageClick`, `getStageLabel`, `getStageColor`, `editedStage`
 
-## O que sera REMOVIDO do Dashboard atual
+**Manter:** Tabs de atividades, historico, sidebar com valor do negocio, dados do negocio, produtos/servicos
 
-- Card de "Metas" (definicao manual pelo usuario)
-- Dialog de editar meta
-- Todo o codigo de `loadGoal`, `loadSalesTotal`, `handleEditGoal`, `handleSaveGoal`
-- Estados: `goalId`, `totalValue`, `currentValue`, `deadline`, `editTotalValue`, `editDeadline`, `salesBeforeDeadline`, `salesAfterDeadline`, `goalDurationDays`, `goalCreatedAt`
-- Card de "Ultima Contribuicao" (sera simplificado e integrado ao layout)
+---
 
-## O que sera MANTIDO
+### Tarefa 2: Adicionar Agendamento de Venda ao lead
 
-- MetricCards de Novos Leads, Novos Clientes, Receita do Mes, Ticket Medio, Taxa de Perda (com useQuery ja implementado)
-- Card de Taxa de Conversao (com grafico de barras dos ultimos 6 meses)
-- Card de Top 5 Vendedores
-- Real-time subscriptions via queryClient.invalidateQueries
+**Nova coluna no banco:**
+- `data_agendamento_venda` (timestamp with time zone, nullable) na tabela `leads`
 
-## O que sera ADICIONADO
+**No EditLeadModal.tsx (sidebar "Dados do negocio"):**
+- Adicionar campo "Agendamento de Venda" com date+time picker (mesmo padrao dos outros campos editaveis com Popover + Calendar)
+- O usuario seleciona data e hora do agendamento
+- Salvar no campo `data_agendamento_venda` do lead
+- Exibir a data formatada na sidebar
 
-### 1. Card "Previsao de Faturamento"
+**No LeadDetailsDialog.tsx:**
+- Exibir o agendamento de venda quando existir (similar ao card do Google Calendar que ja existe)
 
-Calculo automatico baseado no pipeline ativo:
-- Buscar todos os leads ativos (nao-won/nao-lost) com `valor > 0`
-- Para cada etapa do funil, calcular uma taxa historica de conversao (leads que sairam daquela etapa e chegaram a won / total que passaram por ela)
-- `forecast = SUM(lead.valor * taxa_conversao_da_etapa)`
-- Exibir como MetricCard com icone de TrendingUp
+**Impacto nas metricas do Dashboard:**
+- O campo `data_agendamento_venda` sera usado para calcular metricas como "Vendas Agendadas" no dashboard
+- Os leads com agendamento preenchido podem ser contados para prever faturamento
 
-Query:
-```
-1. Buscar funnel_stages (custom) com seus IDs
-2. Buscar leads ativos agrupados por funnel_stage_id, somando valor
-3. Buscar taxa historica: dos ultimos 90 dias, quantos leads que estavam em cada stage acabaram em won
-4. Multiplicar valor_por_stage * taxa_historica
-```
+---
 
-### 2. Card "Receita Prevista (Proximo Mes)"
+### Tarefa 3: Tooltips explicativos em todas as metricas do Dashboard
 
-Baseado na media dos ultimos 3 meses de receita (leads won):
-- Buscar leads won dos ultimos 3 meses, agrupar por mes
-- Calcular media mensal
-- Aplicar tendencia (se crescendo, projetar para cima)
+**Modificar MetricCard.tsx:**
+- Adicionar prop opcional `tooltip?: string` ao componente
+- Envolver o titulo com um Tooltip (do Radix) mostrando a explicacao ao passar o mouse
+- Icone de interrogacao (?) pequeno ao lado do titulo
 
-### 3. Card "Ciclo Medio de Vendas"
+**Textos dos tooltips no Dashboard.tsx:**
 
-- Buscar leads won do mes atual
-- Calcular `updated_at - created_at` medio em dias
-- Exibir como "X dias" com comparacao vs mes anterior
+| Metrica | Tooltip |
+|---------|---------|
+| Novos Leads | "Total de leads captados neste mes. Inclui todas as fontes (manual, webhook, formularios)." |
+| Novos Clientes | "Leads que foram movidos para a etapa 'Ganho' do funil neste mes." |
+| Receita do Mes | "Soma do valor de todos os leads marcados como 'Ganho' neste mes." |
+| Ticket Medio | "Receita do mes dividida pelo numero de vendas fechadas. Quanto maior, mais valor por venda." |
+| Taxa de Perda | "Percentual de leads marcados como 'Perdido' em relacao ao total de leads." |
+| Ciclo Medio de Vendas | "Tempo medio em dias entre a criacao do lead e o fechamento da venda (etapa 'Ganho'). Quanto menor, mais rapido sua equipe converte." |
+| Previsao de Faturamento | "Valor ponderado do pipeline ativo. Calcula: valor de cada lead * taxa historica de conversao da etapa em que ele se encontra (ultimos 90 dias)." |
+| Receita Prevista | "Projecao de receita do proximo mes baseada na media dos ultimos 3 meses de vendas fechadas, com ajuste de tendencia." |
 
-### 4. Grafico "Receita por Dia" (AreaChart)
+**Cards grandes (Conversao, Gargalo, Top Sellers, Receita Acumulada):**
+- Adicionar um icone de interrogacao ao lado do titulo de cada card com tooltip explicativo
 
-- Buscar leads won do mes agrupados por dia (`updated_at`)
-- AreaChart com gradiente verde
-- Eixo X: dias do mes, Eixo Y: receita acumulada
+---
 
-### 5. Card "Gargalo do Funil"
-
-- Query: agrupar leads ativos por `funnel_stage_id`, excluindo won/lost
-- Etapa com mais leads parados = gargalo
-- Exibir nome da etapa + quantidade de leads
-
-## Estrutura Visual Final
-
-```text
-+--------------------------------------------------+
-| [Novos Leads] [Clientes] [Receita] [Ticket] [Perda] |
-| [Ciclo Vendas] [Previsao Fat.] [Receita Prev.]      |
-+--------------------------------------------------+
-| [Taxa Conversao]  | [Top 5 Vendedores]            |
-|                   |                                |
-+--------------------------------------------------+
-| [Receita por Dia - AreaChart]                      |
-+--------------------------------------------------+
-| [Gargalo do Funil]                                 |
-+--------------------------------------------------+
-```
-
-- Primeira linha: 5 MetricCards (existentes)
-- Segunda linha: 3 MetricCards novos (Ciclo, Previsao, Receita Prevista)
-- Terceira linha: 2 cards grandes (Conversao + Top Sellers - existentes)
-- Quarta linha: Grafico de receita por dia (novo)
-- Quinta linha: Card de gargalo do funil (novo)
-
-## Implementacao Tecnica
-
-Todas as novas metricas serao implementadas como `useQuery` com `staleTime: 5min`, seguindo o padrao ja existente no Dashboard.
-
-### Novas queries:
-
-**1. Previsao de Faturamento (pipeline forecast)**
-```typescript
-const { data: forecastData } = useQuery({
-  queryKey: ['dashboard-forecast', organizationId],
-  queryFn: async () => {
-    // Buscar stages custom + won
-    // Buscar leads ativos com valor
-    // Calcular taxa historica por stage
-    // Retornar soma ponderada
-  },
-  enabled: !!organizationId,
-  staleTime: 1000 * 60 * 5,
-});
-```
-
-**2. Receita Prevista (media 3 meses)**
-```typescript
-const { data: projectedRevenue } = useQuery({
-  queryKey: ['dashboard-projected', organizationId],
-  queryFn: async () => {
-    // Buscar won leads dos ultimos 3 meses
-    // Agrupar por mes
-    // Calcular media + tendencia
-  },
-  enabled: !!organizationId,
-  staleTime: 1000 * 60 * 5,
-});
-```
-
-**3. Ciclo medio + Receita diaria + Gargalo**
-```typescript
-const { data: advancedMetrics } = useQuery({
-  queryKey: ['dashboard-advanced', organizationId],
-  queryFn: async () => {
-    // Ciclo medio: leads won do mes, media de (updated_at - created_at)
-    // Receita diaria: leads won agrupados por dia
-    // Gargalo: leads ativos agrupados por stage
-  },
-  enabled: !!organizationId,
-  staleTime: 1000 * 60 * 5,
-});
-```
-
-## Arquivos
+## Arquivos a modificar/criar
 
 | Arquivo | Acao |
 |---------|------|
-| `src/pages/Dashboard.tsx` | Reescrever - remover metas manuais, adicionar novas metricas automaticas |
+| Migracao SQL | Criar coluna `data_agendamento_venda` na tabela `leads` |
+| `src/components/EditLeadModal.tsx` | Remover secao Acoes + Funil, adicionar campo Agendamento de Venda na sidebar |
+| `src/components/MetricCard.tsx` | Adicionar prop `tooltip` com icone de interrogacao |
+| `src/pages/Dashboard.tsx` | Passar textos de tooltip para cada MetricCard e cards grandes |
+| `src/components/LeadDetailsDialog.tsx` | Exibir data de agendamento de venda (se existir) |
 
-Nenhum arquivo novo sera criado. Tudo sera implementado diretamente no Dashboard.tsx existente, reutilizando componentes existentes (MetricCard, Card, AreaChart do recharts).
+## Detalhes tecnicos
 
-## Dados do banco utilizados
+### Migracao SQL
+```sql
+ALTER TABLE public.leads 
+ADD COLUMN data_agendamento_venda TIMESTAMPTZ DEFAULT NULL;
+```
 
-- `leads`: id, valor, created_at, updated_at, funnel_stage_id, responsavel_user_id, organization_id, source
-- `funnel_stages`: id, name, stage_type (won/lost/custom), position, funnel_id
-- `profiles`: user_id, full_name, avatar_url
-- `organization_members`: user_id, organization_id
+### MetricCard - nova prop
+```typescript
+interface MetricCardProps {
+  // ... existentes
+  tooltip?: string;  // NOVO
+}
+```
+O tooltip sera implementado com o componente `Tooltip` do Radix que ja existe em `src/components/ui/tooltip.tsx`. Um icone `HelpCircle` (lucide) de 14px aparecera ao lado do titulo.
 
-Nenhuma tabela nova sera criada. Todos os calculos sao derivados dos dados existentes.
-
+### Agendamento de Venda no EditLeadModal
+- Usar o mesmo padrao de Popover + Calendar dos campos "Data de inicio" e "Data de conclusao"
+- Adicionar campo de hora (Input type="time") dentro do Popover
+- Salvar como `data_agendamento_venda` no lead
+- Estado: `editingAgendamentoVenda`, `dataAgendamentoVenda`
