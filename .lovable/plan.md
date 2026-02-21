@@ -1,93 +1,68 @@
 
-# Limpeza do Modal de Edicao + Agendamento de Venda + Tooltips no Dashboard
 
-## 3 tarefas principais
+# Proteger Admin Dashboard e Gerenciar Admins
 
-### Tarefa 1: Limpar o modal de edicao do lead (EditLeadModal.tsx)
+## Situacao Atual
 
-**Remover:**
-- Card "Acoes" inteiro (linhas 1539-1562): os 4 botoes "Enviar e-mail", "Fazer ligacao", "Gerar proposta", "Enviar WhatsApp" que nao funcionam
-- Secao "Funil de Vendas" (linhas 800-867): a previa visual do funil com as etapas clicaveis (Novo Lead, Em Atendimento, Fechado, Perdido) e o Separator logo abaixo
-- Remover tambem os estados e funcoes associados: `isUpdatingStage`, `handleStageClick`, `getStageLabel`, `getStageColor`, `editedStage`
+- A tabela `user_roles` existe mas esta **vazia** - nenhum usuario tem o role `super_admin`
+- O `SuperAdminRoute` nao verifica o role no frontend - qualquer usuario autenticado pode acessar `/admin`
+- A seguranca real esta nas RPCs (`list_all_users`, `count_main_users`) que verificam `super_admin` no backend, entao dados sensiveis nao vazam, mas a pagina carrega e mostra erros
 
-**Manter:** Tabs de atividades, historico, sidebar com valor do negocio, dados do negocio, produtos/servicos
+## O que sera feito
 
----
+### 1. Inserir o role `super_admin` para o usuario `mateusabcck@gmail.com`
 
-### Tarefa 2: Adicionar Agendamento de Venda ao lead
+Migracao SQL:
+```sql
+INSERT INTO public.user_roles (user_id, role)
+VALUES ('d70f265d-0fc6-4ef9-800d-7734bd2ea107', 'super_admin')
+ON CONFLICT (user_id, role) DO NOTHING;
+```
 
-**Nova coluna no banco:**
-- `data_agendamento_venda` (timestamp with time zone, nullable) na tabela `leads`
+### 2. Corrigir o `SuperAdminRoute` para verificar o role no frontend
 
-**No EditLeadModal.tsx (sidebar "Dados do negocio"):**
-- Adicionar campo "Agendamento de Venda" com date+time picker (mesmo padrao dos outros campos editaveis com Popover + Calendar)
-- O usuario seleciona data e hora do agendamento
-- Salvar no campo `data_agendamento_venda` do lead
-- Exibir a data formatada na sidebar
+Atualmente o componente deixa qualquer usuario autenticado passar. Sera modificado para:
+- Chamar `supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' })` ao montar
+- Se nao for super_admin, redirecionar para `/dashboard`
+- Mostrar loading enquanto verifica
 
-**No LeadDetailsDialog.tsx:**
-- Exibir o agendamento de venda quando existir (similar ao card do Google Calendar que ja existe)
+### 3. Adicionar funcionalidade de gerenciar admins no `AdminDashboard.tsx`
 
-**Impacto nas metricas do Dashboard:**
-- O campo `data_agendamento_venda` sera usado para calcular metricas como "Vendas Agendadas" no dashboard
-- Os leads com agendamento preenchido podem ser contados para prever faturamento
+Adicionar uma secao no dashboard admin com:
+- Lista dos usuarios com role `super_admin` (query na tabela `user_roles`)
+- Botao "Adicionar Admin" que abre um dialog com campos de e-mail e senha
+- Ao confirmar, chamar uma nova Edge Function que:
+  1. Cria o usuario no `auth.users` (via admin API)
+  2. Insere o role `super_admin` na tabela `user_roles`
+- Botao de remover admin (exceto o proprio usuario logado)
 
----
+### 4. Criar Edge Function `admin-manage-admins`
 
-### Tarefa 3: Tooltips explicativos em todas as metricas do Dashboard
+Nova Edge Function que aceita:
+- **POST** com `{ action: 'create', email, password }` - cria usuario + insere role super_admin
+- **POST** com `{ action: 'delete', userId }` - remove role super_admin (nao deleta o usuario)
+- **GET** - lista todos os super_admins
 
-**Modificar MetricCard.tsx:**
-- Adicionar prop opcional `tooltip?: string` ao componente
-- Envolver o titulo com um Tooltip (do Radix) mostrando a explicacao ao passar o mouse
-- Icone de interrogacao (?) pequeno ao lado do titulo
+Validacao: apenas usuarios com role `super_admin` podem chamar essa funcao (verificado via service_role no backend).
 
-**Textos dos tooltips no Dashboard.tsx:**
+### 5. Adicionar RLS policy para super_admins gerenciarem user_roles
 
-| Metrica | Tooltip |
-|---------|---------|
-| Novos Leads | "Total de leads captados neste mes. Inclui todas as fontes (manual, webhook, formularios)." |
-| Novos Clientes | "Leads que foram movidos para a etapa 'Ganho' do funil neste mes." |
-| Receita do Mes | "Soma do valor de todos os leads marcados como 'Ganho' neste mes." |
-| Ticket Medio | "Receita do mes dividida pelo numero de vendas fechadas. Quanto maior, mais valor por venda." |
-| Taxa de Perda | "Percentual de leads marcados como 'Perdido' em relacao ao total de leads." |
-| Ciclo Medio de Vendas | "Tempo medio em dias entre a criacao do lead e o fechamento da venda (etapa 'Ganho'). Quanto menor, mais rapido sua equipe converte." |
-| Previsao de Faturamento | "Valor ponderado do pipeline ativo. Calcula: valor de cada lead * taxa historica de conversao da etapa em que ele se encontra (ultimos 90 dias)." |
-| Receita Prevista | "Projecao de receita do proximo mes baseada na media dos ultimos 3 meses de vendas fechadas, com ajuste de tendencia." |
+Atualmente so existe policy de SELECT para o proprio usuario. Sera adicionada policy para super_admins poderem INSERT e DELETE na tabela.
 
-**Cards grandes (Conversao, Gargalo, Top Sellers, Receita Acumulada):**
-- Adicionar um icone de interrogacao ao lado do titulo de cada card com tooltip explicativo
-
----
-
-## Arquivos a modificar/criar
+## Arquivos
 
 | Arquivo | Acao |
 |---------|------|
-| Migracao SQL | Criar coluna `data_agendamento_venda` na tabela `leads` |
-| `src/components/EditLeadModal.tsx` | Remover secao Acoes + Funil, adicionar campo Agendamento de Venda na sidebar |
-| `src/components/MetricCard.tsx` | Adicionar prop `tooltip` com icone de interrogacao |
-| `src/pages/Dashboard.tsx` | Passar textos de tooltip para cada MetricCard e cards grandes |
-| `src/components/LeadDetailsDialog.tsx` | Exibir data de agendamento de venda (se existir) |
+| Migracao SQL | Inserir super_admin para mateusabcck@gmail.com + RLS policies |
+| `src/components/SuperAdminRoute.tsx` | Verificar role real via RPC |
+| `src/pages/AdminDashboard.tsx` | Adicionar secao de gerenciamento de admins |
+| `supabase/functions/admin-manage-admins/index.ts` | Nova Edge Function para CRUD de admins |
+| `supabase/config.toml` | Registrar nova funcao com verify_jwt = false |
 
-## Detalhes tecnicos
+## Seguranca
 
-### Migracao SQL
-```sql
-ALTER TABLE public.leads 
-ADD COLUMN data_agendamento_venda TIMESTAMPTZ DEFAULT NULL;
-```
+- O role `super_admin` e verificado **no backend** via funcao `has_role()` (SECURITY DEFINER)
+- A Edge Function valida o token JWT e verifica o role antes de executar qualquer acao
+- Nenhuma credencial e armazenada no frontend
+- O usuario nao pode remover a si mesmo da lista de admins
 
-### MetricCard - nova prop
-```typescript
-interface MetricCardProps {
-  // ... existentes
-  tooltip?: string;  // NOVO
-}
-```
-O tooltip sera implementado com o componente `Tooltip` do Radix que ja existe em `src/components/ui/tooltip.tsx`. Um icone `HelpCircle` (lucide) de 14px aparecera ao lado do titulo.
-
-### Agendamento de Venda no EditLeadModal
-- Usar o mesmo padrao de Popover + Calendar dos campos "Data de inicio" e "Data de conclusao"
-- Adicionar campo de hora (Input type="time") dentro do Popover
-- Salvar como `data_agendamento_venda` no lead
-- Estado: `editingAgendamentoVenda`, `dataAgendamentoVenda`
