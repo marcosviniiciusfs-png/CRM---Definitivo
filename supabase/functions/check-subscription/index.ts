@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
@@ -13,6 +12,12 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+const PLAN_CONFIG: Record<string, { maxCollaborators: number }> = {
+  star: { maxCollaborators: 5 },
+  pro: { maxCollaborators: 15 },
+  elite: { maxCollaborators: 30 },
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,7 +28,6 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
   );
 
-  // Admin client for fetching owner email when needed
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -31,23 +35,6 @@ serve(async (req) => {
 
   try {
     logStep("Function started");
-
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      logStep("Stripe not configured - returning default unsubscribed state");
-      return new Response(JSON.stringify({ 
-        subscribed: false,
-        product_id: null,
-        subscription_end: null,
-        max_collaborators: 0,
-        extra_collaborators: 0,
-        total_collaborators: 0
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-    logStep("Stripe key verified");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -57,14 +44,11 @@ serve(async (req) => {
         status: 200,
       });
     }
-    logStep("Authorization header found");
 
     const token = authHeader.replace("Bearer ", "");
-    logStep("Authenticating user with token");
-    
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError || !userData.user?.email) {
-      logStep("Auth failed - returning unsubscribed", { error: userError?.message });
+      logStep("Auth failed", { error: userError?.message });
       return new Response(JSON.stringify({ subscribed: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -79,132 +63,80 @@ serve(async (req) => {
       const body = await req.json();
       organizationId = body.organization_id || null;
     } catch {
-      // No body or invalid JSON - that's okay, will use user's email
+      // No body - that's okay
     }
 
-    // Determine which email to use for Stripe check
-    let emailToCheck = user.email;
+    // Determine which user to check subscription for
+    let userIdToCheck = user.id;
 
     if (organizationId) {
       logStep("Organization ID provided, fetching owner", { organizationId });
-      
-      // Get the owner of this organization using the RPC function
-      const { data: ownerUserId, error: ownerError } = await supabaseClient.rpc(
+      const { data: ownerUserId } = await supabaseClient.rpc(
         'get_organization_owner',
         { p_organization_id: organizationId }
       );
-
-      if (ownerError) {
-        logStep("Error fetching organization owner", { error: ownerError.message });
-        // Fall back to user's own email if there's an error
-      } else if (ownerUserId) {
-        logStep("Found organization owner", { ownerUserId });
-        
-        // Get the owner's email using admin client
-        const { data: ownerData, error: ownerUserError } = await supabaseAdmin.auth.admin.getUserById(ownerUserId);
-        
-        if (ownerUserError || !ownerData?.user?.email) {
-          logStep("Error fetching owner email", { error: ownerUserError?.message });
-          // Fall back to user's own email
-        } else {
-          emailToCheck = ownerData.user.email;
-          logStep("Using owner's email for subscription check", { ownerEmail: emailToCheck });
-        }
+      if (ownerUserId) {
+        userIdToCheck = ownerUserId;
+        logStep("Using owner for subscription check", { ownerUserId });
       }
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: emailToCheck, limit: 1 });
-    
-    if (customers.data.length === 0) {
-      logStep("No customer found, returning unsubscribed state", { emailChecked: emailToCheck });
-      return new Response(JSON.stringify({ subscribed: false }), {
+    // Query local subscriptions table
+    const { data: subscription, error: subError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userIdToCheck)
+      .eq("status", "authorized")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (subError) {
+      logStep("Error querying subscriptions", { error: subError.message });
+      throw subError;
+    }
+
+    if (!subscription) {
+      logStep("No active subscription found", { userIdChecked: userIdToCheck });
+      return new Response(JSON.stringify({
+        subscribed: false,
+        product_id: null,
+        plan_id: null,
+        subscription_end: null,
+        max_collaborators: 0,
+        extra_collaborators: 0,
+        total_collaborators: 0,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId, emailChecked: emailToCheck });
+    const planConfig = PLAN_CONFIG[subscription.plan_id] || { maxCollaborators: 0 };
+    const extraCollaborators = subscription.extra_collaborators || 0;
 
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
+    logStep("Active subscription found", {
+      planId: subscription.plan_id,
+      maxCollaborators: planConfig.maxCollaborators,
+      extraCollaborators,
+      totalCollaborators: planConfig.maxCollaborators + extraCollaborators,
     });
-    const hasActiveSub = subscriptions.data.length > 0;
-    let productId = null;
-    let subscriptionEnd = null;
-    let maxCollaborators = 0;
-    let extraCollaborators = 0;
-
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      
-      // Safely handle subscription end date
-      if (subscription.current_period_end) {
-        try {
-          subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          logStep("Error parsing subscription end date", { error: errorMsg, rawValue: subscription.current_period_end });
-          subscriptionEnd = null;
-        }
-      }
-      
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      
-      // Get the main plan product
-      const mainItem = subscription.items.data.find((item: any) => 
-        item.price.product === "prod_TVqqdFt1DYCcCI" || // Básico
-        item.price.product === "prod_TVqr72myTFqI39" || // Profissional
-        item.price.product === "prod_TVqrhrzuIdUDcS"    // Enterprise
-      );
-      
-      if (mainItem) {
-        productId = mainItem.price.product as string;
-        
-        // Determine max collaborators based on plan
-        if (productId === "prod_TVqqdFt1DYCcCI") maxCollaborators = 5;       // Básico
-        else if (productId === "prod_TVqr72myTFqI39") maxCollaborators = 15; // Profissional
-        else if (productId === "prod_TVqrhrzuIdUDcS") maxCollaborators = 30; // Enterprise
-      }
-      
-      // Check for extra collaborators
-      const extraItem = subscription.items.data.find((item: any) => 
-        item.price.product === "prod_TVqy95fQXCZsWI" // Colaborador Extra
-      );
-      
-      if (extraItem) {
-        extraCollaborators = extraItem.quantity || 0;
-      }
-      
-      logStep("Determined subscription details", { 
-        productId, 
-        maxCollaborators, 
-        extraCollaborators,
-        totalCollaborators: maxCollaborators + extraCollaborators,
-        organizationId: organizationId || 'not specified',
-        ownerEmail: emailToCheck
-      });
-    } else {
-      logStep("No active subscription found", { emailChecked: emailToCheck });
-    }
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub,
-      product_id: productId,
-      subscription_end: subscriptionEnd,
-      max_collaborators: maxCollaborators,
+      subscribed: true,
+      product_id: subscription.plan_id, // Keep backward compatibility
+      plan_id: subscription.plan_id,
+      subscription_end: subscription.end_date,
+      max_collaborators: planConfig.maxCollaborators,
       extra_collaborators: extraCollaborators,
-      total_collaborators: maxCollaborators + extraCollaborators
+      total_collaborators: planConfig.maxCollaborators + extraCollaborators,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in check-subscription", { message: errorMessage });
+    logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

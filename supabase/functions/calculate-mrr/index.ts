@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
@@ -17,7 +16,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
+  const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     { auth: { persistSession: false } }
@@ -26,171 +25,64 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    // Verificar autenticação super_admin
+    // Verify super_admin auth
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
-    }
+    if (!authHeader) throw new Error("No authorization header");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    
-    if (userError || !userData.user) {
-      throw new Error("Authentication failed");
-    }
+    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+    if (userError || !userData.user) throw new Error("Authentication failed");
 
-    logStep("User authenticated", { userId: userData.user.id });
-
-    // Verificar se é super_admin
-    const { data: roleData, error: roleError } = await supabaseClient
+    const { data: roleData } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", userData.user.id)
       .eq("role", "super_admin")
       .single();
 
-    if (roleError || !roleData) {
-      throw new Error("Access denied: super_admin role required");
-    }
-
+    if (!roleData) throw new Error("Access denied: super_admin required");
     logStep("Super admin verified");
 
-    // Buscar todos os owners (usuários principais)
-    const { data: owners, error: ownersError } = await supabaseClient
-      .from("organization_members")
-      .select("user_id, email")
-      .eq("role", "owner");
+    // Query active subscriptions from local table
+    const { data: subscriptions, error: subError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan_id, amount, extra_collaborators")
+      .eq("status", "authorized");
 
-    if (ownersError) {
-      throw new Error(`Failed to fetch owners: ${ownersError.message}`);
-    }
+    if (subError) throw subError;
 
-    logStep("Fetched owners", { count: owners?.length || 0 });
-
-    // Inicializar Stripe
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      throw new Error("STRIPE_SECRET_KEY not configured");
-    }
-
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    
     let totalMRR = 0;
-    let activeSubscriptionsCount = 0;
-    const planCounts = {
-      basico: 0,
-      profissional: 0,
-      enterprise: 0
-    };
+    const planCounts = { star: 0, pro: 0, elite: 0 };
 
-    // Para cada owner, buscar assinaturas ativas
-    for (const owner of owners || []) {
-      if (!owner.email) continue;
-
-      try {
-        // Buscar customer no Stripe
-        const customers = await stripe.customers.list({
-          email: owner.email,
-          limit: 1,
-        });
-
-        if (customers.data.length === 0) {
-          logStep("No customer found for owner", { email: owner.email });
-          continue;
-        }
-
-        const customerId = customers.data[0].id;
-        logStep("Found customer", { email: owner.email, customerId });
-
-        // Buscar assinaturas ativas
-        const subscriptions = await stripe.subscriptions.list({
-          customer: customerId,
-          status: "active",
-        });
-
-        logStep("Subscriptions found", { 
-          email: owner.email, 
-          count: subscriptions.data.length 
-        });
-
-        // Calcular MRR das assinaturas ativas
-        for (const subscription of subscriptions.data) {
-          for (const item of subscription.items.data) {
-            // Valor em centavos (ou menor unidade da moeda)
-            const amount = item.price.unit_amount || 0;
-            
-            // Converter para valor mensal se necessário
-            let monthlyAmount = amount;
-            if (item.price.recurring?.interval === "year") {
-              monthlyAmount = amount / 12;
-            }
-
-            totalMRR += monthlyAmount;
-            activeSubscriptionsCount++;
-
-            // Identificar o plano baseado no valor mensal
-            if (monthlyAmount === 20000) { // R$ 200 em centavos
-              planCounts.basico++;
-            } else if (monthlyAmount === 50000) { // R$ 500 em centavos
-              planCounts.profissional++;
-            } else if (monthlyAmount === 200000) { // R$ 2000 em centavos
-              planCounts.enterprise++;
-            }
-
-            logStep("Subscription item processed", {
-              email: owner.email,
-              amount: amount / 100,
-              interval: item.price.recurring?.interval,
-              monthlyAmount: monthlyAmount / 100
-            });
-          }
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        logStep("Error processing owner", { 
-          email: owner.email, 
-          error: errorMessage
-        });
+    for (const sub of subscriptions || []) {
+      totalMRR += Number(sub.amount) || 0;
+      if (sub.plan_id in planCounts) {
+        planCounts[sub.plan_id as keyof typeof planCounts]++;
       }
     }
 
-    // Converter de centavos para reais
-    const mrrInReais = totalMRR / 100;
-
-    // Preparar dados do gráfico de barras
     const planChartData = [
-      { name: 'Básico', count: planCounts.basico, color: '#FFC107' },
-      { name: 'Profissional', count: planCounts.profissional, color: '#2196F3' },
-      { name: 'Enterprise', count: planCounts.enterprise, color: '#4CAF50' }
+      { name: 'Star', count: planCounts.star, color: '#3B82F6' },
+      { name: 'Pro', count: planCounts.pro, color: '#F59E0B' },
+      { name: 'Elite', count: planCounts.elite, color: '#8B5CF6' },
     ];
 
-    logStep("MRR calculation complete", { 
-      totalMRR: mrrInReais,
-      activeSubscriptionsCount,
-      planCounts
-    });
+    logStep("MRR calculated", { totalMRR, planCounts, activeCount: subscriptions?.length || 0 });
 
-    return new Response(
-      JSON.stringify({ 
-        mrr: mrrInReais,
-        activeSubscriptionsCount,
-        planChartData
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+    return new Response(JSON.stringify({
+      mrr: totalMRR,
+      activeSubscriptionsCount: subscriptions?.length || 0,
+      planChartData,
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });

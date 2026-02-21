@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
@@ -11,6 +10,14 @@ const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
+
+const PLANS: Record<string, { price: number; maxCollaborators: number; title: string }> = {
+  star: { price: 47.99, maxCollaborators: 5, title: "Kairoz Star" },
+  pro: { price: 197.99, maxCollaborators: 15, title: "Kairoz Pro" },
+  elite: { price: 499.00, maxCollaborators: 30, title: "Kairoz Elite" },
+};
+
+const EXTRA_COLLABORATOR_PRICE = 25.00;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,10 +31,13 @@ serve(async (req) => {
 
   try {
     logStep("Function started");
-    
-    const { priceId, extraCollaborators = 0 } = await req.json();
-    if (!priceId) throw new Error("priceId is required");
-    logStep("Received priceId and extraCollaborators", { priceId, extraCollaborators });
+
+    const MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+    if (!MP_ACCESS_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN not configured");
+
+    const { planId, extraCollaborators = 0 } = await req.json();
+    if (!planId || !PLANS[planId]) throw new Error("Invalid planId");
+    logStep("Request data", { planId, extraCollaborators });
 
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
@@ -36,53 +46,50 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
-      apiVersion: "2025-08-27.basil" 
-    });
-    
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    let customerId;
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
-      logStep("Found existing customer", { customerId });
-    } else {
-      logStep("No existing customer found");
-    }
+    const plan = PLANS[planId];
+    const totalAmount = plan.price + (extraCollaborators * EXTRA_COLLABORATOR_PRICE);
+    const externalReference = `${user.id}|${planId}|${extraCollaborators}`;
 
-    // Build line items array
-    const lineItems = [
-      {
-        price: priceId,
-        quantity: 1,
+    logStep("Creating preapproval", { totalAmount, externalReference });
+
+    // Create preapproval (recurring subscription) via Mercado Pago API
+    const mpResponse = await fetch("https://api.mercadopago.com/preapproval", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
       },
-    ];
-
-    // Add extra collaborators if specified
-    if (extraCollaborators > 0) {
-      lineItems.push({
-        price: "price_1SYpG5CIzFkZL7JmZq9Q7Z1a", // Colaborador Extra price
-        quantity: extraCollaborators,
-      });
-      logStep("Added extra collaborators to line items", { extraCollaborators });
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      customer_email: customerId ? undefined : user.email,
-      line_items: lineItems,
-      mode: "subscription",
-      success_url: `${req.headers.get("origin")}/success`,
-      cancel_url: `${req.headers.get("origin")}/pricing`,
+      body: JSON.stringify({
+        reason: plan.title + (extraCollaborators > 0 ? ` + ${extraCollaborators} colaborador(es) extra(s)` : ""),
+        external_reference: externalReference,
+        payer_email: user.email,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months",
+          transaction_amount: totalAmount,
+          currency_id: "BRL",
+        },
+        back_url: `${req.headers.get("origin")}/success`,
+        status: "pending",
+      }),
     });
 
-    logStep("Checkout session created", { sessionId: session.id });
-    return new Response(JSON.stringify({ url: session.url }), {
+    if (!mpResponse.ok) {
+      const errorText = await mpResponse.text();
+      logStep("MP API error", { status: mpResponse.status, error: errorText });
+      throw new Error(`Mercado Pago error: ${mpResponse.status} - ${errorText}`);
+    }
+
+    const preapproval = await mpResponse.json();
+    logStep("Preapproval created", { id: preapproval.id, init_point: preapproval.init_point });
+
+    return new Response(JSON.stringify({ url: preapproval.init_point }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in create-checkout", { message: errorMessage });
+    logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

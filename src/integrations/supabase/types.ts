@@ -2189,6 +2189,62 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          end_date: string | null
+          extra_collaborators: number | null
+          id: string
+          mp_payer_email: string | null
+          mp_preapproval_id: string | null
+          organization_id: string | null
+          plan_id: string
+          start_date: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          extra_collaborators?: number | null
+          id?: string
+          mp_payer_email?: string | null
+          mp_preapproval_id?: string | null
+          organization_id?: string | null
+          plan_id: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          extra_collaborators?: number | null
+          id?: string
+          mp_payer_email?: string | null
+          mp_preapproval_id?: string | null
+          organization_id?: string | null
+          plan_id?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_activities: {
         Row: {
           activity_type: string

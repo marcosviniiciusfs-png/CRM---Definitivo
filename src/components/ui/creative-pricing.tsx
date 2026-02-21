@@ -17,6 +17,7 @@ export interface PricingTier {
 interface SubscriptionInfo {
   subscribed: boolean;
   product_id: string | null;
+  plan_id?: string | null;
   subscription_end: string | null;
 }
 
@@ -30,14 +31,8 @@ interface CreativePricingProps {
   subscription?: SubscriptionInfo | null;
   onManageSubscription?: () => void;
   onAddCollaborators?: (quantity: number) => Promise<void>;
-  onUpgradePlan?: (newPriceId: string) => Promise<void>;
+  onUpgradePlan?: (newPlanId: string) => Promise<void>;
   extraCollaboratorPrice?: number;
-  stripePlans?: {
-    [key: string]: {
-      priceId: string;
-      productId: string;
-    };
-  };
 }
 
 export function CreativePricing({
@@ -51,8 +46,7 @@ export function CreativePricing({
   onManageSubscription,
   onAddCollaborators,
   onUpgradePlan,
-  extraCollaboratorPrice = 30,
-  stripePlans = {},
+  extraCollaboratorPrice = 25,
 }: CreativePricingProps) {
   const [extraCollaborators, setExtraCollaborators] = React.useState<{
     [key: string]: number;
@@ -65,36 +59,21 @@ export function CreativePricing({
   const [currentTier, setCurrentTier] = React.useState<PricingTier | null>(null);
 
   const isCurrentPlan = (tier: PricingTier) => {
-    if (!subscription?.subscribed || !subscription.product_id) return false;
-
-    const tierName = tier.name.toLowerCase();
-    if (tierName === "star")
-      return subscription.product_id === "prod_TVqqdFt1DYCcCI";
-    if (tierName === "pro")
-      return subscription.product_id === "prod_TVqr72myTFqI39";
-    if (tierName === "elite")
-      return subscription.product_id === "prod_TVqrhrzuIdUDcS";
-
-    return false;
+    if (!subscription?.subscribed) return false;
+    const planId = subscription.plan_id || subscription.product_id;
+    if (!planId) return false;
+    return planId.toLowerCase() === tier.name.toLowerCase();
   };
 
   const canUpgrade = (tier: PricingTier) => {
     if (!subscription?.subscribed) return false;
-    
-    const planOrder = ["Star", "Pro", "Elite"];
-    const currentPlanIndex = planOrder.findIndex((plan) => {
-      const tierName = plan.toLowerCase();
-      if (tierName === "star")
-        return subscription.product_id === "prod_TVqqdFt1DYCcCI";
-      if (tierName === "pro")
-        return subscription.product_id === "prod_TVqr72myTFqI39";
-      if (tierName === "elite")
-        return subscription.product_id === "prod_TVqrhrzuIdUDcS";
-      return false;
-    });
-    
-    const tierIndex = planOrder.indexOf(tier.name);
-    return tierIndex > currentPlanIndex && currentPlanIndex !== -1;
+    const planId = subscription.plan_id || subscription.product_id;
+    if (!planId) return false;
+
+    const planOrder = ["star", "pro", "elite"];
+    const currentIndex = planOrder.indexOf(planId.toLowerCase());
+    const tierIndex = planOrder.indexOf(tier.name.toLowerCase());
+    return tierIndex > currentIndex && currentIndex !== -1;
   };
 
   const handleExtraColabChange = (tierName: string, value: number) => {
@@ -112,25 +91,16 @@ export function CreativePricing({
   return (
     <div className="w-full max-w-6xl mx-auto px-4">
       <div className="text-center space-y-6 mb-16">
-        <div className="text-sm font-medium text-primary">
-          {tag}
-        </div>
+        <div className="text-sm font-medium text-primary">{tag}</div>
         <div className="relative">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground">
-            {title}
-          </h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground">{title}</h2>
         </div>
-        <p className="text-lg text-muted-foreground">
-          {description}
-        </p>
+        <p className="text-lg text-muted-foreground">{description}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {tiers.map((tier, index) => (
-          <div
-            key={tier.name}
-            className="relative group transition-all duration-300"
-          >
+        {tiers.map((tier) => (
+          <div key={tier.name} className="relative group transition-all duration-300">
             <div
               className={cn(
                 "absolute inset-0 bg-card",
@@ -161,17 +131,13 @@ export function CreativePricing({
                 >
                   {tier.icon}
                 </div>
-                <h3 className="text-2xl font-semibold text-foreground">
-                  {tier.name}
-                </h3>
-                <p className="text-muted-foreground">
-                  {tier.description}
-                </p>
+                <h3 className="text-2xl font-semibold text-foreground">{tier.name}</h3>
+                <p className="text-muted-foreground">{tier.description}</p>
               </div>
 
               <div className="mb-6">
                 <span className="text-4xl font-bold text-foreground">
-                  R$ {tier.price}
+                  R$ {tier.price % 1 === 0 ? tier.price : tier.price.toFixed(2).replace(".", ",")}
                 </span>
                 <span className="text-muted-foreground">/mês</span>
               </div>
@@ -182,9 +148,7 @@ export function CreativePricing({
                     <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center">
                       <Check className="w-3 h-3" />
                     </div>
-                    <span className="text-base text-foreground">
-                      {feature}
-                    </span>
+                    <span className="text-base text-foreground">{feature}</span>
                   </div>
                 ))}
               </div>
@@ -196,10 +160,7 @@ export function CreativePricing({
                     <button
                       type="button"
                       onClick={() =>
-                        setShowExtraCollaborators((prev) => ({
-                          ...prev,
-                          [tier.name]: true,
-                        }))
+                        setShowExtraCollaborators((prev) => ({ ...prev, [tier.name]: true }))
                       }
                       className="w-full p-3 text-center text-sm text-primary hover:text-primary/80 hover:bg-muted/50 rounded-lg border-2 border-dashed border-border transition-colors"
                     >
@@ -208,9 +169,7 @@ export function CreativePricing({
                   ) : (
                     <div className="p-4 bg-muted/50 rounded-lg space-y-3 border-2 border-border">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Colaboradores extras:
-                        </span>
+                        <span className="text-muted-foreground">Colaboradores extras:</span>
                         <div className="flex items-center gap-2">
                           <Button
                             type="button"
@@ -223,10 +182,7 @@ export function CreativePricing({
                                 (extraCollaborators[tier.name] || 0) - 1
                               )
                             }
-                            disabled={
-                              !extraCollaborators[tier.name] ||
-                              extraCollaborators[tier.name] === 0
-                            }
+                            disabled={!extraCollaborators[tier.name] || extraCollaborators[tier.name] === 0}
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
@@ -251,14 +207,13 @@ export function CreativePricing({
                       </div>
                       {extraCollaborators[tier.name] > 0 && (
                         <div className="text-xs text-muted-foreground text-right">
-                          {extraCollaborators[tier.name]} × R${" "}
-                          {extraCollaboratorPrice} = R${" "}
+                          {extraCollaborators[tier.name]} × R$ {extraCollaboratorPrice} = R${" "}
                           {extraCollaborators[tier.name] * extraCollaboratorPrice}
                         </div>
                       )}
                       {extraCollaborators[tier.name] > 0 && (
                         <div className="text-sm font-semibold text-right pt-2 border-t">
-                          Total: R$ {getTotalPrice(tier)}/mês
+                          Total: R$ {getTotalPrice(tier).toFixed(2).replace(".", ",")}/mês
                         </div>
                       )}
                     </div>
@@ -288,24 +243,14 @@ export function CreativePricing({
                     </Button>
                   )}
                   {onManageSubscription && (
-                    <Button
-                      onClick={onManageSubscription}
-                      variant="outline"
-                      className="w-full"
-                    >
+                    <Button onClick={onManageSubscription} variant="outline" className="w-full">
                       Gerenciar Assinatura
                     </Button>
                   )}
                 </div>
               ) : canUpgrade(tier) && onUpgradePlan ? (
                 <Button
-                  onClick={() => {
-                    const planKey = tier.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    const priceId = stripePlans[planKey]?.priceId;
-                    if (priceId) {
-                      onUpgradePlan(priceId);
-                    }
-                  }}
+                  onClick={() => onUpgradePlan(tier.name.toLowerCase())}
                   disabled={loading === tier.name}
                   className={cn(
                     "w-full h-12 text-base relative",
@@ -327,18 +272,12 @@ export function CreativePricing({
                   )}
                 </Button>
               ) : subscription?.subscribed ? (
-                <Button
-                  disabled
-                  variant="outline"
-                  className="w-full"
-                >
+                <Button disabled variant="outline" className="w-full">
                   Plano Atual ou Inferior
                 </Button>
               ) : (
                 <Button
-                  onClick={() =>
-                    onSubscribe?.(tier.name, extraCollaborators[tier.name] || 0)
-                  }
+                  onClick={() => onSubscribe?.(tier.name, extraCollaborators[tier.name] || 0)}
                   disabled={loading === tier.name}
                   className={cn(
                     "w-full h-12 text-base relative",
@@ -366,6 +305,7 @@ export function CreativePricing({
           </div>
         ))}
       </div>
+
       {/* Modal para adicionar colaboradores */}
       {showAddModal && currentTier && onAddCollaborators && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -414,14 +354,15 @@ export function CreativePricing({
               <div className="p-4 bg-muted/50 border-2 border-border rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-foreground">
-                    {modalQuantity} colaborador{modalQuantity > 1 ? 'es' : ''} × R$ {extraCollaboratorPrice}
+                    {modalQuantity} colaborador{modalQuantity > 1 ? "es" : ""} × R${" "}
+                    {extraCollaboratorPrice}
                   </span>
                   <span className="text-xl font-bold text-foreground">
                     R$ {modalQuantity * extraCollaboratorPrice}/mês
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Será cobrado proporcionalmente ao período atual
+                  O valor será adicionado à sua assinatura mensal
                 </p>
               </div>
             </div>
@@ -449,10 +390,7 @@ export function CreativePricing({
                   setCurrentTier(null);
                 }}
                 variant="outline"
-                className={cn(
-                  "flex-1 h-12 text-base",
-                  "border-2 border-border"
-                )}
+                className={cn("flex-1 h-12 text-base", "border-2 border-border")}
               >
                 Cancelar
               </Button>

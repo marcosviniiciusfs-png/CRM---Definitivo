@@ -6,35 +6,19 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 
-// Mapeamento dos planos com price_id do Stripe
-const STRIPE_PLANS = {
-  basico: {
-    priceId: "price_1SYp92CIzFkZL7Jmk8LxUPOp",
-    productId: "prod_TVqqdFt1DYCcCI",
-    maxCollaborators: 5,
-  },
-  profissional: {
-    priceId: "price_1SYp9OCIzFkZL7JmHitGK3FN",
-    productId: "prod_TVqr72myTFqI39",
-    maxCollaborators: 15,
-  },
-  enterprise: {
-    priceId: "price_1SYp9bCIzFkZL7JmvcvRhSLh",
-    productId: "prod_TVqrhrzuIdUDcS",
-    maxCollaborators: 30,
-  },
-  colaboradorExtra: {
-    priceId: "price_1SYpG5CIzFkZL7JmZq9Q7Z1a",
-    productId: "prod_TVqy95fQXCZsWI",
-    pricePerUnit: 30,
-  }
+const PLANS = {
+  star: { maxCollaborators: 5 },
+  pro: { maxCollaborators: 15 },
+  elite: { maxCollaborators: 30 },
 };
+
+const EXTRA_COLLABORATOR_PRICE = 25;
 
 const pricingTiers: PricingTier[] = [
   {
     name: "Star",
     icon: <Zap className="w-6 h-6" />,
-    price: 197,
+    price: 47.99,
     description: "Ideal para começar",
     color: "blue",
     features: [
@@ -49,7 +33,7 @@ const pricingTiers: PricingTier[] = [
   {
     name: "Pro",
     icon: <TrendingUp className="w-6 h-6" />,
-    price: 497,
+    price: 197.99,
     description: "Para equipes em crescimento",
     color: "amber",
     features: [
@@ -67,7 +51,7 @@ const pricingTiers: PricingTier[] = [
   {
     name: "Elite",
     icon: <Crown className="w-6 h-6" />,
-    price: 1970,
+    price: 499,
     description: "Solução completa",
     color: "purple",
     features: [
@@ -90,6 +74,7 @@ export default function Pricing() {
   const [subscription, setSubscription] = useState<{
     subscribed: boolean;
     product_id: string | null;
+    plan_id: string | null;
     subscription_end: string | null;
   } | null>(null);
 
@@ -119,20 +104,10 @@ export default function Pricing() {
     setLoading(planName);
 
     try {
-      let priceId: string;
-      if (planName === "Star") {
-        priceId = STRIPE_PLANS.basico.priceId;
-      } else if (planName === "Pro") {
-        priceId = STRIPE_PLANS.profissional.priceId;
-      } else {
-        priceId = STRIPE_PLANS.enterprise.priceId;
-      }
+      const planId = planName.toLowerCase();
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { 
-          priceId,
-          extraCollaborators 
-        },
+        body: { planId, extraCollaborators },
       });
 
       if (error) throw error;
@@ -165,18 +140,13 @@ export default function Pricing() {
     try {
       toast.loading("Adicionando colaboradores...");
       const { data, error } = await supabase.functions.invoke("update-subscription", {
-        body: {
-          action: "add_collaborators",
-          quantity,
-        },
+        body: { action: "add_collaborators", quantity },
       });
 
       if (error) throw error;
 
       toast.dismiss();
       toast.success(data?.message || "Colaboradores adicionados com sucesso!");
-      
-      // Refresh subscription data
       await checkSubscription();
     } catch (error) {
       toast.dismiss();
@@ -185,22 +155,24 @@ export default function Pricing() {
     }
   };
 
-  const handleUpgradePlan = async (newPriceId: string) => {
+  const handleUpgradePlan = async (newPlanId: string) => {
     try {
       toast.loading("Processando upgrade...");
       const { data, error } = await supabase.functions.invoke("update-subscription", {
-        body: {
-          action: "upgrade_plan",
-          newPriceId,
-        },
+        body: { action: "upgrade_plan", newPlanId },
       });
 
       if (error) throw error;
 
       toast.dismiss();
-      toast.success(data?.message || "Plano atualizado com sucesso!");
-      
-      // Refresh subscription data
+
+      if (data?.url) {
+        window.open(data.url, "_blank");
+        toast.success("Redirecionando para o checkout do novo plano...");
+      } else {
+        toast.success(data?.message || "Plano atualizado com sucesso!");
+      }
+
       await checkSubscription();
     } catch (error) {
       toast.dismiss();
@@ -222,8 +194,7 @@ export default function Pricing() {
         onManageSubscription={handleManageSubscription}
         onAddCollaborators={handleAddCollaborators}
         onUpgradePlan={handleUpgradePlan}
-        extraCollaboratorPrice={STRIPE_PLANS.colaboradorExtra.pricePerUnit}
-        stripePlans={STRIPE_PLANS}
+        extraCollaboratorPrice={EXTRA_COLLABORATOR_PRICE}
       />
     </div>
   );
