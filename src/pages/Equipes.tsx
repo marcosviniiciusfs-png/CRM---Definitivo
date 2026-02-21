@@ -426,7 +426,7 @@ const Equipes = () => {
                     {/* Goals */}
                     {showGoals === team.id && organizationId && (
                       <div className="mb-4">
-                        <TeamGoalsCard teamId={team.id} organizationId={organizationId} teamColor={team.color} />
+                        <TeamGoalsCard teamId={team.id} teamName={team.name} organizationId={organizationId} teamColor={team.color} />
                       </div>
                     )}
 
@@ -545,7 +545,6 @@ const Equipes = () => {
             team={selectedTeam}
             organizationId={organizationId}
             members={allMembers}
-            currentMembers={teamMembers.filter(tm => tm.team_id === selectedTeam.id).map(tm => tm.user_id)}
             onSuccess={invalidateData}
           />
         )}
