@@ -1,144 +1,111 @@
 
-# Corrigir Registro Duplicado de Sessoes e Limpeza Automatica
 
-## Problema
+# Redesign da Landing Page - Foco no CRM e Gestao de Vendas
 
-Conforme a imagem, o mesmo usuario aparece com multiplos registros "Online" na aba Conexoes. Isso acontece porque:
+## Direcionamento
 
-1. O `AuthContext.tsx` chama `logUserSession(true)` em **dois lugares** a cada carregamento de pagina:
-   - Linha 204: no evento `SIGNED_IN`
-   - Linha 258: no `getSession()` inicial
-   - Ambos disparam ao mesmo tempo, criando 2+ registros por carregamento
+O WhatsApp sera mencionado apenas uma vez, de forma discreta, em uma secao secundaria como "integracao disponivel". O foco principal sera nas capacidades do CRM: gestao de leads, funil de vendas, controle de equipe, metricas financeiras e produtividade.
 
-2. Alem disso, o evento `TOKEN_REFRESHED` pode disparar `SIGNED_IN` novamente, gerando ainda mais duplicatas.
+## Estrutura da Pagina (10 secoes)
 
-3. Nao existe limpeza automatica de registros antigos (mais de 1 mes).
+### 1. Navbar fixa
+- Logo KairoZ a esquerda
+- Links: Funcionalidades | Planos
+- Botoes: "Entrar" (outline) | "Comecar gratis" (vermelho)
+- Efeito: backdrop-blur ao rolar a pagina
 
-Resultado: o banco tem **20 registros de login** do mesmo usuario em poucos minutos, todos sem `logout_at`, todos aparecendo como "Online".
+### 2. Hero Section
+- Titulo: "O CRM que sua equipe de vendas precisa para **vender mais**"
+- Subtitulo: "Gerencie leads, controle seu funil de vendas, acompanhe metas e comissoes da sua equipe - tudo em um so lugar."
+- Botoes: "Comecar agora" + "Ver funcionalidades"
+- Ilustracao SVG: personagem cartoon ao lado de um dashboard com graficos e funil
+- Animacao: textos sobem com fade-in, ilustracao entra com scale
 
-## Solucao
+### 3. Faixa de confianca
+- "Tudo que voce precisa para gerenciar suas vendas"
+- Icones: Pipeline | Equipes | Metricas | Automacoes | Tarefas (icones SVG simples, nao logos de terceiros)
 
-### A) Evitar duplicatas no AuthContext
+### 4. Secao "Problemas" (3 cards animados)
+- "Leads se perdem sem acompanhamento"
+- "Sem visao clara do funil de vendas"
+- "Equipe sem metas e controle de resultados"
+- Cada card com ilustracao SVG cartoon e animacao stagger
 
-Modificar `logUserSession` para verificar se ja existe uma sessao ativa (sem `logout_at`) para o mesmo usuario antes de criar uma nova. Se ja existir, apenas reutilizar o ID da sessao existente sem inserir um novo registro.
+### 5. Secao "Solucoes" (layout alternado com ilustracoes)
+Tres blocos, imagem + texto alternando lados:
 
-Tambem: remover a chamada duplicada no `getSession()` - manter apenas no `SIGNED_IN`.
+**Bloco 1 - Pipeline Visual**
+- "Arraste e organize seus leads em etapas personalizadas do funil"
+- Ilustracao: funil com cards sendo movidos
 
-### B) Registrar data e horario exatos do login
+**Bloco 2 - Gestao de Equipe e Comissoes**
+- "Acompanhe a performance de cada vendedor, defina metas e gerencie comissoes automaticamente"
+- Ilustracao: personagens em podio com graficos
 
-Ja esta sendo feito (`login_at: new Date().toISOString()`). O que falta e mostrar a data/hora exata na UI em vez de apenas "ha X minutos".
+**Bloco 3 - Metricas e Dashboard Financeiro**
+- "Receita do mes, ticket medio, taxa de conversao e ranking de vendedores em tempo real"
+- Ilustracao: dashboard com graficos e numeros
 
-### C) Limpeza automatica de registros com mais de 1 mes
+### 6. Abas de Funcionalidades
+- Tabs interativas: **Leads** | **Pipeline** | **Equipes** | **Automacoes**
+- Cada tab mostra descricao + ilustracao SVG
+- Transicao animada entre tabs
+- WhatsApp aparece aqui APENAS como sub-item dentro da tab "Leads": "Integracao com WhatsApp disponivel em breve"
 
-Criar um cron job no banco que roda diariamente e deleta registros de `user_sessions` com `login_at` mais antigo que 30 dias.
+### 7. Numeros/Metricas animados
+- 4 contadores:
+  - "Funis personalizaveis"
+  - "3x Mais produtividade"
+  - "Gestao completa de equipe"
+  - "Metricas em tempo real"
 
-### D) Limpar registros duplicados existentes
+### 8. Preview de Planos
+- 3 cards: Star (R$197) | Pro (R$497) | Elite (R$1.970)
+- Pro destacado como popular
+- Botao "Ver detalhes" vai para /pricing
 
-Na mesma migracao, executar um cleanup dos registros duplicados ja existentes, mantendo apenas o mais recente por usuario/dia.
+### 9. FAQ (Accordion)
+- "O que e o KairoZ?"
+- "Preciso instalar algo?"
+- "Posso testar antes de assinar?"
+- "Quantos colaboradores posso ter?"
+- "Tem integracao com WhatsApp?" (resposta: "Sim, a integracao com WhatsApp esta sendo preparada e estara disponivel em breve.")
 
-## Mudancas
+### 10. CTA Final + Footer
+- Fundo gradiente vermelho
+- "Pronto para organizar suas vendas?"
+- Botao grande
+- Footer com links de Privacidade e Termos
 
-### 1. `src/contexts/AuthContext.tsx`
+## Visual e Animacoes
 
-- Modificar `logUserSession(isLogin=true)` para:
-  1. Verificar se ja existe sessao ativa (sem `logout_at`) para o usuario
-  2. Se existir, apenas armazenar o ID sem criar nova
-  3. Se nao existir, criar normalmente
-- Remover a chamada em `getSession()` (linha 258) - so manter no `SIGNED_IN`
+- **Fundo**: Branco/claro (sem StarsBackground preto)
+- **Cores**: Vermelho KairoZ para CTAs e destaques, cinza para textos
+- **Ilustracoes**: SVG inline cartunizados com personagens simplificados (sem rostos detalhados), elementos de funil, graficos e dashboards flutuando
+- **Framer Motion**: fade-in + translateY no hero, stagger nos cards, whileInView nas secoes, contadores animados, crossfade nas tabs
+- **Responsivo**: mobile-first, hero empilhado no mobile, 3 colunas no desktop
 
-```typescript
-const logUserSession = async (userId: string, isLogin: boolean) => {
-  try {
-    const { data: memberData } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (!memberData?.organization_id) return;
-
-    if (isLogin) {
-      // Verificar se ja existe sessao ativa para este usuario
-      const { data: existingSession } = await supabase
-        .from('user_sessions')
-        .select('id')
-        .eq('user_id', userId)
-        .is('logout_at', null)
-        .order('login_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existingSession) {
-        // Reutilizar sessao existente
-        currentSessionIdRef.current = existingSession.id;
-        return;
-      }
-
-      // Criar nova sessao apenas se nao existir ativa
-      const { data, error } = await supabase
-        .from('user_sessions')
-        .insert({
-          user_id: userId,
-          organization_id: memberData.organization_id,
-          login_at: new Date().toISOString()
-        })
-        .select('id')
-        .single();
-
-      if (!error && data) {
-        currentSessionIdRef.current = data.id;
-      }
-    } else {
-      // logout - sem mudanca
-    }
-  } catch (error) {
-    console.error('Erro ao registrar sessao:', error);
-  }
-};
-```
-
-### 2. Migracao SQL
-
-- Cron job para limpar sessoes com mais de 30 dias (executado diariamente)
-- Cleanup imediato dos registros duplicados existentes
-
-```sql
--- Limpar duplicatas existentes: manter apenas a sessao mais recente por usuario
-DELETE FROM user_sessions
-WHERE id NOT IN (
-  SELECT DISTINCT ON (user_id) id
-  FROM user_sessions
-  WHERE logout_at IS NULL
-  ORDER BY user_id, login_at DESC
-)
-AND logout_at IS NULL;
-
--- Funcao para limpeza de sessoes antigas
-CREATE OR REPLACE FUNCTION cleanup_old_user_sessions()
-RETURNS void AS $$
-BEGIN
-  DELETE FROM user_sessions
-  WHERE login_at < NOW() - INTERVAL '30 days';
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Cron job diario
-SELECT cron.schedule(
-  'cleanup-old-sessions',
-  '0 3 * * *',  -- Todo dia as 3h da manha
-  $$SELECT cleanup_old_user_sessions()$$
-);
-```
-
-### 3. `src/pages/Atividades.tsx`
-
-- Na aba Conexoes, mostrar a data/hora exata alem do "ha X minutos"
-- Exemplo: "Login: 17/02/2026 14:10 (ha 10 minutos)"
-
-### Resumo de arquivos
+## Arquivos
 
 | Arquivo | Acao |
 |---------|------|
-| `src/contexts/AuthContext.tsx` | Evitar duplicatas + remover chamada dupla |
-| `src/pages/Atividades.tsx` | Mostrar data/hora exata na aba Conexoes |
-| Migracao SQL | Cleanup de duplicatas + cron de 30 dias |
+| `src/pages/Landing.tsx` | Reescrever - montar todas as secoes |
+| `src/components/landing/LandingNavbar.tsx` | Criar |
+| `src/components/landing/HeroSection.tsx` | Criar |
+| `src/components/landing/PainPointsSection.tsx` | Criar |
+| `src/components/landing/SolutionSection.tsx` | Criar |
+| `src/components/landing/FeaturesTabsSection.tsx` | Criar |
+| `src/components/landing/StatsSection.tsx` | Criar |
+| `src/components/landing/PricingPreview.tsx` | Criar |
+| `src/components/landing/FAQSection.tsx` | Criar |
+| `src/components/landing/LandingFooter.tsx` | Criar |
+| `src/components/landing/illustrations.tsx` | Criar - SVGs cartunizados |
+
+## Mencao ao WhatsApp
+
+O WhatsApp aparece em apenas dois lugares discretos:
+1. Na aba "Leads" da secao de funcionalidades: "Integracao com WhatsApp disponivel em breve"
+2. No FAQ: resposta a pergunta sobre WhatsApp
+
+Em nenhum momento o WhatsApp aparece no Hero, nos titulos principais ou como funcionalidade destaque.
+
