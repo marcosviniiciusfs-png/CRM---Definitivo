@@ -149,18 +149,31 @@ function AppSidebarComponent() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild={!isLocked}>
                       {isLocked ? (
-                        <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base px-3 py-2.5")}>
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          <span className="truncate">{item.title}</span>
+                        open ? (
+                          <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base px-3 py-2.5")}>
+                            <item.icon className="h-5 w-5 flex-shrink-0" />
+                            <span className="truncate">{item.title}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="text-xs">
+                                Em breve
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        ) : (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
+                              <div className="flex items-center justify-center opacity-50 cursor-not-allowed text-sidebar-foreground py-2.5">
+                                <item.icon className="h-5 w-5" />
+                              </div>
                             </TooltipTrigger>
                             <TooltipContent side="right" className="text-xs">
-                              Em breve
+                              {item.title} - Em breve
                             </TooltipContent>
                           </Tooltip>
-                        </div>
+                        )
                       ) : (
                         <NavLink
                           to={item.url}
@@ -222,18 +235,31 @@ function AppSidebarComponent() {
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton>
-                        <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base w-full")}>
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          <span>{item.title}</span>
+                        {open ? (
+                          <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base w-full")}>
+                            <item.icon className="h-5 w-5 flex-shrink-0" />
+                            <span>{item.title}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="text-xs">
+                                Em breve
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        ) : (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
+                              <div className="flex items-center justify-center opacity-50 cursor-not-allowed text-sidebar-foreground py-2.5 w-full">
+                                <item.icon className="h-5 w-5" />
+                              </div>
                             </TooltipTrigger>
                             <TooltipContent side="right" className="text-xs">
-                              Em breve
+                              {item.title} - Em breve
                             </TooltipContent>
                           </Tooltip>
-                        </div>
+                        )}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
