@@ -1,6 +1,7 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, FileText, XCircle, Target, Trophy, ArrowRight, Clock, DollarSign, AlertTriangle, BarChart3 } from "lucide-react";
+import { TrendingUp, Users, FileText, XCircle, Target, Trophy, ArrowRight, Clock, DollarSign, AlertTriangle, BarChart3, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ResponsiveContainer, BarChart, Bar, Rectangle, XAxis, Tooltip as RechartsTooltip, AreaChart, Area, CartesianGrid, YAxis } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -419,11 +420,11 @@ const Dashboard = () => {
     <div className="space-y-6">
       {/* Row 1: Main metrics */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        <MetricCard title="Novos Leads" value={newLeadsCount} icon={TrendingUp} iconColor="text-cyan-500" />
-        <MetricCard title="Novos Clientes" value={newCustomersCount} icon={Users} iconColor="text-green-500" />
-        <MetricCard title="Receita do Mês" value={`R$ ${monthRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} icon={FileText} iconColor="text-emerald-500" />
-        <MetricCard title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} icon={Target} iconColor="text-blue-500" />
-        <MetricCard title="Taxa de Perda" value={`${lossRate}%`} icon={XCircle} iconColor="text-rose-500" />
+        <MetricCard title="Novos Leads" value={newLeadsCount} icon={TrendingUp} iconColor="text-cyan-500" tooltip="Total de leads captados neste mês. Inclui todas as fontes (manual, webhook, formulários)." />
+        <MetricCard title="Novos Clientes" value={newCustomersCount} icon={Users} iconColor="text-green-500" tooltip="Leads que foram movidos para a etapa 'Ganho' do funil neste mês." />
+        <MetricCard title="Receita do Mês" value={`R$ ${monthRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} icon={FileText} iconColor="text-emerald-500" tooltip="Soma do valor de todos os leads marcados como 'Ganho' neste mês." />
+        <MetricCard title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} icon={Target} iconColor="text-blue-500" tooltip="Receita do mês dividida pelo número de vendas fechadas. Quanto maior, mais valor por venda." />
+        <MetricCard title="Taxa de Perda" value={`${lossRate}%`} icon={XCircle} iconColor="text-rose-500" tooltip="Percentual de leads marcados como 'Perdido' em relação ao total de leads." />
       </div>
 
       {/* Row 2: New automatic metrics */}
@@ -433,6 +434,7 @@ const Dashboard = () => {
           value={`${avgCycle} dias`}
           icon={Clock}
           iconColor="text-violet-500"
+          tooltip="Tempo médio em dias entre a criação do lead e o fechamento da venda (etapa 'Ganho'). Quanto menor, mais rápido sua equipe converte."
           trend={cycleTrend !== 0 ? { value: `${Math.abs(cycleTrend)} dias`, positive: cycleTrend < 0 } : undefined}
         />
         <MetricCard
@@ -441,6 +443,7 @@ const Dashboard = () => {
           subtitle="Pipeline ativo"
           icon={TrendingUp}
           iconColor="text-amber-500"
+          tooltip="Valor ponderado do pipeline ativo. Calcula: valor de cada lead × taxa histórica de conversão da etapa em que ele se encontra (últimos 90 dias)."
         />
         <MetricCard
           title="Receita Prevista"
@@ -448,6 +451,7 @@ const Dashboard = () => {
           subtitle="Próximo mês"
           icon={DollarSign}
           iconColor="text-emerald-500"
+          tooltip="Projeção de receita do próximo mês baseada na média dos últimos 3 meses de vendas fechadas, com ajuste de tendência."
           trend={projectedTrend !== 0 ? { value: `${Math.abs(projectedTrend).toFixed(1)}%`, positive: projectedTrend > 0 } : undefined}
         />
       </div>
@@ -457,7 +461,10 @@ const Dashboard = () => {
         {/* Conversion Rate */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Taxa de Conversão</CardTitle>
+            <CardTitle className="text-lg font-semibold flex items-center gap-1.5">
+              Taxa de Conversão
+              <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[250px] text-xs">Percentual de leads que se tornaram clientes (etapa 'Ganho') em relação ao total de leads criados. Histórico dos últimos 6 meses.</TooltipContent></Tooltip></TooltipProvider>
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -530,7 +537,10 @@ const Dashboard = () => {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <CardTitle className="text-lg font-semibold">Gargalo do Funil</CardTitle>
+              <CardTitle className="text-lg font-semibold flex items-center gap-1.5">
+                Gargalo do Funil
+                <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[250px] text-xs">Etapa do funil com maior acúmulo de leads ativos (excluindo ganhos e perdidos). Indica onde a conversão está travando.</TooltipContent></Tooltip></TooltipProvider>
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -564,7 +574,10 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-yellow-500" />
-                <CardTitle className="text-lg font-semibold">Top 5 Vendedores</CardTitle>
+                <CardTitle className="text-lg font-semibold flex items-center gap-1.5">
+                  Top 5 Vendedores
+                  <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[250px] text-xs">Ranking dos vendedores com mais receita gerada neste mês (leads na etapa 'Ganho').</TooltipContent></Tooltip></TooltipProvider>
+                </CardTitle>
               </div>
               {topSellers.length > 0 && (
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full text-background bg-chart-4">
@@ -632,7 +645,10 @@ const Dashboard = () => {
       {/* Row 4: Revenue per day AreaChart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Receita Acumulada por Dia</CardTitle>
+          <CardTitle className="text-lg font-semibold flex items-center gap-1.5">
+            Receita Acumulada por Dia
+            <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[250px] text-xs">Gráfico da receita acumulada ao longo do mês, baseado nos leads fechados como 'Ganho' por dia.</TooltipContent></Tooltip></TooltipProvider>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={280}>
