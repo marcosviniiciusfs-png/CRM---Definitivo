@@ -30,10 +30,13 @@ import logoFull from "@/assets/kairoz-logo-full-new.png";
 import logoIcon from "@/assets/kairoz-logo-icon.png";
 
 const PLAN_NAMES: { [key: string]: string } = {
-  'prod_TVqqdFt1DYCcCI': 'Básico',
-  'prod_TVqr72myTFqI39': 'Profissional',
-  'prod_TVqrhrzuIdUDcS': 'Enterprise'
+  'star': 'Star',
+  'pro': 'Pro',
+  'elite': 'Elite'
 };
+
+// Features bloqueadas - "Em breve"
+const LOCKED_FEATURES = ['/lead-metrics', '/lead-distribution', '/chat', '/integrations'];
 
 const items = [
   { title: "Início", url: "/dashboard", icon: Home },
@@ -138,19 +141,33 @@ function AppSidebarComponent() {
                 if (item.url === '/lead-metrics' && !permissions.canViewTeamMetrics) {
                   return null;
                 }
+
+                const isLocked = LOCKED_FEATURES.includes(item.url);
                 
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        end
-                        className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}
-                        activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
-                      >
-                        <item.icon className="h-5 w-5 flex-shrink-0" />
-                        <span className="truncate">{item.title}</span>
-                      </NavLink>
+                    <SidebarMenuButton asChild={!isLocked}>
+                      {isLocked ? (
+                        <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base px-3 py-2.5")}>
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          <span className="truncate">{item.title}</span>
+                          {open && (
+                            <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 border-sidebar-foreground/30 text-sidebar-foreground/60">
+                              Em breve
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <NavLink
+                          to={item.url}
+                          end
+                          className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}
+                          activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
+                        >
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          <span className="truncate">{item.title}</span>
+                        </NavLink>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -189,11 +206,31 @@ function AppSidebarComponent() {
               )}
 
               {bottomItems.map((item) => {
+                const isLocked = LOCKED_FEATURES.includes(item.url);
+                
                 // Indicador especial para Tarefas
                 const isTasksItem = item.url === '/tasks';
                 const showTaskIndicator = isTasksItem && hasPendingTasks;
                 const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
                 const warningBgClass = showWarningIndicator ? "bg-amber-400/10" : "";
+                
+                if (isLocked) {
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton>
+                        <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base w-full")}>
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          <span>{item.title}</span>
+                          {open && (
+                            <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 border-sidebar-foreground/30 text-sidebar-foreground/60">
+                              Em breve
+                            </Badge>
+                          )}
+                        </div>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
                 
                 return (
                   <SidebarMenuItem key={item.title} className="relative">
@@ -241,7 +278,7 @@ function AppSidebarComponent() {
             {subscriptionData?.subscribed && subscriptionData.product_id && (
               <div className="flex items-center justify-center">
                 <Badge variant="secondary" className="text-xs">
-                  Plano {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
+                  Plano {PLAN_NAMES[subscriptionData.product_id] || subscriptionData.product_id}
                 </Badge>
               </div>
             )}
