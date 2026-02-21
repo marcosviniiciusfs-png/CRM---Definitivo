@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProductionBlockCard } from "./ProductionBlockCard";
 import { ProductionBlockDetailModal } from "./ProductionBlockDetailModal";
 import { LoadingAnimation } from "./LoadingAnimation";
@@ -19,182 +20,58 @@ interface ProductionBlock {
   is_closed: boolean;
 }
 
-export function ProductionDashboard() {
-  const [blocks, setBlocks] = useState<ProductionBlock[]>([]);
-  const [currentBlock, setCurrentBlock] = useState<ProductionBlock | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+const calculateMetrics = async (organizationId: string, month: number, year: number) => {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59);
 
-  useEffect(() => {
-    loadProductionBlocks();
-  }, []);
+  const { data: leads } = await supabase
+    .from("leads")
+    .select("id, valor, funnel_stage_id, funnel_stages(stage_type)")
+    .eq("organization_id", organizationId)
+    .gte("data_conclusao", startDate.toISOString())
+    .lte("data_conclusao", endDate.toISOString());
 
-  // Real-time listener for lead stage changes
-  useEffect(() => {
-    const channel = supabase
-      .channel('production-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'leads'
-        },
-        async (payload) => {
-          // Check if lead moved to a won stage
-          const updatedLead = payload.new as any;
-          
-          if (updatedLead.funnel_stage_id && updatedLead.data_conclusao) {
-            // Verify if it's a won stage
-            const { data: stage } = await supabase
-              .from('funnel_stages')
-              .select('stage_type')
-              .eq('id', updatedLead.funnel_stage_id)
-              .single();
+  const wonLeads = leads?.filter(l => (l.funnel_stages as any)?.stage_type === 'won') || [];
+  const totalRevenue = wonLeads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
+  const leadIds = wonLeads.map(l => l.id);
 
-            if (stage?.stage_type === 'won') {
-              // Recalculate current month block
-              const currentDate = new Date();
-              const currentMonth = currentDate.getMonth() + 1;
-              const currentYear = currentDate.getFullYear();
-              
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user) return;
+  let totalCost = 0;
+  if (leadIds.length > 0) {
+    const { data: leadItems } = await supabase
+      .from("lead_items")
+      .select("quantity, unit_price, items(cost_price)")
+      .in("lead_id", leadIds);
 
-              const { data: memberData } = await supabase
-                .from("organization_members")
-                .select("organization_id")
-                .eq("user_id", user.id)
-                .single();
+    totalCost = leadItems?.reduce((sum, item) => {
+      const costPrice = (item.items as any)?.cost_price || 0;
+      return sum + (item.quantity * costPrice);
+    }, 0) || 0;
+  }
 
-              if (memberData) {
-                await recalculateBlockMetrics(memberData.organization_id, currentMonth, currentYear);
-                // Reload blocks to reflect changes
-                await loadProductionBlocks();
-              }
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const loadProductionBlocks = async () => {
-    try {
-      setLoading(true);
-      
-      // Get user's organization
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: memberData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!memberData) return;
-
-      const organizationId = memberData.organization_id;
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth() + 1;
-      const currentYear = currentDate.getFullYear();
-
-      // Check if current month block exists, if not create it
-      await ensureCurrentMonthBlock(organizationId, currentMonth, currentYear);
-
-      // Load all blocks
-      const { data, error } = await supabase
-        .from("production_blocks")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .order("year", { ascending: false })
-        .order("month", { ascending: false });
-
-      if (error) throw error;
-
-      setBlocks(data || []);
-      
-      // Set current month block
-      const current = data?.find(b => b.month === currentMonth && b.year === currentYear);
-      setCurrentBlock(current || null);
-
-    } catch (error: any) {
-      toast({
-        title: "Erro ao carregar blocos de produção",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  return {
+    totalSales: wonLeads.length,
+    totalRevenue,
+    totalCost,
+    profit: totalRevenue - totalCost,
   };
+};
 
-  const ensureCurrentMonthBlock = async (organizationId: string, month: number, year: number) => {
-    try {
-      // Check if block exists
-      const { data: existing } = await supabase
-        .from("production_blocks")
-        .select("id")
-        .eq("organization_id", organizationId)
-        .eq("month", month)
-        .eq("year", year)
-        .single();
+const ensureCurrentMonthBlock = async (organizationId: string, month: number, year: number) => {
+  try {
+    const { data: existing } = await supabase
+      .from("production_blocks")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("month", month)
+      .eq("year", year)
+      .single();
 
-      if (existing) {
-        // Recalculate metrics
-        await recalculateBlockMetrics(organizationId, month, year);
-        return;
-      }
-
-      // Create new block
+    if (existing) {
+      // Recalculate metrics for the current block
       const metrics = await calculateMetrics(organizationId, month, year);
-      
-      // Get previous month profit for comparison
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
-      
-      const { data: previousBlock } = await supabase
-        .from("production_blocks")
-        .select("total_profit")
-        .eq("organization_id", organizationId)
-        .eq("month", prevMonth)
-        .eq("year", prevYear)
-        .single();
 
-      const previousProfit = previousBlock?.total_profit || 0;
-      const profitChange = metrics.profit - previousProfit;
-      const profitChangePercentage = previousProfit > 0 ? (profitChange / previousProfit) * 100 : 0;
-
-      await supabase.from("production_blocks").insert({
-        organization_id: organizationId,
-        month,
-        year,
-        total_sales: metrics.totalSales,
-        total_revenue: metrics.totalRevenue,
-        total_cost: metrics.totalCost,
-        total_profit: metrics.profit,
-        previous_month_profit: previousProfit,
-        profit_change_value: profitChange,
-        profit_change_percentage: profitChangePercentage,
-      });
-
-    } catch (error: any) {
-      console.error("Error ensuring current month block:", error);
-    }
-  };
-
-  const recalculateBlockMetrics = async (organizationId: string, month: number, year: number) => {
-    try {
-      const metrics = await calculateMetrics(organizationId, month, year);
-      
-      const prevMonth = month === 1 ? 12 : month - 1;
-      const prevYear = month === 1 ? year - 1 : year;
-      
       const { data: previousBlock } = await supabase
         .from("production_blocks")
         .select("total_profit")
@@ -221,61 +98,104 @@ export function ProductionDashboard() {
         .eq("organization_id", organizationId)
         .eq("month", month)
         .eq("year", year);
-
-    } catch (error: any) {
-      console.error("Error recalculating metrics:", error);
+      return;
     }
-  };
 
-  const calculateMetrics = async (organizationId: string, month: number, year: number) => {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    // Create new block
+    const metrics = await calculateMetrics(organizationId, month, year);
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
 
-    // Get closed leads (won deals)
-    const { data: leads } = await supabase
-      .from("leads")
-      .select("id, valor, funnel_stage_id, funnel_stages(stage_type)")
+    const { data: previousBlock } = await supabase
+      .from("production_blocks")
+      .select("total_profit")
       .eq("organization_id", organizationId)
-      .gte("data_conclusao", startDate.toISOString())
-      .lte("data_conclusao", endDate.toISOString());
+      .eq("month", prevMonth)
+      .eq("year", prevYear)
+      .single();
 
-    // Filter for won leads
-    const wonLeads = leads?.filter(l => l.funnel_stages?.stage_type === 'won') || [];
+    const previousProfit = previousBlock?.total_profit || 0;
+    const profitChange = metrics.profit - previousProfit;
+    const profitChangePercentage = previousProfit > 0 ? (profitChange / previousProfit) * 100 : 0;
 
-    const totalRevenue = wonLeads.reduce((sum, lead) => sum + (lead.valor || 0), 0);
-    const leadIds = wonLeads.map(l => l.id);
+    await supabase.from("production_blocks").insert({
+      organization_id: organizationId,
+      month,
+      year,
+      total_sales: metrics.totalSales,
+      total_revenue: metrics.totalRevenue,
+      total_cost: metrics.totalCost,
+      total_profit: metrics.profit,
+      previous_month_profit: previousProfit,
+      profit_change_value: profitChange,
+      profit_change_percentage: profitChangePercentage,
+    });
+  } catch (error: any) {
+    console.error("Error ensuring current month block:", error);
+  }
+};
 
-    // Get lead items for cost calculation
-    let totalCost = 0;
-    if (leadIds.length > 0) {
-      const { data: leadItems } = await supabase
-        .from("lead_items")
-        .select("quantity, unit_price, items(cost_price)")
-        .in("lead_id", leadIds);
+const fetchProductionBlocks = async (organizationId: string): Promise<ProductionBlock[]> => {
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
 
-      totalCost = leadItems?.reduce((sum, item) => {
-        const costPrice = item.items?.cost_price || 0;
-        return sum + (item.quantity * costPrice);
-      }, 0) || 0;
-    }
+  await ensureCurrentMonthBlock(organizationId, currentMonth, currentYear);
 
-    return {
-      totalSales: wonLeads.length,
-      totalRevenue,
-      totalCost,
-      profit: totalRevenue - totalCost,
-    };
-  };
+  const { data, error } = await supabase
+    .from("production_blocks")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("year", { ascending: false })
+    .order("month", { ascending: false });
 
+  if (error) throw error;
+  return (data || []) as ProductionBlock[];
+};
+
+export function ProductionDashboard() {
+  const { organizationId, isReady } = useOrganizationReady();
+  const queryClient = useQueryClient();
   const [selectedBlock, setSelectedBlock] = useState<ProductionBlock | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const { data: blocks = [], isLoading } = useQuery({
+    queryKey: ['production-blocks', organizationId],
+    queryFn: () => fetchProductionBlocks(organizationId!),
+    enabled: isReady && !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Realtime: just invalidate cache instead of recalculating everything
+  useEffect(() => {
+    if (!organizationId) return;
+    const channel = supabase
+      .channel('production-updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'leads' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['production-blocks', organizationId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [organizationId, queryClient]);
+
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+  const currentBlock = blocks.find(b => b.month === currentMonth && b.year === currentYear) || null;
 
   const handleBlockClick = (block: ProductionBlock) => {
     setSelectedBlock(block);
     setIsDetailModalOpen(true);
   };
 
-  if (loading) {
+  if (!isReady || isLoading) {
     return (
       <div className="flex justify-center items-center py-12">
         <LoadingAnimation />
@@ -285,7 +205,6 @@ export function ProductionDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* All Production Blocks */}
       {blocks.length > 0 ? (
         <div>
           <h2 className="text-2xl font-bold mb-6">Blocos de Produção</h2>
@@ -311,7 +230,6 @@ export function ProductionDashboard() {
         </div>
       )}
 
-      {/* Detail Modal */}
       {selectedBlock && (
         <ProductionBlockDetailModal
           block={selectedBlock}

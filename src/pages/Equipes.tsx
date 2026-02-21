@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, User, UserX, Crown, Search, MoreVertical, Edit2, Trash2, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { CreateTeamModal } from "@/components/CreateTeamModal";
 import { EditTeamModal } from "@/components/EditTeamModal";
@@ -90,13 +90,9 @@ function DraggableMember({ member, teamId, isLeader, organizationId }: Draggable
 }
 
 const Equipes = () => {
-  const { user } = useAuth();
+  const { isReady, organizationId, user } = useOrganizationReady();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -109,59 +105,30 @@ const Equipes = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  useEffect(() => {
-    if (user) {
-      loadOrganization();
-    }
-  }, [user]);
+  const { data: equipesData, isLoading: loading } = useQuery({
+    queryKey: ['equipes-data', organizationId],
+    queryFn: async () => {
+      if (!organizationId) throw new Error('No org');
 
-  useEffect(() => {
-    if (organizationId) {
-      loadData();
-    }
-  }, [organizationId]);
-
-  const loadOrganization = async () => {
-    const { data } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", user?.id)
-      .single();
-
-    setOrganizationId(data?.organization_id || null);
-  };
-
-  const loadData = async () => {
-    if (!organizationId) return;
-
-    try {
-      setLoading(true);
-
-      // Load teams
       const { data: teamsData } = await supabase
         .from("teams")
         .select("*")
         .eq("organization_id", organizationId)
         .order("created_at");
 
-      setTeams(teamsData || []);
+      const teams: Team[] = teamsData || [];
 
-      // Load team members
-      const teamIds = teamsData?.map(t => t.id) || [];
+      const teamIds = teams.map(t => t.id);
+      let teamMembers: TeamMember[] = [];
       if (teamIds.length > 0) {
         const { data: teamMembersData } = await supabase
           .from("team_members")
           .select("*")
           .in("team_id", teamIds);
-
-        setTeamMembers(teamMembersData || []);
-      } else {
-        setTeamMembers([]);
+        teamMembers = teamMembersData || [];
       }
 
-      // Load all organization members usando RPC segura
       const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
-
       const userIds = orgMembers?.filter((m: any) => m.user_id).map((m: any) => m.user_id!) || [];
       
       let profiles: any[] = [];
@@ -173,21 +140,27 @@ const Equipes = () => {
         profiles = profilesData || [];
       }
 
-      const members: Member[] = (orgMembers || [])
+      const allMembers: Member[] = (orgMembers || [])
         .filter((m: any) => m.user_id)
         .map((m: any) => ({
           user_id: m.user_id!,
-          email: '', // Não expor email
+          email: '',
           full_name: profiles.find(p => p.user_id === m.user_id)?.full_name,
           avatar_url: profiles.find(p => p.user_id === m.user_id)?.avatar_url,
         }));
 
-      setAllMembers(members);
-    } catch (error) {
-      console.error("Error loading data:", error);
-    } finally {
-      setLoading(false);
-    }
+      return { teams, teamMembers, allMembers };
+    },
+    enabled: isReady && !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const teams = equipesData?.teams ?? [];
+  const teamMembers = equipesData?.teamMembers ?? [];
+  const allMembers = equipesData?.allMembers ?? [];
+
+  const invalidateData = () => {
+    queryClient.invalidateQueries({ queryKey: ['equipes-data'] });
   };
 
   const getMembersInTeam = (teamId: string) => {
@@ -207,54 +180,34 @@ const Equipes = () => {
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = event;
-
     if (!over) return;
 
     const activeData = active.data.current as { member: Member; fromTeamId?: string };
     const overIdStr = over.id as string;
 
-    // Determine target team
     let targetTeamId: string | null = null;
-    
     if (overIdStr.startsWith('team-')) {
       targetTeamId = overIdStr.replace('team-', '');
     } else if (overIdStr === 'no-team-zone') {
       targetTeamId = null;
     } else if (overIdStr.includes('-')) {
-      // It's a member item
       const parts = overIdStr.split('-');
       targetTeamId = parts[0] === 'no-team' ? null : parts[0];
     }
 
     const fromTeamId = activeData.fromTeamId;
     const memberId = activeData.member.user_id;
-
-    // No change needed
     if (fromTeamId === targetTeamId) return;
 
     try {
-      // Remove from old team
       if (fromTeamId) {
-        await supabase
-          .from("team_members")
-          .delete()
-          .eq("team_id", fromTeamId)
-          .eq("user_id", memberId);
+        await supabase.from("team_members").delete().eq("team_id", fromTeamId).eq("user_id", memberId);
       }
-
-      // Add to new team
       if (targetTeamId) {
-        await supabase
-          .from("team_members")
-          .insert({
-            team_id: targetTeamId,
-            user_id: memberId,
-            role: "member",
-          });
+        await supabase.from("team_members").insert({ team_id: targetTeamId, user_id: memberId, role: "member" });
       }
-
       toast.success("Membro movido com sucesso!");
-      loadData();
+      invalidateData();
     } catch (error: any) {
       console.error("Error moving member:", error);
       toast.error("Erro ao mover membro");
@@ -270,19 +223,13 @@ const Equipes = () => {
 
   const handleDeleteTeam = async () => {
     if (!teamToDelete) return;
-    
     try {
-      const { error } = await supabase
-        .from("teams")
-        .delete()
-        .eq("id", teamToDelete.id);
-
+      const { error } = await supabase.from("teams").delete().eq("id", teamToDelete.id);
       if (error) throw error;
-
       toast.success("Equipe excluída com sucesso!");
       setDeleteDialogOpen(false);
       setTeamToDelete(null);
-      loadData();
+      invalidateData();
     } catch (error: any) {
       console.error("Error deleting team:", error);
       toast.error("Erro ao excluir equipe");
@@ -297,13 +244,12 @@ const Equipes = () => {
     (m.full_name || m.email).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Metrics
   const totalTeams = teams.length;
   const totalMembersInTeams = new Set(teamMembers.map(tm => tm.user_id)).size;
   const totalWithoutTeam = getMembersWithoutTeam().length;
   const totalLeaders = teamMembers.filter(tm => tm.role === 'leader').length;
 
-  if (loading) {
+  if (!isReady || loading) {
     return <LoadingAnimation text="Carregando equipes..." />;
   }
 
@@ -472,112 +418,155 @@ const Equipes = () => {
                               {(leader.full_name || leader.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm font-medium">{leader.full_name || leader.email}</span>
+                          <span className="text-sm font-medium text-foreground">{leader.full_name || leader.email}</span>
                         </div>
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm text-muted-foreground">Membros</span>
-                      <span className="text-sm font-semibold text-foreground">{teamMembersList.length}</span>
-                    </div>
+                    {/* Goals */}
+                    {showGoals === team.id && organizationId && (
+                      <div className="mb-4">
+                        <TeamGoalsCard teamId={team.id} organizationId={organizationId} teamColor={team.color} />
+                      </div>
+                    )}
 
+                    {/* Team Members */}
                     <SortableContext
                       items={teamMembersList.map(m => `${team.id}-${m.user_id}`)}
                       strategy={verticalListSortingStrategy}
-                      id={`team-${team.id}`}
                     >
-                      <div className="space-y-2 min-h-[100px]" id={`team-${team.id}`}>
-                        {teamMembersList.map((member) => {
-                          const isLeader = member.user_id === team.leader_id;
-                          return (
+                      <div
+                        id={`team-${team.id}`}
+                        className="space-y-2 min-h-[60px]"
+                      >
+                        {teamMembersList.length === 0 ? (
+                          <div className="flex items-center justify-center py-6 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+                            Arraste membros aqui
+                          </div>
+                        ) : (
+                          teamMembersList.map((member) => (
                             <DraggableMember
                               key={member.user_id}
                               member={member}
                               teamId={team.id}
-                              isLeader={isLeader}
+                              isLeader={member.user_id === team.leader_id}
                               organizationId={organizationId!}
                             />
-                          );
-                        })}
-                        {teamMembersList.length === 0 && (
-                          <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
-                            Arraste membros aqui
-                          </div>
+                          ))
                         )}
                       </div>
                     </SortableContext>
 
-                    {/* Team Goals */}
-                    {showGoals === team.id && organizationId && (
-                      <TeamGoalsCard
-                        teamId={team.id}
-                        teamName={team.name}
-                        teamColor={team.color}
-                        organizationId={organizationId}
-                      />
-                    )}
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <span className="text-xs text-muted-foreground">
+                        {teamMembersList.length} membro{teamMembersList.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               );
             })}
+
+            {/* Without Team Column */}
+            <Card className="shadow-sm border-t-4 border-t-gray-300">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-gray-200 text-gray-600">
+                      <UserX className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <h3 className="text-lg font-semibold text-muted-foreground">Sem Equipe</h3>
+                </div>
+
+                <SortableContext
+                  items={membersWithoutTeam.map(m => `no-team-${m.user_id}`)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div
+                    id="no-team-zone"
+                    className="space-y-2 min-h-[60px]"
+                  >
+                    {membersWithoutTeam.length === 0 ? (
+                      <div className="flex items-center justify-center py-6 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+                        Nenhum membro sem equipe
+                      </div>
+                    ) : (
+                      membersWithoutTeam.map((member) => (
+                        <DraggableMember
+                          key={member.user_id}
+                          member={member}
+                          organizationId={organizationId!}
+                        />
+                      ))
+                    )}
+                  </div>
+                </SortableContext>
+
+                <div className="mt-3 pt-3 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    {membersWithoutTeam.length} membro{membersWithoutTeam.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <DragOverlay>
-            {activeId && getActiveItem() && (
-              <div className="flex items-center gap-3 p-3 bg-background rounded-lg shadow-lg border">
+            {getActiveItem() ? (
+              <div className="flex items-center gap-3 p-3 bg-card rounded-lg shadow-lg border">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={getActiveItem()?.avatar_url} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {(getActiveItem()?.full_name || getActiveItem()?.email || '').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                    {(getActiveItem()?.full_name || getActiveItem()?.email || '??').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium">{getActiveItem()?.full_name || getActiveItem()?.email}</span>
               </div>
-            )}
+            ) : null}
           </DragOverlay>
         </DndContext>
 
         {/* Modals */}
         {organizationId && (
-          <>
-            <CreateTeamModal
-              open={createModalOpen}
-              onOpenChange={setCreateModalOpen}
-              organizationId={organizationId}
-              members={allMembers}
-              onSuccess={loadData}
-            />
-            <EditTeamModal
-              open={editModalOpen}
-              onOpenChange={setEditModalOpen}
-              team={selectedTeam}
-              organizationId={organizationId}
-              members={allMembers}
-              onSuccess={loadData}
-            />
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Excluir Equipe</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Tem certeza que deseja excluir a equipe "{teamToDelete?.name}"? 
-                    Os membros serão removidos da equipe, mas não serão excluídos da organização.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleDeleteTeam}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Excluir
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </>
+          <CreateTeamModal
+            open={createModalOpen}
+            onOpenChange={setCreateModalOpen}
+            organizationId={organizationId}
+            members={allMembers}
+            onSuccess={invalidateData}
+          />
         )}
+
+        {selectedTeam && organizationId && (
+          <EditTeamModal
+            open={editModalOpen}
+            onOpenChange={setEditModalOpen}
+            team={selectedTeam}
+            organizationId={organizationId}
+            members={allMembers}
+            currentMembers={teamMembers.filter(tm => tm.team_id === selectedTeam.id).map(tm => tm.user_id)}
+            onSuccess={invalidateData}
+          />
+        )}
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir equipe</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir a equipe "{teamToDelete?.name}"? Os membros não serão removidos da organização.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteTeam} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </div>
     </TooltipProvider>
   );

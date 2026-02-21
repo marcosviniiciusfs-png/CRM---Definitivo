@@ -38,7 +38,7 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Top Vendedores vs Meta</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Top Vendedores</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {[1, 2, 3, 4, 5].map(i => (
@@ -58,7 +58,7 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Top Vendedores vs Meta</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">Top Vendedores</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {reps.length === 0 ? (

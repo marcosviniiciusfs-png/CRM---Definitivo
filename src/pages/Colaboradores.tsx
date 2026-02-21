@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,11 +47,6 @@ const Colaboradores = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState("20");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [colaboradorToDelete, setColaboradorToDelete] = useState<Colaborador | null>(null);
   const [showInactive, setShowInactive] = useState(false);
@@ -67,19 +63,6 @@ const Colaboradores = () => {
     custom_role_id: null as string | null
   });
   
-  const [stats, setStats] = useState({
-    ativos: 0,
-    novos: 0,
-    saidas: 0,
-    inativos: 0
-  });
-  const [salesByUser, setSalesByUser] = useState<Record<string, { count: number; revenue: number }>>({});
-  const [pendingCommissionsByUser, setPendingCommissionsByUser] = useState<Record<string, number>>({});
-  const [subscriptionLimits, setSubscriptionLimits] = useState<{
-    total: number;
-    current: number;
-  } | null>(null);
-  
   const [newColaborador, setNewColaborador] = useState({
     name: "",
     email: "",
@@ -88,81 +71,41 @@ const Colaboradores = () => {
     custom_role_id: null as string | null
   });
   
-  const [customRoles, setCustomRoles] = useState<CustomRoleOption[]>([]);
-  
   const { toast } = useToast();
+  const { isReady, organizationId: contextOrgId, user } = useOrganizationReady();
+  const queryClient = useQueryClient();
+  const [isMutating, setIsMutating] = useState(false);
 
-  useEffect(() => {
-    loadOrganizationData();
-  }, []);
+  const { data: orgData, isLoading: isQueryLoading } = useQuery({
+    queryKey: ['colaboradores-data', contextOrgId],
+    queryFn: async () => {
+      if (!user || !contextOrgId) throw new Error('Not ready');
 
-  const loadOrganizationData = async () => {
-    setIsLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "Erro",
-          description: "Usuário não autenticado",
-          variant: "destructive"
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: memberData, error: memberError } = await supabase
+      const { data: memberData } = await supabase
         .from('organization_members')
-        .select('organization_id, role')
+        .select('role')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('organization_id', contextOrgId)
+        .single();
 
-      if (memberError || !memberData?.organization_id) {
-        toast({
-          title: "Organização não encontrada",
-          description: "Você não está associado a nenhuma organização.",
-          variant: "destructive"
-        });
-        setIsLoading(false);
-        return;
-      }
+      const userRole = memberData?.role || null;
 
-      const orgId = memberData.organization_id;
-      setOrganizationId(orgId);
-      setUserRole(memberData.role);
-      setCurrentUserId(user.id);
-
-      // Fetch members, custom roles and subscription in parallel
       const [membersResult, rolesResult, subResult] = await Promise.all([
         supabase
           .from('organization_members')
           .select('id, user_id, organization_id, role, created_at, email, is_active, display_name, custom_role_id')
-          .eq('organization_id', orgId),
+          .eq('organization_id', contextOrgId),
         supabase
           .from('organization_custom_roles')
           .select('id, name, color')
-          .eq('organization_id', orgId),
+          .eq('organization_id', contextOrgId),
         supabase.functions.invoke('check-subscription')
       ]);
 
-      // Set custom roles
-      if (rolesResult.data) {
-        setCustomRoles(rolesResult.data);
-      }
-
-      if (membersResult.error) {
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os membros da organização",
-          variant: "destructive"
-        });
-        setIsLoading(false);
-        return;
-      }
+      const customRoles: CustomRoleOption[] = rolesResult.data || [];
+      if (membersResult.error) throw membersResult.error;
 
       const members = membersResult.data || [];
-      
-      // Fetch profiles in parallel
       const userIds = members.filter(m => m.user_id).map(m => m.user_id);
       let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
       
@@ -174,168 +117,128 @@ const Colaboradores = () => {
         
         if (profiles) {
           profilesMap = profiles.reduce((acc, profile) => {
-            acc[profile.user_id] = { 
-              full_name: profile.full_name,
-              avatar_url: profile.avatar_url
-            };
+            acc[profile.user_id] = { full_name: profile.full_name, avatar_url: profile.avatar_url };
             return acc;
           }, {} as { [key: string]: { full_name: string | null; avatar_url: string | null } });
         }
       }
       
-      // Transform and set data - use profile full_name OR display_name for collaborators without user_id
-      const transformedMembers = members.map((member: any) => {
+      const transformedMembers: Colaborador[] = members.map((member: any) => {
         const profileName = member.user_id && profilesMap[member.user_id] 
-          ? profilesMap[member.user_id].full_name 
-          : null;
-        
+          ? profilesMap[member.user_id].full_name : null;
         return {
           ...member,
           is_active: member.is_active ?? true,
-          // Use profile name if available, otherwise use display_name from organization_members
           full_name: profileName || member.display_name || null,
-          avatar_url: member.user_id && profilesMap[member.user_id]
-            ? profilesMap[member.user_id].avatar_url
-            : null
+          avatar_url: member.user_id && profilesMap[member.user_id] ? profilesMap[member.user_id].avatar_url : null
         };
       });
-      
-      setColaboradores(transformedMembers);
-      
-      // Calculate stats
+
       const now = new Date();
       const thisMonth = now.getMonth();
       const thisYear = now.getFullYear();
-      
-      const activeMembers = transformedMembers.filter((m: Colaborador) => m.is_active !== false);
-      const inactiveMembers = transformedMembers.filter((m: Colaborador) => m.is_active === false);
-      
+      const activeMembers = transformedMembers.filter(m => m.is_active !== false);
+      const inactiveMembers = transformedMembers.filter(m => m.is_active === false);
       const novos = activeMembers.filter((m: any) => {
         const createdDate = new Date(m.created_at);
-        return createdDate.getMonth() === thisMonth && 
-               createdDate.getFullYear() === thisYear;
+        return createdDate.getMonth() === thisMonth && createdDate.getFullYear() === thisYear;
       }).length;
-      
-      setStats({
-        ativos: activeMembers.length,
-        novos: novos,
-        saidas: 0,
-        inativos: inactiveMembers.length
-      });
 
-      // Set subscription limits
+      const stats = { ativos: activeMembers.length, novos, saidas: 0, inativos: inactiveMembers.length };
+
       const subData = subResult.data;
-      if (subData?.subscribed && subData?.total_collaborators) {
-        setSubscriptionLimits({
-          total: subData.total_collaborators,
-          current: activeMembers.length
-        });
-      }
+      const subscriptionLimits = subData?.subscribed && subData?.total_collaborators
+        ? { total: subData.total_collaborators, current: activeMembers.length }
+        : null;
 
-      // Load sales KPIs for all members
+      let salesByUser: Record<string, { count: number; revenue: number }> = {};
+      let pendingCommissionsByUser: Record<string, number> = {};
       try {
-        const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         const [wonStagesRes, wonLeadsRes, commissionsRes] = await Promise.all([
           supabase.from('funnel_stages').select('id').eq('stage_type', 'won'),
           supabase.from('leads').select('responsavel_user_id, valor, funnel_stage_id')
-            .eq('organization_id', orgId).gte('updated_at', startOfMonth),
+            .eq('organization_id', contextOrgId).gte('updated_at', startOfMonth),
           supabase.from('commissions').select('user_id, commission_value, status')
-            .eq('organization_id', orgId).eq('status', 'pending')
+            .eq('organization_id', contextOrgId).eq('status', 'pending')
         ]);
-        
         const wonIds = new Set(wonStagesRes.data?.map(s => s.id) || []);
         const wonLeads = (wonLeadsRes.data || []).filter(l => l.funnel_stage_id && wonIds.has(l.funnel_stage_id));
-        
-        const salesMap: Record<string, { count: number; revenue: number }> = {};
         wonLeads.forEach(l => {
           if (l.responsavel_user_id) {
-            if (!salesMap[l.responsavel_user_id]) salesMap[l.responsavel_user_id] = { count: 0, revenue: 0 };
-            salesMap[l.responsavel_user_id].count++;
-            salesMap[l.responsavel_user_id].revenue += l.valor || 0;
+            if (!salesByUser[l.responsavel_user_id]) salesByUser[l.responsavel_user_id] = { count: 0, revenue: 0 };
+            salesByUser[l.responsavel_user_id].count++;
+            salesByUser[l.responsavel_user_id].revenue += l.valor || 0;
           }
         });
-        setSalesByUser(salesMap);
-
-        const commMap: Record<string, number> = {};
         (commissionsRes.data || []).forEach(c => {
-          commMap[c.user_id] = (commMap[c.user_id] || 0) + c.commission_value;
+          pendingCommissionsByUser[c.user_id] = (pendingCommissionsByUser[c.user_id] || 0) + c.commission_value;
         });
-        setPendingCommissionsByUser(commMap);
       } catch (e) {
         console.error('Error loading sales KPIs:', e);
       }
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao carregar os dados",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
+
+      return {
+        colaboradores: transformedMembers,
+        userRole,
+        currentUserId: user.id,
+        stats,
+        customRoles,
+        subscriptionLimits,
+        salesByUser,
+        pendingCommissionsByUser,
+      };
+    },
+    enabled: isReady && !!contextOrgId && !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Derive state from query data
+  const organizationId = contextOrgId;
+  const colaboradores = orgData?.colaboradores ?? [];
+  const userRole = orgData?.userRole ?? null;
+  const currentUserId = orgData?.currentUserId ?? null;
+  const stats = orgData?.stats ?? { ativos: 0, novos: 0, saidas: 0, inativos: 0 };
+  const customRoles = orgData?.customRoles ?? [];
+  const subscriptionLimits = orgData?.subscriptionLimits ?? null;
+  const salesByUser = orgData?.salesByUser ?? {};
+  const pendingCommissionsByUser = orgData?.pendingCommissionsByUser ?? {};
+  const isLoading = isQueryLoading || isMutating;
+
+  const invalidateData = () => {
+    queryClient.invalidateQueries({ queryKey: ['colaboradores-data'] });
   };
 
   const handleAddColaborador = async () => {
     try {
       if (userRole !== 'owner' && userRole !== 'admin') {
-        toast({
-          title: "Acesso negado",
-          description: "Apenas proprietários e administradores podem adicionar colaboradores",
-          variant: "destructive"
-        });
+        toast({ title: "Acesso negado", description: "Apenas proprietários e administradores podem adicionar colaboradores", variant: "destructive" });
         return;
       }
-
       const validationResult = emailSchema.safeParse(newColaborador.email);
-      
       if (!validationResult.success) {
-        toast({
-          title: "Erro de validação",
-          description: "Por favor, insira um email válido",
-          variant: "destructive"
-        });
+        toast({ title: "Erro de validação", description: "Por favor, insira um email válido", variant: "destructive" });
         return;
       }
-
       if (!newColaborador.name.trim()) {
-        toast({
-          title: "Erro de validação",
-          description: "Por favor, insira o nome do colaborador",
-          variant: "destructive"
-        });
+        toast({ title: "Erro de validação", description: "Por favor, insira o nome do colaborador", variant: "destructive" });
         return;
       }
-
       if (!newColaborador.password || newColaborador.password.length < 6) {
-        toast({
-          title: "Erro de validação",
-          description: "A senha deve ter pelo menos 6 caracteres",
-          variant: "destructive"
-        });
+        toast({ title: "Erro de validação", description: "A senha deve ter pelo menos 6 caracteres", variant: "destructive" });
         return;
       }
-
       if (!organizationId) {
-        toast({
-          title: "Erro",
-          description: "Você precisa fazer login novamente. Sua sessão pode ter expirado.",
-          variant: "destructive"
-        });
+        toast({ title: "Erro", description: "Você precisa fazer login novamente. Sua sessão pode ter expirado.", variant: "destructive" });
         return;
       }
 
-      setIsLoading(true);
+      setIsMutating(true);
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast({
-          title: "Sessão expirada",
-          description: "Faça login novamente para continuar",
-          variant: "destructive"
-        });
-        setIsLoading(false);
+        toast({ title: "Sessão expirada", description: "Faça login novamente para continuar", variant: "destructive" });
+        setIsMutating(false);
         return;
       }
 
@@ -351,66 +254,36 @@ const Colaboradores = () => {
       });
 
       if (error) {
-        toast({
-          title: "Erro ao adicionar colaborador",
-          description: error.message || "Não foi possível adicionar o colaborador. Tente novamente.",
-          variant: "destructive"
-        });
-        setIsLoading(false);
+        toast({ title: "Erro ao adicionar colaborador", description: error.message || "Não foi possível adicionar o colaborador. Tente novamente.", variant: "destructive" });
+        setIsMutating(false);
         return;
       }
-
       if (data?.error) {
-        toast({
-          title: "Erro",
-          description: data.error,
-          variant: "destructive"
-        });
-        setIsLoading(false);
+        toast({ title: "Erro", description: data.error, variant: "destructive" });
+        setIsMutating(false);
         return;
       }
 
-      toast({
-        title: "Sucesso!",
-        description: data?.message || `${newColaborador.name} foi adicionado à organização com sucesso`,
-      });
-
+      toast({ title: "Sucesso!", description: data?.message || `${newColaborador.name} foi adicionado à organização com sucesso` });
       setIsDialogOpen(false);
       setNewColaborador({ name: "", email: "", password: "", role: "member", custom_role_id: null });
-      
-      await loadOrganizationData();
-
+      invalidateData();
     } catch (error: any) {
-      toast({
-        title: "Erro inesperado",
-        description: error?.message || "Ocorreu um erro ao adicionar o colaborador. Por favor, tente novamente.",
-        variant: "destructive"
-      });
+      toast({ title: "Erro inesperado", description: error?.message || "Ocorreu um erro ao adicionar o colaborador. Por favor, tente novamente.", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsMutating(false);
     }
   };
 
   const handleEditColaborador = (colaborador: Colaborador) => {
     if (userRole !== 'owner' && userRole !== 'admin') {
-      toast({
-        title: "Acesso negado",
-        description: "Apenas proprietários e administradores podem editar colaboradores",
-        variant: "destructive"
-      });
+      toast({ title: "Acesso negado", description: "Apenas proprietários e administradores podem editar colaboradores", variant: "destructive" });
       return;
     }
-
-    // Admins cannot edit owners
     if (userRole === 'admin' && colaborador.role === 'owner') {
-      toast({
-        title: "Acesso negado",
-        description: "Administradores não podem editar proprietários",
-        variant: "destructive"
-      });
+      toast({ title: "Acesso negado", description: "Administradores não podem editar proprietários", variant: "destructive" });
       return;
     }
-
     setColaboradorToEdit(colaborador);
     setEditData({
       name: colaborador.full_name || "",
@@ -425,32 +298,19 @@ const Colaboradores = () => {
 
   const handleSaveEdit = async () => {
     if (!colaboradorToEdit) return;
-
-    // Validate email if changed
     if (editData.email && editData.email !== colaboradorToEdit.email) {
       const validationResult = emailSchema.safeParse(editData.email);
       if (!validationResult.success) {
-        toast({
-          title: "Erro de validação",
-          description: "Por favor, insira um email válido",
-          variant: "destructive"
-        });
+        toast({ title: "Erro de validação", description: "Por favor, insira um email válido", variant: "destructive" });
         return;
       }
     }
-
-    // Validate password if provided
     if (editData.newPassword && editData.newPassword.length < 6) {
-      toast({
-        title: "Erro de validação",
-        description: "A nova senha deve ter pelo menos 6 caracteres",
-        variant: "destructive"
-      });
+      toast({ title: "Erro de validação", description: "A nova senha deve ter pelo menos 6 caracteres", variant: "destructive" });
       return;
     }
 
-    setIsLoading(true);
-
+    setIsMutating(true);
     try {
       const { data, error } = await supabase.functions.invoke('update-organization-member', {
         body: {
@@ -463,96 +323,52 @@ const Colaboradores = () => {
           custom_role_id: editData.custom_role_id
         }
       });
-
       if (error) {
-        toast({
-          title: "Erro ao atualizar",
-          description: error.message || "Não foi possível atualizar o colaborador",
-          variant: "destructive"
-        });
+        toast({ title: "Erro ao atualizar", description: error.message || "Não foi possível atualizar o colaborador", variant: "destructive" });
         return;
       }
-
       if (data?.error) {
-        toast({
-          title: "Erro",
-          description: data.error,
-          variant: "destructive"
-        });
+        toast({ title: "Erro", description: data.error, variant: "destructive" });
         return;
       }
-
-      toast({
-        title: "Sucesso!",
-        description: "Colaborador atualizado com sucesso",
-      });
-
+      toast({ title: "Sucesso!", description: "Colaborador atualizado com sucesso" });
       setIsEditDialogOpen(false);
       setColaboradorToEdit(null);
-      await loadOrganizationData();
-
+      invalidateData();
     } catch (error: any) {
-      toast({
-        title: "Erro inesperado",
-        description: error?.message || "Ocorreu um erro ao atualizar o colaborador",
-        variant: "destructive"
-      });
+      toast({ title: "Erro inesperado", description: error?.message || "Ocorreu um erro ao atualizar o colaborador", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsMutating(false);
     }
   };
 
   const handleDeleteColaborador = (colaborador: Colaborador) => {
     if (userRole !== 'owner') {
-      toast({
-        title: "Acesso negado",
-        description: "Apenas o proprietário da organização pode excluir colaboradores",
-        variant: "destructive"
-      });
+      toast({ title: "Acesso negado", description: "Apenas o proprietário da organização pode excluir colaboradores", variant: "destructive" });
       return;
     }
-
     if (colaborador.user_id === currentUserId) {
-      toast({
-        title: "Ação não permitida",
-        description: "Você não pode excluir sua própria conta",
-        variant: "destructive"
-      });
+      toast({ title: "Ação não permitida", description: "Você não pode excluir sua própria conta", variant: "destructive" });
       return;
     }
-
     setColaboradorToDelete(colaborador);
     setDeleteDialogOpen(true);
   };
 
   const confirmDeleteColaborador = async () => {
     if (!colaboradorToDelete) return;
-
-    setIsLoading(true);
+    setIsMutating(true);
     try {
-      const { error } = await supabase
-        .from('organization_members')
-        .delete()
-        .eq('id', colaboradorToDelete.id);
-
+      const { error } = await supabase.from('organization_members').delete().eq('id', colaboradorToDelete.id);
       if (error) throw error;
-
-      toast({
-        title: "Colaborador removido",
-        description: `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi removido da organização`,
-      });
-
-      await loadOrganizationData();
+      toast({ title: "Colaborador removido", description: `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi removido da organização` });
+      invalidateData();
       setDeleteDialogOpen(false);
       setColaboradorToDelete(null);
     } catch (error: any) {
-      toast({
-        title: "Erro ao excluir",
-        description: error.message || "Não foi possível excluir o colaborador",
-        variant: "destructive"
-      });
+      toast({ title: "Erro ao excluir", description: error.message || "Não foi possível excluir o colaborador", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsMutating(false);
     }
   };
 
@@ -591,6 +407,10 @@ const Colaboradores = () => {
     }
     return name.substring(0, 2).toUpperCase();
   };
+
+  if (!isReady) {
+    return <LoadingAnimation text="Carregando colaboradores..." />;
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -668,597 +488,480 @@ const Colaboradores = () => {
           </div>
 
           {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-l-4 border-l-green-500 shadow-md">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="border-l-4 border-l-green-500 shadow-md">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Colaboradores Ativos</p>
+                    <p className="text-3xl font-bold text-foreground mt-2">{stats.ativos}</p>
+                  </div>
+                  <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
+                    <UserCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-blue-500 shadow-md">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Entraram este Mês</p>
+                    <p className="text-3xl font-bold text-foreground mt-2">{stats.novos}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Novos colaboradores</p>
+                  </div>
+                  <div className="bg-blue-500/10 dark:bg-blue-500/20 p-3 rounded-full">
+                    <UserPlus className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-yellow-500 shadow-md">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Saíram este Mês</p>
+                    <p className="text-3xl font-bold text-foreground mt-2">{stats.saidas}</p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Desligamentos</p>
+                  </div>
+                  <div className="bg-yellow-500/10 dark:bg-yellow-500/20 p-3 rounded-full">
+                    <UserMinus className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-red-500 shadow-md">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Inativos</p>
+                    <p className="text-3xl font-bold text-foreground mt-2">{stats.inativos}</p>
+                  </div>
+                  <div className="bg-red-500/10 dark:bg-red-500/20 p-3 rounded-full">
+                    <UserX className="h-8 w-8 text-red-600 dark:text-red-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Table Card */}
+          <Card className="shadow-lg">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Colaboradores Ativos</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stats.ativos}</p>
-                </div>
-                <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
-                  <UserCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
-                </div>
+              <div className="flex items-center gap-2 mb-6">
+                <Users className="h-5 w-5 text-blue-600" />
+                <h2 className="text-xl font-semibold text-foreground">
+                  {showInactive ? "Colaboradores Inativos" : "Lista de Colaboradores"}
+                </h2>
               </div>
-            </CardContent>
-          </Card>
+              <p className="text-sm text-muted-foreground mb-6">
+                {showInactive 
+                  ? "Colaboradores com acesso desativado. Você pode reativá-los a qualquer momento."
+                  : "Gerencie colaboradores, cargos e status de convites."}
+              </p>
 
-          <Card className="border-l-4 border-l-blue-500 shadow-md">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Entraram este Mês</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stats.novos}</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Novos colaboradores</p>
-                </div>
-                <div className="bg-blue-500/10 dark:bg-blue-500/20 p-3 rounded-full">
-                  <UserPlus className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-yellow-500 shadow-md">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Saíram este Mês</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stats.saidas}</p>
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Desligamentos</p>
-                </div>
-                <div className="bg-yellow-500/10 dark:bg-yellow-500/20 p-3 rounded-full">
-                  <UserMinus className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-red-500 shadow-md">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Inativos</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stats.inativos}</p>
-                </div>
-                <div className="bg-red-500/10 dark:bg-red-500/20 p-3 rounded-full">
-                  <UserX className="h-8 w-8 text-red-600 dark:text-red-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Table Card */}
-        <Card className="shadow-lg">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Users className="h-5 w-5 text-blue-600" />
-              <h2 className="text-xl font-semibold text-foreground">
-                {showInactive ? "Colaboradores Inativos" : "Lista de Colaboradores"}
-              </h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              {showInactive 
-                ? "Colaboradores com acesso desativado. Você pode reativá-los a qualquer momento."
-                : "Gerencie colaboradores, cargos e status de convites."}
-            </p>
-
-            {/* Controls */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
-                    <SelectTrigger className="w-20">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-sm text-gray-600">itens por página</span>
-                </div>
-                <span className="text-sm text-gray-600">{filteredColaboradores.length} registros disponíveis</span>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar por nome ou email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">INFO</TableHead>
-                    <TableHead className="font-semibold">CARGO</TableHead>
-                    <TableHead className="font-semibold">VENDAS</TableHead>
-                    <TableHead className="font-semibold">RECEITA</TableHead>
-                    <TableHead className="font-semibold">STATUS</TableHead>
-                    {(userRole === 'owner' || userRole === 'admin') && <TableHead className="font-semibold">AÇÕES</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 6 : 5} className="text-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredColaboradores.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                        {showInactive ? "Nenhum colaborador inativo" : "Nenhum colaborador encontrado"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredColaboradores.map((colab) => (
-                      <TableRow key={colab.id} className="hover:bg-muted/50">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              {colab.avatar_url && (
-                                <AvatarImage 
-                                  src={colab.avatar_url} 
-                                  alt={colab.full_name || colab.email || 'Avatar'} 
-                                />
-                              )}
-                              <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
-                                {getInitials(colab.full_name || colab.email || 'NC')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {colab.full_name || 'Nome não cadastrado'}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {colab.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge className={getRoleColor(colab.role)}>
-                              {getRoleLabel(colab.role)}
-                            </Badge>
-                            {colab.custom_role_id && customRoles.find(r => r.id === colab.custom_role_id) && (
-                              <Badge 
-                                variant="outline" 
-                                className="text-xs max-w-[100px] truncate"
-                                style={{ 
-                                  borderColor: customRoles.find(r => r.id === colab.custom_role_id)?.color,
-                                  color: customRoles.find(r => r.id === colab.custom_role_id)?.color 
-                                }}
-                                title={customRoles.find(r => r.id === colab.custom_role_id)?.name}
-                              >
-                                {customRoles.find(r => r.id === colab.custom_role_id)?.name}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-center">
-                            <span className="text-sm font-semibold text-foreground">
-                              {colab.user_id ? (salesByUser[colab.user_id]?.count || 0) : 0}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <span className="text-sm font-semibold text-green-600">
-                              R$ {(colab.user_id ? (salesByUser[colab.user_id]?.revenue || 0) : 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                            </span>
-                            {colab.user_id && pendingCommissionsByUser[colab.user_id] > 0 && (
-                              <p className="text-xs text-amber-600">
-                                Comissão: R$ {pendingCommissionsByUser[colab.user_id].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {colab.is_active === false ? (
-                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
-                              Inativo
-                            </Badge>
-                          ) : colab.user_id ? (
-                            <Badge style={{ backgroundColor: '#66ee78', color: '#000' }}>
-                              Ativo
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
-                              Pendente
-                            </Badge>
-                          )}
-                        </TableCell>
-                        {(userRole === 'owner' || userRole === 'admin') && (
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditColaborador(colab)}
-                                disabled={userRole === 'admin' && colab.role === 'owner'}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              >
-                                <Pencil className="h-4 w-4 mr-1" />
-                                Editar
-                              </Button>
-                              {userRole === 'owner' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteColaborador(colab)}
-                                  disabled={colab.user_id === currentUserId}
-                                  className={
-                                    colab.user_id === currentUserId
-                                      ? "text-muted-foreground cursor-not-allowed"
-                                      : "text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  }
-                                >
-                                  <UserX className="h-4 w-4 mr-1" />
-                                  Excluir
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dialog para adicionar colaborador */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Criar Novo Colaborador</DialogTitle>
-              <DialogDescription>
-                Crie uma conta para o novo colaborador da organização.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nome Completo</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Nome do colaborador"
-                  value={newColaborador.name}
-                  onChange={(e) => setNewColaborador({ ...newColaborador, name: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="colaborador@exemplo.com"
-                  value={newColaborador.email}
-                  onChange={(e) => setNewColaborador({ ...newColaborador, email: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Mínimo 6 caracteres"
-                  value={newColaborador.password}
-                  onChange={(e) => setNewColaborador({ ...newColaborador, password: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Papel Base</Label>
-                <Select
-                  value={newColaborador.role}
-                  onValueChange={(value: "owner" | "admin" | "member") => 
-                    setNewColaborador({ ...newColaborador, role: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="member">Membro</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="owner">Proprietário</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {customRoles.length > 0 && (
-                <div className="grid gap-2">
-                  <Label htmlFor="custom_role">Cargo Personalizado</Label>
-                  <Select
-                    value={newColaborador.custom_role_id || "none"}
-                    onValueChange={(value) => 
-                      setNewColaborador({ ...newColaborador, custom_role_id: value === "none" ? null : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um cargo..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">
-                        <span className="text-muted-foreground">Usar permissões do papel base</span>
-                      </SelectItem>
-                      {customRoles.map(role => (
-                        <SelectItem key={role.id} value={role.id}>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: role.color }} />
-                            {role.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Permissões adicionais além do papel base
-                  </p>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsDialogOpen(false);
-                  setNewColaborador({ name: "", email: "", password: "", role: "member", custom_role_id: null });
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleAddColaborador}
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Criando...
-                  </>
-                ) : (
-                  "Criar Colaborador"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog para editar colaborador */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Editar Colaborador</DialogTitle>
-              <DialogDescription>
-                Atualize as informações do colaborador.
-              </DialogDescription>
-            </DialogHeader>
-            {colaboradorToEdit && (
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-name">Nome Completo</Label>
-                  <Input
-                    id="edit-name"
-                    type="text"
-                    placeholder="Nome do colaborador"
-                    value={editData.name}
-                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-email">Email</Label>
-                  <Input
-                    id="edit-email"
-                    type="email"
-                    placeholder="colaborador@exemplo.com"
-                    value={editData.email}
-                    onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-password">Nova Senha (deixe vazio para manter)</Label>
-                  <Input
-                    id="edit-password"
-                    type="password"
-                    placeholder="Mínimo 6 caracteres"
-                    value={editData.newPassword}
-                    onChange={(e) => setEditData({ ...editData, newPassword: e.target.value })}
-                  />
-                </div>
-                {userRole === 'owner' && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="edit-role">Papel Base</Label>
-                    <Select
-                      value={editData.role}
-                      onValueChange={(value: "owner" | "admin" | "member") => 
-                        setEditData({ ...editData, role: value })
-                      }
-                    >
-                      <SelectTrigger>
+              {/* Controls */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
+                      <SelectTrigger className="w-20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="member">Membro</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="owner">Proprietário</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
                       </SelectContent>
                     </Select>
+                    <span className="text-sm text-gray-600">itens por página</span>
                   </div>
-                )}
-                {customRoles.length > 0 && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="edit-custom-role">Cargo Personalizado</Label>
-                    <Select
-                      value={editData.custom_role_id || "none"}
-                      onValueChange={(value) => 
-                        setEditData({ ...editData, custom_role_id: value === "none" ? null : value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um cargo..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">
-                          <span className="text-muted-foreground">Usar permissões do papel base</span>
-                        </SelectItem>
-                        {customRoles.map(role => (
-                          <SelectItem key={role.id} value={role.id}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: role.color }} />
-                              {role.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Permissões adicionais além do papel base
-                    </p>
-                  </div>
-                )}
-                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <div>
-                    <Label htmlFor="edit-active" className="text-base font-medium">Acesso Ativo</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {editData.is_active ? "O colaborador pode acessar o sistema" : "O acesso está desativado"}
-                    </p>
-                  </div>
-                  <Switch
-                    id="edit-active"
-                    checked={editData.is_active}
-                    onCheckedChange={(checked) => setEditData({ ...editData, is_active: checked })}
-                    disabled={colaboradorToEdit.user_id === currentUserId}
+                  <span className="text-sm text-gray-600">{filteredColaboradores.length} registros disponíveis</span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar por nome ou email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-64"
                   />
                 </div>
               </div>
-            )}
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEditDialogOpen(false);
-                  setColaboradorToEdit(null);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  "Salvar Alterações"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
-        {/* Dialog de confirmação de exclusão */}
-        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Confirmar Exclusão</DialogTitle>
-              <DialogDescription>
-                Tem certeza que deseja remover este colaborador da organização?
-              </DialogDescription>
-            </DialogHeader>
-            {colaboradorToDelete && (
-              <div className="py-4">
-                <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                  <Avatar className="h-12 w-12">
-                    {colaboradorToDelete.avatar_url && (
-                      <AvatarImage src={colaboradorToDelete.avatar_url} />
+              {/* Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">INFO</TableHead>
+                      <TableHead className="font-semibold">CARGO</TableHead>
+                      <TableHead className="font-semibold">VENDAS</TableHead>
+                      <TableHead className="font-semibold">RECEITA</TableHead>
+                      <TableHead className="font-semibold">STATUS</TableHead>
+                      {(userRole === 'owner' || userRole === 'admin') && <TableHead className="font-semibold">AÇÕES</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 6 : 5} className="text-center py-8">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredColaboradores.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                          {showInactive ? "Nenhum colaborador inativo" : "Nenhum colaborador encontrado"}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredColaboradores.map((colab) => (
+                        <TableRow key={colab.id} className="hover:bg-muted/50">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                {colab.avatar_url && (
+                                  <AvatarImage 
+                                    src={colab.avatar_url} 
+                                    alt={colab.full_name || colab.email || 'Avatar'} 
+                                  />
+                                )}
+                                <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
+                                  {getInitials(colab.full_name || colab.email || 'NC')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {colab.full_name || 'Nome não cadastrado'}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {colab.email}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge className={getRoleColor(colab.role)}>
+                                {getRoleLabel(colab.role)}
+                              </Badge>
+                              {colab.custom_role_id && customRoles.find(r => r.id === colab.custom_role_id) && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs max-w-[100px] truncate"
+                                  style={{ 
+                                    borderColor: customRoles.find(r => r.id === colab.custom_role_id)?.color,
+                                    color: customRoles.find(r => r.id === colab.custom_role_id)?.color 
+                                  }}
+                                  title={customRoles.find(r => r.id === colab.custom_role_id)?.name}
+                                >
+                                  {customRoles.find(r => r.id === colab.custom_role_id)?.name}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-center">
+                              <span className="text-sm font-semibold text-foreground">
+                                {colab.user_id ? (salesByUser[colab.user_id]?.count || 0) : 0}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <span className="text-sm font-semibold text-green-600">
+                                R$ {(colab.user_id ? (salesByUser[colab.user_id]?.revenue || 0) : 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                              </span>
+                              {colab.user_id && pendingCommissionsByUser[colab.user_id] > 0 && (
+                                <p className="text-xs text-amber-600">
+                                  Comissão: R$ {pendingCommissionsByUser[colab.user_id].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {colab.is_active === false ? (
+                              <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
+                                Inativo
+                              </Badge>
+                            ) : colab.user_id ? (
+                              <Badge style={{ backgroundColor: '#66ee78', color: '#000' }}>
+                                Ativo
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
+                                Pendente
+                              </Badge>
+                            )}
+                          </TableCell>
+                          {(userRole === 'owner' || userRole === 'admin') && (
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditColaborador(colab)}
+                                  disabled={userRole === 'admin' && colab.role === 'owner'}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                {userRole === 'owner' && colab.user_id !== currentUserId && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteColaborador(colab)}
+                                  >
+                                    <UserX className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
                     )}
-                    <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
-                      {getInitials(colaboradorToDelete.full_name || colaboradorToDelete.email || 'NC')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">
-                      {colaboradorToDelete.full_name || 'Nome não cadastrado'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {colaboradorToDelete.email}
-                    </p>
-                    <Badge className={getRoleColor(colaboradorToDelete.role)}>
-                      {getRoleLabel(colaboradorToDelete.role)}
-                    </Badge>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground mt-4">
-                  Esta ação não pode ser desfeita. O colaborador perderá acesso à organização.
-                </p>
+                  </TableBody>
+                </Table>
               </div>
-            )}
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setDeleteDialogOpen(false)}
-                disabled={isLoading}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                variant="destructive"
-                onClick={confirmDeleteColaborador}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Excluindo...
-                  </>
-                ) : (
-                  "Confirmar Exclusão"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="cargos">
-          {organizationId && (
-            <RoleManagementTab 
-              organizationId={organizationId} 
-              userRole={userRole}
-            />
-          )}
+          {organizationId && <RoleManagementTab organizationId={organizationId} />}
         </TabsContent>
 
         <TabsContent value="comissoes">
-          {organizationId && (
-            <CommissionsTab
-              organizationId={organizationId}
-              userRole={userRole}
-            />
-          )}
+          {organizationId && <CommissionsTab organizationId={organizationId} />}
         </TabsContent>
 
         <TabsContent value="dashboard">
-          <CollaboratorDashboard organizationId={organizationId || undefined} />
+          {organizationId && <CollaboratorDashboard organizationId={organizationId} />}
         </TabsContent>
       </Tabs>
+
+      {/* Add Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Colaborador</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do novo colaborador
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                value={newColaborador.name}
+                onChange={(e) => setNewColaborador({ ...newColaborador, name: e.target.value })}
+                placeholder="Nome do colaborador"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newColaborador.email}
+                onChange={(e) => setNewColaborador({ ...newColaborador, email: e.target.value })}
+                placeholder="email@exemplo.com"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newColaborador.password}
+                onChange={(e) => setNewColaborador({ ...newColaborador, password: e.target.value })}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="role">Cargo do Sistema</Label>
+              <Select
+                value={newColaborador.role}
+                onValueChange={(v) => setNewColaborador({ ...newColaborador, role: v as any })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o cargo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  {userRole === 'owner' && (
+                    <SelectItem value="owner">Proprietário</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            {customRoles.length > 0 && (
+              <div className="grid gap-2">
+                <Label>Cargo Personalizado</Label>
+                <Select
+                  value={newColaborador.custom_role_id || "none"}
+                  onValueChange={(v) => setNewColaborador({ ...newColaborador, custom_role_id: v === "none" ? null : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {customRoles.map(role => (
+                      <SelectItem key={role.id} value={role.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                          {role.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddColaborador} disabled={isMutating}>
+              {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Colaborador</DialogTitle>
+            <DialogDescription>
+              Altere os dados do colaborador
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Nome</Label>
+              <Input
+                id="edit-name"
+                value={editData.name}
+                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                placeholder="Nome do colaborador"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editData.email}
+                onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                placeholder="email@exemplo.com"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-password">Nova Senha (opcional)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={editData.newPassword}
+                onChange={(e) => setEditData({ ...editData, newPassword: e.target.value })}
+                placeholder="Deixe em branco para manter"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-role">Cargo do Sistema</Label>
+              <Select
+                value={editData.role}
+                onValueChange={(v) => setEditData({ ...editData, role: v as any })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o cargo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  {userRole === 'owner' && (
+                    <SelectItem value="owner">Proprietário</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            {customRoles.length > 0 && (
+              <div className="grid gap-2">
+                <Label>Cargo Personalizado</Label>
+                <Select
+                  value={editData.custom_role_id || "none"}
+                  onValueChange={(v) => setEditData({ ...editData, custom_role_id: v === "none" ? null : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {customRoles.map(role => (
+                      <SelectItem key={role.id} value={role.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                          {role.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit-active">Status Ativo</Label>
+              <Switch
+                id="edit-active"
+                checked={editData.is_active}
+                onCheckedChange={(checked) => setEditData({ ...editData, is_active: checked })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isMutating}>
+              {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja remover {colaboradorToDelete?.full_name || colaboradorToDelete?.email} da organização?
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteColaborador} disabled={isMutating}>
+              {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
