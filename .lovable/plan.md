@@ -1,119 +1,79 @@
 
 
-# Controle de Acesso por Assinatura e Features "Em Breve"
+# Pricing Standalone, Owner Bypass, Google Calendar Restriction, and Fixes
 
-## Resumo
+## 1. Pricing Page Outside CRM (No Sidebar)
 
-Implementar duas camadas de controle:
-1. **Paywall**: Usuarios sem assinatura ativa sao redirecionados para a pagina de Pricing (nao acessam o CRM)
-2. **Features bloqueadas**: Metricas, Roleta de Leads, Chat e Integracoes ficam com tag "Em breve" e inacessiveis para todos os usuarios
+Currently `/pricing` is wrapped in `DashboardLayout` which shows the sidebar. We need to remove `DashboardLayout` from the pricing route so it renders as a standalone page.
 
-## Mudancas
+**File: `src/App.tsx`**
+- Change line 120 from `<ProtectedRoute><DashboardLayout><LazyPage><Pricing /></LazyPage></DashboardLayout></ProtectedRoute>` to `<ProtectedRoute><LazyPage><Pricing /></LazyPage></ProtectedRoute>`
 
-### 1. Novo componente `SubscriptionGate`
+**File: `src/pages/Pricing.tsx`**
+- Add a standalone header with the Kairoz logo and a "Sair" (logout) button
+- Add a banner/message like "Assine um plano para acessar o CRM completo"
+- Style it as a self-contained full-page layout (no sidebar dependency)
 
-Criar um componente wrapper que verifica se o usuario tem assinatura ativa antes de permitir acesso ao CRM:
+## 2. Fix "Em breve" Badge in Sidebar
 
-- Usa `subscriptionData` do `AuthContext`
-- Se `subscribed === false`, redireciona para `/pricing`
-- Se `subscribed === true`, renderiza os children normalmente
-- Mostra loading enquanto verifica (subscriptionData pode ser null no inicio)
+The screenshot shows the badge is overflowing and breaking layout on items like "Roleta de Lea..." and "Chat".
 
-Sera usado no `App.tsx` envolvendo as rotas protegidas que precisam de assinatura (todas exceto `/pricing` e `/success`).
+**File: `src/components/AppSidebar.tsx`**
+- Reduce badge size: use `text-[9px] px-1 py-0 h-4 leading-tight` instead of the current larger styling
+- Ensure `flex-shrink-0` on the badge so text truncates instead of badge overflowing
+- Use `overflow-hidden` on the parent container and `truncate` on the item text
+- The badge should be compact and inline, not wrapping
 
-### 2. Ajustar fluxo de Auth
+## 3. Owner Bypass (mateusabcck@gmail.com always has full access)
 
-- Apos login/signup, redirecionar para `/pricing` em vez de `/dashboard`
-- No `ProtectedRoute`, manter a logica atual (auth + org)
-- O `SubscriptionGate` fara a verificacao adicional de assinatura
+**File: `supabase/functions/check-subscription/index.ts`**
+- After authenticating the user, check if the email is `mateusabcck@gmail.com`
+- If yes, return `subscribed: true` with `plan_id: 'elite'` and max collaborators 30, bypassing the database check
+- This ensures the CRM owner always has complete access regardless of subscription status
 
-Fluxo completo:
-```text
-Usuario faz login
-  |
-  v
-ProtectedRoute: verifica auth + org
-  |
-  v
-SubscriptionGate: verifica assinatura
-  |-- Sem assinatura -> /pricing
-  |-- Com assinatura -> Dashboard/CRM
-```
+## 4. Remove Google Calendar for Non-Owner Users
 
-### 3. Pagina de Pricing acessivel sem assinatura
+**File: `src/components/DashboardLayout.tsx`**
+- Import `useAuth` and get the current user email
+- Only render the Google Calendar button and modal if `user?.email === 'mateusabcck@gmail.com'`
+- All other users will not see the calendar icon in the header
 
-A rota `/pricing` ja esta dentro de `ProtectedRoute` (precisa de auth), mas NAO deve estar dentro do `SubscriptionGate`. Assim, usuarios logados sem assinatura podem acessar para escolher um plano.
+## 5. Admin Dashboard - Change User Access Level Without Subscription
 
-Mesma logica para `/success` (pagina de confirmacao de pagamento).
+The current Admin Dashboard already has the "Usuarios Admin" tab for managing super_admin roles. The user wants to be able to change CRM-level access (roles within organizations) from the admin panel even if the target user has no active subscription.
 
-### 4. Features bloqueadas com "Em breve"
+**File: `src/pages/AdminDashboard.tsx`**
+- This is about managing `organization_members` roles from the admin panel
+- The current admin panel navigates to `/admin/user/:userId` (AdminUserDetails) for individual user management
+- Verify that AdminUserDetails allows role changes without subscription checks
 
-No `AppSidebar.tsx`, os seguintes itens do menu serao marcados com badge "Em breve" e terao navegacao desabilitada:
+**File: `src/pages/AdminUserDetails.tsx`**
+- Check existing role-change logic and ensure it does not gate behind subscription status
 
-| Feature | Rota | Acao |
-|---------|------|------|
-| Metricas | `/lead-metrics` | Badge "Em breve", click desabilitado |
-| Roleta de Leads | `/lead-distribution` | Badge "Em breve", click desabilitado |
-| Chat | `/chat` | Badge "Em breve", click desabilitado |
-| Integracoes | `/integrations` | Badge "Em breve", click desabilitado |
+## 6. Verify Password Change Functionality
 
-Os itens continuam visiveis no menu, mas:
-- Aparece um badge amarelo/cinza "Em breve" ao lado do nome
-- O link nao navega (fica como `div` em vez de `NavLink`)
-- Estilo visual mais opaco (opacity-60) para indicar indisponibilidade
+**File: `src/pages/Settings.tsx`**
+- The password change logic (lines 178-230) uses `signInWithPassword` to verify current password, then `updateUser` to set new password
+- Fix the stale `PLAN_NAMES` map (line 19-23) which still references old Stripe product IDs -- update to `star`, `pro`, `elite`
+- The password change logic itself looks correct (verify current, update new)
 
-Alem disso, as rotas no `App.tsx` para essas paginas terao um guard que redireciona para `/dashboard` caso alguem tente acessar diretamente pela URL.
+**File: `supabase/functions/admin-reset-password/index.ts`**
+- Already exists for admin-initiated password resets via email link
+- Verify it's functional (uses Resend API for email delivery)
 
-### 5. Sidebar - PLAN_NAMES atualizado
+**File: `src/pages/Colaboradores.tsx`**
+- Check if collaborator password changes use the `update-organization-member` edge function and confirm it handles password updates
 
-Atualizar o mapa de nomes de planos no `AppSidebar.tsx` para usar os novos IDs:
-```text
-star -> Star
-pro -> Pro
-elite -> Elite
-```
+## Technical Summary
 
-## Arquivos a modificar
-
-| Arquivo | Acao |
-|---------|------|
-| `src/components/SubscriptionGate.tsx` | NOVO - Wrapper que verifica assinatura |
-| `src/App.tsx` | Envolver rotas com SubscriptionGate, excluir /pricing e /success |
-| `src/components/AppSidebar.tsx` | Adicionar badges "Em breve" e desabilitar links bloqueados, atualizar PLAN_NAMES |
-| `src/pages/Auth.tsx` | Apos login, redirecionar para /pricing em vez de /dashboard |
-
-## Detalhes Tecnicos
-
-### SubscriptionGate.tsx
-
-```text
-- Importar useAuth para acessar subscriptionData
-- Se subscriptionData === null (loading), mostrar LoadingAnimation
-- Se subscriptionData.subscribed === false, Navigate para /pricing
-- Se subscriptionData.subscribed === true, renderizar children
-```
-
-### AppSidebar - Itens bloqueados
-
-Lista de URLs bloqueadas definida como constante:
-```text
-const LOCKED_FEATURES = ['/lead-metrics', '/lead-distribution', '/chat', '/integrations']
-```
-
-Para cada item no menu, verificar se esta na lista. Se sim:
-- Renderizar como div (nao NavLink)
-- Adicionar Badge "Em breve" com estilo discreto
-- Aplicar opacity-60 e cursor-not-allowed
-
-### Auth.tsx
-
-Mudar o redirect apos login de `/dashboard` para `/pricing`. O `SubscriptionGate` cuidara de redirecionar para `/dashboard` se ja tiver assinatura ativa, ou manter em `/pricing` se nao tiver.
-
-Alternativamente, redirecionar para `/dashboard` normalmente e deixar o `SubscriptionGate` redirecionar para `/pricing` - isso e mais limpo pois centraliza a logica.
-
-**Decisao: manter redirect para /dashboard e deixar o SubscriptionGate gerenciar.** Assim o codigo do Auth.tsx nao precisa mudar.
-
-### App.tsx - Estrutura
-
-As rotas bloqueadas (`/lead-metrics`, `/lead-distribution`, `/chat`, `/integrations`) terao um componente simples que redireciona para `/dashboard`, garantindo que mesmo acesso direto pela URL seja bloqueado.
+| File | Action |
+|------|--------|
+| `src/App.tsx` | Remove `DashboardLayout` wrapper from `/pricing` route |
+| `src/pages/Pricing.tsx` | Add standalone header, CTA message about needing subscription |
+| `src/components/AppSidebar.tsx` | Fix "Em breve" badge sizing - make compact and responsive |
+| `supabase/functions/check-subscription/index.ts` | Add owner email bypass (always return elite access) |
+| `src/components/DashboardLayout.tsx` | Conditionally show Google Calendar only for owner email |
+| `src/pages/Settings.tsx` | Update PLAN_NAMES to new plan IDs (star/pro/elite) |
+| `src/pages/AdminDashboard.tsx` | Verify role management works without subscription gate |
+| `src/pages/AdminUserDetails.tsx` | Ensure role changes dont require subscription |
 
