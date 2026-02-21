@@ -17,9 +17,9 @@ import { toast } from "sonner";
 import { AvatarUpload } from "@/components/AvatarUpload";
 
 const PLAN_NAMES: { [key: string]: string } = {
-  'prod_TVqqdFt1DYCcCI': 'Básico',
-  'prod_TVqr72myTFqI39': 'Profissional',
-  'prod_TVqrhrzuIdUDcS': 'Enterprise'
+  'star': 'Star',
+  'pro': 'Pro',
+  'elite': 'Elite'
 };
 
 const Settings = () => {

@@ -1,16 +1,12 @@
 import { CreativePricing, PricingTier } from "@/components/ui/creative-pricing";
-import { Zap, TrendingUp, Crown } from "lucide-react";
+import { Zap, TrendingUp, Crown, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-
-const PLANS = {
-  star: { maxCollaborators: 5 },
-  pro: { maxCollaborators: 15 },
-  elite: { maxCollaborators: 30 },
-};
+import { Button } from "@/components/ui/button";
+import logoFull from "@/assets/kairoz-logo-full-new.png";
 
 const EXTRA_COLLABORATOR_PRICE = 25;
 
@@ -68,7 +64,7 @@ const pricingTiers: PricingTier[] = [
 ];
 
 export default function Pricing() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
@@ -105,13 +101,10 @@ export default function Pricing() {
 
     try {
       const planId = planName.toLowerCase();
-
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { planId, extraCollaborators },
       });
-
       if (error) throw error;
-
       if (data?.url) {
         window.open(data.url, "_blank");
       }
@@ -142,9 +135,7 @@ export default function Pricing() {
       const { data, error } = await supabase.functions.invoke("update-subscription", {
         body: { action: "add_collaborators", quantity },
       });
-
       if (error) throw error;
-
       toast.dismiss();
       toast.success(data?.message || "Colaboradores adicionados com sucesso!");
       await checkSubscription();
@@ -161,18 +152,14 @@ export default function Pricing() {
       const { data, error } = await supabase.functions.invoke("update-subscription", {
         body: { action: "upgrade_plan", newPlanId },
       });
-
       if (error) throw error;
-
       toast.dismiss();
-
       if (data?.url) {
         window.open(data.url, "_blank");
         toast.success("Redirecionando para o checkout do novo plano...");
       } else {
         toast.success(data?.message || "Plano atualizado com sucesso!");
       }
-
       await checkSubscription();
     } catch (error) {
       toast.dismiss();
@@ -182,20 +169,44 @@ export default function Pricing() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-12">
-      <CreativePricing
-        tag="Planos"
-        title="Escolha o Melhor Para Você"
-        description="Gerencie seus leads e automatize vendas"
-        tiers={pricingTiers}
-        onSubscribe={handleSubscribe}
-        loading={loading}
-        subscription={subscription}
-        onManageSubscription={handleManageSubscription}
-        onAddCollaborators={handleAddCollaborators}
-        onUpgradePlan={handleUpgradePlan}
-        extraCollaboratorPrice={EXTRA_COLLABORATOR_PRICE}
-      />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header standalone */}
+      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-6 shrink-0">
+        <img src={logoFull} alt="KairoZ" className="h-8 w-auto" />
+        <Button
+          onClick={signOut}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </Button>
+      </header>
+
+      {/* Banner */}
+      <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 text-center">
+        <p className="text-sm font-medium text-primary">
+          🔒 Assine um dos planos abaixo para ter acesso completo ao CRM KairoZ
+        </p>
+      </div>
+
+      {/* Pricing content */}
+      <div className="flex-1 py-12">
+        <CreativePricing
+          tag="Planos"
+          title="Escolha o Melhor Para Você"
+          description="Gerencie seus leads e automatize vendas"
+          tiers={pricingTiers}
+          onSubscribe={handleSubscribe}
+          loading={loading}
+          subscription={subscription}
+          onManageSubscription={handleManageSubscription}
+          onAddCollaborators={handleAddCollaborators}
+          onUpgradePlan={handleUpgradePlan}
+          extraCollaboratorPrice={EXTRA_COLLABORATOR_PRICE}
+        />
+      </div>
     </div>
   );
 }

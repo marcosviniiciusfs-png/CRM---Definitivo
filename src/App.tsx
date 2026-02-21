@@ -117,7 +117,7 @@ const App = () => (
                 <Route path="/terms-of-service" element={<LazyPage><TermsOfService /></LazyPage>} />
                 <Route path="/data-deletion" element={<LazyPage><DataDeletion /></LazyPage>} />
                 {/* Pricing e Success ficam FORA do SubscriptionGate */}
-                <Route path="/pricing" element={<ProtectedRoute><DashboardLayout><LazyPage><Pricing /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                <Route path="/pricing" element={<ProtectedRoute><LazyPage><Pricing /></LazyPage></ProtectedRoute>} />
                 <Route path="/success" element={<ProtectedRoute><LazyPage><PaymentSuccess /></LazyPage></ProtectedRoute>} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<LazyPage><NotFound /></LazyPage>} />
