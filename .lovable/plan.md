@@ -1,108 +1,177 @@
 
 
-# Redesign do Admin Dashboard - Layout com Tabs e Design Limpo
+# Migracao Completa: Stripe para Mercado Pago
 
 ## Visao Geral
 
-Reestruturar completamente o Admin Dashboard para seguir o design das imagens de referencia: navegacao por tabs no topo, fundo branco limpo, sem efeitos neon/glow, e separacao do conteudo em 4 abas.
+Substituir toda a infraestrutura de pagamentos do Stripe para o Mercado Pago, incluindo 8 Edge Functions, frontend de pricing, e criar um webhook para receber notificacoes do Mercado Pago.
 
-## Estrutura de Navegacao (Navbar Superior)
+## Novos Precos
 
-Navbar fixa no topo com:
-- Logo "Kairoz" + badge "Admin" (lado esquerdo)
-- Tabs: **Dashboard** | **Pedidos** | **Clientes** | **Usuarios Admin** (centro)
-- Avatar + email do usuario logado (lado direito)
+| Plano | Preco Antigo | Preco Novo |
+|-------|-------------|------------|
+| Star | R$ 197 | R$ 47,99 |
+| Pro | R$ 497 | R$ 197,99 |
+| Elite | R$ 1.970 | R$ 499,00 |
+| Colaborador Extra | R$ 30 | R$ 25,00 |
 
-## Aba 1: Dashboard
+## Arquitetura Mercado Pago
 
-**Metric Cards (4 cards em linha):**
-- Receita Total (R$ X - Y assinantes Pro)
-- Ultimos 7 Dias (R$ X - Y novos Pro)
-- Total de Usuarios (X - Y gratuitos)
-- Taxa de Conversao (X% - Free -> Pro)
+O Mercado Pago usa a API de **Preapproval** (assinaturas recorrentes). O fluxo sera:
 
-**Grafico "Clientes Pagantes vs Gratuitos - Ultimos 8 Meses":**
-- LineChart com 2 linhas (Pro e Gratuitos)
-- Legenda abaixo do grafico
+```text
+Usuario clica "Assinar"
+    |
+    v
+Edge Function "create-checkout" cria um preapproval_plan 
+e gera um init_point (URL de pagamento)
+    |
+    v
+Usuario paga no Mercado Pago
+    |
+    v
+Mercado Pago envia notificacao via Webhook (IPN)
+    |
+    v
+Edge Function "mercadopago-webhook" recebe e salva 
+o status da assinatura na tabela "subscriptions"
+    |
+    v
+"check-subscription" consulta a tabela "subscriptions"
+(nao precisa mais chamar API externa em cada request)
+```
 
-**Secao inferior (2 colunas):**
-- Ultimas Assinaturas: lista com email, data e badge do plano (Pro/Free)
-- Resumo de Planos: Plano Pro (Ativo) com count + barra de progresso, Plano Gratuito com count + barra, Ticket medio (Pro)
+## Nova Tabela: subscriptions
 
-## Aba 2: Pedidos
+Para nao depender de chamadas a API do Mercado Pago em cada verificacao de assinatura, vamos armazenar os dados localmente:
 
-**Metric Cards (4):** Total de Pedidos, Receita Total, Pedidos Ativos, Pendentes
+```sql
+CREATE TABLE public.subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  organization_id UUID REFERENCES public.organizations(id),
+  mp_preapproval_id TEXT UNIQUE,
+  mp_payer_email TEXT,
+  plan_id TEXT NOT NULL, -- 'star', 'pro', 'elite'
+  status TEXT NOT NULL DEFAULT 'pending', -- 'authorized', 'paused', 'cancelled', 'pending'
+  amount NUMERIC(10,2),
+  extra_collaborators INTEGER DEFAULT 0,
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
-**Filtros:** Campo de busca + dropdown "Todos os status" + dropdown "Todos os planos" + botao "Exportar CSV"
+-- RLS
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
-**Tabela:** CLIENTE | PLANO | VALOR | STATUS | DATA | ID PAGAMENTO
+-- Owners podem ver a propria assinatura
+CREATE POLICY "Users can view own subscription"
+  ON public.subscriptions FOR SELECT
+  USING (user_id = auth.uid());
 
-## Aba 3: Clientes
+-- Service role pode tudo (webhook)
+CREATE POLICY "Service role full access"
+  ON public.subscriptions FOR ALL
+  USING (true)
+  WITH CHECK (true);
+-- (esta policy sera restrita ao service_role via role check)
+```
 
-**Metric Cards (4):** Total de Clientes, Clientes Pagantes, Em Gratuito, Novos este Mes
+## Secret Necessario
 
-**Grafico:** "Crescimento de Clientes - Ultimos 8 Meses" (AreaChart com Pro + Gratuito)
+Precisaremos configurar **1 novo secret**:
 
-**Filtros:** Campo de busca + dropdown "Todos os planos" + botao "Exportar CSV"
+- **MERCADOPAGO_ACCESS_TOKEN**: Token de producao do Mercado Pago (encontrado em mercadopago.com.br > Seu negocio > Configuracoes > Credenciais > Access Token de Producao)
 
-**Tabela:** EMAIL | DATA DE CADASTRO | PLANO | STATUS | TEMPO ASSINANTE | JA CANCELOU? | ID PAGAMENTO | ACOES (link "Plano")
+## Edge Functions a Modificar/Criar
 
-## Aba 4: Usuarios Admin
+### 1. `create-checkout` (REESCREVER)
+- Usar API REST do Mercado Pago (`https://api.mercadopago.com/preapproval`)
+- Criar assinatura recorrente com os novos precos
+- Retornar `init_point` (URL de checkout do MP)
+- Se tiver colaboradores extras, somar ao valor total
 
-**Layout 2 colunas:**
-- Esquerda: "Criar Novo Administrador" - formulario com Email + Senha + botao "Criar Administrador"
-- Direita: "Administradores Ativos" - lista com avatar, email, badge "Voce", data de adicao
+### 2. `check-subscription` (REESCREVER)
+- Em vez de chamar Stripe API, consultar a tabela `subscriptions` local
+- Buscar pelo user_id ou pelo owner da organizacao
+- Retornar os mesmos campos que retorna hoje (subscribed, product_id, max_collaborators, etc.)
+- Muito mais rapido (query local vs API externa)
 
-## Mudancas Visuais
+### 3. `mercadopago-webhook` (NOVA)
+- Endpoint publico que recebe notificacoes IPN do Mercado Pago
+- Processar eventos: payment, preapproval
+- Atualizar a tabela `subscriptions` com o status correto
+- URL do webhook: `https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/mercadopago-webhook`
 
-- Remover TODAS as classes `glow-border` e `glow-icon`
-- Remover GIF de paying users
-- Cards com borda sutil `border` padrao, fundo branco
-- Icones coloridos dentro de circulos (verde para $, azul para trending, roxo para usuarios, etc.)
-- Design completamente limpo e minimalista
-- Forcar tema claro no admin (`bg-white` em vez de `bg-background`)
+### 4. `update-subscription` (REESCREVER)
+- Para adicionar colaboradores: atualizar o `preapproval` no MP com novo valor (plano base + N * R$25)
+- Para upgrade: cancelar preapproval atual e criar novo com plano superior
 
-## Detalhes Tecnicos
+### 5. `customer-portal` (SIMPLIFICAR)
+- Mercado Pago nao tem portal de billing como Stripe
+- Redirecionar para pagina de gerenciamento do MP ou retornar info da assinatura para gerenciar no proprio CRM
 
-### Arquivos a modificar
+### 6. `calculate-mrr` (REESCREVER)
+- Consultar tabela `subscriptions` com status = 'authorized'
+- Somar os valores (muito mais simples que iterar owners no Stripe)
 
-| Arquivo | Acao |
-|---------|------|
-| `src/pages/AdminDashboard.tsx` | Reescrever completamente com layout de tabs |
-| `src/pages/AdminUserDetails.tsx` | Ajuste minimo - remover glow, manter funcionalidades |
-| `src/App.tsx` | Sem alteracao - rotas permanecem iguais |
+### 7. `calculate-daily-revenue` (REESCREVER)
+- Consultar tabela `subscriptions` criadas/atualizadas hoje
+- Nao precisa mais chamar API do Stripe
 
-### Implementacao
+### 8. `count-paying-users` (REESCREVER)
+- COUNT de subscriptions com status = 'authorized' agrupadas por user_id
 
-O `AdminDashboard.tsx` sera reestruturado usando `Tabs` do Radix UI (ja disponivel em `src/components/ui/tabs.tsx`) para as 4 abas.
+### 9. `subscription-growth` (REESCREVER)
+- Consultar tabela `subscriptions` ordenadas por created_at
+- Gerar chart data sem chamar API externa
 
-**Todas as funcionalidades existentes serao mantidas:**
-- `loadData()` com RPCs e Edge Functions (count_main_users, list_all_users, count-paying-users, calculate-mrr, calculate-daily-revenue, subscription-growth)
-- `loadAdmins()`, `handleAddAdmin()`, `handleRemoveAdmin()` para gerenciamento de admins
-- Paginacao na tabela de usuarios
-- Navegacao para `/admin/user/:userId` ao clicar em um usuario
-- Dialog de adicionar admin
+## Frontend
 
-**Dados reorganizados entre as tabs:**
-- Tab Dashboard: mrr, dailyRevenue, payingUsersCount, totalUsers, chartData, planChartData
-- Tab Pedidos: mesmos dados de users filtrados/apresentados como "pedidos" (assinaturas)
-- Tab Clientes: users completo com paginacao, grafico de crescimento
-- Tab Usuarios Admin: admins, formulario de criar admin
+### `src/pages/Pricing.tsx`
+- Remover todas as referencias a Stripe (priceId, productId)
+- Atualizar precos: Star R$47,99, Pro R$197,99, Elite R$499
+- Colaborador extra: R$25
+- Mapear planos por ID interno ('star', 'pro', 'elite')
 
-**Novos calculos derivados:**
-- Taxa de conversao: `(payingUsersCount / totalUsers) * 100`
-- Usuarios gratuitos: `totalUsers - payingUsersCount`
-- Novos este mes: ja calculado em `newUsersThisMonth`
-- Ticket medio Pro: `mrr / payingUsersCount`
+### `src/components/ui/creative-pricing.tsx`
+- Remover comparacoes com product IDs do Stripe
+- Usar plan_id ('star', 'pro', 'elite') para identificar plano atual
 
-### Icones dos MetricCards
+### `src/contexts/AuthContext.tsx`
+- Sem mudanca estrutural - continua chamando check-subscription que agora consulta tabela local
 
-Cada metric card tera um icone dentro de um circulo colorido, seguindo o padrao das imagens:
-- `DollarSign` em circulo verde para receita
-- `TrendingUp` em circulo azul para ultimos 7 dias
-- `Users` em circulo laranja para total usuarios
-- `BarChart3` em circulo roxo para taxa de conversao
-- `ShoppingCart` em circulo azul para pedidos
-- `CheckCircle` em circulo verde para ativos
-- `Clock` em circulo vermelho para pendentes
+### `supabase/config.toml`
+- Adicionar `mercadopago-webhook` com `verify_jwt = false` (webhook publico)
+
+## URL do Webhook para Mercado Pago
+
+Apos implementacao, a URL que voce deve cadastrar no painel do Mercado Pago sera:
+
+```
+https://qcljgteatwhhmjskhthp.supabase.co/functions/v1/mercadopago-webhook
+```
+
+Essa URL recebera as notificacoes automaticas (IPN) do Mercado Pago sobre pagamentos e assinaturas.
+
+## Ordem de Implementacao
+
+1. Solicitar o secret `MERCADOPAGO_ACCESS_TOKEN`
+2. Criar tabela `subscriptions` via migracao
+3. Criar Edge Function `mercadopago-webhook`
+4. Reescrever `create-checkout` para Mercado Pago
+5. Reescrever `check-subscription` para consultar tabela local
+6. Reescrever `update-subscription` para Mercado Pago
+7. Simplificar `customer-portal`
+8. Reescrever `calculate-mrr`, `calculate-daily-revenue`, `count-paying-users`, `subscription-growth` para usar tabela local
+9. Atualizar frontend (Pricing.tsx, creative-pricing.tsx)
+10. Deploy e testar webhook
+
+## Sobre Colaboradores Extras
+
+Sim, o sistema de colaboradores extras funciona com Mercado Pago. A logica sera:
+- O valor da assinatura = preco do plano + (quantidade de extras * R$25)
+- Ao adicionar colaboradores, a Edge Function atualiza o valor do `preapproval` no Mercado Pago via API
+- Exemplo: Pro + 3 extras = R$197,99 + R$75 = R$272,99/mes
 
