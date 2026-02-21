@@ -57,6 +57,23 @@ serve(async (req) => {
     const user = userData.user;
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Owner bypass - always has full elite access
+    if (user.email === "mateusabcck@gmail.com") {
+      logStep("Owner bypass activated");
+      return new Response(JSON.stringify({
+        subscribed: true,
+        product_id: "elite",
+        plan_id: "elite",
+        subscription_end: null,
+        max_collaborators: 30,
+        extra_collaborators: 0,
+        total_collaborators: 30,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     // Parse request body for organization_id
     let organizationId: string | null = null;
     try {

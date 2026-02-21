@@ -7,6 +7,7 @@ import { AutomationDashboardModal } from "@/components/AutomationDashboardModal"
 import { GoogleCalendarModal } from "@/components/GoogleCalendarModal";
 import { ReactNode, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Settings, BarChart3 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,11 +18,13 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { user } = useAuth();
   const location = useLocation();
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const isOnChatPage = location.pathname === "/chat";
+  const isOwner = user?.email === "mateusabcck@gmail.com";
 
   // Inicializar com estado do localStorage para evitar flash
   const getInitialOpen = () => {
@@ -66,25 +69,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Button>
                 </>
               )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghostIcon"
-                    size="icon"
-                    onClick={() => setCalendarModalOpen(true)}
-                    className="h-9 w-9"
-                  >
-                    <img 
-                      src={googleCalendarIcon} 
-                      alt="Google Calendar" 
-                      className="h-7 w-7"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Meu Calendário</p>
-                </TooltipContent>
-              </Tooltip>
+              {isOwner && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghostIcon"
+                      size="icon"
+                      onClick={() => setCalendarModalOpen(true)}
+                      className="h-9 w-9"
+                    >
+                      <img 
+                        src={googleCalendarIcon} 
+                        alt="Google Calendar" 
+                        className="h-7 w-7"
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Meu Calendário</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <NotificationBell />
               <UserProfileMenu />
             </div>
