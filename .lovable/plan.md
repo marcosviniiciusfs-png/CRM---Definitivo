@@ -1,111 +1,89 @@
 
 
-# Redesign da Landing Page - Foco no CRM e Gestao de Vendas
+# Estabilizar Carregamento e Cache de Paginas
 
-## Direcionamento
+## Problema 1 - Metricas nao carrega
 
-O WhatsApp sera mencionado apenas uma vez, de forma discreta, em uma secao secundaria como "integracao disponivel". O foco principal sera nas capacidades do CRM: gestao de leads, funil de vendas, controle de equipe, metricas financeiras e produtividade.
+A pagina LeadMetrics tem um bug na logica do `useEffect`. O estado `loading` comeca como `true`, mas o `useEffect` depende de `[user, shouldLoadMetrics]`. Quando o `user` chega do auth (com delay), o `shouldLoadMetrics` pode ja ter sido consumido, ou a condicao falha porque `user` ainda nao existia no primeiro render. Resultado: a pagina fica presa em "Carregando metricas..." para sempre.
 
-## Estrutura da Pagina (10 secoes)
+**Correcao**: Simplificar o useEffect para depender de `isReady` e `organizationId` (vindos do `useOrganizationReady`), removendo o flag `shouldLoadMetrics` desnecessario. Carregar metricas assim que `isReady && organizationId` estiver disponivel.
 
-### 1. Navbar fixa
-- Logo KairoZ a esquerda
-- Links: Funcionalidades | Planos
-- Botoes: "Entrar" (outline) | "Comecar gratis" (vermelho)
-- Efeito: backdrop-blur ao rolar a pagina
+## Problema 2 - Paginas recarregam ao navegar
 
-### 2. Hero Section
-- Titulo: "O CRM que sua equipe de vendas precisa para **vender mais**"
-- Subtitulo: "Gerencie leads, controle seu funil de vendas, acompanhe metas e comissoes da sua equipe - tudo em um so lugar."
-- Botoes: "Comecar agora" + "Ver funcionalidades"
-- Ilustracao SVG: personagem cartoon ao lado de um dashboard com graficos e funil
-- Animacao: textos sobem com fade-in, ilustracao entra com scale
+Todas as paginas (Dashboard, Pipeline, LeadMetrics, Ranking, etc.) usam `useState` + `useEffect` para buscar dados. Quando o usuario navega para outra pagina e volta, o componente desmonta e remonta, perdendo todo o estado e refazendo todas as queries do zero.
 
-### 3. Faixa de confianca
-- "Tudo que voce precisa para gerenciar suas vendas"
-- Icones: Pipeline | Equipes | Metricas | Automacoes | Tarefas (icones SVG simples, nao logos de terceiros)
+**Correcao**: O projeto ja tem `@tanstack/react-query` instalado e configurado com `staleTime: 5 minutos`. Basta converter as funcoes de fetch para usar `useQuery`, que mantem os dados em cache global (no `QueryClient`). Quando o usuario volta para a pagina, os dados aparecem instantaneamente do cache.
 
-### 4. Secao "Problemas" (3 cards animados)
-- "Leads se perdem sem acompanhamento"
-- "Sem visao clara do funil de vendas"
-- "Equipe sem metas e controle de resultados"
-- Cada card com ilustracao SVG cartoon e animacao stagger
+## Mudancas por arquivo
 
-### 5. Secao "Solucoes" (layout alternado com ilustracoes)
-Tres blocos, imagem + texto alternando lados:
+### 1. `src/pages/LeadMetrics.tsx`
 
-**Bloco 1 - Pipeline Visual**
-- "Arraste e organize seus leads em etapas personalizadas do funil"
-- Ilustracao: funil com cards sendo movidos
+- Remover o estado `shouldLoadMetrics` e o `loading` manual
+- Usar `useQuery` para buscar as metricas (facebook, whatsapp, manual)
+- Usar `useQuery` separado para ads metrics
+- O `useEffect` atual sera substituido por queries declarativas que dependem de `organizationId`
+- O estado de loading vira do `isLoading` do useQuery
+- Dados ficam em cache: ao voltar para a pagina, aparecem instantaneamente
 
-**Bloco 2 - Gestao de Equipe e Comissoes**
-- "Acompanhe a performance de cada vendedor, defina metas e gerencie comissoes automaticamente"
-- Ilustracao: personagens em podio com graficos
+```typescript
+// ANTES (quebrado):
+const [loading, setLoading] = useState(true);
+const [shouldLoadMetrics, setShouldLoadMetrics] = useState(true);
+useEffect(() => {
+  if (user && shouldLoadMetrics) { loadMetrics(); }
+}, [user, shouldLoadMetrics]);
 
-**Bloco 3 - Metricas e Dashboard Financeiro**
-- "Receita do mes, ticket medio, taxa de conversao e ranking de vendedores em tempo real"
-- Ilustracao: dashboard com graficos e numeros
+// DEPOIS (estavel):
+const { data: metricsData, isLoading } = useQuery({
+  queryKey: ['lead-metrics', organizationId, dateRange],
+  queryFn: () => fetchAllMetrics(organizationId!, dateRange),
+  enabled: !!organizationId && !!dateRange?.from && !!dateRange?.to,
+  staleTime: 1000 * 60 * 5,
+});
+```
 
-### 6. Abas de Funcionalidades
-- Tabs interativas: **Leads** | **Pipeline** | **Equipes** | **Automacoes**
-- Cada tab mostra descricao + ilustracao SVG
-- Transicao animada entre tabs
-- WhatsApp aparece aqui APENAS como sub-item dentro da tab "Leads": "Integracao com WhatsApp disponivel em breve"
+### 2. `src/pages/Dashboard.tsx`
 
-### 7. Numeros/Metricas animados
-- 4 contadores:
-  - "Funis personalizaveis"
-  - "3x Mais produtividade"
-  - "Gestao completa de equipe"
-  - "Metricas em tempo real"
+- Converter `loadMetrics`, `loadConversionData`, `loadTopSellers`, `loadLossRate`, `loadGoal`, `loadLastContribution` para `useQuery`
+- Manter as subscriptions realtime, mas em vez de chamar as funcoes diretamente, usar `queryClient.invalidateQueries` para atualizar o cache
+- Resultado: Dashboard carrega instantaneamente ao voltar
 
-### 8. Preview de Planos
-- 3 cards: Star (R$197) | Pro (R$497) | Elite (R$1.970)
-- Pro destacado como popular
-- Botao "Ver detalhes" vai para /pricing
+```typescript
+// Realtime atualiza via invalidation:
+supabase.channel('dashboard-leads')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  })
+  .subscribe();
+```
 
-### 9. FAQ (Accordion)
-- "O que e o KairoZ?"
-- "Preciso instalar algo?"
-- "Posso testar antes de assinar?"
-- "Quantos colaboradores posso ter?"
-- "Tem integracao com WhatsApp?" (resposta: "Sim, a integracao com WhatsApp esta sendo preparada e estara disponivel em breve.")
+### 3. `src/pages/Pipeline.tsx`
 
-### 10. CTA Final + Footer
-- Fundo gradiente vermelho
-- "Pronto para organizar suas vendas?"
-- Botao grande
-- Footer com links de Privacidade e Termos
+- Converter fetch de leads, stages e funnels para `useQuery`
+- Pipeline e a pagina mais pesada; cache evita reload completo ao voltar
 
-## Visual e Animacoes
+### 4. `src/pages/Ranking.tsx`
 
-- **Fundo**: Branco/claro (sem StarsBackground preto)
-- **Cores**: Vermelho KairoZ para CTAs e destaques, cinza para textos
-- **Ilustracoes**: SVG inline cartunizados com personagens simplificados (sem rostos detalhados), elementos de funil, graficos e dashboards flutuando
-- **Framer Motion**: fade-in + translateY no hero, stagger nos cards, whileInView nas secoes, contadores animados, crossfade nas tabs
-- **Responsivo**: mobile-first, hero empilhado no mobile, 3 colunas no desktop
+- Converter fetch de ranking data para `useQuery`
 
-## Arquivos
+### 5. `src/pages/Leads.tsx`
+
+- Converter fetch de leads para `useQuery`
+
+## Resumo de arquivos
 
 | Arquivo | Acao |
 |---------|------|
-| `src/pages/Landing.tsx` | Reescrever - montar todas as secoes |
-| `src/components/landing/LandingNavbar.tsx` | Criar |
-| `src/components/landing/HeroSection.tsx` | Criar |
-| `src/components/landing/PainPointsSection.tsx` | Criar |
-| `src/components/landing/SolutionSection.tsx` | Criar |
-| `src/components/landing/FeaturesTabsSection.tsx` | Criar |
-| `src/components/landing/StatsSection.tsx` | Criar |
-| `src/components/landing/PricingPreview.tsx` | Criar |
-| `src/components/landing/FAQSection.tsx` | Criar |
-| `src/components/landing/LandingFooter.tsx` | Criar |
-| `src/components/landing/illustrations.tsx` | Criar - SVGs cartunizados |
+| `src/pages/LeadMetrics.tsx` | Corrigir bug de loading + converter para useQuery |
+| `src/pages/Dashboard.tsx` | Converter para useQuery + invalidation no realtime |
+| `src/pages/Pipeline.tsx` | Converter para useQuery |
+| `src/pages/Ranking.tsx` | Converter para useQuery |
+| `src/pages/Leads.tsx` | Converter para useQuery |
 
-## Mencao ao WhatsApp
+## Resultado esperado
 
-O WhatsApp aparece em apenas dois lugares discretos:
-1. Na aba "Leads" da secao de funcionalidades: "Integracao com WhatsApp disponivel em breve"
-2. No FAQ: resposta a pergunta sobre WhatsApp
-
-Em nenhum momento o WhatsApp aparece no Hero, nos titulos principais ou como funcionalidade destaque.
+1. LeadMetrics carrega corretamente (bug de loading corrigido)
+2. Todas as paginas carregam dados do cache ao voltar (sem loading spinner)
+3. Dados continuam atualizados via realtime (invalidation)
+4. Primeira visita carrega normalmente; visitas subsequentes sao instantaneas por 5 minutos
 
