@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
@@ -12,6 +11,14 @@ const logStep = (step: string, details?: any) => {
   console.log(`[UPDATE-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+const PLANS: Record<string, { price: number; maxCollaborators: number; title: string }> = {
+  star: { price: 47.99, maxCollaborators: 5, title: "Kairoz Star" },
+  pro: { price: 197.99, maxCollaborators: 15, title: "Kairoz Pro" },
+  elite: { price: 499.00, maxCollaborators: 30, title: "Kairoz Elite" },
+};
+
+const EXTRA_COLLABORATOR_PRICE = 25.00;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -22,199 +29,176 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
   );
 
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-    logStep("Stripe key verified");
+    const MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+    if (!MP_ACCESS_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN not configured");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
-    logStep("Authorization header found");
 
     const token = authHeader.replace("Bearer ", "");
-    logStep("Authenticating user with token");
-    
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    if (userError) throw new Error(`Auth error: ${userError.message}`);
     const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    if (!user?.email) throw new Error("User not authenticated");
+    logStep("User authenticated", { userId: user.id });
 
-    const { action, quantity, newPriceId } = await req.json();
-    logStep("Request data", { action, quantity, newPriceId });
+    const { action, quantity, newPlanId } = await req.json();
+    logStep("Request data", { action, quantity, newPlanId });
 
-    if (!action || !["add_collaborators", "upgrade_plan"].includes(action)) {
-      throw new Error("Invalid action. Must be 'add_collaborators' or 'upgrade_plan'");
-    }
+    // Get current subscription
+    const { data: currentSub, error: subError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "authorized")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    
-    // Find customer
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    if (customers.data.length === 0) {
-      throw new Error("No Stripe customer found");
-    }
-    const customerId = customers.data[0].id;
-    logStep("Found customer", { customerId });
-
-    // Find active subscription
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
-    });
-    
-    if (subscriptions.data.length === 0) {
-      throw new Error("No active subscription found");
-    }
-
-    const subscription = subscriptions.data[0];
-    logStep("Found active subscription", { subscriptionId: subscription.id });
-
-    // Product IDs
-    const EXTRA_COLLABORATOR_PRODUCT_ID = "prod_TVqy95fQXCZsWI";
-    const PLAN_PRODUCT_IDS = [
-      "prod_TVqqdFt1DYCcCI", // Básico
-      "prod_TVqr72myTFqI39", // Profissional
-      "prod_TVqrhrzuIdUDcS"  // Enterprise
-    ];
+    if (subError) throw subError;
+    if (!currentSub) throw new Error("No active subscription found");
+    logStep("Current subscription", { planId: currentSub.plan_id, mpId: currentSub.mp_preapproval_id });
 
     if (action === "add_collaborators") {
-      // Add or update extra collaborators
-      if (!quantity || quantity < 1) {
-        throw new Error("Quantity must be at least 1");
-      }
+      if (!quantity || quantity < 1) throw new Error("Quantity must be at least 1");
 
-      // Find existing extra collaborator item
-      const extraItem = subscription.items.data.find((item: any) => 
-        item.price.product === EXTRA_COLLABORATOR_PRODUCT_ID
-      );
+      const newExtraCount = (currentSub.extra_collaborators || 0) + quantity;
+      const plan = PLANS[currentSub.plan_id];
+      if (!plan) throw new Error("Invalid plan in subscription");
 
-      const items: any[] = [];
-      
-      if (extraItem) {
-        // Update existing item quantity
-        items.push({
-          id: extraItem.id,
-          quantity: (extraItem.quantity || 0) + quantity,
-        });
-        logStep("Updating existing extra collaborators", { 
-          currentQuantity: extraItem.quantity,
-          addingQuantity: quantity,
-          newQuantity: (extraItem.quantity || 0) + quantity
-        });
-      } else {
-        // Add new item - need to get the price_id for extra collaborators
-        const prices = await stripe.prices.list({
-          product: EXTRA_COLLABORATOR_PRODUCT_ID,
-          active: true,
-          limit: 1,
-        });
-        
-        if (prices.data.length === 0) {
-          throw new Error("Extra collaborator price not found");
-        }
+      const newAmount = plan.price + (newExtraCount * EXTRA_COLLABORATOR_PRICE);
 
-        items.push({
-          price: prices.data[0].id,
-          quantity: quantity,
-        });
-        logStep("Adding new extra collaborators item", { quantity });
-      }
-
-      // Update subscription
-      const updatedSubscription = await stripe.subscriptions.update(
-        subscription.id,
+      // Update preapproval amount in Mercado Pago
+      const mpResponse = await fetch(
+        `https://api.mercadopago.com/preapproval/${currentSub.mp_preapproval_id}`,
         {
-          items: items,
-          proration_behavior: 'create_prorations',
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+          },
+          body: JSON.stringify({
+            auto_recurring: {
+              transaction_amount: newAmount,
+            },
+            reason: plan.title + ` + ${newExtraCount} colaborador(es) extra(s)`,
+          }),
         }
       );
-      
-      logStep("Subscription updated with extra collaborators", { 
-        subscriptionId: updatedSubscription.id 
-      });
 
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: `${quantity} colaborador(es) extra(s) adicionado(s) com sucesso!`,
-        subscription: updatedSubscription
+      if (!mpResponse.ok) {
+        const errorText = await mpResponse.text();
+        logStep("MP update error", { status: mpResponse.status, error: errorText });
+        throw new Error(`Mercado Pago error: ${mpResponse.status}`);
+      }
+
+      // Update local DB
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          extra_collaborators: newExtraCount,
+          amount: newAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", currentSub.id);
+
+      logStep("Collaborators added", { newExtraCount, newAmount });
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `${quantity} colaborador(es) extra(s) adicionado(s)! Novo valor: R$ ${newAmount.toFixed(2)}/mês`,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
 
     } else if (action === "upgrade_plan") {
-      // Upgrade to a different plan
-      if (!newPriceId) {
-        throw new Error("newPriceId is required for upgrade");
-      }
+      if (!newPlanId || !PLANS[newPlanId]) throw new Error("Invalid newPlanId");
 
-      // Find current plan item
-      const currentPlanItem = subscription.items.data.find((item: any) => 
-        PLAN_PRODUCT_IDS.includes(item.price.product)
+      const planOrder = ["star", "pro", "elite"];
+      const currentIndex = planOrder.indexOf(currentSub.plan_id);
+      const newIndex = planOrder.indexOf(newPlanId);
+      if (newIndex <= currentIndex) throw new Error("Can only upgrade to a higher plan");
+
+      // Cancel current preapproval
+      await fetch(
+        `https://api.mercadopago.com/preapproval/${currentSub.mp_preapproval_id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+          },
+          body: JSON.stringify({ status: "cancelled" }),
+        }
       );
 
-      if (!currentPlanItem) {
-        throw new Error("Current plan item not found");
-      }
+      // Mark old subscription as cancelled
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", currentSub.id);
 
-      // Verify new price exists
-      const newPrice = await stripe.prices.retrieve(newPriceId);
-      if (!PLAN_PRODUCT_IDS.includes(newPrice.product as string)) {
-        throw new Error("Invalid plan price ID");
-      }
+      // Create new preapproval with upgraded plan
+      const newPlan = PLANS[newPlanId];
+      const extraCollabs = currentSub.extra_collaborators || 0;
+      const newAmount = newPlan.price + (extraCollabs * EXTRA_COLLABORATOR_PRICE);
+      const externalReference = `${user.id}|${newPlanId}|${extraCollabs}`;
 
-      logStep("Upgrading plan", { 
-        currentPriceId: currentPlanItem.price.id,
-        newPriceId 
-      });
-
-      // Update subscription with new plan
-      const items: any[] = [
-        {
-          id: currentPlanItem.id,
-          deleted: true, // Remove old plan
+      const mpResponse = await fetch("https://api.mercadopago.com/preapproval", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
         },
-        {
-          price: newPriceId,
-          quantity: 1, // Add new plan
-        }
-      ];
-
-      const updatedSubscription = await stripe.subscriptions.update(
-        subscription.id,
-        {
-          items: items,
-          proration_behavior: 'create_prorations',
-        }
-      );
-      
-      logStep("Subscription upgraded successfully", { 
-        subscriptionId: updatedSubscription.id 
+        body: JSON.stringify({
+          reason: newPlan.title + (extraCollabs > 0 ? ` + ${extraCollabs} colaborador(es) extra(s)` : ""),
+          external_reference: externalReference,
+          payer_email: user.email,
+          auto_recurring: {
+            frequency: 1,
+            frequency_type: "months",
+            transaction_amount: newAmount,
+            currency_id: "BRL",
+          },
+          back_url: `${req.headers.get("origin")}/success`,
+          status: "pending",
+        }),
       });
 
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: "Plano atualizado com sucesso!",
-        subscription: updatedSubscription
+      if (!mpResponse.ok) {
+        const errorText = await mpResponse.text();
+        throw new Error(`Mercado Pago error: ${mpResponse.status} - ${errorText}`);
+      }
+
+      const newPreapproval = await mpResponse.json();
+      logStep("New preapproval created for upgrade", { id: newPreapproval.id });
+
+      return new Response(JSON.stringify({
+        success: true,
+        url: newPreapproval.init_point,
+        message: "Redirecionando para o checkout do novo plano...",
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
-    
-    // Fallback (should not reach here)
+
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in update-subscription", { message: errorMessage });
+    logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
