@@ -5,8 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, UserCheck, Shield, Activity, ChevronLeft, ChevronRight, TrendingUp, DollarSign, UserPlus } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Users, UserCheck, Shield, Activity, ChevronLeft, ChevronRight, TrendingUp, DollarSign, UserPlus, Trash2, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -34,6 +38,7 @@ interface PlanChartData {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [mainUsersCount, setMainUsersCount] = useState(0);
   const [payingUsersCount, setPayingUsersCount] = useState(0);
@@ -47,8 +52,78 @@ export default function AdminDashboard() {
   const [hoveredPlanBarIndex, setHoveredPlanBarIndex] = useState<number | null>(null);
   const itemsPerPage = 10;
 
+  // Admin management state
+  const [admins, setAdmins] = useState<{ user_id: string; email: string; created_at: string }[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [addingAdmin, setAddingAdmin] = useState(false);
+
+  const loadAdmins = async () => {
+    setAdminsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-manage-admins', { method: 'GET' });
+      if (error) throw error;
+      setAdmins(data?.admins || []);
+    } catch (err: any) {
+      console.error('[AdminDashboard] Error loading admins:', err);
+    } finally {
+      setAdminsLoading(false);
+    }
+  };
+
+  const handleAddAdmin = async () => {
+    if (!newAdminEmail || !newAdminPassword) {
+      toast.error("Preencha e-mail e senha");
+      return;
+    }
+    if (newAdminPassword.length < 8) {
+      toast.error("A senha deve ter pelo menos 8 caracteres");
+      return;
+    }
+    setAddingAdmin(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-manage-admins', {
+        method: 'POST',
+        body: { action: 'create', email: newAdminEmail, password: newAdminPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Admin adicionado com sucesso!");
+      setShowAddAdmin(false);
+      setNewAdminEmail("");
+      setNewAdminPassword("");
+      loadAdmins();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao adicionar admin");
+    } finally {
+      setAddingAdmin(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (userId: string) => {
+    if (userId === user?.id) {
+      toast.error("Você não pode remover a si mesmo");
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-manage-admins', {
+        method: 'POST',
+        body: { action: 'delete', userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Admin removido com sucesso!");
+      loadAdmins();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover admin");
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadAdmins();
   }, []);
 
   const loadData = async () => {
@@ -634,6 +709,109 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+        {/* Gerenciamento de Admins */}
+        <Card className="glow-border">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle>Gerenciamento de Admins</CardTitle>
+                  <CardDescription>
+                    Usuários com acesso ao dashboard administrativo
+                  </CardDescription>
+                </div>
+              </div>
+              <Button onClick={() => setShowAddAdmin(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Admin
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {adminsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead>Data de Criação</TableHead>
+                    <TableHead className="w-[100px]">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {admins.map((admin) => (
+                    <TableRow key={admin.user_id}>
+                      <TableCell className="font-medium">{admin.email}</TableCell>
+                      <TableCell>
+                        {admin.created_at
+                          ? format(new Date(admin.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {admin.user_id !== user?.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveAdmin(admin.user_id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Dialog Adicionar Admin */}
+        <Dialog open={showAddAdmin} onOpenChange={setShowAddAdmin}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Novo Admin</DialogTitle>
+              <DialogDescription>
+                Crie um novo usuário com acesso ao dashboard administrativo.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="admin-email">E-mail</Label>
+                <Input
+                  id="admin-email"
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="admin-password">Senha</Label>
+                <Input
+                  id="admin-password"
+                  type="password"
+                  placeholder="Mínimo 8 caracteres"
+                  value={newAdminPassword}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddAdmin(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleAddAdmin} disabled={addingAdmin}>
+                {addingAdmin ? "Criando..." : "Criar Admin"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

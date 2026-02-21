@@ -9,13 +9,45 @@ interface SuperAdminRouteProps {
 
 export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
   const { user, loading: authLoading } = useAuth();
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(true);
 
-  if (authLoading) {
+  useEffect(() => {
+    const checkRole = async () => {
+      if (!user) {
+        setChecking(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.rpc('has_role', {
+          _user_id: user.id,
+          _role: 'super_admin'
+        });
+        if (error) {
+          console.error('[SuperAdminRoute] Error checking role:', error);
+          setIsSuperAdmin(false);
+        } else {
+          setIsSuperAdmin(!!data);
+        }
+      } catch (err) {
+        console.error('[SuperAdminRoute] Exception:', err);
+        setIsSuperAdmin(false);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    if (!authLoading) {
+      checkRole();
+    }
+  }, [user, authLoading]);
+
+  if (authLoading || checking) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Verificando sessão...</p>
+          <p className="text-muted-foreground">Verificando permissões...</p>
         </div>
       </div>
     );
@@ -25,9 +57,9 @@ export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // A verificação de super admin é garantida pelo backend
-  // (as RPCs list_all_users e count_main_users só retornam dados para super_admin)
-  // Assim, mesmo que outro usuário acesse /admin, não verá dados sensíveis.
+  if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
 }
-
