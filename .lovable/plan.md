@@ -1,68 +1,108 @@
 
 
-# Proteger Admin Dashboard e Gerenciar Admins
+# Redesign do Admin Dashboard - Layout com Tabs e Design Limpo
 
-## Situacao Atual
+## Visao Geral
 
-- A tabela `user_roles` existe mas esta **vazia** - nenhum usuario tem o role `super_admin`
-- O `SuperAdminRoute` nao verifica o role no frontend - qualquer usuario autenticado pode acessar `/admin`
-- A seguranca real esta nas RPCs (`list_all_users`, `count_main_users`) que verificam `super_admin` no backend, entao dados sensiveis nao vazam, mas a pagina carrega e mostra erros
+Reestruturar completamente o Admin Dashboard para seguir o design das imagens de referencia: navegacao por tabs no topo, fundo branco limpo, sem efeitos neon/glow, e separacao do conteudo em 4 abas.
 
-## O que sera feito
+## Estrutura de Navegacao (Navbar Superior)
 
-### 1. Inserir o role `super_admin` para o usuario `mateusabcck@gmail.com`
+Navbar fixa no topo com:
+- Logo "Kairoz" + badge "Admin" (lado esquerdo)
+- Tabs: **Dashboard** | **Pedidos** | **Clientes** | **Usuarios Admin** (centro)
+- Avatar + email do usuario logado (lado direito)
 
-Migracao SQL:
-```sql
-INSERT INTO public.user_roles (user_id, role)
-VALUES ('d70f265d-0fc6-4ef9-800d-7734bd2ea107', 'super_admin')
-ON CONFLICT (user_id, role) DO NOTHING;
-```
+## Aba 1: Dashboard
 
-### 2. Corrigir o `SuperAdminRoute` para verificar o role no frontend
+**Metric Cards (4 cards em linha):**
+- Receita Total (R$ X - Y assinantes Pro)
+- Ultimos 7 Dias (R$ X - Y novos Pro)
+- Total de Usuarios (X - Y gratuitos)
+- Taxa de Conversao (X% - Free -> Pro)
 
-Atualmente o componente deixa qualquer usuario autenticado passar. Sera modificado para:
-- Chamar `supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' })` ao montar
-- Se nao for super_admin, redirecionar para `/dashboard`
-- Mostrar loading enquanto verifica
+**Grafico "Clientes Pagantes vs Gratuitos - Ultimos 8 Meses":**
+- LineChart com 2 linhas (Pro e Gratuitos)
+- Legenda abaixo do grafico
 
-### 3. Adicionar funcionalidade de gerenciar admins no `AdminDashboard.tsx`
+**Secao inferior (2 colunas):**
+- Ultimas Assinaturas: lista com email, data e badge do plano (Pro/Free)
+- Resumo de Planos: Plano Pro (Ativo) com count + barra de progresso, Plano Gratuito com count + barra, Ticket medio (Pro)
 
-Adicionar uma secao no dashboard admin com:
-- Lista dos usuarios com role `super_admin` (query na tabela `user_roles`)
-- Botao "Adicionar Admin" que abre um dialog com campos de e-mail e senha
-- Ao confirmar, chamar uma nova Edge Function que:
-  1. Cria o usuario no `auth.users` (via admin API)
-  2. Insere o role `super_admin` na tabela `user_roles`
-- Botao de remover admin (exceto o proprio usuario logado)
+## Aba 2: Pedidos
 
-### 4. Criar Edge Function `admin-manage-admins`
+**Metric Cards (4):** Total de Pedidos, Receita Total, Pedidos Ativos, Pendentes
 
-Nova Edge Function que aceita:
-- **POST** com `{ action: 'create', email, password }` - cria usuario + insere role super_admin
-- **POST** com `{ action: 'delete', userId }` - remove role super_admin (nao deleta o usuario)
-- **GET** - lista todos os super_admins
+**Filtros:** Campo de busca + dropdown "Todos os status" + dropdown "Todos os planos" + botao "Exportar CSV"
 
-Validacao: apenas usuarios com role `super_admin` podem chamar essa funcao (verificado via service_role no backend).
+**Tabela:** CLIENTE | PLANO | VALOR | STATUS | DATA | ID PAGAMENTO
 
-### 5. Adicionar RLS policy para super_admins gerenciarem user_roles
+## Aba 3: Clientes
 
-Atualmente so existe policy de SELECT para o proprio usuario. Sera adicionada policy para super_admins poderem INSERT e DELETE na tabela.
+**Metric Cards (4):** Total de Clientes, Clientes Pagantes, Em Gratuito, Novos este Mes
 
-## Arquivos
+**Grafico:** "Crescimento de Clientes - Ultimos 8 Meses" (AreaChart com Pro + Gratuito)
+
+**Filtros:** Campo de busca + dropdown "Todos os planos" + botao "Exportar CSV"
+
+**Tabela:** EMAIL | DATA DE CADASTRO | PLANO | STATUS | TEMPO ASSINANTE | JA CANCELOU? | ID PAGAMENTO | ACOES (link "Plano")
+
+## Aba 4: Usuarios Admin
+
+**Layout 2 colunas:**
+- Esquerda: "Criar Novo Administrador" - formulario com Email + Senha + botao "Criar Administrador"
+- Direita: "Administradores Ativos" - lista com avatar, email, badge "Voce", data de adicao
+
+## Mudancas Visuais
+
+- Remover TODAS as classes `glow-border` e `glow-icon`
+- Remover GIF de paying users
+- Cards com borda sutil `border` padrao, fundo branco
+- Icones coloridos dentro de circulos (verde para $, azul para trending, roxo para usuarios, etc.)
+- Design completamente limpo e minimalista
+- Forcar tema claro no admin (`bg-white` em vez de `bg-background`)
+
+## Detalhes Tecnicos
+
+### Arquivos a modificar
 
 | Arquivo | Acao |
 |---------|------|
-| Migracao SQL | Inserir super_admin para mateusabcck@gmail.com + RLS policies |
-| `src/components/SuperAdminRoute.tsx` | Verificar role real via RPC |
-| `src/pages/AdminDashboard.tsx` | Adicionar secao de gerenciamento de admins |
-| `supabase/functions/admin-manage-admins/index.ts` | Nova Edge Function para CRUD de admins |
-| `supabase/config.toml` | Registrar nova funcao com verify_jwt = false |
+| `src/pages/AdminDashboard.tsx` | Reescrever completamente com layout de tabs |
+| `src/pages/AdminUserDetails.tsx` | Ajuste minimo - remover glow, manter funcionalidades |
+| `src/App.tsx` | Sem alteracao - rotas permanecem iguais |
 
-## Seguranca
+### Implementacao
 
-- O role `super_admin` e verificado **no backend** via funcao `has_role()` (SECURITY DEFINER)
-- A Edge Function valida o token JWT e verifica o role antes de executar qualquer acao
-- Nenhuma credencial e armazenada no frontend
-- O usuario nao pode remover a si mesmo da lista de admins
+O `AdminDashboard.tsx` sera reestruturado usando `Tabs` do Radix UI (ja disponivel em `src/components/ui/tabs.tsx`) para as 4 abas.
+
+**Todas as funcionalidades existentes serao mantidas:**
+- `loadData()` com RPCs e Edge Functions (count_main_users, list_all_users, count-paying-users, calculate-mrr, calculate-daily-revenue, subscription-growth)
+- `loadAdmins()`, `handleAddAdmin()`, `handleRemoveAdmin()` para gerenciamento de admins
+- Paginacao na tabela de usuarios
+- Navegacao para `/admin/user/:userId` ao clicar em um usuario
+- Dialog de adicionar admin
+
+**Dados reorganizados entre as tabs:**
+- Tab Dashboard: mrr, dailyRevenue, payingUsersCount, totalUsers, chartData, planChartData
+- Tab Pedidos: mesmos dados de users filtrados/apresentados como "pedidos" (assinaturas)
+- Tab Clientes: users completo com paginacao, grafico de crescimento
+- Tab Usuarios Admin: admins, formulario de criar admin
+
+**Novos calculos derivados:**
+- Taxa de conversao: `(payingUsersCount / totalUsers) * 100`
+- Usuarios gratuitos: `totalUsers - payingUsersCount`
+- Novos este mes: ja calculado em `newUsersThisMonth`
+- Ticket medio Pro: `mrr / payingUsersCount`
+
+### Icones dos MetricCards
+
+Cada metric card tera um icone dentro de um circulo colorido, seguindo o padrao das imagens:
+- `DollarSign` em circulo verde para receita
+- `TrendingUp` em circulo azul para ultimos 7 dias
+- `Users` em circulo laranja para total usuarios
+- `BarChart3` em circulo roxo para taxa de conversao
+- `ShoppingCart` em circulo azul para pedidos
+- `CheckCircle` em circulo verde para ativos
+- `Clock` em circulo vermelho para pendentes
 
