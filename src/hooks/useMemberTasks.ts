@@ -50,7 +50,7 @@ export function useMemberTasks(userId: string | undefined, organizationId: strin
           content,
           due_date,
           column_id,
-          kanban_columns (
+          kanban_columns!kanban_cards_column_id_fkey (
             id,
             title,
             position,

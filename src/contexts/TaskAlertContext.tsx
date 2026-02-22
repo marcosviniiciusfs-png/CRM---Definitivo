@@ -29,12 +29,52 @@ export function TaskAlertProvider({ children }: { children: React.ReactNode }) {
     return localStorage.getItem(AUDIO_PERMISSION_KEY) === 'true';
   });
   const [needsAudioPermission, setNeedsAudioPermission] = useState(false);
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const viewTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const isOnTasksPage = location.pathname === '/tasks';
+
+  // Fetch notification_sound_enabled from user profile
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchSoundPref = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('notification_sound_enabled')
+        .eq('user_id', user.id)
+        .single();
+      if (data) {
+        setNotificationSoundEnabled(data.notification_sound_enabled ?? true);
+      }
+    };
+    fetchSoundPref();
+
+    // Listen for realtime changes
+    const channel = supabase
+      .channel('profile-sound-pref')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newVal = (payload.new as any).notification_sound_enabled;
+          setNotificationSoundEnabled(newVal ?? true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   // Verificar se há tarefas pendentes não visualizadas
   const checkPendingTasks = useCallback(async () => {
@@ -177,7 +217,8 @@ export function TaskAlertProvider({ children }: { children: React.ReactNode }) {
     // - Há tarefas pendentes
     // - Tem permissão de áudio
     // - NÃO está na página de tarefas
-    if (!hasPendingTasks || !audioPermissionGranted || isOnTasksPage) {
+    // - Som de notificação está habilitado nas configurações
+    if (!hasPendingTasks || !audioPermissionGranted || isOnTasksPage || !notificationSoundEnabled) {
       return;
     }
 
@@ -210,7 +251,7 @@ export function TaskAlertProvider({ children }: { children: React.ReactNode }) {
         intervalRef.current = null;
       }
     };
-  }, [hasPendingTasks, audioPermissionGranted, isOnTasksPage]);
+  }, [hasPendingTasks, audioPermissionGranted, isOnTasksPage, notificationSoundEnabled]);
 
   // Timer de 5 segundos na página de tarefas
   useEffect(() => {
