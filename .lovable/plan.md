@@ -1,201 +1,103 @@
 
-# Correcoes Criticas do CRM: Modal, Calendar, Pipeline, Facebook e Persistencia
+# Plano: Mercado Pago Signature, Remocao de Ranking em Equipes, e Melhorias Financeiras/Colaboradores
 
-## Problema 1: Modal de edicao do lead - sidebar direita nao responsiva
+## 1. Mercado Pago - Webhook Signature Secret
 
-O modal `EditLeadModal.tsx` tem uma sidebar fixa de `w-80` (320px) que nao se adapta em telas menores. Os blocos "Valor do negocio" e "Dados do negocio" ficam cortados ou escondidos atras do conteudo principal.
+O Mercado Pago fornece uma chave secreta (signature) para validar que as notificacoes webhook sao autenticas. Atualmente o webhook `mercadopago-webhook` NAO valida a assinatura -- aceita qualquer request. A secret `MERCADOPAGO_WEBHOOK_SECRET` nao existe no projeto.
 
-### Solucao
-- Trocar o layout `flex` horizontal por um layout que empilha verticalmente em telas menores
-- A sidebar `w-80` deve usar `w-80 min-w-0` e em telas menores o modal deve usar `flex-col` em vez de `flex-row`
-- Adicionar `overflow-y-auto` na sidebar para garantir scroll quando o conteudo exceder a tela
-
-### Arquivo: `src/components/EditLeadModal.tsx`
-- Linha 784: Trocar `<div className="flex-1 flex overflow-hidden">` por `<div className="flex-1 flex flex-col md:flex-row overflow-hidden">`
-- Linha 1455: Trocar `<div className="w-80 border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto">` por `<div className="w-full md:w-80 border-t md:border-t-0 md:border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto max-h-[40vh] md:max-h-none">`
+### Alteracoes:
+- Solicitar ao usuario a chave de assinatura via ferramenta `add_secret` com nome `MERCADOPAGO_WEBHOOK_SECRET`
+- Atualizar `supabase/functions/mercadopago-webhook/index.ts` para validar o header `x-signature` usando HMAC-SHA256 antes de processar a notificacao
+- Rejeitar requests com assinatura invalida (retornando 401)
 
 ---
 
-## Problema 2: Botao "Agendar" visivel para todos os usuarios no LeadDetailsDialog
+## 2. Remover Ranking de Equipes da pagina Equipes
 
-O `LeadDetailsDialog.tsx` mostra o botao "Agendar" (Google Calendar) para todos os usuarios. Conforme a regra do CRM, essa funcionalidade deve ser restrita ao dono (mateusabcck@gmail.com).
+O componente `TeamSalesMetrics` esta renderizado na pagina Equipes (linhas 342-349 de `Equipes.tsx`). O usuario quer REMOVER isso da pagina Equipes. Ja esta presente no Ranking, onde deve ficar.
 
-### Solucao
-- Importar `useAuth` no `LeadDetailsDialog`
-- Verificar `user?.email === "mateusabcck@gmail.com"` antes de renderizar o botao "Agendar"
-- Esconder tambem o `CreateEventModal` para outros usuarios
-
-### Arquivo: `src/components/LeadDetailsDialog.tsx`
-- Importar `useAuth` de `@/contexts/AuthContext`
-- No componente, adicionar `const { user } = useAuth();` e `const isOwner = user?.email === "mateusabcck@gmail.com";`
-- Linha 191-199: Envolver o botao "Agendar" em `{isOwner && (...)}`
-- Linha 368-401: Envolver a secao de evento do calendario em `{isOwner && (...)}`
-- Linha 458-462 (CreateEventModal): Envolver em `{isOwner && (...)}`
+### Alteracao:
+- **`src/pages/Equipes.tsx`**: Remover o bloco que renderiza `<TeamSalesMetrics>` (linhas 342-349) e o import correspondente (linha 18)
 
 ---
 
-## Problema 3: Pipeline recarrega inteiro ao editar lead no modal
+## 3. Melhorias no Gerenciamento Financeiro e de Colaboradores
 
-Quando o usuario faz qualquer alteracao no `EditLeadModal` (responsavel, valor, etc.), o `onUpdate` callback chama `loadLeads()` que recarrega TODOS os leads do zero, causando o flash visual mostrado na imagem 3.
+### 3.1 Comissoes Automaticas (atualmente manual/vazio)
 
-### Solucao
-Duas partes:
+**Problema**: A tabela `commissions` existe com 2 registros pendentes e ha 1 `commission_config` configurada, mas NAO existe trigger/automacao que crie comissoes automaticamente quando um lead e ganho. As comissoes precisam ser criadas manualmente.
 
-**Parte A - EditLeadModal: parar de chamar onUpdate a cada micro-edicao**
+**Solucao**: Criar um trigger de banco de dados que, ao mover um lead para o estagio "won", calcule e insira automaticamente uma comissao na tabela `commissions` baseado na configuracao de `commission_configs` da organizacao.
 
-Atualmente, cada acao individual (mudar responsavel, adicionar item, mudar data) chama `onUpdate()` imediatamente. Isso dispara `loadLeads()` no Pipeline. A solucao e:
-- Remover todas as chamadas `onUpdate()` das acoes intermediarias (responsavel, datas, idade, descricao, items)
-- Manter `onUpdate()` APENAS no `handleSaveChanges` (botao Salvar) e no `onClose`
-- As atualizacoes de DB individuais (responsavel, data, etc.) continuam salvando no banco, mas sem disparar reload do Pipeline
+### Alteracoes:
+- Migracao SQL: criar funcao `auto_create_commission()` + trigger em `leads` quando `funnel_stage_id` muda para um estagio do tipo "won"
+- A funcao verifica se existe `commission_configs` ativa para a organizacao, calcula o valor e insere em `commissions`
 
-**Parte B - Pipeline: usar atualizacao local em vez de reload completo**
+### 3.2 Metas Individuais de Faturamento (Goals)
 
-Quando o EditLeadModal fecha (onClose/onUpdate), em vez de chamar `loadLeads()`, atualizar apenas o lead editado no estado local:
-- Criar funcao `refreshSingleLead(leadId)` que busca apenas 1 lead do banco e atualiza no estado
-- Usar isso no callback `onUpdate` do EditLeadModal
+**Problema**: A tabela `goals` existe mas os valores sao fallback fixo (R$50.000). Nao ha interface para admin/owner definir metas por colaborador.
 
-### Arquivo: `src/components/EditLeadModal.tsx`
-Remover `onUpdate()` das seguintes funcoes:
-- `handleAddItem` (linha 317)
-- `handleRemoveItem` (linha 338)
-- `handleUpdateQuantity` (linha 360)
-- `handleSaveQuickValue` (linha 409)
-- Selecao de colaborador (linha 1636)
-- Data de inicio (linhas 1702, 1730)
-- Data de conclusao (linhas 1811, 1839)
-- Idade (linha 2000)
-- Agendamento de venda (linhas 2069, 2094)
-- `saveDadosNegocio` (linha 158)
+**Solucao**: Adicionar um botao "Definir Meta" no `TopSalesReps` que abre um modal simples para definir a meta de faturamento de cada colaborador.
 
-Manter `onUpdate()` APENAS em `handleSaveChanges` (linha 739).
+### Alteracoes:
+- **`src/components/dashboard/TopSalesReps.tsx`**: Adicionar icone de edicao ao lado de cada vendedor (visivel apenas para owner/admin) que abre um dialog inline para definir `target_value` na tabela `goals`
+- Criar/atualizar o registro na tabela `goals` com upsert por `user_id + organization_id`
 
-### Arquivo: `src/pages/Pipeline.tsx`
-- Criar funcao `refreshSingleLead`:
-```typescript
-const refreshSingleLead = useCallback(async (leadId: string) => {
-  const { data } = await supabase
-    .from("leads")
-    .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
-    .eq("id", leadId)
-    .single();
-  
-  if (data) {
-    setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
-  }
-}, []);
-```
-- Linha 1204: Trocar `onUpdate={() => loadLeads(undefined, false)}` por `onUpdate={() => editingLead && refreshSingleLead(editingLead.id)}`
+### 3.3 Blocos de Producao - Custos Reais e Despesas
 
----
+**Problema**: Os blocos de producao calculam `total_cost` baseado apenas no `cost_price` dos itens vendidos. Nao ha como registrar despesas operacionais (aluguel, salarios, marketing, etc.) que afetam o lucro real.
 
-## Problema 4: Leads do Facebook com nome "Lead do Facebook"
+**Solucao**: Criar uma tabela `production_expenses` para registrar despesas mensais e um componente para adiciona-las dentro do modal de detalhe do bloco de producao.
 
-O webhook `facebook-leads-webhook` usa `leadInfo.full_name || leadInfo.first_name || leadInfo.name || 'Lead do Facebook'` para definir o nome. Porem os campos do formulario Facebook podem ter nomes variados como `nome_completo`, `first name` (com espaco), etc. que nao sao mapeados.
+### Alteracoes:
+- Migracao SQL: criar tabela `production_expenses` (id, organization_id, production_block_id, category, description, amount, created_at) com RLS
+- **`src/components/ProductionBlockDetailModal.tsx`**: Adicionar secao "Despesas" com formulario para adicionar despesas e lista das existentes
+- **`src/components/ProductionDashboard.tsx`**: Incluir despesas no calculo do lucro total exibido nos cards
 
-Ha 1492 leads com nome "Lead do Facebook", dos quais:
-- 407 tem campo `nome_completo` na descricao
-- 1085 tem campo `first name` (com espaco) na descricao
+### 3.4 Dashboard Financeiro Consolidado
 
-### Solucao - Duas partes:
+**Problema**: Nao existe uma visao financeira consolidada. Os dados estao espalhados entre blocos de producao, comissoes e leads.
 
-**Parte A - Corrigir webhook para futuros leads:**
+**Solucao**: Adicionar uma aba "Financeiro" na pagina Producao com resumo consolidado:
+- Receita total do mes (leads ganhos)
+- Custos dos produtos vendidos
+- Despesas operacionais (da nova tabela)
+- Comissoes pendentes/pagas
+- Lucro liquido real
 
-### Arquivo: `supabase/functions/facebook-leads-webhook/index.ts`
-Linha 458: Expandir o mapeamento de nome para incluir mais variantes:
-```typescript
-nome_lead: leadInfo.full_name || leadInfo.nome_completo || leadInfo['first name'] || leadInfo.first_name || leadInfo.name || leadInfo.nome || 'Lead do Facebook',
-```
+### Alteracoes:
+- **`src/pages/Producao.tsx`**: Adicionar terceira aba "Financeiro"
+- **`src/components/FinancialSummary.tsx`** (novo): Componente com cards de receita, custos, despesas, comissoes e lucro liquido, alimentado por queries na base
 
-Tambem ajustar a secao de parsing (linhas 322-327) para normalizar nomes de campos:
-```typescript
-fieldData.forEach((field: any) => {
-  const normalizedName = field.name.toLowerCase().replace(/\s+/g, '_');
-  leadInfo[field.name] = field.values?.[0] || '';
-  leadInfo[normalizedName] = field.values?.[0] || '';
-});
-```
+### 3.5 Historico de Atividades do Colaborador
 
-**Parte B - Corrigir leads existentes via SQL migration:**
+**Problema**: A tabela `system_activities` existe mas nao ha visualizacao no perfil do colaborador. Nao e possivel ver o historico de acoes de cada membro.
 
-Criar uma migration que atualiza os 1492 leads existentes:
-```sql
--- Atualizar leads que tem nome_completo no descricao_negocio
-UPDATE leads 
-SET nome_lead = (
-  SELECT trim(substring(descricao_negocio from 'nome_completo: ([^\n]+)'))
-)
-WHERE nome_lead = 'Lead do Facebook' 
-  AND descricao_negocio LIKE '%nome_completo:%'
-  AND trim(substring(descricao_negocio from 'nome_completo: ([^\n]+)')) IS NOT NULL
-  AND trim(substring(descricao_negocio from 'nome_completo: ([^\n]+)')) != '';
+**Solucao**: No `CollaboratorDashboard`, quando um colaborador e selecionado, mostrar um feed de atividades recentes (leads movidos, tarefas concluidas, vendas fechadas).
 
--- Atualizar leads que tem "first name" no descricao_negocio (e nao tem nome_completo)
-UPDATE leads 
-SET nome_lead = (
-  SELECT trim(substring(descricao_negocio from 'first name: ([^\n]+)'))
-)
-WHERE nome_lead = 'Lead do Facebook' 
-  AND descricao_negocio LIKE '%first name:%'
-  AND descricao_negocio NOT LIKE '%nome_completo:%'
-  AND trim(substring(descricao_negocio from 'first name: ([^\n]+)')) IS NOT NULL
-  AND trim(substring(descricao_negocio from 'first name: ([^\n]+)')) != '';
-```
+### Alteracoes:
+- **`src/components/CollaboratorDashboard.tsx`**: Adicionar secao "Atividades Recentes" abaixo das metricas do colaborador selecionado, consultando `system_activities` filtrado por `user_id`
+
+### 3.6 Indicadores de Performance (KPIs) por Colaborador na Tabela
+
+**Problema**: A tabela de colaboradores em `Colaboradores.tsx` ja mostra vendas/faturamento do mes, mas faltam indicadores visuais claros de performance (bom, medio, ruim).
+
+**Solucao**: Adicionar badges visuais de performance na tabela baseados em conversao e faturamento vs meta.
+
+### Alteracoes:
+- **`src/pages/Colaboradores.tsx`**: Na coluna de vendas/faturamento da tabela, adicionar indicador visual (verde/amarelo/vermelho) baseado na comparacao com a meta individual do colaborador
 
 ---
 
-## Problema 5: Alteracoes no modal nao refletem na pagina Leads
+## Resumo Tecnico
 
-A pagina `Leads.tsx` tem um listener realtime que faz reload com debounce de 500ms. Quando o usuario edita um lead no modal e salva, o realtime detecta o UPDATE e faz `loadLeads(true)` que recarrega tudo. Porem o problema reportado e que o valor nao atualiza -- isso ocorre porque as edicoes intermediarias (sem clicar Salvar) nao sao capturadas.
-
-### Solucao
-Apos a correcao do Problema 3 (onUpdate so no Salvar), o fluxo sera:
-1. Usuario edita campos no modal
-2. Clica "Salvar" -> `handleSaveChanges` atualiza o lead no banco -> chama `onUpdate()`
-3. O realtime listener da pagina Leads detecta o UPDATE e faz reload automatico (com 500ms debounce)
-
-Isso ja funciona. O problema real e que o modal chama `onUpdate` nas micro-edicoes mas essas alteram campos que a pagina Leads nao busca (ex: `data_inicio`), e o campo `valor` e atualizado via `lead_items` (tabela separada) sem trigger no `leads`. 
-
-A correcao adicional: no `handleSaveChanges`, garantir que o valor editado e salvo no banco antes de chamar `onUpdate`.
-
----
-
-## Problema 6: Pipeline, Leads e Chat - Persistencia com React Query
-
-### Pipeline (`src/pages/Pipeline.tsx`)
-Migrar para React Query com `staleTime: 5min`:
-- A funcao `loadLeads` vira a `queryFn` de um `useQuery`
-- Key: `['pipeline-leads', selectedFunnelId, user?.id]`
-- Realtime INSERT continua adicionando leads ao estado local
-- `refreshSingleLead` usa `queryClient.setQueryData` para atualizar localmente
-
-### Leads (`src/pages/Leads.tsx`)
-Migrar para React Query:
-- Key: `['leads-list', user?.id]`
-- `staleTime: 5min`
-- O realtime listener muda para `queryClient.invalidateQueries` com debounce
-- Infinite scroll continua funcionando via paginacao manual (ou `useInfiniteQuery`)
-
-### Chat (`src/pages/Chat.tsx`)
-Chat e o mais complexo por ter realtime intenso. Migrar parcialmente:
-- Lista de leads do chat: `useQuery` com `staleTime: 5min`
-- Mensagens: manter realtime direto (nao cachear mensagens antigas com React Query pois muda constantemente)
-
-### Arquivos afetados:
-- `src/pages/Pipeline.tsx` - Migrar carregamento para useQuery
-- `src/pages/Leads.tsx` - Migrar loadLeads para useQuery  
-- `src/pages/Chat.tsx` - Migrar lista de leads para useQuery
-
----
-
-## Resumo de impacto
-
-| Problema | Arquivo(s) | Tipo |
-|----------|-----------|------|
-| Modal responsivo | EditLeadModal.tsx | CSS/Layout |
-| Calendar restrito | LeadDetailsDialog.tsx | Logica |
-| Pipeline nao recarrega | EditLeadModal.tsx + Pipeline.tsx | Logica |
-| Facebook nome_completo | facebook-leads-webhook + Migration SQL | Backend + DB |
-| Leads nao reflete edits | Leads.tsx (ja funciona apos fix 3) | - |
-| Persistencia Pipeline | Pipeline.tsx | React Query |
-| Persistencia Leads | Leads.tsx | React Query |
-| Persistencia Chat | Chat.tsx | React Query |
+| Alteracao | Arquivo(s) | Tipo |
+|-----------|-----------|------|
+| MP Webhook Secret | mercadopago-webhook/index.ts + secret | Backend + Seguranca |
+| Remover ranking Equipes | Equipes.tsx | UI |
+| Comissoes automaticas | Migracao SQL (trigger) | Backend |
+| Metas individuais | TopSalesReps.tsx | UI + DB |
+| Despesas de producao | Migracao SQL + ProductionBlockDetailModal.tsx + ProductionDashboard.tsx | Backend + UI |
+| Dashboard financeiro | Producao.tsx + FinancialSummary.tsx (novo) | UI |
+| Atividades do colaborador | CollaboratorDashboard.tsx | UI |
+| KPIs visuais na tabela | Colaboradores.tsx | UI |
