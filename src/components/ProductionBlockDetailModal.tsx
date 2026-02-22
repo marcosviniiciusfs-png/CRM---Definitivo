@@ -127,7 +127,15 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
   };
 
   const handleAddExpense = async () => {
-    if (!newExpense.description || !newExpense.amount || !organizationId) return;
+    if (!newExpense.description) {
+      toast({ title: "Preencha a descrição da despesa", variant: "destructive" });
+      return;
+    }
+    if (!newExpense.amount || parseFloat(newExpense.amount) <= 0) {
+      toast({ title: "Informe um valor válido", variant: "destructive" });
+      return;
+    }
+    if (!organizationId) return;
     setAddingExpense(true);
     try {
       const { error } = await supabase.from("production_expenses").insert({
