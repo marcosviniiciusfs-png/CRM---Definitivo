@@ -13,9 +13,65 @@ import { OpenRequests } from "./dashboard/OpenRequests";
 import { WonBySource } from "./dashboard/WonBySource";
 import { ForecastChart } from "./dashboard/ForecastChart";
 import { CollaboratorMetrics } from "./dashboard/CollaboratorMetrics";
-import { TrendingUp, Users, Target, Zap } from "lucide-react";
-import { startOfDay, startOfWeek, startOfMonth, startOfQuarter, endOfDay, format, subMonths } from "date-fns";
+import { TrendingUp, Users, Target, Zap, Clock } from "lucide-react";
+import { startOfDay, startOfWeek, startOfMonth, startOfQuarter, endOfDay, format, subMonths, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+function ActivityFeed({ userId, organizationId }: { userId: string; organizationId: string }) {
+  const { data: activities = [], isLoading } = useQuery({
+    queryKey: ['collaborator-activities', userId, organizationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_activities")
+        .select("id, activity_type, description, created_at")
+        .eq("user_id", userId)
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false })
+        .limit(15);
+      return data || [];
+    },
+    enabled: !!userId && !!organizationId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Atividades Recentes</CardTitle></CardHeader>
+        <CardContent><div className="animate-pulse space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 bg-muted rounded" />)}</div></CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <Clock className="h-4 w-4" /> Atividades Recentes
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {activities.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma atividade registrada</p>
+        ) : (
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {activities.map((act) => (
+              <div key={act.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground line-clamp-2">{act.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(act.created_at), { addSuffix: true, locale: ptBR })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 type PeriodFilter = "today" | "week" | "month" | "quarter";
 
@@ -369,11 +425,14 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
 
       {/* Card de Métricas do Colaborador Selecionado */}
       {selectedCollaborator && selectedMember && selectedMetrics && (
-        <CollaboratorMetrics
-          collaborator={selectedMember}
-          metrics={selectedMetrics}
-          isLoading={isLoading}
-        />
+        <>
+          <CollaboratorMetrics
+            collaborator={selectedMember}
+            metrics={selectedMetrics}
+            isLoading={isLoading}
+          />
+          <ActivityFeed userId={selectedCollaborator} organizationId={orgId!} />
+        </>
       )}
 
       {/* Quick stats row */}

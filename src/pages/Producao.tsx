@@ -5,12 +5,14 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Factory, Package } from "lucide-react";
+import { Plus, Search, Factory, Package, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddEditItemModal } from "@/components/AddEditItemModal";
 import { ItemCard } from "@/components/ItemCard";
 import { ProductionDashboard } from "@/components/ProductionDashboard";
+import { FinancialSummary } from "@/components/FinancialSummary";
+import { useOrganizationReady as useOrgReady } from "@/hooks/useOrganizationReady";
 
 export interface Item {
   id: string;
@@ -29,6 +31,7 @@ export interface Item {
 }
 
 export default function Producao() {
+  const { organizationId } = useOrgReady();
   const [items, setItems] = useState<Item[]>([]);
   const [filteredItems, setFilteredItems] = useState<Item[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -133,6 +136,10 @@ export default function Producao() {
               <Package className="h-4 w-4" />
               Produtos da Empresa
             </TabsTrigger>
+            <TabsTrigger value="financeiro" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              <DollarSign className="h-4 w-4" />
+              Financeiro
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="producao" className="mt-6">
@@ -188,6 +195,14 @@ export default function Producao() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="financeiro" className="mt-6">
+            {organizationId ? (
+              <FinancialSummary organizationId={organizationId} />
+            ) : (
+              <p className="text-muted-foreground text-center py-8">Carregando...</p>
+            )}
           </TabsContent>
         </Tabs>
 

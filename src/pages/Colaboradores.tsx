@@ -134,6 +134,16 @@ const Colaboradores = () => {
         };
       });
 
+      // Fetch goals for KPI comparison
+      let goalsByUser: Record<string, number> = {};
+      try {
+        const { data: goalsData } = await supabase
+          .from('goals')
+          .select('user_id, target_value')
+          .eq('organization_id', contextOrgId);
+        (goalsData || []).forEach(g => { goalsByUser[g.user_id] = g.target_value; });
+      } catch {}
+
       const now = new Date();
       const thisMonth = now.getMonth();
       const thisYear = now.getFullYear();
@@ -187,6 +197,7 @@ const Colaboradores = () => {
         subscriptionLimits,
         salesByUser,
         pendingCommissionsByUser,
+        goalsByUser,
       };
     },
     enabled: isReady && !!contextOrgId && !!user,
@@ -203,6 +214,7 @@ const Colaboradores = () => {
   const subscriptionLimits = orgData?.subscriptionLimits ?? null;
   const salesByUser = orgData?.salesByUser ?? {};
   const pendingCommissionsByUser = orgData?.pendingCommissionsByUser ?? {};
+  const goalsByUser = orgData?.goalsByUser ?? {} as Record<string, number>;
   const isLoading = isQueryLoading || isMutating;
 
   const invalidateData = () => {
@@ -673,9 +685,25 @@ const Colaboradores = () => {
                           </TableCell>
                           <TableCell>
                             <div>
-                              <span className="text-sm font-semibold text-green-600">
-                                R$ {(colab.user_id ? (salesByUser[colab.user_id]?.revenue || 0) : 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                              </span>
+                              {(() => {
+                                const revenue = colab.user_id ? (salesByUser[colab.user_id]?.revenue || 0) : 0;
+                                const goal = colab.user_id ? goalsByUser[colab.user_id] : undefined;
+                                const pct = goal && goal > 0 ? (revenue / goal) * 100 : null;
+                                const kpiColor = pct === null ? '' : pct >= 100 ? 'text-emerald-600' : pct >= 60 ? 'text-amber-600' : 'text-red-600';
+                                const kpiBg = pct === null ? '' : pct >= 100 ? 'bg-emerald-100 dark:bg-emerald-900/30' : pct >= 60 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-red-100 dark:bg-red-900/30';
+                                return (
+                                  <>
+                                    <span className="text-sm font-semibold text-foreground">
+                                      R$ {revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                                    </span>
+                                    {pct !== null && (
+                                      <Badge variant="secondary" className={`ml-1 text-xs ${kpiBg} ${kpiColor} border-0`}>
+                                        {Math.round(pct)}%
+                                      </Badge>
+                                    )}
+                                  </>
+                                );
+                              })()}
                               {colab.user_id && pendingCommissionsByUser[colab.user_id] > 0 && (
                                 <p className="text-xs text-amber-600">
                                   Comissão: R$ {pendingCommissionsByUser[colab.user_id].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
