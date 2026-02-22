@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { User, Bell, Moon, Sun, CreditCard, Shield, Database, Download, Loader2 } from "lucide-react";
+import { User, Bell, Moon, Sun, CreditCard, Shield, Database, Download, Loader2, UserPlus, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -366,39 +366,42 @@ const Settings = () => {
             <CardContent className="space-y-4">
               {subscriptionData?.subscribed && subscriptionData.product_id ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium">Plano Atual</p>
-                      <Badge className="mt-1" variant="default">
+                  <div className="flex items-center justify-between p-4 border border-border/60 rounded-lg bg-muted/30">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Plano Atual</p>
+                      <Badge className="mt-0.5 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20" variant="outline">
                         {PLAN_NAMES[subscriptionData.product_id] || 'Pro'}
                       </Badge>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">Colaboradores</p>
-                      <p className="text-lg font-bold">{subscriptionData.total_collaborators}</p>
+                    <div className="text-right space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Colaboradores</p>
+                      <p className="text-xl font-semibold tabular-nums">{subscriptionData.total_collaborators}</p>
                     </div>
                   </div>
                   
                   {subscriptionData.subscription_end && (
-                    <div className="text-sm text-muted-foreground">
-                      Próxima renovação: {new Date(subscriptionData.subscription_end).toLocaleDateString('pt-BR')}
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Proxima renovacao: {new Date(subscriptionData.subscription_end).toLocaleDateString('pt-BR')}
+                    </p>
                   )}
                   
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-3">
                     <Button 
-                      variant="default" 
+                      size="sm"
                       onClick={() => setShowCollaboratorModal(true)}
-                      className="w-full"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
+                      <UserPlus className="h-4 w-4 mr-1.5" />
                       Adicionar Colaboradores
                     </Button>
                     <Button 
                       variant="outline" 
+                      size="sm"
                       onClick={() => navigate('/pricing')}
-                      className="w-full"
+                      className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-600/10 hover:border-emerald-500"
                     >
                       Ver Planos
+                      <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                     </Button>
                   </div>
                   
@@ -452,12 +455,17 @@ const Settings = () => {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-4 space-y-3">
+                <div className="text-center py-6 space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Você não possui uma assinatura ativa
+                    Voce nao possui uma assinatura ativa
                   </p>
-                  <Button onClick={() => navigate('/pricing')}>
+                  <Button 
+                    size="sm"
+                    onClick={() => navigate('/pricing')}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
                     Ver Planos
+                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                   </Button>
                 </div>
               )}
