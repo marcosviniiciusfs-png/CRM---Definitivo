@@ -33,6 +33,51 @@ serve(async (req) => {
     const MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
     if (!MP_ACCESS_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN not configured");
 
+    // Validate webhook signature
+    const WEBHOOK_SECRET = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
+    if (WEBHOOK_SECRET) {
+      const xSignature = req.headers.get("x-signature") || "";
+      const xRequestId = req.headers.get("x-request-id") || "";
+      const url = new URL(req.url);
+      const dataId = url.searchParams.get("data.id") || "";
+
+      // Parse x-signature: "ts=...,v1=..."
+      const parts: Record<string, string> = {};
+      xSignature.split(",").forEach(part => {
+        const [key, val] = part.trim().split("=", 2);
+        if (key && val) parts[key] = val;
+      });
+      const ts = parts["ts"] || "";
+      const v1 = parts["v1"] || "";
+
+      if (ts && v1) {
+        // Build manifest: "id:[dataId];request-id:[xRequestId];ts:[ts];"
+        const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+        const key = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(WEBHOOK_SECRET),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"]
+        );
+        const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
+        const computedHash = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+        if (computedHash !== v1) {
+          logStep("Invalid signature", { expected: computedHash, received: v1 });
+          return new Response(JSON.stringify({ error: "Invalid signature" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 401,
+          });
+        }
+        logStep("Signature validated successfully");
+      } else {
+        logStep("No signature parts found, skipping validation");
+      }
+    } else {
+      logStep("WEBHOOK_SECRET not configured, skipping signature validation");
+    }
+
     // Parse the notification
     const body = await req.json();
     logStep("Notification body", body);

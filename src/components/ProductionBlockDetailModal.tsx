@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -17,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DollarSign, TrendingUp, MessageSquare, Globe } from "lucide-react";
+import { DollarSign, TrendingUp, MessageSquare, Globe, Plus, Trash2, Receipt } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LoadingAnimation } from "./LoadingAnimation";
@@ -45,40 +49,52 @@ interface Sale {
   responsavel: string;
 }
 
+interface Expense {
+  id: string;
+  category: string;
+  description: string;
+  amount: number;
+  created_at: string;
+}
+
 interface ProductionBlockDetailModalProps {
   block: ProductionBlock;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function ProductionBlockDetailModal({
-  block,
-  open,
-  onOpenChange,
-}: ProductionBlockDetailModalProps) {
+const EXPENSE_CATEGORIES = [
+  { value: "rent", label: "Aluguel" },
+  { value: "salary", label: "Salários" },
+  { value: "marketing", label: "Marketing" },
+  { value: "tools", label: "Ferramentas/Software" },
+  { value: "taxes", label: "Impostos" },
+  { value: "other", label: "Outros" },
+];
+
+export function ProductionBlockDetailModal({ block, open, onOpenChange }: ProductionBlockDetailModalProps) {
   const [sales, setSales] = useState<Sale[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
+  const [newExpense, setNewExpense] = useState({ category: "other", description: "", amount: "" });
+  const [addingExpense, setAddingExpense] = useState(false);
   const { toast } = useToast();
+  const { organizationId, permissions } = useOrganization();
+  const isAdmin = !permissions.loading && (permissions.role === 'owner' || permissions.role === 'admin');
 
   useEffect(() => {
     if (open) {
       loadSalesDetails();
+      loadExpenses();
     }
   }, [open, block]);
 
   const loadSalesDetails = async () => {
     try {
       setLoading(true);
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data: memberData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .single();
-
+      const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", user.id).single();
       if (!memberData) return;
 
       const startDate = new Date(block.year, block.month - 1, 1);
@@ -86,129 +102,207 @@ export function ProductionBlockDetailModal({
 
       const { data, error } = await supabase
         .from("leads")
-        .select(`
-          id,
-          nome_lead,
-          source,
-          valor,
-          data_conclusao,
-          responsavel,
-          funnel_stages(stage_type)
-        `)
+        .select("id, nome_lead, source, valor, data_conclusao, responsavel, funnel_stages(stage_type)")
         .eq("organization_id", memberData.organization_id)
         .gte("data_conclusao", startDate.toISOString())
         .lte("data_conclusao", endDate.toISOString());
 
       if (error) throw error;
-
-      // Filter only won leads
       const wonSales = data?.filter(s => s.funnel_stages?.stage_type === 'won') || [];
       setSales(wonSales as Sale[]);
-
     } catch (error: any) {
-      toast({
-        title: "Erro ao carregar detalhes",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao carregar detalhes", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
+  const loadExpenses = async () => {
+    const { data } = await supabase
+      .from("production_expenses")
+      .select("*")
+      .eq("production_block_id", block.id)
+      .order("created_at", { ascending: false });
+    setExpenses((data || []) as Expense[]);
+  };
+
+  const handleAddExpense = async () => {
+    if (!newExpense.description || !newExpense.amount || !organizationId) return;
+    setAddingExpense(true);
+    try {
+      const { error } = await supabase.from("production_expenses").insert({
+        organization_id: organizationId,
+        production_block_id: block.id,
+        category: newExpense.category,
+        description: newExpense.description,
+        amount: parseFloat(newExpense.amount),
+      });
+      if (error) throw error;
+      toast({ title: "Despesa adicionada" });
+      setNewExpense({ category: "other", description: "", amount: "" });
+      loadExpenses();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setAddingExpense(false);
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    await supabase.from("production_expenses").delete().eq("id", id);
+    loadExpenses();
+  };
+
+  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const realProfit = block.total_revenue - block.total_cost - totalExpenses;
+
   const getSourceIcon = (source: string) => {
-    const lowerSource = source?.toLowerCase() || '';
-    if (lowerSource.includes('whatsapp')) {
-      return <MessageSquare className="h-4 w-4 text-green-600" />;
-    }
-    if (lowerSource.includes('facebook')) {
-      return <span className="text-blue-600 font-bold text-sm">f</span>;
-    }
-    if (lowerSource.includes('webhook') || lowerSource.includes('url')) {
-      return <Globe className="h-4 w-4 text-muted-foreground" />;
-    }
+    const lower = source?.toLowerCase() || '';
+    if (lower.includes('whatsapp')) return <MessageSquare className="h-4 w-4 text-green-600" />;
+    if (lower.includes('facebook')) return <span className="text-blue-600 font-bold text-sm">f</span>;
+    if (lower.includes('webhook') || lower.includes('url')) return <Globe className="h-4 w-4 text-muted-foreground" />;
     return <span className="text-muted-foreground text-xs">✏️</span>;
   };
 
   const getSourceLabel = (source: string) => {
-    const lowerSource = source?.toLowerCase() || '';
-    if (lowerSource.includes('whatsapp')) return 'WhatsApp';
-    if (lowerSource.includes('facebook')) return 'Facebook';
-    if (lowerSource.includes('webhook') || lowerSource.includes('url')) return 'Webhook';
+    const lower = source?.toLowerCase() || '';
+    if (lower.includes('whatsapp')) return 'WhatsApp';
+    if (lower.includes('facebook')) return 'Facebook';
+    if (lower.includes('webhook') || lower.includes('url')) return 'Webhook';
     return 'Manual';
   };
 
+  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
   const monthName = format(new Date(block.year, block.month - 1), "MMMM yyyy", { locale: ptBR });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="capitalize text-2xl">
-            📅 {monthName} - Detalhes de Produção
-          </DialogTitle>
+          <DialogTitle className="capitalize text-2xl">📅 {monthName} - Detalhes de Produção</DialogTitle>
         </DialogHeader>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <DollarSign className="h-8 w-8 text-green-600" />
                 <div>
                   <p className="text-sm text-muted-foreground">Receita</p>
-                  <p className="text-lg font-bold">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(block.total_revenue)}
-                  </p>
+                  <p className="text-lg font-bold">{fmt(block.total_revenue)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Receipt className="h-8 w-8 text-orange-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Despesas</p>
+                  <p className="text-lg font-bold text-orange-600">{fmt(totalExpenses)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <TrendingUp className="h-8 w-8 text-primary" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Lucro</p>
-                  <p className="text-lg font-bold text-primary">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(block.total_profit)}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Lucro Real</p>
+                  <p className={`text-lg font-bold ${realProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(realProfit)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="p-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">vs Mês Anterior</p>
-                {block.profit_change_percentage !== null ? (
-                  <Badge 
-                    variant={block.profit_change_percentage >= 0 ? "default" : "destructive"}
-                    className="text-sm"
-                  >
-                    {block.profit_change_percentage > 0 ? '+' : ''}
-                    {block.profit_change_percentage.toFixed(1)}%
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary">N/A</Badge>
-                )}
-              </div>
+              <p className="text-sm text-muted-foreground mb-2">vs Mês Anterior</p>
+              {block.profit_change_percentage !== null ? (
+                <Badge variant={block.profit_change_percentage >= 0 ? "default" : "destructive"} className="text-sm">
+                  {block.profit_change_percentage > 0 ? '+' : ''}{block.profit_change_percentage.toFixed(1)}%
+                </Badge>
+              ) : (
+                <Badge variant="secondary">N/A</Badge>
+              )}
             </CardContent>
           </Card>
         </div>
 
+        {/* Expenses Section */}
+        {isAdmin && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              <Receipt className="h-5 w-5" /> Despesas Operacionais
+            </h3>
+            <div className="flex gap-2 mb-3">
+              <Select value={newExpense.category} onValueChange={(v) => setNewExpense(p => ({ ...p, category: v }))}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map(c => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Descrição"
+                value={newExpense.description}
+                onChange={(e) => setNewExpense(p => ({ ...p, description: e.target.value }))}
+                className="flex-1"
+              />
+              <Input
+                type="number"
+                placeholder="Valor"
+                value={newExpense.amount}
+                onChange={(e) => setNewExpense(p => ({ ...p, amount: e.target.value }))}
+                className="w-[120px]"
+              />
+              <Button onClick={handleAddExpense} disabled={addingExpense} size="sm">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {expenses.length > 0 && (
+              <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.map((exp) => (
+                      <TableRow key={exp.id}>
+                        <TableCell>
+                          <Badge variant="secondary">{EXPENSE_CATEGORIES.find(c => c.value === exp.category)?.label || exp.category}</Badge>
+                        </TableCell>
+                        <TableCell>{exp.description}</TableCell>
+                        <TableCell className="text-right font-semibold">{fmt(Number(exp.amount))}</TableCell>
+                        <TableCell>
+                          <button onClick={() => handleDeleteExpense(exp.id)} className="text-destructive hover:text-destructive/80">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Sales Table */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">
-            Vendas do Mês ({block.total_sales} vendas)
-          </h3>
-
+          <h3 className="text-lg font-semibold mb-4">Vendas do Mês ({block.total_sales} vendas)</h3>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <LoadingAnimation />
-            </div>
+            <div className="flex justify-center py-8"><LoadingAnimation /></div>
           ) : sales.length > 0 ? (
             <div className="border rounded-lg">
               <Table>
@@ -231,12 +325,8 @@ export function ProductionBlockDetailModal({
                           <span className="text-sm">{getSourceLabel(sale.source)}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sale.valor)}
-                      </TableCell>
-                      <TableCell>
-                        {sale.data_conclusao ? format(new Date(sale.data_conclusao), "dd/MM/yyyy", { locale: ptBR }) : '-'}
-                      </TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(sale.valor)}</TableCell>
+                      <TableCell>{sale.data_conclusao ? format(new Date(sale.data_conclusao), "dd/MM/yyyy", { locale: ptBR }) : '-'}</TableCell>
                       <TableCell>{sale.responsavel || '-'}</TableCell>
                     </TableRow>
                   ))}
