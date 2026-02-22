@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
@@ -66,6 +67,7 @@ const Chat = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
   const { theme } = useTheme();
   const permissions = usePermissions();
+  const queryClient = useQueryClient();
   
   // Core state
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -223,14 +225,23 @@ const Chat = () => {
     // Profile changes are handled in the global channel below
   }, [user?.id]);
 
-  // CONSOLIDATED: Global realtime channel for leads, tags, tag assignments, and profile
-  // OPTIMIZED: Não esperar permissions.loading - carregar imediatamente
-  useEffect(() => {
-    // Carregar dados assim que tivermos user.id - não bloquear em permissions
-    if (!user?.id) return;
+  // React Query para persistência da lista de leads do chat
+  const chatLeadsQueryKey = ['chat-leads', user?.id];
+  
+  const { data: chatDataLoaded } = useQuery({
+    queryKey: chatLeadsQueryKey,
+    queryFn: async () => {
+      await loadAllChatData();
+      return { loaded: true };
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-    // Carregar dados imediatamente - permissions serão aplicadas nas queries
-    loadAllChatData();
+  // CONSOLIDATED: Global realtime channel for leads, tags, tag assignments, and profile
+  useEffect(() => {
+    if (!user?.id) return;
 
     notificationAudioRef.current = new Audio(`/notification.mp3?v=${Date.now()}`);
 
@@ -271,11 +282,11 @@ const Chat = () => {
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, () => {
         clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => loadAllChatData(), 500);
+        reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "leads" }, () => {
         clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => loadAllChatData(), 500);
+        reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
       })
       // Tags changes
       .on("postgres_changes", { event: "*", schema: "public", table: "lead_tags" }, () => loadAvailableTags())

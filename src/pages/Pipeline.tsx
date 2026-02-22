@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
@@ -76,6 +77,7 @@ const DEFAULT_STAGES = [
 const Pipeline = () => {
   const navigate = useNavigate();
   const { user, organizationId, isReady } = useOrganizationReady();
+  const queryClient = useQueryClient();
   const permissions = usePermissions();
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -312,21 +314,20 @@ const Pipeline = () => {
     loadUserProfile();
   }, [user?.id]);
 
-  // Carregamento de dados - executa na montagem inicial e quando o funil muda
-  useEffect(() => {
-    if (!user?.id) return;
-    // Aguardar permissões carregarem
-    if (permissions.loading) return;
-    // Para members, aguardar userProfile carregar
-    if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
-    
-    const loadPipelineData = async () => {
+  // React Query para persistência de dados do pipeline
+  const pipelineQueryKey = ['pipeline-leads', selectedFunnelId, user?.id, permissions.canViewAllLeads, userProfile?.full_name];
+  
+  const { data: pipelineData, isLoading: pipelineQueryLoading } = useQuery({
+    queryKey: pipelineQueryKey,
+    queryFn: async () => {
       const funnelData = await loadFunnel();
       await loadLeads(funnelData);
-    };
-    
-    loadPipelineData();
-  }, [selectedFunnelId, user?.id, permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
+      return { loaded: true };
+    },
+    enabled: !!user?.id && !permissions.loading && (permissions.canViewAllLeads || !!userProfile?.full_name),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const loadFunnel = async () => {
     if (!user?.id) return { isCustom: false, funnel: null };
@@ -1201,7 +1202,18 @@ const Pipeline = () => {
         lead={editingLead}
         open={!!editingLead}
         onClose={() => setEditingLead(null)}
-        onUpdate={() => loadLeads(undefined, false)}
+        onUpdate={async () => {
+          if (editingLead) {
+            const { data } = await supabase
+              .from("leads")
+              .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
+              .eq("id", editingLead.id)
+              .single();
+            if (data) {
+              setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
+            }
+          }
+        }}
       />
     )}
 

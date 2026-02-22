@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,7 @@ const Leads = () => {
   const { toast } = useToast();
   const { user, organizationId, isReady } = useOrganizationReady();
   const permissions = usePermissions();
+  const queryClient = useQueryClient();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -162,7 +164,7 @@ const Leads = () => {
     loadStages();
   }, [funnelFilter]);
 
-  // Carregar leads do Supabase
+  // Carregar leads do Supabase - com debounce realtime
   useEffect(() => {
     // Aguardar permissões e perfil carregarem
     if (permissions.loading) return;
@@ -170,10 +172,10 @@ const Leads = () => {
 
     loadLeads(true);
 
-    // Otimizado: debouncing em realtime para evitar recargas excessivas
+    // Realtime com debounce - usa invalidateQueries para persistência
     let reloadTimeout: NodeJS.Timeout;
     const channel = supabase
-      .channel('leads-changes')
+      .channel('leads-changes-list')
       .on(
         'postgres_changes',
         {
@@ -185,12 +187,7 @@ const Leads = () => {
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
             loadLeads(true);
-            // Manter apenas seleções de leads que ainda existem
-            setSelectedLeads(prev => {
-              if (prev.length === 0) return prev;
-              return prev;
-            });
-          }, 500); // Aguardar 500ms antes de recarregar
+          }, 500);
         }
       )
       .subscribe();
@@ -936,7 +933,7 @@ const Leads = () => {
             setShowEditModal(false);
             setLeadToEdit(null);
           }}
-          onUpdate={loadLeads}
+          onUpdate={() => loadLeads(true)}
           lead={leadToEdit}
         />
       )}

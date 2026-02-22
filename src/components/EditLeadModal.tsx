@@ -155,7 +155,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (error) throw error;
 
       toast.success('Dados do negócio salvos com sucesso!');
-      onUpdate();
     } catch (error) {
       console.error('Erro ao salvar dados do negócio:', error);
       toast.error('Erro ao salvar dados do negócio');
@@ -314,7 +313,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       } else {
         toast.success("Produto adicionado com sucesso!");
         await fetchLeadItems();
-        onUpdate(); // Notificar pai para atualizar a visualização
       }
     } catch (error) {
       console.error("Erro ao adicionar item:", error);
@@ -335,7 +333,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       toast.success("Produto removido com sucesso!");
       await fetchLeadItems();
-      onUpdate(); // Notificar pai para atualizar a visualização
     } catch (error) {
       console.error("Erro ao remover item:", error);
       toast.error("Erro ao remover produto");
@@ -357,7 +354,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (error) throw error;
 
       await fetchLeadItems();
-      onUpdate(); // Notificar pai para atualizar a visualização
     } catch (error) {
       console.error("Erro ao atualizar quantidade:", error);
       toast.error("Erro ao atualizar quantidade");
@@ -406,7 +402,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       setShowItemsDialog(false);
       setQuickValue("");
       toast.success("Valor atualizado com sucesso!");
-      onUpdate();
     } catch (error) {
       console.error("Erro ao atualizar valor:", error);
       toast.error("Erro ao atualizar valor");
@@ -781,7 +776,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         </DialogHeader>
 
         {/* Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Main Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <ScrollArea className="flex-1">
@@ -1452,7 +1447,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           </div>
 
           {/* Sidebar de Ações e Dados */}
-          <div className="w-80 border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto">
+          <div className="w-full md:w-80 border-t md:border-t-0 md:border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto max-h-[40vh] md:max-h-none">
             <div className="p-4 space-y-4">
               {/* Valor do negócio */}
               <Card className="bg-primary/5 border-primary/10">
@@ -1633,7 +1628,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
                                             setEditingResponsavel(false);
                                             toast.success(`Responsável alterado para ${displayName}`);
-                                            onUpdate();
                                           } catch (error) {
                                             console.error('Erro ao salvar responsável:', error);
                                             toast.error('Erro ao salvar responsável');
@@ -1699,7 +1693,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
                                   setEditingDataInicio(false);
                                   toast.success("Data de início atualizada");
-                                  onUpdate();
                                 } catch (error) {
                                   console.error('Erro ao salvar data de início:', error);
                                   toast.error('Erro ao salvar data');
@@ -1728,7 +1721,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
                                     setEditingDataInicio(false);
                                     toast.success("Data definida para hoje");
-                                    onUpdate();
                                   } catch (error) {
                                     console.error('Erro ao salvar data:', error);
                                     toast.error('Erro ao salvar data');
@@ -1809,7 +1801,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
                                   setEditingDataConclusao(false);
                                   toast.success("Data de conclusão atualizada");
-                                  onUpdate();
                                 } catch (error) {
                                   console.error('Erro ao salvar data de conclusão:', error);
                                   toast.error('Erro ao salvar data');
@@ -1838,7 +1829,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
                                     setEditingDataConclusao(false);
                                     toast.success("Data definida para hoje");
-                                    onUpdate();
                                   } catch (error) {
                                     console.error('Erro ao salvar data:', error);
                                     toast.error('Erro ao salvar data');
@@ -1997,7 +1987,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
                                     setEditingIdade(false);
                                     toast.success("Idade atualizada com sucesso!");
-                                    onUpdate();
                                   } catch (error) {
                                     console.error('Erro ao salvar idade:', error);
                                     toast.error('Erro ao salvar idade');
@@ -2066,7 +2055,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   // Clear from DB
                                   supabase.from('leads').update({ data_agendamento_venda: null }).eq('id', lead.id).then(() => {
                                     toast.success("Agendamento removido");
-                                    onUpdate();
                                   });
                                 }}
                               >
@@ -2091,7 +2079,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     setDataAgendamentoVenda(dateTime);
                                     setEditingAgendamentoVenda(false);
                                     toast.success("Agendamento de venda salvo!");
-                                    onUpdate();
                                   } catch (error) {
                                     console.error('Erro ao salvar agendamento:', error);
                                     toast.error('Erro ao salvar agendamento');
