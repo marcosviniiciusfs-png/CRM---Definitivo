@@ -69,6 +69,17 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
     if (existing) {
       // Recalculate metrics for the current block
       const metrics = await calculateMetrics(organizationId, month, year);
+
+      // Fetch operational expenses for this block
+      const { data: expenses } = await supabase
+        .from("production_expenses")
+        .select("amount")
+        .eq("organization_id", organizationId)
+        .eq("production_block_id", existing.id);
+
+      const totalExpenses = expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const realProfit = metrics.totalRevenue - metrics.totalCost - totalExpenses;
+
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
 
@@ -81,7 +92,7 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
         .single();
 
       const previousProfit = previousBlock?.total_profit || 0;
-      const profitChange = metrics.profit - previousProfit;
+      const profitChange = realProfit - previousProfit;
       const profitChangePercentage = previousProfit > 0 ? (profitChange / previousProfit) * 100 : 0;
 
       await supabase
@@ -90,7 +101,7 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
           total_sales: metrics.totalSales,
           total_revenue: metrics.totalRevenue,
           total_cost: metrics.totalCost,
-          total_profit: metrics.profit,
+          total_profit: realProfit,
           previous_month_profit: previousProfit,
           profit_change_value: profitChange,
           profit_change_percentage: profitChangePercentage,
@@ -101,7 +112,7 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
       return;
     }
 
-    // Create new block
+    // Create new block (no expenses yet for a new block)
     const metrics = await calculateMetrics(organizationId, month, year);
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
