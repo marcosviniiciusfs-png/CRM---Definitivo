@@ -2579,6 +2579,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_section_access: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_enabled: boolean
+          section_key: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          section_key: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          section_key?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_sessions: {
         Row: {
           created_at: string
