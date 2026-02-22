@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2, CreditCard } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2, CreditCard, Lock, Unlock } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -63,6 +64,26 @@ export default function AdminUserDetails() {
   const [selectedPlan, setSelectedPlan] = useState<string>('none');
   const [savingPlan, setSavingPlan] = useState(false);
   
+  // Section access control states
+  const SECTION_KEYS = [
+    { key: 'dashboard', label: 'Início', locked: false },
+    { key: 'pipeline', label: 'Pipeline', locked: false },
+    { key: 'leads', label: 'Leads', locked: false },
+    { key: 'lead-metrics', label: 'Métricas', locked: true },
+    { key: 'lead-distribution', label: 'Roleta de Leads', locked: true },
+    { key: 'chat', label: 'Chat', locked: true },
+    { key: 'ranking', label: 'Ranking', locked: false },
+    { key: 'colaboradores', label: 'Colaboradores', locked: false },
+    { key: 'producao', label: 'Produção', locked: false },
+    { key: 'equipes', label: 'Equipes', locked: false },
+    { key: 'atividades', label: 'Atividades', locked: false },
+    { key: 'tasks', label: 'Tarefas', locked: false },
+    { key: 'integrations', label: 'Integrações', locked: true },
+    { key: 'settings', label: 'Configurações', locked: false },
+  ];
+  const [sectionAccess, setSectionAccess] = useState<Record<string, boolean>>({});
+  const [savingSections, setSavingSections] = useState(false);
+  
   // Estados para confirmação
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showTempPassConfirm, setShowTempPassConfirm] = useState(false);
@@ -113,6 +134,23 @@ export default function AdminUserDetails() {
           setCurrentPlan('none');
           setSelectedPlan('none');
         }
+
+        // Load section access
+        const { data: accessData } = await supabase
+          .from('user_section_access')
+          .select('section_key, is_enabled')
+          .eq('user_id', userId!);
+        
+        const accessMap: Record<string, boolean> = {};
+        // Initialize defaults
+        SECTION_KEYS.forEach(s => {
+          accessMap[s.key] = !s.locked; // default: enabled for normal, disabled for locked
+        });
+        // Override with DB values
+        (accessData || []).forEach((row: any) => {
+          accessMap[row.section_key] = row.is_enabled;
+        });
+        setSectionAccess(accessMap);
       } else {
         toast.error("Usuário não encontrado");
         navigate("/admin");
@@ -164,6 +202,31 @@ export default function AdminUserDetails() {
     setTargetUser({ id: targetUserId, email: targetEmail });
     setCustomMessage("");
     setShowResetConfirm(true);
+  };
+
+  const handleSaveSectionAccess = async () => {
+    if (!userId) return;
+    setSavingSections(true);
+    try {
+      const rows = Object.entries(sectionAccess).map(([key, enabled]) => ({
+        user_id: userId,
+        section_key: key,
+        is_enabled: enabled,
+        updated_at: new Date().toISOString(),
+      }));
+      
+      const { error } = await supabase
+        .from('user_section_access')
+        .upsert(rows, { onConflict: 'user_id,section_key' });
+      
+      if (error) throw error;
+      toast.success('Acessos atualizados com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao salvar acessos:', error);
+      toast.error(`Erro ao salvar acessos: ${error.message}`);
+    } finally {
+      setSavingSections(false);
+    }
   };
 
   // Abrir diálogo de confirmação para senha temporária
@@ -517,6 +580,51 @@ export default function AdminUserDetails() {
                 {savingPlan ? 'Salvando...' : 'Salvar Plano'}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Controle de Acesso por Seção */}
+        <Card className="bg-white border-gray-200 text-gray-900">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-gray-900">
+              <Shield className="w-5 h-5" />
+              Controle de Acesso por Seção
+            </CardTitle>
+            <CardDescription className="text-gray-500">
+              Defina quais seções este usuário pode visualizar e acessar
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SECTION_KEYS.map(section => (
+                <div key={section.key} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                  <div className="flex items-center gap-2">
+                    {section.locked ? (
+                      <Lock className="w-4 h-4 text-amber-500" />
+                    ) : (
+                      <Unlock className="w-4 h-4 text-gray-400" />
+                    )}
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">{section.label}</span>
+                      {section.locked && (
+                        <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Em breve</span>
+                      )}
+                    </div>
+                  </div>
+                  <Switch
+                    checked={sectionAccess[section.key] ?? !section.locked}
+                    onCheckedChange={(checked) => setSectionAccess(prev => ({ ...prev, [section.key]: checked }))}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button
+              onClick={handleSaveSectionAccess}
+              disabled={savingSections}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {savingSections ? 'Salvando...' : 'Salvar Acessos'}
+            </Button>
           </CardContent>
         </Card>
 

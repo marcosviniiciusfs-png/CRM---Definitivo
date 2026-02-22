@@ -105,6 +105,7 @@ export default function AdminDashboard() {
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [subscriptionMap, setSubscriptionMap] = useState<Record<string, string>>({});
   const [addingAdmin, setAddingAdmin] = useState(false);
 
   // Filters
@@ -191,6 +192,16 @@ export default function AdminDashboard() {
       if (usersError) throw usersError;
       setUsers(usersData || []);
 
+      // Load subscriptions for plan mapping
+      const { data: subsData } = await supabase
+        .from('subscriptions')
+        .select('user_id, plan_id, status')
+        .eq('status', 'authorized');
+      
+      const subMap: Record<string, string> = {};
+      (subsData || []).forEach((s: any) => { subMap[s.user_id] = s.plan_id; });
+      setSubscriptionMap(subMap);
+
       const [payingResult, mrrResult, dailyRevenueResult, chartResult] = await Promise.all([
         supabase.functions.invoke('count-paying-users'),
         supabase.functions.invoke('calculate-mrr'),
@@ -242,6 +253,17 @@ export default function AdminDashboard() {
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+  const PLAN_NAMES: Record<string, string> = { star: 'Star', pro: 'Pro', elite: 'Elite' };
+  const getUserPlan = (userId: string) => subscriptionMap[userId] || 'none';
+  const getUserPlanLabel = (userId: string) => PLAN_NAMES[getUserPlan(userId)] || 'Free';
+  const getUserPlanClass = (userId: string) => {
+    const plan = getUserPlan(userId);
+    if (plan === 'star') return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    if (plan === 'pro') return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (plan === 'elite') return 'bg-purple-50 text-purple-700 border-purple-200';
+    return 'bg-gray-50 text-gray-500 border-gray-200';
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -389,8 +411,8 @@ export default function AdminDashboard() {
                           <p className="text-sm font-medium text-gray-900">{u.email}</p>
                           <p className="text-xs text-gray-400">{format(new Date(u.created_at), "dd/MM/yyyy", { locale: ptBR })}</p>
                         </div>
-                        <Badge variant="outline" className={u.email_confirmed_at ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-gray-50 text-gray-500 border-gray-200"}>
-                          {u.email_confirmed_at ? "Pro" : "Free"}
+                        <Badge variant="outline" className={getUserPlanClass(u.id)}>
+                          {getUserPlanLabel(u.id)}
                         </Badge>
                       </div>
                     ))}
@@ -494,11 +516,11 @@ export default function AdminDashboard() {
                       <TableRow key={u.id} className="hover:bg-gray-50">
                         <TableCell className="text-gray-900 font-medium">{u.email}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={u.email_confirmed_at ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-gray-50 text-gray-500 border-gray-200"}>
-                            {u.email_confirmed_at ? "Pro" : "Free"}
+                          <Badge variant="outline" className={getUserPlanClass(u.id)}>
+                            {getUserPlanLabel(u.id)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-gray-700">{u.email_confirmed_at ? formatCurrency(ticketMedio) : "R$ 0,00"}</TableCell>
+                        <TableCell className="text-gray-700">{getUserPlan(u.id) !== 'none' ? formatCurrency(ticketMedio) : "R$ 0,00"}</TableCell>
                         <TableCell>
                           {u.last_sign_in_at ? (
                             <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ativo</Badge>
@@ -606,8 +628,8 @@ export default function AdminDashboard() {
                         <TableCell className="text-gray-900 font-medium">{u.email}</TableCell>
                         <TableCell className="text-gray-500 text-sm">{format(new Date(u.created_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={u.email_confirmed_at ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-gray-50 text-gray-500 border-gray-200"}>
-                            {u.email_confirmed_at ? "Pro" : "Free"}
+                          <Badge variant="outline" className={getUserPlanClass(u.id)}>
+                            {getUserPlanLabel(u.id)}
                           </Badge>
                         </TableCell>
                         <TableCell>

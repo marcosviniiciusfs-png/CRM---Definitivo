@@ -7,6 +7,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { MenuLockToggle } from "@/components/MenuLockToggle";
 import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { useTaskAlert } from "@/contexts/TaskAlertContext";
@@ -35,8 +36,26 @@ const PLAN_NAMES: { [key: string]: string } = {
   'elite': 'Elite'
 };
 
-// Features bloqueadas - "Em breve"
+// Features bloqueadas - "Em breve" (default, pode ser liberado por user_section_access)
 const LOCKED_FEATURES = ['/lead-metrics', '/lead-distribution', '/chat', '/integrations'];
+
+// Mapeamento URL -> section_key
+const URL_TO_SECTION: Record<string, string> = {
+  '/dashboard': 'dashboard',
+  '/pipeline': 'pipeline',
+  '/leads': 'leads',
+  '/lead-metrics': 'lead-metrics',
+  '/lead-distribution': 'lead-distribution',
+  '/chat': 'chat',
+  '/ranking': 'ranking',
+  '/administrativo/colaboradores': 'colaboradores',
+  '/administrativo/producao': 'producao',
+  '/administrativo/equipes': 'equipes',
+  '/administrativo/atividades': 'atividades',
+  '/tasks': 'tasks',
+  '/integrations': 'integrations',
+  '/settings': 'settings',
+};
 
 const items = [
   { title: "Início", url: "/dashboard", icon: Home },
@@ -69,6 +88,41 @@ function AppSidebarComponent() {
   const permissions = usePermissions();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
   
+  // Section access control
+  const [sectionAccess, setSectionAccess] = useState<Record<string, boolean> | null>(null);
+  
+  useEffect(() => {
+    if (!user?.id) return;
+    const loadAccess = async () => {
+      const { data } = await supabase
+        .from('user_section_access')
+        .select('section_key, is_enabled')
+        .eq('user_id', user.id);
+      if (data && data.length > 0) {
+        const map: Record<string, boolean> = {};
+        data.forEach((r: any) => { map[r.section_key] = r.is_enabled; });
+        setSectionAccess(map);
+      }
+    };
+    loadAccess();
+  }, [user?.id]);
+
+  // Helper: check if a URL is visible based on section access
+  const isSectionVisible = useCallback((url: string) => {
+    if (!sectionAccess) return undefined; // no overrides loaded
+    const key = URL_TO_SECTION[url];
+    if (!key) return undefined;
+    return sectionAccess[key];
+  }, [sectionAccess]);
+
+  // Helper: check if a feature should be locked
+  const isFeatureLocked = useCallback((url: string) => {
+    const access = isSectionVisible(url);
+    if (access === true) return false; // explicitly unlocked
+    if (access === false) return true; // explicitly disabled (hidden)
+    return LOCKED_FEATURES.includes(url); // default behavior
+  }, [isSectionVisible]);
+
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
   const activeClass = "bg-sidebar-accent";
@@ -143,12 +197,16 @@ function AppSidebarComponent() {
                   return null;
                 }
 
-                const isLocked = LOCKED_FEATURES.includes(item.url);
+                // Section access: if explicitly disabled, hide completely
+                const accessOverride = isSectionVisible(item.url);
+                if (accessOverride === false) return null;
+
+                const locked = isFeatureLocked(item.url);
                 
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild={!isLocked}>
-                      {isLocked ? (
+                    <SidebarMenuButton asChild={!locked}>
+                      {locked ? (
                         open ? (
                           <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base px-3 py-2.5")}>
                             <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -202,20 +260,24 @@ function AppSidebarComponent() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {administrativoItems.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton asChild>
-                              <NavLink
-                                to={subItem.url}
-                                className={cn(hoverClass, "text-sidebar-foreground text-sm px-3 py-2")}
-                              activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
-                              >
-                                <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                                <span>{subItem.title}</span>
-                              </NavLink>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
+                        {administrativoItems.map((subItem) => {
+                          const subAccess = isSectionVisible(subItem.url);
+                          if (subAccess === false) return null;
+                          return (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton asChild>
+                                <NavLink
+                                  to={subItem.url}
+                                  className={cn(hoverClass, "text-sidebar-foreground text-sm px-3 py-2")}
+                                activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
+                                >
+                                  <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                                  <span>{subItem.title}</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          );
+                        })}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
@@ -223,7 +285,11 @@ function AppSidebarComponent() {
               )}
 
               {bottomItems.map((item) => {
-                const isLocked = LOCKED_FEATURES.includes(item.url);
+                // Section access: if explicitly disabled, hide completely
+                const accessOverride = isSectionVisible(item.url);
+                if (accessOverride === false) return null;
+
+                const locked = isFeatureLocked(item.url);
                 
                 // Indicador especial para Tarefas
                 const isTasksItem = item.url === '/tasks';
@@ -231,7 +297,7 @@ function AppSidebarComponent() {
                 const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
                 const warningBgClass = showWarningIndicator ? "bg-amber-400/10" : "";
                 
-                if (isLocked) {
+                if (locked) {
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton>
