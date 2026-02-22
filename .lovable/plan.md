@@ -1,98 +1,201 @@
 
-# Auditoria de Redundancias, Persistencia de Paginas e Otimizacao de Producao
+# Correcoes Criticas do CRM: Modal, Calendar, Pipeline, Facebook e Persistencia
 
-## 1. Auditoria Completa de Redundancias
+## Problema 1: Modal de edicao do lead - sidebar direita nao responsiva
 
-### 1.1 "Top Vendedores vs Meta" no Colaboradores Dashboard
-**Problema:** O componente `TopSalesReps` mostra vendedores vs meta, mas a meta usa valor fallback fixo de R$50.000 (`target: userGoal?.target_value || 50000`). A tabela `goals` existe e tem registros, mas nao ha interface para o admin/owner definir metas individuais por colaborador.
-**Decisao:** MANTER e MELHORAR. A tabela `goals` ja existe. Vamos adicionar um pequeno botao de "Definir Meta" ao lado do titulo ou dentro do seletor de colaborador, permitindo que admins/owners definam a meta de faturamento de cada colaborador. Isso torna o componente funcional de verdade.
+O modal `EditLeadModal.tsx` tem uma sidebar fixa de `w-80` (320px) que nao se adapta em telas menores. Os blocos "Valor do negocio" e "Dados do negocio" ficam cortados ou escondidos atras do conteudo principal.
 
-### 1.2 "TeamSalesMetrics" nas Equipes vs "Times Ativos" no Ranking
-**Problema:** A pagina Equipes mostra `TeamSalesMetrics` (ranking de vendas por equipe do mes). A pagina Ranking mostra apenas "Times Ativos" (avatares dos times, sem metricas). O usuario quer mover o ranking de equipes para dentro do Ranking, substituindo "Times Ativos".
-**Decisao:** MOVER. Substituir o footer "Times Ativos" no Ranking pelo componente `TeamSalesMetrics` adaptado. Manter tambem nas Equipes (la e contextual).
+### Solucao
+- Trocar o layout `flex` horizontal por um layout que empilha verticalmente em telas menores
+- A sidebar `w-80` deve usar `w-80 min-w-0` e em telas menores o modal deve usar `flex-col` em vez de `flex-row`
+- Adicionar `overflow-y-auto` na sidebar para garantir scroll quando o conteudo exceder a tela
 
-### 1.3 "SalesGauge" no Colaboradores Dashboard
-**Problema:** O gauge de vendas usa `totalTarget` calculado como a soma de todas as metas de goals, ou fallback de R$100.000. Sem interface de definicao de meta global, esse valor e arbitrario.
-**Decisao:** MELHORAR junto com 1.1 - quando as metas individuais estiverem funcionais, o gauge refletira os valores corretos.
+### Arquivo: `src/components/EditLeadModal.tsx`
+- Linha 784: Trocar `<div className="flex-1 flex overflow-hidden">` por `<div className="flex-1 flex flex-col md:flex-row overflow-hidden">`
+- Linha 1455: Trocar `<div className="w-80 border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto">` por `<div className="w-full md:w-80 border-t md:border-t-0 md:border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto max-h-[40vh] md:max-h-none">`
 
-### 1.4 "ForecastByOwner" no Colaboradores Dashboard
-**Problema:** Mostra previsao por vendedor. Funciona corretamente baseado nos leads ganhos. 
-**Decisao:** MANTER. Funcional.
+---
 
-### 1.5 Goals individuais (tabela `goals`) - `current_value` sempre 0
-**Problema:** A tabela `goals` tem 4 registros, todos com `current_value: 0`. O `current_value` nunca e atualizado automaticamente quando leads sao ganhos.
-**Decisao:** CORRIGIR. O `current_value` nao e usado em nenhum lugar critico (os dashboards calculam vendas diretamente dos leads). Ignorar esse campo por ora, mas garantir que o `target_value` seja editavel.
+## Problema 2: Botao "Agendar" visivel para todos os usuarios no LeadDetailsDialog
 
-## 2. Persistencia de Paginas (React Query)
+O `LeadDetailsDialog.tsx` mostra o botao "Agendar" (Google Calendar) para todos os usuarios. Conforme a regra do CRM, essa funcionalidade deve ser restrita ao dono (mateusabcck@gmail.com).
 
-### Paginas que JA usam React Query (persistentes):
-- Dashboard (**OK** - `staleTime: 5min`)
-- Ranking (**OK** - `staleTime: 5min`)
+### Solucao
+- Importar `useAuth` no `LeadDetailsDialog`
+- Verificar `user?.email === "mateusabcck@gmail.com"` antes de renderizar o botao "Agendar"
+- Esconder tambem o `CreateEventModal` para outros usuarios
 
-### Paginas que NAO usam React Query (recarregam toda vez):
-- Colaboradores - usa `useState` + `useEffect` + `loadOrganizationData()`
-- Equipes - usa `useState` + `useEffect` + `loadData()`
-- Pipeline - usa `useState` + `useEffect` + `loadLeads()`
-- Leads - usa hooks customizados mas sem React Query
-- Chat - usa `useState` + `useEffect`
-- Producao - usa `useState` + `useEffect` + `loadItems()` e `loadProductionBlocks()`
-- CollaboratorDashboard (sub-componente) - usa `useState` + `useEffect`
+### Arquivo: `src/components/LeadDetailsDialog.tsx`
+- Importar `useAuth` de `@/contexts/AuthContext`
+- No componente, adicionar `const { user } = useAuth();` e `const isOwner = user?.email === "mateusabcck@gmail.com";`
+- Linha 191-199: Envolver o botao "Agendar" em `{isOwner && (...)}`
+- Linha 368-401: Envolver a secao de evento do calendario em `{isOwner && (...)}`
+- Linha 458-462 (CreateEventModal): Envolver em `{isOwner && (...)}`
 
-### Paginas a migrar para React Query (prioridade):
-1. **Colaboradores** - recarrega toda a lista ao voltar
-2. **Equipes** - recarrega ao voltar  
-3. **Producao** - recarrega ao voltar
-4. **CollaboratorDashboard** - recarrega ao mudar de aba ou voltar
+---
 
-Pipeline, Leads e Chat sao mais complexos (paginacao infinita, realtime pesado) e seriam migrados em uma fase posterior.
+## Problema 3: Pipeline recarrega inteiro ao editar lead no modal
 
-## 3. Blocos de Producao - Eficiencia
+Quando o usuario faz qualquer alteracao no `EditLeadModal` (responsavel, valor, etc.), o `onUpdate` callback chama `loadLeads()` que recarrega TODOS os leads do zero, causando o flash visual mostrado na imagem 3.
 
-**Problemas identificados:**
-- O `ProductionDashboard` faz multiplas queries sequenciais: getUser -> getMember -> ensureBlock -> calculateMetrics (que faz mais 2-3 queries) -> loadBlocks
-- A funcao `ensureCurrentMonthBlock` SEMPRE recalcula metricas, mesmo quando nada mudou
-- Listener de realtime no componente faz queries adicionais a cada update de lead
+### Solucao
+Duas partes:
 
-**Melhorias:**
-- Migrar para React Query com `staleTime: 5min`
-- Usar `organizationId` do contexto em vez de buscar getUser/getMember toda vez
-- Calcular metricas apenas quando o bloco e criado pela primeira vez ou quando explicitamente solicitado
-- Simplificar o realtime para apenas invalidar o cache
+**Parte A - EditLeadModal: parar de chamar onUpdate a cada micro-edicao**
 
-## Alteracoes Tecnicas
+Atualmente, cada acao individual (mudar responsavel, adicionar item, mudar data) chama `onUpdate()` imediatamente. Isso dispara `loadLeads()` no Pipeline. A solucao e:
+- Remover todas as chamadas `onUpdate()` das acoes intermediarias (responsavel, datas, idade, descricao, items)
+- Manter `onUpdate()` APENAS no `handleSaveChanges` (botao Salvar) e no `onClose`
+- As atualizacoes de DB individuais (responsavel, data, etc.) continuam salvando no banco, mas sem disparar reload do Pipeline
 
-### Arquivo: `src/pages/Ranking.tsx`
-- Substituir o footer "Times Ativos" pelo componente `TeamSalesMetrics`
-- Buscar `teamMembers` junto com `teams` na query existente
-- Renderizar `TeamSalesMetrics` abaixo do leaderboard em ambas as abas (tasks e sales)
+**Parte B - Pipeline: usar atualizacao local em vez de reload completo**
 
-### Arquivo: `src/pages/Colaboradores.tsx`
-- Migrar `loadOrganizationData` para `useQuery` com `staleTime: 5min`
-- Usar `queryClient.invalidateQueries` nas operacoes de CRUD
+Quando o EditLeadModal fecha (onClose/onUpdate), em vez de chamar `loadLeads()`, atualizar apenas o lead editado no estado local:
+- Criar funcao `refreshSingleLead(leadId)` que busca apenas 1 lead do banco e atualiza no estado
+- Usar isso no callback `onUpdate` do EditLeadModal
 
-### Arquivo: `src/pages/Equipes.tsx`
-- Migrar `loadData` para `useQuery` com `staleTime: 5min`
-- Usar `queryClient.invalidateQueries` nas operacoes de CRUD
+### Arquivo: `src/components/EditLeadModal.tsx`
+Remover `onUpdate()` das seguintes funcoes:
+- `handleAddItem` (linha 317)
+- `handleRemoveItem` (linha 338)
+- `handleUpdateQuantity` (linha 360)
+- `handleSaveQuickValue` (linha 409)
+- Selecao de colaborador (linha 1636)
+- Data de inicio (linhas 1702, 1730)
+- Data de conclusao (linhas 1811, 1839)
+- Idade (linha 2000)
+- Agendamento de venda (linhas 2069, 2094)
+- `saveDadosNegocio` (linha 158)
 
-### Arquivo: `src/components/ProductionDashboard.tsx`
-- Migrar para `useQuery` com `staleTime: 5min`
-- Usar `organizationId` do contexto (`useOrganizationReady`)
-- Simplificar: so calcular metricas na criacao do bloco, nao a cada load
-- Realtime invalida cache em vez de recalcular tudo
+Manter `onUpdate()` APENAS em `handleSaveChanges` (linha 739).
 
-### Arquivo: `src/components/CollaboratorDashboard.tsx`
-- Migrar `loadDashboardData` para `useQuery` com `staleTime: 5min`
-- Cache por `orgId + period + selectedCollaborator`
+### Arquivo: `src/pages/Pipeline.tsx`
+- Criar funcao `refreshSingleLead`:
+```typescript
+const refreshSingleLead = useCallback(async (leadId: string) => {
+  const { data } = await supabase
+    .from("leads")
+    .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
+    .eq("id", leadId)
+    .single();
+  
+  if (data) {
+    setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
+  }
+}, []);
+```
+- Linha 1204: Trocar `onUpdate={() => loadLeads(undefined, false)}` por `onUpdate={() => editingLead && refreshSingleLead(editingLead.id)}`
 
-### Arquivo: `src/components/dashboard/TopSalesReps.tsx`
-- Renomear titulo de "Top Vendedores vs Meta" para "Top Vendedores" (remover referencia a meta que nao funciona ainda)
-- Manter a barra de progresso mas sem o label "vs Meta"
+---
 
-## Resumo de Impacto
+## Problema 4: Leads do Facebook com nome "Lead do Facebook"
 
-| Alteracao | Impacto |
-|-----------|---------|
-| Ranking: substituir Times Ativos por TeamSalesMetrics | Informacao util em vez de avatares decorativos |
-| TopSalesReps: remover referencia a "Meta" | Elimina confusao sobre funcionalidade inexistente |
-| 5 componentes migrados para React Query | Paginas persistentes, sem reload ao navegar de volta |
-| ProductionDashboard otimizado | Menos queries, carregamento mais rapido |
+O webhook `facebook-leads-webhook` usa `leadInfo.full_name || leadInfo.first_name || leadInfo.name || 'Lead do Facebook'` para definir o nome. Porem os campos do formulario Facebook podem ter nomes variados como `nome_completo`, `first name` (com espaco), etc. que nao sao mapeados.
+
+Ha 1492 leads com nome "Lead do Facebook", dos quais:
+- 407 tem campo `nome_completo` na descricao
+- 1085 tem campo `first name` (com espaco) na descricao
+
+### Solucao - Duas partes:
+
+**Parte A - Corrigir webhook para futuros leads:**
+
+### Arquivo: `supabase/functions/facebook-leads-webhook/index.ts`
+Linha 458: Expandir o mapeamento de nome para incluir mais variantes:
+```typescript
+nome_lead: leadInfo.full_name || leadInfo.nome_completo || leadInfo['first name'] || leadInfo.first_name || leadInfo.name || leadInfo.nome || 'Lead do Facebook',
+```
+
+Tambem ajustar a secao de parsing (linhas 322-327) para normalizar nomes de campos:
+```typescript
+fieldData.forEach((field: any) => {
+  const normalizedName = field.name.toLowerCase().replace(/\s+/g, '_');
+  leadInfo[field.name] = field.values?.[0] || '';
+  leadInfo[normalizedName] = field.values?.[0] || '';
+});
+```
+
+**Parte B - Corrigir leads existentes via SQL migration:**
+
+Criar uma migration que atualiza os 1492 leads existentes:
+```sql
+-- Atualizar leads que tem nome_completo no descricao_negocio
+UPDATE leads 
+SET nome_lead = (
+  SELECT trim(substring(descricao_negocio from 'nome_completo: ([^\n]+)'))
+)
+WHERE nome_lead = 'Lead do Facebook' 
+  AND descricao_negocio LIKE '%nome_completo:%'
+  AND trim(substring(descricao_negocio from 'nome_completo: ([^\n]+)')) IS NOT NULL
+  AND trim(substring(descricao_negocio from 'nome_completo: ([^\n]+)')) != '';
+
+-- Atualizar leads que tem "first name" no descricao_negocio (e nao tem nome_completo)
+UPDATE leads 
+SET nome_lead = (
+  SELECT trim(substring(descricao_negocio from 'first name: ([^\n]+)'))
+)
+WHERE nome_lead = 'Lead do Facebook' 
+  AND descricao_negocio LIKE '%first name:%'
+  AND descricao_negocio NOT LIKE '%nome_completo:%'
+  AND trim(substring(descricao_negocio from 'first name: ([^\n]+)')) IS NOT NULL
+  AND trim(substring(descricao_negocio from 'first name: ([^\n]+)')) != '';
+```
+
+---
+
+## Problema 5: Alteracoes no modal nao refletem na pagina Leads
+
+A pagina `Leads.tsx` tem um listener realtime que faz reload com debounce de 500ms. Quando o usuario edita um lead no modal e salva, o realtime detecta o UPDATE e faz `loadLeads(true)` que recarrega tudo. Porem o problema reportado e que o valor nao atualiza -- isso ocorre porque as edicoes intermediarias (sem clicar Salvar) nao sao capturadas.
+
+### Solucao
+Apos a correcao do Problema 3 (onUpdate so no Salvar), o fluxo sera:
+1. Usuario edita campos no modal
+2. Clica "Salvar" -> `handleSaveChanges` atualiza o lead no banco -> chama `onUpdate()`
+3. O realtime listener da pagina Leads detecta o UPDATE e faz reload automatico (com 500ms debounce)
+
+Isso ja funciona. O problema real e que o modal chama `onUpdate` nas micro-edicoes mas essas alteram campos que a pagina Leads nao busca (ex: `data_inicio`), e o campo `valor` e atualizado via `lead_items` (tabela separada) sem trigger no `leads`. 
+
+A correcao adicional: no `handleSaveChanges`, garantir que o valor editado e salvo no banco antes de chamar `onUpdate`.
+
+---
+
+## Problema 6: Pipeline, Leads e Chat - Persistencia com React Query
+
+### Pipeline (`src/pages/Pipeline.tsx`)
+Migrar para React Query com `staleTime: 5min`:
+- A funcao `loadLeads` vira a `queryFn` de um `useQuery`
+- Key: `['pipeline-leads', selectedFunnelId, user?.id]`
+- Realtime INSERT continua adicionando leads ao estado local
+- `refreshSingleLead` usa `queryClient.setQueryData` para atualizar localmente
+
+### Leads (`src/pages/Leads.tsx`)
+Migrar para React Query:
+- Key: `['leads-list', user?.id]`
+- `staleTime: 5min`
+- O realtime listener muda para `queryClient.invalidateQueries` com debounce
+- Infinite scroll continua funcionando via paginacao manual (ou `useInfiniteQuery`)
+
+### Chat (`src/pages/Chat.tsx`)
+Chat e o mais complexo por ter realtime intenso. Migrar parcialmente:
+- Lista de leads do chat: `useQuery` com `staleTime: 5min`
+- Mensagens: manter realtime direto (nao cachear mensagens antigas com React Query pois muda constantemente)
+
+### Arquivos afetados:
+- `src/pages/Pipeline.tsx` - Migrar carregamento para useQuery
+- `src/pages/Leads.tsx` - Migrar loadLeads para useQuery  
+- `src/pages/Chat.tsx` - Migrar lista de leads para useQuery
+
+---
+
+## Resumo de impacto
+
+| Problema | Arquivo(s) | Tipo |
+|----------|-----------|------|
+| Modal responsivo | EditLeadModal.tsx | CSS/Layout |
+| Calendar restrito | LeadDetailsDialog.tsx | Logica |
+| Pipeline nao recarrega | EditLeadModal.tsx + Pipeline.tsx | Logica |
+| Facebook nome_completo | facebook-leads-webhook + Migration SQL | Backend + DB |
+| Leads nao reflete edits | Leads.tsx (ja funciona apos fix 3) | - |
+| Persistencia Pipeline | Pipeline.tsx | React Query |
+| Persistencia Leads | Leads.tsx | React Query |
+| Persistencia Chat | Chat.tsx | React Query |
