@@ -1,71 +1,118 @@
 
-# Correcoes: Despesas, Sons de Notificacao e Erro de Consulta
+# Correcoes: RLS Despesas, Planos no Admin, e Controle de Acesso por Secao
 
-## Problema 1: Botao "+" de despesas nao funciona
+## Problema 1: Despesas nao salvam - RLS bloqueando
 
-**Causa raiz**: A funcao `handleAddExpense` faz validacao silenciosa na linha 130:
-```typescript
-if (!newExpense.description || !newExpense.amount || !organizationId) return;
-```
-Quando o usuario nao preenche a descricao (campo vazio, mostrando apenas o placeholder), a funcao retorna sem feedback. O usuario nao sabe por que nada acontece.
+**Causa raiz**: A tabela `production_expenses` tem uma policy RESTRICTIVE chamada "Deny public access to production expenses" com `USING (false)` para ALL. Policies RESTRICTIVE com `false` bloqueiam TUDO, inclusive usuarios autenticados, mesmo que existam policies PERMISSIVE permitindo acesso. E assim que o Postgres funciona: RESTRICTIVE policies fazem AND com as PERMISSIVE.
 
-### Correcao em `src/components/ProductionBlockDetailModal.tsx`:
-- Substituir o `return` silencioso por toasts informativos:
-```typescript
-const handleAddExpense = async () => {
-  if (!newExpense.description) {
-    toast({ title: "Preencha a descricao", variant: "destructive" });
-    return;
-  }
-  if (!newExpense.amount || parseFloat(newExpense.amount) <= 0) {
-    toast({ title: "Informe um valor valido", variant: "destructive" });
-    return;
-  }
-  if (!organizationId) return;
-  // ... resto da logica
-};
+### Correcao:
+- Migracacao SQL: Dropar a policy restritiva "Deny public access to production expenses"
+- As policies permissivas ja existentes (Admins can create/update/delete, Users can view) passam a funcionar corretamente
+
+```sql
+DROP POLICY "Deny public access to production expenses" ON production_expenses;
 ```
 
 ---
 
-## Problema 2: Sons de notificacao ignoram configuracao do usuario
+## Problema 2: Todos usuarios mostram "Pro" no Admin Dashboard
 
-Existem 3 fontes de som no sistema que precisam respeitar as configuracoes:
+**Causa raiz**: O AdminDashboard.tsx usa `u.email_confirmed_at` (campo de confirmacao de email) para determinar se o usuario e "Pro" ou "Free". Isso esta completamente errado -- `email_confirmed_at` significa que o usuario confirmou o email, nao que tem assinatura. A tabela `subscriptions` esta VAZIA (0 registros), entao todos sao gratuitos.
 
-### 2a. Button click sound (`src/components/ui/button.tsx`)
-**Status**: Funciona corretamente via `localStorage.getItem('buttonClickSoundEnabled')`. Quando o usuario desativa em Configuracoes, o localStorage e atualizado e todos os botoes param de emitir som.
+Linhas afetadas no AdminDashboard.tsx:
+- Linha 392-393: "Ultimas Assinaturas" mostra badge Pro/Free baseado em `email_confirmed_at`
+- Linha 497-498: Tabela "Pedidos" mostra badge Pro/Free baseado em `email_confirmed_at`
+- Linha 501: Valor do pedido usa `email_confirmed_at` para calcular
+- Linha 609-610: Tabela "Clientes" mostra badge Pro/Free baseado em `email_confirmed_at`
 
-### 2b. Task alert sound (`src/contexts/TaskAlertContext.tsx`)
-**Problema**: O loop de som a cada 5 segundos (linhas 168-200) NAO consulta o `notification_sound_enabled` do perfil do usuario. Ele tem seu proprio sistema de permissao de audio independente. Mesmo que o usuario desative o som de notificacao nas Configuracoes, o alerta de tarefa continua tocando.
+### Correcao:
+- No `loadData`, carregar os dados da tabela `subscriptions` e criar um Map de `user_id -> plan_id`
+- Substituir todas as referencias a `email_confirmed_at ? "Pro" : "Free"` por uma lookup nesse Map
+- Exibir o nome correto do plano (Star/Pro/Elite) ou "Free" quando nao houver assinatura
 
-**Correcao**: Adicionar consulta ao perfil do usuario no TaskAlertContext e respeitar `notification_sound_enabled`:
-- Ao carregar, buscar `notification_sound_enabled` do perfil
-- Na condicao do useEffect do som (linha 178), adicionar `&& notificationSoundEnabled`
-- Escutar mudancas em realtime na tabela profiles para atualizar dinamicamente
-
-### 2c. Chat notification sound (`src/pages/Chat.tsx`)
-**Status**: Funciona corretamente - ja consulta `notification_sound_enabled` do perfil (linhas 475-501).
-
-### Arquivo: `src/contexts/TaskAlertContext.tsx`
-- Adicionar state `notificationSoundEnabled` 
-- No useEffect inicial, buscar perfil do usuario e ler `notification_sound_enabled`
-- Condicionar o loop de som (linha 178) a `notificationSoundEnabled`
+### Arquivo: `src/pages/AdminDashboard.tsx`
+- Adicionar state `subscriptionMap: Record<string, string>` 
+- No `loadData`, query `subscriptions` (select user_id, plan_id, status where status = 'authorized')
+- Criar helper `getUserPlan(userId)` que retorna o plan_id ou 'none'
+- Atualizar todas as 4 ocorrencias de badge Pro/Free nas 3 tabelas
 
 ---
 
-## Problema 3 (bonus): Erro no console - useMemberTasks
+## Problema 3: Controle de acesso por secao no Admin
 
-O console mostra erro PGRST201: ambiguidade entre `kanban_cards` e `kanban_columns` (duas FK: `column_id` e `timer_start_column_id`).
+Criar um sistema que permita ao super admin definir quais secoes cada usuario pode ver/acessar, incluindo liberar individualmente as secoes "Em breve" (Metricas, Roleta, Chat, Integracoes).
 
-### Correcao em `src/hooks/useMemberTasks.ts`:
-Linha 53: Trocar `kanban_columns (` por `kanban_columns!kanban_cards_column_id_fkey (` para desambiguar a relacao.
+### 3.1 Nova tabela `user_section_access`
+
+```sql
+CREATE TABLE public.user_section_access (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  section_key TEXT NOT NULL,
+  is_enabled BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, section_key)
+);
+
+ALTER TABLE user_section_access ENABLE ROW LEVEL SECURITY;
+
+-- Super admins podem gerenciar (via RPC no AdminUserDetails)
+CREATE POLICY "Users can read own access" ON user_section_access
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+CREATE POLICY "Super admins can manage all" ON user_section_access
+  FOR ALL TO authenticated USING (
+    EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'super_admin')
+  );
+```
+
+Secoes disponiveis (section_key):
+- `dashboard` - Inicio
+- `pipeline` - Pipeline
+- `leads` - Leads
+- `lead-metrics` - Metricas (locked por padrao)
+- `lead-distribution` - Roleta de Leads (locked por padrao)
+- `chat` - Chat (locked por padrao)
+- `ranking` - Ranking
+- `colaboradores` - Colaboradores
+- `producao` - Producao
+- `equipes` - Equipes
+- `atividades` - Atividades
+- `tasks` - Tarefas
+- `integrations` - Integracoes (locked por padrao)
+- `settings` - Configuracoes
+
+### 3.2 UI no AdminUserDetails
+
+Adicionar um novo Card "Controle de Acesso por Secao" abaixo do card de Plano:
+- Lista de todas as secoes com switches (toggle on/off)
+- As secoes "Em breve" aparecem com indicador especial
+- Botao "Salvar Acessos" faz upsert em `user_section_access`
+- Por padrao, secoes nao-locked sao habilitadas e secoes locked sao desabilitadas
+
+### 3.3 Sidebar respeita o controle
+
+No `AppSidebar.tsx`:
+- Carregar `user_section_access` do usuario logado
+- Para cada item do menu, verificar se existe registro `is_enabled = false` para aquela secao
+- Se `is_enabled = false`, ocultar o item completamente (nao mostrar nem como locked)
+- Para secoes "Em breve" (LOCKED_FEATURES), se `is_enabled = true` no banco, DESBLOQUEAR (remover o Lock e permitir navegacao)
+- Se nao houver registro no banco, usar o comportamento padrao (liberado para secoes normais, locked para LOCKED_FEATURES)
+
+### Arquivos afetados:
+- Migracao SQL: criar tabela + policies
+- `src/pages/AdminUserDetails.tsx`: Novo card com toggles por secao
+- `src/components/AppSidebar.tsx`: Consultar `user_section_access` e aplicar visibilidade
 
 ---
 
-## Resumo
+## Resumo Tecnico
 
-| Problema | Arquivo | Correcao |
-|----------|---------|---------|
-| Despesa nao adiciona | ProductionBlockDetailModal.tsx | Toast de validacao |
-| Task alert ignora config | TaskAlertContext.tsx | Consultar notification_sound_enabled |
-| useMemberTasks erro | useMemberTasks.ts | Desambiguar FK |
+| Correcao | Arquivo(s) | Tipo |
+|----------|-----------|------|
+| RLS production_expenses | Migracao SQL | DB |
+| Plano correto no admin | AdminDashboard.tsx | UI/Logica |
+| Tabela section_access | Migracao SQL | DB |
+| UI controle de acesso | AdminUserDetails.tsx | UI |
+| Sidebar respeita acesso | AppSidebar.tsx | Logica |
