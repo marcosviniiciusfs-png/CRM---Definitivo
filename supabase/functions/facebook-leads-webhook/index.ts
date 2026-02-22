@@ -323,7 +323,9 @@ Deno.serve(async (req) => {
             const leadInfo: any = {};
             
             fieldData.forEach((field: any) => {
+              const normalizedName = field.name.toLowerCase().replace(/\s+/g, '_');
               leadInfo[field.name] = field.values?.[0] || '';
+              leadInfo[normalizedName] = field.values?.[0] || '';
             });
 
             // Build description with ALL form fields
@@ -455,7 +457,7 @@ Deno.serve(async (req) => {
             const { data: newLead, error: leadError } = await supabase
               .from('leads')
               .insert({
-                nome_lead: leadInfo.full_name || leadInfo.first_name || leadInfo.name || 'Lead do Facebook',
+                nome_lead: leadInfo.full_name || leadInfo.nome_completo || leadInfo['first name'] || leadInfo.first_name || leadInfo.name || leadInfo.nome || 'Lead do Facebook',
                 telefone_lead: phoneNumber,
                 email: email,
                 empresa: leadInfo.company_name || leadInfo.company || leadInfo.empresa || null,
