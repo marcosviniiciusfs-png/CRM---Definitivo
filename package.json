@@ -52,6 +52,7 @@
     "framer-motion": "^12.29.0",
     "input-otp": "^1.4.2",
     "lottie-react": "^2.4.1",
+    "lovable-tagger": "^1.1.13",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "opus-media-recorder": "^0.8.0",
@@ -83,7 +84,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
-
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
