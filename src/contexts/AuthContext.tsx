@@ -278,6 +278,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
 
+        // TOKEN_REFRESHED: keep existing data, don't reset anything
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('[AUTH] Token refreshed, keeping existing state');
+          return;
+        }
+
         if (event === 'SIGNED_IN' && session?.user && session?.access_token) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
 
@@ -326,19 +332,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }, 500);
         } else if (event === 'SIGNED_OUT') {
-          const currentUserId = session?.user?.id;
-          setSubscriptionData(null);
-          setSectionAccess(null);
-          setSectionAccessLoading(false);
-          clearSubscriptionCache();
-          clearSectionAccessCache();
-          subscriptionFetchedRef.current = false;
-          sectionAccessFetchedRef.current = false;
-          setTimeout(() => {
-            if (currentUserId) {
-              logUserSession(currentUserId, false);
-            }
-          }, 0);
+          // Only clear state on actual sign out (no active session)
+          if (!session?.user) {
+            const currentUserId = user?.id;
+            setSubscriptionData(null);
+            setSectionAccess(null);
+            setSectionAccessLoading(false);
+            clearSubscriptionCache();
+            clearSectionAccessCache();
+            subscriptionFetchedRef.current = false;
+            sectionAccessFetchedRef.current = false;
+            setTimeout(() => {
+              if (currentUserId) {
+                logUserSession(currentUserId, false);
+              }
+            }, 0);
+          }
         }
       }
     );

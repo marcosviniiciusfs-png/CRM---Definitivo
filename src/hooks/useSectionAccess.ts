@@ -24,7 +24,10 @@ const URL_TO_SECTION: Record<string, string> = {
 };
 
 export function useSectionAccess() {
-  const { sectionAccess, sectionAccessLoading: loading } = useAuth();
+  const { sectionAccess, sectionAccessLoading, user } = useAuth();
+
+  // If user exists but sectionAccess hasn't loaded yet, treat as loading
+  const loading = sectionAccessLoading || (!!user && sectionAccess === null);
 
   const isSectionUnlocked = useCallback((path: string) => {
     const sectionKey = URL_TO_SECTION[path];
