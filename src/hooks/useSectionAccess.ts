@@ -24,37 +24,7 @@ const URL_TO_SECTION: Record<string, string> = {
 };
 
 export function useSectionAccess() {
-  const { user } = useAuth();
-  const [sectionAccess, setSectionAccess] = useState<Record<string, boolean> | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    const loadAccess = async () => {
-      try {
-        const { data } = await supabase
-          .from('user_section_access')
-          .select('section_key, is_enabled')
-          .eq('user_id', user.id);
-
-        if (data && data.length > 0) {
-          const map: Record<string, boolean> = {};
-          data.forEach((r: any) => {
-            map[r.section_key] = r.is_enabled;
-          });
-          setSectionAccess(map);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAccess();
-  }, [user?.id]);
+  const { sectionAccess, sectionAccessLoading: loading } = useAuth();
 
   const isSectionUnlocked = useCallback((path: string) => {
     const sectionKey = URL_TO_SECTION[path];
@@ -70,5 +40,5 @@ export function useSectionAccess() {
     return !LOCKED_FEATURES.includes(sectionKey);
   }, [sectionAccess]);
 
-  return { isSectionUnlocked, loading };
+  return { isSectionUnlocked, loading, sectionAccess };
 }

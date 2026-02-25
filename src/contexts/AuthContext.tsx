@@ -17,7 +17,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   subscriptionData: SubscriptionData | null;
+  sectionAccess: Record<string, boolean> | null;
+  sectionAccessLoading: boolean;
   refreshSubscription: (organizationId?: string) => Promise<void>;
+  refreshSectionAccess: () => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
@@ -30,6 +33,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Cache keys
 const SUBSCRIPTION_CACHE_KEY = "kairoz_subscription_cache";
 const SUBSCRIPTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const SECTION_ACCESS_CACHE_KEY = "kairoz_section_access_cache";
 
 interface CachedSubscription {
   data: SubscriptionData;
@@ -41,22 +45,22 @@ interface CachedSubscription {
 // Helper functions for cache - agora considera organizationId
 const getSubscriptionCache = (userId: string, organizationId?: string): SubscriptionData | null => {
   try {
-    const cacheKey = organizationId 
-      ? `${SUBSCRIPTION_CACHE_KEY}_${organizationId}` 
+    const cacheKey = organizationId
+      ? `${SUBSCRIPTION_CACHE_KEY}_${organizationId}`
       : SUBSCRIPTION_CACHE_KEY;
     const cached = sessionStorage.getItem(cacheKey);
     if (!cached) return null;
-    
+
     const parsed: CachedSubscription = JSON.parse(cached);
     const isExpired = Date.now() - parsed.timestamp > SUBSCRIPTION_CACHE_TTL;
     const isCorrectUser = parsed.userId === userId;
     const isCorrectOrg = !organizationId || parsed.organizationId === organizationId;
-    
+
     if (isExpired || !isCorrectUser || !isCorrectOrg) {
       sessionStorage.removeItem(cacheKey);
       return null;
     }
-    
+
     return parsed.data;
   } catch {
     return null;
@@ -65,8 +69,8 @@ const getSubscriptionCache = (userId: string, organizationId?: string): Subscrip
 
 const setSubscriptionCache = (data: SubscriptionData, userId: string, organizationId?: string) => {
   try {
-    const cacheKey = organizationId 
-      ? `${SUBSCRIPTION_CACHE_KEY}_${organizationId}` 
+    const cacheKey = organizationId
+      ? `${SUBSCRIPTION_CACHE_KEY}_${organizationId}`
       : SUBSCRIPTION_CACHE_KEY;
     const cacheData: CachedSubscription = {
       data,
@@ -88,25 +92,52 @@ const clearSubscriptionCache = () => {
   }
 };
 
+const getSectionAccessCache = (userId: string): Record<string, boolean> | null => {
+  try {
+    const cached = sessionStorage.getItem(SECTION_ACCESS_CACHE_KEY);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    if (parsed.userId !== userId) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+
+const setSectionAccessCache = (data: Record<string, boolean>, userId: string) => {
+  try {
+    sessionStorage.setItem(SECTION_ACCESS_CACHE_KEY, JSON.stringify({ data, userId }));
+  } catch { }
+};
+
+const clearSectionAccessCache = () => {
+  try {
+    sessionStorage.removeItem(SECTION_ACCESS_CACHE_KEY);
+  } catch { }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+  const [sectionAccess, setSectionAccess] = useState<Record<string, boolean> | null>(null);
+  const [sectionAccessLoading, setSectionAccessLoading] = useState(true);
   const navigate = useNavigate();
   const currentSessionIdRef = useRef<string | null>(null);
   const subscriptionFetchedRef = useRef(false);
+  const sectionAccessFetchedRef = useRef(false);
 
   // Nova assinatura: aceita organizationId (opcional) para verificar pelo owner da org
   const refreshSubscription = async (organizationId?: string) => {
     console.log('[AUTH] refreshSubscription called, user:', user?.email, 'orgId:', organizationId);
-    
+
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession?.access_token || !user) {
       console.log('[AUTH] No active session or user, skipping subscription check');
       return;
     }
-    
+
     // Check cache first (se tiver organizationId)
     if (organizationId) {
       const cachedData = getSubscriptionCache(user.id, organizationId);
@@ -116,23 +147,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
     }
-    
+
     try {
       console.log('[AUTH] Invoking check-subscription function...', { organizationId });
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         body: organizationId ? { organization_id: organizationId } : {}
       });
-      
+
       if (error) {
         console.error('[AUTH] Erro ao verificar assinatura:', error);
         return;
       }
-      
+
       console.log('[AUTH] Subscription data received:', data);
       setSubscriptionData(data);
       setSubscriptionCache(data, user.id, organizationId);
     } catch (error) {
       console.error('[AUTH] Erro ao verificar assinatura:', error);
+    }
+  };
+
+  const refreshSectionAccess = async () => {
+    if (!user?.id) return;
+
+    setSectionAccessLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_section_access')
+        .select('section_key, is_enabled')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('[AUTH] Erro ao carregar acesso a seções:', error);
+        return;
+      }
+
+      if (data) {
+        const map: Record<string, boolean> = {};
+        data.forEach((r: any) => {
+          map[r.section_key] = r.is_enabled;
+        });
+        setSectionAccess(map);
+        setSectionAccessCache(map, user.id);
+        sectionAccessFetchedRef.current = true;
+      }
+    } finally {
+      setSectionAccessLoading(false);
     }
   };
 
@@ -213,42 +273,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
-        
+
         console.log('[AUTH] Auth state change:', event, 'user:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
 
         if (event === 'SIGNED_IN' && session?.user && session?.access_token) {
           setTimeout(() => logUserSession(session.user.id, true), 0);
-          
+
           // Check cache first for faster loading
           const cachedData = getSubscriptionCache(session.user.id);
           if (cachedData) {
             console.log('[AUTH] Using cached subscription data on SIGNED_IN');
             setSubscriptionData(cachedData);
           }
-          
+
+          const cachedAccess = getSectionAccessCache(session.user.id);
+          if (cachedAccess) {
+            console.log('[AUTH] Using cached section access on SIGNED_IN');
+            setSectionAccess(cachedAccess);
+            setSectionAccessLoading(false);
+          }
+
           // Refresh in background
           setTimeout(async () => {
             if (!mounted) return;
             try {
               const { data: { session: currentSession } } = await supabase.auth.getSession();
               if (!currentSession?.access_token) return;
-              
+
               const { data, error } = await supabase.functions.invoke('check-subscription');
               if (!error && data && mounted) {
                 setSubscriptionData(data);
                 setSubscriptionCache(data, session.user.id);
               }
+
+              // Refresh section access as well
+              const { data: accessData } = await supabase
+                .from('user_section_access')
+                .select('section_key, is_enabled')
+                .eq('user_id', session.user.id);
+
+              if (accessData && mounted) {
+                const map: Record<string, boolean> = {};
+                accessData.forEach((r: any) => { map[r.section_key] = r.is_enabled; });
+                setSectionAccess(map);
+                setSectionAccessCache(map, session.user.id);
+                setSectionAccessLoading(false);
+              }
             } catch (error) {
-              console.error('[AUTH] Erro ao verificar assinatura após login:', error);
+              console.error('[AUTH] Erro ao verificar dados após login:', error);
             }
           }, 500);
         } else if (event === 'SIGNED_OUT') {
           const currentUserId = session?.user?.id;
           setSubscriptionData(null);
+          setSectionAccess(null);
+          setSectionAccessLoading(false);
           clearSubscriptionCache();
+          clearSectionAccessCache();
           subscriptionFetchedRef.current = false;
+          sectionAccessFetchedRef.current = false;
           setTimeout(() => {
             if (currentUserId) {
               logUserSession(currentUserId, false);
@@ -262,17 +347,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         if (!mounted) return;
-        
+
         console.log('[AUTH] Initial session check, user:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // LIBERAR LOADING IMEDIATAMENTE - não bloquear UI
         setLoading(false);
 
         if (session?.user && session?.access_token) {
           // NÃO logar sessão aqui - já é feito no SIGNED_IN
-          
+
           // Check cache first para UI rápida
           const cachedData = getSubscriptionCache(session.user.id);
           if (cachedData) {
@@ -280,19 +365,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSubscriptionData(cachedData);
             subscriptionFetchedRef.current = true;
           }
-          
-          // Atualizar subscription em BACKGROUND (não bloquear)
+
+          const cachedAccess = getSectionAccessCache(session.user.id);
+          if (cachedAccess) {
+            console.log('[AUTH] Using cached section access on initial load');
+            setSectionAccess(cachedAccess);
+            setSectionAccessLoading(false);
+            sectionAccessFetchedRef.current = true;
+          }
+
+          // Atualizar dados em BACKGROUND (não bloquear)
           setTimeout(async () => {
             if (!mounted) return;
             try {
-              const { data, error } = await supabase.functions.invoke('check-subscription');
-              if (!error && data && mounted) {
-                setSubscriptionData(data);
-                setSubscriptionCache(data, session.user.id);
+              // 1. Subscription
+              const { data: subData, error: subError } = await supabase.functions.invoke('check-subscription');
+              if (!subError && subData && mounted) {
+                setSubscriptionData(subData);
+                setSubscriptionCache(subData, session.user.id);
                 subscriptionFetchedRef.current = true;
               }
+
+              // 2. Section Access
+              const { data: accData, error: accError } = await supabase
+                .from('user_section_access')
+                .select('section_key, is_enabled')
+                .eq('user_id', session.user.id);
+
+              if (!accError && accData && mounted) {
+                const map: Record<string, boolean> = {};
+                accData.forEach((r: any) => { map[r.section_key] = r.is_enabled; });
+                setSectionAccess(map);
+                setSectionAccessCache(map, session.user.id);
+                setSectionAccessLoading(false);
+                sectionAccessFetchedRef.current = true;
+              }
             } catch (error) {
-              console.error('[AUTH] Erro ao verificar assinatura inicial:', error);
+              console.error('[AUTH] Erro ao verificar dados iniciais:', error);
             }
           }, 100);
         }
@@ -301,6 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('[AUTH] Erro ao obter sessão:', error);
         if (mounted) {
           setLoading(false);
+          setSectionAccessLoading(false);
         }
       });
 
@@ -312,7 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -323,7 +433,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     });
-    
+
     // Não redirecionar aqui - deixar a página de Auth verificar múltiplas orgs
     return { error };
   };
@@ -332,13 +442,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Limpar cache de organização para garantir verificação limpa
     try {
       localStorage.removeItem('kairoz_org_cache');
-    } catch {}
-    
+    } catch { }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    
+
     // Não redirecionar aqui - deixar a página de Auth verificar múltiplas orgs
     return { error };
   };
@@ -350,7 +460,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         redirectTo: `${window.location.origin}/dashboard`,
       }
     });
-    
+
     return { error };
   };
 
@@ -371,7 +481,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscriptionData, refreshSubscription, signUp, signIn, signInWithGoogle, signOut, resetPassword }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      subscriptionData,
+      sectionAccess,
+      sectionAccessLoading,
+      refreshSubscription,
+      refreshSectionAccess,
+      signUp,
+      signIn,
+      signInWithGoogle,
+      signOut,
+      resetPassword
+    }}>
       {children}
     </AuthContext.Provider>
   );
