@@ -89,7 +89,7 @@ function AppSidebarComponent() {
   const permissions = usePermissions();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
 
-  const { sectionAccess, isSectionUnlocked } = useSectionAccess();
+  const { sectionAccess, isSectionUnlocked, loading: sectionLoading } = useSectionAccess();
 
   // Helper: check if a URL is visible based on section access
   const isSectionVisible = useCallback((url: string) => {
@@ -102,11 +102,12 @@ function AppSidebarComponent() {
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {
+    if (sectionLoading) return false; // Don't show locks while loading
     const access = isSectionVisible(url);
-    if (access === true) return false; // explicitly unlocked
-    if (access === false) return true; // explicitly disabled (hidden)
-    return LOCKED_FEATURES.includes(url); // default behavior
-  }, [isSectionVisible]);
+    if (access === true) return false;
+    if (access === false) return true;
+    return LOCKED_FEATURES.includes(url);
+  }, [isSectionVisible, sectionLoading]);
 
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
