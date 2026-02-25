@@ -1,63 +1,47 @@
 
 
-## Diagnóstico: Seções "trancando" momentaneamente em produção
+## Diagnóstico: Por que as seções ainda aparecem trancadas
 
-### Problema identificado
+### Problema encontrado
 
-O problema é uma **condição de corrida (race condition)** no fluxo de carregamento do `sectionAccess` no `AuthContext`. Quando o token de autenticação é renovado automaticamente (o que acontece periodicamente em produção), o Supabase Auth dispara eventos que resetam o estado das seções, causando:
+A correção anterior protegeu o `SectionGate` (que controla redirects), mas **não corrigiu o `AppSidebar`** — o componente que renderiza os ícones de cadeado no menu lateral.
 
-1. **Flash de "trancado"**: As seções como Integrações, Chat e Roleta de Leads aparecem brevemente como bloqueadas porque o `sectionAccess` é limpo e resetado a `null`, enquanto `sectionAccessLoading` é colocado como `false`. Nesse momento, o sistema aplica o comportamento padrão: essas seções estão na lista `LOCKED_FEATURES` e aparecem como trancadas.
+No `AppSidebar.tsx` (linha 92-109), o código faz:
 
-2. **Redirecionamento automático**: O `SectionGate` detecta que a seção está "trancada" (porque `sectionAccess` é `null` mas `loading` é `false`) e redireciona o usuário para `/dashboard`. Quando os dados recarregam, o acesso é restaurado.
+```typescript
+const { sectionAccess, isSectionUnlocked } = useSectionAccess();
+// NÃO usa 'loading' ⬆️
 
-### Causa raiz técnica
-
-No `AuthContext.tsx`, o handler de `SIGNED_OUT` faz:
+const isFeatureLocked = useCallback((url: string) => {
+  const access = isSectionVisible(url);
+  if (access === true) return false;
+  if (access === false) return true;
+  return LOCKED_FEATURES.includes(url); // ← Quando sectionAccess é null, cai aqui = TRANCADO
+}, [isSectionVisible]);
 ```
-setSectionAccess(null);
-setSectionAccessLoading(false);
-clearSectionAccessCache();
-```
 
-Quando o token é renovado ou há qualquer evento de auth, há uma janela onde o estado fica inconsistente: `loading = false` + `sectionAccess = null`. O `SectionGate` interpreta isso como "seção trancada" e redireciona.
-
-Além disso, o `SubscriptionGate` também pode causar flash ao resetar `subscriptionData` para `null`.
+Quando `sectionAccess` é `null` (durante token refresh ou carregamento), `isSectionVisible` retorna `undefined`, e `isFeatureLocked` aplica o comportamento padrão: **trancar** Chat, Integrações, Métricas e Roleta de Leads. Isso causa o flash de cadeado visível na screenshot.
 
 ### Solução
 
-Três correções coordenadas:
+**Arquivo: `src/components/AppSidebar.tsx`**
 
----
+1. Extrair `loading` do `useSectionAccess()`
+2. No `isFeatureLocked`, quando `loading` é `true`, retornar `false` (não mostrar cadeado enquanto dados estão carregando)
 
-**1. `AuthContext.tsx` — Proteger contra resets desnecessários**
+Mudança específica:
 
-- No handler de `onAuthStateChange`, só limpar `sectionAccess` e `subscriptionData` quando o evento for realmente `SIGNED_OUT` E não houver mais sessão ativa
-- Manter `sectionAccessLoading = true` enquanto `sectionAccess` for `null` e houver um usuário logado (nunca permitir o estado inconsistente `loading=false` + `access=null` + `user exists`)
-- Adicionar proteção no evento `TOKEN_REFRESHED` para não resetar dados
+- Linha 92: `const { sectionAccess, isSectionUnlocked, loading: sectionLoading } = useSectionAccess();`
+- Linha 104-109: Adicionar verificação no início de `isFeatureLocked`:
+  ```typescript
+  const isFeatureLocked = useCallback((url: string) => {
+    if (sectionLoading) return false; // Don't show locks while loading
+    const access = isSectionVisible(url);
+    if (access === true) return false;
+    if (access === false) return true;
+    return LOCKED_FEATURES.includes(url);
+  }, [isSectionVisible, sectionLoading]);
+  ```
 
-**2. `SectionGate.tsx` — Tratar estado `null` como "carregando"**
-
-- Adicionar uma verificação extra: se `loading` é `false` mas `sectionAccess` é `null` e existe um usuário logado, continuar mostrando o loading em vez de aplicar os defaults (que trancam as seções)
-- Isso previne o redirect para `/dashboard` durante a janela de inconsistência
-
-**3. `useSectionAccess.ts` — Não trancar quando dados ainda não carregaram**
-
-- Quando `sectionAccess` é `null`, reportar `loading = true` para impedir que componentes tomem decisões com dados incompletos
-- Isso corrige tanto o `SectionGate` quanto o menu lateral (`AppSidebar`)
-
----
-
-### Arquivos a serem editados
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/contexts/AuthContext.tsx` | Proteger contra reset de estado em token refresh; manter loading consistente |
-| `src/components/SectionGate.tsx` | Tratar `sectionAccess === null` como loading |
-| `src/hooks/useSectionAccess.ts` | Reportar loading quando `sectionAccess` é null mas user existe |
-
-### Por que funciona no preview mas não em produção
-
-No preview da Lovable, a sessão é recém-criada e o cache está fresco. Em produção, os tokens expiram e são renovados automaticamente pelo Supabase Auth, disparando eventos de auth que causam o reset temporário do estado. A renovação de token é mais frequente em sessões longas, que é exatamente o cenário de produção.
-
-Após a implementação, será necessário **publicar o projeto** para que as mudanças cheguem à produção.
+Isso é uma mudança de **2 linhas** que resolve o flash de cadeados. Depois de implementar, será necessário **publicar** para que chegue à produção.
 
