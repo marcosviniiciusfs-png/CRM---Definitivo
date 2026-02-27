@@ -105,8 +105,12 @@ function AppSidebarComponent() {
     const access = isSectionVisible(url);
     if (access === true) return false; // explicitly unlocked
     if (access === false) return true; // explicitly disabled (hidden)
+
+    // Se ainda estiver carregando o mapa de acesso, não mostre bloqueado
+    if (sectionAccess === null) return false;
+
     return LOCKED_FEATURES.includes(url); // default behavior
-  }, [isSectionVisible]);
+  }, [isSectionVisible, sectionAccess]);
 
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";

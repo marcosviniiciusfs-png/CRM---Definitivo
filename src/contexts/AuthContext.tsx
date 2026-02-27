@@ -34,6 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const SUBSCRIPTION_CACHE_KEY = "kairoz_subscription_cache";
 const SUBSCRIPTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const SECTION_ACCESS_CACHE_KEY = "kairoz_section_access_cache";
+const FAST_ACCESS_CACHE_KEY = "kairoz_fast_access_cache";
 
 interface CachedSubscription {
   data: SubscriptionData;
@@ -113,6 +114,7 @@ const setSectionAccessCache = (data: Record<string, boolean>, userId: string) =>
 const clearSectionAccessCache = () => {
   try {
     sessionStorage.removeItem(SECTION_ACCESS_CACHE_KEY);
+    sessionStorage.removeItem(FAST_ACCESS_CACHE_KEY);
   } catch { }
 };
 
@@ -121,8 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
-  const [sectionAccess, setSectionAccess] = useState<Record<string, boolean> | null>(null);
-  const [sectionAccessLoading, setSectionAccessLoading] = useState(true);
+  const [sectionAccess, setSectionAccess] = useState<Record<string, boolean> | null>(() => {
+    try {
+      const cached = sessionStorage.getItem(FAST_ACCESS_CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
+  const [sectionAccessLoading, setSectionAccessLoading] = useState(() => {
+    try {
+      return sessionStorage.getItem(FAST_ACCESS_CACHE_KEY) === null;
+    } catch { return true; }
+  });
   const navigate = useNavigate();
   const currentSessionIdRef = useRef<string | null>(null);
   const subscriptionFetchedRef = useRef(false);
@@ -189,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         setSectionAccess(map);
         setSectionAccessCache(map, user.id);
+        sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
         sectionAccessFetchedRef.current = true;
       }
     } finally {
@@ -319,6 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 accessData.forEach((r: any) => { map[r.section_key] = r.is_enabled; });
                 setSectionAccess(map);
                 setSectionAccessCache(map, session.user.id);
+                sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
                 setSectionAccessLoading(false);
               }
             } catch (error) {
@@ -397,6 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 accData.forEach((r: any) => { map[r.section_key] = r.is_enabled; });
                 setSectionAccess(map);
                 setSectionAccessCache(map, session.user.id);
+                sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
                 setSectionAccessLoading(false);
                 sectionAccessFetchedRef.current = true;
               }
