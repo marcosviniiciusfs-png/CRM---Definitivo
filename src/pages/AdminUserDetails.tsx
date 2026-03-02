@@ -165,34 +165,66 @@ export default function AdminUserDetails() {
   };
 
   const handleSavePlan = async () => {
-    if (!userId || selectedPlan === currentPlan) return;
+    if (!userId) return;
+    if (selectedPlan === currentPlan) {
+      toast.info('Selecione um plano diferente do atual');
+      return;
+    }
+
     setSavingPlan(true);
     try {
+      console.log(`[Admin] Salvando plano "${selectedPlan}" para o usuário: ${userId}`);
+
       if (selectedPlan === 'none') {
         const { error } = await supabase
           .from('subscriptions')
           .delete()
           .eq('user_id', userId);
+
         if (error) throw error;
       } else {
         const planOption = PLAN_OPTIONS.find(p => p.value === selectedPlan);
-        const { error } = await supabase
+
+        // Dados para o upsert
+        const subscriptionData = {
+          user_id: userId,
+          plan_id: selectedPlan,
+          status: 'authorized',
+          amount: planOption?.amount || 0,
+          organization_id: userDetails?.organization_id || null,
+          start_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        console.log('[Admin] Dados da assinatura:', subscriptionData);
+
+        const { error, data } = await supabase
           .from('subscriptions')
-          .upsert({
-            user_id: userId,
-            plan_id: selectedPlan,
-            status: 'authorized',
-            amount: planOption?.amount || 0,
-            organization_id: userDetails?.organization_id || null,
-            start_date: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
-        if (error) throw error;
+          .upsert(subscriptionData, {
+            onConflict: 'user_id',
+            ignoreDuplicates: false
+          })
+          .select();
+
+        if (error) {
+          console.error('[Admin] Erro no Upsert:', error);
+          throw error;
+        }
+
+        console.log('[Admin] Sucesso no Upsert:', data);
       }
+
       setCurrentPlan(selectedPlan);
       toast.success('Plano atualizado com sucesso!');
-    } catch (error: unknown) {
-      console.error('Erro ao salvar plano:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao salvar plano';
+
+      // Pequeno delay para recarregar os dados e garantir que o cache local reflita a mudança
+      setTimeout(() => {
+        loadUserDetails();
+      }, 500);
+
+    } catch (error: any) {
+      console.error('Erro detalhado ao salvar plano:', error);
+      const errorMessage = error.message || (error.error_description) || 'Erro desconhecido ao salvar plano';
       toast.error(`Erro ao salvar plano: ${errorMessage}`);
     } finally {
       setSavingPlan(false);
