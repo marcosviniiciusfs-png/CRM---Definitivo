@@ -26,6 +26,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
+  isSuperAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -135,9 +136,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { return true; }
   });
   const navigate = useNavigate();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const currentSessionIdRef = useRef<string | null>(null);
   const subscriptionFetchedRef = useRef(false);
   const sectionAccessFetchedRef = useRef(false);
+
+  const checkSuperAdmin = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('has_role', {
+        _user_id: userId,
+        _role: 'super_admin'
+      });
+      if (!error && data) {
+        setIsSuperAdmin(true);
+      } else {
+        setIsSuperAdmin(false);
+      }
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  };
 
   // Nova assinatura: aceita organizationId (opcional) para verificar pelo owner da org
   const refreshSubscription = async (organizationId?: string) => {
@@ -297,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (event === 'SIGNED_IN' && session?.user && session?.access_token) {
+          checkSuperAdmin(session.user.id);
           setTimeout(() => logUserSession(session.user.id, true), 0);
 
           // Check cache first for faster loading
@@ -384,6 +403,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
 
         if (session?.user && session?.access_token) {
+          checkSuperAdmin(session.user.id);
           // NÃO logar sessão aqui - já é feito no SIGNED_IN
 
           // Check cache first para UI rápida
@@ -528,7 +548,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signInWithGoogle,
       signOut,
-      resetPassword
+      resetPassword,
+      isSuperAdmin
     }}>
       {children}
     </AuthContext.Provider>

@@ -58,32 +58,32 @@ export default function AdminUserDetails() {
   const [showTempPasswordDialog, setShowTempPasswordDialog] = useState(false);
   const [tempPasswordData, setTempPasswordData] = useState<{ password: string; email: string } | null>(null);
   const [resettingPassword, setResettingPassword] = useState(false);
-  
+
   // Plan management states
   const [currentPlan, setCurrentPlan] = useState<string>('none');
   const [selectedPlan, setSelectedPlan] = useState<string>('none');
   const [savingPlan, setSavingPlan] = useState(false);
-  
+
   // Section access control states
   const SECTION_KEYS = [
     { key: 'dashboard', label: 'Início', locked: false },
     { key: 'pipeline', label: 'Pipeline', locked: false },
     { key: 'leads', label: 'Leads', locked: false },
-    { key: 'lead-metrics', label: 'Métricas', locked: true },
-    { key: 'lead-distribution', label: 'Roleta de Leads', locked: true },
-    { key: 'chat', label: 'Chat', locked: true },
+    { key: 'lead-metrics', label: 'Métricas', locked: false },
+    { key: 'lead-distribution', label: 'Roleta de Leads', locked: false },
+    { key: 'chat', label: 'Chat', locked: false },
     { key: 'ranking', label: 'Ranking', locked: false },
     { key: 'colaboradores', label: 'Colaboradores', locked: false },
     { key: 'producao', label: 'Produção', locked: false },
     { key: 'equipes', label: 'Equipes', locked: false },
     { key: 'atividades', label: 'Atividades', locked: false },
     { key: 'tasks', label: 'Tarefas', locked: false },
-    { key: 'integrations', label: 'Integrações', locked: true },
+    { key: 'integrations', label: 'Integrações', locked: false },
     { key: 'settings', label: 'Configurações', locked: false },
   ];
   const [sectionAccess, setSectionAccess] = useState<Record<string, boolean>>({});
   const [savingSections, setSavingSections] = useState(false);
-  
+
   // Estados para confirmação
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showTempPassConfirm, setShowTempPassConfirm] = useState(false);
@@ -107,7 +107,7 @@ export default function AdminUserDetails() {
       });
 
       if (userError) throw userError;
-      
+
       if (userData && userData.length > 0) {
         setUserDetails(userData[0]);
 
@@ -140,7 +140,7 @@ export default function AdminUserDetails() {
           .from('user_section_access')
           .select('section_key, is_enabled')
           .eq('user_id', userId!);
-        
+
         const accessMap: Record<string, boolean> = {};
         // Initialize defaults
         SECTION_KEYS.forEach(s => {
@@ -214,11 +214,11 @@ export default function AdminUserDetails() {
         is_enabled: enabled,
         updated_at: new Date().toISOString(),
       }));
-      
+
       const { error } = await supabase
         .from('user_section_access')
         .upsert(rows, { onConflict: 'user_id,section_key' });
-      
+
       if (error) throw error;
       toast.success('Acessos atualizados com sucesso!');
     } catch (error: any) {
@@ -239,14 +239,14 @@ export default function AdminUserDetails() {
   // Executar reset após confirmação
   const handleSendResetEmail = async () => {
     if (!targetUser) return;
-    
+
     setResettingPassword(true);
     setShowResetConfirm(false);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-        body: { 
-          userId: targetUser.id, 
+        body: {
+          userId: targetUser.id,
           userEmail: targetUser.email,
           customMessage: customMessage.trim() || undefined
         }
@@ -268,14 +268,14 @@ export default function AdminUserDetails() {
   // Executar geração de senha temporária após confirmação
   const handleGenerateTempPassword = async () => {
     if (!targetUser) return;
-    
+
     setResettingPassword(true);
     setShowTempPassConfirm(false);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('admin-generate-temp-password', {
-        body: { 
-          userId: targetUser.id, 
+        body: {
+          userId: targetUser.id,
           userEmail: targetUser.email,
           customMessage: customMessage.trim() || undefined
         }
@@ -286,7 +286,7 @@ export default function AdminUserDetails() {
       if (data?.tempPassword) {
         setTempPasswordData({ password: data.tempPassword, email: targetUser.email });
         setShowTempPasswordDialog(true);
-        
+
         if (data.emailError) {
           toast.warning('Senha gerada, mas falha ao enviar email. Copie a senha do diálogo.');
         } else {
@@ -317,13 +317,13 @@ export default function AdminUserDetails() {
   // Executar exclusão após confirmação
   const handleDeleteUser = async () => {
     if (!adminPassword || !userDetails) return;
-    
+
     setDeleting(true);
     setShowDeleteConfirm(false);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('admin-delete-user', {
-        body: { 
+        body: {
           target_user_id: userDetails.user_id,
           admin_password: adminPassword
         }
@@ -332,7 +332,7 @@ export default function AdminUserDetails() {
       if (error) throw error;
 
       toast.success(`Usuário e organização excluídos com sucesso. ${data?.deleted_users || 0} usuário(s) removido(s).`);
-      
+
       // Redirecionar para o dashboard admin após 2 segundos
       setTimeout(() => {
         navigate("/admin");
@@ -454,7 +454,7 @@ export default function AdminUserDetails() {
                   Último Login
                 </div>
                 <p className="text-sm text-gray-500">
-                  {userDetails.last_sign_in_at 
+                  {userDetails.last_sign_in_at
                     ? format(new Date(userDetails.last_sign_in_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
                     : "Nunca fez login"}
                 </p>
@@ -599,20 +599,13 @@ export default function AdminUserDetails() {
               {SECTION_KEYS.map(section => (
                 <div key={section.key} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
                   <div className="flex items-center gap-2">
-                    {section.locked ? (
-                      <Lock className="w-4 h-4 text-amber-500" />
-                    ) : (
-                      <Unlock className="w-4 h-4 text-gray-400" />
-                    )}
+                    <Unlock className="w-4 h-4 text-gray-400" />
                     <div>
                       <span className="text-sm font-medium text-gray-900">{section.label}</span>
-                      {section.locked && (
-                        <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Em breve</span>
-                      )}
                     </div>
                   </div>
                   <Switch
-                    checked={sectionAccess[section.key] ?? !section.locked}
+                    checked={sectionAccess[section.key] ?? true}
                     onCheckedChange={(checked) => setSectionAccess(prev => ({ ...prev, [section.key]: checked }))}
                   />
                 </div>
@@ -760,7 +753,7 @@ export default function AdminUserDetails() {
                       <strong>⚠️ Atenção:</strong> O usuário receberá um email com um link válido por 1 hora para criar uma nova senha.
                     </p>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="reset-message" className="text-sm font-medium text-gray-700">
                       Mensagem Personalizada (Opcional)
@@ -788,7 +781,7 @@ export default function AdminUserDetails() {
               <AlertDialogCancel onClick={() => { setTargetUser(null); setCustomMessage(""); }} className="border-gray-300 text-gray-700">
                 Cancelar
               </AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleSendResetEmail}
                 className="bg-orange-500 hover:bg-orange-600 text-white"
               >
@@ -825,7 +818,7 @@ export default function AdminUserDetails() {
                       <li>Exigir que o usuário troque a senha no próximo login</li>
                     </ul>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="temp-message" className="text-sm font-medium text-gray-700">
                       Mensagem Personalizada (Opcional)
@@ -853,7 +846,7 @@ export default function AdminUserDetails() {
               <AlertDialogCancel onClick={() => { setTargetUser(null); setCustomMessage(""); }} className="border-gray-300 text-gray-700">
                 Cancelar
               </AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleGenerateTempPassword}
                 className="bg-red-500 hover:bg-red-600 text-white"
               >
@@ -894,7 +887,7 @@ export default function AdminUserDetails() {
                   </div>
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-sm text-yellow-800">
-                      <strong>⚠️ Importante:</strong> O usuário deve trocar esta senha no primeiro login. 
+                      <strong>⚠️ Importante:</strong> O usuário deve trocar esta senha no primeiro login.
                       Um email foi enviado com as instruções.
                     </p>
                   </div>
@@ -946,7 +939,7 @@ export default function AdminUserDetails() {
                       <li>Excluir todas as configurações e históricos</li>
                     </ul>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="admin-password" className="text-sm font-medium text-gray-700">
                       Digite sua senha de Super Admin para confirmar
@@ -975,7 +968,7 @@ export default function AdminUserDetails() {
               <AlertDialogCancel onClick={() => { setAdminPassword(""); }} className="border-gray-300 text-gray-700">
                 Cancelar
               </AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleDeleteUser}
                 disabled={!adminPassword || deleting}
                 className="bg-red-500 hover:bg-red-600 text-white"

@@ -85,7 +85,7 @@ const SIDEBAR_LOCK_KEY = "sidebar-locked";
 
 function AppSidebarComponent() {
   const { open, setOpen } = useSidebar();
-  const { signOut, user, subscriptionData } = useAuth();
+  const { signOut, user, subscriptionData, isSuperAdmin } = useAuth();
   const permissions = usePermissions();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
 
@@ -102,12 +102,12 @@ function AppSidebarComponent() {
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {
-    // 1. Se estiver carregando, NÃO mostre o cadeado para evitar flicker
-    if (sectionLoading) return false;
+    // 1. Se estiver carregando Auth OU Organização, NÃO mostre o cadeado para evitar flicker
+    if (sectionLoading || permissions.loading) return false;
 
-    // 2. Se o usuário for Proprietário ou Administrador, NUNCA mostre cadeados.
+    // 2. Se for Super Admin, Proprietário ou Administrador, NUNCA mostre cadeados.
     // Eles têm acesso total baseado na role, independente da tabela user_section_access.
-    if (permissions.role === 'owner' || permissions.role === 'admin') return false;
+    if (isSuperAdmin || permissions.role === 'owner' || permissions.role === 'admin') return false;
 
     // 3. Se ainda não temos os dados carregados do mapa de acesso, não bloqueie por segurança
     if (sectionAccess === null) return false;
@@ -118,7 +118,7 @@ function AppSidebarComponent() {
 
     // 4. Default: se for uma feature bloqueada padrão e não houver override, bloqueia
     return LOCKED_FEATURES.includes(url);
-  }, [isSectionVisible, sectionAccess, sectionLoading, permissions.role]);
+  }, [isSectionVisible, sectionAccess, sectionLoading, permissions.role, permissions.loading, isSuperAdmin]);
 
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
