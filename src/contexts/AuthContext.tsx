@@ -316,6 +316,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Refresh in background
           setTimeout(async () => {
             if (!mounted) return;
+
+            // Ativar loading durante atualização em background para evitar flicker
+            setSectionAccessLoading(true);
+
             try {
               const { data: { session: currentSession } } = await supabase.auth.getSession();
               if (!currentSession?.access_token) return;
@@ -338,10 +342,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSectionAccess(map);
                 setSectionAccessCache(map, session.user.id);
                 sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
-                setSectionAccessLoading(false);
+                sectionAccessFetchedRef.current = true;
               }
             } catch (error) {
               console.error('[AUTH] Erro ao verificar dados após login:', error);
+            } finally {
+              if (mounted) setSectionAccessLoading(false);
             }
           }, 500);
         } else if (event === 'SIGNED_OUT') {
@@ -399,6 +405,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Atualizar dados em BACKGROUND (não bloquear)
           setTimeout(async () => {
             if (!mounted) return;
+
+            // Ativar loading durante atualização em background para evitar flicker de estados antigos
+            setSectionAccessLoading(true);
+
             try {
               // 1. Subscription
               const { data: subData, error: subError } = await supabase.functions.invoke('check-subscription');
@@ -420,11 +430,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSectionAccess(map);
                 setSectionAccessCache(map, session.user.id);
                 sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
-                setSectionAccessLoading(false);
                 sectionAccessFetchedRef.current = true;
               }
             } catch (error) {
               console.error('[AUTH] Erro ao verificar dados iniciais:', error);
+            } finally {
+              if (mounted) setSectionAccessLoading(false);
             }
           }, 100);
         }

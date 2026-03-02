@@ -102,16 +102,19 @@ function AppSidebarComponent() {
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {
-    if (sectionLoading) return false; // Don't show locks while loading
-    const access = isSectionVisible(url);
-    if (access === true) return false; // explicitly unlocked
-    if (access === false) return true; // explicitly disabled (hidden)
+    // Se estiver carregando (inicial ou sincronização em background), não mostre bloqueado para evitar flicker
+    if (sectionLoading) return false;
 
-    // Se ainda estiver carregando o mapa de acesso, não mostre bloqueado
+    const access = isSectionVisible(url);
+    if (access === true) return false; // explicitamente liberado
+    if (access === false) return true; // explicitamente bloqueado (ou escondido em outro lugar)
+
+    // Se o mapa de acesso for nulo ainda, estamos no estado inicial de carregamento
     if (sectionAccess === null) return false;
 
-    return LOCKED_FEATURES.includes(url); // default behavior
-  }, [isSectionVisible, sectionAccess]);
+    // Se for uma feature da lista padrão de bloqueadas, mas não temos override explícito de desbloqueio, bloqueia
+    return LOCKED_FEATURES.includes(url);
+  }, [isSectionVisible, sectionAccess, sectionLoading]);
 
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
