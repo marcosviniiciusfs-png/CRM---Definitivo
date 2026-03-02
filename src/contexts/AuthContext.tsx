@@ -310,15 +310,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (cachedAccess) {
             console.log('[AUTH] Using cached section access on SIGNED_IN');
             setSectionAccess(cachedAccess);
-            setSectionAccessLoading(false);
+            // Não setamos loading para false aqui se vamos fazer o fetch real logo em seguida
           }
 
           // Refresh in background
+          // Ativar loading imediatamente antes do timeout para evitar flicker
+          setSectionAccessLoading(true);
+
           setTimeout(async () => {
             if (!mounted) return;
-
-            // Ativar loading durante atualização em background para evitar flicker
-            setSectionAccessLoading(true);
 
             try {
               const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -398,16 +398,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (cachedAccess) {
             console.log('[AUTH] Using cached section access on initial load');
             setSectionAccess(cachedAccess);
-            setSectionAccessLoading(false);
+            // NÃO setamos loading para false aqui se vamos fazer o fetch real logo em seguida
             sectionAccessFetchedRef.current = true;
           }
 
           // Atualizar dados em BACKGROUND (não bloquear)
+          // Ativamos o loading IMEDIATAMENTE (antes do timeout) para evitar flicker
+          setSectionAccessLoading(true);
+
           setTimeout(async () => {
             if (!mounted) return;
-
-            // Ativar loading durante atualização em background para evitar flicker de estados antigos
-            setSectionAccessLoading(true);
 
             try {
               // 1. Subscription

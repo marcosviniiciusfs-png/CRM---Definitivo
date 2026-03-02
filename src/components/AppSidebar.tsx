@@ -102,17 +102,18 @@ function AppSidebarComponent() {
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {
-    // Se estiver carregando (inicial ou sincronização em background), não mostre bloqueado para evitar flicker
+    // Se estiver carregando (inicial ou sincronização em background), NÃO mostre o cadeado.
+    // Isso evita o flicker onde o cadeado aparece por um instante e some.
     if (sectionLoading) return false;
 
-    const access = isSectionVisible(url);
-    if (access === true) return false; // explicitamente liberado
-    if (access === false) return true; // explicitamente bloqueado (ou escondido em outro lugar)
-
-    // Se o mapa de acesso for nulo ainda, estamos no estado inicial de carregamento
+    // Se ainda não temos os dados carregados (nem do cache nem da API), não bloqueie nada por segurança
     if (sectionAccess === null) return false;
 
-    // Se for uma feature da lista padrão de bloqueadas, mas não temos override explícito de desbloqueio, bloqueia
+    const access = isSectionVisible(url);
+    if (access === true) return false; // explicitamente liberado pelo banco de dados
+    if (access === false) return true; // explicitamente bloqueado pelo banco de dados
+
+    // Se não há override explícito, verifica se faz parte da lista de features bloqueadas por padrão (LOCKED_FEATURES)
     return LOCKED_FEATURES.includes(url);
   }, [isSectionVisible, sectionAccess, sectionLoading]);
 
