@@ -21,11 +21,11 @@ interface AuthContextType {
   sectionAccessLoading: boolean;
   refreshSubscription: (organizationId?: string) => Promise<void>;
   refreshSectionAccess: () => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signInWithGoogle: () => Promise<{ error: any }>;
+  signUp: (email: string, password: string, name: string) => Promise<{ error: unknown }>;
+  signIn: (email: string, password: string) => Promise<{ error: unknown }>;
+  signInWithGoogle: () => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ error: any }>;
+  resetPassword: (email: string) => Promise<{ error: unknown }>;
   isSuperAdmin: boolean;
 }
 
@@ -109,14 +109,18 @@ const getSectionAccessCache = (userId: string): Record<string, boolean> | null =
 const setSectionAccessCache = (data: Record<string, boolean>, userId: string) => {
   try {
     sessionStorage.setItem(SECTION_ACCESS_CACHE_KEY, JSON.stringify({ data, userId }));
-  } catch { }
+  } catch (error) {
+    console.error('Error setting section access cache:', error);
+  }
 };
 
 const clearSectionAccessCache = () => {
   try {
     sessionStorage.removeItem(SECTION_ACCESS_CACHE_KEY);
     sessionStorage.removeItem(FAST_ACCESS_CACHE_KEY);
-  } catch { }
+  } catch (error) {
+    console.error('Error clearing section access cache:', error);
+  }
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -128,12 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const cached = sessionStorage.getItem(FAST_ACCESS_CACHE_KEY);
       return cached ? JSON.parse(cached) : null;
-    } catch { return null; }
+    } catch (error) {
+      console.error('Error parsing fast access cache:', error);
+      return null;
+    }
   });
   const [sectionAccessLoading, setSectionAccessLoading] = useState(() => {
     try {
       return sessionStorage.getItem(FAST_ACCESS_CACHE_KEY) === null;
-    } catch { return true; }
+    } catch (error) {
+      console.error('Error checking fast access cache:', error);
+      return true;
+    }
   });
   const navigate = useNavigate();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -213,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data) {
         const map: Record<string, boolean> = {};
-        data.forEach((r: any) => {
+        data.forEach((r) => {
           map[r.section_key] = r.is_enabled;
         });
         setSectionAccess(map);
@@ -357,7 +367,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               if (accessData && mounted) {
                 const map: Record<string, boolean> = {};
-                accessData.forEach((r: any) => { map[r.section_key] = r.is_enabled; });
+                accessData.forEach((r) => { map[r.section_key] = r.is_enabled; });
                 setSectionAccess(map);
                 setSectionAccessCache(map, session.user.id);
                 sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
@@ -446,7 +456,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               if (!accError && accData && mounted) {
                 const map: Record<string, boolean> = {};
-                accData.forEach((r: any) => { map[r.section_key] = r.is_enabled; });
+                accData.forEach((r) => { map[r.section_key] = r.is_enabled; });
                 setSectionAccess(map);
                 setSectionAccessCache(map, session.user.id);
                 sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
@@ -496,7 +506,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Limpar cache de organização para garantir verificação limpa
     try {
       localStorage.removeItem('kairoz_org_cache');
-    } catch { }
+    } catch (error) {
+      console.error('Error removing org cache:', error);
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email,

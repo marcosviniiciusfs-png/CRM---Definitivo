@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2, CreditCard, Lock, Unlock } from "lucide-react";
+import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2, CreditCard, Unlock } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -147,7 +147,7 @@ export default function AdminUserDetails() {
           accessMap[s.key] = !s.locked; // default: enabled for normal, disabled for locked
         });
         // Override with DB values
-        (accessData || []).forEach((row: any) => {
+        (accessData || []).forEach((row: { section_key: string; is_enabled: boolean }) => {
           accessMap[row.section_key] = row.is_enabled;
         });
         setSectionAccess(accessMap);
@@ -155,9 +155,10 @@ export default function AdminUserDetails() {
         toast.error("Usuário não encontrado");
         navigate("/admin");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao carregar detalhes:', error);
-      toast.error(`Erro ao carregar detalhes: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao carregar detalhes';
+      toast.error(`Erro ao carregar detalhes: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -189,9 +190,10 @@ export default function AdminUserDetails() {
       }
       setCurrentPlan(selectedPlan);
       toast.success('Plano atualizado com sucesso!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar plano:', error);
-      toast.error(`Erro ao salvar plano: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao salvar plano';
+      toast.error(`Erro ao salvar plano: ${errorMessage}`);
     } finally {
       setSavingPlan(false);
     }
@@ -221,9 +223,10 @@ export default function AdminUserDetails() {
 
       if (error) throw error;
       toast.success('Acessos atualizados com sucesso!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar acessos:', error);
-      toast.error(`Erro ao salvar acessos: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao salvar acessos';
+      toast.error(`Erro ao salvar acessos: ${errorMessage}`);
     } finally {
       setSavingSections(false);
     }
@@ -255,9 +258,10 @@ export default function AdminUserDetails() {
       if (error) throw error;
 
       toast.success(`Email de redefinição enviado para ${targetUser.email}`);
-    } catch (error: any) {
-      console.error('Erro ao enviar email:', error);
-      toast.error(error.message || 'Erro ao enviar email de redefinição');
+    } catch (error: unknown) {
+      console.error('Erro ao resetar senha:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao resetar senha';
+      toast.error(errorMessage);
     } finally {
       setResettingPassword(false);
       setTargetUser(null);
@@ -293,9 +297,10 @@ export default function AdminUserDetails() {
           toast.success(`Senha temporária gerada e enviada para ${targetUser.email}`);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao gerar senha:', error);
-      toast.error(error.message || 'Erro ao gerar senha temporária');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar senha temporária';
+      toast.error(errorMessage);
     } finally {
       setResettingPassword(false);
       setTargetUser(null);
@@ -337,9 +342,10 @@ export default function AdminUserDetails() {
       setTimeout(() => {
         navigate("/admin");
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao excluir usuário:', error);
-      toast.error(error.message || 'Erro ao excluir usuário');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao excluir usuário';
+      toast.error(errorMessage);
       setShowDeleteConfirm(true); // Reabrir o diálogo em caso de erro
     } finally {
       setDeleting(false);

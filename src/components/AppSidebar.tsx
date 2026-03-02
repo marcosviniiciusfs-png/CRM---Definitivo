@@ -7,7 +7,6 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { MenuLockToggle } from "@/components/MenuLockToggle";
 import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import React, { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSectionAccess } from "@/hooks/useSectionAccess";
 import { cn } from "@/lib/utils";
@@ -89,7 +88,7 @@ function AppSidebarComponent() {
   const permissions = usePermissions();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
 
-  const { sectionAccess, isSectionUnlocked, loading: sectionLoading } = useSectionAccess();
+  const { sectionAccess, loading: sectionLoading } = useSectionAccess();
 
   // Helper: check if a URL is visible based on section access
   const isSectionVisible = useCallback((url: string) => {
@@ -169,18 +168,12 @@ function AppSidebarComponent() {
             <img
               src={logoFull}
               alt="KairoZ"
-              className={cn(
-                "h-10 w-auto object-contain",
-                open ? "block" : "hidden"
-              )}
+              className={open ? "h-10 w-auto object-contain block" : "h-10 w-auto object-contain hidden"}
             />
             <img
               src={logoIcon}
               alt="K"
-              className={cn(
-                "h-8 w-auto object-contain",
-                open ? "hidden" : "block"
-              )}
+              className={open ? "h-8 w-auto object-contain hidden" : "h-8 w-auto object-contain block"}
             />
           </div>
 
