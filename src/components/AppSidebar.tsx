@@ -84,7 +84,7 @@ const SIDEBAR_LOCK_KEY = "sidebar-locked";
 
 function AppSidebarComponent() {
   const { open, setOpen } = useSidebar();
-  const { signOut, user, subscriptionData, isSuperAdmin } = useAuth();
+  const { signOut, user, subscriptionData, isSuperAdmin, roleLoading } = useAuth();
   const permissions = usePermissions();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
 
@@ -101,8 +101,8 @@ function AppSidebarComponent() {
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {
-    // 1. Se estiver carregando Auth OU Organização, NÃO mostre o cadeado para evitar flicker
-    if (sectionLoading || permissions.loading) return false;
+    // 1. Se estiver carregando Auth, Role OU Organização, NÃO mostre o cadeado para evitar flicker
+    if (sectionLoading || permissions.loading || roleLoading) return false;
 
     // 2. Se for Super Admin, Proprietário ou Administrador, NUNCA mostre cadeados.
     // Eles têm acesso total baseado na role, independente da tabela user_section_access.

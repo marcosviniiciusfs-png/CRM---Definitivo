@@ -87,7 +87,7 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
       const webhooksWithMeta: WebhookWithMeta[] = await Promise.all(
         webhooksData.map(async (webhook) => {
           const tagName = webhook.tag_id ? tagsMap[webhook.tag_id] || "" : "";
-          let stats = { total: 0, won: 0, lost: 0 };
+          const stats = { total: 0, won: 0, lost: 0 };
 
           if (webhook.tag_id) {
             // Total de leads com a tag

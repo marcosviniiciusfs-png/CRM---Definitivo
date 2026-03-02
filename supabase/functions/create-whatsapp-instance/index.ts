@@ -362,7 +362,7 @@ serve(async (req) => {
       console.log('🔍 QR Data structure:', JSON.stringify(qrData, null, 2));
       
       // Priority extraction: base64 > qrcode > code
-      let rawQR = qrData.base64 || qrData.qrcode || qrData.code;
+      const rawQR = qrData.base64 || qrData.qrcode || qrData.code;
       
       if (typeof rawQR === 'string' && rawQR.length > 0) {
         // CRITICAL: Rigorously clean Base64 string - remove prefix, whitespace, quotes, invalid chars

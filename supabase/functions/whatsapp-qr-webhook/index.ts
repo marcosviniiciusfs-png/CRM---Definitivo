@@ -376,7 +376,7 @@ serve(async (req) => {
       console.log(`🏢 Organization ID: ${orgData}`);
 
       // Buscar ou criar lead
-      let { data: existingLead, error: leadError } = await supabase
+      const { data: existingLead, error: leadError } = await supabase
         .from('leads')
         .select('*')
         .eq('telefone_lead', phoneNumber)

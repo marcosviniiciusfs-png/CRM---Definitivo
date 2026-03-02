@@ -135,7 +135,7 @@ const Colaboradores = () => {
       });
 
       // Fetch goals for KPI comparison
-      let goalsByUser: Record<string, number> = {};
+      const goalsByUser: Record<string, number> = {};
       try {
         const { data: goalsData } = await supabase
           .from('goals')
@@ -161,8 +161,8 @@ const Colaboradores = () => {
         ? { total: subData.total_collaborators, current: activeMembers.length }
         : null;
 
-      let salesByUser: Record<string, { count: number; revenue: number }> = {};
-      let pendingCommissionsByUser: Record<string, number> = {};
+      const salesByUser: Record<string, { count: number; revenue: number }> = {};
+      const pendingCommissionsByUser: Record<string, number> = {};
       try {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         const [wonStagesRes, wonLeadsRes, commissionsRes] = await Promise.all([

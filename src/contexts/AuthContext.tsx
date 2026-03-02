@@ -27,6 +27,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: unknown }>;
   isSuperAdmin: boolean;
+  roleLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -147,11 +148,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const navigate = useNavigate();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(true);
   const currentSessionIdRef = useRef<string | null>(null);
   const subscriptionFetchedRef = useRef(false);
   const sectionAccessFetchedRef = useRef(false);
 
   const checkSuperAdmin = async (userId: string) => {
+    setRoleLoading(true);
     try {
       const { data, error } = await supabase.rpc('has_role', {
         _user_id: userId,
@@ -164,6 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       setIsSuperAdmin(false);
+    } finally {
+      setRoleLoading(false);
     }
   };
 
@@ -561,7 +566,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signOut,
       resetPassword,
-      isSuperAdmin
+      isSuperAdmin,
+      roleLoading
     }}>
       {children}
     </AuthContext.Provider>
