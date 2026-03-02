@@ -1,29 +1,47 @@
 
 
-## Fix: Remove Invalid Facebook OAuth Scope
+## Diagnóstico: Por que as seções ainda aparecem trancadas
 
-### Problem
-The Facebook OAuth flow is failing because `pages_manage_metadata` is listed as a requested scope, but Meta considers it invalid for the current API version (v18.0). The error message confirms: *"Invalid Scopes: pages_manage_metadata"*.
+### Problema encontrado
 
-### Solution
-Remove `pages_manage_metadata` from the scopes array in the `facebook-oauth-initiate` Edge Function. The remaining scopes are sufficient for the leads and ads integration.
+A correção anterior protegeu o `SectionGate` (que controla redirects), mas **não corrigiu o `AppSidebar`** — o componente que renderiza os ícones de cadeado no menu lateral.
 
-### Technical Details
+No `AppSidebar.tsx` (linha 92-109), o código faz:
 
-**File:** `supabase/functions/facebook-oauth-initiate/index.ts`
+```typescript
+const { sectionAccess, isSectionUnlocked } = useSectionAccess();
+// NÃO usa 'loading' ⬆️
 
-Update the scopes array from:
-```
-leads_retrieval, pages_manage_ads, pages_show_list, 
-pages_read_engagement, pages_manage_metadata, 
-business_management, ads_read
-```
-
-To:
-```
-leads_retrieval, pages_manage_ads, pages_show_list, 
-pages_read_engagement, business_management, ads_read
+const isFeatureLocked = useCallback((url: string) => {
+  const access = isSectionVisible(url);
+  if (access === true) return false;
+  if (access === false) return true;
+  return LOCKED_FEATURES.includes(url); // ← Quando sectionAccess é null, cai aqui = TRANCADO
+}, [isSectionVisible]);
 ```
 
-This is a single-line change -- removing `pages_manage_metadata` from the scopes list. The function will then be redeployed automatically.
+Quando `sectionAccess` é `null` (durante token refresh ou carregamento), `isSectionVisible` retorna `undefined`, e `isFeatureLocked` aplica o comportamento padrão: **trancar** Chat, Integrações, Métricas e Roleta de Leads. Isso causa o flash de cadeado visível na screenshot.
+
+### Solução
+
+**Arquivo: `src/components/AppSidebar.tsx`**
+
+1. Extrair `loading` do `useSectionAccess()`
+2. No `isFeatureLocked`, quando `loading` é `true`, retornar `false` (não mostrar cadeado enquanto dados estão carregando)
+
+Mudança específica:
+
+- Linha 92: `const { sectionAccess, isSectionUnlocked, loading: sectionLoading } = useSectionAccess();`
+- Linha 104-109: Adicionar verificação no início de `isFeatureLocked`:
+  ```typescript
+  const isFeatureLocked = useCallback((url: string) => {
+    if (sectionLoading) return false; // Don't show locks while loading
+    const access = isSectionVisible(url);
+    if (access === true) return false;
+    if (access === false) return true;
+    return LOCKED_FEATURES.includes(url);
+  }, [isSectionVisible, sectionLoading]);
+  ```
+
+Isso é uma mudança de **2 linhas** que resolve o flash de cadeados. Depois de implementar, será necessário **publicar** para que chegue à produção.
 
