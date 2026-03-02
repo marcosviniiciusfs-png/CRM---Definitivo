@@ -310,13 +310,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (cachedAccess) {
             console.log('[AUTH] Using cached section access on SIGNED_IN');
             setSectionAccess(cachedAccess);
-            // Não setamos loading para false aqui se vamos fazer o fetch real logo em seguida
+            // Mantemos o loading como true se vamos atualizar em background
           }
 
-          // Refresh in background
-          // Ativar loading imediatamente antes do timeout para evitar flicker
+          // ATIVAR LOADING IMEDIATAMENTE antes do timeout para evitar flicker na UI
           setSectionAccessLoading(true);
 
+          // Refresh in background
           setTimeout(async () => {
             if (!mounted) return;
 
@@ -398,14 +398,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (cachedAccess) {
             console.log('[AUTH] Using cached section access on initial load');
             setSectionAccess(cachedAccess);
-            // NÃO setamos loading para false aqui se vamos fazer o fetch real logo em seguida
+            // Mantemos o loading como true se vamos atualizar em background
             sectionAccessFetchedRef.current = true;
           }
 
-          // Atualizar dados em BACKGROUND (não bloquear)
-          // Ativamos o loading IMEDIATAMENTE (antes do timeout) para evitar flicker
+          // ATIVAR LOADING IMEDIATAMENTE (síncrono) para evitar flicker
           setSectionAccessLoading(true);
 
+          // Atualizar dados em BACKGROUND (não bloquear)
           setTimeout(async () => {
             if (!mounted) return;
 

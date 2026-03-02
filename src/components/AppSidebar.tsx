@@ -102,20 +102,23 @@ function AppSidebarComponent() {
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {
-    // Se estiver carregando (inicial ou sincronização em background), NÃO mostre o cadeado.
-    // Isso evita o flicker onde o cadeado aparece por um instante e some.
+    // 1. Se estiver carregando, NÃO mostre o cadeado para evitar flicker
     if (sectionLoading) return false;
 
-    // Se ainda não temos os dados carregados (nem do cache nem da API), não bloqueie nada por segurança
+    // 2. Se o usuário for Proprietário ou Administrador, NUNCA mostre cadeados.
+    // Eles têm acesso total baseado na role, independente da tabela user_section_access.
+    if (permissions.role === 'owner' || permissions.role === 'admin') return false;
+
+    // 3. Se ainda não temos os dados carregados do mapa de acesso, não bloqueie por segurança
     if (sectionAccess === null) return false;
 
     const access = isSectionVisible(url);
     if (access === true) return false; // explicitamente liberado pelo banco de dados
     if (access === false) return true; // explicitamente bloqueado pelo banco de dados
 
-    // Se não há override explícito, verifica se faz parte da lista de features bloqueadas por padrão (LOCKED_FEATURES)
+    // 4. Default: se for uma feature bloqueada padrão e não houver override, bloqueia
     return LOCKED_FEATURES.includes(url);
-  }, [isSectionVisible, sectionAccess, sectionLoading]);
+  }, [isSectionVisible, sectionAccess, sectionLoading, permissions.role]);
 
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
