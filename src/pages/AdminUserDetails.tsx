@@ -44,9 +44,9 @@ interface OrganizationMember {
 
 const PLAN_OPTIONS = [
   { value: 'none', label: 'Sem plano', amount: 0 },
-  { value: 'star', label: 'Star - R$ 47,99/mês', amount: 47.99 },
-  { value: 'pro', label: 'Pro - R$ 197,99/mês', amount: 197.99 },
-  { value: 'elite', label: 'Elite - R$ 499,00/mês', amount: 499.00 },
+  { value: 'star', label: 'Star', amount: 0 },
+  { value: 'pro', label: 'Pro', amount: 0 },
+  { value: 'elite', label: 'Elite', amount: 0 },
 ];
 
 export default function AdminUserDetails() {
@@ -186,12 +186,12 @@ export default function AdminUserDetails() {
       } else {
         const planOption = PLAN_OPTIONS.find(p => p.value === selectedPlan);
 
-        // Dados para o upsert
+        // Dados para o upsert - Forçamos amount para 0 pois é atribuição admin manual
         const subscriptionData = {
           user_id: userId,
           plan_id: selectedPlan,
           status: 'authorized',
-          amount: planOption?.amount || 0,
+          amount: 0,
           organization_id: userDetails?.organization_id || null,
           start_date: new Date().toISOString(),
           updated_at: new Date().toISOString()
