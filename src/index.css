@@ -353,3 +353,13 @@ All colors MUST be HSL.
 .overflow-auto {
   -webkit-overflow-scrolling: touch;
 }
+
+/* Custom Success Notification Animations */
+@keyframes shrink-width {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-shrink-width {
+  animation: shrink-width 5s linear forwards;
+}

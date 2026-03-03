@@ -49,7 +49,7 @@ interface Permissions {
   canViewTeamMetrics: boolean;
   canAccessAdminSection: boolean;
   canManageAgentSettings: boolean;
-  
+
   // Granular custom role permissions
   canViewKanban: boolean;
   canCreateTasks: boolean;
@@ -65,12 +65,12 @@ interface Permissions {
   canSendMessages: boolean;
   canViewAllConversations: boolean;
   canViewReports: boolean;
-  
+
   // Custom role info
   customRoleId: string | null;
   customRoleName: string | null;
   customRoleColor: string | null;
-  
+
   role: 'owner' | 'admin' | 'member' | null;
   loading: boolean;
 }
@@ -145,16 +145,16 @@ const getOrgCache = (userId: string): CachedOrgData | null => {
   try {
     const cached = localStorage.getItem(ORG_CACHE_KEY);
     if (!cached) return null;
-    
+
     const parsed: CachedOrgData = JSON.parse(cached);
     const isExpired = Date.now() - parsed.timestamp > ORG_CACHE_TTL;
     const isCorrectUser = parsed.userId === userId;
-    
+
     if (isExpired || !isCorrectUser) {
       localStorage.removeItem(ORG_CACHE_KEY);
       return null;
     }
-    
+
     return parsed;
   } catch {
     localStorage.removeItem(ORG_CACHE_KEY);
@@ -163,9 +163,9 @@ const getOrgCache = (userId: string): CachedOrgData | null => {
 };
 
 const setOrgCache = (
-  selectedOrganizationId: string, 
+  selectedOrganizationId: string,
   availableOrganizations: OrganizationMembership[],
-  permissions: Permissions, 
+  permissions: Permissions,
   userId: string
 ) => {
   try {
@@ -311,8 +311,8 @@ const OrganizationContext = createContext<OrganizationContextType>({
   organizationId: null,
   permissions: defaultPermissions,
   availableOrganizations: [],
-  switchOrganization: async () => {},
-  refresh: async () => {},
+  switchOrganization: async () => { },
+  refresh: async () => { },
   needsOrgSelection: false,
   isInitialized: false,
 });
@@ -324,7 +324,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
   const [needsOrgSelection, setNeedsOrgSelection] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const dataLoadedRef = useRef(false);
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 2000; // 2 seconds
 
   // Fetch custom role permissions for a specific organization
   const fetchCustomRolePermissions = async (orgId: string): Promise<CustomRolePermissions | null> => {
@@ -404,7 +407,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log('[ORG] Fetching organization data via RPC');
-      
+
       // USAR A NOVA RPC SECURITY DEFINER que contorna as políticas RLS
       const { data: memberships, error } = await supabase.rpc('get_my_organization_memberships');
 
@@ -417,13 +420,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       console.log('[ORG] Memberships returned:', memberships?.length, memberships);
 
       if (memberships && memberships.length > 0) {
-        // Formatar dados para compatibilidade com o resto do sistema
+        setRetryCount(0); // Reset retry count on success
+        // ... (resto do processamento de memberships)
         const formattedMemberships: OrganizationMembership[] = memberships.map((m: any) => ({
           organization_id: m.organization_id,
           role: m.role as 'owner' | 'admin' | 'member',
-          organizations: { 
-            id: m.organization_id, 
-            name: m.organization_name 
+          organizations: {
+            id: m.organization_id,
+            name: m.organization_name
           }
         }));
 
@@ -431,7 +435,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
         // Determinar qual organização selecionar
         let targetOrgId = selectedOrgId;
-        
+
         if (!targetOrgId) {
           // Verificar se há uma seleção no cache
           const cachedData = getOrgCache(user.id);
@@ -451,7 +455,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           console.log('[ORG] Multiple organizations detected, requires selection');
           setNeedsOrgSelection(true);
           setPermissions(prev => ({ ...prev, loading: false }));
-          return; // NÃO auto-selecionar, esperar usuário escolher
+          setIsInitialized(true);
+          return;
         }
 
         if (!targetOrgId) {
@@ -463,53 +468,47 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           targetOrgId = sortedMemberships[0].organization_id;
         }
 
-        // CRITICAL: Sync to backend for RLS policies BEFORE setting state
-        // This ensures all subsequent queries will use the correct organization
-        console.log('[ORG] Syncing active org to backend:', targetOrgId);
-        try {
-          const { error: syncError } = await supabase.rpc('set_user_active_organization', {
-            _org_id: targetOrgId
-          });
-          if (syncError) {
-            console.warn('[ORG] Failed to sync active org:', syncError);
-          } else {
-            console.log('[ORG] Active org synced successfully');
-          }
-        } catch (syncErr) {
-          console.warn('[ORG] Error syncing active org:', syncErr);
-        }
+        // Sync to backend
+        await supabase.rpc('set_user_active_organization', { _org_id: targetOrgId });
 
         setOrganizationId(targetOrgId);
         setNeedsOrgSelection(false);
 
-        // Get base role from membership
-        const selectedMembership = formattedMemberships.find(
-          m => m.organization_id === targetOrgId
-        );
+        const selectedMembership = formattedMemberships.find(m => m.organization_id === targetOrgId);
         const role = selectedMembership?.role || null;
 
-        // Fetch custom role permissions for members
         let customRolePerms: CustomRolePermissions | null = null;
         if (role === 'member') {
           customRolePerms = await fetchCustomRolePermissions(targetOrgId);
-          console.log('[ORG] Custom role permissions loaded:', customRolePerms);
         }
 
-        // Calculate full permissions
         const newPermissions = calculatePermissions(role, customRolePerms);
-
         setPermissions(newPermissions);
         setOrgCache(targetOrgId, formattedMemberships, newPermissions, user.id);
         setIsInitialized(true);
         dataLoadedRef.current = true;
-
-        // Atualizar subscription com a organização correta
-        console.log('[ORG] Refreshing subscription for organization:', targetOrgId);
         refreshSubscription(targetOrgId);
       } else {
-        console.log('[ORG] No memberships found');
-        setPermissions(prev => ({ ...prev, loading: false }));
-        setIsInitialized(true);
+        console.log(`[ORG] No memberships found. Attempt ${retryCount + 1}/${MAX_RETRIES}`);
+
+        // CRÍTICO: Marcar como inicializado na primeira falha para liberar o ProtectedRoute
+        // para redirecionar o usuário para o pricing IMEDIATAMENTE em vez de esperar 10 segundos.
+        if (retryCount === 0) {
+          console.log('[ORG] First check returned 0, allowing UI to proceed to pricing flows');
+          setPermissions(prev => ({ ...prev, loading: false }));
+          setIsInitialized(true);
+        }
+
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+            loadOrganizationData(true);
+          }, RETRY_DELAY);
+        } else {
+          console.log('[ORG] Max retries reached, no organization found');
+          setPermissions(prev => ({ ...prev, loading: false }));
+          setIsInitialized(true);
+        }
       }
     } catch (error) {
       console.error('Error loading organization data:', error);
@@ -528,12 +527,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.rpc('set_user_active_organization', {
         _org_id: orgId
       });
-      
+
       if (error) {
         console.error('[ORG] Failed to sync active org to backend:', error);
         return false;
       }
-      
+
       console.log('[ORG] Active organization synced successfully:', data);
       return data === true;
     } catch (error) {
@@ -548,14 +547,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       console.log('[ORG] Ignoring selection - already processing or no user');
       return;
     }
-    
+
     isProcessingSelection.current = true;
     console.log('[ORG] Processing organization selection:', orgId);
-    
+
     const targetMembership = availableOrganizations.find(
       m => m.organization_id === orgId
     );
-    
+
     if (!targetMembership) {
       console.error('[ORG] Organization not found in available organizations');
       isProcessingSelection.current = false;
@@ -581,7 +580,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       }
 
       const role = targetMembership.role;
-      
+
       // Fetch custom role permissions for members
       let customRolePerms: CustomRolePermissions | null = null;
       if (role === 'member') {
@@ -590,19 +589,19 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
       // Calculate full permissions
       const newPermissions = calculatePermissions(role, customRolePerms);
-      
+
       // Salvar no cache ANTES de atualizar estados (crítico para evitar race conditions)
       setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
-      
+
       // Atualizar todos os estados de forma síncrona
       setOrganizationId(orgId);
       setPermissions(newPermissions);
       setNeedsOrgSelection(false);
       setIsInitialized(true);
       dataLoadedRef.current = true;
-      
+
       console.log('[ORG] Organization selected successfully:', orgId);
-      
+
       // Atualizar subscription em background
       refreshSubscription(orgId);
     } catch (error) {
@@ -617,13 +616,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const switchOrganization = useCallback(async (orgId: string) => {
     if (!user) return;
-    
+
     console.log('[ORG] Switching to organization:', orgId);
-    
+
     const targetMembership = availableOrganizations.find(
       m => m.organization_id === orgId
     );
-    
+
     if (!targetMembership) {
       console.error('[ORG] Organization not found in available organizations');
       return;
@@ -637,9 +636,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
 
     setOrganizationId(orgId);
-    
+
     const role = targetMembership.role;
-    
+
     // Fetch custom role permissions for members
     let customRolePerms: CustomRolePermissions | null = null;
     if (role === 'member') {
@@ -648,10 +647,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
     const newPermissions = calculatePermissions(role, customRolePerms);
     setPermissions(newPermissions);
-    
+
     // Atualizar cache com a nova seleção
     setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
-    
+
     // IMPORTANTE: Atualizar subscription com a nova organização
     console.log('[ORG] Refreshing subscription after org switch:', orgId);
     await refreshSubscription(orgId);
@@ -678,14 +677,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setNeedsOrgSelection(false);
       setIsInitialized(true);
       dataLoadedRef.current = true;
-      
+
       // Refresh in background silently
       setTimeout(() => loadOrganizationData(true), 100);
     } else {
       // SEM CACHE: Manter isInitialized=false até dados chegarem
       console.log('[ORG] No cache - loading data from API');
       setIsInitialized(false);
-      
+
       // Carregar dados reais - isInitialized será setado quando completar
       loadOrganizationData();
     }
@@ -696,8 +695,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   }, [loadOrganizationData]);
 
   return (
-    <OrganizationContext.Provider value={{ 
-      organizationId, 
+    <OrganizationContext.Provider value={{
+      organizationId,
       permissions,
       availableOrganizations,
       switchOrganization,

@@ -63,6 +63,7 @@ export default function AdminUserDetails() {
   const [currentPlan, setCurrentPlan] = useState<string>('none');
   const [selectedPlan, setSelectedPlan] = useState<string>('none');
   const [savingPlan, setSavingPlan] = useState(false);
+  const [planUpdateSuccess, setPlanUpdateSuccess] = useState(false);
 
   // Section access control states
   const SECTION_KEYS = [
@@ -215,7 +216,13 @@ export default function AdminUserDetails() {
       }
 
       setCurrentPlan(selectedPlan);
+      setPlanUpdateSuccess(true);
       toast.success('Plano atualizado com sucesso!');
+
+      // Auto-hide success card after 5 seconds
+      setTimeout(() => {
+        setPlanUpdateSuccess(false);
+      }, 5000);
 
       // Pequeno delay para recarregar os dados e garantir que o cache local reflita a mudança
       setTimeout(() => {
@@ -441,6 +448,41 @@ export default function AdminUserDetails() {
             <p className="text-gray-500">Informações completas da conta e colaboradores</p>
           </div>
         </div>
+
+        {/* Success Notification Card */}
+        {planUpdateSuccess && (
+          <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-500">
+            <Card className="w-80 border-blue-200 bg-blue-50 shadow-2xl overflow-hidden">
+              <div className="p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-200">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-blue-900">Sincronização Concluída</p>
+                  <p className="text-xs text-blue-700 truncate">
+                    Plano atualizado para <span className="font-semibold uppercase">{currentPlan}</span>
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-blue-400 hover:text-blue-600 hover:bg-transparent"
+                  onClick={() => setPlanUpdateSuccess(false)}
+                >
+                  <ArrowLeft className="w-4 h-4 rotate-90" />
+                </Button>
+              </div>
+              <div className="h-1 w-full bg-blue-100">
+                <div
+                  className="h-full bg-blue-500 animate-shrink-width"
+                  style={{
+                    animation: 'shrink-width 5s linear forwards'
+                  }}
+                />
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Informações do Usuário */}
         <Card className="bg-white border-gray-200 text-gray-900">
