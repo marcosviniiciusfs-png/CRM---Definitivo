@@ -414,6 +414,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error('[ORG] Error fetching memberships via RPC:', error);
         setPermissions(prev => ({ ...prev, loading: false }));
+        setIsInitialized(true); // CRÍTICO: Liberar a UI mesmo em erro
         return;
       }
 
@@ -655,6 +656,20 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     console.log('[ORG] Refreshing subscription after org switch:', orgId);
     await refreshSubscription(orgId);
   }, [user, availableOrganizations, refreshSubscription, syncActiveOrgToBackend]);
+
+  // Safety timeout para garantir que o usuário NUNCA fique preso na tela de carregamento
+  useEffect(() => {
+    if (user?.id && !isInitialized) {
+      const timer = setTimeout(() => {
+        if (!isInitialized) {
+          console.warn('[ORG] Safety timeout! Forçando inicialização para evitar tela trancada.');
+          setIsInitialized(true);
+          setPermissions(prev => ({ ...prev, loading: false }));
+        }
+      }, 5000); // 5 segundos de limite máximo
+      return () => clearTimeout(timer);
+    }
+  }, [user?.id, isInitialized]);
 
   // Initial load with cache - OPTIMIZED: Wait for initialization before rendering
   useEffect(() => {
