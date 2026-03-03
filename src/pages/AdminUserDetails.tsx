@@ -176,55 +176,48 @@ export default function AdminUserDetails() {
     try {
       console.log(`[Admin] Salvando plano "${selectedPlan}" para o usuário: ${userId}`);
 
-      if (selectedPlan === 'none') {
-        const { error } = await supabase
-          .from('subscriptions')
-          .delete()
-          .eq('user_id', userId);
+      // CHAMAMOS A RPC (SECURITY DEFINER) para garantir bypass total de RLS no update/insert
+      const { data, error } = await supabase.rpc('admin_manage_user_subscription', {
+        p_user_id: userId,
+        p_plan_id: selectedPlan,
+        p_organization_id: userDetails?.organization_id || null
+      });
 
-        if (error) throw error;
-      } else {
-        const planOption = PLAN_OPTIONS.find(p => p.value === selectedPlan);
+      if (error) {
+        // Fallback para o método clássico caso a RPC ainda não tenha sido aplicada via migração
+        console.warn('[Admin] RPC Falhou ou não existe, tentando método direto (upsert)...', error);
 
-        // Dados para o upsert - Forçamos amount para 0 pois é atribuição admin manual
-        const subscriptionData = {
-          user_id: userId,
-          plan_id: selectedPlan,
-          status: 'authorized',
-          amount: 0,
-          organization_id: userDetails?.organization_id || null,
-          start_date: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        console.log('[Admin] Dados da assinatura:', subscriptionData);
-
-        const { error, data } = await supabase
-          .from('subscriptions')
-          .upsert(subscriptionData, {
-            onConflict: 'user_id',
-            ignoreDuplicates: false
-          })
-          .select();
-
-        if (error) {
-          console.error('[Admin] Erro no Upsert:', error);
-          throw error;
+        if (selectedPlan === 'none') {
+          const { error: delError } = await supabase
+            .from('subscriptions')
+            .delete()
+            .eq('user_id', userId);
+          if (delError) throw delError;
+        } else {
+          const { error: upsertError } = await supabase
+            .from('subscriptions')
+            .upsert({
+              user_id: userId,
+              plan_id: selectedPlan,
+              status: 'authorized',
+              amount: 0,
+              organization_id: userDetails?.organization_id || null,
+              start_date: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+          if (upsertError) throw upsertError;
         }
-
-        console.log('[Admin] Sucesso no Upsert:', data);
       }
 
+      console.log('[Admin] Operação concluída com sucesso:', data);
       setCurrentPlan(selectedPlan);
       setPlanUpdateSuccess(true);
       toast.success('Plano atualizado com sucesso!');
 
-      // Auto-hide success card after 5 seconds
       setTimeout(() => {
         setPlanUpdateSuccess(false);
       }, 5000);
 
-      // Pequeno delay para recarregar os dados e garantir que o cache local reflita a mudança
       setTimeout(() => {
         loadUserDetails();
       }, 500);
