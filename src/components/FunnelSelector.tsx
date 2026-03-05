@@ -74,16 +74,8 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
       console.log(`📊 [FunnelSelector] Funnels found:`, funnelsData?.length || 0);
 
       if (funnelsData && funnelsData.length > 0) {
-        // First try to show only active funnels
-        const activeFunnels = funnelsData.filter(f => f.is_active === true);
-
-        if (activeFunnels.length > 0) {
-          setFunnels(activeFunnels);
-        } else {
-          // If no explicitly active funnels, show them all
-          console.warn("⚠️ [FunnelSelector] No active funnels found, showing all existing funnels.");
-          setFunnels(funnelsData);
-        }
+        // Show all funnels regardless of active status to avoid hiding default pipelines
+        setFunnels(funnelsData);
       } else {
         setFunnels([]);
       }
