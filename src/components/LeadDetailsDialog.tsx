@@ -38,6 +38,7 @@ interface LeadDetails {
   duplicate_attempts_history: Json | null;
   calendar_event_id: string | null;
   data_agendamento_venda: string | null;
+  source: string | null;
 }
 
 interface Activity {
@@ -128,7 +129,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, data_agendamento_venda")
+        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, data_agendamento_venda, source")
         .eq("id", leadId)
         .single();
 
@@ -293,7 +294,8 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
 
             {/* Dados do Formulário Facebook (se existir) */}
             {(details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') ||
-              (details?.additional_data as any)?.source === 'facebook') && (
+              (details?.additional_data as any)?.source === 'facebook' ||
+              details?.source === 'Facebook Leads') && (
                 <>
                   <FacebookFormData
                     description={details.descricao_negocio}
@@ -304,29 +306,33 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
               )}
 
             {/* Dados Adicionais do Webhook (se existir) */}
-            {details?.additional_data && typeof details.additional_data === 'object' && !Array.isArray(details.additional_data) && Object.keys(details.additional_data).length > 0 && (
-              <>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <FileText className="h-4 w-4" />
-                    <h3 className="font-semibold text-sm">Informações do Formulário</h3>
+            {details?.additional_data &&
+              typeof details.additional_data === 'object' &&
+              !Array.isArray(details.additional_data) &&
+              (details.additional_data as any).source !== 'facebook' &&
+              Object.keys(details.additional_data).length > 0 && (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <FileText className="h-4 w-4" />
+                      <h3 className="font-semibold text-sm">Informações do Formulário</h3>
+                    </div>
+                    <div className="grid gap-3">
+                      {Object.entries(details.additional_data as Record<string, any>).map(([key, value]) => (
+                        <div key={key} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                          <span className="text-xs font-medium text-muted-foreground block mb-1">
+                            {key}
+                          </span>
+                          <p className="text-sm font-medium">
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid gap-3">
-                    {Object.entries(details.additional_data as Record<string, any>).map(([key, value]) => (
-                      <div key={key} className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                        <span className="text-xs font-medium text-muted-foreground block mb-1">
-                          {key}
-                        </span>
-                        <p className="text-sm font-medium">
-                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <Separator />
-              </>
-            )}
+                  <Separator />
+                </>
+              )}
 
             {/* Dados do Negócio */}
             <div className="space-y-3">
@@ -354,14 +360,15 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                 )}
 
                 {/* Mostrar descrição apenas se NÃO for lead do Facebook */}
-                {!details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') && (
-                  <div>
-                    <span className="text-muted-foreground">Descrição:</span>
-                    <p className="font-medium whitespace-pre-wrap">
-                      {details?.descricao_negocio || "Sem descrição"}
-                    </p>
-                  </div>
-                )}
+                {(!details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') &&
+                  details?.source !== 'Facebook Leads') && (
+                    <div>
+                      <span className="text-muted-foreground">Descrição:</span>
+                      <p className="font-medium whitespace-pre-wrap">
+                        {details?.descricao_negocio || "Sem descrição"}
+                      </p>
+                    </div>
+                  )}
               </div>
             </div>
 
