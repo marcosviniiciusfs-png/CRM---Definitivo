@@ -8,12 +8,12 @@ const corsHeaders = {
 // Função para descriptografar tokens
 async function decryptToken(encryptedToken: string, key: string): Promise<string> {
   if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
-  
+
   try {
     const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);
-    
+
     const encoder = new TextEncoder();
     const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
     const cryptoKey = await crypto.subtle.importKey(
@@ -23,13 +23,13 @@ async function decryptToken(encryptedToken: string, key: string): Promise<string
       false,
       ['decrypt']
     );
-    
+
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
       cryptoKey,
       data
     );
-    
+
     return new TextDecoder().decode(decrypted);
   } catch (error) {
     console.error('Decryption error:', error);
@@ -55,19 +55,40 @@ Deno.serve(async (req) => {
     const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
 
     // Buscar tokens de forma segura
-    const { data: tokenData, error: tokenError } = await supabase.rpc('get_facebook_tokens_secure', {
+    let { data: tokenData, error: tokenError } = await supabase.rpc('get_facebook_tokens_secure', {
       p_organization_id: organization_id
     });
 
+    // Fallback if RPC is missing
     if (tokenError || !tokenData || tokenData.length === 0) {
-      console.error('Error fetching tokens:', tokenError);
-      throw new Error('Failed to fetch Facebook tokens');
+      console.warn('⚠️ RPC get_facebook_tokens_secure failed or missing, trying fallback...');
+
+      const { data: integrationData, error: intError } = await supabase
+        .from('facebook_integrations')
+        .select('id, page_id')
+        .eq('organization_id', organization_id)
+        .maybeSingle();
+
+      if (integrationData) {
+        const { data: secureData } = await supabase
+          .from('facebook_integration_tokens')
+          .select('encrypted_page_access_token')
+          .eq('integration_id', integrationData.id)
+          .maybeSingle();
+
+        if (secureData) {
+          tokenData = [{
+            encrypted_page_access_token: secureData.encrypted_page_access_token,
+            page_id: integrationData.page_id
+          }];
+          tokenError = null;
+        }
+      }
     }
 
-    const { encrypted_page_access_token, page_id } = tokenData[0];
-
-    if (!page_id) {
-      throw new Error('No page_id found in integration');
+    if (tokenError || !tokenData || tokenData.length === 0) {
+      console.error('Error fetching tokens:', tokenError);
+      throw new Error('Não foi possível encontrar os tokens de acesso. Por favor, reconecte sua conta do Facebook.');
     }
 
     // Descriptografar o token
@@ -120,7 +141,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, data }),
-      { 
+      {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
@@ -128,12 +149,12 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error subscribing webhook:', error);
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
+      {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }

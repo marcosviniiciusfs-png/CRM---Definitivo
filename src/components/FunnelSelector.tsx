@@ -15,11 +15,12 @@ interface Funnel {
 interface FunnelSelectorProps {
   sourceType: 'whatsapp' | 'facebook' | 'webhook';
   sourceIdentifier?: string; // Add this to handle specific forms/IDs
+  organizationId?: string; // Explicit organization ID
   disabled?: boolean;
   className?: string;
 }
 
-export const FunnelSelector = ({ sourceType, sourceIdentifier, disabled, className }: FunnelSelectorProps) => {
+export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, disabled, className }: FunnelSelectorProps) => {
   const { user } = useAuth();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [selectedFunnel, setSelectedFunnel] = useState<string>("");
@@ -39,30 +40,52 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, disabled, classNa
     try {
       setLoading(true);
 
-      // Get organization
-      const { data: orgData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      let targetOrgId = organizationId;
 
-      if (!orgData) return;
+      // If no explicit organizationId, try to find it
+      if (!targetOrgId) {
+        const { data: orgData } = await supabase
+          .from("organization_members")
+          .select("organization_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      // Load funnels
+        targetOrgId = orgData?.organization_id;
+      }
+
+      if (!targetOrgId) {
+        console.warn("⚠️ [FunnelSelector] No organization found for user");
+        setLoading(false);
+        return;
+      }
+
+      console.log(`🎯 [FunnelSelector] Loading funnels for org: ${targetOrgId}`);
+
+      // Load all funnels for this organization
       const { data: funnelsData, error: funnelsError } = await supabase
         .from("sales_funnels")
-        .select("id, name, is_active")
-        .eq("organization_id", orgData.organization_id)
+        .select("id, name, is_active, is_default")
+        .eq("organization_id", targetOrgId)
         .order("name");
 
       if (funnelsError) {
         console.error("Error fetching funnels:", funnelsError);
       }
+      console.log(`📊 [FunnelSelector] Funnels found:`, funnelsData?.length || 0);
 
-      if (funnelsData) {
-        // Filter active funnels but keep the selector visible if there are any funnels
-        const activeFunnels = funnelsData.filter(f => f.is_active !== false);
-        setFunnels(activeFunnels.length > 0 ? activeFunnels : funnelsData);
+      if (funnelsData && funnelsData.length > 0) {
+        // First try to show only active funnels
+        const activeFunnels = funnelsData.filter(f => f.is_active === true);
+
+        if (activeFunnels.length > 0) {
+          setFunnels(activeFunnels);
+        } else {
+          // If no explicitly active funnels, show them all
+          console.warn("⚠️ [FunnelSelector] No active funnels found, showing all existing funnels.");
+          setFunnels(funnelsData);
+        }
+      } else {
+        setFunnels([]);
       }
 
       // Load existing mapping for this source type and specific identifier

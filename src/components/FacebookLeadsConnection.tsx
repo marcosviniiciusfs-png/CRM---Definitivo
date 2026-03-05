@@ -673,6 +673,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                         <FunnelSelector
                           sourceType="facebook"
                           sourceIdentifier={form.id}
+                          organizationId={organizationId}
                           className="mt-0 bg-transparent border-none p-0"
                         />
                         {!isSelected && (

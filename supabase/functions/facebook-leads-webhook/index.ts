@@ -153,19 +153,19 @@ async function getSecurePageAccessToken(
 ): Promise<string> {
   const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
 
-  // Primeiro tentar a tabela segura
+  // Primeiro tentar a tabela segura de tokens
   const { data: secureTokens, error } = await supabase
     .from('facebook_integration_tokens')
     .select('encrypted_page_access_token')
     .eq('integration_id', integrationId)
-    .single();
+    .maybeSingle();
 
   if (secureTokens && !error && secureTokens.encrypted_page_access_token) {
     const decrypted = await decryptToken(secureTokens.encrypted_page_access_token, ENCRYPTION_KEY);
     if (decrypted) return decrypted;
   }
 
-  // Fallback para token legado
+  // Fallback para token legado ou ENCRYPTED_IN_TOKENS_TABLE se a integração tiver mas a tabela de tokens não estiver acessível
   if (legacyToken && legacyToken !== 'ENCRYPTED_IN_TOKENS_TABLE') {
     return legacyToken;
   }
