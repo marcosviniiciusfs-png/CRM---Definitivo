@@ -288,14 +288,16 @@ Deno.serve(async (req) => {
               console.log('✅ [FB-WEBHOOK] Dados do lead recuperados com sucesso');
 
               // Fetch form name
-              let formName = leadData.form_id;
+              let formName = leadData.form_id || 'Formulário Facebook';
               try {
-                const formResponse = await fetch(
-                  `https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${pageAccessToken}`
-                );
-                const formData = await formResponse.json();
-                if (formData.name) {
-                  formName = formData.name;
+                if (leadData.form_id) {
+                  const formResponse = await fetch(
+                    `https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${pageAccessToken}`
+                  );
+                  const formData = await formResponse.json();
+                  if (formData.name) {
+                    formName = formData.name;
+                  }
                 }
               } catch (error) {
                 console.log('Could not fetch form name:', error);
