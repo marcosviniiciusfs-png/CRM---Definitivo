@@ -220,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', userId)
+        .limit(1)
         .maybeSingle();
 
       if (!memberData?.organization_id) return;
@@ -250,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             login_at: new Date().toISOString()
           })
           .select('id')
+          .limit(1)
           .single();
 
         if (!error && data) {
@@ -261,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from('user_sessions')
             .select('login_at')
             .eq('id', currentSessionIdRef.current)
+            .limit(1)
             .single();
 
           if (sessionData) {

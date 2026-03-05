@@ -15,9 +15,9 @@ export const WhatsAppStatus = () => {
 
   useEffect(() => {
     if (!organizationId) return;
-    
+
     checkConnectionStatus();
-    
+
     // Realtime updates
     const channel = supabase
       .channel('whatsapp-status-changes')
@@ -48,6 +48,7 @@ export const WhatsAppStatus = () => {
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', user.id)
+        .limit(1)
         .maybeSingle();
 
       if (error) {
@@ -69,7 +70,7 @@ export const WhatsAppStatus = () => {
 
   const checkConnectionStatus = async () => {
     if (!organizationId) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('whatsapp_instances')
@@ -77,8 +78,7 @@ export const WhatsAppStatus = () => {
         .eq('organization_id', organizationId)
         .eq('status', 'CONNECTED')
         .order('connected_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1); // Removed .maybeSingle()
 
       if (error) {
         console.error('Erro ao verificar status:', error);

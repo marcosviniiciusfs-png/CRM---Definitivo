@@ -324,8 +324,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
   const [needsOrgSelection, setNeedsOrgSelection] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  // Use ref for retryCount to avoid changing loadOrganizationData callback reference on each retry
+  const retryCountRef = useRef(0);
   const dataLoadedRef = useRef(false);
+  // Track background refresh timer so we can cancel it on unmount
+  const backgroundRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1500; // 1.5 seconds
 
@@ -445,21 +448,21 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         console.error('[ORG] All membership load attempts failed:', rpcError);
 
         // Se a falha for 404, não adianta tentar novamente via retries padrão
-        if (isMissingRpc && retryCount === 0) {
+        if (isMissingRpc && retryCountRef.current === 0) {
           console.log('[ORG] RPC missing and fallback failed. Forcing ensure_user_organization backup...');
           const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
           if (!ensureErr && ensureData?.success) {
             await new Promise(resolve => setTimeout(resolve, 1500)); // Delay maior para garantir propagação
-            setRetryCount(1);
+            retryCountRef.current = 1;
             loadOrganizationData(true);
             return;
           }
         }
 
         // Retentativas genéricas para erros temporários
-        if (!isMissingRpc && retryCount < MAX_RETRIES) {
-          console.log(`[ORG] Temporary error, retrying... Attempt ${retryCount + 1}/${MAX_RETRIES}`);
-          setRetryCount(prev => prev + 1);
+        if (!isMissingRpc && retryCountRef.current < MAX_RETRIES) {
+          console.log(`[ORG] Temporary error, retrying... Attempt ${retryCountRef.current + 1}/${MAX_RETRIES}`);
+          retryCountRef.current += 1;
           setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
           return;
         }
@@ -471,7 +474,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       }
 
       if (memberships && memberships.length > 0) {
-        setRetryCount(0);
+        retryCountRef.current = 0;
         const formattedMemberships: OrganizationMembership[] = memberships.map((m: any) => ({
           organization_id: m.organization_id,
           role: m.role as 'owner' | 'admin' | 'member',
@@ -540,8 +543,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             console.error('[ORG] Automatic workspace creation failed:', ensureErr || ensureData?.error);
 
             // Se falhou e ainda temos tentativas, tentar novamente com delay
-            if (retryCount < MAX_RETRIES) {
-              setRetryCount(prev => prev + 1);
+            if (retryCountRef.current < MAX_RETRIES) {
+              retryCountRef.current += 1;
               setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
               return;
             }
@@ -561,7 +564,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setIsInitialized(true);
       setPermissions(prev => ({ ...prev, loading: false }));
     }
-  }, [user, refreshSubscription, retryCount]);
+  }, [user, refreshSubscription]);
 
   // Ref para prevenir cliques duplos durante seleção
   const isProcessingSelection = useRef(false);
@@ -738,8 +741,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setIsInitialized(true);
       dataLoadedRef.current = true;
 
-      // Refresh in background silently
-      setTimeout(() => loadOrganizationData(true), 100);
+      // Refresh in background silently - stored in ref so it can be cancelled
+      backgroundRefreshTimerRef.current = setTimeout(() => loadOrganizationData(true), 100);
     } else {
       // SEM CACHE: Manter isInitialized=false até dados chegarem
       console.log('[ORG] No cache - loading data from API');
@@ -748,6 +751,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // Carregar dados reais - isInitialized será setado quando completar
       loadOrganizationData();
     }
+
+    return () => {
+      // Cancel any pending background refresh to prevent setState after unmount
+      if (backgroundRefreshTimerRef.current) {
+        clearTimeout(backgroundRefreshTimerRef.current);
+        backgroundRefreshTimerRef.current = null;
+      }
+    };
   }, [user?.id]); // Only depend on user.id to avoid re-running on every user object change
 
   const refresh = useCallback(async () => {

@@ -48,6 +48,7 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
           .from("organization_members")
           .select("organization_id")
           .eq("user_id", user.id)
+          .limit(1)
           .maybeSingle();
 
         targetOrgId = orgData?.organization_id;
@@ -121,6 +122,7 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
         .from("organization_members")
         .select("organization_id")
         .eq("user_id", user.id)
+        .limit(1)
         .maybeSingle();
 
       if (!orgData) return;
@@ -152,7 +154,7 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
         query = query.is("source_identifier", null);
       }
 
-      const { data: specificMapping } = await query.maybeSingle();
+      const { data: specificMapping } = await query.limit(1).maybeSingle();
 
       if (specificMapping) {
         // Update existing mapping

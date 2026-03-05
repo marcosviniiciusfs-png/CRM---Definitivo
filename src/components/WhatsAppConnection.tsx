@@ -590,6 +590,7 @@ const WhatsAppConnection = () => {
           .from('whatsapp_instances')
           .select('id, qr_code, status')
           .eq('id', selectedInstance.id)
+          .limit(1)
           .single();
 
         if (dbError) {

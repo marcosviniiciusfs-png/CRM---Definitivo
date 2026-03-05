@@ -79,6 +79,8 @@ const Pipeline = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
   const queryClient = useQueryClient();
   const permissions = usePermissions();
+  // Unique channel ID per mount to avoid Supabase channel name conflicts on re-navigation
+  const channelIdRef = useRef<string>(`leads-ch-${Date.now()}`);
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -103,7 +105,7 @@ const Pipeline = () => {
     targetStage: string;
     event: DragEndEvent | null;
   }>({ show: false, lead: null, targetStage: '', event: null });
-  
+
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
@@ -120,7 +122,7 @@ const Pipeline = () => {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
       const hasOverflow = scrollWidth > clientWidth;
       setShowScrollbar(hasOverflow);
-      
+
       if (hasOverflow) {
         const thumbWidth = (clientWidth / scrollWidth) * 100;
         const maxScrollLeft = scrollWidth - clientWidth;
@@ -154,7 +156,7 @@ const Pipeline = () => {
   const handleThumbMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Salva a posição inicial do mouse e do scroll
     if (scrollContainerRef.current) {
       dragStartRef.current = {
@@ -162,53 +164,53 @@ const Pipeline = () => {
         scrollLeft: scrollContainerRef.current.scrollLeft
       };
     }
-    
+
     setIsDraggingScrollbar(true);
   }, []);
 
   // Effect para lidar com drag global do scrollbar
   useEffect(() => {
     if (!isDraggingScrollbar) return;
-    
+
     // Previne seleção de texto durante o drag
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'grabbing';
-    
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!scrollContainerRef.current || !scrollTrackRef.current || !dragStartRef.current) return;
-      
+
       const track = scrollTrackRef.current;
       const rect = track.getBoundingClientRect();
       const { scrollWidth, clientWidth } = scrollContainerRef.current;
       const maxScrollLeft = scrollWidth - clientWidth;
-      
+
       // Calcula o delta do movimento do mouse
       const mouseDelta = e.clientX - dragStartRef.current.mouseX;
-      
+
       // Converte o delta do mouse para delta de scroll (proporcionalmente)
       const trackWidth = rect.width;
       const thumbWidth = (clientWidth / scrollWidth) * trackWidth;
       const scrollableTrackWidth = trackWidth - thumbWidth;
       const scrollDelta = (mouseDelta / scrollableTrackWidth) * maxScrollLeft;
-      
+
       // Aplica o delta à posição inicial
       const newScrollLeft = Math.max(0, Math.min(maxScrollLeft, dragStartRef.current.scrollLeft + scrollDelta));
       scrollContainerRef.current.scrollLeft = newScrollLeft;
     };
-    
+
     const handleMouseUp = () => {
       setIsDraggingScrollbar(false);
       dragStartRef.current = null;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
-    
+
     // Escuta em múltiplos eventos para garantir que o drag pare
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('mouseleave', handleMouseUp);
     window.addEventListener('blur', handleMouseUp);
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -241,9 +243,12 @@ const Pipeline = () => {
     audioRef.current = new Audio("/notification.mp3");
     audioRef.current.volume = 0.5;
 
+    // Usar nome único por mount para evitar conflito de channel ao re-navegar
+    const channelName = channelIdRef.current;
+
     // Subscrever a novos leads
     const channel = supabase
-      .channel('leads-changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -254,7 +259,7 @@ const Pipeline = () => {
         (payload) => {
           // Pausar processamento durante drag
           if (pauseRealtime) return;
-          
+
           const newLead = payload.new as Lead;
 
           // Garantir que o lead pertence ao funil atualmente selecionado
@@ -266,18 +271,18 @@ const Pipeline = () => {
             // Se estamos no funil padrão, ignorar leads de funis customizados
             return;
           }
-          
+
           // Verificar se é realmente um lead novo (não carregado anteriormente)
           if (!leadIdsRef.current.has(newLead.id)) {
             // Tocar som
-            audioRef.current?.play().catch(() => {});
-            
+            audioRef.current?.play().catch(() => { });
+
             // Mostrar toast
             toast.success(`Novo lead: ${newLead.nome_lead}`, {
               description: newLead.telefone_lead,
               duration: 5000,
             });
-            
+
             // Adicionar ao estado
             setLeads(prev => [newLead, ...prev]);
             leadIdsRef.current.add(newLead.id);
@@ -287,7 +292,7 @@ const Pipeline = () => {
       .subscribe();
 
     return () => {
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [pauseRealtime, usingCustomFunnel, activeFunnel]);
 
@@ -301,9 +306,10 @@ const Pipeline = () => {
           .from('profiles')
           .select('full_name')
           .eq('user_id', user.id)
-          .single();
+          .limit(1)
+          .maybeSingle();
 
-        if (profileData?.full_name) {
+        if (isMounted && profileData?.full_name) {
           setUserProfile(profileData);
         }
       } catch (error) {
@@ -311,40 +317,57 @@ const Pipeline = () => {
       }
     };
 
+    let isMounted = true;
     loadUserProfile();
+    return () => { isMounted = false; };
   }, [user?.id]);
 
-  // React Query para persistência de dados do pipeline
-  const pipelineQueryKey = ['pipeline-leads', selectedFunnelId, user?.id, permissions.canViewAllLeads, userProfile?.full_name];
-  
-  const { data: pipelineData, isLoading: pipelineQueryLoading } = useQuery({
-    queryKey: pipelineQueryKey,
-    queryFn: async () => {
-      const funnelData = await loadFunnel();
-      await loadLeads(funnelData);
-      return { loaded: true };
-    },
-    enabled: !!user?.id && !permissions.loading && (permissions.canViewAllLeads || !!userProfile?.full_name),
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  // UseEffect para carregar dados do pipeline
+  useEffect(() => {
+    // Aguardar que auth + organização estejam prontos antes de carregar
+    if (!isReady || !organizationId) return;
+
+    let isMounted = true;
+
+    const fetchPipelineData = async () => {
+      try {
+        if (!user?.id || permissions.loading) {
+          if (!permissions.loading) {
+            setInitialLoading(false);
+          }
+          return;
+        }
+
+        // Carregar funil e leads (organizationId já disponível via contexto)
+        const funnelData = await loadFunnel();
+        if (isMounted) {
+          await loadLeads(funnelData);
+        }
+      } catch (err) {
+        console.error("Erro crítico ao carregar pipeline:", err);
+      } finally {
+        if (isMounted) {
+          setInitialLoading(false);
+        }
+      }
+    };
+
+    fetchPipelineData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.loading]);
 
   const loadFunnel = async () => {
-    if (!user?.id) return { isCustom: false, funnel: null };
-    
+    // Usar organizationId já disponível via contexto (evita query redundante a organization_members)
+    if (!organizationId) {
+      setStages(DEFAULT_STAGES);
+      setUsingCustomFunnel(false);
+      return { isCustom: false, funnel: null };
+    }
+
     try {
-      const { data: orgData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!orgData) {
-        setStages(DEFAULT_STAGES);
-        setUsingCustomFunnel(false);
-        return { isCustom: false, funnel: null };
-      }
-
       // Buscar TODOS os funis ativos
       const { data: funnels, error } = await supabase
         .from("sales_funnels")
@@ -352,7 +375,7 @@ const Pipeline = () => {
           *,
           stages:funnel_stages(*)
         `)
-        .eq("organization_id", orgData.organization_id)
+        .eq("organization_id", organizationId)
         .eq("is_active", true)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: true });
@@ -395,12 +418,12 @@ const Pipeline = () => {
       setStages(customStages);
       setUsingCustomFunnel(true);
       setActiveFunnel(funnelToActivate);
-      
+
       // Inicializar selectedFunnelId apenas se for null (primeira vez)
       if (selectedFunnelId === null) {
         setSelectedFunnelId(funnelToActivate.id);
       }
-      
+
       return { isCustom: true, funnel: funnelToActivate };
     } catch (error) {
       console.error("Erro ao carregar funil:", error);
@@ -411,34 +434,25 @@ const Pipeline = () => {
   };
 
   const loadLeads = async (funnelData?: { isCustom: boolean; funnel: any }, isTabChange: boolean = false) => {
-    if (!user?.id) return;
-    
+    if (!user?.id || !organizationId) return;
+
     try {
-      // Controlar estados de loading separados
-      if (!isTabChange) {
+      // Controlar estados de loading: Skeletons apenas se realmente necessário
+      if (!isTabChange && leads.length === 0) {
         setInitialLoading(true);
       }
       setIsLoadingData(true);
-      
+
       // Usar dados do funil passados ou estados atuais
       const isCustom = funnelData?.isCustom ?? usingCustomFunnel;
       const funnel = funnelData?.funnel ?? activeFunnel;
-      
+
       // Otimizado: buscar apenas campos necessários (incluindo source para badges)
+      // Usar organizationId do contexto diretamente - evita query redundante a organization_members
       let query = supabase
         .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio");
-
-      // Filtrar apenas leads da organização do usuário
-      const { data: orgMember } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (orgMember) {
-        query = query.eq("organization_id", orgMember.organization_id);
-      }
+        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
+        .eq("organization_id", organizationId);
 
       // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
       if (!permissions.canViewAllLeads && user?.id) {
@@ -459,9 +473,9 @@ const Pipeline = () => {
         .limit(200); // Limitar para performance
 
       if (error) throw error;
-      
+
       setLeads(data || []);
-      
+
       // Armazenar IDs dos leads carregados inicialmente
       if (data) {
         leadIdsRef.current = new Set(data.map(lead => lead.id));
@@ -483,7 +497,7 @@ const Pipeline = () => {
 
   const loadLeadItems = async (leadIds: string[]) => {
     if (leadIds.length === 0) return;
-    
+
     const { data, error } = await supabase
       .from('lead_items')
       .select(`
@@ -511,7 +525,7 @@ const Pipeline = () => {
 
   const loadLeadTags = async (leadIds: string[]) => {
     if (leadIds.length === 0) return;
-    
+
     const { data, error } = await supabase
       .from('lead_tag_assignments')
       .select(`
@@ -550,7 +564,7 @@ const Pipeline = () => {
   // Filtrar leads por termo de busca (nome ou fonte)
   const filteredLeads = useMemo(() => {
     if (!searchTerm.trim()) return leadsWithFormattedDates;
-    
+
     const term = searchTerm.toLowerCase().trim();
     return leadsWithFormattedDates.filter((lead) => {
       const nameMatch = lead.nome_lead?.toLowerCase().includes(term);
@@ -562,20 +576,20 @@ const Pipeline = () => {
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
     const map = new Map<string, Lead[]>();
-    
+
     stages.forEach((stage) => {
       let filtered;
-      
+
       if (usingCustomFunnel) {
         filtered = filteredLeads.filter((lead) => lead.funnel_stage_id === stage.id);
       } else {
         filtered = filteredLeads.filter((lead) => (lead.stage || "NOVO") === stage.id);
       }
-      
+
       filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
       map.set(stage.id, filtered);
     });
-    
+
     return map;
   }, [filteredLeads, stages, usingCustomFunnel]);
 
@@ -604,15 +618,15 @@ const Pipeline = () => {
     // Determinar o stage de destino - usar campo correto baseado no tipo de funil
     const isDroppedOverStage = stages.some((s) => s.id === overId);
     const overLead = leads.find((l) => l.id === overId);
-    
+
     // Obter stage atual do lead baseado no tipo de funil
-    const activeStage = usingCustomFunnel 
+    const activeStage = usingCustomFunnel
       ? (activeLead.funnel_stage_id || stages[0]?.id)
       : (activeLead.stage || "NOVO");
-    
+
     // Determinar stage de destino baseado no tipo de funil
-    const targetStage = isDroppedOverStage 
-      ? overId 
+    const targetStage = isDroppedOverStage
+      ? overId
       : usingCustomFunnel
         ? (overLead?.funnel_stage_id || activeStage)
         : (overLead?.stage || activeStage);
@@ -630,7 +644,7 @@ const Pipeline = () => {
         toast.error("Este lead não possui um valor definido. Por favor, adicione um valor antes de confirmar a venda.");
         return;
       }
-      
+
       // Mostrar dialog de confirmação
       setWonConfirmation({
         show: true,
@@ -664,8 +678,8 @@ const Pipeline = () => {
 
         // Atualizar estado local
         setLeads((prev) =>
-          prev.map((l) => 
-            l.id === leadId 
+          prev.map((l) =>
+            l.id === leadId
               ? usingCustomFunnel
                 ? { ...l, funnel_stage_id: targetStage, position: newPosition }
                 : { ...l, stage: targetStage, position: newPosition }
@@ -674,7 +688,7 @@ const Pipeline = () => {
         );
 
         // Atualizar no banco
-        const updateData: any = usingCustomFunnel 
+        const updateData: any = usingCustomFunnel
           ? { funnel_stage_id: targetStage, position: newPosition }
           : { stage: targetStage, position: newPosition };
 
@@ -742,9 +756,9 @@ const Pipeline = () => {
           // Movendo para outra coluna e posicionando sobre outro lead
           const activeStageLeads = leadsByStage.get(activeStage) || [];
           const targetStageLeads = leadsByStage.get(targetStage) || [];
-          
+
           const newIndex = targetStageLeads.findIndex((l) => l.id === overId);
-          
+
           if (newIndex === -1) return;
 
           // Verificar se é etapa won para adicionar data_conclusao
@@ -761,11 +775,11 @@ const Pipeline = () => {
 
           // Adicionar na nova coluna na posição correta
           const updatedTargetStage = [...targetStageLeads];
-          const leadToMove = usingCustomFunnel 
+          const leadToMove = usingCustomFunnel
             ? { ...activeLead, funnel_stage_id: targetStage }
             : { ...activeLead, stage: targetStage };
           updatedTargetStage.splice(newIndex, 0, leadToMove);
-          const updatedTargetWithPositions = updatedTargetStage.map((lead, index) => 
+          const updatedTargetWithPositions = updatedTargetStage.map((lead, index) =>
             usingCustomFunnel
               ? { ...lead, position: index, funnel_stage_id: targetStage }
               : { ...lead, position: index, stage: targetStage }
@@ -789,12 +803,12 @@ const Pipeline = () => {
               const updateData: any = usingCustomFunnel
                 ? { position: lead.position, funnel_stage_id: lead.funnel_stage_id }
                 : { position: lead.position, stage: lead.stage };
-              
+
               // Adicionar data_conclusao se for won stage e for o lead sendo movido
               if (isWonStage && lead.id === leadId) {
                 updateData.data_conclusao = new Date().toISOString();
               }
-              
+
               return supabase.from("leads").update(updateData).eq("id", lead.id);
             }),
           ];
@@ -825,16 +839,16 @@ const Pipeline = () => {
 
     const { lead, targetStage, event } = wonConfirmation;
     const { active, over } = event;
-    
+
     if (!over) return;
 
     const leadId = active.id as string;
     const overId = over.id as string;
     const isDroppedOverStage = stages.some((s) => s.id === overId);
     const overLead = leads.find((l) => l.id === overId);
-    
+
     // Usar campo correto baseado no tipo de funil
-    const activeStage = usingCustomFunnel 
+    const activeStage = usingCustomFunnel
       ? (lead.funnel_stage_id || stages[0]?.id)
       : (lead.stage || "NOVO");
 
@@ -922,6 +936,7 @@ const Pipeline = () => {
         .from("organization_members")
         .select("organization_id")
         .eq("user_id", user?.id)
+        .limit(1)
         .maybeSingle();
 
       if (!orgMember) return;
@@ -955,6 +970,7 @@ const Pipeline = () => {
         .from("organization_members")
         .select("user_id, profiles(full_name)")
         .eq("email", agentEmail)
+        .limit(1)
         .maybeSingle();
 
       if (!profile) {
@@ -968,7 +984,7 @@ const Pipeline = () => {
       // ATUALIZADO: usar UUID + TEXT para compatibilidade
       await supabase
         .from("leads")
-        .update({ 
+        .update({
           responsavel_user_id: agentUserId,
           responsavel: agentName // Mantém TEXT para compatibilidade
         })
@@ -1007,7 +1023,7 @@ const Pipeline = () => {
     setSelectedFunnelId(value);
   }, []);
 
-  const activeLead = useMemo(() => 
+  const activeLead = useMemo(() =>
     leads.find((lead) => lead.id === activeId),
     [leads, activeId]
   );
@@ -1016,7 +1032,7 @@ const Pipeline = () => {
   if (!isReady || !organizationId) {
     return <LoadingAnimation text="Carregando pipeline..." />;
   }
-  
+
   if (initialLoading) {
     return (
       <div className="space-y-6">
@@ -1039,89 +1055,89 @@ const Pipeline = () => {
 
   return (
     <>
-    <DndContext
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      sensors={sensors}
-    >
-      <div 
-        className="space-y-6" 
-        style={{ touchAction: 'none' }}
-        data-dragging-active={isDraggingActive}
+      <DndContext
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        sensors={sensors}
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Pipeline de Vendas
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Arraste e solte os cards para mover leads entre as etapas
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => navigate("/funnel-builder")}
-            >
-              <Settings2 className="h-4 w-4 mr-2" />
-              Gerenciar Funis
-            </Button>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou origem..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+        <div
+          className="space-y-6"
+          style={{ touchAction: 'none' }}
+          data-dragging-active={isDraggingActive}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                Pipeline de Vendas
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Arraste e solte os cards para mover leads entre as etapas
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/funnel-builder")}
+              >
+                <Settings2 className="h-4 w-4 mr-2" />
+                Gerenciar Funis
+              </Button>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome ou origem..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {allFunnels.length > 0 ? (
-          <Tabs
-            value={selectedFunnelId || allFunnels[0]?.id || "default"}
-            onValueChange={handleTabChange}
-            className="w-full pipeline-tabs"
-          >
-            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-              {allFunnels.map((funnel) => {
-                const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
-                return (
-                  <TabsTrigger
-                    key={funnel.id}
-                    value={funnel.id}
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      {iconEmoji && (
-                        <span className="text-lg">{iconEmoji}</span>
-                      )}
-                      <span>{funnel.name}</span>
-                      {funnel.is_default && (
-                        <span className="text-xs text-muted-foreground">(Padrão)</span>
-                      )}
-                    </div>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-
-            <TabsContent 
+          {allFunnels.length > 0 ? (
+            <Tabs
               value={selectedFunnelId || allFunnels[0]?.id || "default"}
-              className="mt-6"
+              onValueChange={handleTabChange}
+              className="w-full pipeline-tabs"
             >
-              <div 
-                ref={scrollContainerRef}
-                onScroll={handleScrollContainerScroll}
-                className={cn(
-                  "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                  isTabTransitioning && "transitioning"
-                )}
-                data-dragging-active={isDraggingActive}
+              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+                {allFunnels.map((funnel) => {
+                  const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
+                  return (
+                    <TabsTrigger
+                      key={funnel.id}
+                      value={funnel.id}
+                      className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        {iconEmoji && (
+                          <span className="text-lg">{iconEmoji}</span>
+                        )}
+                        <span>{funnel.name}</span>
+                        {funnel.is_default && (
+                          <span className="text-xs text-muted-foreground">(Padrão)</span>
+                        )}
+                      </div>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+
+              <TabsContent
+                value={selectedFunnelId || allFunnels[0]?.id || "default"}
+                className="mt-6"
               >
-                {stages.map((stage) => {
+                <div
+                  ref={scrollContainerRef}
+                  onScroll={handleScrollContainerScroll}
+                  className={cn(
+                    "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                    isTabTransitioning && "transitioning"
+                  )}
+                  data-dragging-active={isDraggingActive}
+                >
+                  {stages.map((stage) => {
                     const stageLeads = leadsByStage.get(stage.id) || [];
                     return (
                       <PipelineColumn
@@ -1137,138 +1153,138 @@ const Pipeline = () => {
                         leadItems={leadItems}
                         leadTagsMap={leadTagsMap}
                         isDraggingActive={isDraggingActive}
-                    />
-                  );
-                })}
-              </div>
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <div 
-            ref={scrollContainerRef}
-            onScroll={handleScrollContainerScroll}
-            className={cn(
-              "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-              isTabTransitioning && "transitioning"
-            )}
-            data-dragging-active={isDraggingActive}
-          >
-             {stages.map((stage) => {
-               const stageLeads = leadsByStage.get(stage.id) || [];
-               return (
-                 <PipelineColumn
-                   key={`default-${stage.id}`}
-                   id={stage.id}
-                   title={stage.title}
-                   count={stageLeads.length}
-                   color={stage.color}
+                      />
+                    );
+                  })}
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleScrollContainerScroll}
+              className={cn(
+                "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                isTabTransitioning && "transitioning"
+              )}
+              data-dragging-active={isDraggingActive}
+            >
+              {stages.map((stage) => {
+                const stageLeads = leadsByStage.get(stage.id) || [];
+                return (
+                  <PipelineColumn
+                    key={`default-${stage.id}`}
+                    id={stage.id}
+                    title={stage.title}
+                    count={stageLeads.length}
+                    color={stage.color}
                     leads={stageLeads}
                     isEmpty={stageLeads.length === 0}
                     onLeadUpdate={() => loadLeads(undefined, false)}
                     onEdit={handleEditLead}
-                     leadItems={leadItems}
+                    leadItems={leadItems}
                     leadTagsMap={leadTagsMap}
                     isDraggingActive={isDraggingActive}
                   />
-               );
-             })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-      <DragOverlay dropAnimation={null}>
-        {activeLead ? (
-          <LeadCard
-            id={activeLead.id}
-            name={activeLead.nome_lead}
-            phone={activeLead.telefone_lead}
-            date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
-            avatarUrl={activeLead.avatar_url}
-            stage={activeLead.stage}
-            value={activeLead.valor}
-            createdAt={activeLead.created_at}
-            source={activeLead.source}
-            description={activeLead.descricao_negocio}
-            leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
-            leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
-
-    {/* Modal de Edição - FORA do DndContext */}
-    {editingLead && (
-      <EditLeadModal
-        lead={editingLead}
-        open={!!editingLead}
-        onClose={() => setEditingLead(null)}
-        onUpdate={async () => {
-          if (editingLead) {
-            const { data } = await supabase
-              .from("leads")
-              .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
-              .eq("id", editingLead.id)
-              .single();
-            if (data) {
-              setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
-            }
-          }
-        }}
-      />
-    )}
-
-    {/* Dialog de Confirmação de Venda */}
-    <AlertDialog open={wonConfirmation.show} onOpenChange={(open) => !open && handleWonConfirmation(false)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <div className="flex items-center justify-center mb-4">
-            <img 
-              src={saleConfirmationIcon} 
-              alt="Confirmar Venda" 
-              className="w-24 h-24"
+        <DragOverlay dropAnimation={null}>
+          {activeLead ? (
+            <LeadCard
+              id={activeLead.id}
+              name={activeLead.nome_lead}
+              phone={activeLead.telefone_lead}
+              date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
+              avatarUrl={activeLead.avatar_url}
+              stage={activeLead.stage}
+              value={activeLead.valor}
+              createdAt={activeLead.created_at}
+              source={activeLead.source}
+              description={activeLead.descricao_negocio}
+              leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
+              leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
             />
-          </div>
-          <AlertDialogTitle className="text-center text-2xl">Confirmar Venda</AlertDialogTitle>
-          <AlertDialogDescription className="space-y-3 pt-2">
-            <p className="text-center">
-              O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de ganho/venda.
-            </p>
-            <p className="font-semibold text-primary text-center text-lg">
-              💰 Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
-            </p>
-            <p className="text-sm text-center">
-              Este valor será contabilizado na produção do mês atual. Confirma que o lead realmente fechou uma negociação?
-            </p>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => handleWonConfirmation(false)}>
-            Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction onClick={() => handleWonConfirmation(true)}>
-            Confirmar Venda
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
-    {/* Barra de rolagem fixa no rodapé */}
-    {showScrollbar && (
-      <div 
-        ref={scrollTrackRef}
-        className="fixed bottom-3 left-[var(--sidebar-width,256px)] right-6 h-2 z-40 bg-muted/20 rounded-full cursor-pointer transition-all hover:h-3 hover:bg-muted/30"
-        onClick={handleScrollbarTrackClick}
-      >
-        <div 
-          className="h-full bg-muted-foreground/25 rounded-full hover:bg-muted-foreground/40 transition-colors cursor-grab active:cursor-grabbing"
-          style={{ 
-            width: `${scrollThumbWidth}%`, 
-            marginLeft: `${scrollThumbPosition}%` 
+      {/* Modal de Edição - FORA do DndContext */}
+      {editingLead && (
+        <EditLeadModal
+          lead={editingLead}
+          open={!!editingLead}
+          onClose={() => setEditingLead(null)}
+          onUpdate={async () => {
+            if (editingLead) {
+              const { data } = await supabase
+                .from("leads")
+                .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
+                .eq("id", editingLead.id)
+                .single();
+              if (data) {
+                setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
+              }
+            }
           }}
-          onMouseDown={handleThumbMouseDown}
         />
-      </div>
-    )}
+      )}
+
+      {/* Dialog de Confirmação de Venda */}
+      <AlertDialog open={wonConfirmation.show} onOpenChange={(open) => !open && handleWonConfirmation(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <img
+                src={saleConfirmationIcon}
+                alt="Confirmar Venda"
+                className="w-24 h-24"
+              />
+            </div>
+            <AlertDialogTitle className="text-center text-2xl">Confirmar Venda</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="text-center">
+                O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de ganho/venda.
+              </p>
+              <p className="font-semibold text-primary text-center text-lg">
+                💰 Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
+              </p>
+              <p className="text-sm text-center">
+                Este valor será contabilizado na produção do mês atual. Confirma que o lead realmente fechou uma negociação?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleWonConfirmation(false)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleWonConfirmation(true)}>
+              Confirmar Venda
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Barra de rolagem fixa no rodapé */}
+      {showScrollbar && (
+        <div
+          ref={scrollTrackRef}
+          className="fixed bottom-3 left-[var(--sidebar-width,256px)] right-6 h-2 z-40 bg-muted/20 rounded-full cursor-pointer transition-all hover:h-3 hover:bg-muted/30"
+          onClick={handleScrollbarTrackClick}
+        >
+          <div
+            className="h-full bg-muted-foreground/25 rounded-full hover:bg-muted-foreground/40 transition-colors cursor-grab active:cursor-grabbing"
+            style={{
+              width: `${scrollThumbWidth}%`,
+              marginLeft: `${scrollThumbPosition}%`
+            }}
+            onMouseDown={handleThumbMouseDown}
+          />
+        </div>
+      )}
     </>
   );
 };

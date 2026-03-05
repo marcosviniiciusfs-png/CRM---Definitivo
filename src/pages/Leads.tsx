@@ -83,14 +83,14 @@ const Leads = () => {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const LEADS_PER_PAGE = 50;
-  
+
   // Parallel queries hook
   const { loadFilterData: loadFilterDataParallel } = useLeadsParallelQueries();
-  
+
   // Fase 2: Seleção múltipla
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
-  
+
   // Fase 3: Filtros avançados
   const [responsibleFilter, setResponsibleFilter] = useState<string>("all");
   const [funnelFilter, setFunnelFilter] = useState<string>("all");
@@ -104,24 +104,25 @@ const Leads = () => {
   const [funnels, setFunnels] = useState<any[]>([]);
   const [stages, setStages] = useState<any[]>([]);
   const [availableTags, setAvailableTags] = useState<any[]>([]);
-  
+
   // Carregar perfil do usuário para filtrar leads de membros
   useEffect(() => {
     const loadUserProfile = async () => {
       if (!user || permissions.canViewAllLeads) return;
-      
+
       const { data } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('user_id', user.id)
-        .single();
-      
+        .limit(1)
+        .maybeSingle();
+
       setUserProfile(data);
     };
-    
+
     loadUserProfile();
   }, [user, permissions.canViewAllLeads]);
-  
+
   // Carregar dados para filtros avançados (OTIMIZADO: queries paralelas)
   useEffect(() => {
     const loadAllFilterData = async () => {
@@ -134,7 +135,7 @@ const Leads = () => {
         console.error('Erro ao carregar dados de filtros:', error);
       }
     };
-    
+
     loadAllFilterData();
   }, [loadFilterDataParallel]);
 
@@ -146,21 +147,21 @@ const Leads = () => {
         setStageFilter("all");
         return;
       }
-      
+
       try {
         const { data } = await supabase
           .from('funnel_stages')
           .select('id, name')
           .eq('funnel_id', funnelFilter)
           .order('position');
-        
+
         setStages(data || []);
         setStageFilter("all");
       } catch (error) {
         console.error('Erro ao carregar etapas:', error);
       }
     };
-    
+
     loadStages();
   }, [funnelFilter]);
 
@@ -197,7 +198,7 @@ const Leads = () => {
       supabase.removeChannel(channel);
     };
   }, [permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
-  
+
   const loadLeads = async (reset = false) => {
     if (reset) {
       setLoading(true);
@@ -206,11 +207,11 @@ const Leads = () => {
     } else {
       setLoadingMore(true);
     }
-    
+
     try {
       const startRange = reset ? 0 : page * LEADS_PER_PAGE;
       const endRange = startRange + LEADS_PER_PAGE - 1;
-      
+
       let query = supabase
         .from("leads")
         .select("id, nome_lead, email, telefone_lead, responsavel, responsavel_user_id, stage, source, valor, updated_at, created_at, funnel_id, funnel_stage_id");
@@ -225,7 +226,7 @@ const Leads = () => {
         .range(startRange, endRange);
 
       if (error) throw error;
-      
+
       if (reset) {
         setLeads(data || []);
         // Filtrar seleções para manter apenas leads que ainda existem
@@ -242,7 +243,7 @@ const Leads = () => {
           return [...prev, ...newLeads];
         });
       }
-      
+
       setHasMore((data || []).length === LEADS_PER_PAGE);
       if (!reset) setPage(prev => prev + 1);
     } catch (error) {
@@ -257,14 +258,14 @@ const Leads = () => {
       setLoadingMore(false);
     }
   };
-  
+
   // Função para carregar mais leads (infinite scroll)
   const loadMoreLeads = useCallback(() => {
     if (!loadingMore && hasMore) {
       loadLeads(false);
     }
   }, [loadingMore, hasMore]);
-  
+
   // Hook otimizado para infinite scroll
   const observerTarget = useInfiniteScroll(loadMoreLeads, hasMore, loadingMore || loading);
 
@@ -285,34 +286,34 @@ const Leads = () => {
           lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) ||
           lead.telefone_lead.includes(searchQuery) ||
           (lead.email || "").toLowerCase().includes(searchQuery.toLowerCase());
-        
+
         const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
         const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
-        
+
         // Filtro de responsável (usando UUID)
         const matchesResponsibleFilter = responsibleFilter === "all" || lead.responsavel_user_id === responsibleFilter;
-        
+
         // Filtro de funil
         const matchesFunnel = funnelFilter === "all" || lead.funnel_id === funnelFilter;
-        
+
         // Filtro de etapa
         const matchesStage = stageFilter === "all" || lead.funnel_stage_id === stageFilter;
-        
+
         // Filtro de data
         const leadDate = new Date(lead.created_at);
-        const matchesDateRange = 
+        const matchesDateRange =
           (!dateRange.from || leadDate >= dateRange.from) &&
           (!dateRange.to || leadDate <= dateRange.to);
-        
+
         // Membros só veem leads onde são responsáveis (filtro já aplicado na query)
-        
-        return matchesSearch && matchesStatus && matchesSource && matchesResponsibleFilter && 
-               matchesFunnel && matchesStage && matchesDateRange;
+
+        return matchesSearch && matchesStatus && matchesSource && matchesResponsibleFilter &&
+          matchesFunnel && matchesStage && matchesDateRange;
       })
       .sort((a, b) => {
         let aValue: any = a[sortColumn] || "";
         let bValue: any = b[sortColumn] || "";
-        
+
         if (sortColumn === "valor") {
           aValue = parseFloat(aValue) || 0;
           bValue = parseFloat(bValue) || 0;
@@ -320,7 +321,7 @@ const Leads = () => {
           aValue = String(aValue).toLowerCase();
           bValue = String(bValue).toLowerCase();
         }
-        
+
         if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
         if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
         return 0;
@@ -366,7 +367,7 @@ const Leads = () => {
       });
     }
   };
-  
+
   // Fase 2: Funções de seleção múltipla
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -375,7 +376,7 @@ const Leads = () => {
       setSelectedLeads([]);
     }
   };
-  
+
   const handleSelectLead = (leadId: string, checked: boolean) => {
     if (checked) {
       setSelectedLeads(prev => [...prev, leadId]);
@@ -383,23 +384,23 @@ const Leads = () => {
       setSelectedLeads(prev => prev.filter(id => id !== leadId));
     }
   };
-  
+
   const handleBulkDelete = async () => {
     if (selectedLeads.length === 0) return;
-    
+
     try {
       const { error } = await supabase
         .from("leads")
         .delete()
         .in("id", selectedLeads);
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Leads excluídos",
         description: `${selectedLeads.length} leads foram removidos com sucesso`,
       });
-      
+
       setSelectedLeads([]);
       setShowBulkActions(false);
     } catch (error) {
@@ -411,23 +412,23 @@ const Leads = () => {
       });
     }
   };
-  
+
   const handleBulkStatusChange = async (newStatus: string) => {
     if (selectedLeads.length === 0) return;
-    
+
     try {
       const { error } = await supabase
         .from("leads")
         .update({ stage: newStatus })
         .in("id", selectedLeads);
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Status atualizado",
         description: `${selectedLeads.length} leads atualizados com sucesso`,
       });
-      
+
       setSelectedLeads([]);
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
@@ -438,29 +439,29 @@ const Leads = () => {
       });
     }
   };
-  
+
   const handleBulkAssign = async (responsibleName: string, responsibleUserId?: string) => {
     if (selectedLeads.length === 0) return;
-    
+
     try {
       // ATUALIZADO: usar UUID + TEXT para compatibilidade
       const updateData: any = { responsavel: responsibleName };
       if (responsibleUserId) {
         updateData.responsavel_user_id = responsibleUserId;
       }
-      
+
       const { error } = await supabase
         .from("leads")
         .update(updateData)
         .in("id", selectedLeads);
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Responsável atribuído",
         description: `${selectedLeads.length} leads atribuídos com sucesso`,
       });
-      
+
       setSelectedLeads([]);
     } catch (error) {
       console.error("Erro ao atribuir responsável:", error);
@@ -471,7 +472,7 @@ const Leads = () => {
       });
     }
   };
-  
+
   // Fase 5: Exportação CSV
   const handleExportCSV = () => {
     const headers = ["Nome", "Email", "Telefone", "Responsável", "Status", "Origem", "Valor", "Criado em"];
@@ -488,7 +489,7 @@ const Leads = () => {
         `"${format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}"`,
       ].join(","))
     ].join("\n");
-    
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -498,13 +499,13 @@ const Leads = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast({
       title: "Exportação concluída",
       description: `${filteredLeads.length} leads exportados com sucesso`,
     });
   };
-  
+
   // Atualizar visibilidade da barra de ações
   useEffect(() => {
     setShowBulkActions(selectedLeads.length > 0);
@@ -519,7 +520,7 @@ const Leads = () => {
           <p className="text-muted-foreground">Gerencie todos os seus leads em um só lugar</p>
         </div>
         <div className="flex gap-2">
-          <Button 
+          <Button
             variant="outline"
             className="gap-2"
             onClick={handleExportCSV}
@@ -529,7 +530,7 @@ const Leads = () => {
           </Button>
           {(permissions.canViewAllLeads) && (
             <>
-              <Button 
+              <Button
                 variant="outline"
                 className="gap-2"
                 onClick={() => setShowImportModal(true)}
@@ -537,7 +538,7 @@ const Leads = () => {
                 <Upload className="h-4 w-4" />
                 Importar
               </Button>
-              <Button 
+              <Button
                 className="gap-2 bg-primary hover:bg-primary/90"
                 onClick={() => setShowAddModal(true)}
               >
@@ -555,14 +556,14 @@ const Leads = () => {
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Buscar por nome, email ou telefone..." 
+            <Input
+              placeholder="Buscar por nome, email ou telefone..."
               className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
+
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full md:w-[200px] bg-background">
               <SelectValue placeholder="Todos os Status" />
@@ -587,7 +588,7 @@ const Leads = () => {
             </SelectContent>
           </Select>
         </div>
-        
+
         {/* Linha 2: Filtros avançados */}
         <div className="flex flex-col md:flex-row gap-4">
           <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
@@ -603,7 +604,7 @@ const Leads = () => {
               ))}
             </SelectContent>
           </Select>
-          
+
           <Select value={funnelFilter} onValueChange={setFunnelFilter}>
             <SelectTrigger className="w-full md:w-[200px] bg-background">
               <SelectValue placeholder="Todos Funis" />
@@ -617,7 +618,7 @@ const Leads = () => {
               ))}
             </SelectContent>
           </Select>
-          
+
           {funnelFilter !== "all" && stages.length > 0 && (
             <Select value={stageFilter} onValueChange={setStageFilter}>
               <SelectTrigger className="w-full md:w-[200px] bg-background">
@@ -633,7 +634,7 @@ const Leads = () => {
               </SelectContent>
             </Select>
           )}
-          
+
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -684,7 +685,7 @@ const Leads = () => {
           </Popover>
         </div>
       </div>
-      
+
       {/* Barra de ações em lote */}
       {showBulkActions && permissions.canViewAllLeads && (
         <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between animate-in slide-in-from-top">
@@ -701,7 +702,7 @@ const Leads = () => {
               Limpar seleção
             </Button>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Select onValueChange={handleBulkStatusChange}>
               <SelectTrigger className="w-[180px] h-9 bg-background">
@@ -714,7 +715,7 @@ const Leads = () => {
                 <SelectItem value="PERDIDO">Perdido</SelectItem>
               </SelectContent>
             </Select>
-            
+
             <Select onValueChange={(userId) => {
               const colab = colaboradores.find(c => c.user_id === userId);
               if (colab) {
@@ -732,7 +733,7 @@ const Leads = () => {
                 ))}
               </SelectContent>
             </Select>
-            
+
             {permissions.canDeleteLeads && (
               <Button
                 variant="destructive"
@@ -764,7 +765,7 @@ const Leads = () => {
                     />
                   </TableHead>
                 )}
-                <TableHead 
+                <TableHead
                   className="cursor-pointer select-none"
                   onClick={() => handleSort("nome_lead")}
                 >
@@ -776,7 +777,7 @@ const Leads = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Colaborador</TableHead>
-                <TableHead 
+                <TableHead
                   className="cursor-pointer select-none"
                   onClick={() => handleSort("stage")}
                 >
@@ -785,7 +786,7 @@ const Leads = () => {
                     <ArrowUpDown className="h-4 w-4" />
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="cursor-pointer select-none"
                   onClick={() => handleSort("source")}
                 >
@@ -794,7 +795,7 @@ const Leads = () => {
                     <ArrowUpDown className="h-4 w-4" />
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="cursor-pointer select-none text-right"
                   onClick={() => handleSort("valor")}
                 >
@@ -818,10 +819,10 @@ const Leads = () => {
                 filteredLeads.map((lead) => {
                   const statusInfo = statusConfig[lead.stage || 'NOVO'] || statusConfig.NOVO;
                   const isSelected = selectedLeads.includes(lead.id);
-                  
-                    return (
+
+                  return (
                     <TableRow key={lead.id} className={cn(
-                      "hover:bg-muted/50 transition-colors", 
+                      "hover:bg-muted/50 transition-colors",
                       isSelected && "bg-primary/10 border-l-2 border-l-primary"
                     )}>
                       {permissions.canViewAllLeads && (
@@ -855,8 +856,8 @@ const Leads = () => {
                         <div className="flex items-center justify-center gap-2">
                           {permissions.canViewAllLeads && (
                             <>
-                              <Button 
-                                size="icon" 
+                              <Button
+                                size="icon"
                                 variant="ghostIcon"
                                 className="h-8 w-8 text-muted-foreground hover:text-primary"
                                 onClick={() => handleEditLead(lead)}
@@ -864,8 +865,8 @@ const Leads = () => {
                                 <Edit className="h-4 w-4" />
                               </Button>
                               {permissions.canDeleteLeads && (
-                                <Button 
-                                  size="icon" 
+                                <Button
+                                  size="icon"
                                   variant="ghostIcon"
                                   className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                   onClick={() => setLeadToDelete(lead)}
@@ -883,10 +884,10 @@ const Leads = () => {
               )}
             </TableBody>
           </Table>
-          
+
           {/* Elemento observador para infinite scroll */}
           <div ref={observerTarget} className="h-4" />
-          
+
           {/* Loading indicator para carregamento de mais leads */}
           {loadingMore && (
             <div className="flex justify-center py-4">
@@ -919,7 +920,7 @@ const Leads = () => {
       </AlertDialog>
 
       {/* Modal de adicionar lead */}
-      <AddLeadModal 
+      <AddLeadModal
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSuccess={loadLeads}
@@ -927,7 +928,7 @@ const Leads = () => {
 
       {/* Modal de editar lead */}
       {leadToEdit && (
-        <EditLeadModal 
+        <EditLeadModal
           open={showEditModal}
           onClose={() => {
             setShowEditModal(false);
