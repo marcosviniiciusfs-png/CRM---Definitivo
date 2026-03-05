@@ -236,7 +236,11 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId);
+      // Em produção, deixamos a Edge Function decidir o redirect_uri (padrão whitelisted)
+      // No localhost, enviamos explicitamente para permitir desenv local.
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId, isLocalhost ? '(Local)' : '(Produção)');
 
       // Call edge function to initiate OAuth
       const { data, error } = await supabase.functions.invoke('facebook-oauth-initiate', {
@@ -244,7 +248,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           user_id: user.id,
           organization_id: organizationId,
           origin: window.location.origin,
-          redirect_uri: `${window.location.origin}${window.location.pathname}`
+          redirect_uri: isLocalhost ? `${window.location.origin}${window.location.pathname}` : undefined
         },
       });
 
