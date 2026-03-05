@@ -7,8 +7,7 @@ import { Facebook, CheckCircle, AlertCircle, Copy, Check, Loader2 } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FunnelSelector } from "@/components/FunnelSelector";
-
-
+import { cn } from "@/lib/utils";
 interface LeadForm {
   id: string;
   name: string;
