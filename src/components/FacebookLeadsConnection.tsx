@@ -121,7 +121,11 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           checkConnection().then(data => {
             if (data && data.page_id) {
               console.log('🔄 [FB-CONN] Dados sincronizados. Abrindo seletor...');
-              setTimeout(() => fetchLeadForms(data), 500);
+              // Give extra time for DB replication
+              setTimeout(() => {
+                fetchLeadForms(data);
+                toast.info("Carregando seus formulários...");
+              }, 1000);
             } else {
               // Tentativa de segurança caso o banco demore a propagar (RLS/Cache)
               console.warn('⚠️ [FB-CONN] Dados não encontrados imediatamente. Re-tentando...');
@@ -129,7 +133,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                 checkConnection().then(retryData => {
                   if (retryData) fetchLeadForms(retryData);
                 });
-              }, 1500);
+              }, 2000);
             }
           });
         } else if (code && state) {
@@ -441,7 +445,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      const { error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
+      console.log('📡 [FB-CONN] Inscrevendo webhook para:', form.name);
+
+      const { data, error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
         body: {
           form_id: form.id,
           form_name: form.name,
@@ -450,7 +456,14 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Invoke error:', error);
+        throw new Error('O servidor de integração demorou a responder. Verifique sua conexão e tente novamente.');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       toast.success(`Webhook inscrito para "${form.name}"!`);
       setShowFormSelector(false);
