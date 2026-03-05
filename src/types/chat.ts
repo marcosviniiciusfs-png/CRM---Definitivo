@@ -19,6 +19,7 @@ export interface Lead {
   last_seen?: string | null;
   funnel_id?: string | null;
   funnel_stage_id?: string | null;
+  additional_data?: any;
 }
 
 export interface MessageReaction {

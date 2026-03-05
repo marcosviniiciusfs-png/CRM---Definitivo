@@ -329,7 +329,24 @@ Deno.serve(async (req) => {
                 leadInfo[normalizedName] = field.values?.[0] || '';
               });
 
-              // Build description with ALL form fields
+              // Build structured JSON for additional_data (dynamic — works with ANY form)
+              const structuredFields = fieldData
+                .map((field: any) => ({
+                  name: field.name,
+                  value: field.values?.[0] || ''
+                }))
+                .filter((f: any) => f.value !== '');
+
+              const additionalData = {
+                source: 'facebook',
+                form_id: leadData.form_id,
+                form_name: formName,
+                campaign_name: campaignName,
+                facebook_lead_id: leadgenId,
+                fields: structuredFields
+              };
+
+              // Build legacy text description (kept for backwards compatibility)
               let allFieldsDescription = 'Lead capturado via Facebook Ads\n\n';
               allFieldsDescription += `Formulário: ${formName}\n`;
               allFieldsDescription += `Campanha: ${campaignName}\n\n`;
@@ -381,9 +398,10 @@ Deno.serve(async (req) => {
                   await supabase
                     .from('leads')
                     .update({
-                      nome_lead: leadInfo.full_name || leadInfo.first_name || leadInfo.name || duplicateCheck.existingLead.nome_lead,
+                      nome_lead: leadInfo.full_name || leadInfo.nome_completo || leadInfo['first name'] || leadInfo.first_name || leadInfo.name || leadInfo.nome || duplicateCheck.existingLead.nome_lead,
                       email: email || undefined,
                       descricao_negocio: updatedDescription,
+                      additional_data: additionalData,
                       updated_at: new Date().toISOString()
                     })
                     .eq('id', duplicateCheck.existingLead.id);
@@ -469,7 +487,7 @@ Deno.serve(async (req) => {
                 }
               }
 
-              // Create lead in database
+              // Create lead in database with structured additional_data for dynamic field rendering
               const { data: newLead, error: leadError } = await supabase
                 .from('leads')
                 .insert({
@@ -483,6 +501,7 @@ Deno.serve(async (req) => {
                   funnel_id: funnelId,
                   funnel_stage_id: funnelStageId,
                   descricao_negocio: allFieldsDescription,
+                  additional_data: additionalData,
                 })
                 .select()
                 .single();

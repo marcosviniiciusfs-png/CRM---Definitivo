@@ -124,7 +124,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
   const loadLeadDetails = async () => {
     try {
       setLoading(true);
-      
+
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
@@ -147,7 +147,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar nomes dos usuários que criaram as atividades
       if (activitiesData && activitiesData.length > 0) {
         const userIds = [...new Set(activitiesData.map(a => a.user_id))];
-        
+
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("user_id, full_name")
@@ -292,12 +292,16 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
             )}
 
             {/* Dados do Formulário Facebook (se existir) */}
-            {details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') && (
-              <>
-                <FacebookFormData description={details.descricao_negocio} />
-                <Separator />
-              </>
-            )}
+            {(details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') ||
+              (details?.additional_data as any)?.source === 'facebook') && (
+                <>
+                  <FacebookFormData
+                    description={details.descricao_negocio}
+                    customFields={details.additional_data as any}
+                  />
+                  <Separator />
+                </>
+              )}
 
             {/* Dados Adicionais do Webhook (se existir) */}
             {details?.additional_data && typeof details.additional_data === 'object' && !Array.isArray(details.additional_data) && Object.keys(details.additional_data).length > 0 && (
@@ -330,25 +334,25 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                 <FileText className="h-4 w-4" />
                 <h3 className="font-semibold text-sm">Dados do Negócio</h3>
               </div>
-              
+
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Responsável:</span>
                   <p className="font-medium">{details?.responsavel || "Não atribuído"}</p>
                 </div>
-                
+
                 <div>
                   <span className="text-muted-foreground">Data de Início:</span>
                   <p className="font-medium">{formatDate(details?.data_inicio)}</p>
                 </div>
-                
+
                 {details?.data_conclusao && (
                   <div>
                     <span className="text-muted-foreground">Data de Conclusão:</span>
                     <p className="font-medium">{formatDate(details?.data_conclusao)}</p>
                   </div>
                 )}
-                
+
                 {/* Mostrar descrição apenas se NÃO for lead do Facebook */}
                 {!details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') && (
                   <div>
@@ -429,7 +433,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                         </span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{activity.content}</p>
-                      
+
                       {/* Anexo */}
                       {activity.attachment_name && activity.attachment_url && (
                         <a
@@ -442,7 +446,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                           <span>{activity.attachment_name}</span>
                         </a>
                       )}
-                      
+
                       {/* Criado por */}
                       {activity.user_name && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
