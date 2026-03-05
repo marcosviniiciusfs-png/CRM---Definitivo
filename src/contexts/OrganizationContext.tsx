@@ -409,33 +409,62 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     try {
       console.log('[ORG] Loading organization data for user:', user.email);
 
-      // Tentar carregar memberships via RPC
-      const { data: memberships, error: rpcError } = await supabase.rpc('get_my_organization_memberships');
+      // Tentar carregar memberships via RPC (mais performático e evita RLS recursão em alguns casos)
+      let { data: memberships, error: rpcError } = await supabase.rpc('get_my_organization_memberships');
+
+      // Se a RPC falhou (especialmente com 404 ou PGRST202), tentamos consulta direta
+      // Não logamos como erro imediatamente se pudermos recuperar via fallback
+      const isMissingRpc = rpcError && (
+        rpcError.code === 'PGRST202' ||
+        rpcError.message?.includes('not found') ||
+        (rpcError as any).status === 404
+      );
+
+      if (isMissingRpc) {
+        console.warn('[ORG] RPC get_my_organization_memberships not found, using direct table fallback...');
+        const { data: directData, error: directError } = await supabase
+          .from('organization_members')
+          .select('organization_id, role, organizations(id, name)')
+          .eq('user_id', user.id);
+
+        if (!directError && directData) {
+          memberships = directData.map((m: any) => ({
+            organization_id: m.organization_id,
+            organization_name: m.organizations?.name || 'Workspace',
+            role: m.role,
+            is_owner: m.role === 'owner'
+          }));
+          rpcError = null; // Caso resolvido pelo fallback
+        } else if (directError) {
+          console.error('[ORG] Direct table fallback also failed:', directError);
+          rpcError = directError;
+        }
+      }
 
       if (rpcError) {
-        console.error('[ORG] RPC get_my_organization_memberships failed:', rpcError);
-        // Se a RPC falhar, tentamos o "ensure" como backup imediatamente
-        console.log('[ORG] Primary RPC failed, attempting backup ensure_user_organization...');
-        const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
+        console.error('[ORG] All membership load attempts failed:', rpcError);
 
-        if (!ensureErr && ensureData?.success) {
-          console.log('[ORG] Backup recovery successful via ensure_user_organization.');
-          // Pequeno delay para o banco propagar a mudança
-          await new Promise(resolve => setTimeout(resolve, 500));
-          loadOrganizationData(true);
-          return;
+        // Se a falha for 404, não adianta tentar novamente via retries padrão
+        if (isMissingRpc && retryCount === 0) {
+          console.log('[ORG] RPC missing and fallback failed. Forcing ensure_user_organization backup...');
+          const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
+          if (!ensureErr && ensureData?.success) {
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Delay maior para garantir propagação
+            setRetryCount(1);
+            loadOrganizationData(true);
+            return;
+          }
         }
 
-        // Se chegarmos aqui em uma tentativa inicial, tentamos disparar uma vez mais com delay
-        if (retryCount < MAX_RETRIES) {
-          console.log(`[ORG] Retrying load... Attempt ${retryCount + 1}/${MAX_RETRIES}`);
+        // Retentativas genéricas para erros temporários
+        if (!isMissingRpc && retryCount < MAX_RETRIES) {
+          console.log(`[ORG] Temporary error, retrying... Attempt ${retryCount + 1}/${MAX_RETRIES}`);
           setRetryCount(prev => prev + 1);
           setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
           return;
         }
 
-        // Se tudo falhou após retries, liberamos para não travar em loop
-        console.error('[ORG] All organization recovery attempts failed.');
+        // Se chegarmos aqui, desistimos para não travar o app
         setIsInitialized(true);
         setPermissions(prev => ({ ...prev, loading: false }));
         return;
