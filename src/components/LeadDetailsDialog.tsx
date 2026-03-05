@@ -224,25 +224,6 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
 
             <Separator />
 
-            {/* Agendamento de Venda */}
-            {details?.data_agendamento_venda && (
-              <>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-primary">
-                    <CalendarClock className="h-4 w-4" />
-                    <h3 className="font-semibold text-sm">Agendamento de Venda</h3>
-                  </div>
-                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                    <p className="text-sm font-medium">
-                      {format(new Date(details.data_agendamento_venda), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                </div>
-                <Separator />
-              </>
-            )}
-
-            <Separator />
 
             {/* Histórico de Tentativas de Duplicação */}
             {details?.duplicate_attempts_count && details.duplicate_attempts_count > 0 && (

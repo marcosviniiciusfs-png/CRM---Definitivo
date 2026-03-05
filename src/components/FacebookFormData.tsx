@@ -125,8 +125,11 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
   if (fields.length === 0) return null;
 
   const formInfo = description.split('=== INFORMAÇÕES DO FORMULÁRIO ===')[0];
-  const formIdMatch = formInfo.match(/Formulário: (\S+)/);
+  const formIdMatch = formInfo.match(/Formulário: (.+)/);
   const campaignMatch = formInfo.match(/Campanha: (.+)/);
+
+  const cleanFormName = formIdMatch?.[1]?.trim() === 'undefined' ? null : formIdMatch?.[1]?.trim();
+  const cleanCampaignName = campaignMatch?.[1]?.trim() === 'N/A' || campaignMatch?.[1]?.trim() === 'undefined' ? null : campaignMatch?.[1]?.trim();
 
   return (
     <div className="space-y-4">
@@ -140,21 +143,21 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
         <Badge variant="secondary" className="text-xs">Lead Ads</Badge>
       </div>
 
-      {(formIdMatch || campaignMatch) && (
+      {(cleanFormName || cleanCampaignName) && (
         <Card className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
           <div className="space-y-1.5 text-xs">
-            {formIdMatch && (
+            {cleanFormName && (
               <div className="flex items-center gap-2 flex-wrap">
                 <FileText className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
                 <span className="text-muted-foreground flex-shrink-0">Formulário:</span>
-                <span className="font-medium break-words">{formIdMatch[1]}</span>
+                <span className="font-medium break-words">{cleanFormName}</span>
               </div>
             )}
-            {campaignMatch && (
+            {cleanCampaignName && (
               <div className="flex items-center gap-2 flex-wrap">
                 <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
                 <span className="text-muted-foreground flex-shrink-0">Campanha:</span>
-                <span className="font-medium break-words">{campaignMatch[1]}</span>
+                <span className="font-medium break-words">{cleanCampaignName}</span>
               </div>
             )}
           </div>
@@ -172,8 +175,8 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
                 {getFieldIcon(field.name)}
               </div>
               <div className="flex-1 min-w-0 space-y-1">
-                <p className="text-xs text-muted-foreground font-medium break-words">
-                  {field.name}
+                <p className="text-xs text-muted-foreground font-medium break-words capitalize">
+                  {field.name.replace(/_/g, ' ')}
                 </p>
                 <p className="text-sm font-semibold text-foreground break-words">
                   {field.value}
