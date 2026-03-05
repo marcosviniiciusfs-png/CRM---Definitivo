@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
   const FACEBOOK_APP_SECRET = Deno.env.get('FACEBOOK_APP_SECRET');
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
+  const SUPABASE_CALLBACK_URI = `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
 
   if (!FACEBOOK_APP_ID || !FACEBOOK_APP_SECRET) {
     console.error('❌ [FB-CALLBACK] Configurações de ambiente ausentes');
@@ -121,9 +121,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // 1. Trocar código pelo token curto
-    console.log('🔄 [FB-CALLBACK] Obtendo access_token...');
-    const exchangeRedirectUri = customRedirectUri || REDIRECT_URI;
+    // 1. Exchange authorization code for short-lived token
+    // CRITICAL: The redirect_uri used here MUST match the one used in the OAuth initiation.
+    // - For POST/API calls (from popup flow): the frontend sends the exact redirect_uri it used
+    // - For GET redirects (direct browser redirect from Facebook): use the Supabase callback URL
+    const exchangeRedirectUri = isApiCall && customRedirectUri
+      ? customRedirectUri
+      : SUPABASE_CALLBACK_URI;
+
+    console.log('🔄 [FB-CALLBACK] Obtendo access_token com redirect_uri:', exchangeRedirectUri);
 
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v18.0/oauth/access_token?` +

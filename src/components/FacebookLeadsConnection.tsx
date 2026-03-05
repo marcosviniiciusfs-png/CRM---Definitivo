@@ -33,44 +33,60 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   const [subscribing, setSubscribing] = useState(false);
   const [needsReconnect, setNeedsReconnect] = useState(false);
   const [checkingTokens, setCheckingTokens] = useState(false);
+  // Store the redirect_uri used during OAuth initiation so the callback uses the exact same one
+  const [oauthRedirectUri, setOauthRedirectUri] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
-      // Check if we are inside a popup
-      const isPopup = window.opener && (window.name === 'FacebookLoginPopup' || window.location.search.includes('code='));
-
+      // Check if we are inside a popup - more robust detection
+      const hasOpener = !!window.opener;
+      const isPopupByName = window.name === 'FacebookLoginPopup';
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       const fbStatus = urlParams.get('facebook');
+      const hasOAuthParams = !!(code && state);
+      const hasFbStatus = !!fbStatus;
 
-      if (isPopup && (code || state || fbStatus)) {
+      const isPopup = hasOpener && (isPopupByName || hasOAuthParams || hasFbStatus);
+
+      if (isPopup && (hasOAuthParams || hasFbStatus)) {
         console.log('🪟 [FB-CONN] Detectado ambiente de popup. Enviando mensagem ao pai...');
-        const payload = code && state ? { code, state } : {
-          facebook: fbStatus,
-          message: urlParams.get('message')
-        };
+
+        // Build the redirect_uri that must match the one used during initiation.
+        // The popup was opened pointing at the Facebook auth URL, which redirected back
+        // to this same page URL (origin + pathname). We reconstruct it here.
+        const popupRedirectUri = `${window.location.origin}${window.location.pathname}`;
+
+        const payload = hasOAuthParams
+          ? { code, state, redirect_uri: popupRedirectUri }
+          : { facebook: fbStatus, message: urlParams.get('message') };
 
         try {
-          // Tentar enviar mensagem ao pai
+          // Send message to parent window
           window.opener.postMessage({
             type: 'FACEBOOK_OAUTH_RESPONSE',
             payload
           }, window.location.origin);
 
-          // Se for via redirect de backend direto pro integracoes dentro do popup, fechamos logo
-          if (fbStatus === 'success' || fbStatus === 'error') {
+          // If backend already processed and redirected with ?facebook=success/error, close popup
+          if (hasFbStatus) {
             setTimeout(() => window.close(), 1000);
           }
         } catch (e) {
           console.error('❌ [FB-CONN] Erro ao enviar mensagem para opener:', e);
+          // Fallback: try to process locally if parent communication fails
+          if (hasOAuthParams) {
+            handleOauthCallback(code!, state!, popupRedirectUri);
+          }
         }
         return;
       }
 
       // Se tivermos code/state e NÃO formos um popup, processamos normal (compatibilidade)
       if (code && state && !isPopup) {
-        handleOauthCallback(code, state);
+        const directRedirectUri = `${window.location.origin}${window.location.pathname}`;
+        handleOauthCallback(code, state, directRedirectUri);
         return;
       }
 
@@ -90,16 +106,20 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       }
     };
 
-    // Escutar mensagens do popup
+    // Listen for messages from the popup
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
 
       if (event.data?.type === 'FACEBOOK_OAUTH_RESPONSE') {
         console.log('📬 [FB-CONN] Recebida resposta do popup:', event.data.payload);
-        const { code, state, facebook, message } = event.data.payload;
+        const { code, state, facebook, message, redirect_uri } = event.data.payload;
 
         if (code && state) {
-          handleOauthCallback(code, state);
+          // Use the redirect_uri from the popup (which matches what Facebook received),
+          // or fall back to the stored oauthRedirectUri from initiation
+          const callbackRedirectUri = redirect_uri || oauthRedirectUri || `${window.location.origin}/integrations`;
+          console.log('🔗 [FB-CONN] Usando redirect_uri para callback:', callbackRedirectUri);
+          handleOauthCallback(code, state, callbackRedirectUri);
         } else if (facebook === 'success') {
           toast.success('Facebook conectado com sucesso!');
           checkConnection().then(data => {
@@ -120,20 +140,22 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     };
   }, [organizationId]);
 
-  const handleOauthCallback = async (code: string, state: string) => {
+  const handleOauthCallback = async (code: string, state: string, redirectUri?: string) => {
     setLoading(true);
     console.log('🔄 [FB-CONN] Processando callback do Facebook...');
     toast.info('Finalizando conexão com Facebook...', { id: 'fb-connecting' });
 
     try {
-      const redirectUri = `${window.location.origin}${window.location.pathname}`;
-      console.log('🔗 [FB-CONN] Usando redirect_uri para troca:', redirectUri);
+      // CRITICAL: Use the same redirect_uri that was used in the OAuth initiation.
+      // Priority: explicit parameter > stored from initiation > fallback to /integrations
+      const finalRedirectUri = redirectUri || oauthRedirectUri || `${window.location.origin}/integrations`;
+      console.log('🔗 [FB-CONN] Usando redirect_uri para troca:', finalRedirectUri);
 
       const { data, error } = await supabase.functions.invoke('facebook-oauth-callback', {
         body: {
           code,
           state,
-          redirect_uri: redirectUri
+          redirect_uri: finalRedirectUri
         },
       });
 
@@ -143,13 +165,14 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       console.log('✅ [FB-CONN] Sucesso! Resposta:', data);
       toast.success('Facebook conectado com sucesso!', { id: 'fb-connecting' });
 
-      // Limpar URL se houver query params (janela principal apenas)
+      // Clean URL if there are query params (main window only)
       if (window.location.search) {
         window.history.replaceState({}, '', window.location.pathname);
       }
 
       const integrationData = await checkConnection();
       if (integrationData) {
+        // Automatically show form selector after successful connection
         setTimeout(() => fetchLeadForms(integrationData), 500);
       }
     } catch (err: any) {
@@ -236,11 +259,15 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      // Em produção, deixamos a Edge Function decidir o redirect_uri (padrão whitelisted)
-      // No localhost, enviamos explicitamente para permitir desenv local.
+      // Use /integrations as the canonical redirect_uri to ensure consistency
+      // between initiate and callback steps.
+      // In localhost, use the local origin; in production, use the production origin.
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const initiateRedirectUri = `${window.location.origin}/integrations`;
+      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId, 'redirect_uri:', initiateRedirectUri, isLocalhost ? '(Local)' : '(Produção)');
 
-      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId, isLocalhost ? '(Local)' : '(Produção)');
+      // Store the redirect_uri so the callback handler can use the exact same one
+      setOauthRedirectUri(initiateRedirectUri);
 
       // Call edge function to initiate OAuth
       const { data, error } = await supabase.functions.invoke('facebook-oauth-initiate', {
@@ -248,7 +275,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           user_id: user.id,
           organization_id: organizationId,
           origin: window.location.origin,
-          redirect_uri: isLocalhost ? `${window.location.origin}${window.location.pathname}` : undefined
+          redirect_uri: initiateRedirectUri
         },
       });
 
@@ -264,7 +291,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       if (data?.auth_url) {
         console.log('✅ [FB-CONN] Abrindo popup do Facebook...');
 
-        // Abrir popup em vez de redirecionar a página inteira
+        // Open popup instead of redirecting the entire page
         const width = 600;
         const height = 750;
         const left = window.screen.width / 2 - width / 2;
@@ -278,7 +305,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
         if (!popup) {
           toast.error('O bloqueador de popups impediu a conexão. Por favor, habilite popups para este site.');
-          // Fallback para redirecionamento direto se o popup falhar
+          // Fallback: redirect the page directly if popup is blocked
           window.location.href = data.auth_url;
           return;
         }
