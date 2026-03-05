@@ -172,43 +172,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Nova assinatura: aceita organizationId (opcional) para verificar pelo owner da org
   const refreshSubscription = async (organizationId?: string) => {
-    console.log('[AUTH] refreshSubscription called, user:', user?.email, 'orgId:', organizationId);
-
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (!currentSession?.access_token || !user) {
-      console.log('[AUTH] No active session or user, skipping subscription check');
-      return;
-    }
-
-    // Check cache first (se tiver organizationId)
-    if (organizationId) {
-      const cachedData = getSubscriptionCache(user.id, organizationId);
-      if (cachedData) {
-        console.log('[AUTH] Using cached subscription data for org:', organizationId);
-        setSubscriptionData(cachedData);
-        return;
-      }
-    }
-
-    try {
-      console.log('[AUTH] Invoking check-subscription function...', { organizationId });
-      const { data, error } = await supabase.functions.invoke('check-subscription', {
-        body: organizationId ? { organization_id: organizationId } : {}
-      });
-
-      if (error) {
-        console.error('[AUTH] Erro ao verificar assinatura:', error);
-        return;
-      }
-
-      console.log('[AUTH] Subscription data received:', data);
-      setSubscriptionData(data);
-      setSubscriptionCache(data, user.id, organizationId);
-    } catch (error) {
-      console.error('[AUTH] Erro ao verificar assinatura:', error);
-    }
+    console.log('[AUTH] refreshSubscription called, forcing free plan');
+    setSubscriptionData({
+      subscribed: true,
+      product_id: 'enterprise_free',
+      subscription_end: null,
+      max_collaborators: 999,
+      extra_collaborators: 0,
+      total_collaborators: 999
+    });
   };
 
   const refreshSectionAccess = async () => {
@@ -358,11 +331,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const { data: { session: currentSession } } = await supabase.auth.getSession();
               if (!currentSession?.access_token) return;
 
-              const { data, error } = await supabase.functions.invoke('check-subscription');
-              if (!error && data && mounted) {
-                setSubscriptionData(data);
-                setSubscriptionCache(data, session.user.id);
-              }
+              setSubscriptionData({
+                subscribed: true,
+                product_id: 'enterprise_free',
+                subscription_end: null,
+                max_collaborators: 999,
+                extra_collaborators: 0,
+                total_collaborators: 999
+              });
 
               // Refresh section access as well
               const { data: accessData } = await supabase
@@ -377,9 +353,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSectionAccessCache(map, session.user.id);
                 sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
                 sectionAccessFetchedRef.current = true;
+              } else if (mounted) {
+                setSectionAccess({});
               }
             } catch (error) {
               console.error('[AUTH] Erro ao verificar dados após login:', error);
+              if (mounted) setSectionAccess({});
             } finally {
               if (mounted) setSectionAccessLoading(false);
             }
@@ -445,13 +424,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (!mounted) return;
 
             try {
-              // 1. Subscription
-              const { data: subData, error: subError } = await supabase.functions.invoke('check-subscription');
-              if (!subError && subData && mounted) {
-                setSubscriptionData(subData);
-                setSubscriptionCache(subData, session.user.id);
-                subscriptionFetchedRef.current = true;
-              }
+              setSubscriptionData({
+                subscribed: true,
+                product_id: 'enterprise_free',
+                subscription_end: null,
+                max_collaborators: 999,
+                extra_collaborators: 0,
+                total_collaborators: 999
+              });
+              subscriptionFetchedRef.current = true;
 
               // 2. Section Access
               const { data: accData, error: accError } = await supabase
@@ -466,9 +447,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSectionAccessCache(map, session.user.id);
                 sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
                 sectionAccessFetchedRef.current = true;
+              } else if (mounted) {
+                // Se não há dados, garantimos que não fique null para liberar a UI
+                setSectionAccess({});
               }
             } catch (error) {
               console.error('[AUTH] Erro ao verificar dados iniciais:', error);
+              if (mounted) setSectionAccess({});
             } finally {
               if (mounted) setSectionAccessLoading(false);
             }

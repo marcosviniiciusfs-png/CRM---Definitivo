@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAdminAuth, getAdminToken } from "@/contexts/AdminAuthContext";
 import {
   Users, Shield, ChevronLeft, ChevronRight, TrendingUp, DollarSign,
   Trash2, Search, Download, ShoppingCart, CheckCircle, Clock, BarChart3,
@@ -87,7 +87,7 @@ function AdminMetricCard({
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { adminEmail, adminLogout } = useAdminAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [mainUsersCount, setMainUsersCount] = useState(0);
   const [payingUsersCount, setPayingUsersCount] = useState(0);
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
   const itemsPerPage = 10;
 
   // Admin management state
-  const [admins, setAdmins] = useState<{ user_id: string; email: string; created_at: string }[]>([]);
+  const [admins, setAdmins] = useState<{ email: string; created_at: string }[]>([]);
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
@@ -119,9 +119,10 @@ export default function AdminDashboard() {
   const loadAdmins = async () => {
     setAdminsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin-manage-admins', { method: 'GET' });
+      const token = getAdminToken();
+      const { data, error } = await supabase.rpc('safe_list_admins', { p_token: token });
       if (error) throw error;
-      setAdmins(data?.admins || []);
+      setAdmins(data || []);
     } catch (err: any) {
       console.error('[AdminDashboard] Error loading admins:', err);
     } finally {
@@ -140,12 +141,12 @@ export default function AdminDashboard() {
     }
     setAddingAdmin(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin-manage-admins', {
-        method: 'POST',
-        body: { action: 'create', email: newAdminEmail, password: newAdminPassword },
+      const { data, error } = await supabase.rpc('upsert_admin_credential', {
+        p_email: newAdminEmail,
+        p_password: newAdminPassword
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.success === false) throw new Error(data.error);
       toast.success("Admin adicionado com sucesso!");
       setNewAdminEmail("");
       setNewAdminPassword("");
@@ -157,18 +158,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleRemoveAdmin = async (userId: string) => {
-    if (userId === user?.id) {
+  const handleRemoveAdmin = async (email: string) => {
+    if (email.toLowerCase() === adminEmail?.toLowerCase()) {
       toast.error("Você não pode remover a si mesmo");
       return;
     }
     try {
-      const { data, error } = await supabase.functions.invoke('admin-manage-admins', {
-        method: 'POST',
-        body: { action: 'delete', userId },
+      const token = getAdminToken();
+      const { data, error } = await supabase.rpc('safe_delete_admin', {
+        p_token: token,
+        p_target_email: email
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.success === false) throw new Error(data.error);
       toast.success("Admin removido com sucesso!");
       loadAdmins();
     } catch (err: any) {
@@ -184,36 +186,44 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: countData, error: countError } = await supabase.rpc('count_main_users');
-      if (countError) throw countError;
-      setMainUsersCount(countData || 0);
-
-      const { data: usersData, error: usersError } = await supabase.rpc('list_all_users');
-      if (usersError) throw usersError;
-      setUsers(usersData || []);
-
-      // Load subscriptions for plan mapping
-      const { data: subsData } = await supabase
-        .from('subscriptions')
-        .select('user_id, plan_id, status')
-        .eq('status', 'authorized');
-      
-      const subMap: Record<string, string> = {};
-      (subsData || []).forEach((s: any) => { subMap[s.user_id] = s.plan_id; });
-      setSubscriptionMap(subMap);
-
-      const [payingResult, mrrResult, dailyRevenueResult, chartResult] = await Promise.all([
-        supabase.functions.invoke('count-paying-users'),
-        supabase.functions.invoke('calculate-mrr'),
-        supabase.functions.invoke('calculate-daily-revenue'),
-        supabase.functions.invoke('subscription-growth')
+      const token = getAdminToken();
+      const [countResult, usersResult, subsResult] = await Promise.all([
+        supabase.rpc('safe_count_main_users', { p_token: token }),
+        supabase.rpc('safe_list_all_users', { p_token: token }),
+        supabase.rpc('safe_get_all_subscriptions', { p_token: token }),
       ]);
 
-      setPayingUsersCount(payingResult.error ? 0 : payingResult.data?.count || 0);
-      if (mrrResult.error) { setMrr(0); setPlanChartData([]); }
-      else { setMrr(mrrResult.data?.mrr || 0); setPlanChartData(mrrResult.data?.planChartData || []); }
-      setDailyRevenue(dailyRevenueResult.error ? 0 : dailyRevenueResult.data?.dailyRevenue || 0);
-      setChartData(chartResult.error ? [] : chartResult.data?.chartData || []);
+      if (countResult.error) throw countResult.error;
+      if (usersResult.error) throw usersResult.error;
+      if (subsResult.error) throw subsResult.error;
+
+      setMainUsersCount(Number(countResult.data) || 0);
+      setUsers(usersResult.data || []);
+
+      const subMap: Record<string, string> = {};
+      (subsResult.data || []).forEach((s: any) => { subMap[s.user_id] = s.plan_id; });
+      setSubscriptionMap(subMap);
+
+      const adminHeaders = token ? { 'x-admin-token': token } : {};
+
+      const [payingResult, mrrResult, dailyRevenueResult, chartResult] = await Promise.all([
+        supabase.rpc('safe_count_paying_users', { p_token: token }),
+        supabase.rpc('safe_calculate_mrr', { p_token: token }),
+        supabase.rpc('safe_calculate_daily_revenue', { p_token: token }),
+        supabase.rpc('safe_subscription_growth', { p_token: token }),
+      ]);
+
+      setPayingUsersCount(payingResult.error ? 0 : (payingResult.data as any)?.count || 0);
+      if (mrrResult.error) {
+        setMrr(0);
+        setPlanChartData([]);
+      } else {
+        const data = mrrResult.data as any;
+        setMrr(data?.mrr || 0);
+        setPlanChartData(data?.planChartData || []);
+      }
+      setDailyRevenue(dailyRevenueResult.error ? 0 : (dailyRevenueResult.data as any)?.dailyRevenue || 0);
+      setChartData(chartResult.error ? [] : (chartResult.data as any)?.chartData || []);
     } catch (error: any) {
       console.error('[AdminDashboard] Erro ao carregar dados:', error);
       toast.error(`Erro ao carregar dados: ${error.message}`);
@@ -266,8 +276,8 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
+    adminLogout();
+    navigate("/admin-login");
   };
 
   // Build growth chart data with pro/free lines
@@ -343,7 +353,7 @@ export default function AdminDashboard() {
             <Badge className="bg-gray-900 text-white hover:bg-gray-900 text-xs">Admin</Badge>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">{user?.email}</span>
+            <span className="text-sm text-gray-500">{adminEmail}</span>
             <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair" className="text-gray-500 hover:text-gray-700">
               <LogOut className="w-4 h-4" />
             </Button>
@@ -697,7 +707,7 @@ export default function AdminDashboard() {
                   ) : (
                     <div className="space-y-3">
                       {admins.map(admin => (
-                        <div key={admin.user_id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                        <div key={admin.email} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                           <div className="flex items-center gap-3">
                             <Avatar className="w-9 h-9">
                               <AvatarFallback className="bg-gray-100 text-gray-600 text-sm">
@@ -707,7 +717,7 @@ export default function AdminDashboard() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-medium text-gray-900">{admin.email}</p>
-                                {admin.user_id === user?.id && (
+                                {admin.email.toLowerCase() === adminEmail?.toLowerCase() && (
                                   <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">Você</Badge>
                                 )}
                               </div>
@@ -716,8 +726,8 @@ export default function AdminDashboard() {
                               </p>
                             </div>
                           </div>
-                          {admin.user_id !== user?.id && (
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveAdmin(admin.user_id)}
+                          {admin.email.toLowerCase() !== adminEmail?.toLowerCase() && (
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveAdmin(admin.email)}
                               className="text-red-400 hover:text-red-600 hover:bg-red-50">
                               <Trash2 className="h-4 w-4" />
                             </Button>

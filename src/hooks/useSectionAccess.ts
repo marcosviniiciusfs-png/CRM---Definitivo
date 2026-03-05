@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Features that are locked by default (can be unlocked via user_section_access)
-const LOCKED_FEATURES = ['lead-metrics', 'lead-distribution', 'chat', 'integrations'];
+// Features that are locked by default (everyone has access now)
+const LOCKED_FEATURES: string[] = [];
 
 // URL path to section key mapping
 const URL_TO_SECTION: Record<string, string> = {
@@ -24,12 +23,15 @@ const URL_TO_SECTION: Record<string, string> = {
 };
 
 export function useSectionAccess() {
-  const { sectionAccess, sectionAccessLoading, user } = useAuth();
+  const { sectionAccess, sectionAccessLoading, user, isSuperAdmin } = useAuth();
 
   // If user exists but sectionAccess hasn't loaded yet, treat as loading
   const loading = sectionAccessLoading || (!!user && sectionAccess === null);
 
   const isSectionUnlocked = useCallback((path: string) => {
+    // Super Admin has access to EVERYTHING
+    if (isSuperAdmin) return true;
+
     const sectionKey = URL_TO_SECTION[path];
     if (!sectionKey) return true; // unknown paths are accessible
 
@@ -41,7 +43,7 @@ export function useSectionAccess() {
 
     // Default: locked features are locked, others are open
     return !LOCKED_FEATURES.includes(sectionKey);
-  }, [sectionAccess]);
+  }, [sectionAccess, isSuperAdmin]);
 
   return { isSectionUnlocked, loading, sectionAccess };
 }

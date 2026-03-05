@@ -1,211 +1,118 @@
-import { CreativePricing, PricingTier } from "@/components/ui/creative-pricing";
-import { Zap, TrendingUp, Crown, LogOut } from "lucide-react";
+import React from "react";
+import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { Button } from "@/components/ui/button";
+import { PlusCircle, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import logoFull from "@/assets/kairoz-logo-full-new.png";
-
-const EXTRA_COLLABORATOR_PRICE = 25;
-
-const pricingTiers: PricingTier[] = [
-  {
-    name: "Star",
-    icon: <Zap className="w-6 h-6" />,
-    price: 47.99,
-    description: "Ideal para começar",
-    color: "blue",
-    features: [
-      "Até 500 leads",
-      "5 colaboradores inclusos",
-      "WhatsApp integrado",
-      "Funil básico",
-      "Suporte por email",
-    ],
-    maxCollaborators: 5,
-  },
-  {
-    name: "Pro",
-    icon: <TrendingUp className="w-6 h-6" />,
-    price: 197.99,
-    description: "Para equipes em crescimento",
-    color: "amber",
-    features: [
-      "Leads ilimitados",
-      "15 colaboradores inclusos",
-      "Automações avançadas",
-      "Múltiplos funis",
-      "Facebook Leads integrado",
-      "Relatórios completos",
-      "Suporte prioritário",
-    ],
-    popular: true,
-    maxCollaborators: 15,
-  },
-  {
-    name: "Elite",
-    icon: <Crown className="w-6 h-6" />,
-    price: 499,
-    description: "Solução completa",
-    color: "purple",
-    features: [
-      "Tudo do Pro",
-      "30 colaboradores inclusos",
-      "API dedicada",
-      "Múltiplas organizações",
-      "Suporte 24/7",
-      "Treinamento personalizado",
-      "Gerente de conta dedicado",
-    ],
-    maxCollaborators: 30,
-  },
-];
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Pricing() {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<{
-    subscribed: boolean;
-    product_id: string | null;
-    plan_id: string | null;
-    subscription_end: string | null;
-  } | null>(null);
+  const { isReady, organizationId } = useOrganizationReady();
+  const location = useLocation();
+  const { signOut } = useAuth();
+  const [isCreating, setIsCreating] = React.useState(false);
 
-  useEffect(() => {
-    if (user) {
-      checkSubscription();
-    }
-  }, [user]);
+  // Polling/Sync check: Se o usuário estiver pronto, o contexto já inicializou e encontrou uma org.
+  // Mandamos ele para o dashboard ou o destino original.
+  React.useEffect(() => {
+    // Para simplificar, verificamos se temos organizationId ou se isReady é true
+    if ((isReady && organizationId) || organizationId) {
+      console.log("[Pricing] Organization detected! Redirecting...");
+      const stateFrom = (location.state as any)?.from;
 
-  const checkSubscription = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke("check-subscription");
-      if (error) throw error;
-      setSubscription(data);
-    } catch (error) {
-      console.error("Erro ao verificar assinatura:", error);
-    }
-  };
+      const fromPath = stateFrom?.pathname || (typeof stateFrom === 'string' ? stateFrom : "/dashboard");
+      const fromSearch = stateFrom?.search || "";
 
-  const handleSubscribe = async (planName: string, extraCollaborators: number = 0) => {
-    if (!user) {
-      toast.error("Faça login para assinar um plano");
-      navigate("/auth");
+      // Pequeno delay para garantir que o cache local/RLS está sincronizado
+      setTimeout(() => {
+        window.location.href = fromPath + fromSearch;
+      }, 500);
       return;
     }
+  }, [isReady, organizationId, location.state]);
 
-    setLoading(planName);
-
+  const handleCreateOrg = async () => {
+    if (isCreating) return;
+    setIsCreating(true);
     try {
-      const planId = planName.toLowerCase();
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { planId, extraCollaborators },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
+      console.log("[Pricing] Manually triggering ensure_user_organization");
+      const { data, error } = await (supabase.rpc as any)('ensure_user_organization');
+
+      if (error) {
+        console.error("[Pricing] RPC Error:", error);
+        alert("Erro no servidor: " + error.message);
+        setIsCreating(false);
+        return;
       }
-    } catch (error) {
-      console.error("Erro ao criar checkout:", error);
-      toast.error("Erro ao processar pagamento. Tente novamente.");
-    } finally {
-      setLoading(null);
-    }
-  };
 
-  const handleManageSubscription = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke("customer-portal");
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
-    } catch (error) {
-      console.error("Erro ao abrir portal:", error);
-      toast.error("Erro ao abrir portal de assinatura");
-    }
-  };
-
-  const handleAddCollaborators = async (quantity: number) => {
-    try {
-      toast.loading("Adicionando colaboradores...");
-      const { data, error } = await supabase.functions.invoke("update-subscription", {
-        body: { action: "add_collaborators", quantity },
-      });
-      if (error) throw error;
-      toast.dismiss();
-      toast.success(data?.message || "Colaboradores adicionados com sucesso!");
-      await checkSubscription();
-    } catch (error) {
-      toast.dismiss();
-      console.error("Erro ao adicionar colaboradores:", error);
-      toast.error("Erro ao adicionar colaboradores. Tente novamente.");
-    }
-  };
-
-  const handleUpgradePlan = async (newPlanId: string) => {
-    try {
-      toast.loading("Processando upgrade...");
-      const { data, error } = await supabase.functions.invoke("update-subscription", {
-        body: { action: "upgrade_plan", newPlanId },
-      });
-      if (error) throw error;
-      toast.dismiss();
-      if (data?.url) {
-        window.open(data.url, "_blank");
-        toast.success("Redirecionando para o checkout do novo plano...");
+      if (data?.success) {
+        console.log("[Pricing] Org created successfully, triggering final redirect...");
+        // Em vez de window.location.href manual, deixamos o useEffect acima agir 
+        // ou forçamos se necessário após um tempo
+        setTimeout(() => {
+          const fromPath = (location.state as any)?.from?.pathname || "/dashboard";
+          const fromSearch = (location.state as any)?.from?.search || "";
+          window.location.href = fromPath + fromSearch;
+        }, 1000);
       } else {
-        toast.success(data?.message || "Plano atualizado com sucesso!");
+        console.error("[Pricing] App Error:", data?.error);
+        alert("Não foi possível criar seu workspace: " + (data?.error || "Erro desconhecido"));
+        setIsCreating(false);
       }
-      await checkSubscription();
-    } catch (error) {
-      toast.dismiss();
-      console.error("Erro ao fazer upgrade:", error);
-      toast.error("Erro ao atualizar plano. Tente novamente.");
+    } catch (err) {
+      console.error("[Pricing] Catch Error:", err);
+      alert("Falha na comunicação com o servidor.");
+      setIsCreating(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    window.location.href = "/auth";
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header standalone */}
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-6 shrink-0">
-        <img src={logoFull} alt="KairoZ" className="h-8 w-auto" />
-        <Button
-          onClick={signOut}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair
-        </Button>
-      </header>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full text-center space-y-8 p-8 border rounded-2xl bg-card shadow-lg">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Quase lá!</h1>
+          <p className="text-muted-foreground text-balance">
+            Não encontramos um Workspace vinculado à sua conta.
+            Clique no botão abaixo para criar seu acesso gratuito agora mesmo.
+          </p>
+        </div>
 
-      {/* Banner */}
-      <div className="bg-primary/10 border-b border-primary/20 px-6 py-3 text-center">
-        <p className="text-sm font-medium text-primary">
-          🔒 Assine um dos planos abaixo para ter acesso completo ao CRM KairoZ
+        <div className="space-y-4">
+          <Button
+            onClick={handleCreateOrg}
+            disabled={isCreating}
+            size="lg"
+            className="w-full h-16 text-lg gap-3 bg-primary hover:bg-primary/90 transition-all font-semibold shadow-md active:scale-[0.98]"
+          >
+            {isCreating ? (
+              <LoadingAnimation text="Configurando tudo..." />
+            ) : (
+              <>
+                <PlusCircle className="w-6 h-6" />
+                Criar meu Workspace Grátis
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={handleLogout}
+            variant="ghost"
+            className="w-full gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="w-4 h-4" />
+            Entrar com outra conta
+          </Button>
+        </div>
+
+        <p className="text-xs text-muted-foreground pt-4">
+          Problemas? <button onClick={() => window.location.reload()} className="underline hover:text-primary">Clique aqui para atualizar</button> ou entre em contato com nosso suporte técnico.
         </p>
-      </div>
-
-      {/* Pricing content */}
-      <div className="flex-1 py-12">
-        <CreativePricing
-          tag="Planos"
-          title="Escolha o Melhor Para Você"
-          description="Gerencie seus leads e automatize vendas"
-          tiers={pricingTiers}
-          onSubscribe={handleSubscribe}
-          loading={loading}
-          subscription={subscription}
-          onManageSubscription={handleManageSubscription}
-          onAddCollaborators={handleAddCollaborators}
-          onUpgradePlan={handleUpgradePlan}
-          extraCollaboratorPrice={EXTRA_COLLABORATOR_PRICE}
-        />
       </div>
     </div>
   );

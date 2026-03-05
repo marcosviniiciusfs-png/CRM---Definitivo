@@ -17,6 +17,19 @@ export function SectionGate({ children }: SectionGateProps) {
   const { isSectionUnlocked, loading, sectionAccess } = useSectionAccess();
   const { user } = useAuth();
 
+  // Special case: /integrations is ALWAYS accessible
+  // This is required because Facebook OAuth redirects back to /integrations?facebook=success
+  // or with ?code=...&state=... (direct CRM redirect)
+  // and we must never block that redirect, otherwise the connection status is lost
+  const isIntegrationsFlow =
+    location.pathname.startsWith('/integrations') ||
+    location.search.includes('facebook=') ||
+    (location.search.includes('code=') && location.search.includes('state='));
+
+  if (isIntegrationsFlow) {
+    return <>{children}</>;
+  }
+
   // Show loading if explicitly loading OR if user exists but data hasn't arrived yet
   if (loading || (!!user && sectionAccess === null)) {
     return (

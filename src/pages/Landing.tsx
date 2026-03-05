@@ -22,7 +22,13 @@ const Landing = () => {
     );
   }
 
-  if (user) {
+  if (user && !loading) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasFBOAuth = urlParams.has('facebook') || (urlParams.has('code') && urlParams.has('state'));
+
+    if (hasFBOAuth) {
+      return <Navigate to={`/integrations${window.location.search}`} replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -34,7 +40,6 @@ const Landing = () => {
       <SolutionSection />
       <FeaturesTabsSection />
       <StatsSection />
-      <PricingPreview />
       <FAQSection />
       <LandingFooter />
     </div>

@@ -7,6 +7,7 @@ interface OrganizationReadyState {
   user: ReturnType<typeof useAuth>["user"];
   organizationId: string | null;
   needsOrgSelection: boolean;
+  isSuperAdmin: boolean;
 }
 
 /**
@@ -19,23 +20,25 @@ interface OrganizationReadyState {
  * 3. Ambos estão sincronizados antes de liberar renderização
  */
 export function useOrganizationReady(): OrganizationReadyState {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isSuperAdmin } = useAuth();
   const { organizationId, isInitialized, needsOrgSelection } = useOrganization();
-  
+
   // CRÍTICO: Considerar loading se AUTH ainda está carregando OU ORG não inicializou
   const isLoading = authLoading || !isInitialized;
-  
+
   // CRÍTICO: Só está "ready" quando:
   // 1. Não está em loading
   // 2. User existe
   // 3. Organization existe OU precisa selecionar org (modal aparecerá)
-  const isReady = !isLoading && !!user && (!!organizationId || needsOrgSelection);
-  
+  // 4. OU se for Super Admin (sempre pronto)
+  const isReady = !isLoading && !!user && (!!organizationId || needsOrgSelection || isSuperAdmin);
+
   return {
     isReady,
     isLoading,
     user,
     organizationId,
     needsOrgSelection,
+    isSuperAdmin,
   };
 }

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminToken } from "@/contexts/AdminAuthContext";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2, CreditCard, Unlock } from "lucide-react";
 import { format } from "date-fns";
@@ -100,35 +101,45 @@ export default function AdminUserDetails() {
     }
   }, [userId]);
 
+  const adminRpc = async (operation: string, params?: Record<string, unknown>) => {
+    const token = getAdminToken();
+    // No novo sistema SQL-only, mapeamos as 'operations' para as novas RPCs 'safe_*'
+    // ou usamos a rpc() do Supabase diretamente se o nome bater.
+    const rpcMap: Record<string, string> = {
+      'get_user_details': 'safe_get_user_details', // Precisamos criar esta no SQL ainda
+      'get_organization_members': 'safe_get_organization_members',
+      'admin_get_user_subscription': 'safe_get_user_subscription',
+      'get_section_access': 'safe_get_section_access',
+      'admin_manage_user_subscription': 'safe_manage_user_subscription',
+      'upsert_section_access': 'safe_upsert_section_access',
+    };
+
+    const rpcName = rpcMap[operation] || operation;
+    const { data, error } = await (supabase as any).rpc(rpcName, { ...params, p_token: token });
+
+    if (error) throw error;
+    return { data };
+  };
+
   const loadUserDetails = async () => {
     setLoading(true);
     try {
-      const { data: userData, error: userError } = await supabase.rpc('get_user_details', {
-        _target_user_id: userId
-      });
-
-      if (userError) throw userError;
+      const userData = (await adminRpc('get_user_details', { user_id: userId })).data;
 
       if (userData && userData.length > 0) {
         setUserDetails(userData[0]);
 
         if (userData[0].organization_id) {
-          const { data: membersData, error: membersError } = await supabase.rpc('get_organization_members', {
-            _organization_id: userData[0].organization_id
-          });
-
-          if (membersError) throw membersError;
+          const membersData = (await adminRpc('get_organization_members', {
+            organization_id: userData[0].organization_id
+          })).data;
           setMembers(membersData || []);
         }
 
-        // Load subscription
-        const { data: subData } = await supabase
-          .from('subscriptions')
-          .select('plan_id, status')
-          .eq('user_id', userId!)
-          .maybeSingle();
+        // Load subscription viaadmin-panel-rpc (service_role, bypass RLS)
+        const subData = (await adminRpc('admin_get_user_subscription', { user_id: userId })).data as { status: string; plan_id: string | null } | null;
 
-        if (subData && subData.status === 'authorized') {
+        if (subData && subData.status === 'authorized' && subData.plan_id) {
           setCurrentPlan(subData.plan_id);
           setSelectedPlan(subData.plan_id);
         } else {
@@ -136,11 +147,8 @@ export default function AdminUserDetails() {
           setSelectedPlan('none');
         }
 
-        // Load section access
-        const { data: accessData } = await supabase
-          .from('user_section_access')
-          .select('section_key, is_enabled')
-          .eq('user_id', userId!);
+        // Load section access via admin-panel-rpc
+        const accessData = (await adminRpc('get_section_access', { user_id: userId })).data;
 
         const accessMap: Record<string, boolean> = {};
         // Initialize defaults
@@ -176,40 +184,20 @@ export default function AdminUserDetails() {
     try {
       console.log(`[Admin] Salvando plano "${selectedPlan}" para o usuário: ${userId}`);
 
-      // CHAMAMOS A RPC (SECURITY DEFINER) para garantir bypass total de RLS no update/insert
-      const { data, error } = await supabase.rpc('admin_manage_user_subscription', {
-        p_user_id: userId,
-        p_plan_id: selectedPlan,
-        p_organization_id: userDetails?.organization_id || null
+      // Chamada via admin-panel-rpc (service_role, bypass de RLS)
+      const result = await adminRpc('admin_manage_user_subscription', {
+        user_id: userId,
+        plan_id: selectedPlan,
+        organization_id: userDetails?.organization_id || null,
       });
 
-      if (error) {
-        // Fallback para o método clássico caso a RPC ainda não tenha sido aplicada via migração
-        console.warn('[Admin] RPC Falhou ou não existe, tentando método direto (upsert)...', error);
-
-        if (selectedPlan === 'none') {
-          const { error: delError } = await supabase
-            .from('subscriptions')
-            .delete()
-            .eq('user_id', userId);
-          if (delError) throw delError;
-        } else {
-          const { error: upsertError } = await supabase
-            .from('subscriptions')
-            .upsert({
-              user_id: userId,
-              plan_id: selectedPlan,
-              status: 'authorized',
-              amount: 0,
-              organization_id: userDetails?.organization_id || null,
-              start_date: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
-          if (upsertError) throw upsertError;
-        }
+      const response = result.data as any;
+      if (response && response.status === 'error') {
+        throw new Error(response.message);
       }
 
-      console.log('[Admin] Operação concluída com sucesso:', data);
+      console.log('[Admin] Sucesso RPC:', response);
+
       setCurrentPlan(selectedPlan);
       setPlanUpdateSuccess(true);
       toast.success('Plano atualizado com sucesso!');
@@ -249,11 +237,7 @@ export default function AdminUserDetails() {
         updated_at: new Date().toISOString(),
       }));
 
-      const { error } = await supabase
-        .from('user_section_access')
-        .upsert(rows, { onConflict: 'user_id,section_key' });
-
-      if (error) throw error;
+      await adminRpc('upsert_section_access', { rows });
       toast.success('Acessos atualizados com sucesso!');
     } catch (error: unknown) {
       console.error('Erro ao salvar acessos:', error);

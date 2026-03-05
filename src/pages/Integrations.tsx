@@ -48,7 +48,7 @@ const Integrations = () => {
           <div className="space-y-6">
             <WhatsAppConnection />
             <IntegrationsHub />
-            <FacebookLeadsConnection />
+            <FacebookLeadsConnection organizationId={organizationId} />
           </div>
         </TabsContent>
 

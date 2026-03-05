@@ -1,30 +1,56 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders, status: 200 });
   }
 
   try {
-    const { user_id, organization_id } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { user_id, organization_id, origin: body_origin } = body;
+
+    console.log('🚀 [FB-INIT] Iniciando OAuth para:', { user_id, organization_id });
 
     if (!user_id || !organization_id) {
-      throw new Error('Missing user_id or organization_id');
+      console.error('❌ [FB-INIT] Parâmetros ausentes:', { user_id, organization_id });
+      return new Response(
+        JSON.stringify({ error: 'Identificação do usuário ou organização ausente. Por favor, recarregue a página.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const FACEBOOK_APP_ID = Deno.env.get('FACEBOOK_APP_ID');
-    const REDIRECT_URI = `${Deno.env.get('SUPABASE_URL')}/functions/v1/facebook-oauth-callback`;
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 
-    // Get the origin from the request for proper redirect after OAuth
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');
-    
-    // Create state parameter with user info and origin for redirect
-    const state = btoa(JSON.stringify({ user_id, organization_id, origin }));
+    if (!FACEBOOK_APP_ID) {
+      console.error('❌ [FB-INIT] FACEBOOK_APP_ID não configurado');
+      throw new Error('Configuração do servidor incompleta (FACEBOOK_APP_ID)');
+    }
 
-    // Required permissions for Facebook Leads and Ads
+    // Priorizar redirect_uri vindo do frontend para manter o usuário no domínio correto
+    const REDIRECT_URI = body.redirect_uri || `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
+    const origin = body_origin || req.headers.get('origin')?.replace(/\/$/, '') || 'https://www.kairozcrm.com.br';
+
+    // Encode state como JSON base64-safe
+    const stateObj = { user_id, organization_id, origin };
+    const stateStr = JSON.stringify(stateObj);
+    const state = btoa(stateStr)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    console.log('🔄 [FB-INIT] Preparando OAuth:', {
+      organization_id,
+      redirect_uri: REDIRECT_URI,
+      origin
+    });
+
     const scopes = [
       'leads_retrieval',
       'pages_manage_ads',
@@ -32,38 +58,30 @@ Deno.serve(async (req) => {
       'pages_read_engagement',
       'business_management',
       'ads_read',
+      'public_profile',
+      'email'
     ].join(',');
 
-
-    // Generate OAuth URL
     const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
       `client_id=${FACEBOOK_APP_ID}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
       `&state=${state}` +
       `&scope=${scopes}`;
 
-    // Log the generated URLs for debugging
-    console.log('Facebook OAuth initiate - REDIRECT_URI:', REDIRECT_URI);
-    console.log('Facebook OAuth initiate - FACEBOOK_APP_ID:', FACEBOOK_APP_ID);
-    console.log('Facebook OAuth initiate - Full auth URL:', authUrl);
-    console.log('Facebook OAuth initiate - Origin from request:', origin);
+    console.log('✅ [FB-INIT] URL gerada com sucesso');
 
     return new Response(
       JSON.stringify({ auth_url: authUrl }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('OAuth initiate error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    const errorMsg = error instanceof Error ? error.message : 'Erro interno desconhecido';
+    console.error('❌ [FB-INIT] Erro fatal:', errorMsg);
+
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
+      JSON.stringify({ error: errorMsg }),
+      {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }

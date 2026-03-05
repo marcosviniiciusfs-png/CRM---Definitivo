@@ -12,141 +12,23 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
-const PLAN_CONFIG: Record<string, { maxCollaborators: number }> = {
-  star: { maxCollaborators: 5 },
-  pro: { maxCollaborators: 15 },
-  elite: { maxCollaborators: 30 },
-};
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-  );
-
-  const supabaseAdmin = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
-
   try {
-    logStep("Function started");
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      logStep("No authorization header - returning unsubscribed");
-      return new Response(JSON.stringify({ subscribed: false }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError || !userData.user?.email) {
-      logStep("Auth failed", { error: userError?.message });
-      return new Response(JSON.stringify({ subscribed: false }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-    const user = userData.user;
-    logStep("User authenticated", { userId: user.id, email: user.email });
-
-    // Owner bypass - always has full elite access
-    if (user.email === "mateusabcck@gmail.com") {
-      logStep("Owner bypass activated");
-      return new Response(JSON.stringify({
-        subscribed: true,
-        product_id: "elite",
-        plan_id: "elite",
-        subscription_end: null,
-        max_collaborators: 30,
-        extra_collaborators: 0,
-        total_collaborators: 30,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    // Parse request body for organization_id
-    let organizationId: string | null = null;
-    try {
-      const body = await req.json();
-      organizationId = body.organization_id || null;
-    } catch {
-      // No body - that's okay
-    }
-
-    // Determine which user to check subscription for
-    let userIdToCheck = user.id;
-
-    if (organizationId) {
-      logStep("Organization ID provided, fetching owner", { organizationId });
-      const { data: ownerUserId } = await supabaseClient.rpc(
-        'get_organization_owner',
-        { p_organization_id: organizationId }
-      );
-      if (ownerUserId) {
-        userIdToCheck = ownerUserId;
-        logStep("Using owner for subscription check", { ownerUserId });
-      }
-    }
-
-    // Query local subscriptions table
-    const { data: subscription, error: subError } = await supabaseAdmin
-      .from("subscriptions")
-      .select("*")
-      .eq("user_id", userIdToCheck)
-      .eq("status", "authorized")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (subError) {
-      logStep("Error querying subscriptions", { error: subError.message });
-      throw subError;
-    }
-
-    if (!subscription) {
-      logStep("No active subscription found", { userIdChecked: userIdToCheck });
-      return new Response(JSON.stringify({
-        subscribed: false,
-        product_id: null,
-        plan_id: null,
-        subscription_end: null,
-        max_collaborators: 0,
-        extra_collaborators: 0,
-        total_collaborators: 0,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    const planConfig = PLAN_CONFIG[subscription.plan_id] || { maxCollaborators: 0 };
-    const extraCollaborators = subscription.extra_collaborators || 0;
-
-    logStep("Active subscription found", {
-      planId: subscription.plan_id,
-      maxCollaborators: planConfig.maxCollaborators,
-      extraCollaborators,
-      totalCollaborators: planConfig.maxCollaborators + extraCollaborators,
-    });
+    // CRM GRATUITO - Sempre retornar acesso total instantaneamente
+    logStep("CRM Gratuito - Retornando acesso total");
 
     return new Response(JSON.stringify({
       subscribed: true,
-      product_id: subscription.plan_id, // Keep backward compatibility
-      plan_id: subscription.plan_id,
-      subscription_end: subscription.end_date,
-      max_collaborators: planConfig.maxCollaborators,
-      extra_collaborators: extraCollaborators,
-      total_collaborators: planConfig.maxCollaborators + extraCollaborators,
+      product_id: "elite",
+      plan_id: "elite",
+      subscription_end: null,
+      max_collaborators: 999,
+      extra_collaborators: 0,
+      total_collaborators: 999,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

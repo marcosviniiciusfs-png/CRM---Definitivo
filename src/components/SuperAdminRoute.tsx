@@ -1,64 +1,37 @@
-import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { Loader2 } from "lucide-react";
 
-interface SuperAdminRouteProps {
+interface AdminRouteProps {
   children: React.ReactNode;
 }
 
-export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
-  const { user, loading: authLoading } = useAuth();
-  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
-  const [checking, setChecking] = useState(true);
+/**
+ * AdminRoute
+ *
+ * Guard de rota para o painel admin.
+ * Verifica o token JWT admin armazenado em sessionStorage (via AdminAuthContext).
+ * Este sistema é COMPLETAMENTE INDEPENDENTE do Supabase Auth do CRM:
+ * - Credenciais admin são armazenadas na tabela admin_credentials
+ * - O token admin é emitido pela Edge Function admin-auth
+ * - Usuários do CRM com o mesmo email NÃO têm acesso sem a senha admin
+ */
+export function SuperAdminRoute({ children }: AdminRouteProps) {
+  const { isAdminAuthenticated, adminLoading } = useAdminAuth();
 
-  useEffect(() => {
-    const checkRole = async () => {
-      if (!user) {
-        setChecking(false);
-        return;
-      }
-      try {
-        const { data, error } = await supabase.rpc('has_role', {
-          _user_id: user.id,
-          _role: 'super_admin'
-        });
-        if (error) {
-          console.error('[SuperAdminRoute] Error checking role:', error);
-          setIsSuperAdmin(false);
-        } else {
-          setIsSuperAdmin(!!data);
-        }
-      } catch (err) {
-        console.error('[SuperAdminRoute] Exception:', err);
-        setIsSuperAdmin(false);
-      } finally {
-        setChecking(false);
-      }
-    };
-
-    if (!authLoading) {
-      checkRole();
-    }
-  }, [user, authLoading]);
-
-  if (authLoading || checking) {
+  if (adminLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Verificando permissões...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-950">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto" />
+          <p className="text-gray-500 text-sm">Verificando acesso admin...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  if (!isSuperAdmin) {
-    return <Navigate to="/dashboard" replace />;
+  if (!isAdminAuthenticated) {
+    return <Navigate to="/admin-login" replace />;
   }
 
   return <>{children}</>;

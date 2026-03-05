@@ -59,7 +59,7 @@ const Settings = () => {
         };
         toast.error(errorMessages[error] || 'Erro na conexão com Google Calendar');
       }
-      
+
       searchParams.delete('integration');
       searchParams.delete('success');
       searchParams.delete('error');
@@ -70,7 +70,7 @@ const Settings = () => {
   useEffect(() => {
     const getUserData = async () => {
       if (!user) return;
-      
+
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -219,7 +219,7 @@ const Settings = () => {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      
+
       toast.success("Senha atualizada com sucesso!");
     } catch (error: any) {
       console.error('Erro ao atualizar senha:', error);
@@ -250,9 +250,9 @@ const Settings = () => {
 
       toast.dismiss();
       toast.success(data?.message || "Colaboradores adicionados com sucesso!");
-      
+
       await refreshSubscription();
-      
+
       setShowCollaboratorModal(false);
       setExtraCollaboratorsQty(1);
     } catch (error) {
@@ -297,7 +297,7 @@ const Settings = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <AvatarUpload 
+              <AvatarUpload
                 avatarUrl={avatarUrl}
                 userId={user?.id || ""}
                 userName={fullName || user?.email || ""}
@@ -315,12 +315,12 @@ const Settings = () => {
                   }
                 }}
               />
-              
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome</Label>
-                  <Input 
-                    id="name" 
+                  <Input
+                    id="name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Seu nome completo"
@@ -328,9 +328,9 @@ const Settings = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
+                  <Input
+                    id="email"
+                    type="email"
                     value={user?.email || ""}
                     disabled
                     className="bg-muted"
@@ -339,8 +339,8 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Cargo</Label>
-                <Input 
-                  id="role" 
+                <Input
+                  id="role"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   placeholder="Ex: Gerente de Vendas"
@@ -378,15 +378,15 @@ const Settings = () => {
                       <p className="text-xl font-semibold tabular-nums">{subscriptionData.total_collaborators}</p>
                     </div>
                   </div>
-                  
+
                   {subscriptionData.subscription_end && (
                     <p className="text-xs text-muted-foreground">
                       Proxima renovacao: {new Date(subscriptionData.subscription_end).toLocaleDateString('pt-BR')}
                     </p>
                   )}
-                  
+
                   <div className="flex items-center gap-3">
-                    <Button 
+                    <Button
                       size="sm"
                       onClick={() => setShowCollaboratorModal(true)}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -394,17 +394,9 @@ const Settings = () => {
                       <UserPlus className="h-4 w-4 mr-1.5" />
                       Adicionar Colaboradores
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate('/pricing')}
-                      className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-600/10 hover:border-emerald-500"
-                    >
-                      Ver Planos
-                      <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-                    </Button>
+                    {/* Botão de planos removido (CRM Grátis) */}
                   </div>
-                  
+
                   {/* Modal de Adicionar Colaboradores */}
                   {showCollaboratorModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -415,7 +407,7 @@ const Settings = () => {
                             Adicione mais colaboradores à sua equipe por R$ 30/mês cada
                           </p>
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label htmlFor="extra-qty">Quantidade de Colaboradores</Label>
                           <Input
@@ -429,7 +421,7 @@ const Settings = () => {
                             Total adicional: R$ {extraCollaboratorsQty * 30}/mês
                           </p>
                         </div>
-                        
+
                         <div className="flex gap-2">
                           <Button
                             onClick={handleAddCollaborators}
@@ -459,14 +451,7 @@ const Settings = () => {
                   <p className="text-sm text-muted-foreground">
                     Voce nao possui uma assinatura ativa
                   </p>
-                  <Button 
-                    size="sm"
-                    onClick={() => navigate('/pricing')}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    Ver Planos
-                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-                  </Button>
+                  {/* Botão de planos removido (CRM Grátis) */}
                 </div>
               )}
             </CardContent>
@@ -513,8 +498,8 @@ const Settings = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="current-password">Senha Atual</Label>
-                <Input 
-                  id="current-password" 
+                <Input
+                  id="current-password"
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
@@ -523,8 +508,8 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nova Senha</Label>
-                <Input 
-                  id="new-password" 
+                <Input
+                  id="new-password"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -533,8 +518,8 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-                <Input 
-                  id="confirm-password" 
+                <Input
+                  id="confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -567,12 +552,12 @@ const Settings = () => {
                   <strong>Nota:</strong> Apenas owners e admins podem exportar backups.
                 </p>
               </div>
-              <Button 
+              <Button
                 onClick={async () => {
                   setExportingBackup(true);
                   try {
                     const { data, error } = await supabase.functions.invoke('export-database-backup');
-                    
+
                     if (error) {
                       console.error('Erro ao exportar:', error);
                       toast.error(error.message || 'Erro ao exportar backup');

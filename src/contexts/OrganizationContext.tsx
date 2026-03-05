@@ -326,8 +326,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const dataLoadedRef = useRef(false);
-  const MAX_RETRIES = 5;
-  const RETRY_DELAY = 2000; // 2 seconds
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1500; // 1.5 seconds
 
   // Fetch custom role permissions for a specific organization
   const fetchCustomRolePermissions = async (orgId: string): Promise<CustomRolePermissions | null> => {
@@ -380,6 +380,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const loadOrganizationData = useCallback(async (forceRefresh = false, selectedOrgId?: string) => {
     if (!user) {
+      console.log('[ORG] No user, skipping organization load');
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
       setAvailableOrganizations([]);
@@ -406,23 +407,42 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      console.log('[ORG] Fetching organization data via RPC');
+      console.log('[ORG] Loading organization data for user:', user.email);
 
-      // USAR A NOVA RPC SECURITY DEFINER que contorna as políticas RLS
-      const { data: memberships, error } = await supabase.rpc('get_my_organization_memberships');
+      // Tentar carregar memberships via RPC
+      const { data: memberships, error: rpcError } = await supabase.rpc('get_my_organization_memberships');
 
-      if (error) {
-        console.error('[ORG] Error fetching memberships via RPC:', error);
+      if (rpcError) {
+        console.error('[ORG] RPC get_my_organization_memberships failed:', rpcError);
+        // Se a RPC falhar, tentamos o "ensure" como backup imediatamente
+        console.log('[ORG] Primary RPC failed, attempting backup ensure_user_organization...');
+        const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
+
+        if (!ensureErr && ensureData?.success) {
+          console.log('[ORG] Backup recovery successful via ensure_user_organization.');
+          // Pequeno delay para o banco propagar a mudança
+          await new Promise(resolve => setTimeout(resolve, 500));
+          loadOrganizationData(true);
+          return;
+        }
+
+        // Se chegarmos aqui em uma tentativa inicial, tentamos disparar uma vez mais com delay
+        if (retryCount < MAX_RETRIES) {
+          console.log(`[ORG] Retrying load... Attempt ${retryCount + 1}/${MAX_RETRIES}`);
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
+          return;
+        }
+
+        // Se tudo falhou após retries, liberamos para não travar em loop
+        console.error('[ORG] All organization recovery attempts failed.');
+        setIsInitialized(true);
         setPermissions(prev => ({ ...prev, loading: false }));
-        setIsInitialized(true); // CRÍTICO: Liberar a UI mesmo em erro
         return;
       }
 
-      console.log('[ORG] Memberships returned:', memberships?.length, memberships);
-
       if (memberships && memberships.length > 0) {
-        setRetryCount(0); // Reset retry count on success
-        // ... (resto do processamento de memberships)
+        setRetryCount(0);
         const formattedMemberships: OrganizationMembership[] = memberships.map((m: any) => ({
           organization_id: m.organization_id,
           role: m.role as 'owner' | 'admin' | 'member',
@@ -434,89 +454,85 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
         setAvailableOrganizations(formattedMemberships);
 
-        // Determinar qual organização selecionar
         let targetOrgId = selectedOrgId;
-
         if (!targetOrgId) {
-          // Verificar se há uma seleção no cache
           const cachedData = getOrgCache(user.id);
           if (cachedData?.selectedOrganizationId) {
-            // Verificar se a org do cache ainda está disponível
-            const stillAvailable = formattedMemberships.find(
-              m => m.organization_id === cachedData.selectedOrganizationId
-            );
-            if (stillAvailable) {
-              targetOrgId = cachedData.selectedOrganizationId;
-            }
+            const stillAvailable = formattedMemberships.find(m => m.organization_id === cachedData.selectedOrganizationId);
+            if (stillAvailable) targetOrgId = cachedData.selectedOrganizationId;
           }
         }
 
-        // Se tem múltiplas orgs e nenhuma foi selecionada ainda (nem por cache, nem por param)
         if (!targetOrgId && formattedMemberships.length > 1) {
-          console.log('[ORG] Multiple organizations detected, requires selection');
           setNeedsOrgSelection(true);
-          setPermissions(prev => ({ ...prev, loading: false }));
           setIsInitialized(true);
+          setPermissions(prev => ({ ...prev, loading: false }));
           return;
+        } else {
+          setNeedsOrgSelection(false);
         }
 
         if (!targetOrgId) {
-          // Única organização ou seleção automática para caso com 1 org
-          const sortedMemberships = [...formattedMemberships].sort((a, b) => {
+          const sorted = [...formattedMemberships].sort((a, b) => {
             const order = { owner: 0, admin: 1, member: 2 };
             return order[a.role] - order[b.role];
           });
-          targetOrgId = sortedMemberships[0].organization_id;
+          targetOrgId = sorted[0].organization_id;
         }
 
-        // Sync to backend
+        // Sync and finalize
         await supabase.rpc('set_user_active_organization', { _org_id: targetOrgId });
-
         setOrganizationId(targetOrgId);
-        setNeedsOrgSelection(false);
 
-        const selectedMembership = formattedMemberships.find(m => m.organization_id === targetOrgId);
-        const role = selectedMembership?.role || null;
+        const selectedM = formattedMemberships.find(m => m.organization_id === targetOrgId);
+        const role = selectedM?.role || null;
+        const customPerms = role === 'member' ? await fetchCustomRolePermissions(targetOrgId) : null;
 
-        let customRolePerms: CustomRolePermissions | null = null;
-        if (role === 'member') {
-          customRolePerms = await fetchCustomRolePermissions(targetOrgId);
-        }
-
-        const newPermissions = calculatePermissions(role, customRolePerms);
-        setPermissions(newPermissions);
-        setOrgCache(targetOrgId, formattedMemberships, newPermissions, user.id);
+        const perms = calculatePermissions(role, customPerms);
+        setPermissions(perms);
+        setOrgCache(targetOrgId, formattedMemberships, perms, user.id);
         setIsInitialized(true);
         dataLoadedRef.current = true;
         refreshSubscription(targetOrgId);
       } else {
-        console.log(`[ORG] No memberships found. Attempt ${retryCount + 1}/${MAX_RETRIES}`);
+        // Nenhuma org encontrada. Tentar criar automaticamente.
+        console.log('[ORG] No memberships found. Potential orphan user.');
 
-        // CRÍTICO: Marcar como inicializado na primeira falha para liberar o ProtectedRoute
-        // para redirecionar o usuário para o pricing IMEDIATAMENTE em vez de esperar 10 segundos.
-        if (retryCount === 0) {
-          console.log('[ORG] First check returned 0, allowing UI to proceed to pricing flows');
-          setPermissions(prev => ({ ...prev, loading: false }));
-          setIsInitialized(true);
+        // Tentar criar via RPC
+        try {
+          const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
+
+          if (!ensureErr && ensureData?.success) {
+            console.log('[ORG] New organization created for orphan user, refreshing...');
+            // Recarregar imediatamente para pegar a nova org nas memberships
+            await loadOrganizationData(true);
+            return;
+          } else if (ensureErr || !ensureData?.success) {
+            console.error('[ORG] Automatic workspace creation failed:', ensureErr || ensureData?.error);
+
+            // Se falhou e ainda temos tentativas, tentar novamente com delay
+            if (retryCount < MAX_RETRIES) {
+              setRetryCount(prev => prev + 1);
+              setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error('[ORG] Exception during automatic creation:', e);
         }
 
-        if (retryCount < MAX_RETRIES) {
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-            loadOrganizationData(true);
-          }, RETRY_DELAY);
-        } else {
-          console.log('[ORG] Max retries reached, no organization found');
-          setPermissions(prev => ({ ...prev, loading: false }));
-          setIsInitialized(true);
-        }
+        // Caso final: realmente sem org após tentativas. 
+        // Libera para o redirecionamento do roteador (/pricing).
+        console.warn('[ORG] Cleanup: User definitively has no organizations after retries.');
+        setIsInitialized(true);
+        setPermissions(prev => ({ ...prev, loading: false }));
       }
     } catch (error) {
-      console.error('Error loading organization data:', error);
-      setPermissions(prev => ({ ...prev, loading: false }));
+      console.error('[ORG] Critical catch in organization loading:', error);
       setIsInitialized(true);
+      setPermissions(prev => ({ ...prev, loading: false }));
     }
-  }, [user, refreshSubscription]);
+  }, [user, refreshSubscription, retryCount]);
 
   // Ref para prevenir cliques duplos durante seleção
   const isProcessingSelection = useRef(false);

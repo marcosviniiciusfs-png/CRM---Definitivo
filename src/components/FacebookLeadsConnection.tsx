@@ -16,7 +16,11 @@ interface LeadForm {
   leads_count: number;
 }
 
-export const FacebookLeadsConnection = () => {
+interface FacebookLeadsConnectionProps {
+  organizationId?: string;
+}
+
+export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnectionProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [integration, setIntegration] = useState<any>(null);
@@ -31,120 +35,268 @@ export const FacebookLeadsConnection = () => {
   const [checkingTokens, setCheckingTokens] = useState(false);
 
   useEffect(() => {
-    checkConnection();
-    
-    // Check if returning from successful OAuth
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('facebook') === 'success') {
-      toast.success('Facebook conectado com sucesso!');
-      // Clean URL
+    const init = async () => {
+      // Check if we are inside a popup
+      const isPopup = window.opener && (window.name === 'FacebookLoginPopup' || window.location.search.includes('code='));
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      const fbStatus = urlParams.get('facebook');
+
+      if (isPopup && (code || state || fbStatus)) {
+        console.log('🪟 [FB-CONN] Detectado ambiente de popup. Enviando mensagem ao pai...');
+        const payload = code && state ? { code, state } : {
+          facebook: fbStatus,
+          message: urlParams.get('message')
+        };
+
+        try {
+          // Tentar enviar mensagem ao pai
+          window.opener.postMessage({
+            type: 'FACEBOOK_OAUTH_RESPONSE',
+            payload
+          }, window.location.origin);
+
+          // Se for via redirect de backend direto pro integracoes dentro do popup, fechamos logo
+          if (fbStatus === 'success' || fbStatus === 'error') {
+            setTimeout(() => window.close(), 1000);
+          }
+        } catch (e) {
+          console.error('❌ [FB-CONN] Erro ao enviar mensagem para opener:', e);
+        }
+        return;
+      }
+
+      // Se tivermos code/state e NÃO formos um popup, processamos normal (compatibilidade)
+      if (code && state && !isPopup) {
+        handleOauthCallback(code, state);
+        return;
+      }
+
+      // Fallback para flow antigo ou sucesso via redirecionamento de backend
+      const integrationData = await checkConnection();
+
+      if (fbStatus === 'success' && !isPopup) {
+        toast.success('Facebook conectado com sucesso!');
+        window.history.replaceState({}, '', window.location.pathname);
+        if (integrationData) {
+          setTimeout(() => fetchLeadForms(integrationData), 1000);
+        }
+      } else if (fbStatus === 'error' && !isPopup) {
+        const errorMessage = urlParams.get('message') || 'Erro ao conectar com Facebook';
+        toast.error(errorMessage);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    };
+
+    // Escutar mensagens do popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data?.type === 'FACEBOOK_OAUTH_RESPONSE') {
+        console.log('📬 [FB-CONN] Recebida resposta do popup:', event.data.payload);
+        const { code, state, facebook, message } = event.data.payload;
+
+        if (code && state) {
+          handleOauthCallback(code, state);
+        } else if (facebook === 'success') {
+          toast.success('Facebook conectado com sucesso!');
+          checkConnection().then(data => {
+            if (data) setTimeout(() => fetchLeadForms(data), 500);
+          });
+        } else if (facebook === 'error') {
+          toast.error(message || 'Erro ao conectar com Facebook');
+          setLoading(false);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    init();
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [organizationId]);
+
+  const handleOauthCallback = async (code: string, state: string) => {
+    setLoading(true);
+    console.log('🔄 [FB-CONN] Processando callback do Facebook...');
+    toast.info('Finalizando conexão com Facebook...', { id: 'fb-connecting' });
+
+    try {
+      const redirectUri = `${window.location.origin}${window.location.pathname}`;
+      console.log('🔗 [FB-CONN] Usando redirect_uri para troca:', redirectUri);
+
+      const { data, error } = await supabase.functions.invoke('facebook-oauth-callback', {
+        body: {
+          code,
+          state,
+          redirect_uri: redirectUri
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      console.log('✅ [FB-CONN] Sucesso! Resposta:', data);
+      toast.success('Facebook conectado com sucesso!', { id: 'fb-connecting' });
+
+      // Limpar URL se houver query params (janela principal apenas)
+      if (window.location.search) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      const integrationData = await checkConnection();
+      if (integrationData) {
+        setTimeout(() => fetchLeadForms(integrationData), 500);
+      }
+    } catch (err: any) {
+      console.error('❌ [FB-CONN] Erro no callback:', err);
+      toast.error(`Erro: ${err.message}`, { id: 'fb-connecting' });
       window.history.replaceState({}, '', window.location.pathname);
-      // Show form selector after successful connection
-      setTimeout(() => fetchLeadForms(), 1000);
-    } else if (urlParams.get('facebook') === 'error') {
-      const errorMessage = urlParams.get('message') || 'Erro ao conectar com Facebook';
-      toast.error(errorMessage);
-      window.history.replaceState({}, '', window.location.pathname);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
 
   const checkConnection = async () => {
     try {
       setCheckingTokens(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return null;
 
       // Usar função mascarada que não retorna tokens
       const { data, error } = await supabase.rpc('get_facebook_integrations_masked');
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error checking Facebook connection:', error);
-        return;
+        return null;
       }
 
-      const integrationData = data?.[0];
+      const integrationData = data?.find((item: any) => item.organization_id === organizationId) || data?.[0];
 
       if (integrationData && integrationData.page_id) {
         setIsConnected(true);
         setIntegration(integrationData);
-        
-        // Verificar integridade dos tokens
-        const { data: orgData } = await supabase
-          .from('organization_members')
-          .select('organization_id')
-          .eq('user_id', user.id)
-          .single();
 
-        if (orgData) {
+        // Verificar integridade dos tokens
+        if (organizationId) {
           const { data: tokenCheck } = await supabase.rpc('get_facebook_tokens_secure', {
-            p_organization_id: orgData.organization_id
+            p_organization_id: organizationId
           });
-          
+
           // Se não há tokens na tabela segura E o token principal é placeholder, precisa reconectar
           const hasSecureTokens = tokenCheck && tokenCheck.length > 0 && tokenCheck[0].encrypted_access_token;
-          
+
           if (!hasSecureTokens) {
             // Verificar se tem token legado válido
             const { data: legacyCheck } = await supabase
               .from('facebook_integrations')
               .select('access_token')
-              .eq('organization_id', orgData.organization_id)
+              .eq('organization_id', organizationId)
               .single();
-            
+
             if (!legacyCheck?.access_token || legacyCheck.access_token === 'ENCRYPTED_IN_TOKENS_TABLE') {
               setNeedsReconnect(true);
             }
           }
         }
+        return integrationData;
       } else if (integrationData) {
         setIsConnected(false);
         setIntegration(integrationData);
+        return integrationData;
       }
+      return null;
     } catch (error) {
       console.error('Error:', error);
+      return null;
     } finally {
       setCheckingTokens(false);
     }
   };
 
   const handleConnect = async () => {
+    if (loading) return;
+
     setLoading(true);
     try {
+      if (!organizationId) {
+        toast.error('O ID da organização ainda não foi carregado. Aguarde um momento.');
+        setLoading(false);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Você precisa estar autenticado');
+        setLoading(false);
         return;
       }
 
-      // Get user's organization
-      const { data: orgData } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!orgData) {
-        toast.error('Organização não encontrada');
-        return;
-      }
+      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId);
 
       // Call edge function to initiate OAuth
       const { data, error } = await supabase.functions.invoke('facebook-oauth-initiate', {
         body: {
           user_id: user.id,
-          organization_id: orgData.organization_id,
+          organization_id: organizationId,
+          origin: window.location.origin,
+          redirect_uri: `${window.location.origin}${window.location.pathname}`
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [FB-CONN] Erro na Edge Function:', error);
+        throw error;
+      }
 
-      // Redirect to Facebook OAuth
-      window.location.href = data.auth_url;
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.auth_url) {
+        console.log('✅ [FB-CONN] Abrindo popup do Facebook...');
+
+        // Abrir popup em vez de redirecionar a página inteira
+        const width = 600;
+        const height = 750;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+
+        const popup = window.open(
+          data.auth_url,
+          'FacebookLoginPopup',
+          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+        );
+
+        if (!popup) {
+          toast.error('O bloqueador de popups impediu a conexão. Por favor, habilite popups para este site.');
+          // Fallback para redirecionamento direto se o popup falhar
+          window.location.href = data.auth_url;
+          return;
+        }
+
+        // Timer para resetar o status de loading se o usuário fechar a janela manualmente sem completar
+        const checkPopup = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkPopup);
+            // Sete timeout pequeno para não conflitar com sucesso
+            setTimeout(() => setLoading(false), 2000);
+          }
+        }, 1000);
+
+        // O listener de 'message' cuidará do resto
+
+      } else {
+        throw new Error('URL de autenticação não recebida do servidor.');
+      }
 
     } catch (error) {
-      console.error('Error initiating Facebook OAuth:', error);
-      toast.error('Erro ao conectar com Facebook');
-    } finally {
+      console.error('❌ [FB-CONN] Erro ao iniciar:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao conectar com Facebook');
       setLoading(false);
     }
   };
@@ -170,13 +322,15 @@ export const FacebookLeadsConnection = () => {
     }
   };
 
-  const fetchLeadForms = async () => {
-    if (!integration) {
+  const fetchLeadForms = async (integrationData?: any) => {
+    const activeIntegration = integrationData || integration;
+
+    if (!activeIntegration) {
       toast.error('Integração não encontrada. Reconecte ao Facebook.');
       return;
     }
-    
-    if (!integration.page_id) {
+
+    if (!activeIntegration.page_id) {
       toast.error('Página não configurada. Por favor, reconecte ao Facebook.');
       return;
     }
@@ -190,21 +344,15 @@ export const FacebookLeadsConnection = () => {
         return;
       }
 
-      const { data: orgData } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!orgData) {
-        toast.error('Organização não encontrada');
+      if (!organizationId) {
+        toast.error('Organização não identificada');
         return;
       }
 
       // Enviar apenas organization_id - tokens serão buscados de forma segura no servidor
       const { data, error } = await supabase.functions.invoke('facebook-list-lead-forms', {
         body: {
-          organization_id: orgData.organization_id,
+          organization_id: organizationId,
         },
       });
 
@@ -234,14 +382,8 @@ export const FacebookLeadsConnection = () => {
         return;
       }
 
-      const { data: orgData } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!orgData) {
-        toast.error('Organização não encontrada');
+      if (!organizationId) {
+        toast.error('Organização não identificada');
         return;
       }
 
@@ -250,7 +392,7 @@ export const FacebookLeadsConnection = () => {
           form_id: form.id,
           form_name: form.name,
           integration_id: integration.id,
-          organization_id: orgData.organization_id,
+          organization_id: organizationId,
         },
       });
 
@@ -284,17 +426,27 @@ export const FacebookLeadsConnection = () => {
     }
   };
 
+  if (typeof window !== 'undefined' && window.opener && (window.location.search.includes('code=') || window.location.search.includes('facebook='))) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
+        <h2 className="text-xl font-semibold">Conectando ao Facebook</h2>
+        <p className="text-muted-foreground mt-2">Sincronizando dados com a sua conta... Esta janela fechará automaticamente em instantes.</p>
+      </div>
+    );
+  }
+
   return (
     <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Facebook className="h-5 w-5 text-blue-600" />
-            Facebook Leads
-          </CardTitle>
-          <CardDescription>
-            Conecte sua conta do Facebook para receber leads automaticamente das suas campanhas de anúncios
-          </CardDescription>
-        </CardHeader>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Facebook className="h-5 w-5 text-blue-600" />
+          Facebook Leads
+        </CardTitle>
+        <CardDescription>
+          Conecte sua conta do Facebook para receber leads automaticamente das suas campanhas de anúncios
+        </CardDescription>
+      </CardHeader>
       <CardContent className="space-y-4">
         {showSuccess && isConnected && !needsReconnect && (
           <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
@@ -309,7 +461,7 @@ export const FacebookLeadsConnection = () => {
           <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
-              <strong>Reconexão necessária!</strong> Os tokens de acesso expiraram ou estão inválidos. 
+              <strong>Reconexão necessária!</strong> Os tokens de acesso expiraram ou estão inválidos.
               Por favor, desconecte e reconecte sua conta do Facebook para restaurar a funcionalidade.
             </AlertDescription>
           </Alert>
@@ -327,10 +479,10 @@ export const FacebookLeadsConnection = () => {
             <div>
               <p className="font-medium">Status da Conexão</p>
               <p className="text-sm text-muted-foreground">
-                {needsReconnect 
-                  ? 'Reconexão necessária' 
-                  : isConnected 
-                    ? `Conectado - ${integration?.page_name || 'Página configurada'}` 
+                {needsReconnect
+                  ? 'Reconexão necessária'
+                  : isConnected
+                    ? `Conectado - ${integration?.page_name || 'Página configurada'}`
                     : 'Não conectado'}
               </p>
               {isConnected && integration?.selected_form_name && !needsReconnect && (
@@ -392,7 +544,7 @@ export const FacebookLeadsConnection = () => {
                 Escolha qual formulário do Facebook você deseja monitorar para receber leads automaticamente
               </DialogDescription>
             </DialogHeader>
-            
+
             {loadingForms ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -416,11 +568,10 @@ export const FacebookLeadsConnection = () => {
                         <p className="font-medium">{form.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
                         <div className="flex items-center gap-4 mt-2">
-                          <span className={`text-xs px-2 py-1 rounded font-medium ${
-                            form.status === 'ACTIVE' 
-                              ? "bg-green-500/20 text-green-600 dark:text-green-400" 
-                              : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
-                          }`}>
+                          <span className={`text-xs px-2 py-1 rounded font-medium ${form.status === 'ACTIVE'
+                            ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                            : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                            }`}>
                             {form.status}
                           </span>
                           <span className="text-xs text-muted-foreground">

@@ -3,268 +3,264 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
-
-// Função para criptografar tokens usando AES-256
-async function encryptToken(token: string, key: string): Promise<string> {
-  if (!token) return '';
-  
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  
-  // Derivar chave de 256 bits do key string
-  const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-  
-  // Gerar IV aleatório
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  
-  // Criptografar
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    cryptoKey,
-    data
-  );
-  
-  // Combinar IV + encrypted data e converter para base64
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(encrypted), iv.length);
-  
-  return btoa(String.fromCharCode(...combined));
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders, status: 200 });
+  }
+
+  const url = new URL(req.url);
+  let code = url.searchParams.get('code');
+  let state = url.searchParams.get('state');
+  const error = url.searchParams.get('error');
+  const errorDescription = url.searchParams.get('error_description');
+
+  // Suporte a chamada via POST (API do Frontend)
+  let isApiCall = false;
+  let customRedirectUri: string | null = null;
+
+  if (req.method === 'POST') {
+    try {
+      const body = await req.json();
+      code = body.code || code;
+      state = body.state || state;
+      customRedirectUri = body.redirect_uri || null;
+      isApiCall = true;
+    } catch (e) {
+      console.warn('⚠️ [FB-CALLBACK] Erro ao ler body JSON, tentando via query params');
+    }
+  }
+
+  console.log(`📬 [FB-CALLBACK] Recebida resposta do Facebook (${isApiCall ? 'API' : 'Redirect'})`);
+
+  // Default redirect on error
+  const defaultOrigin = 'https://www.kairozcrm.com.br';
+  let origin = defaultOrigin;
+  let user_id: string | null = null;
+  let organization_id: string | null = null;
+
+  try {
+    if (state) {
+      console.log('🔄 [FB-CALLBACK] Decodificando state:', state);
+      // Handle URL-safe base64 normalization
+      let normalizedState = state.replace(/-/g, '+').replace(/_/g, '/');
+      // Adicionar padding se necessário
+      while (normalizedState.length % 4 !== 0) {
+        normalizedState += '=';
+      }
+
+      const decodedState = atob(normalizedState);
+      const stateData = JSON.parse(decodedState);
+
+      user_id = stateData.user_id;
+      organization_id = stateData.organization_id;
+
+      if (stateData.origin) {
+        origin = stateData.origin.replace(/\/$/, '');
+      }
+      console.log('✅ [FB-CALLBACK] State decodificado:', { user_id, organization_id, origin });
+    }
+  } catch (e) {
+    console.error('❌ [FB-CALLBACK] Falha ao decodificar state:', e instanceof Error ? e.message : e);
+  }
+
+  // Use current origin if we couldn't get one from state or it's just the default
+  if (!origin || origin === 'https://www.kairozcrm.com.br') {
+    const requestOrigin = req.headers.get('origin');
+    if (requestOrigin) origin = requestOrigin.replace(/\/$/, '');
+  }
+
+  // Se houver erro do Facebook (ex: usuário cancelou)
+  if (error) {
+    console.error('❌ [FB-CALLBACK] Erro do Facebook:', error, errorDescription);
+    if (isApiCall) {
+      return new Response(JSON.stringify({ error: errorDescription || error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    const errorRedirect = `${origin}/integrations?facebook=error&message=${encodeURIComponent(errorDescription || error)}`;
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, 'Location': errorRedirect }
+    });
+  }
+
+  // Validar se temos o necessário
+  if (!code || !user_id || !organization_id) {
+    console.error('❌ [FB-CALLBACK] Dados insuficientes:', { code: !!code, user_id, organization_id });
+    const msg = 'Fluxo de autenticação corrompido ou expirado.';
+    if (isApiCall) {
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    const errorRedirect = `${origin}/integrations?facebook=error&message=${encodeURIComponent(msg)}`;
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, 'Location': errorRedirect }
+    });
+  }
+
+  const FACEBOOK_APP_ID = Deno.env.get('FACEBOOK_APP_ID');
+  const FACEBOOK_APP_SECRET = Deno.env.get('FACEBOOK_APP_SECRET');
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
+
+  if (!FACEBOOK_APP_ID || !FACEBOOK_APP_SECRET) {
+    console.error('❌ [FB-CALLBACK] Configurações de ambiente ausentes');
+    const errorRedirect = `${origin}/integrations?facebook=error&message=${encodeURIComponent('O servidor não está configurado para o Facebook.')}`;
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, 'Location': errorRedirect }
+    });
   }
 
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
+    // 1. Trocar código pelo token curto
+    console.log('🔄 [FB-CALLBACK] Obtendo access_token...');
+    const exchangeRedirectUri = customRedirectUri || REDIRECT_URI;
 
-    if (!code || !state) {
-      throw new Error('Missing code or state parameter');
-    }
-
-    // Parse state to get user_id, organization_id and origin
-    const stateData = JSON.parse(atob(state));
-    const { user_id, organization_id, origin } = stateData;
-
-    const FACEBOOK_APP_ID = Deno.env.get('FACEBOOK_APP_ID');
-    const FACEBOOK_APP_SECRET = Deno.env.get('FACEBOOK_APP_SECRET');
-    const REDIRECT_URI = `${Deno.env.get('SUPABASE_URL')}/functions/v1/facebook-oauth-callback`;
-
-    // Log the redirect URI being used
-    console.log('Using REDIRECT_URI:', REDIRECT_URI);
-    console.log('FACEBOOK_APP_ID configured:', FACEBOOK_APP_ID ? 'Yes' : 'No');
-    
-    // Exchange code for access token
-    const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?` +
+    const tokenResponse = await fetch(
+      `https://graph.facebook.com/v18.0/oauth/access_token?` +
       `client_id=${FACEBOOK_APP_ID}` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&redirect_uri=${encodeURIComponent(exchangeRedirectUri)}` +
       `&client_secret=${FACEBOOK_APP_SECRET}` +
-      `&code=${code}`;
-    
-    console.log('Token exchange URL (without secret):', tokenUrl.replace(FACEBOOK_APP_SECRET || '', '[REDACTED]'));
-    
-    const tokenResponse = await fetch(tokenUrl);
-
+      `&code=${code}`
+    );
     const tokenData = await tokenResponse.json();
-    
-    // Log detailed response from Facebook
-    console.log('Facebook token exchange response status:', tokenResponse.status);
-    console.log('Facebook token exchange response:', JSON.stringify(tokenData, null, 2));
-    
+
     if (!tokenData.access_token) {
-      // Log detailed error information
-      console.error('Facebook token error details:', {
-        error: tokenData.error,
-        error_description: tokenData.error?.message || tokenData.error_description,
-        error_reason: tokenData.error?.code || tokenData.error_reason,
-        error_type: tokenData.error?.type
-      });
-      throw new Error(`Failed to get access token: ${tokenData.error?.message || JSON.stringify(tokenData)}`);
+      console.error('❌ [FB-CALLBACK] Erro na troca de token:', tokenData);
+      throw new Error(tokenData.error?.message || 'Erro ao validar acesso com o Facebook.');
     }
 
-    // Exchange short-lived token for long-lived token
-    const longLivedTokenResponse = await fetch(
+    // 2. Trocar pelo token de longa duração (60 dias)
+    console.log('🔄 [FB-CALLBACK] Convertendo para token de longa duração...');
+    const longLivedResponse = await fetch(
       `https://graph.facebook.com/v18.0/oauth/access_token?` +
       `grant_type=fb_exchange_token` +
       `&client_id=${FACEBOOK_APP_ID}` +
       `&client_secret=${FACEBOOK_APP_SECRET}` +
       `&fb_exchange_token=${tokenData.access_token}`
     );
+    const longLivedData = await longLivedResponse.json();
+    const accessToken = longLivedData.access_token || tokenData.access_token;
 
-    const longLivedTokenData = await longLivedTokenResponse.json();
-
-    // Get user's pages WITH business information
+    // 3. Buscar páginas do usuário
+    console.log('🔄 [FB-CALLBACK] Buscando páginas gerenciadas...');
     const pagesResponse = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,business&access_token=${longLivedTokenData.access_token}`
+      `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,business&access_token=${accessToken}`
     );
     const pagesData = await pagesResponse.json();
-    
-    console.log('Facebook pages response:', JSON.stringify(pagesData, null, 2));
 
-    // Check if user has pages
     if (!pagesData.data || pagesData.data.length === 0) {
-      console.error('No Facebook pages found for user');
-      throw new Error('Nenhuma página do Facebook encontrada. Você precisa ter uma página do Facebook para usar esta integração.');
+      throw new Error('Nenhuma página do Facebook foi encontrada vinculada a esta conta.');
     }
 
-    // Get the selected page and its Business Manager
     const selectedPage = pagesData.data[0];
     const businessId = selectedPage?.business?.id || null;
     const businessName = selectedPage?.business?.name || null;
 
-    console.log(`Selected page: ${selectedPage?.name}, Business ID: ${businessId}, Business Name: ${businessName}`);
-
-    // Fetch ad accounts based on Business Manager association
-    let adAccountsData: { data?: any[] } = { data: [] };
-
-    if (businessId) {
-      // Page has a Business Manager - fetch ad accounts owned by that BM
-      console.log(`Fetching ad accounts for Business Manager ${businessId}...`);
-      
-      const adAccountsResponse = await fetch(
-        `https://graph.facebook.com/v18.0/${businessId}/owned_ad_accounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
-      );
-      adAccountsData = await adAccountsResponse.json();
-      
-      console.log(`Business ${businessId} owned ad accounts response:`, JSON.stringify(adAccountsData, null, 2));
-      
-      // If no owned accounts, try client ad accounts
-      if (!adAccountsData.data || adAccountsData.data.length === 0) {
-        console.log(`No owned ad accounts found, trying client ad accounts...`);
-        const clientAdAccountsResponse = await fetch(
-          `https://graph.facebook.com/v18.0/${businessId}/client_ad_accounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
-        );
-        const clientAdAccountsData = await clientAdAccountsResponse.json();
-        console.log(`Business ${businessId} client ad accounts response:`, JSON.stringify(clientAdAccountsData, null, 2));
-        
-        if (clientAdAccountsData.data && clientAdAccountsData.data.length > 0) {
-          adAccountsData = clientAdAccountsData;
-        }
-      }
-    } else {
-      // No Business Manager associated - fallback to user's personal ad accounts
-      console.log('No Business Manager found for page, fetching user ad accounts...');
-      
-      const adAccountsResponse = await fetch(
-        `https://graph.facebook.com/v18.0/me/adaccounts?fields=id,name,account_status&access_token=${longLivedTokenData.access_token}`
-      );
-      adAccountsData = await adAccountsResponse.json();
-      
-      console.log('User ad accounts response:', JSON.stringify(adAccountsData, null, 2));
-    }
-
-    // Format all ad accounts with their details
-    const adAccounts = adAccountsData.data?.map((acc: any) => ({
-      id: acc.id,
-      name: acc.name || 'Conta sem nome',
-      status: acc.account_status
-    })) || [];
-
-    // Find first active ad account (account_status = 1 means active)
-    const activeAdAccount = adAccounts.find((acc: any) => acc.status === 1);
-    const defaultAdAccountId = activeAdAccount?.id || adAccounts[0]?.id || null;
-
-    console.log(`Found ${adAccounts.length} ad accounts for BM ${businessId || 'N/A'}, default: ${defaultAdAccountId}`);
-
-    // Store in database
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // 4. Salvar no Banco de Dados (Bypass RLS com Service Role)
+    console.log('💾 [FB-CALLBACK] Salvando integração no banco...');
+    const supabase = createClient(SUPABASE_URL ?? '', SUPABASE_SERVICE_ROLE_KEY ?? '');
 
     const expiresAt = new Date();
-    expiresAt.setSeconds(expiresAt.getSeconds() + (longLivedTokenData.expires_in || 5184000)); // 60 days default
+    expiresAt.setSeconds(expiresAt.getSeconds() + (longLivedData.expires_in || 5184000));
 
-    // Obter chave de criptografia
-    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
-
-    // Criptografar tokens
-    const encryptedAccessToken = await encryptToken(longLivedTokenData.access_token, ENCRYPTION_KEY);
-    const encryptedPageAccessToken = await encryptToken(selectedPage?.access_token || '', ENCRYPTION_KEY);
-
-    // Use upsert to update existing integration or create new one (sem tokens)
-    const { data: integrationData, error: dbError } = await supabase
+    // Upsert da integração
+    const { data: existing } = await supabase
       .from('facebook_integrations')
-      .upsert({
-        user_id,
-        organization_id,
-        access_token: 'ENCRYPTED_IN_TOKENS_TABLE', // Placeholder para manter compatibilidade
-        expires_at: expiresAt.toISOString(),
-        page_id: selectedPage?.id || null,
-        page_name: selectedPage?.name || null,
-        page_access_token: 'ENCRYPTED_IN_TOKENS_TABLE', // Placeholder
-        business_id: businessId,
-        business_name: businessName,
-        ad_account_id: defaultAdAccountId,
-        ad_accounts: adAccounts,
-      }, {
-        onConflict: 'user_id,organization_id'
-      })
       .select('id')
+      .eq('user_id', user_id)
+      .eq('organization_id', organization_id)
       .single();
 
-    if (dbError) {
-      console.error('Database error:', dbError);
-      throw dbError;
+    let integrationId: string;
+
+    if (existing?.id) {
+      const { error: updErr } = await supabase
+        .from('facebook_integrations')
+        .update({
+          access_token: accessToken,
+          expires_at: expiresAt.toISOString(),
+          page_id: selectedPage.id,
+          page_name: selectedPage.name,
+          page_access_token: selectedPage.access_token,
+          business_id: businessId,
+          business_name: businessName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+
+      if (updErr) throw updErr;
+      integrationId = existing.id;
+    } else {
+      const { data: insData, error: insErr } = await supabase
+        .from('facebook_integrations')
+        .insert({
+          user_id,
+          organization_id,
+          access_token: accessToken,
+          expires_at: expiresAt.toISOString(),
+          page_id: selectedPage.id,
+          page_name: selectedPage.name,
+          page_access_token: selectedPage.access_token,
+          business_id: businessId,
+          business_name: businessName,
+          webhook_verified: false
+        })
+        .select('id')
+        .single();
+
+      if (insErr) throw insErr;
+      integrationId = insData.id;
     }
 
-    // Armazenar tokens criptografados na tabela segura
-    if (integrationData?.id) {
-      const { error: tokenError } = await supabase.rpc('update_facebook_tokens_secure', {
-        p_integration_id: integrationData.id,
-        p_encrypted_access_token: encryptedAccessToken,
-        p_encrypted_page_access_token: encryptedPageAccessToken
-      });
-
-      if (tokenError) {
-        console.error('Token storage error:', tokenError);
-        // Não falhar completamente, apenas logar o erro
-      }
-    }
-
-    console.log('Facebook integration saved with encrypted tokens');
-
-    // Redirect back to settings page with success using the app origin
-    const redirectUrl = origin || url.origin;
-    return Response.redirect(
-      `${redirectUrl}/integrations?facebook=success`,
-      302
-    );
-
-  } catch (error) {
-    console.error('OAuth callback error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    // Redirect to settings page with error message
-    const url = new URL(req.url);
-    const state = url.searchParams.get('state');
-    let redirectOrigin = url.origin;
-    
+    // 5. Salvar tokens na tabela segura
     try {
-      if (state) {
-        const stateData = JSON.parse(atob(state));
-        redirectOrigin = stateData.origin || redirectOrigin;
-      }
-    } catch (e) {
-      console.error('Failed to parse state:', e);
+      await supabase.rpc('update_facebook_tokens_secure', {
+        p_integration_id: integrationId,
+        p_encrypted_access_token: accessToken,
+        p_encrypted_page_access_token: selectedPage.access_token
+      });
+    } catch (e: any) {
+      console.warn('⚠️ [FB-CALLBACK] Falha no storage seguro (não-crítico):', e.message);
     }
-    
-    return Response.redirect(
-      `${redirectOrigin}/integrations?facebook=error&message=${encodeURIComponent(errorMessage)}`,
-      302
-    );
+
+    console.log('✅ [FB-CALLBACK] Integração concluída com sucesso!');
+    if (isApiCall) {
+      return new Response(JSON.stringify({ success: true, integration_id: integrationId }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const finalRedirect = `${origin}/integrations?facebook=success`;
+    console.log('🔗 [FB-CALLBACK] Redirecionando para:', finalRedirect);
+
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, 'Location': finalRedirect }
+    });
+
+  } catch (err: any) {
+    console.error('❌ [FB-CALLBACK] Erro fatal:', err.message);
+    if (isApiCall) {
+      return new Response(JSON.stringify({ error: err.message || 'Erro no processamento da conta' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    const errorRedirect = `${origin}/integrations?facebook=error&message=${encodeURIComponent(err.message || 'Erro no processamento da conta')}`;
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, 'Location': errorRedirect }
+    });
   }
 });

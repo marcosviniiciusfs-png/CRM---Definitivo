@@ -50,7 +50,7 @@ const Colaboradores = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [colaboradorToDelete, setColaboradorToDelete] = useState<Colaborador | null>(null);
   const [showInactive, setShowInactive] = useState(false);
-  
+
   // Edit modal state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [colaboradorToEdit, setColaboradorToEdit] = useState<Colaborador | null>(null);
@@ -62,7 +62,7 @@ const Colaboradores = () => {
     is_active: true,
     custom_role_id: null as string | null
   });
-  
+
   const [newColaborador, setNewColaborador] = useState({
     name: "",
     email: "",
@@ -70,7 +70,7 @@ const Colaboradores = () => {
     role: "member" as "owner" | "admin" | "member",
     custom_role_id: null as string | null
   });
-  
+
   const { toast } = useToast();
   const { isReady, organizationId: contextOrgId, user } = useOrganizationReady();
   const queryClient = useQueryClient();
@@ -108,13 +108,13 @@ const Colaboradores = () => {
       const members = membersResult.data || [];
       const userIds = members.filter(m => m.user_id).map(m => m.user_id);
       let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
-      
+
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, avatar_url')
           .in('user_id', userIds);
-        
+
         if (profiles) {
           profilesMap = profiles.reduce((acc, profile) => {
             acc[profile.user_id] = { full_name: profile.full_name, avatar_url: profile.avatar_url };
@@ -122,9 +122,9 @@ const Colaboradores = () => {
           }, {} as { [key: string]: { full_name: string | null; avatar_url: string | null } });
         }
       }
-      
+
       const transformedMembers: Colaborador[] = members.map((member: any) => {
-        const profileName = member.user_id && profilesMap[member.user_id] 
+        const profileName = member.user_id && profilesMap[member.user_id]
           ? profilesMap[member.user_id].full_name : null;
         return {
           ...member,
@@ -142,7 +142,7 @@ const Colaboradores = () => {
           .select('user_id, target_value')
           .eq('organization_id', contextOrgId);
         (goalsData || []).forEach(g => { goalsByUser[g.user_id] = g.target_value; });
-      } catch {}
+      } catch { }
 
       const now = new Date();
       const thisMonth = now.getMonth();
@@ -444,16 +444,7 @@ const Colaboradores = () => {
               <span className="text-sm text-muted-foreground">
                 Colaboradores: <span className="font-semibold text-foreground">{subscriptionLimits.current}/{subscriptionLimits.total}</span>
               </span>
-              {subscriptionLimits.current >= subscriptionLimits.total && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="ml-auto"
-                  onClick={() => window.location.href = '/pricing'}
-                >
-                  Adicionar Mais
-                </Button>
-              )}
+              {/* Botão de planos removido (CRM Grátis) */}
             </div>
           )}
         </div>
@@ -484,14 +475,14 @@ const Colaboradores = () => {
           {/* Action buttons */}
           <div className="flex gap-3 justify-end">
             {(userRole === 'owner' || userRole === 'admin') && (
-              <Button 
+              <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
                 onClick={() => setIsDialogOpen(true)}
               >
                 Novo Colaborador
               </Button>
             )}
-            <Button 
+            <Button
               variant={showInactive ? "default" : "secondary"}
               onClick={() => setShowInactive(!showInactive)}
             >
@@ -570,7 +561,7 @@ const Colaboradores = () => {
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
-                {showInactive 
+                {showInactive
                   ? "Colaboradores com acesso desativado. Você pode reativá-los a qualquer momento."
                   : "Gerencie colaboradores, cargos e status de convites."}
               </p>
@@ -637,9 +628,9 @@ const Colaboradores = () => {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10">
                                 {colab.avatar_url && (
-                                  <AvatarImage 
-                                    src={colab.avatar_url} 
-                                    alt={colab.full_name || colab.email || 'Avatar'} 
+                                  <AvatarImage
+                                    src={colab.avatar_url}
+                                    alt={colab.full_name || colab.email || 'Avatar'}
                                   />
                                 )}
                                 <AvatarFallback className="bg-gradient-to-br from-purple-400 to-blue-500 text-white">
@@ -662,12 +653,12 @@ const Colaboradores = () => {
                                 {getRoleLabel(colab.role)}
                               </Badge>
                               {colab.custom_role_id && customRoles.find(r => r.id === colab.custom_role_id) && (
-                                <Badge 
-                                  variant="outline" 
+                                <Badge
+                                  variant="outline"
                                   className="text-xs max-w-[100px] truncate"
-                                  style={{ 
+                                  style={{
                                     borderColor: customRoles.find(r => r.id === colab.custom_role_id)?.color,
-                                    color: customRoles.find(r => r.id === colab.custom_role_id)?.color 
+                                    color: customRoles.find(r => r.id === colab.custom_role_id)?.color
                                   }}
                                   title={customRoles.find(r => r.id === colab.custom_role_id)?.name}
                                 >

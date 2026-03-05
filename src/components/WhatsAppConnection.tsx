@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
 import whatsappLogo from "@/assets/whatsapp-icon.png";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { FunnelSelector } from "@/components/FunnelSelector";
 
 interface QRCodeData {
@@ -30,6 +31,7 @@ interface WhatsAppInstance {
 const WhatsAppConnection = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { organizationId } = useOrganization();
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [verifyingStatus, setVerifyingStatus] = useState(false);
@@ -40,11 +42,11 @@ const WhatsAppConnection = () => {
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
   const [fixingWebhook, setFixingWebhook] = useState(false);
-  
+
   // CRÍTICO: useRef para manter referência atualizada no callback do Realtime
   const selectedInstanceRef = useRef<WhatsAppInstance | null>(null);
   const qrDialogOpenRef = useRef<boolean>(false);
-  
+
   // Sincronizar refs com states
   useEffect(() => {
     selectedInstanceRef.current = selectedInstance;
@@ -109,7 +111,7 @@ const WhatsAppConnection = () => {
       });
 
       console.log('✅ Webhook reconfigurado:', data);
-      
+
       await loadInstances();
     } catch (error: any) {
       console.error('Erro ao reconfigurar webhook:', error);
@@ -130,7 +132,7 @@ const WhatsAppConnection = () => {
       console.warn('⚠️ checkAllInstancesStatus: usuário não autenticado');
       return;
     }
-    
+
     setVerifyingStatus(true);
     try {
       // Buscar instâncias baseado no parâmetro
@@ -168,7 +170,7 @@ const WhatsAppConnection = () => {
             console.warn(`⚠️  Não foi possível verificar status da instância ${instance.instance_name}:`, error);
             return null;
           }
-          
+
           console.log(`✅ Status verificado para ${instance.instance_name}:`, data?.status);
           return data;
         } catch (err) {
@@ -180,7 +182,7 @@ const WhatsAppConnection = () => {
       // Aguardar todas as verificações (mesmo que algumas falhem)
       const results = await Promise.allSettled(statusChecks);
       const successCount = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
-      
+
       console.log(`✨ Verificação concluída: ${successCount}/${instances.length} instâncias verificadas com sucesso`);
 
       // Aguardar um momento para garantir que o banco foi atualizado
@@ -199,13 +201,13 @@ const WhatsAppConnection = () => {
   // Carregar instâncias do usuário
   const loadInstances = async () => {
     console.log('🔄 [loadInstances] Iniciando...');
-    
+
     // Aguardar o usuário estar pronto
     if (authLoading) {
       console.log('⏳ [loadInstances] Aguardando autenticação...');
       return;
     }
-    
+
     if (!user) {
       console.error('❌ [loadInstances] Usuário não autenticado');
       setInstances([]);
@@ -214,13 +216,19 @@ const WhatsAppConnection = () => {
     }
 
     try {
-      console.log(`🔍 [loadInstances] Buscando instâncias para user_id: ${user.id}`);
-      console.log(`🔍 [loadInstances] Query: SELECT * FROM whatsapp_instances WHERE user_id = '${user.id}'`);
-      
-      const { data, error, count } = await supabase
+      console.log(`🔍 [loadInstances] Buscando instâncias para user_id: ${user.id} e org_id: ${organizationId}`);
+
+      let query = supabase
         .from('whatsapp_instances')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id)
+        .select('*', { count: 'exact' });
+
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error, count } = await query
         .order('created_at', { ascending: false });
 
       console.log(`📊 [loadInstances] Query executada. Count: ${count}, Error:`, error);
@@ -235,7 +243,7 @@ const WhatsAppConnection = () => {
         });
         throw error;
       }
-      
+
       if (!data || data.length === 0) {
         console.warn('⚠️ [loadInstances] Nenhuma instância encontrada no banco! Verificar RLS policies?');
       } else {
@@ -247,7 +255,7 @@ const WhatsAppConnection = () => {
           hasQrCode: !!i.qr_code
         })));
       }
-      
+
       setInstances(data || []);
     } catch (error: any) {
       console.error('❌ [loadInstances] Exception:', {
@@ -277,7 +285,7 @@ const WhatsAppConnection = () => {
       });
       return;
     }
-    
+
     setCreating(true);
     try {
       // CRÍTICO: Limpeza síncrona de instâncias pendentes ANTES de criar nova
@@ -285,7 +293,7 @@ const WhatsAppConnection = () => {
       const pendingInstances = instances.filter(
         instance => instance.status === 'CREATING' || instance.status === 'WAITING_QR'
       );
-      
+
       for (const instance of pendingInstances) {
         console.log(`🗑️ Removendo instância pendente: ${instance.id} (${instance.status})`);
         await cancelInstance(instance.id);
@@ -316,13 +324,13 @@ const WhatsAppConnection = () => {
       // OTIMIZAÇÃO: Usar QR da resposta imediatamente se disponível
       // A Evolution API retorna o QR code na resposta de criação
       const initialQrCode = data.instance?.qrCode || data.evolutionData?.qrcode?.base64 || null;
-      
+
       if (initialQrCode) {
         console.log('🚀 QR Code disponível na resposta inicial! Exibindo imediatamente.');
       } else {
         console.log('📦 QR Code não disponível na resposta. Será recebido via polling/webhook.');
       }
-      
+
       // Criar objeto de instância para exibir no dialog
       // OTIMIZAÇÃO: Usar QR da resposta se disponível para exibição imediata
       const tempInstance: WhatsAppInstance = {
@@ -334,11 +342,11 @@ const WhatsAppConnection = () => {
         created_at: new Date().toISOString(),
         connected_at: null,
       };
-      
+
       // SEMPRE abrir o dialog - mostrar QR imediatamente se disponível
       setSelectedInstance(tempInstance);
       setQrDialogOpen(true);
-      
+
       toast({
         title: initialQrCode ? "QR Code pronto!" : "Gerando QR Code...",
         description: initialQrCode ? "Escaneie o QR Code com seu WhatsApp." : "O QR Code será exibido em alguns segundos. Aguarde.",
@@ -426,7 +434,7 @@ const WhatsAppConnection = () => {
 
   // Ref para manter referência atualizada das instâncias sem causar re-renders
   const instancesRef = useRef<WhatsAppInstance[]>([]);
-  
+
   useEffect(() => {
     instancesRef.current = instances;
   }, [instances]);
@@ -439,7 +447,7 @@ const WhatsAppConnection = () => {
       if (instancesRef.current.length === 0) {
         return;
       }
-      
+
       console.log('🔄 Polling periódico: verificando status de todas as instâncias...');
       checkAllInstancesStatus(true); // true = incluir instâncias CONNECTED
     }, 30000); // A cada 30 segundos
@@ -456,7 +464,7 @@ const WhatsAppConnection = () => {
     }
 
     console.log('🚀 [MOUNT] Inicializando WhatsAppConnection para user:', user.id);
-    
+
     const initializeInstances = async () => {
       console.log('📥 [MOUNT] Chamando loadInstances inicial...');
       await loadInstances();
@@ -490,19 +498,19 @@ const WhatsAppConnection = () => {
             qrDialogOpen: qrDialogOpenRef.current,
             selectedInstanceId: selectedInstanceRef.current?.id
           });
-          
+
           // CRÍTICO: Usar ref para acessar valor atualizado
           const currentSelectedInstance = selectedInstanceRef.current;
           const isDialogOpen = qrDialogOpenRef.current;
-          
+
           // CRÍTICO: Verificar se a instância conectou
           if (payload.new && payload.new.status === 'CONNECTED') {
             console.log('✅ Status CONNECTED detectado na instância:', payload.new.id);
-            
+
             // Se for a instância que está no modal E o modal está aberto, fechar IMEDIATAMENTE
             if (isDialogOpen && currentSelectedInstance && payload.new.id === currentSelectedInstance.id) {
               console.log('🎉 É a instância do modal aberto! Fechando IMEDIATAMENTE...');
-              
+
               // CRÍTICO: Fechar de forma síncrona e garantida
               requestAnimationFrame(() => {
                 setQrDialogOpen(false);
@@ -511,17 +519,17 @@ const WhatsAppConnection = () => {
                   title: "WhatsApp conectado!",
                   description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
                 });
-                
+
                 // Recarregar após fechar
                 setTimeout(() => loadInstances(), 100);
               });
-              
+
               return; // Não recarregar antes de fechar o modal
             } else {
               console.log('ℹ️ Modal não está aberto ou é outra instância');
             }
           }
-          
+
           // Recarregar instâncias após qualquer update (exceto quando fechando modal)
           // CRÍTICO: Não chamar loadInstances aqui se estamos fechando o modal
           // pois loadInstances estava chamando checkAllInstancesStatus que sobrescrevia CONNECTED
@@ -543,13 +551,13 @@ const WhatsAppConnection = () => {
   // GARANTIA ADICIONAL: Monitor direto do selectedInstance para fechar modal se conectar
   useEffect(() => {
     if (!selectedInstance || !qrDialogOpen) return;
-    
+
     console.log('👀 Monitoring selected instance status:', {
       id: selectedInstance.id,
       status: selectedInstance.status,
       dialogOpen: qrDialogOpen
     });
-    
+
     // Se a instância selecionada mudar para CONNECTED, fechar modal imediatamente
     if (selectedInstance.status === 'CONNECTED') {
       console.log('🚀 GARANTIA: Selected instance is CONNECTED, forcing modal close!');
@@ -576,7 +584,7 @@ const WhatsAppConnection = () => {
     const pollInterval = setInterval(async () => {
       try {
         console.log('🔍 Polling: Verificando status e QR da instância...');
-        
+
         // PRIMEIRO: Buscar QR atualizado do banco de dados
         const { data: instanceFromDb, error: dbError } = await supabase
           .from('whatsapp_instances')
@@ -608,7 +616,7 @@ const WhatsAppConnection = () => {
               return prev;
             });
           }
-          
+
           // Verificar se conectou via banco
           if (instanceFromDb.status === 'CONNECTED') {
             console.log('✅ Polling detectou CONNECTED no banco!');
@@ -712,8 +720,8 @@ const WhatsAppConnection = () => {
 
   const renderQRCode = (instance: WhatsAppInstance) => {
     try {
-      console.log('🔍 Processando QR Code:', { 
-        id: instance.id, 
+      console.log('🔍 Processando QR Code:', {
+        id: instance.id,
         status: instance.status,
         qrCodeType: typeof instance.qr_code,
         hasQrCode: !!instance.qr_code
@@ -731,20 +739,20 @@ const WhatsAppConnection = () => {
       }
 
       let rawBase64 = '';
-      
+
       // CASO 1: String direta (formato ideal)
       if (typeof instance.qr_code === 'string') {
         rawBase64 = instance.qr_code;
         console.log('✅ QR Code é string direta, comprimento:', rawBase64.length);
-      } 
+      }
       // CASO 2: Objeto (pode vir do Supabase/Postgres ou Evolution API)
       else if (typeof instance.qr_code === 'object' && !Array.isArray(instance.qr_code)) {
         const qrData: any = instance.qr_code;
-        
+
         // Verificar se é um objeto válido e não-nulo
         if (qrData && typeof qrData === 'object') {
           console.log('📦 QR Code é objeto, estrutura:', Object.keys(qrData));
-          
+
           // Formato Evolution API: { base64: "data:image...", code: "...", pairingCode: null }
           if (qrData.base64) {
             rawBase64 = qrData.base64;
@@ -788,7 +796,7 @@ const WhatsAppConnection = () => {
 
       // Limpeza: remover prefixo data:image se já existir
       const cleanBase64 = rawBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
-      
+
       // Validação: comprimento mínimo
       if (cleanBase64.length < 100) {
         console.error('❌ Base64 muito curto:', cleanBase64.length, 'caracteres');
@@ -802,7 +810,7 @@ const WhatsAppConnection = () => {
 
       // Construir data URL final
       const finalDataUrl = `data:image/png;base64,${cleanBase64}`;
-      
+
       console.log('✅ QR Code pronto!', {
         originalLength: rawBase64.length,
         cleanLength: cleanBase64.length,
@@ -886,7 +894,7 @@ const WhatsAppConnection = () => {
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold">WhatsApp</h3>
                 <p className="text-xs text-muted-foreground truncate">
-                  {instances.some(i => i.status === 'CONNECTED') 
+                  {instances.some(i => i.status === 'CONNECTED')
                     ? `Conectado: ${instances.find(i => i.status === 'CONNECTED')?.phone_number || 'Ativo'}`
                     : 'Conecte seu número'}
                 </p>
@@ -944,13 +952,13 @@ const WhatsAppConnection = () => {
               )}
             </div>
           </div>
-          
+
           {/* Funnel Selector - only show when connected */}
           {instances.some(i => i.status === 'CONNECTED') && (
             <FunnelSelector sourceType="whatsapp" className="mt-3" />
           )}
         </CardContent>
-    </Card>
+      </Card>
     </>
   );
 };

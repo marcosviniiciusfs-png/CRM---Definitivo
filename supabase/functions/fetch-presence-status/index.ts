@@ -14,7 +14,7 @@ interface FetchPresenceRequest {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders, status: 200 });
   }
 
   try {
@@ -41,10 +41,10 @@ Deno.serve(async (req) => {
     }
 
     // Formatar número no formato esperado pela Evolution API (com @s.whatsapp.net)
-    const formattedNumber = phone_number.includes('@') 
-      ? phone_number 
+    const formattedNumber = phone_number.includes('@')
+      ? phone_number
       : `${phone_number.replace(/\D/g, '')}@s.whatsapp.net`;
- 
+
     console.log('📞 Número formatado:', formattedNumber);
 
     // Em vez de chamar a Evolution API (que está retornando rate limit / erro),
@@ -120,10 +120,10 @@ Deno.serve(async (req) => {
         lastSeen = lastActivity.toISOString();
       }
 
-      console.log('📊 Status calculado localmente:', { 
-        isOnline, 
-        lastSeen, 
-        statusText, 
+      console.log('📊 Status calculado localmente:', {
+        isOnline,
+        lastSeen,
+        statusText,
         diffMinutes: diffMinutes.toFixed(2),
         lastActivityDate: lastActivity.toISOString(),
         now: new Date().toISOString()
@@ -173,17 +173,17 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro ao buscar status de presença:', error);
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    
+
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: false,
-        error: errorMessage 
+        error: errorMessage
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

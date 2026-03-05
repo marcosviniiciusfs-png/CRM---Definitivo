@@ -1,7 +1,34 @@
-project_id = "qcljgteatwhhmjskhthp"
+project_id = "uxttihjsxfowursjyult"
 
 [functions.admin-manage-admins]
 verify_jwt = false
 
 [functions.mercadopago-webhook]
+verify_jwt = false
+
+[functions.facebook-leads-webhook]
+verify_jwt = false
+
+[functions.facebook-subscribe-webhook]
+verify_jwt = false
+
+[functions.facebook-list-lead-forms]
+verify_jwt = false
+
+[functions.facebook-oauth-callback]
+verify_jwt = false
+
+[functions.facebook-oauth-initiate]
+verify_jwt = false
+
+[functions.form-webhook]
+verify_jwt = false
+
+[functions.whatsapp-message-webhook]
+verify_jwt = false
+
+[functions.whatsapp-qr-webhook]
+verify_jwt = false
+
+[functions.whatsapp-status-webhook]
 verify_jwt = false

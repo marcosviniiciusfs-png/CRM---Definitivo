@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Login1 } from "@/components/ui/login-1";
 import kairozLogo from "@/assets/kairoz-logo-red.png";
@@ -11,12 +11,17 @@ const Auth = () => {
   const { signUp, signIn, signInWithGoogle, resetPassword, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
 
-  // Se já logado, redirecionar para dashboard
-  // O OrganizationContext irá gerenciar a seleção de workspace se necessário
+  // Se já logado, redirecionar para a página anterior (from) ou dashboard
   if (user && !authLoading) {
-    return <Navigate to="/dashboard" replace />;
+    const fromPath = (location.state as any)?.from?.pathname || "/dashboard";
+    const fromSearch = (location.state as any)?.from?.search || "";
+    const from = fromPath + fromSearch;
+
+    console.log('[AUTH] User already logged in, redirecting to:', from);
+    return <Navigate to={from} replace />;
   }
 
   const handleLogin = async (email: string, password: string) => {
@@ -36,9 +41,9 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro ao fazer login",
-        description: error.message === "Invalid login credentials" 
-          ? "Email ou senha incorretos" 
-          : error.message,
+        description: (error as any).message === "Invalid login credentials"
+          ? "Email ou senha incorretos"
+          : (error as any).message,
         variant: "destructive",
       });
     } else {
@@ -46,8 +51,10 @@ const Auth = () => {
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao CRM",
       });
-      // Navegar para dashboard - OrganizationContext gerenciará seleção de org
-      navigate("/dashboard");
+      // Navegar para o destino original ou dashboard
+      const fromPath = (location.state as any)?.from?.pathname || "/dashboard";
+      const fromSearch = (location.state as any)?.from?.search || "";
+      navigate(fromPath + fromSearch, { state: { fromAuth: true } });
     }
   };
 
@@ -68,9 +75,9 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro ao criar conta",
-        description: error.message === "User already registered" 
-          ? "Email já cadastrado" 
-          : error.message,
+        description: (error as any).message === "User already registered"
+          ? "Email já cadastrado"
+          : (error as any).message,
         variant: "destructive",
       });
     } else {
@@ -89,7 +96,7 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro ao fazer login com Google",
-        description: error.message,
+        description: (error as any).message,
         variant: "destructive",
       });
     }
@@ -112,7 +119,7 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro ao enviar email",
-        description: error.message,
+        description: (error as any).message,
         variant: "destructive",
       });
     } else {

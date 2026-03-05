@@ -37,7 +37,7 @@ const PLAN_NAMES: { [key: string]: string } = {
 };
 
 // Features bloqueadas - "Em breve" (default, pode ser liberado por user_section_access)
-const LOCKED_FEATURES = ['/lead-metrics', '/lead-distribution', '/chat', '/integrations'];
+const LOCKED_FEATURES = ['/lead-metrics', '/lead-distribution', '/chat'];
 
 // Mapeamento URL -> section_key
 const URL_TO_SECTION: Record<string, string> = {
@@ -105,7 +105,7 @@ function AppSidebarComponent() {
     if (sectionLoading || permissions.loading || roleLoading) return false;
 
     // 2. Se for Super Admin, Proprietário ou Administrador, NUNCA mostre cadeados.
-    // Eles têm acesso total baseado na role, independente da tabela user_section_access.
+    // Super Admin ignora qualquer bloqueio de plano ou seção.
     if (isSuperAdmin || permissions.role === 'owner' || permissions.role === 'admin') return false;
 
     // 3. Se ainda não temos os dados carregados do mapa de acesso, não bloqueie por segurança

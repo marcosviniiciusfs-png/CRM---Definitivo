@@ -42,7 +42,7 @@ const getBarColor = (value: number, data: ConversionDataPoint[]) => {
 };
 
 const Dashboard = () => {
-  const { user, organizationId, isReady } = useOrganizationReady();
+  const { user, organizationId, isReady, isSuperAdmin } = useOrganizationReady();
   const queryClient = useQueryClient();
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const navigate = useNavigate();
@@ -409,8 +409,17 @@ const Dashboard = () => {
   const bottleneck = advancedData?.bottleneck;
 
   // ========== GUARDS ==========
-  if (!isReady || !organizationId) {
-    return <div className="flex items-center justify-center min-h-screen"><LoadingAnimation text="Carregando dashboard..." /></div>;
+  if (!isReady || (!organizationId && !isSuperAdmin)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-center p-6">
+        <LoadingAnimation text="Carregando workspace..." />
+        {!isReady && (
+          <p className="text-xs text-muted-foreground mt-4 animate-in fade-in duration-1000">
+            Aguardando inicialização do sistema...
+          </p>
+        )}
+      </div>
+    );
   }
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><LoadingAnimation text="Carregando dashboard..." /></div>;
