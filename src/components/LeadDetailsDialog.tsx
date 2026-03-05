@@ -37,7 +37,6 @@ interface LeadDetails {
   duplicate_attempts_count: number | null;
   duplicate_attempts_history: Json | null;
   calendar_event_id: string | null;
-  data_agendamento_venda: string | null;
   source: string | null;
 }
 
@@ -129,7 +128,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, data_agendamento_venda, source")
+        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, source")
         .eq("id", leadId)
         .single();
 
