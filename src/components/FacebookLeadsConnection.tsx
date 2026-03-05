@@ -259,15 +259,13 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      // Use /integrations as the canonical redirect_uri to ensure consistency
-      // between initiate and callback steps.
-      // In localhost, use the local origin; in production, use the production origin.
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const initiateRedirectUri = `${window.location.origin}/integrations`;
-      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId, 'redirect_uri:', initiateRedirectUri, isLocalhost ? '(Local)' : '(Produção)');
+      // Let the Edge Function use the default Supabase callback URL as redirect_uri.
+      // This is usually already whitelisted in the Facebook App.
+      // We still store our frontend origin to handle the response later.
+      const frontendRedirectUri = `${window.location.origin}/integrations`;
+      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId);
 
-      // Store the redirect_uri so the callback handler can use the exact same one
-      setOauthRedirectUri(initiateRedirectUri);
+      setOauthRedirectUri(frontendRedirectUri);
 
       // Call edge function to initiate OAuth
       const { data, error } = await supabase.functions.invoke('facebook-oauth-initiate', {
@@ -275,7 +273,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           user_id: user.id,
           organization_id: organizationId,
           origin: window.location.origin,
-          redirect_uri: initiateRedirectUri
+          // We don't send redirect_uri so the backend uses the default Supabase one
         },
       });
 
