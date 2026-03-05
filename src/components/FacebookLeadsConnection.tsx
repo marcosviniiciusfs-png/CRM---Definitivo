@@ -114,17 +114,21 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         console.log('📬 [FB-CONN] Recebida resposta do popup:', event.data.payload);
         const { code, state, facebook, message, redirect_uri } = event.data.payload;
 
-        if (code && state) {
+        if (facebook === 'success') {
+          console.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Atualizando estado...');
+          toast.success('Facebook conectado com sucesso!');
+          checkConnection().then(data => {
+            if (data) {
+              console.log('🔄 [FB-CONN] Abrindo seletor de formulários...');
+              setTimeout(() => fetchLeadForms(data), 500);
+            }
+          });
+        } else if (code && state) {
           // Use the redirect_uri from the popup (which matches what Facebook received),
           // or fall back to the stored oauthRedirectUri from initiation
           const callbackRedirectUri = redirect_uri || oauthRedirectUri || `${window.location.origin}/integrations`;
           console.log('🔗 [FB-CONN] Usando redirect_uri para callback:', callbackRedirectUri);
           handleOauthCallback(code, state, callbackRedirectUri);
-        } else if (facebook === 'success') {
-          toast.success('Facebook conectado com sucesso!');
-          checkConnection().then(data => {
-            if (data) setTimeout(() => fetchLeadForms(data), 500);
-          });
         } else if (facebook === 'error') {
           toast.error(message || 'Erro ao conectar com Facebook');
           setLoading(false);
