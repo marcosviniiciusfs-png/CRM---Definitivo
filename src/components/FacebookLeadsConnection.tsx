@@ -115,14 +115,18 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         const { code, state, facebook, message, redirect_uri } = event.data.payload;
 
         if (facebook === 'success') {
-          console.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Atualizando estado...');
+          console.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Forçando abertura do seletor...');
           toast.success('Facebook conectado com sucesso!');
-          checkConnection().then(data => {
-            if (data) {
-              console.log('🔄 [FB-CONN] Abrindo seletor de formulários...');
-              setTimeout(() => fetchLeadForms(data), 500);
-            }
-          });
+
+          // Forçamos a atualização da interface primeiro
+          setIsConnected(true);
+          setNeedsReconnect(false);
+
+          // Chamamos a busca de formulários diretamente. 
+          // O fetchLeadForms já usa os dados da conexão recém-criada no banco.
+          setTimeout(() => {
+            fetchLeadForms();
+          }, 500);
         } else if (code && state) {
           // Use the redirect_uri from the popup (which matches what Facebook received),
           // or fall back to the stored oauthRedirectUri from initiation
@@ -218,16 +222,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           const hasSecureTokens = tokenCheck && tokenCheck.length > 0 && tokenCheck[0].encrypted_access_token;
 
           if (!hasSecureTokens) {
-            // Verificar se tem token legado válido
-            const { data: legacyCheck } = await supabase
-              .from('facebook_integrations')
-              .select('access_token')
-              .eq('organization_id', organizationId)
-              .single();
-
-            if (!legacyCheck?.access_token || legacyCheck.access_token === 'ENCRYPTED_IN_TOKENS_TABLE') {
-              setNeedsReconnect(true);
-            }
+            // Se não há tokens na tabela segura, precisamos de reconexão
+            setNeedsReconnect(true);
           }
         }
         return integrationData;
