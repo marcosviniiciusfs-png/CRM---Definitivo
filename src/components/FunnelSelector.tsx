@@ -14,11 +14,12 @@ interface Funnel {
 
 interface FunnelSelectorProps {
   sourceType: 'whatsapp' | 'facebook' | 'webhook';
+  sourceIdentifier?: string; // Add this to handle specific forms/IDs
   disabled?: boolean;
   className?: string;
 }
 
-export const FunnelSelector = ({ sourceType, disabled, className }: FunnelSelectorProps) => {
+export const FunnelSelector = ({ sourceType, sourceIdentifier, disabled, className }: FunnelSelectorProps) => {
   const { user } = useAuth();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [selectedFunnel, setSelectedFunnel] = useState<string>("");
@@ -48,31 +49,43 @@ export const FunnelSelector = ({ sourceType, disabled, className }: FunnelSelect
       if (!orgData) return;
 
       // Load funnels
-      const { data: funnelsData } = await supabase
+      const { data: funnelsData, error: funnelsError } = await supabase
         .from("sales_funnels")
         .select("id, name, is_active")
         .eq("organization_id", orgData.organization_id)
-        .eq("is_active", true)
         .order("name");
 
-      if (funnelsData) {
-        setFunnels(funnelsData);
+      if (funnelsError) {
+        console.error("Error fetching funnels:", funnelsError);
       }
 
-      // Load existing mapping for this source type
-      const { data: mappingsData } = await supabase
+      if (funnelsData) {
+        // Filter active funnels but keep the selector visible if there are any funnels
+        const activeFunnels = funnelsData.filter(f => f.is_active !== false);
+        setFunnels(activeFunnels.length > 0 ? activeFunnels : funnelsData);
+      }
+
+      // Load existing mapping for this source type and specific identifier
+      let query = supabase
         .from("funnel_source_mappings")
-        .select("funnel_id, source_type")
+        .select("funnel_id, source_type, source_identifier")
+        .eq("source_type", sourceType)
         .in("funnel_id", funnelsData?.map(f => f.id) || []);
 
-      if (mappingsData) {
-        const currentMapping = mappingsData.find(m => m.source_type === sourceType);
-        if (currentMapping) {
-          setSelectedFunnel(currentMapping.funnel_id);
-          const funnel = funnelsData?.find(f => f.id === currentMapping.funnel_id);
-          if (funnel) {
-            setSelectedFunnelName(funnel.name);
-          }
+      if (sourceIdentifier) {
+        query = query.eq("source_identifier", sourceIdentifier);
+      } else {
+        query = query.is("source_identifier", null);
+      }
+
+      const { data: mappingsData } = await query;
+
+      if (mappingsData && mappingsData.length > 0) {
+        const currentMapping = mappingsData[0];
+        setSelectedFunnel(currentMapping.funnel_id);
+        const funnel = funnelsData?.find(f => f.id === currentMapping.funnel_id);
+        if (funnel) {
+          setSelectedFunnelName(funnel.name);
         }
       }
     } catch (error) {
@@ -111,25 +124,20 @@ export const FunnelSelector = ({ sourceType, disabled, className }: FunnelSelect
         return;
       }
 
-      // Check if mapping already exists for this source type
-      const { data: existingMappings } = await supabase
-        .from("funnel_source_mappings")
-        .select("id, funnel_id")
-        .in("funnel_id", funnels.map(f => f.id));
-
-      const existingMapping = existingMappings?.find(m => {
-        // We need to check by source_type, but the query above doesn't include it
-        // Let's do a more specific query
-        return false;
-      });
-
-      // More specific check for existing mapping
-      const { data: specificMapping } = await supabase
+      // Check if mapping already exists for this source type and identifier
+      let query = supabase
         .from("funnel_source_mappings")
         .select("id")
         .eq("source_type", sourceType)
-        .in("funnel_id", funnels.map(f => f.id))
-        .maybeSingle();
+        .in("funnel_id", funnels.map(f => f.id));
+
+      if (sourceIdentifier) {
+        query = query.eq("source_identifier", sourceIdentifier);
+      } else {
+        query = query.is("source_identifier", null);
+      }
+
+      const { data: specificMapping } = await query.maybeSingle();
 
       if (specificMapping) {
         // Update existing mapping
@@ -138,6 +146,7 @@ export const FunnelSelector = ({ sourceType, disabled, className }: FunnelSelect
           .update({
             funnel_id: funnelId,
             target_stage_id: stageData.id,
+            source_identifier: sourceIdentifier || null
           })
           .eq("id", specificMapping.id);
 
@@ -149,6 +158,7 @@ export const FunnelSelector = ({ sourceType, disabled, className }: FunnelSelect
           .insert({
             funnel_id: funnelId,
             source_type: sourceType,
+            source_identifier: sourceIdentifier || null,
             target_stage_id: stageData.id,
           });
 
@@ -186,11 +196,15 @@ export const FunnelSelector = ({ sourceType, disabled, className }: FunnelSelect
   }
 
   if (funnels.length === 0) {
-    return null; // No funnels configured, don't show selector
+    return (
+      <div className="p-3 text-sm text-amber-500 border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 rounded mt-3">
+        Nenhum funil ativo encontrado. Crie um funil de vendas primeiro para poder direcionar os leads.
+      </div>
+    );
   }
 
   return (
-    <div 
+    <div
       className={cn(
         "bg-muted/30 border border-border/50 rounded-lg p-3 mt-3 transition-opacity duration-200",
         updating && "opacity-60",

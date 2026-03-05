@@ -8,12 +8,12 @@ const corsHeaders = {
 // Função para descriptografar tokens
 async function decryptToken(encryptedToken: string, key: string): Promise<string> {
   if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
-  
+
   try {
     const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);
-    
+
     const encoder = new TextEncoder();
     const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
     const cryptoKey = await crypto.subtle.importKey(
@@ -23,13 +23,13 @@ async function decryptToken(encryptedToken: string, key: string): Promise<string
       false,
       ['decrypt']
     );
-    
+
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
       cryptoKey,
       data
     );
-    
+
     return new TextDecoder().decode(decrypted);
   } catch (error) {
     console.error('Decryption error:', error);
@@ -152,7 +152,7 @@ async function getSecurePageAccessToken(
   legacyToken: string | null
 ): Promise<string> {
   const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
-  
+
   // Primeiro tentar a tabela segura
   const { data: secureTokens, error } = await supabase
     .from('facebook_integration_tokens')
@@ -214,334 +214,349 @@ Deno.serve(async (req) => {
             const leadgenId = leadgenData.leadgen_id;
             let logId: string | null = null;
 
-            const { data: integration } = await supabase
+            const { data: integrations, error: integrationsError } = await supabase
               .from('facebook_integrations')
               .select('*')
-              .eq('page_id', pageId)
-              .single();
+              .eq('page_id', pageId);
 
-            if (!integration) {
-              console.log(`No integration found for page ${pageId}`);
+            if (integrationsError || !integrations || integrations.length === 0) {
+              console.warn(`⚠️ [FB-WEBHOOK] Nenhuma integração encontrada para page_id ${pageId}.`);
+              continue;
+            }
 
-              let fallbackOrgId: string | null = null;
-              const { data: anyIntegration } = await supabase
-                .from('facebook_integrations')
-                .select('organization_id')
-                .limit(1)
+            console.log(`👥 [FB-WEBHOOK] Encontradas ${integrations.length} integrações. Processando...`);
+
+            for (const integration of integrations) {
+              let logId: string | null = null;
+              // Inicia processamento individual por conta conectada...
+
+              const { data: logEntry } = await supabase
+                .from('facebook_webhook_logs')
+                .insert({
+                  organization_id: integration.organization_id,
+                  event_type: 'leadgen',
+                  payload: body,
+                  status: 'processing',
+                  page_id: pageId,
+                  facebook_lead_id: leadgenId,
+                })
+                .select()
                 .single();
 
-              if (anyIntegration?.organization_id) {
-                fallbackOrgId = anyIntegration.organization_id;
-              }
+              logId = logEntry?.id || null;
 
-              await supabase.from('facebook_webhook_logs').insert({
-                event_type: 'leadgen',
-                payload: body,
-                status: 'error',
-                error_message: `No integration found for page ${pageId}`,
-                page_id: pageId,
-                facebook_lead_id: leadgenId,
-                organization_id: fallbackOrgId || '00000000-0000-0000-0000-000000000000',
-              });
-              
-              continue;
-            }
-
-            const { data: logEntry } = await supabase
-              .from('facebook_webhook_logs')
-              .insert({
-                organization_id: integration.organization_id,
-                event_type: 'leadgen',
-                payload: body,
-                status: 'processing',
-                page_id: pageId,
-                facebook_lead_id: leadgenId,
-              })
-              .select()
-              .single();
-            
-            logId = logEntry?.id || null;
-
-            // Obter page_access_token de forma segura
-            const pageAccessToken = await getSecurePageAccessToken(
-              supabase,
-              integration.id,
-              integration.page_access_token
-            );
-
-            if (!pageAccessToken) {
-              console.error('No page access token found');
-              if (logId) {
-                await supabase
-                  .from('facebook_webhook_logs')
-                  .update({ status: 'error', error_message: 'No page access token found' })
-                  .eq('id', logId);
-              }
-              continue;
-            }
-
-            // Fetch lead data from Facebook
-            const leadResponse = await fetch(
-              `https://graph.facebook.com/v18.0/${leadgenId}?access_token=${pageAccessToken}`
-            );
-            const leadData = await leadResponse.json();
-
-            // Fetch form name
-            let formName = leadData.form_id;
-            try {
-              const formResponse = await fetch(
-                `https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${pageAccessToken}`
-              );
-              const formData = await formResponse.json();
-              if (formData.name) {
-                formName = formData.name;
-              }
-            } catch (error) {
-              console.log('Could not fetch form name:', error);
-            }
-
-            // Fetch ad/campaign name
-            let campaignName = leadData.ad_id || 'N/A';
-            try {
-              if (leadData.ad_id) {
-                const adResponse = await fetch(
-                  `https://graph.facebook.com/v18.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${pageAccessToken}`
-                );
-                const adData = await adResponse.json();
-                if (adData.campaign?.name) {
-                  campaignName = adData.campaign.name;
-                } else if (adData.name) {
-                  campaignName = adData.name;
-                }
-              }
-            } catch (error) {
-              console.log('Could not fetch campaign name:', error);
-            }
-
-            // Parse field data
-            const fieldData = leadData.field_data || [];
-            const leadInfo: any = {};
-            
-            fieldData.forEach((field: any) => {
-              const normalizedName = field.name.toLowerCase().replace(/\s+/g, '_');
-              leadInfo[field.name] = field.values?.[0] || '';
-              leadInfo[normalizedName] = field.values?.[0] || '';
-            });
-
-            // Build description with ALL form fields
-            let allFieldsDescription = 'Lead capturado via Facebook Ads\n\n';
-            allFieldsDescription += `Formulário: ${formName}\n`;
-            allFieldsDescription += `Campanha: ${campaignName}\n\n`;
-            allFieldsDescription += '=== INFORMAÇÕES DO FORMULÁRIO ===\n';
-            
-            fieldData.forEach((field: any) => {
-              const fieldName = field.name;
-              const fieldValue = field.values?.[0] || '';
-              if (fieldValue) {
-                allFieldsDescription += `${fieldName}: ${fieldValue}\n`;
-              }
-            });
-
-            const phoneNumber = leadInfo.phone_number || leadInfo.phone || leadInfo.telefone || '';
-            const email = leadInfo.email || null;
-
-            // Verificar duplicidade
-            console.log('🔍 Verificando duplicidade do lead Facebook...');
-            const duplicateCheck = await checkDuplicateLead(
-              supabase,
-              integration.organization_id,
-              phoneNumber,
-              email
-            );
-
-            if (duplicateCheck.isDuplicate && duplicateCheck.existingLead) {
-              console.log(`⚠️ Lead duplicado detectado via ${duplicateCheck.matchType}:`, duplicateCheck.existingLead.id);
-
-              await registerDuplicateAttempt(
+              // Obter page_access_token de forma segura
+              const pageAccessToken = await getSecurePageAccessToken(
                 supabase,
-                duplicateCheck.existingLead.id,
-                'Facebook',
-                { leadData, formName, campaignName }
+                integration.id,
+                integration.page_access_token
               );
 
-              if (!duplicateCheck.hasAdvancedInFunnel) {
-                console.log('📝 Atualizando dados do lead existente (não avançou no funil)');
-                
-                const { data: currentLead } = await supabase
-                  .from('leads')
-                  .select('descricao_negocio')
-                  .eq('id', duplicateCheck.existingLead.id)
-                  .single();
-
-                const updatedDescription = (currentLead?.descricao_negocio || '') + 
-                  '\n\n--- NOVA TENTATIVA (' + new Date().toLocaleDateString('pt-BR') + ') ---\n' + 
-                  allFieldsDescription;
-
-                await supabase
-                  .from('leads')
-                  .update({
-                    nome_lead: leadInfo.full_name || leadInfo.first_name || leadInfo.name || duplicateCheck.existingLead.nome_lead,
-                    email: email || undefined,
-                    descricao_negocio: updatedDescription,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', duplicateCheck.existingLead.id);
+              if (!pageAccessToken) {
+                console.error('No page access token found');
+                if (logId) {
+                  await supabase
+                    .from('facebook_webhook_logs')
+                    .update({ status: 'error', error_message: 'No page access token found' })
+                    .eq('id', logId);
+                }
+                continue;
               }
 
-              if (logId) {
-                await supabase
-                  .from('facebook_webhook_logs')
-                  .update({
-                    status: 'duplicate',
-                    lead_id: duplicateCheck.existingLead.id,
-                    error_message: `Lead já existe no CRM (match: ${duplicateCheck.matchType})`
-                  })
-                  .eq('id', logId);
+              // Fetch lead data from Facebook
+              console.log(`📡 [FB-WEBHOOK] Buscando dados do lead ${leadgenId} na Graph API...`);
+              const leadResponse = await fetch(
+                `https://graph.facebook.com/v18.0/${leadgenId}?access_token=${pageAccessToken}`
+              );
+
+              if (!leadResponse.ok) {
+                const errorData = await leadResponse.json();
+                console.error('❌ [FB-WEBHOOK] Erro ao buscar dados do lead no Facebook:', errorData);
+                if (logId) {
+                  await supabase
+                    .from('facebook_webhook_logs')
+                    .update({
+                      status: 'error',
+                      error_message: `Facebook Graph API Error: ${JSON.stringify(errorData)}`
+                    })
+                    .eq('id', logId);
+                }
+                continue;
               }
 
-              continue;
-            }
+              const leadData = await leadResponse.json();
+              console.log('✅ [FB-WEBHOOK] Dados do lead recuperados com sucesso');
 
-            // Buscar mapeamento de funil
-            console.log('🔍 Buscando mapeamento de funil para Facebook...');
-            
-            const { data: orgFunnels } = await supabase
-              .from('sales_funnels')
-              .select('id')
-              .eq('organization_id', integration.organization_id);
-            
-            const funnelIds = orgFunnels?.map((f: any) => f.id) || [];
-            console.log('🎯 Funis da organização:', funnelIds);
-            
-            const { data: funnelMapping } = await supabase
-              .from('funnel_source_mappings')
-              .select('funnel_id, target_stage_id')
-              .eq('source_type', 'facebook')
-              .in('funnel_id', funnelIds)
-              .maybeSingle();
-            
-            let funnelId: string | null = null;
-            let funnelStageId: string | null = null;
-            
-            if (funnelMapping) {
-              console.log('✅ Mapeamento encontrado:', funnelMapping);
-              funnelId = funnelMapping.funnel_id;
-              funnelStageId = funnelMapping.target_stage_id;
-            } else {
-              console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
-              const { data: defaultFunnel } = await supabase
+              // Fetch form name
+              let formName = leadData.form_id;
+              try {
+                const formResponse = await fetch(
+                  `https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${pageAccessToken}`
+                );
+                const formData = await formResponse.json();
+                if (formData.name) {
+                  formName = formData.name;
+                }
+              } catch (error) {
+                console.log('Could not fetch form name:', error);
+              }
+
+              // Fetch ad/campaign name
+              let campaignName = leadData.ad_id || 'N/A';
+              try {
+                if (leadData.ad_id) {
+                  const adResponse = await fetch(
+                    `https://graph.facebook.com/v18.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${pageAccessToken}`
+                  );
+                  const adData = await adResponse.json();
+                  if (adData.campaign?.name) {
+                    campaignName = adData.campaign.name;
+                  } else if (adData.name) {
+                    campaignName = adData.name;
+                  }
+                }
+              } catch (error) {
+                console.log('Could not fetch campaign name:', error);
+              }
+
+              // Parse field data
+              const fieldData = leadData.field_data || [];
+              const leadInfo: any = {};
+
+              fieldData.forEach((field: any) => {
+                const normalizedName = field.name.toLowerCase().replace(/\s+/g, '_');
+                leadInfo[field.name] = field.values?.[0] || '';
+                leadInfo[normalizedName] = field.values?.[0] || '';
+              });
+
+              // Build description with ALL form fields
+              let allFieldsDescription = 'Lead capturado via Facebook Ads\n\n';
+              allFieldsDescription += `Formulário: ${formName}\n`;
+              allFieldsDescription += `Campanha: ${campaignName}\n\n`;
+              allFieldsDescription += '=== INFORMAÇÕES DO FORMULÁRIO ===\n';
+
+              fieldData.forEach((field: any) => {
+                const fieldName = field.name;
+                const fieldValue = field.values?.[0] || '';
+                if (fieldValue) {
+                  allFieldsDescription += `${fieldName}: ${fieldValue}\n`;
+                }
+              });
+
+              const phoneNumber = leadInfo.phone_number || leadInfo.phone || leadInfo.telefone || '';
+              const email = leadInfo.email || null;
+
+              // Verificar duplicidade
+              console.log('🔍 Verificando duplicidade do lead Facebook...');
+              const duplicateCheck = await checkDuplicateLead(
+                supabase,
+                integration.organization_id,
+                phoneNumber,
+                email
+              );
+
+              if (duplicateCheck.isDuplicate && duplicateCheck.existingLead) {
+                console.log(`⚠️ Lead duplicado detectado via ${duplicateCheck.matchType}:`, duplicateCheck.existingLead.id);
+
+                await registerDuplicateAttempt(
+                  supabase,
+                  duplicateCheck.existingLead.id,
+                  'Facebook',
+                  { leadData, formName, campaignName }
+                );
+
+                if (!duplicateCheck.hasAdvancedInFunnel) {
+                  console.log('📝 Atualizando dados do lead existente (não avançou no funil)');
+
+                  const { data: currentLead } = await supabase
+                    .from('leads')
+                    .select('descricao_negocio')
+                    .eq('id', duplicateCheck.existingLead.id)
+                    .single();
+
+                  const updatedDescription = (currentLead?.descricao_negocio || '') +
+                    '\n\n--- NOVA TENTATIVA (' + new Date().toLocaleDateString('pt-BR') + ') ---\n' +
+                    allFieldsDescription;
+
+                  await supabase
+                    .from('leads')
+                    .update({
+                      nome_lead: leadInfo.full_name || leadInfo.first_name || leadInfo.name || duplicateCheck.existingLead.nome_lead,
+                      email: email || undefined,
+                      descricao_negocio: updatedDescription,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', duplicateCheck.existingLead.id);
+                }
+
+                if (logId) {
+                  await supabase
+                    .from('facebook_webhook_logs')
+                    .update({
+                      status: 'duplicate',
+                      lead_id: duplicateCheck.existingLead.id,
+                      error_message: `Lead já existe no CRM (match: ${duplicateCheck.matchType})`
+                    })
+                    .eq('id', logId);
+                }
+
+                continue;
+              }
+
+              // Buscar mapeamento de funil
+              console.log('🔍 Buscando mapeamento de funil para Facebook...');
+
+              const { data: orgFunnels } = await supabase
                 .from('sales_funnels')
                 .select('id')
-                .eq('organization_id', integration.organization_id)
-                .eq('is_default', true)
+                .eq('organization_id', integration.organization_id);
+
+              const funnelIds = orgFunnels?.map((f: any) => f.id) || [];
+              console.log('🎯 Funis da organização:', funnelIds);
+
+              // 1. Tentar mapeamento específico para este formulário
+              let { data: funnelMapping } = await supabase
+                .from('funnel_source_mappings')
+                .select('funnel_id, target_stage_id')
+                .eq('source_type', 'facebook')
+                .eq('source_identifier', leadData.form_id)
+                .in('funnel_id', funnelIds)
                 .maybeSingle();
-              
-              if (defaultFunnel) {
-                funnelId = defaultFunnel.id;
-                
-                const { data: firstStage } = await supabase
-                  .from('funnel_stages')
-                  .select('id')
-                  .eq('funnel_id', defaultFunnel.id)
-                  .order('position')
-                  .limit(1)
+
+              // 2. Se não houver específico, tentar mapeamento global do facebook
+              if (!funnelMapping) {
+                const { data: globalMapping } = await supabase
+                  .from('funnel_source_mappings')
+                  .select('funnel_id, target_stage_id')
+                  .eq('source_type', 'facebook')
+                  .is('source_identifier', null)
+                  .in('funnel_id', funnelIds)
                   .maybeSingle();
-                
-                if (firstStage) {
-                  funnelStageId = firstStage.id;
+
+                funnelMapping = globalMapping;
+              }
+
+              let funnelId: string | null = null;
+              let funnelStageId: string | null = null;
+
+              if (funnelMapping) {
+                console.log('✅ Mapeamento encontrado:', funnelMapping);
+                funnelId = funnelMapping.funnel_id;
+                funnelStageId = funnelMapping.target_stage_id;
+              } else {
+                console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
+                const { data: defaultFunnel } = await supabase
+                  .from('sales_funnels')
+                  .select('id')
+                  .eq('organization_id', integration.organization_id)
+                  .eq('is_default', true)
+                  .maybeSingle();
+
+                if (defaultFunnel) {
+                  funnelId = defaultFunnel.id;
+
+                  const { data: firstStage } = await supabase
+                    .from('funnel_stages')
+                    .select('id')
+                    .eq('funnel_id', defaultFunnel.id)
+                    .order('position')
+                    .limit(1)
+                    .maybeSingle();
+
+                  if (firstStage) {
+                    funnelStageId = firstStage.id;
+                  }
                 }
               }
-            }
 
-            // Create lead in database
-            const { data: newLead, error: leadError } = await supabase
-              .from('leads')
-              .insert({
-                nome_lead: leadInfo.full_name || leadInfo.nome_completo || leadInfo['first name'] || leadInfo.first_name || leadInfo.name || leadInfo.nome || 'Lead do Facebook',
-                telefone_lead: phoneNumber,
-                email: email,
-                empresa: leadInfo.company_name || leadInfo.company || leadInfo.empresa || null,
-                organization_id: integration.organization_id,
-                source: 'Facebook Leads',
-                stage: 'NOVO',
-                funnel_id: funnelId,
-                funnel_stage_id: funnelStageId,
-                descricao_negocio: allFieldsDescription,
-              })
-              .select()
-              .single();
-
-            if (leadError) {
-              console.error('Error creating lead:', leadError);
-              
-              if (logId) {
-                await supabase
-                  .from('facebook_webhook_logs')
-                  .update({
-                    status: 'error',
-                    error_message: leadError.message,
-                  })
-                  .eq('id', logId);
-              }
-            } else {
-              console.log('Lead created successfully from Facebook');
-              
-              if (logId) {
-                await supabase
-                  .from('facebook_webhook_logs')
-                  .update({
-                    status: 'success',
-                    lead_id: newLead?.id,
-                    form_id: leadData.form_id,
-                  })
-                  .eq('id', logId);
-              }
-
-              // Distribuir lead na roleta
-              supabase.functions.invoke('distribute-lead', {
-                body: {
-                  lead_id: newLead.id,
+              // Create lead in database
+              const { data: newLead, error: leadError } = await supabase
+                .from('leads')
+                .insert({
+                  nome_lead: leadInfo.full_name || leadInfo.nome_completo || leadInfo['first name'] || leadInfo.first_name || leadInfo.name || leadInfo.nome || 'Lead do Facebook',
+                  telefone_lead: phoneNumber,
+                  email: email,
+                  empresa: leadInfo.company_name || leadInfo.company || leadInfo.empresa || null,
                   organization_id: integration.organization_id,
-                  trigger_source: 'facebook',
-                },
-              }).then(({ data, error }: any) => {
-                if (error) {
-                  console.error('⚠️ Erro ao distribuir lead:', error);
-                } else {
-                  console.log('✅ Lead distribuído:', data);
-                }
-              }).catch((err: any) => {
-                console.error('⚠️ Falha ao invocar distribute-lead:', err);
-              });
+                  source: 'Facebook Leads',
+                  stage: 'NOVO',
+                  funnel_id: funnelId,
+                  funnel_stage_id: funnelStageId,
+                  descricao_negocio: allFieldsDescription,
+                })
+                .select()
+                .single();
 
-              // Processar automações
-              supabase.functions.invoke('process-automation-rules', {
-                body: {
-                  trigger_type: 'LEAD_CREATED_META_FORM',
-                  trigger_data: {
+              if (leadError) {
+                console.error('Error creating lead:', leadError);
+
+                if (logId) {
+                  await supabase
+                    .from('facebook_webhook_logs')
+                    .update({
+                      status: 'error',
+                      error_message: leadError.message,
+                    })
+                    .eq('id', logId);
+                }
+              } else {
+                console.log('Lead created successfully from Facebook');
+
+                if (logId) {
+                  await supabase
+                    .from('facebook_webhook_logs')
+                    .update({
+                      status: 'success',
+                      lead_id: newLead?.id,
+                      form_id: leadData.form_id,
+                    })
+                    .eq('id', logId);
+                }
+
+                // Distribuir lead na roleta
+                supabase.functions.invoke('distribute-lead', {
+                  body: {
                     lead_id: newLead.id,
                     organization_id: integration.organization_id,
-                    form_id: leadData.form_id,
-                    form_name: formName,
+                    trigger_source: 'facebook',
                   },
-                },
-              }).then(({ data, error }: any) => {
-                if (error) {
-                  console.error('⚠️ Erro ao processar automações:', error);
-                } else {
-                  console.log('✅ Automações processadas');
-                }
-              }).catch((err: any) => {
-                console.error('⚠️ Falha ao invocar process-automation-rules:', err);
-              });
-            }
-          }
-        }
-      }
+                }).then(({ data, error }: any) => {
+                  if (error) {
+                    console.error('⚠️ Erro ao distribuir lead:', error);
+                  } else {
+                    console.log('✅ Lead distribuído:', data);
+                  }
+                }).catch((err: any) => {
+                  console.error('⚠️ Falha ao invocar distribute-lead:', err);
+                });
+
+                // Processar automações
+                supabase.functions.invoke('process-automation-rules', {
+                  body: {
+                    trigger_type: 'LEAD_CREATED_META_FORM',
+                    trigger_data: {
+                      lead_id: newLead.id,
+                      organization_id: integration.organization_id,
+                      form_id: leadData.form_id,
+                      form_name: formName,
+                    },
+                  },
+                }).then(({ data, error }: any) => {
+                  if (error) {
+                    console.error('⚠️ Erro ao processar automações:', error);
+                  } else {
+                    console.log('✅ Automações processadas');
+                  }
+                });
+              } // close else sucess
+            } // close for integration
+          } // Fim do if leadgen
+        } // Fim do loop de changes
+      } // Fim do loop de entries
 
       return new Response(
         JSON.stringify({ received: true }),
-        { 
+        {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -549,10 +564,10 @@ Deno.serve(async (req) => {
 
     } catch (error) {
       console.error('Webhook processing error:', error);
-      
+
       return new Response(
         JSON.stringify({ error: 'Webhook processing failed' }),
-        { 
+        {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }

@@ -586,7 +586,10 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                 Os leads do formulário <strong>"{integration.selected_form_name}"</strong> aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
               </p>
             </div>
-            <FunnelSelector sourceType="facebook" />
+            <FunnelSelector
+              sourceType="facebook"
+              sourceIdentifier={integration.selected_form_id}
+            />
           </div>
         )}
 
@@ -611,35 +614,64 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
               </div>
             ) : (
               <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {leadForms.map((form) => (
-                  <button
-                    key={form.id}
-                    onClick={() => handleFormSelect(form)}
-                    disabled={subscribing}
-                    className="w-full p-4 border rounded-lg hover:bg-muted hover:border-primary/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium">{form.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className={`text-xs px-2 py-1 rounded font-medium ${form.status === 'ACTIVE'
-                            ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                            : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
-                            }`}>
-                            {form.status}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {form.leads_count || 0} leads
-                          </span>
-                        </div>
-                      </div>
-                      {subscribing && (
-                        <Loader2 className="h-5 w-5 animate-spin text-primary ml-4" />
+                {leadForms.map((form) => {
+                  const isSelected = integration?.selected_form_id === form.id;
+
+                  return (
+                    <div
+                      key={form.id}
+                      className={cn(
+                        "w-full p-4 border rounded-lg transition-all",
+                        isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted"
                       )}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium">{form.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className={`text-xs px-2 py-1 rounded font-medium ${form.status === 'ACTIVE'
+                              ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                              : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                              }`}>
+                              {form.status}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {form.leads_count || 0} leads
+                            </span>
+                          </div>
+                        </div>
+
+                        {!isSelected ? (
+                          <Button
+                            onClick={() => handleFormSelect(form)}
+                            disabled={subscribing}
+                            size="sm"
+                            className="ml-4"
+                          >
+                            {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Escolher"}
+                          </Button>
+                        ) : (
+                          <CheckCircle className="h-5 w-5 text-green-500 ml-4" />
+                        )}
+                      </div>
+
+                      {/* Integrated Funnel Selector for the specific form */}
+                      <div className="mt-4 pt-4 border-t border-dashed">
+                        <FunnelSelector
+                          sourceType="facebook"
+                          sourceIdentifier={form.id}
+                          className="mt-0 bg-transparent border-none p-0"
+                        />
+                        {!isSelected && (
+                          <p className="text-[10px] text-muted-foreground mt-2 italic">
+                            * Configure o funil de destino antes ou depois de escolher o formulário.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </DialogContent>

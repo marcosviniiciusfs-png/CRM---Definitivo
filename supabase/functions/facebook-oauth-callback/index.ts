@@ -193,11 +193,9 @@ Deno.serve(async (req) => {
       const { error: updErr } = await supabase
         .from('facebook_integrations')
         .update({
-          access_token: accessToken,
           expires_at: expiresAt.toISOString(),
           page_id: selectedPage.id,
           page_name: selectedPage.name,
-          page_access_token: selectedPage.access_token,
           business_id: businessId,
           business_name: businessName,
           updated_at: new Date().toISOString()
@@ -212,11 +210,9 @@ Deno.serve(async (req) => {
         .insert({
           user_id,
           organization_id,
-          access_token: accessToken,
           expires_at: expiresAt.toISOString(),
           page_id: selectedPage.id,
           page_name: selectedPage.name,
-          page_access_token: selectedPage.access_token,
           business_id: businessId,
           business_name: businessName,
           webhook_verified: false
