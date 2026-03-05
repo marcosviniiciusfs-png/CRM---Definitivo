@@ -115,18 +115,24 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         const { code, state, facebook, message, redirect_uri } = event.data.payload;
 
         if (facebook === 'success') {
-          console.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Forçando abertura do seletor...');
+          console.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Sincronizando dados...');
           toast.success('Facebook conectado com sucesso!');
 
-          // Forçamos a atualização da interface primeiro
-          setIsConnected(true);
-          setNeedsReconnect(false);
-
-          // Chamamos a busca de formulários diretamente. 
-          // O fetchLeadForms já usa os dados da conexão recém-criada no banco.
-          setTimeout(() => {
-            fetchLeadForms();
-          }, 500);
+          // 1. Forçamos a verificação real dos dados que acabaram de ser salvos
+          checkConnection().then(data => {
+            if (data && data.page_id) {
+              console.log('🔄 [FB-CONN] Dados sincronizados. Abrindo seletor...');
+              setTimeout(() => fetchLeadForms(data), 500);
+            } else {
+              // Tentativa de segurança caso o banco demore a propagar (RLS/Cache)
+              console.warn('⚠️ [FB-CONN] Dados não encontrados imediatamente. Re-tentando...');
+              setTimeout(() => {
+                checkConnection().then(retryData => {
+                  if (retryData) fetchLeadForms(retryData);
+                });
+              }, 1500);
+            }
+          });
         } else if (code && state) {
           // Use the redirect_uri from the popup (which matches what Facebook received),
           // or fall back to the stored oauthRedirectUri from initiation
@@ -198,8 +204,23 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      // Usar função mascarada que não retorna tokens
-      const { data, error } = await supabase.rpc('get_facebook_integrations_masked');
+      // 1. Tentar carregar dados da integração
+      let { data, error } = await supabase.rpc('get_facebook_integrations_masked');
+
+      // Fallback: Se a RPC falhar ou não existir (404), tenta query direta na tabela
+      if (error || !data || data.length === 0) {
+        console.warn('⚠️ [FB-CONN] RPC falhou ou ausente, tentando query direta...');
+        const { data: directData, error: directError } = await supabase
+          .from('facebook_integrations')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .maybeSingle();
+
+        if (!directError && directData) {
+          data = [directData];
+          error = null;
+        }
+      }
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error checking Facebook connection:', error);
@@ -212,13 +233,12 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         setIsConnected(true);
         setIntegration(integrationData);
 
-        // Verificar integridade dos tokens
+        // Verificar integridade dos tokens via RPC segura
         if (organizationId) {
           const { data: tokenCheck } = await supabase.rpc('get_facebook_tokens_secure', {
             p_organization_id: organizationId
           });
 
-          // Se não há tokens na tabela segura E o token principal é placeholder, precisa reconectar
           const hasSecureTokens = tokenCheck && tokenCheck.length > 0 && tokenCheck[0].encrypted_access_token;
 
           if (!hasSecureTokens) {
@@ -352,7 +372,13 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   };
 
   const fetchLeadForms = async (integrationData?: any) => {
-    const activeIntegration = integrationData || integration;
+    let activeIntegration = integrationData || integration;
+
+    // Se os dados estão incompletos, tentamos buscar no banco antes de dar erro
+    if (!activeIntegration || !activeIntegration.page_id) {
+      console.log('🔄 [FB-CONN] Dados incompletos no fetch. Tentando re-sincronizar...');
+      activeIntegration = await checkConnection();
+    }
 
     if (!activeIntegration) {
       toast.error('Integração não encontrada. Reconecte ao Facebook.');
