@@ -132,44 +132,44 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, responsavel_user_id, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, source")
+        .select("created_by, user_id, responsavel, responsavel_user_id, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, source")
         .eq("id", leadId)
         .single();
 
       if (leadError) throw leadError;
       setDetails(leadData);
 
-      // Buscar nome de quem cadastrou o lead via responsavel_user_id
+      // Buscar nome de quem cadastrou o lead
       try {
-        const responsavelUserId = leadData?.responsavel_user_id;
+        const creatorId = leadData?.created_by || leadData?.user_id || leadData?.responsavel_user_id;
 
-        if (responsavelUserId) {
+        if (creatorId) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name')
-            .eq('user_id', responsavelUserId)
+            .select('*')
+            .eq('user_id', creatorId)
             .maybeSingle();
 
-          if (profile?.full_name) {
-            setCurrentUserName(profile.full_name);
+          if ((profile as any)?.full_name || (profile as any)?.email) {
+            setCurrentUserName((profile as any).full_name || (profile as any).email || 'Desconhecido');
           } else {
             // Tentar via membros
             const members = await fetchOrganizationMembersSafe();
-            const member = members?.find((m: any) => m.user_id === responsavelUserId);
+            const member = members?.find((m: any) => m.user_id === creatorId);
             if (member) {
               const { data: mp } = await supabase
                 .from('profiles')
-                .select('full_name')
-                .eq('user_id', responsavelUserId)
+                .select('*')
+                .eq('user_id', creatorId)
                 .maybeSingle();
-              setCurrentUserName(mp?.full_name || leadData?.responsavel || 'Usuário');
+              setCurrentUserName((mp as any)?.full_name || (mp as any)?.email || (leadData as any)?.responsavel || 'Usuário');
             } else {
-              setCurrentUserName(leadData?.responsavel || 'Usuário');
+              setCurrentUserName((leadData as any)?.responsavel || 'Usuário');
             }
           }
-        } else if (leadData?.responsavel) {
+        } else if ((leadData as any)?.responsavel) {
           // Sem user_id — usar o campo responsavel diretamente (já é o nome)
-          setCurrentUserName(leadData.responsavel);
+          setCurrentUserName((leadData as any).responsavel);
         } else {
           setCurrentUserName('Usuário');
         }

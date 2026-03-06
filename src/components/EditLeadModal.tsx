@@ -110,32 +110,33 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const fetchCurrentUserName = async () => {
     try {
-      // 1. Usar responsavel_user_id do lead para buscar o nome real
-      if (lead.responsavel_user_id) {
-        const { data: profile } = await supabase
+      const creatorId = (lead as any).created_by || (lead as any).user_id || lead.responsavel_user_id;
+
+      if (creatorId) {
+        const { data: profileData } = await supabase
           .from('profiles')
-          .select('full_name')
-          .eq('user_id', lead.responsavel_user_id)
+          .select('full_name, email')
+          .eq('user_id', creatorId)
           .maybeSingle();
 
-        if (profile?.full_name) {
-          setCurrentUserName(profile.full_name);
+        if (profileData?.full_name || profileData?.email) {
+          setCurrentUserName(profileData.full_name || profileData.email || 'Desconhecido');
           return;
         }
 
-        // 2. Tentar via organização
+        // Tentar via organização como fallback
         const members = await fetchOrganizationMembersSafe();
         if (members && members.length > 0) {
-          const member = members.find((m: any) => m.user_id === lead.responsavel_user_id);
+          const member = members.find((m: any) => m.user_id === creatorId);
           if (member) {
-            // Buscar full_name do profile desse membro
             const { data: memberProfile } = await supabase
               .from('profiles')
-              .select('full_name')
-              .eq('user_id', lead.responsavel_user_id)
+              .select('full_name, email')
+              .eq('user_id', creatorId)
               .maybeSingle();
-            if (memberProfile?.full_name) {
-              setCurrentUserName(memberProfile.full_name);
+
+            if (memberProfile?.full_name || memberProfile?.email) {
+              setCurrentUserName(memberProfile.full_name || memberProfile.email || 'Desconhecido');
               return;
             }
           }
@@ -157,6 +158,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const loadDadosNegocio = async () => {
     try {
+      if (!lead.id) return;
+
       const { data, error } = await supabase
         .from('leads')
         .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor, idade, data_agendamento_venda')
