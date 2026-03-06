@@ -83,6 +83,53 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
     }
   }, [open, leadId]);
 
+  // Isolar a busca de criador em um hook independente para não quebrar o lead se falhar
+  useEffect(() => {
+    const creatorId = details?.responsavel_user_id;
+
+    if (!creatorId) {
+      if (details?.responsavel) {
+        setCurrentUserName(details.responsavel);
+      } else {
+        setCurrentUserName('Usuário');
+      }
+      return;
+    }
+
+    const fetchCreator = async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('user_id', creatorId)
+          .maybeSingle();
+
+        if ((data as any)?.full_name || (data as any)?.email) {
+          setCurrentUserName((data as any).full_name || (data as any).email || 'Desconhecido');
+        } else {
+          // Tentar via membros como fallback
+          const members = await fetchOrganizationMembersSafe();
+          const member = members?.find((m: any) => m.user_id === creatorId);
+          if (member) {
+            const { data: mp } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('user_id', creatorId)
+              .maybeSingle();
+            setCurrentUserName((mp as any)?.full_name || (mp as any)?.email || details?.responsavel || 'Usuário');
+          } else {
+            setCurrentUserName(details?.responsavel || 'Usuário');
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar criador do lead:", err);
+        setCurrentUserName(details?.responsavel || 'Usuário');
+      }
+    };
+
+    fetchCreator();
+  }, [details?.responsavel_user_id, details?.responsavel]);
+
   // Buscar evento do Google Calendar quando tiver calendar_event_id
   useEffect(() => {
     if (details?.calendar_event_id && open) {
@@ -127,53 +174,23 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
 
   const loadLeadDetails = async () => {
     try {
+      if (!leadId || leadId === 'undefined') return;
+
       setLoading(true);
 
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("created_by, user_id, responsavel, responsavel_user_id, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, source")
+        .select("*")
         .eq("id", leadId)
         .single();
 
-      if (leadError) throw leadError;
+      if (leadError) {
+        console.error('Erro detalhado:', JSON.stringify(leadError));
+        return;
+      }
       setDetails(leadData);
 
-      // Buscar nome de quem cadastrou o lead
-      try {
-        const creatorId = leadData?.created_by || leadData?.user_id || leadData?.responsavel_user_id;
-
-        if (creatorId) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', creatorId)
-            .maybeSingle();
-
-          if ((profile as any)?.full_name || (profile as any)?.email) {
-            setCurrentUserName((profile as any).full_name || (profile as any).email || 'Desconhecido');
-          } else {
-            // Tentar via membros
-            const members = await fetchOrganizationMembersSafe();
-            const member = members?.find((m: any) => m.user_id === creatorId);
-            if (member) {
-              const { data: mp } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('user_id', creatorId)
-                .maybeSingle();
-              setCurrentUserName((mp as any)?.full_name || (mp as any)?.email || (leadData as any)?.responsavel || 'Usuário');
-            } else {
-              setCurrentUserName((leadData as any)?.responsavel || 'Usuário');
-            }
-          }
-        } else if ((leadData as any)?.responsavel) {
-          // Sem user_id — usar o campo responsavel diretamente (já é o nome)
-          setCurrentUserName((leadData as any).responsavel);
-        } else {
-          setCurrentUserName('Usuário');
-        }
-      } catch { /* silently ignore */ }
 
       // Buscar atividades do lead
       const { data: activitiesData, error: activitiesError } = await supabase
