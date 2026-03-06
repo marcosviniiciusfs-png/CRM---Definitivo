@@ -238,11 +238,26 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
         // Verificar integridade dos tokens via RPC segura
         if (organizationId) {
-          const { data: tokenCheck } = await supabase.rpc('get_facebook_tokens_secure', {
+          let { data: tokenCheck, error: tokenError } = await (supabase.rpc as any)('get_facebook_tokens_secure', {
             p_organization_id: organizationId
           });
 
-          const hasSecureTokens = tokenCheck && tokenCheck.length > 0 && tokenCheck[0].encrypted_access_token;
+          // Fallback para query direta se a RPC falhar ou não existir
+          if (tokenError || !tokenCheck) {
+            console.warn('⚠️ [FB-CONN] RPC tokens falhou ou ausente, tentando query direta...');
+            const { data: directTokens, error: directTokensError } = await supabase
+              .from('facebook_integration_tokens')
+              .select('encrypted_access_token')
+              .eq('organization_id', organizationId)
+              .maybeSingle();
+
+            if (!directTokensError && directTokens) {
+              tokenCheck = [directTokens] as any;
+              tokenError = null;
+            }
+          }
+
+          const hasSecureTokens = tokenCheck && (tokenCheck as any[]).length > 0 && (tokenCheck as any[])[0].encrypted_access_token;
 
           if (!hasSecureTokens) {
             // Se não há tokens na tabela segura, precisamos de reconexão

@@ -21,22 +21,35 @@ export function useOrganizationMembers(organizationId?: string | null) {
     queryKey: ["organization-members-safe", organizationId],
     queryFn: async (): Promise<OrganizationMember[]> => {
       // Buscar membros usando função mascarada
-      const { data: members, error } = await supabase.rpc('get_organization_members_masked');
-      
+      let { data: members, error } = await supabase.rpc('get_organization_members_masked');
+
+      // Fallback para query direta se a RPC não existir
+      if (error && (error.code === 'PGRST202' || error.message?.includes('not found'))) {
+        console.warn('[ORG] RPC get_organization_members_masked not found, using direct table fallback...');
+        const { data: directData, error: directError } = await supabase
+          .from('organization_members')
+          .select('id, user_id, organization_id, role, created_at, full_name, avatar_url');
+
+        if (!directError) {
+          members = directData as any;
+          error = null;
+        }
+      }
+
       if (error) throw error;
       if (!members) return [];
 
       // Buscar profiles em paralelo
       const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
-      
+
       let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
-      
+
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, avatar_url')
           .in('user_id', userIds);
-        
+
         if (profiles) {
           profilesMap = profiles.reduce((acc, p) => {
             acc[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url };
@@ -62,21 +75,34 @@ export function useOrganizationMembers(organizationId?: string | null) {
  * Para componentes que não podem usar hooks diretamente
  */
 export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember[]> {
-  const { data: members, error } = await supabase.rpc('get_organization_members_masked');
-  
+  let { data: members, error } = await supabase.rpc('get_organization_members_masked');
+
+  // Fallback para query direta se a RPC não existir
+  if (error && (error.code === 'PGRST202' || error.message?.includes('not found'))) {
+    console.warn('[ORG] RPC get_organization_members_masked not found, using direct table fallback...');
+    const { data: directData, error: directError } = await supabase
+      .from('organization_members')
+      .select('id, user_id, organization_id, role, created_at, full_name, avatar_url');
+
+    if (!directError) {
+      members = directData as any;
+      error = null;
+    }
+  }
+
   if (error) throw error;
   if (!members) return [];
 
   const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
-  
+
   let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
-  
+
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('user_id, full_name, avatar_url')
       .in('user_id', userIds);
-    
+
     if (profiles) {
       profilesMap = profiles.reduce((acc, p) => {
         acc[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url };

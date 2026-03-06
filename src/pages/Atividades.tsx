@@ -3,6 +3,7 @@ import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -64,10 +65,8 @@ export default function Atividades() {
 
   const loadColaboradores = async () => {
     try {
-      // Usar RPC segura para não expor emails
-      const { data: members, error } = await supabase.rpc('get_organization_members_masked');
-
-      if (error) throw error;
+      // Usar a função que já lida com o fallback
+      const members = await fetchOrganizationMembersSafe();
 
       const userIds = members?.filter((m: any) => m.user_id).map((m: any) => m.user_id) || [];
       let profilesMap: { [key: string]: string } = {};
@@ -322,287 +321,287 @@ export default function Atividades() {
 
   return (
     <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de Atividades</h1>
-            <p className="text-muted-foreground">
-              Acompanhe todas as atividades e interações no sistema
-            </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de Atividades</h1>
+          <p className="text-muted-foreground">
+            Acompanhe todas as atividades e interações no sistema
+          </p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="messages" className="space-y-6">
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+          <TabsTrigger value="messages" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <MessageSquare className="h-4 w-4" />
+            Mensagens
+          </TabsTrigger>
+          <TabsTrigger value="sessions" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <LogIn className="h-4 w-4" />
+            Conexões
+          </TabsTrigger>
+          <TabsTrigger value="system" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <Activity className="h-4 w-4" />
+            Outras Atividades
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
           </div>
+          <Select value={filterColaborador} onValueChange={setFilterColaborador}>
+            <SelectTrigger className="w-full md:w-[200px]">
+              <SelectValue placeholder="Todos Colaboradores" />
+            </SelectTrigger>
+            <SelectContent className="bg-background z-50">
+              <SelectItem value="todos">Todos Colaboradores</SelectItem>
+              {colaboradores.map((colab) => (
+                <SelectItem key={colab.id} value={colab.id}>
+                  {colab.name || colab.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <Tabs defaultValue="messages" className="space-y-6">
-          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-            <TabsTrigger value="messages" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
-              <MessageSquare className="h-4 w-4" />
-              Mensagens
-            </TabsTrigger>
-            <TabsTrigger value="sessions" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
-              <LogIn className="h-4 w-4" />
-              Conexões
-            </TabsTrigger>
-            <TabsTrigger value="system" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
-              <Activity className="h-4 w-4" />
-              Outras Atividades
-            </TabsTrigger>
-          </TabsList>
+        <TabsContent value="messages" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de Mensagens</CardTitle>
+              <CardDescription>Mensagens enviadas e recebidas pelos leads</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px] pr-4">
+                {loading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredMessages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Nenhuma mensagem encontrada</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredMessages.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      >
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className={activity.direcao === 'ENTRADA' ? 'bg-blue-500/10' : 'bg-green-500/10'}>
+                            <MessageSquare className="h-5 w-5" />
+                          </AvatarFallback>
+                        </Avatar>
 
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={filterColaborador} onValueChange={setFilterColaborador}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Todos Colaboradores" />
-              </SelectTrigger>
-              <SelectContent className="bg-background z-50">
-                <SelectItem value="todos">Todos Colaboradores</SelectItem>
-                {colaboradores.map((colab) => (
-                  <SelectItem key={colab.id} value={colab.id}>
-                    {colab.name || colab.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant={activity.direcao === 'ENTRADA' ? 'default' : 'secondary'}>
+                              {activity.direcao === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                            </Badge>
+                            <span className="text-sm font-medium">{activity.lead_nome}</span>
+                          </div>
 
-          <TabsContent value="messages" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Histórico de Mensagens</CardTitle>
-                <CardDescription>Mensagens enviadas e recebidas pelos leads</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
-                  {loading ? (
-                    <div className="space-y-4">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="flex gap-4">
-                          <Skeleton className="h-10 w-10 rounded-full" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-1/2" />
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {activity.mensagem}
+                          </p>
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>
+                              {formatDistanceToNow(new Date(activity.data_hora), {
+                                addSuffix: true,
+                                locale: ptBR,
+                              })}
+                            </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : filteredMessages.length === 0 ? (
-                    <div className="text-center py-12">
-                      <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">Nenhuma mensagem encontrada</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredMessages.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                        >
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className={activity.direcao === 'ENTRADA' ? 'bg-blue-500/10' : 'bg-green-500/10'}>
-                              <MessageSquare className="h-5 w-5" />
-                            </AvatarFallback>
-                          </Avatar>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant={activity.direcao === 'ENTRADA' ? 'default' : 'secondary'}>
-                                {activity.direcao === 'ENTRADA' ? 'Entrada' : 'Saída'}
+        <TabsContent value="sessions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de Conexões</CardTitle>
+              <CardDescription>Registro de login e logout dos colaboradores</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px] pr-4">
+                {loading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredSessions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <LogIn className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Nenhuma sessão encontrada</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      >
+                        <Avatar className="h-10 w-10">
+                          {session.user_avatar && (
+                            <AvatarImage src={session.user_avatar} alt={session.user_name} />
+                          )}
+                          <AvatarFallback className="bg-muted">
+                            {getInitials(session.user_name)}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{session.user_name}</span>
+                            {!session.logout_at && (
+                              <Badge variant="default" className="bg-green-500">
+                                Online
                               </Badge>
-                              <span className="text-sm font-medium">{activity.lead_nome}</span>
-                            </div>
+                            )}
+                          </div>
 
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                              {activity.mensagem}
-                            </p>
-
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <LogIn className="h-4 w-4" />
                               <span>
-                                {formatDistanceToNow(new Date(activity.data_hora), {
+                                Login: {format(new Date(session.login_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                {' '}({formatDistanceToNow(new Date(session.login_at), {
                                   addSuffix: true,
                                   locale: ptBR,
-                                })}
+                                })})
                               </span>
                             </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          <TabsContent value="sessions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Histórico de Conexões</CardTitle>
-                <CardDescription>Registro de login e logout dos colaboradores</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
-                  {loading ? (
-                    <div className="space-y-4">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="flex gap-4">
-                          <Skeleton className="h-10 w-10 rounded-full" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-1/2" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : filteredSessions.length === 0 ? (
-                    <div className="text-center py-12">
-                      <LogIn className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">Nenhuma sessão encontrada</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredSessions.map((session) => (
-                        <div
-                          key={session.id}
-                          className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                        >
-                          <Avatar className="h-10 w-10">
-                            {session.user_avatar && (
-                              <AvatarImage src={session.user_avatar} alt={session.user_name} />
-                            )}
-                            <AvatarFallback className="bg-muted">
-                              {getInitials(session.user_name)}
-                            </AvatarFallback>
-                          </Avatar>
-
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium">{session.user_name}</span>
-                              {!session.logout_at && (
-                                <Badge variant="default" className="bg-green-500">
-                                  Online
-                                </Badge>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            {session.logout_at && (
                               <div className="flex items-center gap-2 text-muted-foreground">
-                                <LogIn className="h-4 w-4" />
+                                <LogOut className="h-4 w-4" />
                                 <span>
-                                  Login: {format(new Date(session.login_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                                  {' '}({formatDistanceToNow(new Date(session.login_at), {
+                                  Logout: {format(new Date(session.logout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                  {' '}({formatDistanceToNow(new Date(session.logout_at), {
                                     addSuffix: true,
                                     locale: ptBR,
                                   })})
                                 </span>
                               </div>
-
-                              {session.logout_at && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <LogOut className="h-4 w-4" />
-                                  <span>
-                                    Logout: {format(new Date(session.logout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                                    {' '}({formatDistanceToNow(new Date(session.logout_at), {
-                                      addSuffix: true,
-                                      locale: ptBR,
-                                    })})
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                            {session.duration_minutes && (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Clock className="h-4 w-4" />
-                                <span>Duração: {formatDuration(session.duration_minutes)}</span>
-                              </div>
                             )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          <TabsContent value="system" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Outras Atividades</CardTitle>
-                <CardDescription>Mudanças de etapa, atribuições e tags</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
-                  {loading ? (
-                    <div className="space-y-4">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="flex gap-4">
-                          <Skeleton className="h-10 w-10 rounded-full" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-1/2" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : filteredSystemActivities.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">Nenhuma atividade encontrada</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredSystemActivities.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex gap-3">
-                            <Avatar className="h-10 w-10">
-                              {activity.user_avatar && (
-                                <AvatarImage src={activity.user_avatar} alt={activity.user_name} />
-                              )}
-                              <AvatarFallback className="bg-muted">
-                                {getInitials(activity.user_name)}
-                              </AvatarFallback>
-                            </Avatar>
-
-                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${getActivityColor(activity.activity_type)}`}>
-                              {getActivityIcon(activity.activity_type)}
+                          {session.duration_minutes && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>Duração: {formatDuration(session.duration_minutes)}</span>
                             </div>
-                          </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                          <div className="flex-1 space-y-2">
-                            <p className="text-sm">{activity.description}</p>
+        <TabsContent value="system" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Outras Atividades</CardTitle>
+              <CardDescription>Mudanças de etapa, atribuições e tags</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px] pr-4">
+                {loading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredSystemActivities.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Nenhuma atividade encontrada</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredSystemActivities.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex gap-3">
+                          <Avatar className="h-10 w-10">
+                            {activity.user_avatar && (
+                              <AvatarImage src={activity.user_avatar} alt={activity.user_name} />
+                            )}
+                            <AvatarFallback className="bg-muted">
+                              {getInitials(activity.user_name)}
+                            </AvatarFallback>
+                          </Avatar>
 
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              <span>
-                                {formatDistanceToNow(new Date(activity.created_at), {
-                                  addSuffix: true,
-                                  locale: ptBR,
-                                })}
-                              </span>
-                            </div>
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${getActivityColor(activity.activity_type)}`}>
+                            {getActivityIcon(activity.activity_type)}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+
+                        <div className="flex-1 space-y-2">
+                          <p className="text-sm">{activity.description}</p>
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>
+                              {formatDistanceToNow(new Date(activity.created_at), {
+                                addSuffix: true,
+                                locale: ptBR,
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -68,7 +68,7 @@ const Chat = () => {
   const { theme } = useTheme();
   const permissions = usePermissions();
   const queryClient = useQueryClient();
-  
+
   // Core state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -77,13 +77,13 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [messageSearchExpanded, setMessageSearchExpanded] = useState(false);
   const [currentSearchResultIndex, setCurrentSearchResultIndex] = useState(0);
-  
+
   // UI state
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [manageTagsOpen, setManageTagsOpen] = useState(false);
@@ -93,52 +93,52 @@ const Chat = () => {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [removeTagsDialogOpen, setRemoveTagsDialogOpen] = useState(false);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
-  
+
   // Tags state
   const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string; color: string }>>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [leadTagsMap, setLeadTagsMap] = useState<Map<string, string[]>>(new Map());
   const [leadToRemoveTags, setLeadToRemoveTags] = useState<string | null>(null);
   const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
-  
+
   // Pinned state
   const [pinnedLeads, setPinnedLeads] = useState<string[]>([]);
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
-  
+
   // Reply state
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  
+
   // Delete message state
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
-  
+
   // Presence & reactions state
   const [presenceStatus, setPresenceStatus] = useState<Map<string, PresenceInfo>>(new Map());
   const [messageReactions, setMessageReactions] = useState<Map<string, MessageReaction[]>>(new Map());
   const [reactionPopoverOpen, setReactionPopoverOpen] = useState<string | null>(null);
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Map<string, boolean>>(new Map());
-  
+
   // User profile
   const [currentUserName, setCurrentUserName] = useState<string>("Atendente");
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
-  
+
   // Responsibles map for admin/owner view
   const [responsiblesMap, setResponsiblesMap] = useState<Map<string, { full_name: string; avatar_url: string | null }>>(new Map());
-  
+
   // File & audio state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [sendingAudio, setSendingAudio] = useState(false);
-  
+
   // Notification
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
-  
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
-  
+
 
   // Custom hooks
   const { refreshPresenceForLead, isLoadingPresence } = useChatPresence({
@@ -170,7 +170,7 @@ const Chat = () => {
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
     const channels = supabase.getChannels();
-    const matchingChannels = channels.filter(ch => 
+    const matchingChannels = channels.filter(ch =>
       ch.topic === `realtime:${channelName}` || ch.topic === channelName
     );
     if (matchingChannels.length > 0) {
@@ -182,17 +182,17 @@ const Chat = () => {
   useEffect(() => {
     const cleanupOrphanChannels = () => {
       const channels = supabase.getChannels();
-      const chatLeadChannels = channels.filter(ch => 
+      const chatLeadChannels = channels.filter(ch =>
         ch.topic.includes('chat-lead-') || ch.topic.includes('realtime:chat-lead-')
       );
-      
+
       // Se tiver mais de 2 canais de lead, limpar os extras (mantém apenas o atual)
       if (chatLeadChannels.length > 2) {
         const channelsToRemove = chatLeadChannels.slice(2);
         channelsToRemove.forEach(ch => supabase.removeChannel(ch));
       }
     };
-    
+
     const interval = setInterval(cleanupOrphanChannels, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -227,7 +227,7 @@ const Chat = () => {
 
   // React Query para persistência da lista de leads do chat
   const chatLeadsQueryKey = ['chat-leads', user?.id];
-  
+
   const { data: chatDataLoaded } = useQuery({
     queryKey: chatLeadsQueryKey,
     queryFn: async () => {
@@ -247,7 +247,7 @@ const Chat = () => {
 
     const savedPinnedLeads = localStorage.getItem("pinnedLeads");
     if (savedPinnedLeads) {
-      try { setPinnedLeads(JSON.parse(savedPinnedLeads)); } catch {}
+      try { setPinnedLeads(JSON.parse(savedPinnedLeads)); } catch { }
     }
 
     if (location.state?.selectedLead) {
@@ -257,60 +257,60 @@ const Chat = () => {
     let reloadTimeout: NodeJS.Timeout;
     const globalChannelName = `chat-global-${user?.id}`;
     let globalChannel: ReturnType<typeof supabase.channel> | null = null;
-    
+
     const setupGlobalChannel = async () => {
       // Remove existing channel before creating new one
       await removeExistingChannel(globalChannelName);
-      
+
       if (!isMountedRef.current) return;
 
       // Single consolidated channel for all global changes
       globalChannel = supabase
         .channel(globalChannelName)
-      // Profile changes
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `user_id=eq.${user?.id}` }, (payload) => {
-        if (payload.new?.full_name) setCurrentUserName(payload.new.full_name);
-      })
-      // Leads changes
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "leads" }, (payload) => {
-        const updatedLead = payload.new as Lead;
-        setLeads((prev) => prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead)));
-        setSelectedLead((prev) => (prev?.id === updatedLead.id ? updatedLead : prev));
-        if (updatedLead.is_online !== null || updatedLead.last_seen) {
-          setPresenceStatus((prev) => new Map(prev).set(updatedLead.id, { isOnline: !!updatedLead.is_online, lastSeen: updatedLead.last_seen || undefined }));
-        }
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, () => {
-        clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "leads" }, () => {
-        clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
-      })
-      // Tags changes
-      .on("postgres_changes", { event: "*", schema: "public", table: "lead_tags" }, () => loadAvailableTags())
-      // Tag assignments changes
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_tag_assignments" }, (payload) => {
-        const assignment = payload.new as { lead_id: string; tag_id: string };
-        setLeadTagsMap((prev) => {
-          const newMap = new Map(prev);
-          const currentTags = newMap.get(assignment.lead_id) || [];
-          if (!currentTags.includes(assignment.tag_id)) {
-            newMap.set(assignment.lead_id, [...currentTags, assignment.tag_id]);
+        // Profile changes
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `user_id=eq.${user?.id}` }, (payload) => {
+          if (payload.new?.full_name) setCurrentUserName(payload.new.full_name);
+        })
+        // Leads changes
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "leads" }, (payload) => {
+          const updatedLead = payload.new as Lead;
+          setLeads((prev) => prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead)));
+          setSelectedLead((prev) => (prev?.id === updatedLead.id ? updatedLead : prev));
+          if (updatedLead.is_online !== null || updatedLead.last_seen) {
+            setPresenceStatus((prev) => new Map(prev).set(updatedLead.id, { isOnline: !!updatedLead.is_online, lastSeen: updatedLead.last_seen || undefined }));
           }
-          return newMap;
-        });
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "lead_tag_assignments" }, (payload) => {
-        const assignment = payload.old as { lead_id: string; tag_id: string };
-        setLeadTagsMap((prev) => {
-          const newMap = new Map(prev);
-          const currentTags = newMap.get(assignment.lead_id) || [];
-          newMap.set(assignment.lead_id, currentTags.filter((tagId) => tagId !== assignment.tag_id));
-          return newMap;
-        });
-      })
+        })
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, () => {
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
+        })
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "leads" }, () => {
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
+        })
+        // Tags changes
+        .on("postgres_changes", { event: "*", schema: "public", table: "lead_tags" }, () => loadAvailableTags())
+        // Tag assignments changes
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_tag_assignments" }, (payload) => {
+          const assignment = payload.new as { lead_id: string; tag_id: string };
+          setLeadTagsMap((prev) => {
+            const newMap = new Map(prev);
+            const currentTags = newMap.get(assignment.lead_id) || [];
+            if (!currentTags.includes(assignment.tag_id)) {
+              newMap.set(assignment.lead_id, [...currentTags, assignment.tag_id]);
+            }
+            return newMap;
+          });
+        })
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "lead_tag_assignments" }, (payload) => {
+          const assignment = payload.old as { lead_id: string; tag_id: string };
+          setLeadTagsMap((prev) => {
+            const newMap = new Map(prev);
+            const currentTags = newMap.get(assignment.lead_id) || [];
+            newMap.set(assignment.lead_id, currentTags.filter((tagId) => tagId !== assignment.tag_id));
+            return newMap;
+          });
+        })
         .subscribe();
     };
 
@@ -336,7 +336,7 @@ const Chat = () => {
     const debounceTimeout = setTimeout(async () => {
       // Remove ALL existing lead channels first
       const allChannels = supabase.getChannels();
-      const leadChannelsToRemove = allChannels.filter(ch => 
+      const leadChannelsToRemove = allChannels.filter(ch =>
         ch.topic.includes('chat-lead-') || ch.topic.includes('realtime:chat-lead-')
       );
       await Promise.all(leadChannelsToRemove.map(ch => supabase.removeChannel(ch)));
@@ -352,7 +352,7 @@ const Chat = () => {
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
           const newMessage = payload.new as Message;
           if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
-            notificationAudioRef.current?.play().catch(() => {});
+            notificationAudioRef.current?.play().catch(() => { });
           }
           setMessages((prev) => {
             if (newMessage.evolution_message_id) {
@@ -440,7 +440,7 @@ const Chat = () => {
   const loadAllChatData = async () => {
     if (!user?.id) return;
     setLoading(true);
-    
+
     try {
       // Get organization ID first
       const { data: orgMember } = await supabase
@@ -448,7 +448,7 @@ const Chat = () => {
         .select("organization_id")
         .eq("user_id", user.id)
         .maybeSingle();
-      
+
       if (!orgMember?.organization_id) {
         setLoading(false);
         return;
@@ -516,12 +516,12 @@ const Chat = () => {
             .in("lead_id", leadsData.map(l => l.id)),
           responsibleUserIds.length > 0
             ? supabase
-                .from("profiles")
-                .select("user_id, full_name, avatar_url")
-                .in("user_id", responsibleUserIds)
+              .from("profiles")
+              .select("user_id, full_name, avatar_url")
+              .in("user_id", responsibleUserIds)
             : Promise.resolve({ data: [] })
         ]);
-        
+
         // Set tag assignments
         const newTagMap = new Map<string, string[]>();
         tagAssignmentsResult.data?.forEach((assignment) => {
@@ -553,9 +553,19 @@ const Chat = () => {
   const loadLeads = loadAllChatData;
 
   const loadAvailableTags = async () => {
-    const { data: orgData } = await supabase.rpc("get_user_organization_id", { _user_id: user?.id });
-    if (!orgData) return;
-    const { data } = await supabase.from("lead_tags").select("*").eq("organization_id", orgData).order("name");
+    if (!user?.id) return;
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!orgMember?.organization_id) return;
+    const { data } = await supabase
+      .from("lead_tags")
+      .select("*")
+      .eq("organization_id", orgMember.organization_id)
+      .order("name");
     setAvailableTags(data || []);
   };
 
@@ -581,7 +591,7 @@ const Chat = () => {
     try {
       const { data, error } = await supabase.from("mensagens_chat").select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)").eq("id_lead", leadId).order("data_hora", { ascending: true });
       if (error) throw error;
-      
+
       // Map quoted messages to the correct format
       const messagesWithQuotes = (data || []).map((msg: any) => ({
         ...msg,
@@ -592,7 +602,7 @@ const Chat = () => {
         } : null,
         quoted_message_id: msg.quoted_message_id,
       })) as Message[];
-      
+
       setMessages(messagesWithQuotes);
 
       const messageIds = data?.map((m) => m.id) || [];
@@ -660,10 +670,10 @@ const Chat = () => {
       if (!instanceData) throw new Error("Nenhuma instância WhatsApp conectada");
 
       const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
-        body: { 
-          instance_name: instanceData.instance_name, 
-          remoteJid: selectedLead.telefone_lead, 
-          message_text: fullMessage, 
+        body: {
+          instance_name: instanceData.instance_name,
+          remoteJid: selectedLead.telefone_lead,
+          message_text: fullMessage,
           leadId: selectedLead.id,
           quotedMessageId: replyingTo?.evolution_message_id || undefined,
         },
@@ -985,7 +995,7 @@ const Chat = () => {
     // Lead travado sempre fica na posição atual (topo dos não-fixados)
     if (a.id === lockedLeadId) return -1;
     if (b.id === lockedLeadId) return 1;
-    
+
     switch (filterOption) {
       case "alphabetical": return a.nome_lead.localeCompare(b.nome_lead);
       case "created": return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();

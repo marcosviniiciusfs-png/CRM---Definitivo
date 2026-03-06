@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UserCircle } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 
 interface Colaborador {
   user_id: string | null;
@@ -26,11 +27,11 @@ interface LeadResponsibleSelectProps {
   onUpdate?: () => void;
 }
 
-export function LeadResponsibleSelect({ 
-  leadId, 
+export function LeadResponsibleSelect({
+  leadId,
   currentResponsibleUserId,
-  currentResponsible, 
-  onUpdate 
+  currentResponsible,
+  onUpdate
 }: LeadResponsibleSelectProps) {
   const permissions = usePermissions();
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
@@ -44,22 +45,20 @@ export function LeadResponsibleSelect({
   const loadColaboradores = async () => {
     try {
       setLoading(true);
-      
-      // Usar RPC segura para não expor emails
-      const { data: members, error } = await supabase.rpc('get_organization_members_masked');
 
-      if (error) throw error;
+      // Usar a função que já lida com o fallback
+      const members = await fetchOrganizationMembersSafe();
 
       // Buscar profiles para pegar os nomes completos e avatares
       const userIds = members?.filter((m: any) => m.user_id).map((m: any) => m.user_id) || [];
-      
+
       let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, avatar_url')
           .in('user_id', userIds);
-        
+
         if (profiles) {
           profilesMap = profiles.reduce((acc, profile) => {
             if (profile.user_id) {
@@ -92,7 +91,7 @@ export function LeadResponsibleSelect({
   const handleResponsibleChange = async (userId: string) => {
     try {
       setUpdating(true);
-      
+
       // Buscar o colaborador selecionado
       const colaborador = colaboradores.find(c => c.user_id === userId);
       const responsibleName = colaborador?.full_name || colaborador?.email || '';
@@ -100,7 +99,7 @@ export function LeadResponsibleSelect({
       // Atualizar com UUID e TEXT para compatibilidade
       const { error } = await supabase
         .from('leads')
-        .update({ 
+        .update({
           responsavel_user_id: userId === 'none' ? null : userId,
           responsavel: userId === 'none' ? null : responsibleName // Mantém TEXT para compatibilidade
         })
@@ -128,7 +127,7 @@ export function LeadResponsibleSelect({
   };
 
   // Buscar colaborador por UUID (prioridade) ou por nome (fallback)
-  const currentColaborador = colaboradores.find(c => 
+  const currentColaborador = colaboradores.find(c =>
     (currentResponsibleUserId && c.user_id === currentResponsibleUserId) ||
     (!currentResponsibleUserId && (c.full_name === currentResponsible || c.email === currentResponsible))
   );
@@ -153,9 +152,9 @@ export function LeadResponsibleSelect({
           <div className="flex items-center gap-2">
             <Avatar className="h-5 w-5">
               {currentColaborador.avatar_url && (
-                <AvatarImage 
-                  src={currentColaborador.avatar_url} 
-                  alt={currentColaborador.full_name || currentColaborador.email || ''} 
+                <AvatarImage
+                  src={currentColaborador.avatar_url}
+                  alt={currentColaborador.full_name || currentColaborador.email || ''}
                 />
               )}
               <AvatarFallback className="text-[10px] bg-muted">
@@ -181,17 +180,17 @@ export function LeadResponsibleSelect({
           </div>
         </SelectItem>
         {colaboradores.map((colaborador) => (
-          <SelectItem 
-            key={colaborador.user_id || colaborador.email} 
+          <SelectItem
+            key={colaborador.user_id || colaborador.email}
             value={colaborador.user_id || "none"}
             className="text-xs"
           >
             <div className="flex items-center gap-2">
               <Avatar className="h-5 w-5">
                 {colaborador.avatar_url && (
-                  <AvatarImage 
-                    src={colaborador.avatar_url} 
-                    alt={colaborador.full_name || colaborador.email || ''} 
+                  <AvatarImage
+                    src={colaborador.avatar_url}
+                    alt={colaborador.full_name || colaborador.email || ''}
                   />
                 )}
                 <AvatarFallback className="text-[10px] bg-muted">

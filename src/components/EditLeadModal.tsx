@@ -26,6 +26,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { FacebookFormData } from "@/components/FacebookFormData";
 import { cn } from "@/lib/utils";
 import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
+import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import * as Icons from "lucide-react";
 import { FaTooth } from "react-icons/fa";
 
@@ -122,8 +123,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           return;
         }
 
-        // 2. Tentar via RPC de membros da organização
-        const { data: members } = await supabase.rpc('get_organization_members_masked');
+        // 2. Tentar via organização
+        const members = await fetchOrganizationMembersSafe();
         if (members && members.length > 0) {
           const member = members.find((m: any) => m.user_id === lead.responsavel_user_id);
           if (member) {

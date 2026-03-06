@@ -15,7 +15,7 @@ import { CreateTeamModal } from "@/components/CreateTeamModal";
 import { EditTeamModal } from "@/components/EditTeamModal";
 import { TeamGoalsCard } from "@/components/TeamGoalsCard";
 import { MemberTaskBadge } from "@/components/MemberTaskBadge";
-
+import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
@@ -128,9 +128,9 @@ const Equipes = () => {
         teamMembers = teamMembersData || [];
       }
 
-      const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
+      const orgMembers = await fetchOrganizationMembersSafe();
       const userIds = orgMembers?.filter((m: any) => m.user_id).map((m: any) => m.user_id!) || [];
-      
+
       let profiles: any[] = [];
       if (userIds.length > 0) {
         const { data: profilesData } = await supabase
@@ -255,7 +255,7 @@ const Equipes = () => {
 
   return (
     <TooltipProvider>
-    <div className="min-h-screen bg-background p-8">
+      <div className="min-h-screen bg-background p-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
@@ -385,7 +385,7 @@ const Equipes = () => {
                             Metas
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => {
                               setTeamToDelete(team);
@@ -558,7 +558,7 @@ const Equipes = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-    </div>
+      </div>
     </TooltipProvider>
   );
 };

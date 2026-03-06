@@ -11,6 +11,7 @@ import { CreateEventModal } from "@/components/CreateEventModal";
 import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
+import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 
 interface LeadDetailsDialogProps {
   open: boolean;
@@ -152,8 +153,8 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
           if (profile?.full_name) {
             setCurrentUserName(profile.full_name);
           } else {
-            // Tentar via RPC de membros
-            const { data: members } = await supabase.rpc('get_organization_members_masked');
+            // Tentar via membros
+            const members = await fetchOrganizationMembersSafe();
             const member = members?.find((m: any) => m.user_id === responsavelUserId);
             if (member) {
               const { data: mp } = await supabase
