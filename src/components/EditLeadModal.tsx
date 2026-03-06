@@ -110,7 +110,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const fetchCurrentUserName = async () => {
     try {
-      const creatorId = (lead as any).created_by || (lead as any).user_id || lead.responsavel_user_id;
+      const creatorId = (lead as any)?.created_by || lead?.responsavel_user_id;
 
       if (creatorId) {
         const { data: profileData } = await supabase

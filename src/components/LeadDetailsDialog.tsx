@@ -85,7 +85,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
 
   // Isolar a busca de criador em um hook independente para não quebrar o lead se falhar
   useEffect(() => {
-    const creatorId = details?.responsavel_user_id;
+    const creatorId = (details as any)?.created_by || details?.responsavel_user_id;
 
     if (!creatorId) {
       if (details?.responsavel) {

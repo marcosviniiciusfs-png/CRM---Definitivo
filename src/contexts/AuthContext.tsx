@@ -508,7 +508,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.error('[AUTH] Erro ao verificar dados iniciais:', error);
               if (mounted) setSectionAccess({});
             } finally {
-              if (mounted) setSectionAccessLoading(false);
+              setSectionAccessLoading(false);
             }
           }, 100);
         }
@@ -517,8 +517,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('[AUTH] Erro ao obter sessão:', error);
         if (mounted) {
           setLoading(false);
-          setSectionAccessLoading(false);
         }
+        setSectionAccessLoading(false);
       });
 
     return () => {
