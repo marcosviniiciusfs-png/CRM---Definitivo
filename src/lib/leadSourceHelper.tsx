@@ -94,7 +94,13 @@ export const CadastradoPorBadge: React.FC<CadastradoPorProps> = ({ source, nomeU
                     {renderIcon()}
                 </div>
             )}
-            <span className={`font-medium ${info.color}`}>{info.label}</span>
+            <span
+                className={`font-medium ${info.color} overflow-hidden text-ellipsis whitespace-nowrap`}
+                style={{ maxWidth: '140px' }}
+                title={info.label}
+            >
+                {info.label}
+            </span>
         </div>
     );
 };

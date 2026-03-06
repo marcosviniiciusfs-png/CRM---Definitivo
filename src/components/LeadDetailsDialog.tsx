@@ -146,7 +146,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
             .select('full_name')
             .eq('user_id', user.id)
             .single();
-          setCurrentUserName(profile?.full_name || user.email || 'Usuário');
+          setCurrentUserName(profile?.full_name || 'Usuário');
         }
       } catch { /* silently ignore */ }
 
