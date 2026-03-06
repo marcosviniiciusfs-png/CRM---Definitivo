@@ -1445,8 +1445,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
             </ScrollArea>
           </div>
 
-          {/* Sidebar de Ações e Dados (Right Column: Fixed 320px) */}
-          <div className="w-full md:w-[320px] flex-none h-full flex flex-col overflow-hidden bg-muted/10 border-t md:border-t-0">
+          {/* Sidebar de Ações e Dados (Right Column: Fixed 280px) */}
+          <div className="w-full md:w-[280px] flex-none h-full flex flex-col overflow-hidden bg-muted/10 border-t md:border-t-0">
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-4">
                 {/* Valor do negócio */}
