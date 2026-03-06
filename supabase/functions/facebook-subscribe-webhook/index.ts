@@ -54,19 +54,19 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
 
-    // Buscar tokens de forma segura
-    let { data: tokenData, error: tokenError } = await supabase.rpc('get_facebook_tokens_secure', {
-      p_organization_id: organization_id
+    // Buscar tokens de forma segura usando o integration_id específico
+    let { data: tokenData, error: tokenError } = await supabase.rpc('get_facebook_token_by_integration', {
+      p_integration_id: integration_id
     });
 
     // Fallback if RPC is missing
     if (tokenError || !tokenData || tokenData.length === 0) {
-      console.warn('⚠️ RPC get_facebook_tokens_secure failed or missing, trying fallback...');
+      console.warn('⚠️ RPC get_facebook_token_by_integration failed or missing, trying fallback...');
 
       const { data: integrationData, error: intError } = await supabase
         .from('facebook_integrations')
         .select('id, page_id')
-        .eq('organization_id', organization_id)
+        .eq('id', integration_id)
         .maybeSingle();
 
       if (integrationData) {
@@ -90,6 +90,9 @@ Deno.serve(async (req) => {
       console.error('Error fetching tokens:', tokenError);
       throw new Error('Não foi possível encontrar os tokens de acesso. Por favor, reconecte sua conta do Facebook.');
     }
+
+    // Extrair tokens do primeiro resultado
+    const { encrypted_page_access_token, page_id } = tokenData[0];
 
     // Descriptografar o token
     const pageAccessToken = await decryptToken(encrypted_page_access_token, ENCRYPTION_KEY);
