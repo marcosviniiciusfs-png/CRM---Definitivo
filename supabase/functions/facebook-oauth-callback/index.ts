@@ -6,6 +6,39 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
+// Função para criptografar tokens
+async function encryptToken(token: string, key: string): Promise<string> {
+  if (!token) return '';
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(token);
+    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt']
+    );
+
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      data
+    );
+
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encrypted), iv.length);
+
+    return btoa(String.fromCharCode(...combined));
+  } catch (error) {
+    console.error('Encryption error:', error);
+    return token;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders, status: 200 });
@@ -110,6 +143,7 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const SUPABASE_CALLBACK_URI = `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
+  const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
 
   if (!FACEBOOK_APP_ID || !FACEBOOK_APP_SECRET) {
     console.error('❌ [FB-CALLBACK] Configurações de ambiente ausentes');
@@ -122,9 +156,6 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Exchange authorization code for short-lived token
-    // CRITICAL: The redirect_uri used here MUST match the one used in the OAuth initiation.
-    // - For POST/API calls (from popup flow): the frontend sends the exact redirect_uri it used
-    // - For GET redirects (direct browser redirect from Facebook): use the Supabase callback URL
     const exchangeRedirectUri = isApiCall && customRedirectUri
       ? customRedirectUri
       : SUPABASE_CALLBACK_URI;
@@ -168,76 +199,88 @@ Deno.serve(async (req) => {
       throw new Error('Nenhuma página do Facebook foi encontrada vinculada a esta conta.');
     }
 
-    const selectedPage = pagesData.data[0];
-    const businessId = selectedPage?.business?.id || null;
-    const businessName = selectedPage?.business?.name || null;
-
-    // 4. Salvar no Banco de Dados (Bypass RLS com Service Role)
-    console.log('💾 [FB-CALLBACK] Salvando integração no banco...');
+    console.log(`📑 [FB-CALLBACK] Encontradas ${pagesData.data.length} páginas.`);
     const supabase = createClient(SUPABASE_URL ?? '', SUPABASE_SERVICE_ROLE_KEY ?? '');
-
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + (longLivedData.expires_in || 5184000));
 
-    // Upsert da integração
-    const { data: existing } = await supabase
-      .from('facebook_integrations')
-      .select('id')
-      .eq('user_id', user_id)
-      .eq('organization_id', organization_id)
-      .single();
+    const encryptedMainToken = await encryptToken(accessToken, ENCRYPTION_KEY);
+    const processedIntegrations = [];
 
-    let integrationId: string;
+    // 4. Processar TODAS as páginas (Bug #1)
+    for (const page of pagesData.data) {
+      console.log(`💾 [FB-CALLBACK] Processando página: ${page.name} (${page.id})`);
 
-    if (existing?.id) {
-      const { error: updErr } = await supabase
+      const businessId = page?.business?.id || null;
+      const businessName = page?.business?.name || null;
+
+      // Upsert buscando por organization_id + page_id para permitir múltiplas páginas (Bug #1)
+      const { data: existing } = await supabase
         .from('facebook_integrations')
-        .update({
-          expires_at: expiresAt.toISOString(),
-          page_id: selectedPage.id,
-          page_name: selectedPage.name,
-          business_id: businessId,
-          business_name: businessName,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existing.id);
-
-      if (updErr) throw updErr;
-      integrationId = existing.id;
-    } else {
-      const { data: insData, error: insErr } = await supabase
-        .from('facebook_integrations')
-        .insert({
-          user_id,
-          organization_id,
-          expires_at: expiresAt.toISOString(),
-          page_id: selectedPage.id,
-          page_name: selectedPage.name,
-          business_id: businessId,
-          business_name: businessName,
-          webhook_verified: false
-        })
         .select('id')
-        .single();
+        .eq('organization_id', organization_id)
+        .eq('page_id', page.id)
+        .maybeSingle();
 
-      if (insErr) throw insErr;
-      integrationId = insData.id;
+      let integrationId: string;
+
+      if (existing?.id) {
+        const { error: updErr } = await supabase
+          .from('facebook_integrations')
+          .update({
+            expires_at: expiresAt.toISOString(),
+            page_name: page.name,
+            business_id: businessId,
+            business_name: businessName,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
+
+        if (updErr) throw updErr;
+        integrationId = existing.id;
+      } else {
+        const { data: insData, error: insErr } = await supabase
+          .from('facebook_integrations')
+          .insert({
+            user_id,
+            organization_id,
+            expires_at: expiresAt.toISOString(),
+            page_id: page.id,
+            page_name: page.name,
+            business_id: businessId,
+            business_name: businessName,
+            webhook_verified: false
+          })
+          .select('id')
+          .single();
+
+        if (insErr) throw insErr;
+        integrationId = insData.id;
+      }
+
+      // 5. Salvar tokens na tabela segura com CRIPTOGRAFIA (Bug #2)
+      try {
+        const encryptedPageToken = await encryptToken(page.access_token, ENCRYPTION_KEY);
+
+        await supabase.rpc('update_facebook_tokens_secure', {
+          p_integration_id: integrationId,
+          p_encrypted_access_token: encryptedMainToken,
+          p_encrypted_page_access_token: encryptedPageToken
+        });
+      } catch (e: any) {
+        console.warn(`⚠️ [FB-CALLBACK] Falha no storage seguro para ${page.name}:`, e.message);
+      }
+
+      processedIntegrations.push({ id: integrationId, name: page.name });
     }
 
-    // 5. Salvar tokens na tabela segura
-    try {
-      await supabase.rpc('update_facebook_tokens_secure', {
-        p_integration_id: integrationId,
-        p_encrypted_access_token: accessToken,
-        p_encrypted_page_access_token: selectedPage.access_token
-      });
-    } catch (e: any) {
-      console.warn('⚠️ [FB-CALLBACK] Falha no storage seguro (não-crítico):', e.message);
-    }
-
-    console.log('✅ [FB-CALLBACK] Integração concluída com sucesso!');
+    console.log('✅ [FB-CALLBACK] Integração múltipla concluída com sucesso!');
     if (isApiCall) {
-      return new Response(JSON.stringify({ success: true, integration_id: integrationId }), {
+      return new Response(JSON.stringify({
+        success: true,
+        integrations: processedIntegrations,
+        message: `${processedIntegrations.length} página(s) conectada(s).`
+      }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });

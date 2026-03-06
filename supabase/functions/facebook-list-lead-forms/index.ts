@@ -43,13 +43,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { organization_id } = await req.json();
+    const { organization_id, integration_id } = await req.json();
 
-    if (!organization_id) {
-      throw new Error('Missing organization_id');
+    if (!organization_id && !integration_id) {
+      throw new Error('Missing organization_id or integration_id');
     }
 
-    console.log('Fetching lead forms for organization:', organization_id);
+    console.log('Fetching lead forms for:', integration_id ? `integration ${integration_id}` : `organization ${organization_id}`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -58,10 +58,24 @@ Deno.serve(async (req) => {
 
     const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
 
-    // Buscar tokens de forma segura usando a função RPC
-    let { data: tokenData, error: tokenError } = await supabase.rpc('get_facebook_tokens_secure', {
-      p_organization_id: organization_id
-    });
+    // Buscar tokens de forma segura
+    let tokenData, tokenError;
+
+    if (integration_id) {
+      console.log('Using integration_id for secure token fetch');
+      const { data, error } = await supabase.rpc('get_facebook_token_by_integration', {
+        p_integration_id: integration_id
+      });
+      tokenData = data;
+      tokenError = error;
+    } else {
+      console.log('Falling back to get_facebook_tokens_secure (DEPRECATED for multi-page)');
+      const { data, error } = await supabase.rpc('get_facebook_tokens_secure', {
+        p_organization_id: organization_id
+      });
+      tokenData = data;
+      tokenError = error;
+    }
 
     // Fallback if RPC is missing
     if (tokenError || !tokenData || tokenData.length === 0) {
@@ -70,7 +84,7 @@ Deno.serve(async (req) => {
       const { data: integrationData } = await supabase
         .from('facebook_integrations')
         .select('id, page_id')
-        .eq('organization_id', organization_id)
+        .eq(integration_id ? 'id' : 'organization_id', integration_id || organization_id)
         .maybeSingle();
 
       if (integrationData) {

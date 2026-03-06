@@ -22,7 +22,7 @@ interface FacebookLeadsConnectionProps {
 export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnectionProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [integration, setIntegration] = useState<any>(null);
+  const [integrations, setIntegrations] = useState<any[]>([]);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -30,8 +30,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   const [leadForms, setLeadForms] = useState<LeadForm[]>([]);
   const [loadingForms, setLoadingForms] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
-  const [needsReconnect, setNeedsReconnect] = useState(false);
   const [checkingTokens, setCheckingTokens] = useState(false);
+  const [selectedIntegration, setSelectedIntegration] = useState<any>(null);
   // Store the redirect_uri used during OAuth initiation so the callback uses the exact same one
   const [oauthRedirectUri, setOauthRedirectUri] = useState<string | null>(null);
 
@@ -118,21 +118,14 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           toast.success('Facebook conectado com sucesso!');
 
           // 1. Forçamos a verificação real dos dados que acabaram de ser salvos
-          checkConnection().then(data => {
-            if (data && data.page_id) {
-              console.log('🔄 [FB-CONN] Dados sincronizados. Abrindo seletor...');
-              // Give extra time for DB replication
-              setTimeout(() => {
-                fetchLeadForms(data);
-                toast.info("Carregando seus formulários...");
-              }, 1000);
+          checkConnection().then(items => {
+            if (items && items.length > 0) {
+              console.log('🔄 [FB-CONN] Dados sincronizados. O usuário verá a lista atualizada.');
             } else {
               // Tentativa de segurança caso o banco demore a propagar (RLS/Cache)
               console.warn('⚠️ [FB-CONN] Dados não encontrados imediatamente. Re-tentando...');
               setTimeout(() => {
-                checkConnection().then(retryData => {
-                  if (retryData) fetchLeadForms(retryData);
-                });
+                checkConnection();
               }, 2000);
             }
           });
@@ -205,9 +198,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     try {
       setCheckingTokens(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) return [];
 
-      // 1. Tentar carregar dados da integração
+      // 1. Tentar carregar dados das integrações
       let { data, error } = await supabase.rpc('get_facebook_integrations_masked');
 
       // Fallback: Se a RPC falhar ou não existir (404), tenta query direta na tabela
@@ -216,64 +209,64 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         const { data: directData, error: directError } = await supabase
           .from('facebook_integrations')
           .select('*')
-          .eq('organization_id', organizationId)
-          .maybeSingle();
+          .eq('organization_id', organizationId);
 
         if (!directError && directData) {
-          data = [directData];
+          data = directData;
           error = null;
         }
       }
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error checking Facebook connection:', error);
-        return null;
+        return [];
       }
 
-      const integrationData = data?.find((item: any) => item.organization_id === organizationId) || data?.[0];
+      // Filtrar integrações desta organização
+      const orgIntegrations = data?.filter((item: any) => item.organization_id === organizationId) || [];
 
-      if (integrationData && integrationData.page_id) {
+      if (orgIntegrations.length > 0) {
         setIsConnected(true);
-        setIntegration(integrationData);
 
-        // Verificar integridade dos tokens via RPC segura
-        if (organizationId) {
-          let { data: tokenCheck, error: tokenError } = await (supabase.rpc as any)('get_facebook_tokens_secure', {
-            p_organization_id: organizationId
-          });
+        // Para cada integração, verificar separadamente se precisa de reconexão
+        const integrationsWithStatus = await Promise.all(orgIntegrations.map(async (item: any) => {
+          let needsReconnect = false;
 
-          // Fallback para query direta se a RPC falhar ou não existir
-          if (tokenError || !tokenCheck) {
-            console.warn('⚠️ [FB-CONN] RPC tokens falhou ou ausente, tentando query direta...');
-            const { data: directTokens, error: directTokensError } = await supabase
-              .from('facebook_integration_tokens')
-              .select('encrypted_access_token')
-              .eq('organization_id', organizationId)
-              .maybeSingle();
+          if (organizationId) {
+            // Tentar buscar tokens seguros para esta integração específica
+            const { data: tokenCheck } = await (supabase.rpc as any)('get_facebook_token_by_integration', {
+              p_integration_id: item.id
+            });
 
-            if (!directTokensError && directTokens) {
-              tokenCheck = [directTokens] as any;
-              tokenError = null;
+            let hasSecureTokens = tokenCheck && (tokenCheck as any[]).length > 0 && (tokenCheck as any[])[0].encrypted_access_token;
+
+            // Fallback para query direta se a RPC falhar
+            if (!hasSecureTokens) {
+              const { data: directTokens } = await supabase
+                .from('facebook_integration_tokens')
+                .select('encrypted_access_token')
+                .eq('integration_id', item.id)
+                .maybeSingle();
+
+              hasSecureTokens = !!directTokens?.encrypted_access_token;
             }
+
+            needsReconnect = !hasSecureTokens;
           }
 
-          const hasSecureTokens = tokenCheck && (tokenCheck as any[]).length > 0 && (tokenCheck as any[])[0].encrypted_access_token;
+          return { ...item, needsReconnect };
+        }));
 
-          if (!hasSecureTokens) {
-            // Se não há tokens na tabela segura, precisamos de reconexão
-            setNeedsReconnect(true);
-          }
-        }
-        return integrationData;
-      } else if (integrationData) {
+        setIntegrations(integrationsWithStatus);
+        return integrationsWithStatus;
+      } else {
         setIsConnected(false);
-        setIntegration(integrationData);
-        return integrationData;
+        setIntegrations([]);
+        return [];
       }
-      return null;
     } catch (error) {
-      console.error('Error:', error);
-      return null;
+      console.error('Error in checkConnection:', error);
+      return [];
     } finally {
       setCheckingTokens(false);
     }
@@ -368,49 +361,32 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     }
   };
 
-  const handleDisconnect = async () => {
-    if (!integration) return;
-
+  const handleDisconnect = async (id: string) => {
     try {
       const { error } = await supabase
         .from('facebook_integrations')
         .delete()
-        .eq('id', integration.id);
+        .eq('id', id);
 
       if (error) throw error;
 
-      setIsConnected(false);
-      setIntegration(null);
-      setShowSuccess(false);
       toast.success('Facebook desconectado com sucesso');
+      await checkConnection();
     } catch (error) {
       console.error('Error disconnecting Facebook:', error);
       toast.error('Erro ao desconectar Facebook');
     }
   };
 
-  const fetchLeadForms = async (integrationData?: any) => {
-    let activeIntegration = integrationData || integration;
-
-    // Se os dados estão incompletos, tentamos buscar no banco antes de dar erro
-    if (!activeIntegration || !activeIntegration.page_id) {
-      console.log('🔄 [FB-CONN] Dados incompletos no fetch. Tentando re-sincronizar...');
-      activeIntegration = await checkConnection();
-    }
-
-    if (!activeIntegration) {
-      toast.error('Integração não encontrada. Reconecte ao Facebook.');
+  const fetchLeadForms = async (integrationObj: any) => {
+    if (!integrationObj || !integrationObj.id || !integrationObj.page_id) {
+      toast.error('Página não configurada corretamente. Por favor, reconecte ao Facebook.');
       return;
     }
 
-    if (!activeIntegration.page_id) {
-      toast.error('Página não configurada. Por favor, reconecte ao Facebook.');
-      return;
-    }
-
+    setSelectedIntegration(integrationObj);
     setLoadingForms(true);
     try {
-      // Buscar organization_id do usuário
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Usuário não autenticado');
@@ -422,10 +398,13 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      // Enviar apenas organization_id - tokens serão buscados de forma segura no servidor
+      console.log('Fetching forms for integration:', integrationObj.id, 'page:', integrationObj.page_id);
+
+      // Enviar organization_id e integration_id
       const { data, error } = await supabase.functions.invoke('facebook-list-lead-forms', {
         body: {
           organization_id: organizationId,
+          integration_id: integrationObj.id,
         },
       });
 
@@ -466,7 +445,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         body: {
           form_id: form.id,
           form_name: form.name,
-          integration_id: integration.id,
+          integration_id: selectedIntegration.id,
           organization_id: organizationId,
         },
       });
@@ -530,181 +509,189 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {showSuccess && isConnected && !needsReconnect && (
+        {showSuccess && isConnected && (
           <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertDescription className="text-sm text-green-800 dark:text-green-200">
-              <strong>Conexão estabelecida!</strong> Agora configure o webhook no Facebook para começar a receber leads.
+              <strong>Conexão estabelecida!</strong> Agora escolha o formulário da página desejada abaixo.
             </AlertDescription>
           </Alert>
         )}
 
-        {needsReconnect && (
-          <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
-              <strong>Reconexão necessária!</strong> Os tokens de acesso expiraram ou estão inválidos.
-              Por favor, desconecte e reconecte sua conta do Facebook para restaurar a funcionalidade.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-          <div className="flex items-center gap-3">
-            {isConnected && !needsReconnect ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
-            ) : needsReconnect ? (
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-muted-foreground" />
-            )}
-            <div>
-              <p className="font-medium">Status da Conexão</p>
-              <p className="text-sm text-muted-foreground">
-                {needsReconnect
-                  ? 'Reconexão necessária'
-                  : isConnected
-                    ? `Conectado - ${integration?.page_name || 'Página configurada'}`
-                    : 'Não conectado'}
-              </p>
-              {isConnected && integration?.selected_form_name && !needsReconnect && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Formulário: {integration.selected_form_name}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {isConnected && !integration?.selected_form_id && !needsReconnect && (
-              <Button onClick={fetchLeadForms} disabled={loadingForms} variant="outline">
-                {loadingForms ? 'Carregando...' : 'Selecionar Formulário'}
-              </Button>
-            )}
-            {isConnected ? (
-              <Button variant="destructive" onClick={handleDisconnect}>
-                Desconectar
-              </Button>
-            ) : (
-              <Button onClick={handleConnect} disabled={loading} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                <Facebook className="h-4 w-4" />
-                {loading ? 'Conectando...' : 'Conectar ao Facebook'}
-              </Button>
-            )}
-          </div>
+        <div className="flex justify-end mb-2">
+          <Button onClick={handleConnect} disabled={loading} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Facebook className="h-4 w-4" />
+            {loading ? 'Conectando...' : 'Conectar Nova Página'}
+          </Button>
         </div>
 
-        {!isConnected && (
-          <div className="text-sm text-muted-foreground space-y-2">
+        <div className="space-y-3">
+          {checkingTokens && integrations.length === 0 ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : integrations.length === 0 ? (
+            <div className="text-center p-8 border border-dashed rounded-lg bg-muted/20">
+              <p className="text-muted-foreground italic">Nenhuma página do Facebook conectada.</p>
+            </div>
+          ) : (
+            integrations.map((item) => (
+              <div key={item.id} className="p-4 border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {item.needsReconnect ? (
+                      <AlertCircle className="h-5 w-5 text-amber-500" />
+                    ) : (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    )}
+                    <div>
+                      <p className="font-semibold">{item.page_name || 'Sem nome'}</p>
+                      <p className="text-xs text-muted-foreground">ID: {item.page_id}</p>
+                      {item.needsReconnect ? (
+                        <p className="text-xs text-amber-600 mt-1">Reconexão necessária</p>
+                      ) : (
+                        <p className="text-xs text-green-600 mt-1">Conectado e Ativo</p>
+                      )}
+                      {item.selected_form_name && (
+                        <p className="text-xs font-medium text-blue-600 mt-1 flex items-center gap-1">
+                          <Check className="h-3 w-3" /> Form: {item.selected_form_name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fetchLeadForms(item)}
+                      disabled={loadingForms || item.needsReconnect}
+                      className="text-xs h-8"
+                    >
+                      {item.selected_form_id ? 'Trocar Formulário' : 'Selecionar Formulário'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDisconnect(item.id)}
+                      className="text-xs h-8 text-destructive hover:bg-destructive/10"
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                </div>
+
+                {item.selected_form_id && !item.needsReconnect && (
+                  <div className="mt-4 pt-4 border-t border-dashed">
+                    <FunnelSelector
+                      sourceType="facebook"
+                      sourceIdentifier={item.selected_form_id}
+                      organizationId={organizationId}
+                      className="bg-transparent border-none p-0 mt-0"
+                    />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        {!isConnected && integrations.length === 0 && (
+          <div className="text-sm text-muted-foreground space-y-2 mt-4 bg-muted/30 p-4 rounded-lg">
             <p className="font-medium">Como funciona:</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
               <li>Conecte sua conta do Facebook Business</li>
-              <li>Configure o webhook (instruções aparecerão após conexão)</li>
-              <li>Leads serão automaticamente importados para as seções Leads e Pipeline</li>
-              <li>Cada lead virá com a fonte "Facebook Leads"</li>
+              <li>O sistema listará todas as páginas que você gerencia</li>
+              <li>Para cada página, selecione o formulário que deseja monitorar</li>
+              <li>Os leads serão importados automaticamente para o CRM</li>
             </ul>
           </div>
         )}
-
-        {isConnected && integration && integration.selected_form_id && (
-          <div className="space-y-3">
-            <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-              <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Tudo Configurado!</p>
-              <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                Os leads do formulário <strong>"{integration.selected_form_name}"</strong> aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
-              </p>
-            </div>
-            <FunnelSelector
-              sourceType="facebook"
-              sourceIdentifier={integration.selected_form_id}
-            />
-          </div>
-        )}
-
-        {/* Form Selection Dialog */}
-        <Dialog open={showFormSelector} onOpenChange={setShowFormSelector}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Selecione o Formulário de Lead</DialogTitle>
-              <DialogDescription>
-                Escolha qual formulário do Facebook você deseja monitorar para receber leads automaticamente
-              </DialogDescription>
-            </DialogHeader>
-
-            {loadingForms ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : leadForms.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                <p>Nenhum formulário de lead encontrado nesta página.</p>
-                <p className="text-sm mt-2">Crie um formulário no Facebook Ads Manager primeiro.</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {leadForms.map((form) => {
-                  const isSelected = integration?.selected_form_id === form.id;
-
-                  return (
-                    <div
-                      key={form.id}
-                      className={cn(
-                        "w-full p-4 border rounded-lg transition-all",
-                        isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted"
-                      )}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium">{form.name}</p>
-                          <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
-                          <div className="flex items-center gap-4 mt-2">
-                            <span className={`text-xs px-2 py-1 rounded font-medium ${form.status === 'ACTIVE'
-                              ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                              : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
-                              }`}>
-                              {form.status}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {form.leads_count || 0} leads
-                            </span>
-                          </div>
-                        </div>
-
-                        {!isSelected ? (
-                          <Button
-                            onClick={() => handleFormSelect(form)}
-                            disabled={subscribing}
-                            size="sm"
-                            className="ml-4"
-                          >
-                            {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Escolher"}
-                          </Button>
-                        ) : (
-                          <CheckCircle className="h-5 w-5 text-green-500 ml-4" />
-                        )}
-                      </div>
-
-                      {/* Integrated Funnel Selector for the specific form */}
-                      <div className="mt-4 pt-4 border-t border-dashed">
-                        <FunnelSelector
-                          sourceType="facebook"
-                          sourceIdentifier={form.id}
-                          organizationId={organizationId}
-                          className="mt-0 bg-transparent border-none p-0"
-                        />
-                        {!isSelected && (
-                          <p className="text-[10px] text-muted-foreground mt-2 italic">
-                            * Configure o funil de destino antes ou depois de escolher o formulário.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </CardContent>
+
+      {/* Form Selection Dialog */}
+      <Dialog open={showFormSelector} onOpenChange={setShowFormSelector}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Selecione o Formulário de Lead</DialogTitle>
+            <DialogDescription>
+              Escolha qual formulário do Facebook você deseja monitorar para receber leads automaticamente
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingForms ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : leadForms.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <p>Nenhum formulário de lead encontrado nesta página.</p>
+              <p className="text-sm mt-2">Crie um formulário no Facebook Ads Manager primeiro.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {leadForms.map((form) => {
+                const isSelected = selectedIntegration?.selected_form_id === form.id;
+
+                return (
+                  <div
+                    key={form.id}
+                    className={cn(
+                      "w-full p-4 border rounded-lg transition-all",
+                      isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted"
+                    )}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium">{form.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className={`text-xs px-2 py-1 rounded font-medium ${form.status === 'ACTIVE'
+                            ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                            : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                            }`}>
+                            {form.status}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {form.leads_count || 0} leads
+                          </span>
+                        </div>
+                      </div>
+
+                      {!isSelected ? (
+                        <Button
+                          onClick={() => handleFormSelect(form)}
+                          disabled={subscribing}
+                          size="sm"
+                          className="ml-4"
+                        >
+                          {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Escolher"}
+                        </Button>
+                      ) : (
+                        <CheckCircle className="h-5 w-5 text-green-500 ml-4" />
+                      )}
+                    </div>
+
+                    {/* Integrated Funnel Selector for the specific form */}
+                    <div className="mt-4 pt-4 border-t border-dashed">
+                      <FunnelSelector
+                        sourceType="facebook"
+                        sourceIdentifier={form.id}
+                        organizationId={organizationId}
+                        className="mt-0 bg-transparent border-none p-0"
+                      />
+                      {!isSelected && (
+                        <p className="text-[10px] text-muted-foreground mt-2 italic">
+                          * Configure o funil de destino antes ou depois de escolher o formulário.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
