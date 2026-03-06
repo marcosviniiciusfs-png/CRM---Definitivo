@@ -777,38 +777,38 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
         {/* Content Body (2 Columns) */}
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-          {/* Main Content (Left Column: 70%) */}
-          <div className="w-full md:w-[70%] h-full flex flex-col overflow-hidden border-r bg-background">
+          {/* Main Content (Left Column) */}
+          <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden border-r bg-background">
             <ScrollArea className="flex-1">
               <div className="p-6 space-y-6">
                 {/* Tabs de Ações */}
                 <Tabs defaultValue="nota" className="w-full" onValueChange={setCurrentTab}>
-                  <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide">
-                    <TabsTrigger value="nota" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
+                  <TabsList className="w-full flex justify-start bg-transparent border-b rounded-none h-auto p-0 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide">
+                    <TabsTrigger value="nota" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
                       <Pencil className="h-4 w-4" />
                       Nota
                     </TabsTrigger>
-                    <TabsTrigger value="email" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
+                    <TabsTrigger value="email" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
                       <Mail className="h-4 w-4" />
                       E-mail
                     </TabsTrigger>
-                    <TabsTrigger value="ligacao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
+                    <TabsTrigger value="ligacao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
                       <Phone className="h-4 w-4" />
                       Ligação
                     </TabsTrigger>
-                    <TabsTrigger value="whatsapp" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
+                    <TabsTrigger value="whatsapp" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
                       <MessageSquare className="h-4 w-4" />
                       WhatsApp
                     </TabsTrigger>
-                    <TabsTrigger value="proposta" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
+                    <TabsTrigger value="proposta" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
                       <FileText className="h-4 w-4" />
                       Proposta
                     </TabsTrigger>
-                    <TabsTrigger value="reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
+                    <TabsTrigger value="reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
                       <Video className="h-4 w-4" />
                       Reunião
                     </TabsTrigger>
-                    <TabsTrigger value="visita" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
+                    <TabsTrigger value="visita" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
                       <MapPin className="h-4 w-4" />
                       Visita
                     </TabsTrigger>
@@ -1445,8 +1445,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
             </ScrollArea>
           </div>
 
-          {/* Sidebar de Ações e Dados (Right Column: 30%) */}
-          <div className="w-full md:w-[30%] h-full flex flex-col flex-shrink-0 overflow-hidden bg-muted/10 border-t md:border-t-0">
+          {/* Sidebar de Ações e Dados (Right Column: Fixed 320px) */}
+          <div className="w-full md:w-[320px] flex-none h-full flex flex-col overflow-hidden bg-muted/10 border-t md:border-t-0">
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-4">
                 {/* Valor do negócio */}
