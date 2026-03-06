@@ -100,7 +100,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
       setShowCropDialog(true);
     });
     reader.readAsDataURL(file);
-    
+
     event.target.value = '';
   };
 
@@ -112,50 +112,54 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
 
       // Gerar imagem recortada
       const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
-      
-      // Criar nome único para o arquivo
-      const fileName = `${userId}/${Date.now()}.jpg`;
 
-      // Deletar avatar antigo se existir
-      if (avatarUrl) {
-        const oldPath = avatarUrl.split('/').slice(-2).join('/');
-        await supabase.storage.from('avatars').remove([oldPath]);
-      }
+      // Path fixo — evita acúmulo de arquivos e erro FILE_ERROR_NO_SPACE
+      const filePath = `${userId}/avatar.jpg`;
 
-      // Upload do arquivo recortado
+      // Upload com upsert:true substitui o arquivo existente sem precisar deletar antes
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, croppedBlob, {
+        .upload(filePath, croppedBlob, {
           cacheControl: '3600',
           upsert: true,
+          contentType: 'image/jpeg',
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Erro de storage:', uploadError);
+        if (uploadError.message?.includes('No space') || uploadError.message?.includes('FILE_ERROR_NO_SPACE')) {
+          toast.error('Sem espaço no storage. Entre em contato com o suporte.');
+        } else {
+          toast.error(`Erro ao enviar imagem: ${uploadError.message}`);
+        }
+        return;
+      }
 
-      // Obter URL pública
+      // Obter URL pública — adicionar timestamp para forçar reload no browser
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
-        .getPublicUrl(fileName);
+        .getPublicUrl(filePath);
 
-      // Atualizar perfil no banco
+      const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
+
+      // Atualizar perfil no banco com upsert para garantir que a linha exista
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', userId);
+        .upsert({ user_id: userId, avatar_url: urlWithTimestamp }, { onConflict: 'user_id' });
 
       if (updateError) throw updateError;
 
-      onAvatarUpdate(publicUrl);
-      toast.success("Foto de perfil atualizada com sucesso!");
-      
+      onAvatarUpdate(urlWithTimestamp);
+      toast.success('Foto de perfil atualizada com sucesso!');
+
       // Resetar estado
       setShowCropDialog(false);
       setImageSrc(null);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao fazer upload:', error);
-      toast.error("Erro ao atualizar foto de perfil. Tente novamente.");
+      toast.error(error.message || 'Erro ao atualizar foto de perfil. Tente novamente.');
     } finally {
       setUploading(false);
     }
@@ -186,7 +190,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
             {userName ? getInitials(userName) : <User className="h-8 w-8" />}
           </AvatarFallback>
         </Avatar>
-        
+
         <div className="flex flex-col items-center gap-2">
           <label htmlFor="avatar-upload">
             <Button
@@ -230,7 +234,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
           <DialogHeader>
             <DialogTitle>Ajustar Foto de Perfil</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="relative h-[400px] bg-muted rounded-lg overflow-hidden">
               {imageSrc && (

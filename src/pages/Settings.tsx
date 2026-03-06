@@ -76,19 +76,22 @@ const Settings = () => {
           .from('profiles')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle(); // maybeSingle() não lança erro 406 quando não existe linha
 
         if (profileError) {
           console.error('Erro ao buscar perfil:', profileError);
-        } else if (profileData) {
-          setFullName(profileData.full_name || "");
-          setJobTitle(profileData.job_title || "");
+        }
+
+        if (profileData) {
+          setFullName(profileData.full_name || '');
+          setJobTitle(profileData.job_title || '');
           setAvatarUrl(profileData.avatar_url || null);
           setNotificationSoundEnabled(profileData.notification_sound_enabled ?? true);
           const btnSoundEnabled = (profileData as any).button_click_sound_enabled ?? true;
           setButtonClickSoundEnabled(btnSoundEnabled);
           localStorage.setItem('buttonClickSoundEnabled', String(btnSoundEnabled));
         }
+        // Se profileData == null, o perfil ainda não existe — os campos ficam vazios e o upsert vai criar na primeira vez que salvar
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
       } finally {
@@ -104,29 +107,25 @@ const Settings = () => {
 
     setSaving(true);
     try {
+      // upsert cria a linha caso não exista (evita falha silenciosa do update)
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: fullName,
-          job_title: jobTitle,
-        })
-        .eq('user_id', user.id);
+        .upsert({
+          user_id: user.id,
+          full_name: fullName.trim(),
+          job_title: jobTitle.trim(),
+        }, { onConflict: 'user_id' });
 
       if (error) throw error;
 
-      // Atualizar cache do sessionStorage para sincronizar com UserProfileMenu
+      // Invalidar cache do sessionStorage para sincronizar com UserProfileMenu
       const cacheKey = `profile_${user.id}`;
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const profileData = JSON.parse(cached);
-        profileData.full_name = fullName;
-        sessionStorage.setItem(cacheKey, JSON.stringify(profileData));
-      }
+      sessionStorage.removeItem(cacheKey); // remover força recarga no próximo acesso
 
-      toast.success("Perfil atualizado com sucesso!");
-    } catch (error) {
+      toast.success('Perfil atualizado com sucesso!');
+    } catch (error: any) {
       console.error('Erro ao salvar perfil:', error);
-      toast.error("Erro ao salvar perfil. Tente novamente.");
+      toast.error(error.message || 'Erro ao salvar perfil. Tente novamente.');
     } finally {
       setSaving(false);
     }
