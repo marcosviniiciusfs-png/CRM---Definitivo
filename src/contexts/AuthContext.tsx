@@ -173,15 +173,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshSubscription = async (organizationId?: string) => {
-    console.log('[AUTH] refreshSubscription called, forcing free plan');
-    setSubscriptionData({
-      subscribed: true,
-      product_id: 'enterprise_free',
-      subscription_end: null,
-      max_collaborators: 999,
-      extra_collaborators: 0,
-      total_collaborators: 999
-    });
+    if (!user?.id) return;
+
+    try {
+      // Check cache first
+      const cached = getSubscriptionCache(user.id, organizationId);
+      if (cached) {
+        setSubscriptionData(cached);
+        return;
+      }
+
+      console.log('[AUTH] refreshing subscription for:', organizationId || 'personal');
+
+      // Tentar buscar assinatura ativa do banco
+      const query = supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('status', 'active');
+
+      if (organizationId) {
+        query.eq('organization_id', organizationId);
+      } else {
+        query.eq('user_id', user.id);
+      }
+
+      const { data: sub, error } = await query.limit(1).maybeSingle();
+
+      if (error) {
+        console.error('[AUTH] Subscription fetch error:', error);
+      }
+
+      let subData: SubscriptionData;
+
+      if (sub) {
+        subData = {
+          subscribed: true,
+          product_id: sub.plan_id || 'pro',
+          subscription_end: sub.end_date,
+          max_collaborators: 5 + (sub.extra_collaborators || 0),
+          extra_collaborators: sub.extra_collaborators || 0,
+          total_collaborators: 5 + (sub.extra_collaborators || 0)
+        };
+      } else {
+        // Fallback generoso para não bloquear o usuário durante migração/testes
+        console.log('[AUTH] Using fallback plan');
+        subData = {
+          subscribed: true,
+          product_id: 'enterprise_free',
+          subscription_end: null,
+          max_collaborators: 999,
+          extra_collaborators: 0,
+          total_collaborators: 999
+        };
+      }
+
+      setSubscriptionData(subData);
+      setSubscriptionCache(subData, user.id, organizationId);
+    } catch (err) {
+      console.error('[AUTH] Refresh subscription failed:', err);
+    }
   };
 
   const refreshSectionAccess = async () => {

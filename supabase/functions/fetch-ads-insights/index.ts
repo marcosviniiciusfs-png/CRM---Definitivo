@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 };
 
 interface AdAccount {
@@ -21,12 +22,12 @@ interface AdsInsightsParams {
 // Função para descriptografar tokens
 async function decryptToken(encryptedToken: string, key: string): Promise<string> {
   if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
-  
+
   try {
     const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);
-    
+
     const encoder = new TextEncoder();
     const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
     const cryptoKey = await crypto.subtle.importKey(
@@ -36,13 +37,13 @@ async function decryptToken(encryptedToken: string, key: string): Promise<string
       false,
       ['decrypt']
     );
-    
+
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
       cryptoKey,
       data
     );
-    
+
     return new TextDecoder().decode(decrypted);
   } catch (error) {
     console.error('Decryption error:', error);
@@ -108,7 +109,7 @@ const getLeadTypeName = (leadType: string): string => {
 };
 
 const calculateLeadsFromActions = (
-  actions: any[], 
+  actions: any[],
   conversions: any[],
   objective: string
 ): { leads: number; leadType: string } => {
@@ -168,8 +169,8 @@ const calculateLeadsFromActions = (
   }
 
   for (const action of actions) {
-    if (action.action_type.startsWith('offsite_conversion.custom.') || 
-        action.action_type.startsWith('omni_custom')) {
+    if (action.action_type.startsWith('offsite_conversion.custom.') ||
+      action.action_type.startsWith('omni_custom')) {
       const value = parseInt(action.value || '0', 10);
       if (value > 0) {
         console.log(`    [CUSTOM] ${action.action_type}=${value}`);
@@ -260,8 +261,9 @@ const fetchAllPages = async (baseUrl: string): Promise<any[]> => {
 };
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -281,7 +283,7 @@ Deno.serve(async (req) => {
 
     // Buscar tokens de forma segura
     const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
-    
+
     let access_token: string | null = null;
     let selectedAccountId: string | null = null;
     let availableAccounts: AdAccount[] = [];
@@ -304,7 +306,7 @@ Deno.serve(async (req) => {
 
     integrationId = integration.id;
     selectedAccountId = ad_account_id || integration.ad_account_id;
-    
+
     if (integration.ad_accounts) {
       if (Array.isArray(integration.ad_accounts)) {
         availableAccounts = integration.ad_accounts;
@@ -329,12 +331,12 @@ Deno.serve(async (req) => {
     } else {
       // Verificar se há token legado válido na tabela principal
       console.log('Checking for legacy tokens in facebook_integrations');
-      
+
       if (integration.access_token && integration.access_token !== 'ENCRYPTED_IN_TOKENS_TABLE') {
         // Token legado encontrado - usar e migrar para tabela segura
         console.log('Found legacy token, attempting migration...');
         access_token = integration.access_token;
-        
+
         // Tentar migrar para tabela segura (não bloqueia se falhar)
         try {
           const { error: migrateError } = await supabase.rpc('update_facebook_tokens_secure', {
@@ -342,7 +344,7 @@ Deno.serve(async (req) => {
             p_encrypted_access_token: access_token,
             p_encrypted_page_access_token: null
           });
-          
+
           if (!migrateError) {
             console.log('Legacy token migrated successfully');
             // Atualizar tabela principal para indicar que tokens estão criptografados
@@ -362,10 +364,10 @@ Deno.serve(async (req) => {
     if (!access_token) {
       console.log('No valid access token found - reconnection required');
       return new Response(
-        JSON.stringify({ 
-          error: 'Token do Facebook expirado ou não encontrado. Por favor, reconecte sua conta do Facebook nas configurações de integrações.', 
+        JSON.stringify({
+          error: 'Token do Facebook expirado ou não encontrado. Por favor, reconecte sua conta do Facebook nas configurações de integrações.',
           data: null,
-          needsReconnect: true 
+          needsReconnect: true
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
@@ -411,14 +413,14 @@ Deno.serve(async (req) => {
     if (!aggregatedData || aggregatedData.length === 0) {
       console.log('Nenhum dado encontrado para o período');
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           data: {
             totalSpend: 0, totalReach: 0, totalImpressions: 0, totalClicks: 0, totalLeads: 0,
             avgCPL: 0, avgCPC: 0, avgCTR: 0, avgFrequency: 0,
             chartData: [], campaignBreakdown: [], platformBreakdown: [],
             crmValidation: { metaReportedLeads: 0, crmReceivedLeads: 0, captureRate: 0, discrepancy: 0 }
           },
-          error: null, selectedAccount, availableAccounts 
+          error: null, selectedAccount, availableAccounts
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
@@ -435,7 +437,7 @@ Deno.serve(async (req) => {
         const campaignsUrl = `https://graph.facebook.com/v18.0/?ids=${batch.join(',')}&fields=objective,optimization_goal&access_token=${access_token}`;
         const campaignsResponse = await fetch(campaignsUrl);
         const campaignsData = await campaignsResponse.json();
-        
+
         if (!campaignsData.error) {
           for (const [id, data] of Object.entries(campaignsData)) {
             campaignObjectives[id] = {
@@ -550,7 +552,7 @@ Deno.serve(async (req) => {
     const dailyData = await fetchAllPages(dailyInsightsUrl);
 
     const chartData = dailyData.map((day: any) => {
-      const dayLeads = day.actions?.find((a: any) => 
+      const dayLeads = day.actions?.find((a: any) =>
         a.action_type === 'lead' || a.action_type === 'leadgen_grouped' ||
         a.action_type.includes('messaging_conversation_started')
       );
@@ -576,10 +578,10 @@ Deno.serve(async (req) => {
     try {
       const platformResponse = await fetch(platformInsightsUrl);
       const platformData = await platformResponse.json();
-      
+
       if (platformData.data && !platformData.error) {
         platformBreakdown = platformData.data.map((p: any) => {
-          const pLeads = p.actions?.find((a: any) => 
+          const pLeads = p.actions?.find((a: any) =>
             a.action_type === 'lead' || a.action_type === 'leadgen_grouped'
           );
           return {

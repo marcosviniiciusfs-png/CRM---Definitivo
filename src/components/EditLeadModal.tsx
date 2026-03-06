@@ -64,7 +64,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editingKeepCurrentAttachment, setEditingKeepCurrentAttachment] = useState(true);
   const [editingCurrentAttachment, setEditingCurrentAttachment] = useState<{ url: string; name: string } | null>(null);
   const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null);
-  
+
   // Estados para edição dos dados do negócio
   const [editingResponsavel, setEditingResponsavel] = useState(false);
   const [editingDataInicio, setEditingDataInicio] = useState(false);
@@ -79,9 +79,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [descricao, setDescricao] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [idade, setIdade] = useState<number | null>(null);
-  const [colaboradores, setColaboradores] = useState<Array<{ 
-    id: string; 
-    email: string; 
+  const [colaboradores, setColaboradores] = useState<Array<{
+    id: string;
+    email: string;
     user_id: string | null;
     full_name?: string;
   }>>([]);
@@ -171,7 +171,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           .select('full_name')
           .eq('user_id', user.id)
           .single();
-        
+
         // Usar nome do perfil se disponível, senão usar email
         setResponsavel(profile?.full_name || user.email || '');
       }
@@ -196,18 +196,18 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       // Buscar membros usando RPC segura (sem expor emails)
       const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
-      
+
       if (orgMembers && orgMembers.length > 0) {
         const userIds = orgMembers.filter((m: any) => m.user_id).map((m: any) => m.user_id);
-        
+
         let profilesMap: { [key: string]: { full_name: string | null } } = {};
-        
+
         if (userIds.length > 0) {
           const { data: profiles } = await supabase
             .from('profiles')
             .select('user_id, full_name')
             .in('user_id', userIds);
-          
+
           if (profiles) {
             profilesMap = profiles.reduce((acc, profile) => {
               acc[profile.user_id] = { full_name: profile.full_name };
@@ -215,14 +215,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
             }, {} as { [key: string]: { full_name: string | null } });
           }
         }
-        
+
         const colabsWithNames = orgMembers.map((colab: any) => ({
           id: colab.id,
           email: '', // Email mascarado
           user_id: colab.user_id,
           full_name: colab.user_id && profilesMap[colab.user_id]?.full_name || null
         }));
-        
+
         setColaboradores(colabsWithNames);
       }
     } catch (error) {
@@ -268,18 +268,18 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
       setLeadItems(data || []);
-      
+
       // SÓ atualizar valor se existirem itens (produtos/serviços)
       if (data && data.length > 0) {
         const total = data.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
         setEditedValue(total.toString());
-        
+
         // Atualizar valor no banco de dados apenas quando há itens
         const { error: updateError } = await supabase
           .from("leads")
           .update({ valor: total })
           .eq("id", lead.id);
-        
+
         if (updateError) {
           console.error("Erro ao atualizar valor do lead:", updateError);
         }
@@ -341,7 +341,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const handleUpdateQuantity = async (leadItemId: string, newQuantity: number, unitPrice: number) => {
     if (newQuantity < 1) return;
-    
+
     try {
       const { error } = await supabase
         .from("lead_items")
@@ -367,9 +367,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         .replace(/R\$\s?/g, '')  // Remove R$ e espaços
         .replace(/\./g, '')       // Remove pontos de milhar
         .replace(',', '.');       // Converte vírgula decimal para ponto
-      
+
       const numericValue = parseFloat(cleanValue);
-      
+
       if (isNaN(numericValue) || numericValue <= 0) {
         toast.error("Por favor, insira um valor válido");
         return;
@@ -411,38 +411,38 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const formatCurrencyInput = (value: string) => {
     // Remove tudo exceto números e vírgula
     const cleaned = value.replace(/[^\d,]/g, '');
-    
+
     // Remove vírgulas extras, mantendo apenas a primeira
     const parts = cleaned.split(',');
     if (parts.length > 2) {
       return parts[0] + ',' + parts.slice(1).join('');
     }
-    
+
     // Adiciona formatação de milhar
     const [integers, decimals] = cleaned.split(',');
     const formattedIntegers = integers.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    
-    return decimals !== undefined 
-      ? `R$ ${formattedIntegers},${decimals}` 
+
+    return decimals !== undefined
+      ? `R$ ${formattedIntegers},${decimals}`
       : `R$ ${formattedIntegers}`;
   };
 
   // Função para renderizar ícone
   const getItemIcon = (iconName: string | null) => {
     if (!iconName) return null;
-    
+
     // Verificar ícones customizados primeiro
     if (iconName in customIcons) {
       const CustomIcon = customIcons[iconName];
       return <CustomIcon className="h-5 w-5 text-primary" />;
     }
-    
+
     // Verificar ícones do Lucide
     if (iconName in Icons) {
       const LucideIcon = Icons[iconName as keyof typeof Icons] as LucideIcon;
       return <LucideIcon className="h-5 w-5 text-primary" />;
     }
-    
+
     return null;
   };
 
@@ -460,7 +460,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       // Buscar nomes dos usuários que criaram as atividades
       if (data && data.length > 0) {
         const userIds = [...new Set(data.map(a => a.user_id))];
-        
+
         const { data: profilesData } = await supabase
           .from("profiles")
           .select("user_id, full_name")
@@ -506,7 +506,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     try {
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${lead.id}/${Date.now()}.${fileExt}`;
-      
+
       const { data, error } = await supabase.storage
         .from('activity-attachments')
         .upload(fileName, selectedFile);
@@ -620,7 +620,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (editingFile) {
         const fileExt = editingFile.name.split('.').pop();
         const fileName = `${lead.id}/${Date.now()}.${fileExt}`;
-        
+
         const { data, error: uploadError } = await supabase.storage
           .from('activity-attachments')
           .upload(fileName, editingFile);
@@ -638,7 +638,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
 
-      setActivities(activities.map(act => 
+      setActivities(activities.map(act =>
         act.id === activityId ? { ...act, ...updateData } : act
       ));
       setEditingActivityId(null);
@@ -656,10 +656,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const handleDeleteActivity = async (activityId: string) => {
     // Inicia a animação de fade-out
     setDeletingActivityId(activityId);
-    
+
     // Aguarda a animação terminar (300ms)
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     try {
       const { error } = await supabase
         .from("lead_activities")
@@ -762,7 +762,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl h-[90vh] p-0 gap-0 flex flex-col">
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -775,40 +775,40 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           </div>
         </DialogHeader>
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Content Body (2 Columns) */}
+        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+          {/* Main Content (Left Column: 70%) */}
+          <div className="w-full md:w-[70%] h-full flex flex-col overflow-hidden border-r bg-background">
             <ScrollArea className="flex-1">
               <div className="p-6 space-y-6">
                 {/* Tabs de Ações */}
                 <Tabs defaultValue="nota" className="w-full" onValueChange={setCurrentTab}>
-                  <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0">
-                    <TabsTrigger value="nota" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                  <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide">
+                    <TabsTrigger value="nota" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
                       <Pencil className="h-4 w-4" />
                       Nota
                     </TabsTrigger>
-                    <TabsTrigger value="email" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    <TabsTrigger value="email" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
                       <Mail className="h-4 w-4" />
                       E-mail
                     </TabsTrigger>
-                    <TabsTrigger value="ligacao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    <TabsTrigger value="ligacao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
                       <Phone className="h-4 w-4" />
                       Ligação
                     </TabsTrigger>
-                    <TabsTrigger value="whatsapp" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    <TabsTrigger value="whatsapp" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
                       <MessageSquare className="h-4 w-4" />
                       WhatsApp
                     </TabsTrigger>
-                    <TabsTrigger value="proposta" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    <TabsTrigger value="proposta" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
                       <FileText className="h-4 w-4" />
                       Proposta
                     </TabsTrigger>
-                    <TabsTrigger value="reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    <TabsTrigger value="reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
                       <Video className="h-4 w-4" />
                       Reunião
                     </TabsTrigger>
-                    <TabsTrigger value="visita" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                    <TabsTrigger value="visita" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 flex-1 min-w-max">
                       <MapPin className="h-4 w-4" />
                       Visita
                     </TabsTrigger>
@@ -1234,11 +1234,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         const Icon = getActivityIcon(activity.activity_type);
                         const isDeleting = deletingActivityId === activity.id;
                         return (
-                          <Card 
-                            key={activity.id} 
-                            className={`overflow-hidden group transition-all duration-300 ${
-                              isDeleting ? 'animate-fade-out' : ''
-                            }`}
+                          <Card
+                            key={activity.id}
+                            className={`overflow-hidden group transition-all duration-300 ${isDeleting ? 'animate-fade-out' : ''
+                              }`}
                           >
                             {/* Cabeçalho com informações do lead */}
                             <div className="bg-muted/30 px-4 py-2 flex items-center gap-2 border-b">
@@ -1250,7 +1249,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 </span>
                               )}
                             </div>
-                            
+
                             {/* Conteúdo da atividade */}
                             <div className="p-4 space-y-3">
                               {/* Tipo e data */}
@@ -1285,7 +1284,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   </Button>
                                 </div>
                               </div>
-                              
+
                               {/* Conteúdo/Mensagem */}
                               <div className="pl-11">
                                 {editingActivityId === activity.id ? (
@@ -1295,7 +1294,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                       onChange={(e) => setEditingContent(e.target.value)}
                                       className="min-h-[100px]"
                                     />
-                                    
+
                                     {/* Gerenciamento de anexo durante edição */}
                                     <div className="space-y-2">
                                       {editingCurrentAttachment && editingKeepCurrentAttachment && !editingFile && (
@@ -1312,7 +1311,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                           </Button>
                                         </div>
                                       )}
-                                      
+
                                       {editingFile && (
                                         <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-md">
                                           <FileText className="h-4 w-4 text-muted-foreground" />
@@ -1327,7 +1326,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                           </Button>
                                         </div>
                                       )}
-                                      
+
                                       {!editingFile && (
                                         <>
                                           <input
@@ -1357,7 +1356,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                         </>
                                       )}
                                     </div>
-                                    
+
                                     <div className="flex items-center gap-2">
                                       <Button
                                         size="sm"
@@ -1386,7 +1385,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   </p>
                                 )}
                               </div>
-                              
+
                               {/* Anexos (se existirem) */}
                               {activity.attachment_url && (
                                 <div className="pl-11 pt-2 border-t">
@@ -1399,9 +1398,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                         const { data, error } = await supabase.storage
                                           .from('activity-attachments')
                                           .download(activity.attachment_url);
-                                        
+
                                         if (error) throw error;
-                                        
+
                                         // Criar URL temporária e fazer download
                                         const url = URL.createObjectURL(data);
                                         const a = document.createElement('a');
@@ -1422,7 +1421,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   </Button>
                                 </div>
                               )}
-                              
+
                               {/* Autoria */}
                               <div className="pl-11 pt-2 border-t flex items-center gap-2">
                                 <span className="text-xs text-muted-foreground">Criada por</span>
@@ -1446,710 +1445,710 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
             </ScrollArea>
           </div>
 
-          {/* Sidebar de Ações e Dados */}
-          <div className="w-full md:w-80 border-t md:border-t-0 md:border-l bg-muted/20 flex flex-col flex-shrink-0 overflow-y-auto max-h-[40vh] md:max-h-none">
-            <div className="p-4 space-y-4">
-              {/* Valor do negócio */}
-              <Card className="bg-primary/5 border-primary/10">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold">Valor do negócio</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-baseline gap-2 overflow-hidden">
-                    <span className="text-xl font-bold break-all">
-                      R$ {parseFloat(editedValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Produtos e serviços</Label>
-                    {leadItems.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Nenhum produto ou serviço foi adicionado a este negócio
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {leadItems.map((leadItem: any) => (
-                          <div key={leadItem.id} className="flex items-center justify-between gap-2 p-2 bg-background rounded-md">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{leadItem.items?.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {leadItem.quantity}x R$ {leadItem.unit_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => handleUpdateQuantity(leadItem.id, leadItem.quantity - 1, leadItem.unit_price)}
-                              >
-                                <span className="text-lg">−</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => handleUpdateQuantity(leadItem.id, leadItem.quantity + 1, leadItem.unit_price)}
-                              >
-                                <span className="text-lg">+</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => handleRemoveItem(leadItem.id)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <Button 
-                      variant="link" 
-                      className="text-primary p-0 h-auto text-sm"
-                      onClick={() => setShowItemsDialog(true)}
-                    >
-                      + Adicionar produtos/serviços
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Dados do negócio */}
-              <Card className="bg-primary/5 border-primary/10">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold">Dados do negócio</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {/* Responsável */}
-                  <div className="flex items-start justify-between group">
-                    <span className="text-muted-foreground">Responsável</span>
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-xs font-medium text-primary">
-                          {responsavel?.charAt(0)?.toUpperCase() || '?'}
-                        </span>
-                      </div>
-                      <span className="font-medium" title={responsavel || 'Não definido'}>
-                        {responsavel 
-                          ? responsavel.length > 8 
-                            ? `${responsavel.substring(0, 8)}...` 
-                            : responsavel
-                          : 'Não definido'
-                        }
+          {/* Sidebar de Ações e Dados (Right Column: 30%) */}
+          <div className="w-full md:w-[30%] h-full flex flex-col flex-shrink-0 overflow-hidden bg-muted/10 border-t md:border-t-0">
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-4">
+                {/* Valor do negócio */}
+                <Card className="bg-primary/5 border-primary/10">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold">Valor do negócio</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-baseline gap-2 overflow-hidden">
+                      <span className="text-xl font-bold break-all">
+                        R$ {parseFloat(editedValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
-                      <Popover 
-                        open={editingResponsavel} 
-                        onOpenChange={(open) => {
-                          console.log("🔥 Popover onOpenChange:", open);
-                          setEditingResponsavel(open);
-                        }}
-                        modal={false}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-accent/50"
-                            type="button"
-                            onClick={() => {
-                              console.log("🔥 Botão de lápis clicado!");
-                              console.log("Estado atual editingResponsavel:", editingResponsavel);
-                              console.log("Colaboradores disponíveis:", colaboradores);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-3 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
-                          <div className="space-y-3">
-                            <div className="text-sm font-medium text-foreground">Responsável</div>
-                            
-                            {/* Colaborador selecionado */}
-                            <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
-                              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                                <span className="text-sm font-semibold text-primary-foreground">
-                                  {responsavel?.charAt(0)?.toUpperCase() || '?'}
-                                </span>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Produtos e serviços</Label>
+                      {leadItems.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Nenhum produto ou serviço foi adicionado a este negócio
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {leadItems.map((leadItem: any) => (
+                            <div key={leadItem.id} className="flex items-center justify-between gap-2 p-2 bg-background rounded-md">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{leadItem.items?.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {leadItem.quantity}x R$ {leadItem.unit_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </p>
                               </div>
-                              <span className="text-sm font-medium flex-1">{responsavel || 'Não definido'}</span>
                               <div className="flex items-center gap-1">
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => setEditingResponsavel(false)}
+                                  className="h-6 w-6"
+                                  onClick={() => handleUpdateQuantity(leadItem.id, leadItem.quantity - 1, leadItem.unit_price)}
+                                >
+                                  <span className="text-lg">−</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => handleUpdateQuantity(leadItem.id, leadItem.quantity + 1, leadItem.unit_price)}
+                                >
+                                  <span className="text-lg">+</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => handleRemoveItem(leadItem.id)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <Button
+                        variant="link"
+                        className="text-primary p-0 h-auto text-sm"
+                        onClick={() => setShowItemsDialog(true)}
+                      >
+                        + Adicionar produtos/serviços
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Dados do negócio */}
+                <Card className="bg-primary/5 border-primary/10">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold">Dados do negócio</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {/* Responsável */}
+                    <div className="flex items-start justify-between group">
+                      <span className="text-muted-foreground">Responsável</span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-xs font-medium text-primary">
+                            {responsavel?.charAt(0)?.toUpperCase() || '?'}
+                          </span>
+                        </div>
+                        <span className="font-medium" title={responsavel || 'Não definido'}>
+                          {responsavel
+                            ? responsavel.length > 8
+                              ? `${responsavel.substring(0, 8)}...`
+                              : responsavel
+                            : 'Não definido'
+                          }
+                        </span>
+                        <Popover
+                          open={editingResponsavel}
+                          onOpenChange={(open) => {
+                            console.log("🔥 Popover onOpenChange:", open);
+                            setEditingResponsavel(open);
+                          }}
+                          modal={false}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0 hover:bg-accent/50"
+                              type="button"
+                              onClick={() => {
+                                console.log("🔥 Botão de lápis clicado!");
+                                console.log("Estado atual editingResponsavel:", editingResponsavel);
+                                console.log("Colaboradores disponíveis:", colaboradores);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-3 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                            <div className="space-y-3">
+                              <div className="text-sm font-medium text-foreground">Responsável</div>
+
+                              {/* Colaborador selecionado */}
+                              <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
+                                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                  <span className="text-sm font-semibold text-primary-foreground">
+                                    {responsavel?.charAt(0)?.toUpperCase() || '?'}
+                                  </span>
+                                </div>
+                                <span className="text-sm font-medium flex-1">{responsavel || 'Não definido'}</span>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setEditingResponsavel(false)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={async () => {
+                                      await saveDadosNegocio();
+                                      setEditingResponsavel(false);
+                                    }}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Lista de outros colaboradores */}
+                              <div className="border-t pt-3">
+                                <div className="text-xs font-medium text-muted-foreground mb-2">Trocar responsável</div>
+                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                  {colaboradores
+                                    .filter(colab => (colab.full_name || colab.email) !== responsavel)
+                                    .map((colab) => {
+                                      const displayName = colab.full_name || colab.email;
+                                      return (
+                                        <button
+                                          key={colab.id}
+                                          type="button"
+                                          className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
+                                          onClick={async () => {
+                                            console.log("Colaborador selecionado:", displayName);
+                                            setResponsavel(displayName || '');
+
+                                            // Salvar imediatamente - ATUALIZADO: usar UUID + TEXT
+                                            try {
+                                              const { error } = await supabase
+                                                .from('leads')
+                                                .update({
+                                                  responsavel_user_id: colab.user_id,
+                                                  responsavel: displayName || '' // Mantém TEXT para compatibilidade
+                                                })
+                                                .eq('id', lead.id);
+
+                                              if (error) throw error;
+
+                                              setEditingResponsavel(false);
+                                              toast.success(`Responsável alterado para ${displayName}`);
+                                            } catch (error) {
+                                              console.error('Erro ao salvar responsável:', error);
+                                              toast.error('Erro ao salvar responsável');
+                                            }
+                                          }}
+                                        >
+                                          <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                            <span className="text-xs font-medium text-primary">
+                                              {displayName?.charAt(0).toUpperCase()}
+                                            </span>
+                                          </div>
+                                          <span className="text-sm">{displayName}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  {colaboradores.length === 0 && (
+                                    <div className="text-sm text-muted-foreground text-center py-4">
+                                      Nenhum colaborador encontrado
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    {/* Data de início */}
+                    <div className="flex items-start justify-between group">
+                      <span className="text-muted-foreground">Data de início</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {dataInicio ? format(dataInicio, "dd/MM/yyyy", { locale: ptBR }) : "Hoje"}
+                        </span>
+                        <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio} modal={false}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0 hover:bg-accent/50"
+                              type="button"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                            <div className="p-3">
+                              <Calendar
+                                mode="single"
+                                selected={dataInicio}
+                                onSelect={async (date) => {
+                                  setDataInicio(date);
+
+                                  // Salvar imediatamente
+                                  try {
+                                    const { error } = await supabase
+                                      .from('leads')
+                                      .update({ data_inicio: date?.toISOString() })
+                                      .eq('id', lead.id);
+
+                                    if (error) throw error;
+
+                                    setEditingDataInicio(false);
+                                    toast.success("Data de início atualizada");
+                                  } catch (error) {
+                                    console.error('Erro ao salvar data de início:', error);
+                                    toast.error('Erro ao salvar data');
+                                  }
+                                }}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                                locale={ptBR}
+                              />
+                              <div className="flex gap-2 mt-2 border-t pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={async () => {
+                                    const today = new Date();
+                                    setDataInicio(today);
+
+                                    try {
+                                      const { error } = await supabase
+                                        .from('leads')
+                                        .update({ data_inicio: today.toISOString() })
+                                        .eq('id', lead.id);
+
+                                      if (error) throw error;
+
+                                      setEditingDataInicio(false);
+                                      toast.success("Data definida para hoje");
+                                    } catch (error) {
+                                      console.error('Erro ao salvar data:', error);
+                                      toast.error('Erro ao salvar data');
+                                    }
+                                  }}
+                                >
+                                  Hoje
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    const tomorrow = new Date();
+                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                    setDataInicio(tomorrow);
+                                    setEditingDataInicio(false);
+                                    toast.success("Data definida para amanhã");
+                                  }}
+                                >
+                                  Amanhã
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    const nextWeek = new Date();
+                                    nextWeek.setDate(nextWeek.getDate() + 7);
+                                    setDataInicio(nextWeek);
+                                    setEditingDataInicio(false);
+                                    toast.success("Data definida para próxima semana");
+                                  }}
+                                >
+                                  1 semana depois
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    {/* Data de conclusão */}
+                    <div className="flex items-start justify-between group">
+                      <span className="text-muted-foreground">Data de conclusão</span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn("font-medium", !dataConclusao && "text-muted-foreground")}>
+                          {dataConclusao ? format(dataConclusao, "dd/MM/yyyy", { locale: ptBR }) : "Adicionar"}
+                        </span>
+                        <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao} modal={false}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0 hover:bg-accent/50"
+                              type="button"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                            <div className="p-3">
+                              <Calendar
+                                mode="single"
+                                selected={dataConclusao}
+                                onSelect={async (date) => {
+                                  setDataConclusao(date);
+
+                                  // Salvar imediatamente
+                                  try {
+                                    const { error } = await supabase
+                                      .from('leads')
+                                      .update({ data_conclusao: date?.toISOString() || null })
+                                      .eq('id', lead.id);
+
+                                    if (error) throw error;
+
+                                    setEditingDataConclusao(false);
+                                    toast.success("Data de conclusão atualizada");
+                                  } catch (error) {
+                                    console.error('Erro ao salvar data de conclusão:', error);
+                                    toast.error('Erro ao salvar data');
+                                  }
+                                }}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                                locale={ptBR}
+                              />
+                              <div className="flex gap-2 mt-2 border-t pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={async () => {
+                                    const today = new Date();
+                                    setDataConclusao(today);
+
+                                    try {
+                                      const { error } = await supabase
+                                        .from('leads')
+                                        .update({ data_conclusao: today.toISOString() })
+                                        .eq('id', lead.id);
+
+                                      if (error) throw error;
+
+                                      setEditingDataConclusao(false);
+                                      toast.success("Data definida para hoje");
+                                    } catch (error) {
+                                      console.error('Erro ao salvar data:', error);
+                                      toast.error('Erro ao salvar data');
+                                    }
+                                  }}
+                                >
+                                  Hoje
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    const tomorrow = new Date();
+                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                    setDataConclusao(tomorrow);
+                                    setEditingDataConclusao(false);
+                                    toast.success("Data definida para amanhã");
+                                  }}
+                                >
+                                  Amanhã
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    const nextWeek = new Date();
+                                    nextWeek.setDate(nextWeek.getDate() + 7);
+                                    setDataConclusao(nextWeek);
+                                    setEditingDataConclusao(false);
+                                    toast.success("Data definida para próxima semana");
+                                  }}
+                                >
+                                  1 semana depois
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    {/* Descrição */}
+                    <div className="flex items-start justify-between group">
+                      <span className="text-muted-foreground">Descrição</span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn("font-medium", !descricao && "text-muted-foreground")}
+                          title={descricao || "Adicionar descrição"}
+                        >
+                          {descricao
+                            ? descricao.length > 13
+                              ? `${descricao.substring(0, 13)}...`
+                              : descricao
+                            : "Adicionar descrição"
+                          }
+                        </span>
+                        <Popover open={editingDescricao} onOpenChange={setEditingDescricao} modal={false}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0 hover:bg-accent/50"
+                              type="button"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                            <div className="space-y-3">
+                              <Label htmlFor="descricao">Descrição</Label>
+                              <Textarea
+                                id="descricao"
+                                placeholder="Adicione uma descrição para este negócio..."
+                                value={descricao}
+                                onChange={(e) => setDescricao(e.target.value)}
+                                className="min-h-[100px] resize-none"
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingDescricao(false);
+                                  }}
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
                                 <Button
-                                  size="icon"
-                                  className="h-8 w-8"
+                                  size="sm"
                                   onClick={async () => {
                                     await saveDadosNegocio();
-                                    setEditingResponsavel(false);
+                                    setEditingDescricao(false);
                                   }}
                                 >
                                   <Check className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
 
-                            {/* Lista de outros colaboradores */}
-                            <div className="border-t pt-3">
-                              <div className="text-xs font-medium text-muted-foreground mb-2">Trocar responsável</div>
-                              <div className="space-y-1 max-h-48 overflow-y-auto">
-                                {colaboradores
-                                  .filter(colab => (colab.full_name || colab.email) !== responsavel)
-                                  .map((colab) => {
-                                    const displayName = colab.full_name || colab.email;
-                                    return (
-                                      <button
-                                        key={colab.id}
-                                        type="button"
-                                        className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
-                                        onClick={async () => {
-                                          console.log("Colaborador selecionado:", displayName);
-                                          setResponsavel(displayName || '');
-                                          
-                                          // Salvar imediatamente - ATUALIZADO: usar UUID + TEXT
-                                          try {
-                                            const { error } = await supabase
-                                              .from('leads')
-                                              .update({ 
-                                                responsavel_user_id: colab.user_id,
-                                                responsavel: displayName || '' // Mantém TEXT para compatibilidade
-                                              })
-                                              .eq('id', lead.id);
+                    {/* Idade */}
+                    <div className="flex items-start justify-between group">
+                      <span className="text-muted-foreground">Idade</span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn("font-medium", !idade && "text-muted-foreground")}>
+                          {idade ? `${idade} anos` : "Adicionar idade"}
+                        </span>
+                        <Popover open={editingIdade} onOpenChange={setEditingIdade} modal={false}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0 hover:bg-accent/50"
+                              type="button"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                            <div className="space-y-3">
+                              <Label htmlFor="idade">Idade</Label>
+                              <Input
+                                id="idade"
+                                type="number"
+                                min="0"
+                                max="150"
+                                placeholder="Ex: 25"
+                                value={idade?.toString() || ""}
+                                onChange={(e) => setIdade(e.target.value ? parseInt(e.target.value) : null)}
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingIdade(false);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      const { error } = await supabase
+                                        .from('leads')
+                                        .update({ idade: idade })
+                                        .eq('id', lead.id);
 
-                                            if (error) throw error;
+                                      if (error) throw error;
 
-                                            setEditingResponsavel(false);
-                                            toast.success(`Responsável alterado para ${displayName}`);
-                                          } catch (error) {
-                                            console.error('Erro ao salvar responsável:', error);
-                                            toast.error('Erro ao salvar responsável');
-                                          }
-                                        }}
-                                      >
-                                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                          <span className="text-xs font-medium text-primary">
-                                            {displayName?.charAt(0).toUpperCase()}
-                                          </span>
-                                        </div>
-                                        <span className="text-sm">{displayName}</span>
-                                      </button>
-                                    );
-                                  })}
-                                {colaboradores.length === 0 && (
-                                  <div className="text-sm text-muted-foreground text-center py-4">
-                                    Nenhum colaborador encontrado
-                                  </div>
-                                )}
+                                      setEditingIdade(false);
+                                      toast.success("Idade atualizada com sucesso!");
+                                    } catch (error) {
+                                      console.error('Erro ao salvar idade:', error);
+                                      toast.error('Erro ao salvar idade');
+                                    }
+                                  }}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
                               </div>
                             </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* Data de início */}
-                  <div className="flex items-start justify-between group">
-                    <span className="text-muted-foreground">Data de início</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">
-                        {dataInicio ? format(dataInicio, "dd/MM/yyyy", { locale: ptBR }) : "Hoje"}
-                      </span>
-                      <Popover open={editingDataInicio} onOpenChange={setEditingDataInicio} modal={false}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-accent/50"
-                            type="button"
-                          >
-                            <Pencil className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
-                          <div className="p-3">
-                            <Calendar
-                              mode="single"
-                              selected={dataInicio}
-                              onSelect={async (date) => {
-                                setDataInicio(date);
-                                
-                                // Salvar imediatamente
-                                try {
-                                  const { error } = await supabase
-                                    .from('leads')
-                                    .update({ data_inicio: date?.toISOString() })
-                                    .eq('id', lead.id);
-
-                                  if (error) throw error;
-
-                                  setEditingDataInicio(false);
-                                  toast.success("Data de início atualizada");
-                                } catch (error) {
-                                  console.error('Erro ao salvar data de início:', error);
-                                  toast.error('Erro ao salvar data');
-                                }
-                              }}
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
-                              locale={ptBR}
-                            />
-                            <div className="flex gap-2 mt-2 border-t pt-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={async () => {
-                                  const today = new Date();
-                                  setDataInicio(today);
-                                  
-                                  try {
-                                    const { error } = await supabase
-                                      .from('leads')
-                                      .update({ data_inicio: today.toISOString() })
-                                      .eq('id', lead.id);
-
-                                    if (error) throw error;
-
-                                    setEditingDataInicio(false);
-                                    toast.success("Data definida para hoje");
-                                  } catch (error) {
-                                    console.error('Erro ao salvar data:', error);
-                                    toast.error('Erro ao salvar data');
-                                  }
-                                }}
-                              >
-                                Hoje
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => {
-                                  const tomorrow = new Date();
-                                  tomorrow.setDate(tomorrow.getDate() + 1);
-                                  setDataInicio(tomorrow);
-                                  setEditingDataInicio(false);
-                                  toast.success("Data definida para amanhã");
-                                }}
-                              >
-                                Amanhã
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => {
-                                  const nextWeek = new Date();
-                                  nextWeek.setDate(nextWeek.getDate() + 7);
-                                  setDataInicio(nextWeek);
-                                  setEditingDataInicio(false);
-                                  toast.success("Data definida para próxima semana");
-                                }}
-                              >
-                                1 semana depois
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* Data de conclusão */}
-                  <div className="flex items-start justify-between group">
-                    <span className="text-muted-foreground">Data de conclusão</span>
-                    <div className="flex items-center gap-2">
-                      <span className={cn("font-medium", !dataConclusao && "text-muted-foreground")}>
-                        {dataConclusao ? format(dataConclusao, "dd/MM/yyyy", { locale: ptBR }) : "Adicionar"}
-                      </span>
-                      <Popover open={editingDataConclusao} onOpenChange={setEditingDataConclusao} modal={false}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-accent/50"
-                            type="button"
-                          >
-                            <Pencil className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
-                          <div className="p-3">
-                            <Calendar
-                              mode="single"
-                              selected={dataConclusao}
-                              onSelect={async (date) => {
-                                setDataConclusao(date);
-                                
-                                // Salvar imediatamente
-                                try {
-                                  const { error } = await supabase
-                                    .from('leads')
-                                    .update({ data_conclusao: date?.toISOString() || null })
-                                    .eq('id', lead.id);
-
-                                  if (error) throw error;
-
-                                  setEditingDataConclusao(false);
-                                  toast.success("Data de conclusão atualizada");
-                                } catch (error) {
-                                  console.error('Erro ao salvar data de conclusão:', error);
-                                  toast.error('Erro ao salvar data');
-                                }
-                              }}
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
-                              locale={ptBR}
-                            />
-                            <div className="flex gap-2 mt-2 border-t pt-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={async () => {
-                                  const today = new Date();
-                                  setDataConclusao(today);
-                                  
-                                  try {
-                                    const { error } = await supabase
-                                      .from('leads')
-                                      .update({ data_conclusao: today.toISOString() })
-                                      .eq('id', lead.id);
-
-                                    if (error) throw error;
-
-                                    setEditingDataConclusao(false);
-                                    toast.success("Data definida para hoje");
-                                  } catch (error) {
-                                    console.error('Erro ao salvar data:', error);
-                                    toast.error('Erro ao salvar data');
-                                  }
-                                }}
-                              >
-                                Hoje
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => {
-                                  const tomorrow = new Date();
-                                  tomorrow.setDate(tomorrow.getDate() + 1);
-                                  setDataConclusao(tomorrow);
-                                  setEditingDataConclusao(false);
-                                  toast.success("Data definida para amanhã");
-                                }}
-                              >
-                                Amanhã
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => {
-                                  const nextWeek = new Date();
-                                  nextWeek.setDate(nextWeek.getDate() + 7);
-                                  setDataConclusao(nextWeek);
-                                  setEditingDataConclusao(false);
-                                  toast.success("Data definida para próxima semana");
-                                }}
-                              >
-                                1 semana depois
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* Descrição */}
-                  <div className="flex items-start justify-between group">
-                    <span className="text-muted-foreground">Descrição</span>
-                    <div className="flex items-center gap-2">
-                      <span 
-                        className={cn("font-medium", !descricao && "text-muted-foreground")}
-                        title={descricao || "Adicionar descrição"}
-                      >
-                        {descricao 
-                          ? descricao.length > 13 
-                            ? `${descricao.substring(0, 13)}...` 
-                            : descricao
-                          : "Adicionar descrição"
-                        }
-                      </span>
-                      <Popover open={editingDescricao} onOpenChange={setEditingDescricao} modal={false}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-accent/50"
-                            type="button"
-                          >
-                            <Pencil className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
-                          <div className="space-y-3">
-                            <Label htmlFor="descricao">Descrição</Label>
-                            <Textarea
-                              id="descricao"
-                              placeholder="Adicione uma descrição para este negócio..."
-                              value={descricao}
-                              onChange={(e) => setDescricao(e.target.value)}
-                              className="min-h-[100px] resize-none"
-                            />
-                            <div className="flex gap-2 justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingDescricao(false);
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={async () => {
-                                  await saveDadosNegocio();
-                                  setEditingDescricao(false);
-                                }}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* Idade */}
-                  <div className="flex items-start justify-between group">
-                    <span className="text-muted-foreground">Idade</span>
-                    <div className="flex items-center gap-2">
-                      <span className={cn("font-medium", !idade && "text-muted-foreground")}>
-                        {idade ? `${idade} anos` : "Adicionar idade"}
-                      </span>
-                      <Popover open={editingIdade} onOpenChange={setEditingIdade} modal={false}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-accent/50"
-                            type="button"
-                          >
-                            <Pencil className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
-                          <div className="space-y-3">
-                            <Label htmlFor="idade">Idade</Label>
-                            <Input
-                              id="idade"
-                              type="number"
-                              min="0"
-                              max="150"
-                              placeholder="Ex: 25"
-                              value={idade?.toString() || ""}
-                              onChange={(e) => setIdade(e.target.value ? parseInt(e.target.value) : null)}
-                            />
-                            <div className="flex gap-2 justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingIdade(false);
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    const { error } = await supabase
-                                      .from('leads')
-                                      .update({ idade: idade })
-                                      .eq('id', lead.id);
-
-                                    if (error) throw error;
-
-                                    setEditingIdade(false);
-                                    toast.success("Idade atualizada com sucesso!");
-                                  } catch (error) {
-                                    console.error('Erro ao salvar idade:', error);
-                                    toast.error('Erro ao salvar idade');
-                                  }
-                                }}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* Agendamento de Venda */}
-                  <div className="flex items-start justify-between group">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <CalendarClock className="h-3.5 w-3.5" />
-                      Agend. Venda
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className={cn("font-medium", !dataAgendamentoVenda && "text-muted-foreground")}>
-                        {dataAgendamentoVenda 
-                          ? format(dataAgendamentoVenda, "dd/MM/yy HH:mm", { locale: ptBR })
-                          : "Agendar"}
-                      </span>
-                      <Popover open={editingAgendamentoVenda} onOpenChange={setEditingAgendamentoVenda} modal={false}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0 hover:bg-accent/50"
-                            type="button"
-                          >
-                            <Pencil className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
-                          <div className="p-3 space-y-3">
-                            <Calendar
-                              mode="single"
-                              selected={dataAgendamentoVenda}
-                              onSelect={(date) => setDataAgendamentoVenda(date)}
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
-                              locale={ptBR}
-                            />
-                            <div className="flex items-center gap-2 px-3">
-                              <Label className="text-xs whitespace-nowrap">Horário:</Label>
-                              <Input
-                                type="time"
-                                value={horaAgendamentoVenda}
-                                onChange={(e) => setHoraAgendamentoVenda(e.target.value)}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                            <div className="flex gap-2 px-3 pb-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => {
-                                  setDataAgendamentoVenda(undefined);
-                                  setEditingAgendamentoVenda(false);
-                                  // Clear from DB
-                                  supabase.from('leads').update({ data_agendamento_venda: null }).eq('id', lead.id).then(() => {
-                                    toast.success("Agendamento removido");
-                                  });
-                                }}
-                              >
-                                Limpar
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="flex-1"
-                                disabled={!dataAgendamentoVenda}
-                                onClick={async () => {
-                                  if (!dataAgendamentoVenda) return;
-                                  const [hours, minutes] = horaAgendamentoVenda.split(':').map(Number);
-                                  const dateTime = new Date(dataAgendamentoVenda);
-                                  dateTime.setHours(hours, minutes, 0, 0);
-                                  
-                                  try {
-                                    const { error } = await supabase
-                                      .from('leads')
-                                      .update({ data_agendamento_venda: dateTime.toISOString() })
-                                      .eq('id', lead.id);
-                                    if (error) throw error;
-                                    setDataAgendamentoVenda(dateTime);
-                                    setEditingAgendamentoVenda(false);
-                                    toast.success("Agendamento de venda salvo!");
-                                  } catch (error) {
-                                    console.error('Erro ao salvar agendamento:', error);
-                                    toast.error('Erro ao salvar agendamento');
-                                  }
-                                }}
-                              >
-                                Salvar
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  <Separator className="my-2" />
-
-                  <div className="flex items-start justify-between">
-                    <span className="text-muted-foreground">Cadastrado por</span>
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-xs font-medium text-primary">B</span>
+                          </PopoverContent>
+                        </Popover>
                       </div>
-                      <span className="font-medium">Brito</span>
                     </div>
-                  </div>
 
-                  <div className="flex items-start justify-between">
-                    <span className="text-muted-foreground">Data de cadastro</span>
-                    <span className="font-medium">
-                      {new Date(lead.created_at).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR') 
-                        ? `Hoje às ${new Date(lead.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                        : new Date(lead.created_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
+                    {/* Agendamento de Venda */}
+                    <div className="flex items-start justify-between group">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        Agend. Venda
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn("font-medium", !dataAgendamentoVenda && "text-muted-foreground")}>
+                          {dataAgendamentoVenda
+                            ? format(dataAgendamentoVenda, "dd/MM/yy HH:mm", { locale: ptBR })
+                            : "Agendar"}
+                        </span>
+                        <Popover open={editingAgendamentoVenda} onOpenChange={setEditingAgendamentoVenda} modal={false}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0 hover:bg-accent/50"
+                              type="button"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
+                            <div className="p-3 space-y-3">
+                              <Calendar
+                                mode="single"
+                                selected={dataAgendamentoVenda}
+                                onSelect={(date) => setDataAgendamentoVenda(date)}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                                locale={ptBR}
+                              />
+                              <div className="flex items-center gap-2 px-3">
+                                <Label className="text-xs whitespace-nowrap">Horário:</Label>
+                                <Input
+                                  type="time"
+                                  value={horaAgendamentoVenda}
+                                  onChange={(e) => setHoraAgendamentoVenda(e.target.value)}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="flex gap-2 px-3 pb-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    setDataAgendamentoVenda(undefined);
+                                    setEditingAgendamentoVenda(false);
+                                    // Clear from DB
+                                    supabase.from('leads').update({ data_agendamento_venda: null }).eq('id', lead.id).then(() => {
+                                      toast.success("Agendamento removido");
+                                    });
+                                  }}
+                                >
+                                  Limpar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="flex-1"
+                                  disabled={!dataAgendamentoVenda}
+                                  onClick={async () => {
+                                    if (!dataAgendamentoVenda) return;
+                                    const [hours, minutes] = horaAgendamentoVenda.split(':').map(Number);
+                                    const dateTime = new Date(dataAgendamentoVenda);
+                                    dateTime.setHours(hours, minutes, 0, 0);
 
-                  <div className="flex items-start justify-between">
-                    <span className="text-muted-foreground">Última atualização</span>
-                    <span className="font-medium">
-                      {new Date(lead.updated_at).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR') 
-                        ? `Hoje às ${new Date(lead.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                        : new Date(lead.updated_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                                    try {
+                                      const { error } = await supabase
+                                        .from('leads')
+                                        .update({ data_agendamento_venda: dateTime.toISOString() })
+                                        .eq('id', lead.id);
+                                      if (error) throw error;
+                                      setDataAgendamentoVenda(dateTime);
+                                      setEditingAgendamentoVenda(false);
+                                      toast.success("Agendamento de venda salvo!");
+                                    } catch (error) {
+                                      console.error('Erro ao salvar agendamento:', error);
+                                      toast.error('Erro ao salvar agendamento');
+                                    }
+                                  }}
+                                >
+                                  Salvar
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
 
-            {/* Botões de ação fixos no rodapé */}
-            <div className="mt-auto p-4 border-t bg-background">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  disabled={isSaving}
-                  size="sm"
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleSaveChanges}
-                  disabled={isSaving}
-                  size="sm"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {isSaving ? "Salvando..." : "Salvar"}
-                </Button>
+                    <Separator className="my-2" />
+
+                    <div className="flex items-start justify-between">
+                      <span className="text-muted-foreground">Cadastrado por</span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-xs font-medium text-primary">B</span>
+                        </div>
+                        <span className="font-medium">Brito</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start justify-between">
+                      <span className="text-muted-foreground">Data de cadastro</span>
+                      <span className="font-medium">
+                        {new Date(lead.created_at).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR')
+                          ? `Hoje às ${new Date(lead.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                          : new Date(lead.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start justify-between">
+                      <span className="text-muted-foreground">Última atualização</span>
+                      <span className="font-medium">
+                        {new Date(lead.updated_at).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR')
+                          ? `Hoje às ${new Date(lead.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                          : new Date(lead.updated_at).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
+            </ScrollArea>
           </div>
+        </div>
+
+        {/* Global Footer Fixed at Bottom */}
+        <div className="flex-shrink-0 p-4 border-t bg-background flex items-center justify-end gap-3 rounded-b-lg">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            size="sm"
+            className="min-w-[100px]"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSaveChanges}
+            disabled={isSaving}
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white min-w-[120px]"
+          >
+            {isSaving ? "Salvando..." : "Salvar"}
+          </Button>
         </div>
       </DialogContent>
 
@@ -2159,7 +2158,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           <DialogHeader>
             <DialogTitle>Adicionar Produtos/Serviços</DialogTitle>
           </DialogHeader>
-          
+
           {/* Seção para digitar valor direto */}
           <div className="px-4 py-3 bg-muted/30 border-y space-y-3">
             <div className="flex items-center justify-between">
@@ -2185,7 +2184,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                 }}
                 className="flex-1"
               />
-              <Button 
+              <Button
                 onClick={handleSaveQuickValue}
                 disabled={!quickValue}
                 size="sm"
@@ -2210,10 +2209,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                 {availableItems.map((item) => {
                   const isAdded = leadItems.some((li: any) => li.item_id === item.id);
                   const itemIcon = getItemIcon(item.icon);
-                  
+
                   return (
-                    <Card 
-                      key={item.id} 
+                    <Card
+                      key={item.id}
                       className={cn(
                         "cursor-pointer transition-all hover:shadow-md",
                         isAdded && "opacity-50 cursor-not-allowed"
@@ -2233,13 +2232,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   {item.item_type === 'product' ? 'Produto' : 'Serviço'}
                                 </Badge>
                               </div>
-                              
+
                               {item.description && (
                                 <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                                   {item.description}
                                 </p>
                               )}
-                              
+
                               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2">
                                 <div>
                                   <span className="text-muted-foreground">Preço de venda:</span>
@@ -2249,28 +2248,28 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   <span className="text-muted-foreground">Preço de custo:</span>
                                   <p className="font-medium">R$ {item.cost_price.toFixed(2)}</p>
                                 </div>
-                                
+
                                 {item.profit_margin !== null && (
                                   <div>
                                     <span className="text-muted-foreground">Margem:</span>
                                     <p className="font-medium">{item.profit_margin.toFixed(1)}%</p>
                                   </div>
                                 )}
-                                
+
                                 {item.duration && (
                                   <div>
                                     <span className="text-muted-foreground">Duração:</span>
                                     <p className="font-medium">{item.duration}</p>
                                   </div>
                                 )}
-                                
+
                                 {item.stock_quantity !== null && (
                                   <div>
                                     <span className="text-muted-foreground">Estoque:</span>
                                     <p className="font-medium">{item.stock_quantity} un.</p>
                                   </div>
                                 )}
-                                
+
                                 {item.resource && (
                                   <div className="col-span-2">
                                     <span className="text-muted-foreground">Recurso:</span>
@@ -2280,7 +2279,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="shrink-0">
                             {isAdded ? (
                               <Badge variant="secondary" className="gap-1">
