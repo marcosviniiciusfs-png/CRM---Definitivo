@@ -137,10 +137,12 @@ const Settings = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          user_id: user.id,
+          full_name: fullName.trim(),
+          job_title: jobTitle.trim(),
           notification_sound_enabled: enabled,
-        })
-        .eq('user_id', user.id);
+        }, { onConflict: 'user_id' });
 
       if (error) throw error;
 
@@ -158,10 +160,12 @@ const Settings = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          user_id: user.id,
+          full_name: fullName.trim(),
+          job_title: jobTitle.trim(),
           button_click_sound_enabled: enabled,
-        } as any)
-        .eq('user_id', user.id);
+        } as any, { onConflict: 'user_id' });
 
       if (error) throw error;
 
