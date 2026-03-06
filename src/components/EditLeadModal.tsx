@@ -109,17 +109,48 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const fetchCurrentUserName = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.id) {
+      // 1. Usar responsavel_user_id do lead para buscar o nome real
+      if (lead.responsavel_user_id) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('user_id', user.id)
-          .single();
-        setCurrentUserName(profile?.full_name || 'Usuário');
+          .eq('user_id', lead.responsavel_user_id)
+          .maybeSingle();
+
+        if (profile?.full_name) {
+          setCurrentUserName(profile.full_name);
+          return;
+        }
+
+        // 2. Tentar via RPC de membros da organização
+        const { data: members } = await supabase.rpc('get_organization_members_masked');
+        if (members && members.length > 0) {
+          const member = members.find((m: any) => m.user_id === lead.responsavel_user_id);
+          if (member) {
+            // Buscar full_name do profile desse membro
+            const { data: memberProfile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('user_id', lead.responsavel_user_id)
+              .maybeSingle();
+            if (memberProfile?.full_name) {
+              setCurrentUserName(memberProfile.full_name);
+              return;
+            }
+          }
+        }
       }
+
+      // 3. Usar o campo responsavel (string direta) como fallback
+      if (lead.responsavel) {
+        setCurrentUserName(lead.responsavel);
+        return;
+      }
+
+      // 4. Fallback genérico - não mostrar email
+      setCurrentUserName('Usuário');
     } catch {
-      // silently ignore
+      setCurrentUserName(lead.responsavel || 'Usuário');
     }
   };
 

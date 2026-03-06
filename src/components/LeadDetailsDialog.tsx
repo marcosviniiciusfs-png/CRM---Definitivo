@@ -31,6 +31,7 @@ interface LeadDetails {
   valor: number | null;
   descricao_negocio: string | null;
   responsavel: string | null;
+  responsavel_user_id: string | null;
   data_inicio: string | null;
   data_conclusao: string | null;
   additional_data: Json | null;
@@ -130,23 +131,46 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       // Buscar detalhes do lead
       const { data: leadData, error: leadError } = await supabase
         .from("leads")
-        .select("responsavel, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, source")
+        .select("responsavel, responsavel_user_id, data_inicio, data_conclusao, descricao_negocio, valor, additional_data, email, duplicate_attempts_count, duplicate_attempts_history, calendar_event_id, source")
         .eq("id", leadId)
         .single();
 
       if (leadError) throw leadError;
       setDetails(leadData);
 
-      // Buscar nome do usuário logado (para exibir em "Cadastrado por" em leads manuais)
+      // Buscar nome de quem cadastrou o lead via responsavel_user_id
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) {
+        const responsavelUserId = leadData?.responsavel_user_id;
+
+        if (responsavelUserId) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('full_name')
-            .eq('user_id', user.id)
-            .single();
-          setCurrentUserName(profile?.full_name || 'Usuário');
+            .eq('user_id', responsavelUserId)
+            .maybeSingle();
+
+          if (profile?.full_name) {
+            setCurrentUserName(profile.full_name);
+          } else {
+            // Tentar via RPC de membros
+            const { data: members } = await supabase.rpc('get_organization_members_masked');
+            const member = members?.find((m: any) => m.user_id === responsavelUserId);
+            if (member) {
+              const { data: mp } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('user_id', responsavelUserId)
+                .maybeSingle();
+              setCurrentUserName(mp?.full_name || leadData?.responsavel || 'Usuário');
+            } else {
+              setCurrentUserName(leadData?.responsavel || 'Usuário');
+            }
+          }
+        } else if (leadData?.responsavel) {
+          // Sem user_id — usar o campo responsavel diretamente (já é o nome)
+          setCurrentUserName(leadData.responsavel);
+        } else {
+          setCurrentUserName('Usuário');
         }
       } catch { /* silently ignore */ }
 
