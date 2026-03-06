@@ -273,9 +273,10 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
             )}
 
             {/* Dados do Formulário Facebook (se existir) */}
-            {(details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===') ||
-              (details?.additional_data as any)?.source === 'facebook' ||
-              details?.source === 'Facebook Leads') && (
+            {((details?.additional_data as any)?.source === 'facebook' ||
+              ((details?.additional_data as any)?.fields?.length > 0) ||
+              details?.source === 'Facebook Leads' ||
+              details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===')) && (
                 <>
                   <FacebookFormData
                     description={details.descricao_negocio}

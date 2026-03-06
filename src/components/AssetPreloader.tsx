@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { supabase } from "@/integrations/supabase/client";
 
 // Import críticos para garantir que estejam no bundle
 import kairozLogo from '@/assets/kairoz-logo-full.png';
@@ -35,6 +36,9 @@ async function warmEdgeFunctions() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   if (!supabaseUrl) return;
 
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) return;
+
   // Aquecer edge functions mais usadas com HEAD request (não bloqueia, apenas aquece container)
   const edgeFunctionsToWarm = [
     'check-subscription',
@@ -46,7 +50,10 @@ async function warmEdgeFunctions() {
     edgeFunctionsToWarm.forEach(fnName => {
       fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
         method: 'OPTIONS', // OPTIONS é leve e aquece o container
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
       }).catch(() => {
         // Ignorar erros silenciosamente - é apenas warming
       });

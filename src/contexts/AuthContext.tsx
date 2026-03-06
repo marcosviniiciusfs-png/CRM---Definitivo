@@ -413,7 +413,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.error('[AUTH] Erro ao verificar dados após login:', error);
               if (mounted) setSectionAccess({});
             } finally {
-              if (mounted) setSectionAccessLoading(false);
+              setSectionAccessLoading(false);
             }
           }, 500);
         } else if (event === 'SIGNED_OUT') {

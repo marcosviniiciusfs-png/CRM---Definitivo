@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { FacebookFormData } from "@/components/FacebookFormData";
 import { cn } from "@/lib/utils";
 import * as Icons from "lucide-react";
 import { FaTooth } from "react-icons/fa";
@@ -781,6 +782,19 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden border-r bg-background">
             <ScrollArea className="flex-1">
               <div className="p-6 space-y-6">
+                {/* Dados do Formulário Facebook (se existir) */}
+                {((lead?.additional_data as any)?.source === 'facebook' ||
+                  ((lead?.additional_data as any)?.fields?.length > 0) ||
+                  lead?.source === 'Facebook Leads' ||
+                  lead?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===')) && (
+                    <div className="mb-6">
+                      <FacebookFormData
+                        description={lead.descricao_negocio}
+                        customFields={lead.additional_data as any}
+                      />
+                    </div>
+                  )}
+
                 {/* Tabs de Ações */}
                 <Tabs defaultValue="nota" className="w-full" onValueChange={setCurrentTab}>
                   <TabsList className="w-full flex justify-start bg-transparent border-b rounded-none h-auto p-0 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide">
