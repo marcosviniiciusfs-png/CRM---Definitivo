@@ -94,12 +94,15 @@ function AppSidebarComponent() {
 
   // Helper: check if a URL is visible based on section access
   const isSectionVisible = useCallback((url: string) => {
-    if (sectionAccess === null) return undefined; // no overrides loaded
+    // Owners, admins e superadmins nunca são bloqueados
+    if (isSuperAdmin || permissions.role === 'owner' || permissions.role === 'admin') {
+      return undefined; // undefined = não bloqueia, não força
+    }
+    if (sectionAccess === null) return undefined;
     const key = URL_TO_SECTION[url];
     if (!key) return undefined;
-
     return sectionAccess[key];
-  }, [sectionAccess]);
+  }, [sectionAccess, isSuperAdmin, permissions.role]);
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {

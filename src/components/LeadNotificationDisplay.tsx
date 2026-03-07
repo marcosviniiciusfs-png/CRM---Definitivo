@@ -32,6 +32,17 @@ const SOURCES: Record<string, { label: string; color: string; icon: React.ReactN
             </svg>
         ),
     },
+    manual: {
+        label: 'Manual',
+        color: '#aaaaaa',
+        icon: (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#aaaaaa" strokeWidth="2.2" strokeLinecap="round"
+                strokeLinejoin="round">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+            </svg>
+        ),
+    },
 };
 
 function getSource(raw: string) {
@@ -43,15 +54,16 @@ function LeadCard({ notif, onClose }: { notif: LeadNotif; onClose: () => void })
     const src = getSource(notif.source);
 
     return (
-        <div style={{ position: 'relative', width: 300 }}>
+        <div style={{ position: 'relative', width: 264 }}>
             <style>{`
         @keyframes leadBorderSpin {
           0%   { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
         @keyframes leadCardEntry {
-          0%   { opacity: 0; transform: translateX(40px) scale(0.95); }
-          100% { opacity: 1; transform: translateX(0) scale(1); }
+            0%   { opacity: 0; transform: translateX(100%); }
+            60%  { opacity: 1; transform: translateX(-4px); }
+            100% { opacity: 1; transform: translateX(0); }
         }
         .lead-notif-close {
           all: unset; cursor: pointer;
@@ -68,7 +80,7 @@ function LeadCard({ notif, onClose }: { notif: LeadNotif; onClose: () => void })
 
             {/* Spinning gradient border */}
             <div style={{
-                position: 'absolute', inset: -2, borderRadius: 18,
+                position: 'absolute', inset: -2, borderRadius: 10,
                 overflow: 'hidden', zIndex: 0,
             }}>
                 <div style={{
@@ -81,16 +93,16 @@ function LeadCard({ notif, onClose }: { notif: LeadNotif; onClose: () => void })
 
             {/* Card body */}
             <div style={{
-                position: 'relative', zIndex: 1, borderRadius: 16,
-                background: '#0f0f11', padding: '16px 16px 16px',
+                position: 'relative', zIndex: 1, borderRadius: 8,
+                background: '#0f0f11', padding: '12px 14px 14px',
                 animation: 'leadCardEntry 0.45s cubic-bezier(0.22,1,0.36,1) forwards',
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
             }}>
                 {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
-                            width: 36, height: 36, borderRadius: 10,
+                            width: 30, height: 30, borderRadius: 7,
                             background: 'linear-gradient(135deg, #1a0a0a, #2a0e0e)',
                             border: '1px solid rgba(146,16,9,0.3)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -114,7 +126,7 @@ function LeadCard({ notif, onClose }: { notif: LeadNotif; onClose: () => void })
                     <button className="lead-notif-close" onClick={onClose}>✕</button>
                 </div>
 
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 12 }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 8 }} />
 
                 {/* Funil */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>

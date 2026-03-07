@@ -41,6 +41,15 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
         setNotifications(prev => prev.filter(n => n.id !== id));
     }, []);
 
+    const normalizeSource = (raw: string): string => {
+        const s = (raw || '').toLowerCase();
+        if (s.includes('facebook')) return 'facebook';
+        if (s.includes('whatsapp')) return 'whatsapp';
+        if (s.includes('webhook')) return 'webhook';
+        if (s.includes('manual')) return 'manual';
+        return 'webhook';
+    };
+
     const addNotification = useCallback((notif: LeadNotif) => {
         if (seenIds.current.has(notif.id)) return;
         seenIds.current.add(notif.id);
@@ -88,7 +97,7 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
 
                     // Buscar primeira tag do lead (se existir)
                     let tag: string | undefined;
-                    if (lead.source === 'Webhook' || lead.source === 'webhook') {
+                    if (lead.id) {
                         const { data: tagData } = await supabase
                             .from('lead_tag_assignments')
                             .select('lead_tags(name)')
@@ -102,7 +111,7 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
                     addNotification({
                         id: lead.id,
                         nome_lead: lead.nome_lead || 'Lead sem nome',
-                        source: (lead.source || 'webhook').toLowerCase(),
+                        source: normalizeSource(lead.source || ''),
                         funnelName,
                         tag,
                     });
