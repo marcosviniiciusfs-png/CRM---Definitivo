@@ -363,3 +363,82 @@ All colors MUST be HSL.
 .animate-shrink-width {
   animation: shrink-width 5s linear forwards;
 }
+
+/* --- SIDEBAR CUSTOMIZATIONS --- */
+
+@keyframes drip {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes whatsapp-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes shake-horizontal {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@keyframes rotate-360 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes scale-flash {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.15); filter: brightness(1.4) drop-shadow(0 0 5px rgba(255, 255, 255, 0.4)); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes scale-rotate-subtle {
+  0% { transform: scale(1) rotate(0deg); }
+  100% { transform: scale(1.1) rotate(5deg); }
+}
+
+@keyframes pulse-subtle {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Hover Animations */
+.sidebar-icon-home:hover { animation: pulse-subtle 1.5s infinite ease-in-out; }
+.sidebar-icon-pipeline:hover { animation: drip 1s infinite ease-in-out; }
+.sidebar-icon-metrics:hover { animation: pulse-subtle 1.5s infinite ease-in-out; }
+.sidebar-icon-shuffle:hover { animation: rotate-360 0.8s ease-in-out; }
+.sidebar-icon-chat:hover { animation: whatsapp-bounce 0.6s ease-in-out infinite; }
+.sidebar-icon-ranking:hover { animation: shake-horizontal 0.4s ease-in-out infinite; }
+.sidebar-icon-integrations:hover { animation: scale-flash 0.8s ease-in-out; }
+.sidebar-icon-settings:hover { animation: rotate-360 2s linear infinite; }
+.sidebar-icon-default:hover { animation: scale-rotate-subtle 0.3s forwards; }
+
+/* Active Continuous Animations */
+.active-icon-home { animation: pulse-subtle 2s infinite ease-in-out; }
+.active-icon-pipeline { animation: drip 2s infinite ease-in-out; }
+.active-icon-shuffle { animation: rotate-360 4s infinite linear; }
+.active-icon-chat { animation: whatsapp-bounce 2s infinite ease-in-out; }
+.active-icon-ranking { animation: shake-horizontal 2s infinite ease-in-out; }
+.active-icon-settings { animation: rotate-360 4s infinite linear; }
+.active-icon-integrations { animation: scale-flash 2.5s infinite ease-in-out; }
+.active-icon-default { animation: pulse-subtle 3s infinite ease-in-out; }
+
+/* Custom Gradient for Active Items and Logo */
+.active-sidebar-gradient {
+  background: linear-gradient(135deg, #921009 65%, #e97555) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.logo-gradient-container {
+  background: linear-gradient(135deg, #921009 65%, #e97555);
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(146, 16, 9, 0.2);
+}

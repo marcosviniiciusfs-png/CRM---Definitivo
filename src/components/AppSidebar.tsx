@@ -1,4 +1,4 @@
-import { Home, Kanban, CheckSquare, Users, Settings, LogOut, MessageSquare, Lock, Unlock, ChevronDown, Briefcase, UserCircle, Layers, Activity, BarChart3, Shuffle, Puzzle, Trophy, AlertTriangle } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -59,11 +59,11 @@ const URL_TO_SECTION: Record<string, string> = {
 
 const items = [
   { title: "Início", url: "/dashboard", icon: Home },
-  { title: "Pipeline", url: "/pipeline", icon: Kanban },
+  { title: "Pipeline", url: "/pipeline", icon: Filter },
   { title: "Leads", url: "/leads", icon: Users },
-  { title: "Métricas", url: "/lead-metrics", icon: BarChart3 },
+  { title: "Métricas", url: "/lead-metrics", icon: BarChart2 },
   { title: "Roleta de Leads", url: "/lead-distribution", icon: Shuffle },
-  { title: "Chat", url: "/chat", icon: MessageSquare },
+  { title: "Chat", url: "/chat", icon: MessageCircle },
   { title: "Ranking", url: "/ranking", icon: Trophy },
 ];
 
@@ -121,8 +121,22 @@ function AppSidebarComponent() {
 
   // Classes condicionais para hover/active - neutras para ambos os temas
   const hoverClass = "hover:bg-sidebar-accent/60";
-  const activeClass = "bg-sidebar-accent";
-  const activeTextClass = "text-sidebar-primary";
+  const activeClass = "active-sidebar-gradient";
+  const activeTextClass = "text-white";
+
+  // Helper para animações de ícone
+  const getIconAnimationClass = (url: string, isActive: boolean) => {
+    if (url === "/pipeline") return isActive ? "active-icon-pipeline" : "sidebar-icon-pipeline";
+    if (url === "/chat") return isActive ? "active-icon-chat" : "sidebar-icon-chat";
+    if (url === "/ranking") return isActive ? "active-icon-ranking" : "sidebar-icon-ranking";
+    if (url === "/lead-distribution") return isActive ? "active-icon-shuffle" : "sidebar-icon-shuffle";
+    if (url === "/settings") return isActive ? "active-icon-settings" : "sidebar-icon-settings";
+    if (url === "/integrations") return isActive ? "active-icon-integrations" : "sidebar-icon-integrations";
+    if (url === "/dashboard") return isActive ? "active-icon-home" : "sidebar-icon-home";
+    if (url === "/lead-metrics") return isActive ? "active-icon-metrics" : "sidebar-icon-metrics";
+
+    return isActive ? "active-icon-default" : "sidebar-icon-default";
+  };
 
   // Inicializar estado de bloqueio do localStorage
   const [isLocked, setIsLocked] = useState(() => {
@@ -165,16 +179,18 @@ function AppSidebarComponent() {
       >
         <SidebarContent className="bg-sidebar overflow-y-auto">
           <div className="p-4 pb-4 flex items-center justify-center">
-            <img
-              src={logoFull}
-              alt="KairoZ"
-              className={open ? "h-10 w-auto object-contain block" : "h-10 w-auto object-contain hidden"}
-            />
-            <img
-              src={logoIcon}
-              alt="K"
-              className={open ? "h-8 w-auto object-contain hidden" : "h-8 w-auto object-contain block"}
-            />
+            <div className={cn(open ? "logo-gradient-container" : "")}>
+              <img
+                src={logoFull}
+                alt="KairoZ"
+                className={open ? "h-10 w-auto object-contain block brightness-0 invert" : "h-10 w-auto object-contain hidden"}
+              />
+              <img
+                src={logoIcon}
+                alt="K"
+                className={open ? "h-8 w-auto object-contain hidden" : "h-8 w-auto object-contain block"}
+              />
+            </div>
           </div>
 
           <SidebarGroup>
@@ -226,11 +242,15 @@ function AppSidebarComponent() {
                           <NavLink
                             to={item.url}
                             end
-                            className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}
-                            activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
+                            className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5 transition-all duration-200")}
+                            activeClassName={cn(activeClass, activeTextClass, "font-semibold shadow-md")}
                           >
-                            <item.icon className="h-5 w-5 flex-shrink-0" />
-                            <span className="truncate">{item.title}</span>
+                            {({ isActive }) => (
+                              <>
+                                <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all duration-300", getIconAnimationClass(item.url, isActive))} />
+                                <span className="truncate">{item.title}</span>
+                              </>
+                            )}
                           </NavLink>
                         )}
                       </SidebarMenuButton>
@@ -243,7 +263,7 @@ function AppSidebarComponent() {
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}>
-                          <Briefcase className="h-5 w-5 flex-shrink-0" />
+                          <Building2 className="h-5 w-5 flex-shrink-0 sidebar-icon-default" />
                           <span>Administrativo</span>
                           <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                         </SidebarMenuButton>
@@ -261,8 +281,12 @@ function AppSidebarComponent() {
                                     className={cn(hoverClass, "text-sidebar-foreground text-sm px-3 py-2")}
                                     activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
                                   >
-                                    <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                                    <span>{subItem.title}</span>
+                                    {({ isActive }) => (
+                                      <>
+                                        <subItem.icon className={cn("h-4 w-4 flex-shrink-0 transition-all duration-300", isActive ? "active-icon-default" : "sidebar-icon-default")} />
+                                        <span>{subItem.title}</span>
+                                      </>
+                                    )}
                                   </NavLink>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>
@@ -326,22 +350,26 @@ function AppSidebarComponent() {
                       <SidebarMenuButton asChild>
                         <NavLink
                           to={item.url}
-                          className={cn(hoverClass, warningBgClass, "text-sidebar-foreground text-base px-3 py-2.5 relative")}
-                          activeClassName={cn(activeClass, "text-sidebar-primary font-semibold")}
+                          className={cn(hoverClass, warningBgClass, "text-sidebar-foreground text-base px-3 py-2.5 relative transition-all duration-200")}
+                          activeClassName={cn(activeClass, "text-white font-semibold shadow-md")}
                         >
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          <span>{item.title}</span>
+                          {({ isActive }) => (
+                            <>
+                              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all duration-300", getIconAnimationClass(item.url, isActive))} />
+                              <span>{item.title}</span>
 
-                          {/* Indicador de tarefas pendentes */}
-                          {showTaskIndicator && !showWarningIndicator && (
-                            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full animate-pulse" />
-                          )}
+                              {/* Indicador de tarefas pendentes */}
+                              {showTaskIndicator && !showWarningIndicator && (
+                                <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full animate-pulse" />
+                              )}
 
-                          {/* Indicador de aviso (precisa ativar som) */}
-                          {showWarningIndicator && (
-                            <span className="absolute top-0.5 right-0.5 text-amber-400 animate-pulse">
-                              <AlertTriangle className="h-4 w-4" />
-                            </span>
+                              {/* Indicador de aviso (precisa ativar som) */}
+                              {showWarningIndicator && (
+                                <span className="absolute top-0.5 right-0.5 text-amber-400 animate-pulse">
+                                  <AlertTriangle className="h-4 w-4" />
+                                </span>
+                              )}
+                            </>
                           )}
                         </NavLink>
                       </SidebarMenuButton>
