@@ -274,15 +274,6 @@ const Pipeline = () => {
 
           // Verificar se é realmente um lead novo (não carregado anteriormente)
           if (!leadIdsRef.current.has(newLead.id)) {
-            // Tocar som
-            audioRef.current?.play().catch(() => { });
-
-            // Mostrar toast
-            toast.success(`Novo lead: ${newLead.nome_lead}`, {
-              description: newLead.telefone_lead,
-              duration: 5000,
-            });
-
             // Adicionar ao estado
             setLeads(prev => [newLead, ...prev]);
             leadIdsRef.current.add(newLead.id);

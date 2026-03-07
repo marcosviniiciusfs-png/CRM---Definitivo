@@ -1,10 +1,7 @@
-import { useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 
-// Features that are locked by default (everyone has access now)
-const LOCKED_FEATURES: string[] = [];
-
-// URL path to section key mapping
 const URL_TO_SECTION: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/pipeline': 'pipeline',
@@ -22,28 +19,28 @@ const URL_TO_SECTION: Record<string, string> = {
   '/settings': 'settings',
 };
 
+const LOCKED_FEATURES: string[] = [];
+
 export function useSectionAccess() {
   const { sectionAccess, sectionAccessLoading, user, isSuperAdmin } = useAuth();
+  const { role } = usePermissions();
 
-  // If user exists but sectionAccess hasn't loaded yet, treat as loading
   const loading = sectionAccessLoading || (!!user && sectionAccess === null);
 
-  const isSectionUnlocked = useCallback((path: string) => {
-    // Super Admin has access to EVERYTHING
-    if (isSuperAdmin) return true;
-
+  const isSectionUnlocked = useCallback((path: string): boolean => {
     const sectionKey = URL_TO_SECTION[path];
-    if (!sectionKey) return true; // unknown paths are accessible
+    if (!sectionKey) return true;
 
-    // Check explicit access override
+    // Owners, admins e superadmins sempre têm acesso total — nunca bloqueie
+    if (isSuperAdmin || role === 'owner' || role === 'admin') return true;
+
     if (sectionAccess) {
       if (sectionAccess[sectionKey] === true) return true;
       if (sectionAccess[sectionKey] === false) return false;
     }
 
-    // Default: locked features are locked, others are open
     return !LOCKED_FEATURES.includes(sectionKey);
-  }, [sectionAccess, isSuperAdmin]);
+  }, [sectionAccess, isSuperAdmin, role]);
 
   return { isSectionUnlocked, loading, sectionAccess };
 }
