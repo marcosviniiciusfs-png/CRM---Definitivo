@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { MenuLockToggle } from "@/components/MenuLockToggle";
 import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
+import { useTheme } from "@/contexts/ThemeContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSectionAccess } from "@/hooks/useSectionAccess";
@@ -84,6 +85,7 @@ const SIDEBAR_LOCK_KEY = "sidebar-locked";
 
 function AppSidebarComponent() {
   const { open, setOpen } = useSidebar();
+  const { theme } = useTheme();
   const { signOut, user, subscriptionData, isSuperAdmin, roleLoading } = useAuth();
   const permissions = usePermissions();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
@@ -182,12 +184,20 @@ function AppSidebarComponent() {
             <img
               src={logoFull}
               alt="KairoZ"
-              className={open ? "h-10 w-auto object-contain block brightness-0 invert" : "h-10 w-auto object-contain hidden"}
+              className={cn(
+                "w-auto object-contain",
+                open ? "h-10 block" : "h-10 hidden",
+                theme === "dark" ? "brightness-0 invert" : "logo-red-filter"
+              )}
             />
             <img
               src={logoIcon}
               alt="K"
-              className={open ? "h-8 w-auto object-contain hidden" : "h-8 w-auto object-contain block"}
+              className={cn(
+                "w-auto object-contain",
+                open ? "h-8 hidden" : "h-8 block",
+                theme === "dark" ? "brightness-0 invert" : "logo-red-filter"
+              )}
             />
           </div>
 
