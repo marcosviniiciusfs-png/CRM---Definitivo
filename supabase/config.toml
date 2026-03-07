@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.whatsapp-status-webhook]
 verify_jwt = false
+
+[functions.fetch-ads-insights]
+verify_jwt = false
+
+[functions.fetch-campaign-ads]
+verify_jwt = false

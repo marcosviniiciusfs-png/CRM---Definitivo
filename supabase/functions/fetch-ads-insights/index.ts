@@ -367,11 +367,67 @@ Deno.serve(async (req) => {
     }
 
     if (!selectedAccountId) {
-      console.log('No ad account configured');
-      return new Response(
-        JSON.stringify({ error: 'No ad account configured', data: null, availableAccounts }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+      console.log('[ADS] Nenhuma conta configurada — tentando auto-descoberta...');
+
+      try {
+        const adAccountsUrl = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=10&access_token=${access_token}`;
+        const adAccountsResponse = await fetch(adAccountsUrl);
+        const adAccountsData = await adAccountsResponse.json();
+
+        if (adAccountsData.error) {
+          console.error('[ADS] Erro na auto-descoberta:', adAccountsData.error.message);
+          return new Response(
+            JSON.stringify({
+              error: `Erro ao buscar contas de anúncio: ${adAccountsData.error.message}`,
+              data: null,
+              needsReconnect: true
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+
+        const accounts: AdAccount[] = (adAccountsData.data || []).map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          status: a.account_status ?? 1
+        }));
+
+        if (accounts.length === 0) {
+          return new Response(
+            JSON.stringify({
+              error: 'Nenhuma conta de anúncios encontrada. Certifique-se de que sua conta do Facebook tem acesso ao Gerenciador de Anúncios.',
+              data: null
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+
+        availableAccounts = accounts;
+        selectedAccountId = accounts[0].id;
+
+        if (!selectedAccountId.startsWith('act_')) {
+          selectedAccountId = `act_${selectedAccountId}`;
+        }
+
+        console.log(`[ADS] Auto-descoberta: ${accounts.length} conta(s). Usando: ${selectedAccountId}`);
+
+        // Salvar no banco para próximas chamadas
+        await supabase
+          .from('facebook_integrations')
+          .update({
+            ad_account_id: selectedAccountId,
+            ad_accounts: JSON.stringify(accounts)
+          })
+          .eq('id', integrationId);
+
+        console.log('[ADS] Conta salva no banco com sucesso');
+      } catch (discoveryError) {
+        console.error('[ADS] Falha na auto-descoberta:', discoveryError);
+        return new Response(
+          JSON.stringify({ error: 'Erro ao descobrir contas de anúncios. Tente novamente.', data: null }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
     }
 
     const selectedAccount = availableAccounts.find(acc => acc.id === selectedAccountId) || {

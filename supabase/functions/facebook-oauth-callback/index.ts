@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
     console.log('🔄 [FB-CALLBACK] Obtendo access_token com redirect_uri:', exchangeRedirectUri);
 
     const tokenResponse = await fetch(
-      `https://graph.facebook.com/v18.0/oauth/access_token?` +
+      `https://graph.facebook.com/v21.0/oauth/access_token?` +
       `client_id=${FACEBOOK_APP_ID}` +
       `&redirect_uri=${encodeURIComponent(exchangeRedirectUri)}` +
       `&client_secret=${FACEBOOK_APP_SECRET}` +
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
     // 2. Trocar pelo token de longa duração (60 dias)
     console.log('🔄 [FB-CALLBACK] Convertendo para token de longa duração...');
     const longLivedResponse = await fetch(
-      `https://graph.facebook.com/v18.0/oauth/access_token?` +
+      `https://graph.facebook.com/v21.0/oauth/access_token?` +
       `grant_type=fb_exchange_token` +
       `&client_id=${FACEBOOK_APP_ID}` +
       `&client_secret=${FACEBOOK_APP_SECRET}` +
@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
     // 3. Buscar páginas do usuário
     console.log('🔄 [FB-CALLBACK] Buscando páginas gerenciadas...');
     const pagesResponse = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,business&access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,business&access_token=${accessToken}`
     );
     const pagesData = await pagesResponse.json();
 
