@@ -190,19 +190,19 @@ const LeadMetrics = () => {
     to: new Date()
   });
   const hasLoadedRef = useRef(false);
-  
+
   // Ad account selection states
   const [selectedAdAccountId, setSelectedAdAccountId] = useState<string | null>(null);
   const [availableAdAccounts, setAvailableAdAccounts] = useState<AdAccount[]>([]);
   const [selectedAdAccountName, setSelectedAdAccountName] = useState<string | null>(null);
   const [localOrganizationId, setLocalOrganizationId] = useState<string | null>(null);
-  
+
   // Campaign ads modal states
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignBreakdown | null>(null);
   const [campaignAds, setCampaignAds] = useState<CampaignAd[]>([]);
   const [loadingAds, setLoadingAds] = useState(false);
   const [platformExpanded, setPlatformExpanded] = useState(false);
-  
+
   // Campaign filter states
   const [campaignSearchQuery, setCampaignSearchQuery] = useState("");
   const [selectedLeadTypeFilter, setSelectedLeadTypeFilter] = useState<string>("all");
@@ -222,12 +222,12 @@ const LeadMetrics = () => {
   // Filter campaigns based on search, lead type, and selection
   const filteredCampaigns = useMemo(() => {
     if (!adsMetrics?.campaignBreakdown) return [];
-    
+
     return adsMetrics.campaignBreakdown.filter(campaign => {
       const matchesSearch = campaign.name.toLowerCase().includes(campaignSearchQuery.toLowerCase());
       const matchesLeadType = selectedLeadTypeFilter === "all" || campaign.leadTypeName === selectedLeadTypeFilter;
       const matchesSelection = selectedCampaignIds.length === 0 || selectedCampaignIds.includes(campaign.id);
-      
+
       return matchesSearch && matchesLeadType && matchesSelection;
     });
   }, [adsMetrics?.campaignBreakdown, campaignSearchQuery, selectedLeadTypeFilter, selectedCampaignIds]);
@@ -235,7 +235,7 @@ const LeadMetrics = () => {
   // Calculate totals for filtered campaigns
   const filteredTotals = useMemo(() => {
     if (filteredCampaigns.length === 0) return null;
-    
+
     const totals = filteredCampaigns.reduce((acc, c) => ({
       spend: acc.spend + c.spend,
       leads: acc.leads + c.leads,
@@ -243,7 +243,7 @@ const LeadMetrics = () => {
       impressions: acc.impressions + c.impressions,
       clicks: acc.clicks + c.clicks,
     }), { spend: 0, leads: 0, reach: 0, impressions: 0, clicks: 0 });
-    
+
     return {
       ...totals,
       cpl: totals.leads > 0 ? totals.spend / totals.leads : 0,
@@ -252,8 +252,8 @@ const LeadMetrics = () => {
   }, [filteredCampaigns]);
 
   const toggleCampaignSelection = (campaignId: string) => {
-    setSelectedCampaignIds(prev => 
-      prev.includes(campaignId) 
+    setSelectedCampaignIds(prev =>
+      prev.includes(campaignId)
         ? prev.filter(id => id !== campaignId)
         : [...prev, campaignId]
     );
@@ -270,11 +270,10 @@ const LeadMetrics = () => {
 
   useEffect(() => {
     if (organizationId && dateRange?.from && dateRange?.to) {
-      if (!hasLoadedRef.current) {
-        hasLoadedRef.current = true;
-        loadMetrics();
-      }
+      hasLoadedRef.current = true;
+      loadMetrics();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId]);
 
   const getDateRange = () => {
@@ -285,7 +284,7 @@ const LeadMetrics = () => {
         days: 30
       };
     }
-    
+
     return {
       startDate: startOfDay(dateRange.from),
       endDate: endOfDay(dateRange.to),
@@ -296,7 +295,7 @@ const LeadMetrics = () => {
   const loadMetrics = async () => {
     try {
       if (!organizationId) return;
-      
+
       if (!loading) {
         setUpdating(true);
       } else {
@@ -411,9 +410,9 @@ const LeadMetrics = () => {
 
       if (data?.error) {
         // Silence "not configured" errors - treat as normal state
-        if (data.error.includes('integration not found') || 
-            data.error.includes('not configured') ||
-            data.error.includes('Facebook integration not found')) {
+        if (data.error.includes('integration not found') ||
+          data.error.includes('not configured') ||
+          data.error.includes('Facebook integration not found')) {
           setAdsError(null);
           setAdsMetrics(null);
           return;
@@ -440,7 +439,7 @@ const LeadMetrics = () => {
     const account = availableAdAccounts.find(a => a.id === accountId);
     setSelectedAdAccountId(accountId);
     setSelectedAdAccountName(account?.name || null);
-    
+
     if (organizationId && dateRange?.from && dateRange?.to) {
       const { startDate, endDate } = getDateRange();
       await loadAdsMetrics(organizationId, startDate, endDate, accountId);
@@ -449,7 +448,7 @@ const LeadMetrics = () => {
 
   const fetchCampaignAds = async (campaign: CampaignBreakdown) => {
     if (!organizationId) return;
-    
+
     setSelectedCampaign(campaign);
     setLoadingAds(true);
     setCampaignAds([]);
@@ -537,17 +536,17 @@ const LeadMetrics = () => {
       }
 
       const total = allLeads.length;
-      
+
       const qualifiedLeads = allLeads.filter(lead => lead.stage && lead.stage !== 'NOVO');
       const mqlConversionRate = total > 0 ? (qualifiedLeads.length / total) * 100 : 0;
 
-      const discardedLeads = allLeads.filter(lead => 
+      const discardedLeads = allLeads.filter(lead =>
         lead.stage === 'DESCARTADO' || lead.stage === 'PERDIDO'
       );
       const discardRate = total > 0 ? (discardedLeads.length / total) * 100 : 0;
 
       const leadIds = allLeads.map(l => l.id);
-      
+
       const { data: webhookLogs } = await supabase
         .from('facebook_webhook_logs')
         .select('form_id, lead_id, created_at')
@@ -565,9 +564,9 @@ const LeadMetrics = () => {
       });
 
       const leadsByForm = Object.entries(formCounts)
-        .map(([formName, count]) => ({ 
-          formName: formName.substring(0, 20), 
-          count 
+        .map(([formName, count]) => ({
+          formName: formName.substring(0, 20),
+          count
         }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
@@ -616,7 +615,7 @@ const LeadMetrics = () => {
       const pipelineConversionRate = total > 0 ? (pipelineLeads.length / total) * 100 : 0;
 
       const responseTimes: number[] = [];
-      
+
       const leadIds = whatsappLeads.map(l => l.id);
       const { data: allOutgoingMessages } = await supabase
         .from('mensagens_chat')
@@ -752,7 +751,7 @@ const LeadMetrics = () => {
 
   const processMetrics = (leads: any[]): MetricsData => {
     const { startDate, endDate } = getDateRange();
-    
+
     const groupedByDay = leads.reduce((acc, lead) => {
       const date = format(new Date(lead.created_at), 'dd/MMM', { locale: ptBR });
       acc[date] = (acc[date] || 0) + 1;
@@ -760,7 +759,7 @@ const LeadMetrics = () => {
     }, {} as Record<string, number>);
 
     const chartData: ChartDataPoint[] = [];
-    
+
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
       const dateKey = format(currentDate, 'dd/MMM', { locale: ptBR });
@@ -772,11 +771,11 @@ const LeadMetrics = () => {
     }
 
     const periodMidpoint = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
-    
-    const thisWeekLeads = leads.filter(lead => 
+
+    const thisWeekLeads = leads.filter(lead =>
       new Date(lead.created_at) >= periodMidpoint
     );
-    
+
     const lastWeekLeads = leads.filter(lead => {
       const createdAt = new Date(lead.created_at);
       return createdAt < periodMidpoint;
@@ -819,8 +818,8 @@ const LeadMetrics = () => {
           <p className="text-sm font-medium">{payload[0].payload.date}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {entry.name === 'spend' || entry.name === 'cpl' 
-                ? `R$ ${Number(entry.value).toFixed(2)}` 
+              {entry.name}: {entry.name === 'spend' || entry.name === 'cpl'
+                ? `R$ ${Number(entry.value).toFixed(2)}`
                 : entry.value}
             </p>
           ))}
@@ -944,7 +943,7 @@ const LeadMetrics = () => {
                         Últimos 90 dias
                       </Button>
                     </div>
-                    
+
                     <Calendar
                       mode="range"
                       selected={dateRange}
@@ -958,7 +957,7 @@ const LeadMetrics = () => {
                       locale={ptBR}
                     />
                   </div>
-                  
+
                   <div className="border-t p-3 flex justify-end gap-2">
                     <Button
                       variant="outline"
@@ -1463,14 +1462,14 @@ const LeadMetrics = () => {
                       <span className="font-semibold text-lg">{manualAgeMetrics.averageAge} anos</span>
                     </div>
                   </div>
-                  
+
                   {/* Distribution bars */}
                   <div className="space-y-2">
                     {manualAgeMetrics.ageDistribution.map(item => (
                       <div key={item.range} className="flex items-center gap-2">
                         <span className="text-xs w-12 text-muted-foreground">{item.range}</span>
                         <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-orange-500 rounded-full transition-all duration-500"
                             style={{ width: `${item.percentage}%` }}
                           />
@@ -1497,7 +1496,7 @@ const LeadMetrics = () => {
                 <p className="font-medium">{selectedAdAccountName || 'Não configurada'}</p>
               </div>
             </div>
-            
+
             {availableAdAccounts.length > 1 && (
               <Select value={selectedAdAccountId || undefined} onValueChange={handleAdAccountChange}>
                 <SelectTrigger className="w-[280px]">
@@ -1528,8 +1527,8 @@ const LeadMetrics = () => {
                   </p>
                   <p className="text-sm max-w-md mx-auto">{adsError}</p>
                   {adsNeedsReconnect ? (
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="mt-4"
                       onClick={() => window.location.href = '/integrations'}
                     >
@@ -1762,7 +1761,7 @@ const LeadMetrics = () => {
                             );
                           })}
                         </div>
-                        
+
                         {adsMetrics.platformBreakdown.length > 2 && (
                           <button
                             onClick={() => setPlatformExpanded(!platformExpanded)}
@@ -1853,7 +1852,7 @@ const LeadMetrics = () => {
                         Performance por Campanha
                         <span className="text-sm font-normal text-muted-foreground">(clique para ver anúncios)</span>
                       </CardTitle>
-                      
+
                       {/* Filters - Right side, minimalist */}
                       <div className="flex items-center gap-2 flex-wrap">
                         {/* Search by name */}
@@ -1866,7 +1865,7 @@ const LeadMetrics = () => {
                             className="h-8 w-36 pl-8 text-sm bg-muted/30 border-muted focus:bg-background"
                           />
                         </div>
-                        
+
                         {/* Filter by lead source */}
                         {availableLeadTypes.length > 0 && (
                           <Select value={selectedLeadTypeFilter} onValueChange={setSelectedLeadTypeFilter}>
@@ -1882,45 +1881,45 @@ const LeadMetrics = () => {
                             </SelectContent>
                           </Select>
                         )}
-                        
+
                         {/* Campaign selector */}
                         <Popover open={campaignSelectorOpen} onOpenChange={setCampaignSelectorOpen}>
                           <PopoverTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="h-8 text-sm bg-muted/30 border-muted hover:bg-muted/50"
                             >
                               <Check className="h-3.5 w-3.5 mr-1.5" />
-                              {selectedCampaignIds.length > 0 
-                                ? `${selectedCampaignIds.length} selecionadas` 
+                              {selectedCampaignIds.length > 0
+                                ? `${selectedCampaignIds.length} selecionadas`
                                 : "Campanhas"}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-64 p-2" align="end">
                             <div className="space-y-2">
-                              <div 
+                              <div
                                 className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer border-b pb-2"
                                 onClick={toggleAllCampaigns}
                               >
-                                <Checkbox 
+                                <Checkbox
                                   checked={selectedCampaignIds.length === adsMetrics.campaignBreakdown.length}
                                   className="h-3.5 w-3.5"
                                 />
                                 <span className="text-sm font-medium">
-                                  {selectedCampaignIds.length === adsMetrics.campaignBreakdown.length 
-                                    ? "Desmarcar todas" 
+                                  {selectedCampaignIds.length === adsMetrics.campaignBreakdown.length
+                                    ? "Desmarcar todas"
                                     : "Selecionar todas"}
                                 </span>
                               </div>
                               <div className="max-h-48 overflow-y-auto space-y-1">
                                 {adsMetrics.campaignBreakdown.map(campaign => (
-                                  <div 
+                                  <div
                                     key={campaign.id}
                                     className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer"
                                     onClick={() => toggleCampaignSelection(campaign.id)}
                                   >
-                                    <Checkbox 
+                                    <Checkbox
                                       checked={selectedCampaignIds.includes(campaign.id)}
                                       className="h-3.5 w-3.5"
                                     />
@@ -1931,9 +1930,9 @@ const LeadMetrics = () => {
                                 ))}
                               </div>
                               {selectedCampaignIds.length > 0 && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="w-full h-7 text-xs"
                                   onClick={() => setSelectedCampaignIds([])}
                                 >
@@ -1964,84 +1963,84 @@ const LeadMetrics = () => {
                         </TableHeader>
                         <TableBody>
                           {filteredCampaigns.map((campaign, index) => (
-                          <Tooltip key={index}>
-                            <TooltipTrigger asChild>
-                              <TableRow 
-                                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => handleCampaignClick(campaign)}
-                              >
-                                <TableCell className="font-medium max-w-[200px]">
-                                  <div className="truncate">{campaign.name}</div>
-                                  {/* MELHORIA 6: Badge de Objetivo */}
-                                  {campaign.objectiveName && (
-                                    <Badge variant="outline" className="text-[9px] mt-1 font-normal">
-                                      {campaign.objectiveName}
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatCurrency(campaign.spend)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {campaign.leadTypeName && (
-                                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                        {campaign.leadTypeName}
-                                      </span>
+                            <Tooltip key={index}>
+                              <TooltipTrigger asChild>
+                                <TableRow
+                                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                  onClick={() => handleCampaignClick(campaign)}
+                                >
+                                  <TableCell className="font-medium max-w-[200px]">
+                                    <div className="truncate">{campaign.name}</div>
+                                    {/* MELHORIA 6: Badge de Objetivo */}
+                                    {campaign.objectiveName && (
+                                      <Badge variant="outline" className="text-[9px] mt-1 font-normal">
+                                        {campaign.objectiveName}
+                                      </Badge>
                                     )}
-                                    <span className="min-w-[40px] text-right tabular-nums">{campaign.leads}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatCurrency(campaign.cpl)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {campaign.reach.toLocaleString('pt-BR')}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {(campaign.impressions || 0).toLocaleString('pt-BR')}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {campaign.clicks.toLocaleString('pt-BR')}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {campaign.ctr.toFixed(2)}%
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Eye className="h-4 w-4 text-muted-foreground" />
-                                </TableCell>
-                              </TableRow>
-                            </TooltipTrigger>
-                            {/* MELHORIA 5: Tooltip com métricas de qualidade */}
-                            <TooltipContent side="left" className="max-w-xs">
-                              <div className="text-xs space-y-1">
-                                <p className="font-semibold mb-2">Métricas de Qualidade</p>
-                                {campaign.frequency !== undefined && campaign.frequency > 0 && (
-                                  <p>Frequência: {campaign.frequency.toFixed(2)}x</p>
-                                )}
-                                {campaign.landingPageViews !== undefined && campaign.landingPageViews > 0 && (
-                                  <p>Visualizações LP: {campaign.landingPageViews.toLocaleString('pt-BR')}</p>
-                                )}
-                                {campaign.outboundClicks !== undefined && campaign.outboundClicks > 0 && (
-                                  <p>Cliques de Saída: {campaign.outboundClicks.toLocaleString('pt-BR')}</p>
-                                )}
-                                {campaign.qualityRanking && campaign.qualityRanking !== 'N/A' && (
-                                  <p>Qualidade: {campaign.qualityRanking}</p>
-                                )}
-                                {campaign.engagementRanking && campaign.engagementRanking !== 'N/A' && (
-                                  <p>Engajamento: {campaign.engagementRanking}</p>
-                                )}
-                                {campaign.conversionRanking && campaign.conversionRanking !== 'N/A' && (
-                                  <p>Conversão: {campaign.conversionRanking}</p>
-                                )}
-                                {(!campaign.frequency && !campaign.landingPageViews && !campaign.outboundClicks) && (
-                                  <p className="text-muted-foreground">Sem dados de qualidade disponíveis</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                          
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatCurrency(campaign.spend)}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      {campaign.leadTypeName && (
+                                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                          {campaign.leadTypeName}
+                                        </span>
+                                      )}
+                                      <span className="min-w-[40px] text-right tabular-nums">{campaign.leads}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatCurrency(campaign.cpl)}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {campaign.reach.toLocaleString('pt-BR')}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {(campaign.impressions || 0).toLocaleString('pt-BR')}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {campaign.clicks.toLocaleString('pt-BR')}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {campaign.ctr.toFixed(2)}%
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Eye className="h-4 w-4 text-muted-foreground" />
+                                  </TableCell>
+                                </TableRow>
+                              </TooltipTrigger>
+                              {/* MELHORIA 5: Tooltip com métricas de qualidade */}
+                              <TooltipContent side="left" className="max-w-xs">
+                                <div className="text-xs space-y-1">
+                                  <p className="font-semibold mb-2">Métricas de Qualidade</p>
+                                  {campaign.frequency !== undefined && campaign.frequency > 0 && (
+                                    <p>Frequência: {campaign.frequency.toFixed(2)}x</p>
+                                  )}
+                                  {campaign.landingPageViews !== undefined && campaign.landingPageViews > 0 && (
+                                    <p>Visualizações LP: {campaign.landingPageViews.toLocaleString('pt-BR')}</p>
+                                  )}
+                                  {campaign.outboundClicks !== undefined && campaign.outboundClicks > 0 && (
+                                    <p>Cliques de Saída: {campaign.outboundClicks.toLocaleString('pt-BR')}</p>
+                                  )}
+                                  {campaign.qualityRanking && campaign.qualityRanking !== 'N/A' && (
+                                    <p>Qualidade: {campaign.qualityRanking}</p>
+                                  )}
+                                  {campaign.engagementRanking && campaign.engagementRanking !== 'N/A' && (
+                                    <p>Engajamento: {campaign.engagementRanking}</p>
+                                  )}
+                                  {campaign.conversionRanking && campaign.conversionRanking !== 'N/A' && (
+                                    <p>Conversão: {campaign.conversionRanking}</p>
+                                  )}
+                                  {(!campaign.frequency && !campaign.landingPageViews && !campaign.outboundClicks) && (
+                                    <p className="text-muted-foreground">Sem dados de qualidade disponíveis</p>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+
                           {/* LINHA DE TOTAIS/MÉDIAS */}
                           {filteredCampaigns.length > 0 && filteredTotals && (
                             <TableRow className="bg-muted/50 font-semibold border-t-2 border-primary/20">
@@ -2075,8 +2074,8 @@ const LeadMetrics = () => {
                               <TableCell></TableCell>
                             </TableRow>
                           )}
-                      </TableBody>
-                    </Table>
+                        </TableBody>
+                      </Table>
                     </TooltipProvider>
                   </CardContent>
                 </Card>
@@ -2111,7 +2110,7 @@ const LeadMetrics = () => {
               <p className="text-sm text-muted-foreground truncate">{selectedCampaign.name}</p>
             )}
           </DialogHeader>
-          
+
           {loadingAds ? (
             <div className="flex items-center justify-center py-16">
               <LoadingAnimation text="Carregando anúncios..." />

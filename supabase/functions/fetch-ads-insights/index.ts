@@ -307,6 +307,11 @@ Deno.serve(async (req) => {
     integrationId = integration.id;
     selectedAccountId = ad_account_id || integration.ad_account_id;
 
+    // Garantir prefixo act_ obrigatório pela Meta API
+    if (selectedAccountId && !selectedAccountId.startsWith('act_')) {
+      selectedAccountId = `act_${selectedAccountId}`;
+    }
+
     if (integration.ad_accounts) {
       if (Array.isArray(integration.ad_accounts)) {
         availableAccounts = integration.ad_accounts;
@@ -319,46 +324,34 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Tentar buscar tokens da tabela segura via RPC
-    const { data: secureTokens, error: secureError } = await supabase.rpc('get_facebook_tokens_secure', {
+    // Buscar token — tenta tabela segura primeiro, depois legado
+    const { data: secureTokens } = await supabase.rpc('get_facebook_tokens_secure', {
       p_organization_id: organization_id
     });
 
-    if (!secureError && secureTokens && secureTokens.length > 0 && secureTokens[0].encrypted_access_token) {
-      // Tokens encontrados na tabela segura - descriptografar
-      console.log('Using secure tokens from facebook_integration_tokens');
+    if (secureTokens && secureTokens.length > 0 && secureTokens[0].encrypted_access_token) {
+      console.log('Using secure tokens');
       access_token = await decryptToken(secureTokens[0].encrypted_access_token, ENCRYPTION_KEY);
-    } else {
-      // Verificar se há token legado válido na tabela principal
-      console.log('Checking for legacy tokens in facebook_integrations');
+    }
 
-      if (integration.access_token && integration.access_token !== 'ENCRYPTED_IN_TOKENS_TABLE') {
-        // Token legado encontrado - usar e migrar para tabela segura
-        console.log('Found legacy token, attempting migration...');
-        access_token = integration.access_token;
-
-        // Tentar migrar para tabela segura (não bloqueia se falhar)
-        try {
-          const { error: migrateError } = await supabase.rpc('update_facebook_tokens_secure', {
-            p_integration_id: integrationId,
-            p_encrypted_access_token: access_token,
-            p_encrypted_page_access_token: null
-          });
-
-          if (!migrateError) {
-            console.log('Legacy token migrated successfully');
-            // Atualizar tabela principal para indicar que tokens estão criptografados
-            await supabase
-              .from('facebook_integrations')
-              .update({ access_token: 'ENCRYPTED_IN_TOKENS_TABLE' })
-              .eq('id', integrationId);
-          } else {
-            console.log('Migration failed, continuing with legacy token:', migrateError.message);
-          }
-        } catch (migrationError) {
-          console.log('Migration error (non-blocking):', migrationError);
-        }
+    // Fallback 1: buscar diretamente na tabela de tokens (sem RPC)
+    if (!access_token) {
+      const { data: directToken } = await supabase
+        .from('facebook_integration_tokens')
+        .select('encrypted_access_token')
+        .eq('integration_id', integrationId)
+        .maybeSingle();
+      if (directToken?.encrypted_access_token) {
+        access_token = await decryptToken(directToken.encrypted_access_token, ENCRYPTION_KEY);
+        console.log('Using direct token from facebook_integration_tokens');
       }
+    }
+
+    // Fallback 2: token legado na tabela principal
+    if (!access_token && integration.access_token &&
+      integration.access_token !== 'ENCRYPTED_IN_TOKENS_TABLE') {
+      access_token = integration.access_token;
+      console.log('Using legacy token from facebook_integrations');
     }
 
     if (!access_token) {
@@ -397,13 +390,11 @@ Deno.serve(async (req) => {
     ].join(',');
 
     const timeRange = JSON.stringify({ since: start_date, until: end_date });
-    const attributionWindows = encodeURIComponent('["7d_click","1d_view"]');
 
-    const aggregatedInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
+    const aggregatedInsightsUrl = `https://graph.facebook.com/v21.0/${selectedAccountId}/insights?` +
       `fields=${insightsFields}` +
       `&level=campaign` +
       `&time_range=${encodeURIComponent(timeRange)}` +
-      `&action_attribution_windows=${attributionWindows}` +
       `&limit=500` +
       `&access_token=${access_token}`;
 
@@ -434,7 +425,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < campaignIds.length; i += 50) {
       const batch = campaignIds.slice(i, i + 50);
       try {
-        const campaignsUrl = `https://graph.facebook.com/v18.0/?ids=${batch.join(',')}&fields=objective,optimization_goal&access_token=${access_token}`;
+        const campaignsUrl = `https://graph.facebook.com/v21.0/?ids=${batch.join(',')}&fields=objective,optimization_goal&access_token=${access_token}`;
         const campaignsResponse = await fetch(campaignsUrl);
         const campaignsData = await campaignsResponse.json();
 
@@ -541,7 +532,7 @@ Deno.serve(async (req) => {
     console.log(`Spend: ${totalSpend}, Leads: ${totalLeads}, CPL: ${avgCPL}`);
 
     // Buscar dados diários para o gráfico
-    const dailyInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
+    const dailyInsightsUrl = `https://graph.facebook.com/v21.0/${selectedAccountId}/insights?` +
       `fields=spend,impressions,reach,actions` +
       `&level=account` +
       `&time_range=${encodeURIComponent(timeRange)}` +
@@ -556,17 +547,20 @@ Deno.serve(async (req) => {
         a.action_type === 'lead' || a.action_type === 'leadgen_grouped' ||
         a.action_type.includes('messaging_conversation_started')
       );
+      const daySpend = parseFloat(day.spend || '0');
+      const dayLeadsCount = dayLeads ? parseInt(dayLeads.value || '0', 10) : 0;
       return {
         date: day.date_start,
-        spend: parseFloat(day.spend || '0'),
-        leads: dayLeads ? parseInt(dayLeads.value || '0', 10) : 0,
+        spend: daySpend,
+        leads: dayLeadsCount,
+        cpl: dayLeadsCount > 0 ? daySpend / dayLeadsCount : 0,
         impressions: parseInt(day.impressions || '0', 10),
         reach: parseInt(day.reach || '0', 10),
       };
     }).sort((a: any, b: any) => a.date.localeCompare(b.date));
 
     // Buscar breakdown por plataforma
-    const platformInsightsUrl = `https://graph.facebook.com/v18.0/${selectedAccountId}/insights?` +
+    const platformInsightsUrl = `https://graph.facebook.com/v21.0/${selectedAccountId}/insights?` +
       `fields=spend,impressions,reach,actions` +
       `&level=account` +
       `&time_range=${encodeURIComponent(timeRange)}` +
