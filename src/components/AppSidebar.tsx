@@ -179,18 +179,16 @@ function AppSidebarComponent() {
       >
         <SidebarContent className="bg-sidebar overflow-y-auto">
           <div className="p-4 pb-4 flex items-center justify-center">
-            <div className={cn(open ? "logo-gradient-container" : "")}>
-              <img
-                src={logoFull}
-                alt="KairoZ"
-                className={open ? "h-10 w-auto object-contain block brightness-0 invert" : "h-10 w-auto object-contain hidden"}
-              />
-              <img
-                src={logoIcon}
-                alt="K"
-                className={open ? "h-8 w-auto object-contain hidden" : "h-8 w-auto object-contain block"}
-              />
-            </div>
+            <img
+              src={logoFull}
+              alt="KairoZ"
+              className={open ? "h-10 w-auto object-contain block brightness-0 invert" : "h-10 w-auto object-contain hidden"}
+            />
+            <img
+              src={logoIcon}
+              alt="K"
+              className={open ? "h-8 w-auto object-contain hidden" : "h-8 w-auto object-contain block"}
+            />
           </div>
 
           <SidebarGroup>

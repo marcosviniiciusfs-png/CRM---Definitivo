@@ -43,10 +43,10 @@ All colors MUST be HSL.
     --border: 215 20% 90%;
     --input: 215 20% 90%;
     --ring: 357 75% 52%;
-    
+
     --hover-border: 202 100% 49%;
     --glow-green: 142 98% 26%;
-    
+
     --chat-bubble: 179 84% 21%;
     --chat-bubble-foreground: 0 0% 100%;
 
@@ -102,10 +102,10 @@ All colors MUST be HSL.
     --border: 0 0% 15%;
     --input: 0 0% 12%;
     --ring: 357 75% 52%;
-    
+
     --hover-border: 202 100% 49%;
     --glow-green: 142 98% 26%;
-    
+
     --chat-bubble: 179 84% 21%;
     --chat-bubble-foreground: 0 0% 100%;
 
@@ -123,7 +123,7 @@ All colors MUST be HSL.
     --chart-3: 38 92% 50%;
     --chart-4: 142 71% 45%;
     --chart-5: 270 60% 55%;
-    
+
     --new-lead-glow: 0 85% 60%;
   }
 }
@@ -171,10 +171,13 @@ All colors MUST be HSL.
 
   /* Animações */
   @keyframes glow-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
       border-color: hsl(var(--border));
       box-shadow: 0 0 0 rgba(239, 68, 68, 0);
     }
+
     50% {
       border-color: rgb(239, 68, 68);
       box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
@@ -187,21 +190,27 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+
   /* Ocultar scrollbar mantendo funcionalidade de scroll */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE e Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE e Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari e Opera */
+    display: none;
+    /* Chrome, Safari e Opera */
   }
 
   /* Scrollbar discreta e quase transparente */
   .scrollbar-subtle {
     -ms-overflow-style: auto;
-    scrollbar-width: thin; /* Firefox */
-    scrollbar-color: rgba(128, 128, 128, 0.2) transparent; /* Firefox */
+    scrollbar-width: thin;
+    /* Firefox */
+    scrollbar-color: rgba(128, 128, 128, 0.2) transparent;
+    /* Firefox */
   }
 
   .scrollbar-subtle::-webkit-scrollbar {
@@ -223,7 +232,8 @@ All colors MUST be HSL.
   }
 
   .dark .scrollbar-subtle {
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent; /* Firefox dark */
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+    /* Firefox dark */
   }
 
   .dark .scrollbar-subtle::-webkit-scrollbar-thumb {
@@ -238,34 +248,27 @@ All colors MUST be HSL.
   .glow-border {
     border: 1px solid hsl(var(--glow-green));
     box-shadow: 0 0 10px hsl(var(--glow-green) / 0.6),
-                0 0 20px hsl(var(--glow-green) / 0.4),
-                inset 0 0 10px hsl(var(--glow-green) / 0.2);
+      0 0 20px hsl(var(--glow-green) / 0.4),
+      inset 0 0 10px hsl(var(--glow-green) / 0.2);
   }
 
   /* Ícone fluorescente */
   .glow-icon {
     color: hsl(var(--glow-green));
-    filter: drop-shadow(0 0 6px hsl(var(--glow-green) / 0.8))
-            drop-shadow(0 0 12px hsl(var(--glow-green) / 0.5));
+    filter: drop-shadow(0 0 6px hsl(var(--glow-green) / 0.8)) drop-shadow(0 0 12px hsl(var(--glow-green) / 0.5));
   }
 
   /* Glassmorphism Buttons */
   .glass-destructive {
-    @apply bg-red-500/20 backdrop-blur-md border border-red-500/50 text-red-600 dark:text-red-400 
-           hover:bg-red-500/30 hover:border-red-500/70 hover:text-red-600 dark:hover:text-red-400
-           transition-all duration-300 shadow-lg shadow-red-500/20;
+    @apply bg-red-500/20 backdrop-blur-md border border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-500/30 hover:border-red-500/70 hover:text-red-600 dark:hover:text-red-400 transition-all duration-300 shadow-lg shadow-red-500/20;
   }
 
   .glass-warning {
-    @apply bg-orange-500/20 backdrop-blur-md border border-orange-500/50 text-orange-600 dark:text-orange-400 
-           hover:bg-orange-500/30 hover:border-orange-500/70 hover:text-orange-600 dark:hover:text-orange-400
-           transition-all duration-300 shadow-lg shadow-orange-500/20;
+    @apply bg-orange-500/20 backdrop-blur-md border border-orange-500/50 text-orange-600 dark:text-orange-400 hover:bg-orange-500/30 hover:border-orange-500/70 hover:text-orange-600 dark:hover:text-orange-400 transition-all duration-300 shadow-lg shadow-orange-500/20;
   }
 
   .glass-primary {
-    @apply bg-primary/20 backdrop-blur-md border border-primary/50 text-primary 
-           hover:bg-primary/30 hover:border-primary/70 hover:text-primary
-           transition-all duration-300 shadow-lg shadow-primary/20;
+    @apply bg-primary/20 backdrop-blur-md border border-primary/50 text-primary hover:bg-primary/30 hover:border-primary/70 hover:text-primary transition-all duration-300 shadow-lg shadow-primary/20;
   }
 
   /* Otimização crítica: desabilitar transições e hover durante drag ativo */
@@ -301,7 +304,7 @@ All colors MUST be HSL.
     transition: none !important;
   }
 
-  [data-dragging-active="true"] .pipeline-column > div {
+  [data-dragging-active="true"] .pipeline-column>div {
     pointer-events: none;
   }
 
@@ -356,8 +359,13 @@ All colors MUST be HSL.
 
 /* Custom Success Notification Animations */
 @keyframes shrink-width {
-  from { width: 100%; }
-  to { width: 0%; }
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0%;
+  }
 }
 
 .animate-shrink-width {
@@ -367,78 +375,175 @@ All colors MUST be HSL.
 /* --- SIDEBAR CUSTOMIZATIONS --- */
 
 @keyframes drip {
-  0% { transform: translateY(0); }
-  50% { transform: translateY(4px); }
-  100% { transform: translateY(0); }
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(4px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
 }
 
 @keyframes whatsapp-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes shake-horizontal {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 @keyframes rotate-360 {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes scale-flash {
-  0% { transform: scale(1); filter: brightness(1); }
-  50% { transform: scale(1.15); filter: brightness(1.4) drop-shadow(0 0 5px rgba(255, 255, 255, 0.4)); }
-  100% { transform: scale(1); filter: brightness(1); }
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+    filter: brightness(1.4) drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
+  }
+
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
 }
 
 @keyframes scale-rotate-subtle {
-  0% { transform: scale(1) rotate(0deg); }
-  100% { transform: scale(1.1) rotate(5deg); }
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+
+  100% {
+    transform: scale(1.1) rotate(5deg);
+  }
 }
 
 @keyframes pulse-subtle {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
-/* Hover Animations */
-.sidebar-icon-home:hover { animation: pulse-subtle 1.5s infinite ease-in-out; }
-.sidebar-icon-pipeline:hover { animation: drip 1s infinite ease-in-out; }
-.sidebar-icon-metrics:hover { animation: pulse-subtle 1.5s infinite ease-in-out; }
-.sidebar-icon-shuffle:hover { animation: rotate-360 0.8s ease-in-out; }
-.sidebar-icon-chat:hover { animation: whatsapp-bounce 0.6s ease-in-out infinite; }
-.sidebar-icon-ranking:hover { animation: shake-horizontal 0.4s ease-in-out infinite; }
-.sidebar-icon-integrations:hover { animation: scale-flash 0.8s ease-in-out; }
-.sidebar-icon-settings:hover { animation: rotate-360 2s linear infinite; }
-.sidebar-icon-default:hover { animation: scale-rotate-subtle 0.3s forwards; }
+/* Hover Animations using parent selector */
+[data-sidebar="menu-button"]:hover .sidebar-icon-home {
+  animation: pulse-subtle 1.5s infinite ease-in-out;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-pipeline {
+  animation: drip 1s infinite ease-in-out;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-metrics {
+  animation: pulse-subtle 1.5s infinite ease-in-out;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-shuffle {
+  animation: rotate-360 0.8s ease-in-out;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-chat {
+  animation: whatsapp-bounce 0.6s ease-in-out infinite;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-ranking {
+  animation: shake-horizontal 0.4s ease-in-out infinite;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-integrations {
+  animation: scale-flash 0.8s ease-in-out;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-settings {
+  animation: rotate-360 2s linear infinite;
+}
+
+[data-sidebar="menu-button"]:hover .sidebar-icon-default {
+  animation: scale-rotate-subtle 0.3s forwards;
+}
 
 /* Active Continuous Animations */
-.active-icon-home { animation: pulse-subtle 2s infinite ease-in-out; }
-.active-icon-pipeline { animation: drip 2s infinite ease-in-out; }
-.active-icon-shuffle { animation: rotate-360 4s infinite linear; }
-.active-icon-chat { animation: whatsapp-bounce 2s infinite ease-in-out; }
-.active-icon-ranking { animation: shake-horizontal 2s infinite ease-in-out; }
-.active-icon-settings { animation: rotate-360 4s infinite linear; }
-.active-icon-integrations { animation: scale-flash 2.5s infinite ease-in-out; }
-.active-icon-default { animation: pulse-subtle 3s infinite ease-in-out; }
+.active-icon-home {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+
+.active-icon-pipeline {
+  animation: drip 2s infinite ease-in-out;
+}
+
+.active-icon-metrics {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
+
+.active-icon-shuffle {
+  animation: rotate-360 4s infinite linear;
+}
+
+.active-icon-chat {
+  animation: whatsapp-bounce 2s infinite ease-in-out;
+}
+
+.active-icon-ranking {
+  animation: shake-horizontal 2s infinite ease-in-out;
+}
+
+.active-icon-settings {
+  animation: rotate-360 4s infinite linear;
+}
+
+.active-icon-integrations {
+  animation: scale-flash 2.5s infinite ease-in-out;
+}
+
+.active-icon-default {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
 
 /* Custom Gradient for Active Items and Logo */
 .active-sidebar-gradient {
   background: linear-gradient(135deg, #921009 65%, #e97555) !important;
   color: white !important;
   border: none !important;
-}
-
-.logo-gradient-container {
-  background: linear-gradient(135deg, #921009 65%, #e97555);
-  padding: 8px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(146, 16, 9, 0.2);
 }
