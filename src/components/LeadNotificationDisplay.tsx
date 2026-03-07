@@ -61,9 +61,9 @@ function LeadCard({ notif, onClose }: { notif: LeadNotif; onClose: () => void })
           100% { transform: rotate(360deg); }
         }
         @keyframes leadCardEntry {
-            0%   { opacity: 0; transform: translateX(100%); }
-            60%  { opacity: 1; transform: translateX(-4px); }
-            100% { opacity: 1; transform: translateX(0); }
+            0%   { opacity: 0;  transform: translateX(120%); }
+            65%  { opacity: 1;  transform: translateX(-6px); }
+            100% { opacity: 1;  transform: translateX(0); }
         }
         .lead-notif-close {
           all: unset; cursor: pointer;
@@ -95,7 +95,7 @@ function LeadCard({ notif, onClose }: { notif: LeadNotif; onClose: () => void })
             <div style={{
                 position: 'relative', zIndex: 1, borderRadius: 8,
                 background: '#0f0f11', padding: '12px 14px 14px',
-                animation: 'leadCardEntry 0.45s cubic-bezier(0.22,1,0.36,1) forwards',
+                animation: 'leadCardEntry 0.5s cubic-bezier(0.16,1,0.3,1) forwards',
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
             }}>
                 {/* Header */}
