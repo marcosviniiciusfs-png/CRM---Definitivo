@@ -44,7 +44,6 @@ const LOCKED_FEATURES = ['/lead-metrics', '/lead-distribution', '/chat'];
 const URL_TO_SECTION: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/pipeline': 'pipeline',
-  '/leads': 'leads',
   '/lead-metrics': 'lead-metrics',
   '/lead-distribution': 'lead-distribution',
   '/chat': 'chat',
@@ -60,8 +59,7 @@ const URL_TO_SECTION: Record<string, string> = {
 
 const items = [
   { title: "Início", url: "/dashboard", icon: Home },
-  { title: "Pipeline", url: "/pipeline", icon: Filter },
-  { title: "Leads", url: "/leads", icon: Users },
+  { title: "Funil de Vendas", url: "/pipeline", icon: Filter },
   { title: "Métricas", url: "/lead-metrics", icon: BarChart2 },
   { title: "Roleta de Leads", url: "/lead-distribution", icon: Shuffle },
   { title: "Chat", url: "/chat", icon: MessageCircle },

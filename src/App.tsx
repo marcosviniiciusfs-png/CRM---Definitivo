@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
@@ -98,7 +98,7 @@ const App = () => (
                     <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
                     <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
                     <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/leads" element={<ProtectedRoute><DashboardLayout><LazyPage><Leads /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                    <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
                     <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDetails /></LazyPage></DashboardLayout></ProtectedRoute>} />
                     {/* Features controladas por SectionGate - acessiveis quando liberadas via admin */}
                     <Route path="/lead-metrics" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadMetrics /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />

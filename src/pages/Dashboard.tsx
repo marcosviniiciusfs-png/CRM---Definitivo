@@ -449,7 +449,7 @@ const Dashboard = () => {
         <MetricCard
           title="Previsão de Faturamento"
           value={`R$ ${forecast.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-          subtitle="Pipeline ativo"
+          subtitle="Funil de Vendas ativo"
           icon={TrendingUp}
           iconColor="text-amber-500"
           tooltip="Valor ponderado do pipeline ativo. Calcula: valor de cada lead × taxa histórica de conversão da etapa em que ele se encontra (últimos 90 dias)."

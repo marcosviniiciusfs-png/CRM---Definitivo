@@ -69,7 +69,7 @@ export default function AdminUserDetails() {
   // Section access control states
   const SECTION_KEYS = [
     { key: 'dashboard', label: 'Início', locked: false },
-    { key: 'pipeline', label: 'Pipeline', locked: false },
+    { key: 'pipeline', label: 'Funil de Vendas', locked: false },
     { key: 'leads', label: 'Leads', locked: false },
     { key: 'lead-metrics', label: 'Métricas', locked: false },
     { key: 'lead-distribution', label: 'Roleta de Leads', locked: false },

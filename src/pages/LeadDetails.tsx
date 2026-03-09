@@ -39,7 +39,7 @@ const LeadDetails = () => {
   const { id: leadId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isReady } = useOrganizationReady();
-  
+
   const [leadData, setLeadData] = useState<LeadData | null>(null);
   const [activities, setActivities] = useState<ActivityWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +54,7 @@ const LeadDetails = () => {
 
   const loadLeadDetails = async () => {
     if (!leadId) return;
-    
+
     setLoading(true);
     try {
       // Fetch lead data
@@ -65,10 +65,10 @@ const LeadDetails = () => {
         .maybeSingle();
 
       if (leadError) throw leadError;
-      
+
       if (!lead) {
         toast.error("Lead não encontrado");
-        navigate('/leads');
+        navigate('/pipeline');
         return;
       }
 
@@ -195,7 +195,7 @@ const LeadDetails = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <p className="text-muted-foreground">Lead não encontrado</p>
-        <Link to="/leads">
+        <Link to="/pipeline">
           <Button variant="outline">Voltar para Leads</Button>
         </Link>
       </div>
@@ -205,7 +205,7 @@ const LeadDetails = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link to="/leads">
+        <Link to="/pipeline">
           <Button variant="outline" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -270,14 +270,14 @@ const LeadDetails = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea 
-                placeholder="Adicione uma anotação sobre este lead..." 
+              <Textarea
+                placeholder="Adicione uma anotação sobre este lead..."
                 className="min-h-[100px]"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
               />
-              <Button 
-                className="w-full" 
+              <Button
+                className="w-full"
                 onClick={handleSaveNote}
                 disabled={!newNote.trim() || savingNote}
               >
@@ -309,7 +309,7 @@ const LeadDetails = () => {
                   </div>
                 </div>
               )}
-              
+
               {leadData.email && (
                 <div className="flex items-start gap-3">
                   <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -319,7 +319,7 @@ const LeadDetails = () => {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex items-start gap-3">
                 <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
@@ -359,8 +359,8 @@ const LeadDetails = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               {leadData.telefone_lead && (
-                <Button 
-                  className="w-full justify-start gap-2" 
+                <Button
+                  className="w-full justify-start gap-2"
                   variant="outline"
                   onClick={() => window.open(`tel:${leadData.telefone_lead}`, '_blank')}
                 >
@@ -369,8 +369,8 @@ const LeadDetails = () => {
                 </Button>
               )}
               {leadData.email && (
-                <Button 
-                  className="w-full justify-start gap-2" 
+                <Button
+                  className="w-full justify-start gap-2"
                   variant="outline"
                   onClick={() => window.open(`mailto:${leadData.email}`, '_blank')}
                 >
@@ -378,8 +378,8 @@ const LeadDetails = () => {
                   Enviar Email
                 </Button>
               )}
-              <Button 
-                className="w-full justify-start gap-2" 
+              <Button
+                className="w-full justify-start gap-2"
                 variant="outline"
                 onClick={() => navigate(`/chat?lead=${leadId}`)}
               >

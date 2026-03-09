@@ -11,7 +11,7 @@ import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
@@ -29,6 +29,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { AddLeadModal } from "@/components/AddLeadModal";
+import { ImportLeadsModal } from "@/components/ImportLeadsModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, subDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -79,6 +87,19 @@ const Pipeline = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
   const queryClient = useQueryClient();
   const permissions = usePermissions();
+  const { toast: toastUI } = useToast();
+
+  // States for features migrated from Leads page
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [responsibleFilter, setResponsibleFilter] = useState<string>("all");
+  const [colaboradores, setColaboradores] = useState<any[]>([]);
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
   // Unique channel ID per mount to avoid Supabase channel name conflicts on re-navigation
   const channelIdRef = useRef<string>(`leads-ch-${Date.now()}`);
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
@@ -105,6 +126,7 @@ const Pipeline = () => {
     targetStage: string;
     event: DragEndEvent | null;
   }>({ show: false, lead: null, targetStage: '', event: null });
+  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
 
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -345,10 +367,51 @@ const Pipeline = () => {
 
     fetchPipelineData();
 
+    // Carregar colaboradores para filtro de responsável
+    const loadColaboradores = async () => {
+      const { data } = await supabase
+        .from('organization_members')
+        .select('user_id, profiles!inner(full_name)')
+        .eq('organization_id', organizationId);
+      if (data) {
+        setColaboradores(data.map((m: any) => ({
+          user_id: m.user_id,
+          full_name: (m.profiles as any)?.full_name || 'Sem nome',
+        })));
+      }
+    };
+    loadColaboradores();
+
     return () => {
       isMounted = false;
     };
   }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.loading]);
+
+  const handleExportCSV = () => {
+    const headers = ["Nome", "Email", "Telefone", "Responsável", "Status", "Origem", "Valor", "Criado em"];
+    const csvContent = [
+      headers.join(","),
+      ...filteredLeads.map(lead => [
+        `"${lead.nome_lead || ''}"`,
+        `"${lead.email || ''}"`,
+        `"${lead.telefone_lead || ''}"`,
+        `"${lead.responsavel || ''}"`,
+        `"${lead.stage || 'NOVO'}"`,
+        `"${lead.source || ''}"`,
+        `"${lead.valor || 0}"`,
+        `"${format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}"`,
+      ].join(","))
+    ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", `leads_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toastUI({ title: "Exportação concluída", description: `${filteredLeads.length} leads exportados` });
+  };
 
   const loadFunnel = async () => {
     // Usar organizationId já disponível via contexto (evita query redundante a organization_members)
@@ -554,15 +617,42 @@ const Pipeline = () => {
 
   // Filtrar leads por termo de busca (nome ou fonte)
   const filteredLeads = useMemo(() => {
-    if (!searchTerm.trim()) return leadsWithFormattedDates;
+    let result = leadsWithFormattedDates;
 
-    const term = searchTerm.toLowerCase().trim();
-    return leadsWithFormattedDates.filter((lead) => {
-      const nameMatch = lead.nome_lead?.toLowerCase().includes(term);
-      const sourceMatch = lead.source?.toLowerCase().includes(term);
-      return nameMatch || sourceMatch;
-    });
-  }, [leadsWithFormattedDates, searchTerm]);
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      result = result.filter((lead) =>
+        lead.nome_lead?.toLowerCase().includes(term) ||
+        lead.email?.toLowerCase().includes(term) ||
+        lead.telefone_lead?.toLowerCase().includes(term) ||
+        lead.source?.toLowerCase().includes(term) ||
+        lead.responsavel?.toLowerCase().includes(term)
+      );
+    }
+
+    if (statusFilter !== "all") {
+      result = result.filter(lead => (lead.stage || "NOVO") === statusFilter);
+    }
+
+    if (sourceFilter !== "all") {
+      result = result.filter(lead => (lead.source || "") === sourceFilter);
+    }
+
+    if (responsibleFilter !== "all") {
+      result = result.filter(lead => lead.responsavel_user_id === responsibleFilter);
+    }
+
+    if (dateRange.from || dateRange.to) {
+      result = result.filter(lead => {
+        const d = new Date(lead.created_at);
+        const fromOk = !dateRange.from || d >= dateRange.from;
+        const toOk = !dateRange.to || d <= new Date(dateRange.to.getTime() + 86400000);
+        return fromOk && toOk;
+      });
+    }
+
+    return result;
+  }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange]);
 
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
@@ -822,6 +912,32 @@ const Pipeline = () => {
     }
   };
 
+  const handleDeleteLead = async (lead: Lead) => {
+    setLeadToDelete(lead);
+  };
+
+  const confirmDeleteLead = async () => {
+    if (!leadToDelete) return;
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadToDelete.id);
+
+      if (error) {
+        toast.error('Erro ao excluir lead');
+        return;
+      }
+
+      setLeads(prev => prev.filter(l => l.id !== leadToDelete.id));
+      toast.success(`Lead "${leadToDelete.nome_lead}" excluído com sucesso`);
+    } catch (err) {
+      toast.error('Erro inesperado ao excluir lead');
+    } finally {
+      setLeadToDelete(null);
+    }
+  };
+
   const handleWonConfirmation = async (confirmed: boolean) => {
     if (!confirmed || !wonConfirmation.lead || !wonConfirmation.event) {
       setWonConfirmation({ show: false, lead: null, targetStage: '', event: null });
@@ -1057,32 +1173,125 @@ const Pipeline = () => {
           style={{ touchAction: 'none' }}
           data-dragging-active={isDraggingActive}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                Pipeline de Vendas
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Arraste e solte os cards para mover leads entre as etapas
-              </p>
+          <div className="space-y-3">
+            {/* Linha 1: Título + Ações */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                  Funil de Vendas
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Arraste e solte os cards para mover leads entre as etapas
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Gerenciar Funis
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+                {permissions.canViewAllLeads && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Importar
+                    </Button>
+                    <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Lead
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col items-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/funnel-builder")}
-              >
-                <Settings2 className="h-4 w-4 mr-2" />
-                Gerenciar Funis
-              </Button>
-              <div className="relative w-64">
+            {/* Linha 2: Busca + Filtros */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[180px] max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome ou origem..."
+                  placeholder="Buscar por nome, email, telefone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 h-9"
                 />
               </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-[145px] bg-background">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="NOVO">Novo</SelectItem>
+                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                  <SelectItem value="FECHADO">Fechado</SelectItem>
+                  <SelectItem value="PERDIDO">Perdido</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                <SelectTrigger className="h-9 w-[145px] bg-background">
+                  <SelectValue placeholder="Origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas Origens</SelectItem>
+                  <SelectItem value="Facebook Leads">Facebook</SelectItem>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Webhook">Webhook</SelectItem>
+                  <SelectItem value="Manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                <SelectTrigger className="h-9 w-[155px] bg-background">
+                  <SelectValue placeholder="Responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  {colaboradores.map(c => (
+                    <SelectItem key={c.user_id} value={c.user_id}>
+                      {c.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
+                  >
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {dateRange.from && dateRange.to
+                      ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
+                      : "Período"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="flex flex-col gap-1 p-2 border-b">
+                    <Button variant="ghost" size="sm" className="justify-start text-xs"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                      Últimos 7 dias
+                    </Button>
+                    <Button variant="ghost" size="sm" className="justify-start text-xs"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                      Últimos 30 dias
+                    </Button>
+                    <Button variant="ghost" size="sm" className="justify-start text-xs"
+                      onClick={() => setDateRange({ from: undefined, to: undefined })}>
+                      Limpar filtro
+                    </Button>
+                  </div>
+                  <Calendar
+                    mode="range"
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                    numberOfMonths={1}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -1141,6 +1350,7 @@ const Pipeline = () => {
                         isEmpty={stageLeads.length === 0}
                         onLeadUpdate={() => loadLeads(undefined, false)}
                         onEdit={setEditingLead}
+                        onDelete={handleDeleteLead}
                         leadItems={leadItems}
                         leadTagsMap={leadTagsMap}
                         isDraggingActive={isDraggingActive}
@@ -1173,6 +1383,7 @@ const Pipeline = () => {
                     isEmpty={stageLeads.length === 0}
                     onLeadUpdate={() => loadLeads(undefined, false)}
                     onEdit={handleEditLead}
+                    onDelete={handleDeleteLead}
                     leadItems={leadItems}
                     leadTagsMap={leadTagsMap}
                     isDraggingActive={isDraggingActive}
@@ -1204,6 +1415,21 @@ const Pipeline = () => {
       </DndContext>
 
       {/* Modal de Edição - FORA do DndContext */}
+      {showAddModal && (
+        <AddLeadModal
+          open={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => setShowAddModal(false)}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportLeadsModal
+          open={showImportModal}
+          onOpenChange={setShowImportModal}
+        />
+      )}
+
       {editingLead && (
         <EditLeadModal
           lead={editingLead}
@@ -1223,6 +1449,31 @@ const Pipeline = () => {
           }}
         />
       )}
+
+      {/* Dialog de Confirmação de Exclusão de Lead */}
+      <AlertDialog open={!!leadToDelete} onOpenChange={(open) => !open && setLeadToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o lead{" "}
+              <strong>{leadToDelete?.nome_lead || "sem nome"}</strong>?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLeadToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDeleteLead}
+            >
+              Sim, excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog de Confirmação de Venda */}
       <AlertDialog open={wonConfirmation.show} onOpenChange={(open) => !open && handleWonConfirmation(false)}>

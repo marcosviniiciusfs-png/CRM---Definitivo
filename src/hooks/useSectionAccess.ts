@@ -5,7 +5,6 @@ import { usePermissions } from '@/hooks/usePermissions';
 const URL_TO_SECTION: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/pipeline': 'pipeline',
-  '/leads': 'leads',
   '/lead-metrics': 'lead-metrics',
   '/lead-distribution': 'lead-distribution',
   '/chat': 'chat',

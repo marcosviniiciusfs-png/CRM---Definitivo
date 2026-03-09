@@ -15,6 +15,7 @@ interface PipelineColumnProps {
   isEmpty?: boolean;
   onLeadUpdate?: () => void;
   onEdit?: (lead: Lead) => void;
+  onDelete?: (lead: Lead) => void;
   leadItems: Record<string, any[]>;
   leadTagsMap: Record<string, Array<{ id: string; name: string; color: string }>>;
   isDraggingActive: boolean;
@@ -29,6 +30,7 @@ export const PipelineColumn = memo(({
   isEmpty,
   onLeadUpdate,
   onEdit,
+  onDelete,
   leadItems,
   leadTagsMap,
   isDraggingActive,
@@ -56,7 +58,7 @@ export const PipelineColumn = memo(({
         </Badge>
       </div>
 
-      <div 
+      <div
         className={cn("h-0.5 mb-3 rounded-full", !isHexColor(color) && color)}
         style={isHexColor(color) ? { backgroundColor: color } : undefined}
       />
@@ -90,6 +92,7 @@ export const PipelineColumn = memo(({
                 description={lead.descricao_negocio}
                 onUpdate={onLeadUpdate}
                 onEdit={() => onEdit?.(lead)}
+                onDelete={() => onDelete?.(lead)}
                 leadItems={leadItems[lead.id] || []}
                 leadTags={leadTagsMap[lead.id] || []}
                 isDraggingActive={isDraggingActive}
