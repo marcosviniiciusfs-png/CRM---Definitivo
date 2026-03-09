@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -73,6 +74,7 @@ const Colaboradores = () => {
 
   const { toast } = useToast();
   const { isReady, organizationId: contextOrgId, user } = useOrganizationReady();
+  const { permissions: contextPermissions } = useOrganization();
   const queryClient = useQueryClient();
   const [isMutating, setIsMutating] = useState(false);
 
@@ -207,7 +209,7 @@ const Colaboradores = () => {
   // Derive state from query data
   const organizationId = contextOrgId;
   const colaboradores = orgData?.colaboradores ?? [];
-  const userRole = orgData?.userRole ?? null;
+  const userRole = (orgData?.userRole ?? contextPermissions.role) as "owner" | "admin" | "member" | null;
   const currentUserId = orgData?.currentUserId ?? null;
   const stats = orgData?.stats ?? { ativos: 0, novos: 0, saidas: 0, inativos: 0 };
   const customRoles = orgData?.customRoles ?? [];

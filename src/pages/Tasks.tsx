@@ -14,12 +14,17 @@ const Tasks = () => {
     return <LoadingAnimation text="Carregando tarefas..." />;
   }
 
+  // Guard: permissões ainda carregando → evita "Acesso Restrito" prematuro
+  if (permissions.loading) {
+    return <LoadingAnimation text="Carregando permissões..." />;
+  }
+
   // Verificar permissão de visualização do Kanban
   // Owners e Admins sempre podem ver (role-based)
   // Members só podem ver se tiverem canViewKanban no cargo personalizado
-  const canViewKanban = permissions.role === 'owner' || 
-                        permissions.role === 'admin' || 
-                        permissions.canViewKanban;
+  const canViewKanban = permissions.role === 'owner' ||
+    permissions.role === 'admin' ||
+    permissions.canViewKanban;
 
   if (!canViewKanban) {
     return (
@@ -27,7 +32,7 @@ const Tasks = () => {
         <Shield className="h-16 w-16 text-muted-foreground/50 mb-4" />
         <h2 className="text-xl font-semibold">Acesso Restrito</h2>
         <p className="text-muted-foreground max-w-md">
-          Você não tem permissão para visualizar o quadro de tarefas. 
+          Você não tem permissão para visualizar o quadro de tarefas.
           Entre em contato com o administrador da organização para solicitar acesso.
         </p>
       </div>

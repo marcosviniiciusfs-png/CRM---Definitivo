@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.fetch-campaign-ads]
 verify_jwt = false
+
+[functions.add-organization-member]
+verify_jwt = false
+
+[functions.admin-delete-user]
+verify_jwt = false

@@ -343,10 +343,12 @@ export default function AdminUserDetails() {
     setShowDeleteConfirm(false);
 
     try {
+      const adminToken = getAdminToken();
       const { data, error } = await supabase.functions.invoke('admin-delete-user', {
         body: {
           target_user_id: userDetails.user_id,
-          admin_password: adminPassword
+          admin_password: adminPassword,
+          admin_token: adminToken
         }
       });
 

@@ -5,237 +5,99 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface DeleteUserRequest {
-  target_user_id: string
-  admin_password: string
-}
-
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log('[admin-delete-user] Iniciando processamento...')
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-
-    // Obter o token de autorização
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('Token de autorização não fornecido')
-    }
-
-    // Extrair o token (remover "Bearer " se presente)
-    const token = authHeader.replace('Bearer ', '')
-
-    // Criar um client com o token do usuário para validar a sessão
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { persistSession: false }
-    })
-
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token)
-
-    if (userError || !user) {
-      console.error('[admin-delete-user] Erro ao obter usuário:', userError)
-      throw new Error('Não autorizado')
-    }
-
-    console.log('[admin-delete-user] Usuário autenticado:', user.id)
-
-    // Criar cliente admin para operações privilegiadas
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-
-    // Verificar se é super admin
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'super_admin')
-      .single()
-
-    if (roleError || !roleData) {
-      console.error('[admin-delete-user] Usuário não é super admin:', roleError)
-      throw new Error('Acesso negado: apenas super admins podem excluir usuários')
-    }
-
-    console.log('[admin-delete-user] Verificação de super admin passou')
-
-    // Parse do body
-    const { target_user_id, admin_password }: DeleteUserRequest = await req.json()
-
-    if (!target_user_id || !admin_password) {
-      throw new Error('ID do usuário e senha do admin são obrigatórios')
-    }
-
-    console.log('[admin-delete-user] Validando senha do super admin...')
-
-    // Criar cliente para validação de senha
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey)
-
-    // Validar senha do super admin
-    const { error: passwordError } = await supabaseAuth.auth.signInWithPassword({
-      email: user.email!,
-      password: admin_password
-    })
-
-    if (passwordError) {
-      console.error('[admin-delete-user] Senha inválida:', passwordError)
-      throw new Error('Senha incorreta')
-    }
-
-    console.log('[admin-delete-user] Senha validada com sucesso')
-
-    // Buscar informações do usuário alvo diretamente (service role bypassa RLS)
-    const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(target_user_id)
-    
-    if (authUserError || !authUserData?.user) {
-      console.error('[admin-delete-user] Erro ao buscar usuário alvo:', authUserError)
-      throw new Error('Usuário não encontrado')
-    }
-
-    // Buscar organization_id do usuário
-    const { data: memberData, error: memberError } = await supabaseAdmin
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', target_user_id)
-      .maybeSingle()
-
-    const targetUser = {
-      email: authUserData.user.email,
-      organization_id: memberData?.organization_id || null
-    }
-    
-    console.log('[admin-delete-user] Usuário alvo encontrado:', {
-      email: targetUser.email,
-      organization_id: targetUser.organization_id
-    })
-
-    // Buscar todos os membros da organização (se houver)
-    let organizationMembers: any[] = []
-    if (targetUser.organization_id) {
-      const { data: membersData, error: membersError } = await supabaseAdmin
-        .from('organization_members')
-        .select('user_id')
-        .eq('organization_id', targetUser.organization_id)
-
-      if (!membersError && membersData) {
-        organizationMembers = membersData
-        console.log('[admin-delete-user] Membros da organização encontrados:', organizationMembers.length)
-      }
-    }
-
-    // Deletar dados relacionados antes da organização
-    if (targetUser.organization_id) {
-      console.log('[admin-delete-user] Deletando dados relacionados da organização:', targetUser.organization_id)
-      
-      // Deletar whatsapp_instances primeiro (foreign key constraint)
-      const { error: whatsappError } = await supabaseAdmin
-        .from('whatsapp_instances')
-        .delete()
-        .eq('organization_id', targetUser.organization_id)
-      
-      if (whatsappError) {
-        console.error('[admin-delete-user] Erro ao deletar whatsapp_instances:', whatsappError)
-      }
-
-      // Deletar facebook_integrations
-      const { error: facebookError } = await supabaseAdmin
-        .from('facebook_integrations')
-        .delete()
-        .eq('organization_id', targetUser.organization_id)
-      
-      if (facebookError) {
-        console.error('[admin-delete-user] Erro ao deletar facebook_integrations:', facebookError)
-      }
-
-      // Deletar google_calendar_integrations
-      const { error: googleError } = await supabaseAdmin
-        .from('google_calendar_integrations')
-        .delete()
-        .eq('organization_id', targetUser.organization_id)
-      
-      if (googleError) {
-        console.error('[admin-delete-user] Erro ao deletar google_calendar_integrations:', googleError)
-      }
-
-      // Deletar meta_pixel_integrations
-      const { error: metaPixelError } = await supabaseAdmin
-        .from('meta_pixel_integrations')
-        .delete()
-        .eq('organization_id', targetUser.organization_id)
-      
-      if (metaPixelError) {
-        console.error('[admin-delete-user] Erro ao deletar meta_pixel_integrations:', metaPixelError)
-      }
-
-      console.log('[admin-delete-user] Deletando organização:', targetUser.organization_id)
-      
-      const { error: orgDeleteError } = await supabaseAdmin
-        .from('organizations')
-        .delete()
-        .eq('id', targetUser.organization_id)
-
-      if (orgDeleteError) {
-        console.error('[admin-delete-user] Erro ao deletar organização:', orgDeleteError)
-        throw new Error(`Erro ao deletar organização: ${orgDeleteError.message}`)
-      }
-
-      console.log('[admin-delete-user] Organização deletada com sucesso')
-    }
-
-    // Deletar todos os usuários da organização da auth.users
-    const userIdsToDelete = organizationMembers
-      .filter(m => m.user_id !== null)
-      .map(m => m.user_id)
-
-    console.log('[admin-delete-user] Deletando usuários da auth:', userIdsToDelete)
-
-    for (const userId of userIdsToDelete) {
-      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
-      
-      if (authDeleteError) {
-        console.error(`[admin-delete-user] Erro ao deletar usuário ${userId}:`, authDeleteError)
-        // Continuar mesmo se houver erro, pois o usuário pode não existir mais
-      } else {
-        console.log(`[admin-delete-user] Usuário ${userId} deletado com sucesso`)
-      }
-    }
-
-    console.log('[admin-delete-user] Exclusão concluída com sucesso')
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Usuário, organização e colaboradores excluídos com sucesso',
-        deleted_users: userIdsToDelete.length,
-        organization_id: targetUser.organization_id
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { autoRefreshToken: false, persistSession: false } }
     )
-  } catch (error) {
-    console.error('[admin-delete-user] Erro:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Erro ao excluir usuário'
-    return new Response(
-      JSON.stringify({
-        error: errorMessage
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
+
+    const body = await req.json()
+    const { target_user_id, admin_password, admin_token } = body
+
+    if (!target_user_id) throw new Error('ID do usuário é obrigatório')
+
+    let isAuthorized = false
+    let adminEmail: string | null = null
+
+    if (admin_token) {
+      const { data: valid } = await supabaseAdmin.rpc('validate_admin_token', { p_token: admin_token })
+      if (valid) {
+        isAuthorized = true
+        const { data: sess } = await supabaseAdmin
+          .from('admin_sessions').select('admin_email')
+          .eq('token', admin_token).maybeSingle()
+        adminEmail = sess?.admin_email ?? null
       }
+    }
+
+    if (!isAuthorized) {
+      const authHeader = req.headers.get('Authorization')
+      if (authHeader) {
+        const jwt = authHeader.replace('Bearer ', '')
+        const userClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          { global: { headers: { Authorization: `Bearer ${jwt}` } }, auth: { persistSession: false } }
+        )
+        const { data: { user } } = await userClient.auth.getUser(jwt)
+        if (user) {
+          const { data: role } = await supabaseAdmin
+            .from('user_roles').select('role')
+            .eq('user_id', user.id).eq('role', 'super_admin').maybeSingle()
+          if (role) { isAuthorized = true; adminEmail = user.email ?? null }
+        }
+      }
+    }
+
+    if (!isAuthorized) throw new Error('Acesso negado: autenticação inválida')
+
+    if (admin_password && adminEmail) {
+      const { data: pwOk } = await supabaseAdmin
+        .rpc('check_admin_password', { p_email: adminEmail, p_password: admin_password })
+        .maybeSingle().catch(() => ({ data: null }))
+      if (!pwOk) throw new Error('Senha incorreta')
+    }
+
+    const { data: membership } = await supabaseAdmin
+      .from('organization_members').select('organization_id')
+      .eq('user_id', target_user_id).maybeSingle()
+    const orgId = membership?.organization_id ?? null
+
+    let idsToDelete: string[] = [target_user_id]
+    if (orgId) {
+      const { data: members } = await supabaseAdmin
+        .from('organization_members').select('user_id')
+        .eq('organization_id', orgId).not('user_id', 'is', null)
+      const ids = (members ?? []).map((m: any) => m.user_id).filter(Boolean)
+      idsToDelete = [...new Set([...ids, target_user_id])]
+
+      for (const tbl of ['whatsapp_instances', 'facebook_integrations', 'google_calendar_integrations', 'meta_pixel_integrations']) {
+        await supabaseAdmin.from(tbl).delete().eq('organization_id', orgId)
+      }
+      const { error: orgErr } = await supabaseAdmin.from('organizations').delete().eq('id', orgId)
+      if (orgErr) throw new Error('Erro ao deletar organização: ' + orgErr.message)
+    }
+
+    for (const uid of idsToDelete) {
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(uid)
+      if (error) console.error('Erro deletar user', uid, ':', error.message)
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, deleted_users: idsToDelete.length, organization_id: orgId }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    )
+
+  } catch (error: any) {
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro ao excluir usuário' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
 })

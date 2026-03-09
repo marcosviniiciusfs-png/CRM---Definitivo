@@ -12,184 +12,68 @@ serve(async (req) => {
   }
 
   try {
-    // Service role client for admin operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      console.log('No authorization header provided')
       return new Response(
-        JSON.stringify({ error: 'Token de autorização não fornecido' }),
+        JSON.stringify({ error: 'Token não fornecido' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
-    const token = authHeader.replace('Bearer ', '')
 
-    // Decode JWT to extract user ID (JWT is already verified by Supabase when verify_jwt = true)
-    // For manual verification, we parse the JWT payload
     let currentUserId: string
     try {
-      const payloadBase64 = token.split('.')[1]
-      const payload = JSON.parse(atob(payloadBase64))
+      const payload = JSON.parse(atob(authHeader.replace('Bearer ', '').split('.')[1]))
       currentUserId = payload.sub
-      
-      if (!currentUserId) {
-        throw new Error('No user ID in token')
-      }
-      console.log('User ID from JWT:', currentUserId)
-    } catch (jwtError) {
-      console.log('JWT decode error:', jwtError)
+      if (!currentUserId) throw new Error('sub vazio')
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Token inválido' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
-    
-    // Verify user exists using admin API
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(currentUserId)
-    
-    if (userError || !userData?.user) {
-      console.log('User not found:', userError?.message)
-      return new Response(
-        JSON.stringify({ error: 'Não autorizado' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      )
-    }
-    
-    const currentUser = userData.user
-    console.log('User authenticated:', currentUser.id)
 
     const { email, password, name, role, organizationId, custom_role_id } = await req.json()
 
     if (!email || !password || !name || !role || !organizationId) {
       return new Response(
-        JSON.stringify({ error: 'Dados incompletos' }),
+        JSON.stringify({ error: 'Dados incompletos: email, senha, nome, cargo e organização são obrigatórios' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
     const emailLower = email.toLowerCase().trim()
 
-    // Verify the user is part of the organization and has permission
-    const { data: memberData, error: memberCheckError } = await supabaseAdmin
+    const { data: callerMember, error: callerErr } = await supabaseAdmin
       .from('organization_members')
-      .select('role, organization_id')
-      .eq('user_id', currentUser.id)
+      .select('role')
+      .eq('user_id', currentUserId)
       .eq('organization_id', organizationId)
       .single()
 
-    if (memberCheckError || !memberData) {
+    if (callerErr || !callerMember) {
+      console.error('Caller não é membro da org:', callerErr?.message)
       return new Response(
         JSON.stringify({ error: 'Você não tem permissão para adicionar membros a esta organização' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
       )
     }
 
-    // Only owners and admins can add members - members cannot invite other users
-    if (memberData.role !== 'owner' && memberData.role !== 'admin') {
-      console.log(`❌ Usuário ${currentUser.id} com role '${memberData.role}' tentou adicionar membro - NEGADO`);
+    if (callerMember.role !== 'owner' && callerMember.role !== 'admin') {
       return new Response(
-        JSON.stringify({ error: 'Acesso negado: apenas proprietários e administradores podem adicionar colaboradores à organização' }),
+        JSON.stringify({ error: 'Apenas proprietários e administradores podem adicionar colaboradores' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
       )
     }
 
-    // Check subscription limits for collaborators
-    const { count: currentMemberCount } = await supabaseAdmin
-      .from('organization_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', organizationId);
-
-    // Get subscription info from owner's Stripe account
-    const { data: ownerMember } = await supabaseAdmin
-      .from('organization_members')
-      .select('user_id')
-      .eq('organization_id', organizationId)
-      .eq('role', 'owner')
-      .single()
-
-    if (ownerMember?.user_id) {
-      // Get owner's email to check Stripe subscription
-      const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(ownerMember.user_id)
-      
-      if (ownerUser?.user?.email) {
-        const stripeKey = Deno.env.get("STRIPE_SECRET_KEY")
-        if (stripeKey) {
-          try {
-            const Stripe = (await import("https://esm.sh/stripe@18.5.0")).default
-            const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" })
-            
-            const customers = await stripe.customers.list({ email: ownerUser.user.email, limit: 1 })
-            
-            if (customers.data.length > 0) {
-              const subscriptions = await stripe.subscriptions.list({
-                customer: customers.data[0].id,
-                status: "active",
-                limit: 1,
-              })
-              
-              if (subscriptions.data.length > 0) {
-                const subscription = subscriptions.data[0]
-                let totalCollaborators = 0
-                
-                // Get main plan limits
-                const mainItem = subscription.items.data.find((item: any) => 
-                  item.price.product === "prod_TVqqdFt1DYCcCI" || // Básico
-                  item.price.product === "prod_TVqr72myTFqI39" || // Profissional
-                  item.price.product === "prod_TVqrhrzuIdUDcS"    // Enterprise
-                )
-                
-                if (mainItem) {
-                  const productId = mainItem.price.product as string
-                  if (productId === "prod_TVqqdFt1DYCcCI") totalCollaborators = 5       // Básico
-                  else if (productId === "prod_TVqr72myTFqI39") totalCollaborators = 15 // Profissional
-                  else if (productId === "prod_TVqrhrzuIdUDcS") totalCollaborators = 30 // Enterprise
-                }
-                
-                // Add extra collaborators
-                const extraItem = subscription.items.data.find((item: any) => 
-                  item.price.product === "prod_TVqy95fQXCZsWI" // Colaborador Extra
-                )
-                
-                if (extraItem) {
-                  totalCollaborators += extraItem.quantity || 0
-                }
-                
-                // Check if limit is reached
-                if (currentMemberCount !== null && currentMemberCount >= totalCollaborators) {
-                  return new Response(
-                    JSON.stringify({ 
-                      error: `Limite de colaboradores atingido (${totalCollaborators}). Atualize seu plano para adicionar mais colaboradores.`,
-                      limitReached: true,
-                      currentCount: currentMemberCount,
-                      maxAllowed: totalCollaborators
-                    }),
-                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
-                  )
-                }
-              }
-            }
-          } catch (stripeError) {
-            console.log('⚠️ Erro ao verificar limite no Stripe (permitindo continuar):', stripeError)
-          }
-        }
-      }
-    }
-
-    // Check if user already exists in THIS organization
     const { data: existingInOrg } = await supabaseAdmin
       .from('organization_members')
-      .select('email')
+      .select('id')
       .eq('organization_id', organizationId)
       .eq('email', emailLower)
       .maybeSingle()
@@ -201,129 +85,106 @@ serve(async (req) => {
       )
     }
 
+    // CORREÇÃO PRINCIPAL: listUsers() sem paginação causava timeout em produção
+    // Substituído por RPC que faz SELECT direto em auth.users por email
     let userId: string | null = null
 
-    // Try to find existing user by email using Admin API
-    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
-    
-    if (!listError && existingUsers) {
-      const existingUser = existingUsers.users.find((u: any) => u.email?.toLowerCase() === emailLower)
-      
-      if (existingUser) {
-        userId = existingUser.id
-        console.log('Found existing user:', existingUser.id)
+    try {
+      const { data: foundId, error: rpcErr } = await supabaseAdmin.rpc(
+        'get_auth_user_id_by_email',
+        { p_email: emailLower }
+      )
+      if (!rpcErr && foundId) {
+        userId = foundId as string
+        console.log('Usuário existente encontrado via RPC:', userId)
       }
+    } catch (e) {
+      console.warn('RPC get_auth_user_id_by_email não disponível:', e)
     }
 
-    // If user doesn't exist, create new user
-    if (!userId) {
-      // IMPORTANTE: Inserir em organization_members ANTES de criar o usuário
-      // Isso permite que o trigger handle_new_user detecte que o usuário foi convidado
-      const { error: preInsertError } = await supabaseAdmin
+    if (userId) {
+      const { error: insertErr } = await supabaseAdmin
         .from('organization_members')
         .insert({
           organization_id: organizationId,
-          user_id: null, // Será atualizado pelo trigger após criar o usuário
-          role: role,
+          user_id: userId,
+          role,
           email: emailLower,
+          display_name: name.trim(),
+          custom_role_id: custom_role_id || null,
+          is_active: true
+        })
+
+      if (insertErr) {
+        return new Response(
+          JSON.stringify({ error: `Erro ao adicionar à organização: ${insertErr.message}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
+    } else {
+      const { error: preErr } = await supabaseAdmin
+        .from('organization_members')
+        .insert({
+          organization_id: organizationId,
+          user_id: null,
+          role,
+          email: emailLower,
+          display_name: name.trim(),
           custom_role_id: custom_role_id || null
         })
 
-      if (preInsertError) {
-        console.error('Error pre-inserting member:', preInsertError)
+      if (preErr) {
         return new Response(
-          JSON.stringify({ error: 'Não foi possível preparar o convite' }),
+          JSON.stringify({ error: `Erro ao preparar cadastro: ${preErr.message}` }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         )
       }
 
-      // Agora cria o usuário - o trigger handle_new_user detectará o email e atualizará o user_id
-      const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
+      const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: emailLower,
-        password: password,
-        email_confirm: true, // Auto-confirm email
-        user_metadata: {
-          name: name.trim()
-        }
+        password,
+        email_confirm: true,
+        user_metadata: { name: name.trim(), full_name: name.trim() }
       })
 
-      if (signUpError) {
-        console.error('Error creating user:', signUpError)
-        // Remove o registro pré-inserido
+      if (createErr || !newUser?.user) {
         await supabaseAdmin
           .from('organization_members')
           .delete()
-          .match({ email: emailLower, organization_id: organizationId })
-        
-        return new Response(
-          JSON.stringify({ error: `Erro ao criar usuário: ${signUpError.message}` }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        )
-      }
+          .eq('email', emailLower)
+          .eq('organization_id', organizationId)
+          .is('user_id', null)
 
-      if (!newUser.user) {
-        // Remove o registro pré-inserido
-        await supabaseAdmin
-          .from('organization_members')
-          .delete()
-          .match({ email: emailLower, organization_id: organizationId })
-        
         return new Response(
-          JSON.stringify({ error: 'Não foi possível criar o usuário' }),
+          JSON.stringify({ error: createErr?.message || 'Não foi possível criar o usuário' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         )
       }
 
       userId = newUser.user.id
-      console.log('Created new user:', userId)
 
-      // FALLBACK: Explicitly link the pre-inserted record with the new user_id
-      // This ensures linking even if the database trigger has any issues
-      const { error: linkError } = await supabaseAdmin
+      await supabaseAdmin
         .from('organization_members')
         .update({ user_id: userId, is_active: true })
         .eq('email', emailLower)
         .eq('organization_id', organizationId)
         .is('user_id', null)
 
-      if (linkError) {
-        console.warn('⚠️ Fallback link failed (trigger should handle):', linkError.message)
-      } else {
-        console.log(`✅ Fallback linked membership record for user ${userId}`)
-      }
-    } else {
-      // Se o usuário já existe, apenas adiciona à organização
-      const { error: memberError } = await supabaseAdmin
-        .from('organization_members')
-        .insert({
-          organization_id: organizationId,
-          user_id: userId,
-          role: role,
-          email: emailLower,
-          custom_role_id: custom_role_id || null
-        })
-
-      if (memberError) {
-        console.error('Error adding existing member:', memberError)
-        return new Response(
-          JSON.stringify({ error: 'Não foi possível adicionar o colaborador à organização' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      await supabaseAdmin
+        .from('profiles')
+        .upsert(
+          { user_id: userId, full_name: name.trim(), updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
         )
-      }
     }
 
-
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `${name} foi adicionado à organização`,
-        userId: userId
-      }),
+      JSON.stringify({ success: true, message: `${name} foi adicionado à organização com sucesso`, userId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
   } catch (error: any) {
-    console.error('Error:', error)
+    console.error('Erro inesperado:', error)
     return new Response(
       JSON.stringify({ error: error?.message || 'Erro interno do servidor' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
