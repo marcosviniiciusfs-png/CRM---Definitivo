@@ -25,27 +25,32 @@ Deno.serve(async (req) => {
     let isAuthorized = false
     let adminEmail: string | null = null
 
+    // Sistema 1: token admin próprio
     if (admin_token) {
-      const { data: valid } = await supabaseAdmin.rpc('validate_admin_token', { p_token: admin_token })
-      if (valid) {
+      const { data: tokenValid } = await supabaseAdmin
+        .rpc('validate_admin_token', { p_token: admin_token })
+      if (tokenValid) {
         isAuthorized = true
         const { data: sess } = await supabaseAdmin
-          .from('admin_sessions').select('admin_email')
-          .eq('token', admin_token).maybeSingle()
+          .from('admin_sessions')
+          .select('admin_email')
+          .eq('token', admin_token)
+          .maybeSingle()
         adminEmail = sess?.admin_email ?? null
       }
     }
 
+    // Sistema 2: JWT Supabase (fallback legado)
     if (!isAuthorized) {
       const authHeader = req.headers.get('Authorization')
       if (authHeader) {
-        const jwt = authHeader.replace('Bearer ', '')
+        const jwtToken = authHeader.replace('Bearer ', '')
         const userClient = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
           Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: `Bearer ${jwt}` } }, auth: { persistSession: false } }
+          { global: { headers: { Authorization: `Bearer ${jwtToken}` } }, auth: { persistSession: false } }
         )
-        const { data: { user } } = await userClient.auth.getUser(jwt)
+        const { data: { user } } = await userClient.auth.getUser(jwtToken)
         if (user) {
           const { data: role } = await supabaseAdmin
             .from('user_roles').select('role')
@@ -69,28 +74,29 @@ Deno.serve(async (req) => {
       .eq('user_id', target_user_id).maybeSingle()
     const orgId = membership?.organization_id ?? null
 
-    let idsToDelete: string[] = [target_user_id]
+    let userIdsToDelete: string[] = [target_user_id]
     if (orgId) {
       const { data: members } = await supabaseAdmin
         .from('organization_members').select('user_id')
         .eq('organization_id', orgId).not('user_id', 'is', null)
       const ids = (members ?? []).map((m: any) => m.user_id).filter(Boolean)
-      idsToDelete = [...new Set([...ids, target_user_id])]
+      userIdsToDelete = [...new Set([...ids, target_user_id])]
 
-      for (const tbl of ['whatsapp_instances', 'facebook_integrations', 'google_calendar_integrations', 'meta_pixel_integrations']) {
-        await supabaseAdmin.from(tbl).delete().eq('organization_id', orgId)
-      }
+      await supabaseAdmin.from('whatsapp_instances').delete().eq('organization_id', orgId)
+      await supabaseAdmin.from('facebook_integrations').delete().eq('organization_id', orgId)
+      await supabaseAdmin.from('google_calendar_integrations').delete().eq('organization_id', orgId)
+      await supabaseAdmin.from('meta_pixel_integrations').delete().eq('organization_id', orgId)
       const { error: orgErr } = await supabaseAdmin.from('organizations').delete().eq('id', orgId)
       if (orgErr) throw new Error('Erro ao deletar organização: ' + orgErr.message)
     }
 
-    for (const uid of idsToDelete) {
+    for (const uid of userIdsToDelete) {
       const { error } = await supabaseAdmin.auth.admin.deleteUser(uid)
-      if (error) console.error('Erro deletar user', uid, ':', error.message)
+      if (error) console.error('Erro ao deletar user', uid, error.message)
     }
 
     return new Response(
-      JSON.stringify({ success: true, deleted_users: idsToDelete.length, organization_id: orgId }),
+      JSON.stringify({ success: true, deleted_users: userIdsToDelete.length, organization_id: orgId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 

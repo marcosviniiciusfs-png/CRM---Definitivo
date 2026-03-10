@@ -21,16 +21,17 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Token não fornecido' }),
+        JSON.stringify({ error: 'Token de autorização não fornecido' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
+    const token = authHeader.replace('Bearer ', '')
 
     let currentUserId: string
     try {
-      const payload = JSON.parse(atob(authHeader.replace('Bearer ', '').split('.')[1]))
+      const payload = JSON.parse(atob(token.split('.')[1]))
       currentUserId = payload.sub
-      if (!currentUserId) throw new Error('sub vazio')
+      if (!currentUserId) throw new Error('No sub in token')
     } catch {
       return new Response(
         JSON.stringify({ error: 'Token inválido' }),
@@ -38,7 +39,8 @@ serve(async (req) => {
       )
     }
 
-    const { email, password, name, role, organizationId, custom_role_id } = await req.json()
+    const body = await req.json()
+    const { email, password, name, role, organizationId, custom_role_id } = body
 
     if (!email || !password || !name || !role || !organizationId) {
       return new Response(
@@ -49,22 +51,22 @@ serve(async (req) => {
 
     const emailLower = email.toLowerCase().trim()
 
-    const { data: callerMember, error: callerErr } = await supabaseAdmin
+    const { data: memberData, error: memberCheckError } = await supabaseAdmin
       .from('organization_members')
       .select('role')
       .eq('user_id', currentUserId)
       .eq('organization_id', organizationId)
       .single()
 
-    if (callerErr || !callerMember) {
-      console.error('Caller não é membro da org:', callerErr?.message)
+    if (memberCheckError || !memberData) {
+      console.error('Permissão negada:', memberCheckError?.message)
       return new Response(
-        JSON.stringify({ error: 'Você não tem permissão para adicionar membros a esta organização' }),
+        JSON.stringify({ error: 'Sem permissão para esta organização' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
       )
     }
 
-    if (callerMember.role !== 'owner' && callerMember.role !== 'admin') {
+    if (memberData.role !== 'owner' && memberData.role !== 'admin') {
       return new Response(
         JSON.stringify({ error: 'Apenas proprietários e administradores podem adicionar colaboradores' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
@@ -85,25 +87,25 @@ serve(async (req) => {
       )
     }
 
-    // CORREÇÃO PRINCIPAL: listUsers() sem paginação causava timeout em produção
-    // Substituído por RPC que faz SELECT direto em auth.users por email
+    // CORREÇÃO PRINCIPAL: substituído listUsers() por RPC direta em auth.users
+    // listUsers() sem paginação causava timeout em produção
     let userId: string | null = null
 
     try {
-      const { data: foundId, error: rpcErr } = await supabaseAdmin.rpc(
+      const { data: existingId } = await supabaseAdmin.rpc(
         'get_auth_user_id_by_email',
         { p_email: emailLower }
       )
-      if (!rpcErr && foundId) {
-        userId = foundId as string
-        console.log('Usuário existente encontrado via RPC:', userId)
+      if (existingId) {
+        userId = existingId as string
+        console.log('Usuário existente encontrado:', userId)
       }
-    } catch (e) {
-      console.warn('RPC get_auth_user_id_by_email não disponível:', e)
+    } catch (rpcErr) {
+      console.warn('RPC indisponível, prosseguindo para criar novo usuário:', rpcErr)
     }
 
     if (userId) {
-      const { error: insertErr } = await supabaseAdmin
+      const { error: memberError } = await supabaseAdmin
         .from('organization_members')
         .insert({
           organization_id: organizationId,
@@ -115,14 +117,15 @@ serve(async (req) => {
           is_active: true
         })
 
-      if (insertErr) {
+      if (memberError) {
+        console.error('Erro ao adicionar membro existente:', memberError)
         return new Response(
-          JSON.stringify({ error: `Erro ao adicionar à organização: ${insertErr.message}` }),
+          JSON.stringify({ error: 'Não foi possível adicionar o colaborador à organização' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         )
       }
     } else {
-      const { error: preErr } = await supabaseAdmin
+      const { error: preInsertError } = await supabaseAdmin
         .from('organization_members')
         .insert({
           organization_id: organizationId,
@@ -133,21 +136,22 @@ serve(async (req) => {
           custom_role_id: custom_role_id || null
         })
 
-      if (preErr) {
+      if (preInsertError) {
+        console.error('Erro no pré-cadastro:', preInsertError)
         return new Response(
-          JSON.stringify({ error: `Erro ao preparar cadastro: ${preErr.message}` }),
+          JSON.stringify({ error: 'Não foi possível preparar o cadastro do colaborador' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         )
       }
 
-      const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
         email: emailLower,
         password,
         email_confirm: true,
         user_metadata: { name: name.trim(), full_name: name.trim() }
       })
 
-      if (createErr || !newUser?.user) {
+      if (signUpError || !newUser?.user) {
         await supabaseAdmin
           .from('organization_members')
           .delete()
@@ -156,12 +160,13 @@ serve(async (req) => {
           .is('user_id', null)
 
         return new Response(
-          JSON.stringify({ error: createErr?.message || 'Não foi possível criar o usuário' }),
+          JSON.stringify({ error: signUpError?.message || 'Não foi possível criar o usuário' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         )
       }
 
       userId = newUser.user.id
+      console.log('Novo usuário criado:', userId)
 
       await supabaseAdmin
         .from('organization_members')
