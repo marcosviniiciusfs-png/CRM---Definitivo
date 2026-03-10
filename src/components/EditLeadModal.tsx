@@ -237,47 +237,17 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const fetchColaboradores = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      // Usar fetchOrganizationMembersSafe que já tem fallback (RPC → tabela direta)
+      // e já faz o join com profiles para trazer full_name e avatar_url
+      const members = await fetchOrganizationMembersSafe();
 
-      // Buscar organization_id do lead
-      const { data: leadData } = await supabase
-        .from("leads")
-        .select("organization_id")
-        .eq("id", lead.id)
-        .single();
-
-      if (!leadData?.organization_id) return;
-
-      // Buscar membros usando RPC segura (sem expor emails)
-      const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
-
-      if (orgMembers && orgMembers.length > 0) {
-        const userIds = orgMembers.filter((m: any) => m.user_id).map((m: any) => m.user_id);
-
-        let profilesMap: { [key: string]: { full_name: string | null } } = {};
-
-        if (userIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, full_name')
-            .in('user_id', userIds);
-
-          if (profiles) {
-            profilesMap = profiles.reduce((acc, profile) => {
-              acc[profile.user_id] = { full_name: profile.full_name };
-              return acc;
-            }, {} as { [key: string]: { full_name: string | null } });
-          }
-        }
-
-        const colabsWithNames = orgMembers.map((colab: any) => ({
-          id: colab.id,
-          email: '', // Email mascarado
-          user_id: colab.user_id,
-          full_name: colab.user_id && profilesMap[colab.user_id]?.full_name || null
+      if (members && members.length > 0) {
+        const colabsWithNames = members.map((member: any) => ({
+          id: member.id,
+          email: '',
+          user_id: member.user_id,
+          full_name: member.full_name || null,
         }));
-
         setColaboradores(colabsWithNames);
       }
     } catch (error) {

@@ -11,7 +11,8 @@ import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users } from "lucide-react";
+import { FunnelPermissionsModal } from "@/components/FunnelPermissionsModal";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
@@ -127,6 +128,7 @@ const Pipeline = () => {
     event: DragEndEvent | null;
   }>({ show: false, lead: null, targetStage: '', event: null });
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [funnelPermissionsTarget, setFunnelPermissionsTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -443,13 +445,38 @@ const Pipeline = () => {
         return { isCustom: false, funnel: null };
       }
 
-      // Armazenar todos os funis
-      setAllFunnels(funnels);
+      // Filtrar funis acessíveis ao usuário usando a função RPC de permissões.
+      // Se a tabela funnel_permissions ainda não existir (migração não aplicada),
+      // usa todos os funis como fallback seguro.
+      let visibleFunnels = funnels;
+      if (!permissions.canManagePipeline) {
+        try {
+          const { data: accessibleIds } = await supabase.rpc('get_accessible_funnel_ids', {
+            p_organization_id: organizationId,
+          });
+          if (accessibleIds && Array.isArray(accessibleIds)) {
+            const idSet = new Set(accessibleIds.map((r: any) => r.funnel_id));
+            visibleFunnels = funnels.filter((f) => idSet.has(f.id));
+          }
+        } catch {
+          // Migração ainda não aplicada → mostrar todos os funis (comportamento atual)
+        }
+      }
+
+      // Armazenar os funis visíveis
+      setAllFunnels(visibleFunnels);
+
+      if (visibleFunnels.length === 0) {
+        setStages(DEFAULT_STAGES);
+        setUsingCustomFunnel(false);
+        setActiveFunnel(null);
+        return { isCustom: false, funnel: null };
+      }
 
       // Selecionar o funil apropriado sem criar loop
       const funnelToActivate = selectedFunnelId
-        ? funnels.find((f) => f.id === selectedFunnelId) || funnels[0]
-        : funnels[0];
+        ? visibleFunnels.find((f) => f.id === selectedFunnelId) || visibleFunnels[0]
+        : visibleFunnels[0];
 
       if (!funnelToActivate.stages || funnelToActivate.stages.length === 0) {
         setStages(DEFAULT_STAGES);
@@ -1318,6 +1345,19 @@ const Pipeline = () => {
                         {funnel.is_default && (
                           <span className="text-xs text-muted-foreground">(Padrão)</span>
                         )}
+                        {permissions.role === 'owner' && (
+                          <button
+                            type="button"
+                            title="Gerenciar permissões do funil"
+                            className="ml-1 p-0.5 rounded hover:bg-accent/80 text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFunnelPermissionsTarget({ id: funnel.id, name: funnel.name });
+                            }}
+                          >
+                            <Users className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </TabsTrigger>
                   );
@@ -1509,6 +1549,13 @@ const Pipeline = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Permissões do Funil */}
+      <FunnelPermissionsModal
+        funnel={funnelPermissionsTarget}
+        open={!!funnelPermissionsTarget}
+        onOpenChange={(open) => { if (!open) setFunnelPermissionsTarget(null); }}
+      />
 
       {/* Barra de rolagem fixa no rodapé */}
       {showScrollbar && (

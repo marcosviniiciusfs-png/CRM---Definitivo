@@ -2,12 +2,23 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,8 +89,11 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
   const [loading, setLoading] = useState(false);
   const [newExpense, setNewExpense] = useState({ category: "other", description: "", amount: "" });
   const [addingExpense, setAddingExpense] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [deletingSale, setDeletingSale] = useState(false);
   const { toast } = useToast();
   const { organizationId, permissions } = useOrganization();
+  const queryClient = useQueryClient();
   const isAdmin = !permissions.loading && (permissions.role === 'owner' || permissions.role === 'admin');
 
   useEffect(() => {
@@ -159,6 +173,32 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
   const handleDeleteExpense = async (id: string) => {
     await supabase.from("production_expenses").delete().eq("id", id);
     loadExpenses();
+  };
+
+  const handleDeleteSale = async () => {
+    if (!saleToDelete || !organizationId) return;
+    setDeletingSale(true);
+    try {
+      // Remove a data_conclusao para que o lead saia do bloco de produção
+      // sem apagar o lead em si
+      const { error } = await supabase
+        .from("leads")
+        .update({ data_conclusao: null })
+        .eq("id", saleToDelete.id);
+
+      if (error) throw error;
+
+      toast({ title: "Venda removida do bloco de produção" });
+      setSaleToDelete(null);
+      // Atualiza lista local
+      setSales((prev) => prev.filter((s) => s.id !== saleToDelete.id));
+      // Invalida os blocos de produção para recalcular métricas
+      queryClient.invalidateQueries({ queryKey: ['production-blocks', organizationId] });
+    } catch (error: any) {
+      toast({ title: "Erro ao remover venda", description: error.message, variant: "destructive" });
+    } finally {
+      setDeletingSale(false);
+    }
   };
 
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -308,7 +348,7 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
 
         {/* Sales Table */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">Vendas do Mês ({block.total_sales} vendas)</h3>
+          <h3 className="text-lg font-semibold mb-4">Vendas do Mês ({sales.length} vendas)</h3>
           {loading ? (
             <div className="flex justify-center py-8"><LoadingAnimation /></div>
           ) : sales.length > 0 ? (
@@ -321,6 +361,7 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead>Responsável</TableHead>
+                    {isAdmin && <TableHead className="w-10"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -336,6 +377,17 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
                       <TableCell className="text-right font-semibold">{fmt(sale.valor)}</TableCell>
                       <TableCell>{sale.data_conclusao ? format(new Date(sale.data_conclusao), "dd/MM/yyyy", { locale: ptBR }) : '-'}</TableCell>
                       <TableCell>{sale.responsavel || '-'}</TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <button
+                            onClick={() => setSaleToDelete(sale)}
+                            className="text-destructive hover:text-destructive/80"
+                            title="Remover venda do bloco"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -347,6 +399,28 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
             </div>
           )}
         </div>
+
+        {/* Confirm delete sale dialog */}
+        <AlertDialog open={!!saleToDelete} onOpenChange={(open) => { if (!open) setSaleToDelete(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remover venda do bloco?</AlertDialogTitle>
+              <AlertDialogDescription>
+                A venda de <strong>{saleToDelete?.nome_lead}</strong> ({fmt(saleToDelete?.valor || 0)}) será removida deste bloco de produção. O lead continuará existindo, mas sem data de conclusão.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingSale}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteSale}
+                disabled={deletingSale}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deletingSale ? "Removendo..." : "Remover"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
