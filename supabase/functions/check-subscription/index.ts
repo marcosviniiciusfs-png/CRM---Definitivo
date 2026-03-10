@@ -26,9 +26,9 @@ serve(async (req) => {
       product_id: "elite",
       plan_id: "elite",
       subscription_end: null,
-      max_collaborators: 999,
+      max_collaborators: 12,
       extra_collaborators: 0,
-      total_collaborators: 999,
+      total_collaborators: 12,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

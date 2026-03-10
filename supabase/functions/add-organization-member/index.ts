@@ -73,6 +73,21 @@ serve(async (req) => {
       )
     }
 
+    // Verificar limite de 12 colaboradores ativos (excluindo o owner)
+    const { count: activeCount, error: countError } = await supabaseAdmin
+      .from('organization_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .eq('is_active', true)
+      .neq('role', 'owner')
+
+    if (!countError && activeCount !== null && activeCount >= 12) {
+      return new Response(
+        JSON.stringify({ error: 'Limite de 12 colaboradores atingido para esta organização' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
     const { data: existingInOrg } = await supabaseAdmin
       .from('organization_members')
       .select('id')

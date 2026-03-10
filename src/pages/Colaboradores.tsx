@@ -159,9 +159,10 @@ const Colaboradores = () => {
       const stats = { ativos: activeMembers.length, novos, saidas: 0, inativos: inactiveMembers.length };
 
       const subData = subResult.data;
-      const subscriptionLimits = subData?.subscribed && subData?.total_collaborators
-        ? { total: subData.total_collaborators, current: activeMembers.length }
-        : null;
+      const subscriptionLimits = {
+        total: subData?.total_collaborators ?? 12,
+        current: activeMembers.length,
+      };
 
       const salesByUser: Record<string, { count: number; revenue: number }> = {};
       const pendingCommissionsByUser: Record<string, number> = {};
@@ -213,7 +214,8 @@ const Colaboradores = () => {
   const currentUserId = orgData?.currentUserId ?? null;
   const stats = orgData?.stats ?? { ativos: 0, novos: 0, saidas: 0, inativos: 0 };
   const customRoles = orgData?.customRoles ?? [];
-  const subscriptionLimits = orgData?.subscriptionLimits ?? null;
+  const activeColaboradoresCount = (orgData?.colaboradores ?? []).filter(c => c.is_active !== false).length;
+  const subscriptionLimits = orgData?.subscriptionLimits ?? { total: 12, current: activeColaboradoresCount };
   const salesByUser = orgData?.salesByUser ?? {};
   const pendingCommissionsByUser = orgData?.pendingCommissionsByUser ?? {};
   const goalsByUser = orgData?.goalsByUser ?? {} as Record<string, number>;
@@ -440,15 +442,13 @@ const Colaboradores = () => {
           </div>
         </div>
         <div className="flex flex-col gap-3">
-          {subscriptionLimits && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg border">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Colaboradores: <span className="font-semibold text-foreground">{subscriptionLimits.current}/{subscriptionLimits.total}</span>
-              </span>
-              {/* Botão de planos removido (CRM Grátis) */}
-            </div>
-          )}
+          <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg border">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Colaboradores: <span className="font-semibold text-foreground">{subscriptionLimits.current}/{subscriptionLimits.total}</span>
+            </span>
+            {/* Botão de planos removido (CRM Grátis) */}
+          </div>
         </div>
       </div>
 
@@ -479,7 +479,14 @@ const Colaboradores = () => {
             {(userRole === 'owner' || userRole === 'admin') && (
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                onClick={() => setIsDialogOpen(true)}
+                onClick={() => {
+                  const activeCount = colaboradores.filter(c => c.is_active !== false).length;
+                  if (activeCount >= 12) {
+                    toast({ title: "Limite atingido", description: "Limite de 12 colaboradores atingido", variant: "destructive" });
+                    return;
+                  }
+                  setIsDialogOpen(true);
+                }}
               >
                 Novo Colaborador
               </Button>
