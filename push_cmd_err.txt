@@ -1,0 +1,7 @@
+Initialising login role...
+Connecting to remote database...
+[91mFound local migration files to be inserted before the last migration on remote database.[0m
+
+Rerun the command with --include-all flag to apply these migrations:
+[1msupabase\migrations\20260309150000_fix_all_bugs.sql[0m
+
