@@ -128,25 +128,17 @@ const Equipes = () => {
         teamMembers = teamMembersData || [];
       }
 
+      // fetchOrganizationMembersSafe already returns full_name and avatar_url
+      // from the get_organization_members_masked RPC (SECURITY DEFINER — bypasses profiles RLS)
       const orgMembers = await fetchOrganizationMembersSafe();
-      const userIds = orgMembers?.filter((m: any) => m.user_id).map((m: any) => m.user_id!) || [];
-
-      let profiles: any[] = [];
-      if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, avatar_url")
-          .in("user_id", userIds);
-        profiles = profilesData || [];
-      }
 
       const allMembers: Member[] = (orgMembers || [])
         .filter((m: any) => m.user_id)
         .map((m: any) => ({
           user_id: m.user_id!,
-          email: '',
-          full_name: profiles.find(p => p.user_id === m.user_id)?.full_name,
-          avatar_url: profiles.find(p => p.user_id === m.user_id)?.avatar_url,
+          email: m.email || '',
+          full_name: m.full_name || m.display_name || null,
+          avatar_url: m.avatar_url || null,
         }));
 
       return { teams, teamMembers, allMembers };

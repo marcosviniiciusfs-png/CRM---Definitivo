@@ -387,7 +387,7 @@ const Pipeline = () => {
     return () => {
       isMounted = false;
     };
-  }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.loading]);
+  }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.canManagePipeline, permissions.loading]);
 
   const handleExportCSV = () => {
     const headers = ["Nome", "Email", "Telefone", "Responsável", "Status", "Origem", "Valor", "Criado em"];
@@ -445,22 +445,18 @@ const Pipeline = () => {
         return { isCustom: false, funnel: null };
       }
 
-      // Filtrar funis acessíveis ao usuário usando a função RPC de permissões.
-      // Se a tabela funnel_permissions ainda não existir (migração não aplicada),
-      // usa todos os funis como fallback seguro.
+      // Filtrar funis acessíveis ao usuário via RPC de permissões.
+      // O RLS da tabela sales_funnels também aplica a restrição server-side.
       let visibleFunnels = funnels;
       if (!permissions.canManagePipeline) {
-        try {
-          const { data: accessibleIds } = await supabase.rpc('get_accessible_funnel_ids', {
-            p_organization_id: organizationId,
-          });
-          if (accessibleIds && Array.isArray(accessibleIds)) {
-            const idSet = new Set(accessibleIds.map((r: any) => r.funnel_id));
-            visibleFunnels = funnels.filter((f) => idSet.has(f.id));
-          }
-        } catch {
-          // Migração ainda não aplicada → mostrar todos os funis (comportamento atual)
+        const { data: accessibleIds, error: rpcError } = await supabase.rpc('get_accessible_funnel_ids', {
+          p_organization_id: organizationId,
+        });
+        if (!rpcError && accessibleIds && Array.isArray(accessibleIds)) {
+          const idSet = new Set(accessibleIds.map((r: any) => r.funnel_id));
+          visibleFunnels = funnels.filter((f) => idSet.has(f.id));
         }
+        // Se RPC falhou, o server-side RLS já garante que sales_funnels só retorna funis acessíveis
       }
 
       // Armazenar os funis visíveis
