@@ -58,11 +58,11 @@ export function useOrganizationMembers(organizationId?: string | null) {
         }
       }
 
-      // Combinar dados
+      // Combinar dados — profilesMap tem prioridade; RPC retorna full_name/avatar_url como fallback
       return members.map((member: any) => ({
         ...member,
-        full_name: member.user_id && profilesMap[member.user_id]?.full_name || null,
-        avatar_url: member.user_id && profilesMap[member.user_id]?.avatar_url || null,
+        full_name: (member.user_id && profilesMap[member.user_id]?.full_name) || member.full_name || null,
+        avatar_url: (member.user_id && profilesMap[member.user_id]?.avatar_url) || member.avatar_url || null,
       }));
     },
     enabled: true,
@@ -113,7 +113,7 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
 
   return members.map((member: any) => ({
     ...member,
-    full_name: member.user_id && profilesMap[member.user_id]?.full_name || null,
-    avatar_url: member.user_id && profilesMap[member.user_id]?.avatar_url || null,
+    full_name: (member.user_id && profilesMap[member.user_id]?.full_name) || member.full_name || null,
+    avatar_url: (member.user_id && profilesMap[member.user_id]?.avatar_url) || member.avatar_url || null,
   }));
 }

@@ -244,9 +244,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (members && members.length > 0) {
         const colabsWithNames = members.map((member: any) => ({
           id: member.id,
-          email: '',
+          email: member.email || '',
           user_id: member.user_id,
-          full_name: member.full_name || null,
+          full_name: member.full_name || member.display_name || null,
         }));
         setColaboradores(colabsWithNames);
       }

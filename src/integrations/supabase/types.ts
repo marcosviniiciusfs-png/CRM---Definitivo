@@ -3012,8 +3012,10 @@ export type Database = {
       get_organization_members_masked: {
         Args: never
         Returns: {
+          avatar_url: string | null
           created_at: string
           email: string
+          full_name: string | null
           id: string
           organization_id: string
           role: Database["public"]["Enums"]["organization_role"]
