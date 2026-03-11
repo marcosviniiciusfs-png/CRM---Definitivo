@@ -57,6 +57,8 @@ export interface BaseLeadCardProps {
   leadTags?: Array<{ id: string; name: string; color: string }>;
   isDraggingActive?: boolean;
   duplicateAttemptsCount?: number;
+  responsavelName?: string;
+  responsavelAvatarUrl?: string;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -70,6 +72,8 @@ interface LeadCardViewProps extends BaseLeadCardProps {
   listeners?: Record<string, any>;
   attributes?: Record<string, any>;
   setNodeRef?: (node: HTMLElement | null) => void;
+  responsavelName?: string;
+  responsavelAvatarUrl?: string;
 }
 
 // Componente puramente visual, sem lógica de drag
@@ -90,6 +94,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   leadTags: tags = [],
   isDraggingActive = false,
   duplicateAttemptsCount = 0,
+  responsavelName,
+  responsavelAvatarUrl,
   isDropdownOpen,
   setIsDropdownOpen,
   showDetailsDialog,
@@ -299,9 +305,24 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
             <Phone className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{phone}</span>
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <Calendar className="h-3 w-3 flex-shrink-0" />
-            <span>{date}</span>
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Calendar className="h-3 w-3 flex-shrink-0" />
+              <span>{date}</span>
+            </div>
+            {responsavelName && (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0 max-w-[50%]">
+                <LazyAvatar
+                  src={responsavelAvatarUrl || undefined}
+                  name={responsavelName}
+                  size="sm"
+                  className="h-4 w-4 flex-shrink-0"
+                />
+                <span className="truncate" style={{ maxWidth: "60px" }}>
+                  {responsavelName.length > 11 ? responsavelName.substring(0, 11) + "…" : responsavelName}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -439,7 +460,9 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.isDraggingActive === nextProps.isDraggingActive &&
     prevProps.leadItems?.length === nextProps.leadItems?.length &&
     prevProps.leadTags?.length === nextProps.leadTags?.length &&
-    prevProps.duplicateAttemptsCount === nextProps.duplicateAttemptsCount
+    prevProps.duplicateAttemptsCount === nextProps.duplicateAttemptsCount &&
+    prevProps.responsavelName === nextProps.responsavelName &&
+    prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl
   );
 });
 

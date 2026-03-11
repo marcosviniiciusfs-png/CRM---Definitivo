@@ -118,6 +118,7 @@ const Pipeline = () => {
   const [leadItems, setLeadItems] = useState<LeadItems>({});
   const [pauseRealtime, setPauseRealtime] = useState(false);
   const [leadTagsMap, setLeadTagsMap] = useState<LeadTagsMap>({});
+  const [profilesMap, setProfilesMap] = useState<Record<string, { full_name: string; avatar_url: string | null }>>({});
   const [isDraggingActive, setIsDraggingActive] = useState(false);
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
   const [wonConfirmation, setWonConfirmation] = useState<{
@@ -533,10 +534,11 @@ const Pipeline = () => {
       // Armazenar IDs dos leads carregados inicialmente
       if (data) {
         leadIdsRef.current = new Set(data.map(lead => lead.id));
-        // Buscar todos lead_items e tags de uma vez
+        // Buscar todos lead_items, tags e perfis de uma vez
         await Promise.all([
           loadLeadItems(data.map(l => l.id)),
-          loadLeadTags(data.map(l => l.id))
+          loadLeadTags(data.map(l => l.id)),
+          loadProfiles(data as Lead[]),
         ]);
       }
     } catch (error) {
@@ -604,6 +606,27 @@ const Pipeline = () => {
         }
       });
       setLeadTagsMap(tagsMap);
+    }
+  };
+
+  const loadProfiles = async (leads: Lead[]) => {
+    // Collect unique responsavel_user_id values (excluding nulls)
+    const uniqueUserIds = Array.from(
+      new Set(leads.map((l) => (l as any).responsavel_user_id).filter(Boolean))
+    );
+    if (uniqueUserIds.length === 0) return;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, avatar_url')
+      .in('user_id', uniqueUserIds);
+
+    if (!error && data) {
+      const map: Record<string, { full_name: string; avatar_url: string | null }> = {};
+      data.forEach((p: any) => {
+        map[p.user_id] = { full_name: p.full_name || '', avatar_url: p.avatar_url || null };
+      });
+      setProfilesMap(map);
     }
   };
 
@@ -1354,6 +1377,7 @@ const Pipeline = () => {
                         leadItems={leadItems}
                         leadTagsMap={leadTagsMap}
                         isDraggingActive={isDraggingActive}
+                        profilesMap={profilesMap}
                       />
                     );
                   })}
@@ -1387,6 +1411,7 @@ const Pipeline = () => {
                     leadItems={leadItems}
                     leadTagsMap={leadTagsMap}
                     isDraggingActive={isDraggingActive}
+                    profilesMap={profilesMap}
                   />
                 );
               })}

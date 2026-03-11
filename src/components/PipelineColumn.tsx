@@ -19,6 +19,7 @@ interface PipelineColumnProps {
   leadItems: Record<string, any[]>;
   leadTagsMap: Record<string, Array<{ id: string; name: string; color: string }>>;
   isDraggingActive: boolean;
+  profilesMap?: Record<string, { full_name: string; avatar_url: string | null }>;
 }
 
 export const PipelineColumn = memo(({
@@ -34,6 +35,7 @@ export const PipelineColumn = memo(({
   leadItems,
   leadTagsMap,
   isDraggingActive,
+  profilesMap = {},
 }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
@@ -77,27 +79,37 @@ export const PipelineColumn = memo(({
               Nenhum lead nesta etapa
             </p>
           ) : (
-            leads.map((lead) => (
-              <SortableLeadCard
-                key={lead.id}
-                id={lead.id}
-                name={lead.nome_lead}
-                phone={lead.telefone_lead}
-                date={(lead as any).formattedDate || new Date(lead.created_at).toLocaleString("pt-BR")}
-                avatarUrl={lead.avatar_url}
-                stage={lead.stage}
-                value={lead.valor}
-                createdAt={lead.created_at}
-                source={lead.source}
-                description={lead.descricao_negocio}
-                onUpdate={onLeadUpdate}
-                onEdit={() => onEdit?.(lead)}
-                onDelete={() => onDelete?.(lead)}
-                leadItems={leadItems[lead.id] || []}
-                leadTags={leadTagsMap[lead.id] || []}
-                isDraggingActive={isDraggingActive}
-              />
-            ))
+            leads.map((lead) => {
+              const profile = lead.responsavel_user_id
+                ? profilesMap[lead.responsavel_user_id]
+                : undefined;
+              // Fallback: if UUID profile not loaded, use the text field
+              const responsavelName = profile?.full_name || (lead as any).responsavel || undefined;
+              const responsavelAvatarUrl = profile?.avatar_url || undefined;
+              return (
+                <SortableLeadCard
+                  key={lead.id}
+                  id={lead.id}
+                  name={lead.nome_lead}
+                  phone={lead.telefone_lead}
+                  date={(lead as any).formattedDate || new Date(lead.created_at).toLocaleString("pt-BR")}
+                  avatarUrl={lead.avatar_url}
+                  stage={lead.stage}
+                  value={lead.valor}
+                  createdAt={lead.created_at}
+                  source={lead.source}
+                  description={lead.descricao_negocio}
+                  onUpdate={onLeadUpdate}
+                  onEdit={() => onEdit?.(lead)}
+                  onDelete={() => onDelete?.(lead)}
+                  leadItems={leadItems[lead.id] || []}
+                  leadTags={leadTagsMap[lead.id] || []}
+                  isDraggingActive={isDraggingActive}
+                  responsavelName={responsavelName}
+                  responsavelAvatarUrl={responsavelAvatarUrl}
+                />
+              );
+            })
           )}
         </div>
       </SortableContext>
@@ -113,7 +125,8 @@ export const PipelineColumn = memo(({
     prevProps.isEmpty === nextProps.isEmpty &&
     prevProps.isDraggingActive === nextProps.isDraggingActive &&
     prevProps.leads.length === nextProps.leads.length &&
-    prevProps.leads.every((lead, i) => lead.id === nextProps.leads[i]?.id)
+    prevProps.leads.every((lead, i) => lead.id === nextProps.leads[i]?.id) &&
+    prevProps.profilesMap === nextProps.profilesMap
   );
 });
 

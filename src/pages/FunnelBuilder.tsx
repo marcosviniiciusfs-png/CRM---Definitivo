@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, ArrowLeft, Edit, Trash2 } from "lucide-react";
+import { Plus, ArrowLeft, Edit, Trash2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { FunnelConfigDialog } from "@/components/FunnelConfigDialog";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ const FunnelBuilder = () => {
   const [showDialog, setShowDialog] = useState(false);
   const [editingFunnel, setEditingFunnel] = useState<Funnel | null>(null);
   const [deletingFunnel, setDeletingFunnel] = useState<Funnel | null>(null);
+  const [duplicatingFunnelId, setDuplicatingFunnelId] = useState<string | null>(null);
 
   useEffect(() => {
     loadFunnels();
@@ -110,6 +111,74 @@ const FunnelBuilder = () => {
       toast.error("Erro ao excluir funil");
     } finally {
       setDeletingFunnel(null);
+    }
+  };
+
+  const handleDuplicate = async (funnel: Funnel) => {
+    if (duplicatingFunnelId) return;
+    setDuplicatingFunnelId(funnel.id);
+    try {
+      const { data: orgData } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+
+      if (!orgData) {
+        toast.error("Organização não encontrada");
+        return;
+      }
+
+      // Fetch all stages from the original funnel
+      const { data: stages, error: stagesError } = await supabase
+        .from("funnel_stages")
+        .select("*")
+        .eq("funnel_id", funnel.id)
+        .order("position", { ascending: true });
+
+      if (stagesError) throw stagesError;
+
+      // Create the new funnel (copy)
+      const { data: newFunnel, error: funnelError } = await supabase
+        .from("sales_funnels")
+        .insert({
+          name: `${funnel.name} (cópia)`,
+          description: funnel.description,
+          organization_id: orgData.organization_id,
+          is_default: false,
+          is_active: funnel.is_active,
+        })
+        .select()
+        .single();
+
+      if (funnelError) throw funnelError;
+
+      // Copy stages into the new funnel
+      if (stages && stages.length > 0) {
+        const newStages = stages.map((s: any) => ({
+          funnel_id: newFunnel.id,
+          title: s.title,
+          color: s.color,
+          position: s.position,
+          description: s.description,
+          is_won_stage: s.is_won_stage,
+          is_lost_stage: s.is_lost_stage,
+        }));
+
+        const { error: stageInsertError } = await supabase
+          .from("funnel_stages")
+          .insert(newStages);
+
+        if (stageInsertError) throw stageInsertError;
+      }
+
+      toast.success(`Funil "${funnel.name}" duplicado com sucesso!`);
+      loadFunnels();
+    } catch (error) {
+      console.error("Erro ao duplicar funil:", error);
+      toast.error("Erro ao duplicar funil");
+    } finally {
+      setDuplicatingFunnelId(null);
     }
   };
 
@@ -191,6 +260,19 @@ const FunnelBuilder = () => {
                   >
                     <Edit className="h-4 w-4 mr-2" />
                     {funnel.is_default ? "Configurar" : "Editar"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDuplicate(funnel)}
+                    disabled={duplicatingFunnelId === funnel.id}
+                    title="Duplicar funil"
+                  >
+                    {duplicatingFunnelId === funnel.id ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </Button>
                   {!funnel.is_default && (
                     <Button
