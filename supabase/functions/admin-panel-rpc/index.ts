@@ -132,7 +132,9 @@ Deno.serve(async (req) => {
         if (operation === "admin_manage_user_subscription") {
             const { user_id, plan_id, organization_id } = body;
             const { data, error } = await adminClient.rpc("admin_manage_user_subscription", {
-                params: { p_user_id: user_id, p_plan_id: plan_id, p_organization_id: organization_id || null },
+                p_user_id: user_id,
+                p_plan_id: plan_id,
+                p_organization_id: organization_id || null,
             });
             if (error) throw error;
             return new Response(JSON.stringify({ data }), {

@@ -173,7 +173,9 @@ export function FunnelPermissionsDialog({
         {/* Collaborators list */}
         <div className="px-4 py-3">
           <p className="text-xs text-muted-foreground mb-3">
-            Owners e Admins sempre têm acesso. Ative abaixo para liberar acesso a colaboradores específicos.
+            {isRestricted
+              ? "Owners e Admins sempre têm acesso. Toggle ligado (🟢) = colaborador pode ver este funil."
+              : "Funil aberto — todos os colaboradores podem ver. Para restringir, clique no botão acima."}
           </p>
 
           {loading ? (
@@ -188,33 +190,44 @@ export function FunnelPermissionsDialog({
             </p>
           ) : (
             <div className="space-y-2">
-              {collaborators.map((collab) => (
-                <div
-                  key={collab.user_id}
-                  className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-muted/50"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <LazyAvatar
-                      src={collab.avatar_url || undefined}
-                      name={collab.full_name}
-                      size="sm"
-                      className="h-8 w-8"
-                    />
-                    <div>
-                      <p className="text-sm font-medium leading-tight">{collab.full_name}</p>
-                      <p className="text-[11px] text-muted-foreground capitalize">{collab.role === "member" ? "Colaborador" : collab.role}</p>
+              {collaborators.map((collab) => {
+                // Quando funil está ABERTO: todos têm acesso → toggle visualmente ON
+                // Quando funil está RESTRITO: toggle reflete o acesso real do colaborador
+                const visuallyChecked = !isRestricted ? true : collab.hasAccess;
+
+                return (
+                  <div
+                    key={collab.user_id}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-muted/50"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <LazyAvatar
+                        src={collab.avatar_url || undefined}
+                        name={collab.full_name}
+                        size="sm"
+                        className="h-8 w-8"
+                      />
+                      <div>
+                        <p className="text-sm font-medium leading-tight">{collab.full_name}</p>
+                        <p className="text-[11px] text-muted-foreground capitalize">
+                          {collab.role === "member" ? "Colaborador" : collab.role}
+                          {!isRestricted && (
+                            <span className="ml-1 text-green-500">· acesso liberado</span>
+                          )}
+                        </p>
+                      </div>
                     </div>
+                    <Switch
+                      checked={visuallyChecked}
+                      onCheckedChange={() =>
+                        isRestricted && toggleCollaboratorAccess(collab.user_id, collab.hasAccess)
+                      }
+                      disabled={saving === collab.user_id || !isRestricted}
+                      className={!isRestricted ? "opacity-60 cursor-not-allowed" : ""}
+                    />
                   </div>
-                  <Switch
-                    checked={collab.hasAccess}
-                    onCheckedChange={() =>
-                      toggleCollaboratorAccess(collab.user_id, collab.hasAccess)
-                    }
-                    disabled={saving === collab.user_id || !isRestricted}
-                    className={!isRestricted ? "opacity-40" : ""}
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
