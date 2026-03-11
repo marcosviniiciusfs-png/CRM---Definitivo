@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     const data = await response.json();
     console.log('Webhook subscribed successfully:', data);
 
-    // Update integration with selected form
+    // Mark webhook as verified on the integration (backward compat)
     const { error: updateError } = await supabase
       .from('facebook_integrations')
       .update({
@@ -140,6 +140,24 @@ Deno.serve(async (req) => {
     if (updateError) {
       console.error('Error updating integration:', updateError);
       throw updateError;
+    }
+
+    // Upsert into facebook_selected_forms to support multiple forms per integration
+    const { error: upsertError } = await supabase
+      .from('facebook_selected_forms')
+      .upsert(
+        {
+          integration_id,
+          organization_id,
+          form_id,
+          form_name: form_name || form_id,
+        },
+        { onConflict: 'integration_id,form_id' }
+      );
+
+    if (upsertError) {
+      // Non-fatal: log but don't fail. The backward-compat update above succeeded.
+      console.error('Warning: could not upsert facebook_selected_forms:', upsertError);
     }
 
     return new Response(
