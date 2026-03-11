@@ -111,6 +111,11 @@ const Pipeline = () => {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const leadIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Refs para evitar stale closure na subscrição Realtime (sem recriar o canal ao mudar funil)
+  const activeFunnelRef = useRef<any>(null);
+  const usingCustomFunnelRef = useRef<boolean>(false);
+  const orgIdRef = useRef<string | undefined>(undefined);
+  const pauseRealtimeRef = useRef<boolean>(false);
   const [stages, setStages] = useState<any[]>(DEFAULT_STAGES);
   const [usingCustomFunnel, setUsingCustomFunnel] = useState(false);
   const [activeFunnel, setActiveFunnel] = useState<any>(null);
@@ -263,6 +268,12 @@ const Pipeline = () => {
     })
   );
 
+  // Manter refs sincronizadas com o estado (para uso na callback da subscrição Realtime)
+  useEffect(() => { activeFunnelRef.current = activeFunnel; }, [activeFunnel]);
+  useEffect(() => { usingCustomFunnelRef.current = usingCustomFunnel; }, [usingCustomFunnel]);
+  useEffect(() => { orgIdRef.current = organizationId; }, [organizationId]);
+  useEffect(() => { pauseRealtimeRef.current = pauseRealtime; }, [pauseRealtime]);
+
   // Inicialização de áudio e subscrição a novos leads
   useEffect(() => {
     // Inicializar áudio de notificação
@@ -272,7 +283,7 @@ const Pipeline = () => {
     // Usar nome único por mount para evitar conflito de channel ao re-navegar
     const channelName = channelIdRef.current;
 
-    // Subscrever a novos leads
+    // Subscrever a novos leads (canal criado apenas uma vez; valores dinâmicos via refs)
     const channel = supabase
       .channel(channelName)
       .on(
@@ -283,17 +294,24 @@ const Pipeline = () => {
           table: 'leads'
         },
         (payload) => {
-          // Pausar processamento durante drag
-          if (pauseRealtime) return;
+          // Pausar processamento durante drag (usar ref para não recriar o canal)
+          if (pauseRealtimeRef.current) return;
 
           const newLead = payload.new as Lead;
 
-          // Garantir que o lead pertence ao funil atualmente selecionado
-          if (usingCustomFunnel && activeFunnel) {
-            if (newLead.funnel_id !== activeFunnel.id) {
+          // Filtro por organização (segurança – usar ref para valor atualizado)
+          const currentOrgId = orgIdRef.current;
+          if (currentOrgId && (newLead as any).organization_id !== currentOrgId) return;
+
+          // Garantir que o lead pertence ao funil atualmente selecionado (usar refs, sem stale closure)
+          const af = activeFunnelRef.current;
+          const uc = usingCustomFunnelRef.current;
+
+          if (uc && af) {
+            if (newLead.funnel_id !== af.id) {
               return;
             }
-          } else if (!usingCustomFunnel && newLead.funnel_id !== null) {
+          } else if (!uc && newLead.funnel_id !== null) {
             // Se estamos no funil padrão, ignorar leads de funis customizados
             return;
           }
@@ -328,7 +346,7 @@ const Pipeline = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [pauseRealtime, usingCustomFunnel, activeFunnel]);
+  }, []); // Deps vazias: subscrição criada uma vez por mount; valores dinâmicos acessados via refs
 
   // Carregar perfil do usuário
   useEffect(() => {
@@ -574,11 +592,19 @@ const Pipeline = () => {
 
       if (error) throw error;
 
-      setLeads(data || []);
+      // Merge: preservar leads que chegaram via Realtime durante a query (evitar race condition)
+      setLeads(prev => {
+        if (!data || data.length === 0) return prev;
+        const dbIds = new Set(data.map((l: any) => l.id));
+        // Leads que estão no estado atual mas não vieram do banco (chegaram via Realtime)
+        const realtimeOnly = prev.filter(l => !dbIds.has(l.id));
+        return [...data, ...realtimeOnly];
+      });
 
-      // Armazenar IDs dos leads carregados inicialmente
+      // Armazenar IDs dos leads (DB + Realtime) para deduplicação
       if (data) {
-        leadIdsRef.current = new Set(data.map(lead => lead.id));
+        const existingRtIds = [...leadIdsRef.current];
+        leadIdsRef.current = new Set([...data.map((lead: any) => lead.id), ...existingRtIds]);
         // Buscar todos lead_items, tags e perfis de responsáveis de uma vez
         const responsavelIds = [...new Set(data.map(l => l.responsavel_user_id).filter(Boolean))] as string[];
         await Promise.all([
