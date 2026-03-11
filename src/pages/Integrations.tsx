@@ -343,9 +343,11 @@ function FacebookCard({
                 <line x1="8" y1="12" x2="16" y2="12"/>
                 <line x1="8" y1="16" x2="13" y2="16"/>
               </svg>
-              <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Formulários:</span>
+              <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Ativos no CRM:</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: configuredForms > 0 ? "#88DDAA" : "#2A2A3A" }}>
-                {configuredForms > 0 ? `${configuredForms} configurado${configuredForms !== 1 ? "s" : ""}` : "Nenhum configurado"}
+                {configuredForms > 0
+                  ? `${configuredForms} formulário${configuredForms !== 1 ? "s" : ""}`
+                  : "Nenhum ativo"}
               </span>
             </div>
           </div>
@@ -438,10 +440,14 @@ const Integrations = () => {
 
         if (funnels && funnels.length > 0) {
           const funnelIds = funnels.map((f: any) => f.id);
+          // FIX: filtrar apenas mapeamentos com source_identifier (form_id real do Facebook)
+          // Mapeamentos antigos com source_identifier = null eram do fluxo single-form
+          // e não devem ser contabilizados como "formulários ativos no CRM"
           const { count } = await supabase
             .from("funnel_source_mappings")
             .select("*", { count: "exact", head: true })
             .eq("source_type", "facebook")
+            .not("source_identifier", "is", null)
             .in("funnel_id", funnelIds);
           setFbConfiguredForms(count || 0);
         }

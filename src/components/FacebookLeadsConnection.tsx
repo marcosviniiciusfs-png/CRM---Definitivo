@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Facebook, CheckCircle, AlertCircle, Copy, Check, Loader2 } from "lucide-react";
+import { Facebook, CheckCircle, AlertCircle, Copy, Check, Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FunnelSelector } from "@/components/FunnelSelector";
 import { cn } from "@/lib/utils";
+
 interface LeadForm {
   id: string;
   name: string;
@@ -54,9 +55,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       if (isPopup && (hasOAuthParams || hasFbStatus)) {
         console.log('🪟 [FB-CONN] Detectado ambiente de popup. Enviando mensagem ao pai...');
 
-        // Build the redirect_uri that must match the one used during initiation.
-        // The popup was opened pointing at the Facebook auth URL, which redirected back
-        // to this same page URL (origin + pathname). We reconstruct it here.
         const popupRedirectUri = `${window.location.origin}${window.location.pathname}`;
 
         const payload = hasOAuthParams
@@ -64,19 +62,16 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           : { facebook: fbStatus, message: urlParams.get('message') };
 
         try {
-          // Send message to parent window
           window.opener.postMessage({
             type: 'FACEBOOK_OAUTH_RESPONSE',
             payload
           }, window.location.origin);
 
-          // If backend already processed and redirected with ?facebook=success/error, close popup
           if (hasFbStatus) {
             setTimeout(() => window.close(), 1000);
           }
         } catch (e) {
           console.error('❌ [FB-CONN] Erro ao enviar mensagem para opener:', e);
-          // Fallback: try to process locally if parent communication fails
           if (hasOAuthParams) {
             handleOauthCallback(code!, state!, popupRedirectUri);
           }
@@ -84,14 +79,12 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      // Se tivermos code/state e NÃO formos um popup, processamos normal (compatibilidade)
       if (code && state && !isPopup) {
         const directRedirectUri = `${window.location.origin}${window.location.pathname}`;
         handleOauthCallback(code, state, directRedirectUri);
         return;
       }
 
-      // Fallback para flow antigo ou sucesso via redirecionamento de backend
       const integrationData = await checkConnection();
 
       if (fbStatus === 'success' && !isPopup) {
@@ -119,17 +112,14 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           console.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Sincronizando dados...');
           toast.success('Facebook conectado com sucesso!');
 
-          // 1. Forçamos a verificação real dos dados que acabaram de ser salvos
           checkConnection().then(data => {
             if (data && data.page_id) {
               console.log('🔄 [FB-CONN] Dados sincronizados. Abrindo seletor...');
-              // Give extra time for DB replication
               setTimeout(() => {
                 fetchLeadForms(data);
                 toast.info("Carregando seus formulários...");
               }, 1000);
             } else {
-              // Tentativa de segurança caso o banco demore a propagar (RLS/Cache)
               console.warn('⚠️ [FB-CONN] Dados não encontrados imediatamente. Re-tentando...');
               setTimeout(() => {
                 checkConnection().then(retryData => {
@@ -139,8 +129,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             }
           });
         } else if (code && state) {
-          // Use the redirect_uri from the popup (which matches what Facebook received),
-          // or fall back to the stored oauthRedirectUri from initiation
           const callbackRedirectUri = redirect_uri || oauthRedirectUri || `${window.location.origin}/integrations`;
           console.log('🔗 [FB-CONN] Usando redirect_uri para callback:', callbackRedirectUri);
           handleOauthCallback(code, state, callbackRedirectUri);
@@ -165,8 +153,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     toast.info('Finalizando conexão com Facebook...', { id: 'fb-connecting' });
 
     try {
-      // CRITICAL: Use the same redirect_uri that was used in the OAuth initiation.
-      // Priority: explicit parameter > stored from initiation > fallback to /integrations
       const finalRedirectUri = redirectUri || oauthRedirectUri || `${window.location.origin}/integrations`;
       console.log('🔗 [FB-CONN] Usando redirect_uri para troca:', finalRedirectUri);
 
@@ -184,14 +170,12 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       console.log('✅ [FB-CONN] Sucesso! Resposta:', data);
       toast.success('Facebook conectado com sucesso!', { id: 'fb-connecting' });
 
-      // Clean URL if there are query params (main window only)
       if (window.location.search) {
         window.history.replaceState({}, '', window.location.pathname);
       }
 
       const integrationData = await checkConnection();
       if (integrationData) {
-        // Automatically show form selector after successful connection
         setTimeout(() => fetchLeadForms(integrationData), 500);
       }
     } catch (err: any) {
@@ -207,23 +191,15 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     try {
       setCheckingTokens(true);
 
-      // Otimizado: query direta sem RPC (evita waterfall RPC → fallback → token RPC → token fallback)
-      // organizationId já disponível via prop — sem necessidade de getUser() extra
       if (!organizationId) return null;
 
-      // Buscar integração e token em PARALELO
-      const [{ data: integrationData, error: intError }, { data: tokenData }] = await Promise.all([
-        supabase
-          .from('facebook_integrations')
-          .select('*')
-          .eq('organization_id', organizationId)
-          .maybeSingle(),
-        supabase
-          .from('facebook_integration_tokens')
-          .select('encrypted_access_token, integration_id')
-          .eq('organization_id', organizationId)
-          .maybeSingle(),
-      ]);
+      // FIX CRÍTICO: Buscar integração PRIMEIRO, depois usar integration.id para buscar token
+      // A tabela facebook_integration_tokens usa integration_id (NÃO organization_id)
+      const { data: integrationData, error: intError } = await supabase
+        .from('facebook_integrations')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .maybeSingle();
 
       if (intError && intError.code !== 'PGRST116') {
         console.error('Error checking Facebook connection:', intError);
@@ -233,6 +209,14 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       if (integrationData && integrationData.page_id) {
         setIsConnected(true);
         setIntegration(integrationData);
+
+        // Agora busca o token usando o integration_id correto
+        const { data: tokenData } = await supabase
+          .from('facebook_integration_tokens')
+          .select('encrypted_access_token')
+          .eq('integration_id', integrationData.id)
+          .maybeSingle();
+
         const hasSecureTokens = !!tokenData?.encrypted_access_token;
         setNeedsReconnect(!hasSecureTokens);
         return integrationData;
@@ -268,21 +252,16 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      // Let the Edge Function use the default Supabase callback URL as redirect_uri.
-      // This is usually already whitelisted in the Facebook App.
-      // We still store our frontend origin to handle the response later.
       const frontendRedirectUri = `${window.location.origin}/integrations`;
       console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId);
 
       setOauthRedirectUri(frontendRedirectUri);
 
-      // Call edge function to initiate OAuth
       const { data, error } = await supabase.functions.invoke('facebook-oauth-initiate', {
         body: {
           user_id: user.id,
           organization_id: organizationId,
           origin: window.location.origin,
-          // We don't send redirect_uri so the backend uses the default Supabase one
         },
       });
 
@@ -298,7 +277,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       if (data?.auth_url) {
         console.log('✅ [FB-CONN] Abrindo popup do Facebook...');
 
-        // Open popup instead of redirecting the entire page
         const width = 600;
         const height = 750;
         const left = window.screen.width / 2 - width / 2;
@@ -312,21 +290,16 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
         if (!popup) {
           toast.error('O bloqueador de popups impediu a conexão. Por favor, habilite popups para este site.');
-          // Fallback: redirect the page directly if popup is blocked
           window.location.href = data.auth_url;
           return;
         }
 
-        // Timer para resetar o status de loading se o usuário fechar a janela manualmente sem completar
         const checkPopup = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkPopup);
-            // Sete timeout pequeno para não conflitar com sucesso
             setTimeout(() => setLoading(false), 2000);
           }
         }, 1000);
-
-        // O listener de 'message' cuidará do resto
 
       } else {
         throw new Error('URL de autenticação não recebida do servidor.');
@@ -353,6 +326,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       setIsConnected(false);
       setIntegration(null);
       setShowSuccess(false);
+      setNeedsReconnect(false);
+      setConfiguredFormIds(new Set());
       toast.success('Facebook desconectado com sucesso');
     } catch (error) {
       console.error('Error disconnecting Facebook:', error);
@@ -363,7 +338,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   const fetchLeadForms = async (integrationData?: any | null) => {
     let activeIntegration = integrationData || integration;
 
-    // Se os dados estão incompletos, tentamos buscar no banco antes de dar erro
     if (!activeIntegration || !activeIntegration.page_id) {
       console.log('🔄 [FB-CONN] Dados incompletos no fetch. Tentando re-sincronizar...');
       activeIntegration = await checkConnection();
@@ -381,13 +355,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
     setLoadingForms(true);
     try {
-      // Buscar organization_id do usuário
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('Usuário não autenticado');
-        return;
-      }
-
       if (!organizationId) {
         toast.error('Organização não identificada');
         return;
@@ -395,7 +362,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
       console.log('Fetching forms for integration:', activeIntegration.id, 'page:', activeIntegration.page_id);
 
-      // Enviar organization_id e integration_id - tokens serão buscados de forma segura no servidor
       const { data, error } = await supabase.functions.invoke('facebook-list-lead-forms', {
         body: {
           organization_id: organizationId,
@@ -419,6 +385,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       }
 
       // Carregar quais formulários já têm mapeamento de funil configurado
+      // Filtra apenas source_identifier não-nulo para contar só mapeamentos de formulários reais
       if (forms.length > 0 && organizationId) {
         const formIds = forms.map((f: LeadForm) => f.id);
         const { data: orgFunnels } = await supabase
@@ -431,6 +398,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             .from('funnel_source_mappings')
             .select('source_identifier')
             .eq('source_type', 'facebook')
+            .not('source_identifier', 'is', null)
             .in('source_identifier', formIds)
             .in('funnel_id', funnelIds);
           const configured = new Set((mappings || []).map((m: any) => m.source_identifier as string));
@@ -446,7 +414,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   };
 
   // Subscribes the PAGE-level webhook (needed only once per connection).
-  // Does NOT force a single "selected form" — all forms receive leads.
   const subscribePageWebhook = async () => {
     if (!integration || !organizationId) return;
     setSubscribing(true);
@@ -455,7 +422,6 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         body: {
           integration_id: integration.id,
           organization_id: organizationId,
-          // form_id intentionally omitted → page-level subscription only
         },
       });
       if (error) throw new Error('O servidor demorou a responder. Verifique sua conexão e tente novamente.');
@@ -471,6 +437,15 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   // Called when user configures a funnel for a form — marks it as configured
   const handleFormConfigured = (formId: string) => {
     setConfiguredFormIds(prev => new Set([...prev, formId]));
+  };
+
+  // Called when user removes a funnel mapping for a form
+  const handleFormRemoved = (formId: string) => {
+    setConfiguredFormIds(prev => {
+      const next = new Set(prev);
+      next.delete(formId);
+      return next;
+    });
   };
 
   const copyToClipboard = async (text: string, type: 'webhook' | 'token') => {
@@ -515,7 +490,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertDescription className="text-sm text-green-800 dark:text-green-200">
-              <strong>Conexão estabelecida!</strong> Agora configure o webhook no Facebook para começar a receber leads.
+              <strong>Conexão estabelecida!</strong> Configure o funil de destino para cada formulário abaixo.
             </AlertDescription>
           </Alert>
         )}
@@ -523,9 +498,11 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         {needsReconnect && (
           <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
-              <strong>Reconexão necessária!</strong> Os tokens de acesso expiraram ou estão inválidos.
-              Por favor, desconecte e reconecte sua conta do Facebook para restaurar a funcionalidade.
+            <AlertDescription className="text-sm text-amber-800 dark:text-amber-200 flex items-start justify-between gap-3">
+              <span>
+                <strong>Reconexão necessária.</strong> O token de acesso expirou.
+                Desconecte e reconecte para restaurar o acesso.
+              </span>
             </AlertDescription>
           </Alert>
         )}
@@ -545,20 +522,27 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                 {needsReconnect
                   ? 'Reconexão necessária'
                   : isConnected
-                    ? `Conectado - ${integration?.page_name || 'Página configurada'}`
+                    ? `Conectado — ${integration?.page_name || 'Página configurada'}`
                     : 'Não conectado'}
               </p>
               {isConnected && configuredFormIds.size > 0 && !needsReconnect && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {configuredFormIds.size} formulário{configuredFormIds.size !== 1 ? 's' : ''} configurado{configuredFormIds.size !== 1 ? 's' : ''}
+                <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                  {configuredFormIds.size} formulário{configuredFormIds.size !== 1 ? 's' : ''} ativo{configuredFormIds.size !== 1 ? 's' : ''} no CRM
                 </p>
               )}
             </div>
           </div>
           <div className="flex gap-2">
-            {isConnected && !needsReconnect && (
-              <Button onClick={() => fetchLeadForms()} disabled={loadingForms} variant="outline">
-                {loadingForms ? 'Carregando...' : 'Gerenciar Formulários'}
+            {/* Mostrar "Gerenciar" mesmo quando needsReconnect = true para facilitar diagnóstico */}
+            {isConnected && (
+              <Button
+                onClick={() => fetchLeadForms()}
+                disabled={loadingForms}
+                variant="outline"
+              >
+                {loadingForms ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando...</>
+                ) : 'Gerenciar Formulários'}
               </Button>
             )}
             {isConnected ? (
@@ -586,11 +570,11 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           </div>
         )}
 
-        {isConnected && integration && configuredFormIds.size > 0 && (
+        {isConnected && integration && configuredFormIds.size > 0 && !needsReconnect && (
           <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
             <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Tudo Configurado!</p>
             <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-              {configuredFormIds.size} formulário{configuredFormIds.size !== 1 ? 's' : ''} ativo{configuredFormIds.size !== 1 ? 's' : ''} — os leads aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
+              {configuredFormIds.size} formulário{configuredFormIds.size !== 1 ? 's' : ''} ativo{configuredFormIds.size !== 1 ? 's' : ''} — os leads aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong>.
             </p>
           </div>
         )}
@@ -598,11 +582,11 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
       {/* Form Selection Dialog */}
       <Dialog open={showFormSelector} onOpenChange={setShowFormSelector}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Formulários de Lead</DialogTitle>
             <DialogDescription>
-              Configure um funil de destino para cada formulário. Todos os formulários configurados receberão leads automaticamente.
+              Configure um funil de destino para cada formulário. Formulários configurados receberão leads automaticamente.
             </DialogDescription>
           </DialogHeader>
 
@@ -617,13 +601,19 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2 px-1 pb-1 text-sm text-muted-foreground">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <span>
-                  {configuredFormIds.size} de {leadForms.length} formulário{leadForms.length !== 1 ? 's' : ''} com funil configurado
-                </span>
+              {/* Resumo: ativos no CRM vs total na página */}
+              <div className="flex items-center justify-between px-1 pb-1">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  <span>
+                    <strong className="text-foreground">{configuredFormIds.size}</strong> ativo{configuredFormIds.size !== 1 ? 's' : ''} no CRM
+                    {' '}·{' '}
+                    <strong className="text-foreground">{leadForms.length}</strong> formulário{leadForms.length !== 1 ? 's' : ''} na página do Facebook
+                  </span>
+                </div>
               </div>
-              <div className="space-y-2 max-h-[420px] overflow-y-auto">
+
+              <div className="space-y-2">
                 {leadForms.map((form) => {
                   const isConfigured = configuredFormIds.has(form.id);
 
@@ -663,7 +653,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                         </div>
                       </div>
 
-                      {/* Funnel Selector para cada formulário individualmente */}
+                      {/* FunnelSelector com suporte a remoção */}
                       <div className="mt-3 pt-3 border-t border-dashed">
                         <FunnelSelector
                           sourceType="facebook"
@@ -671,6 +661,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                           organizationId={organizationId}
                           className="mt-0 bg-transparent border-none p-0"
                           onMappingChange={() => handleFormConfigured(form.id)}
+                          onMappingRemoved={() => handleFormRemoved(form.id)}
                         />
                         {!isConfigured && (
                           <p className="text-[10px] text-muted-foreground mt-1.5 italic">
