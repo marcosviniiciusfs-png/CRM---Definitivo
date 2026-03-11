@@ -32,6 +32,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   const [subscribing, setSubscribing] = useState(false);
   const [needsReconnect, setNeedsReconnect] = useState(false);
   const [checkingTokens, setCheckingTokens] = useState(false);
+  // Track which form IDs already have a funnel_source_mapping configured
+  const [configuredFormIds, setConfiguredFormIds] = useState<Set<string>>(new Set());
   // Store the redirect_uri used during OAuth initiation so the callback uses the exact same one
   const [oauthRedirectUri, setOauthRedirectUri] = useState<string | null>(null);
 
@@ -432,8 +434,34 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         throw new Error(data.error);
       }
 
-      setLeadForms(data.forms || []);
+      const forms: LeadForm[] = data.forms || [];
+      setLeadForms(forms);
       setShowFormSelector(true);
+
+      // Garantir que o webhook de página está subscrito (uma vez apenas)
+      if (activeIntegration && !activeIntegration.webhook_verified) {
+        subscribePageWebhook();
+      }
+
+      // Carregar quais formulários já têm mapeamento de funil configurado
+      if (forms.length > 0 && organizationId) {
+        const formIds = forms.map((f: LeadForm) => f.id);
+        const { data: orgFunnels } = await supabase
+          .from('sales_funnels')
+          .select('id')
+          .eq('organization_id', organizationId);
+        const funnelIds = (orgFunnels || []).map((f: any) => f.id);
+        if (funnelIds.length > 0) {
+          const { data: mappings } = await supabase
+            .from('funnel_source_mappings')
+            .select('source_identifier')
+            .eq('source_type', 'facebook')
+            .in('source_identifier', formIds)
+            .in('funnel_id', funnelIds);
+          const configured = new Set((mappings || []).map((m: any) => m.source_identifier as string));
+          setConfiguredFormIds(configured);
+        }
+      }
     } catch (error) {
       console.error('Error fetching lead forms:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao buscar formulários de lead');
@@ -442,56 +470,32 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     }
   };
 
-  const handleFormSelect = async (form: LeadForm) => {
+  // Subscribes the PAGE-level webhook (needed only once per connection).
+  // Does NOT force a single "selected form" — all forms receive leads.
+  const subscribePageWebhook = async () => {
+    if (!integration || !organizationId) return;
     setSubscribing(true);
     try {
-      // Buscar organization_id do usuário
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('Usuário não autenticado');
-        return;
-      }
-
-      if (!organizationId) {
-        toast.error('Organização não identificada');
-        return;
-      }
-
-      if (!integration) {
-        toast.error('Nenhuma integração ativa encontrada.');
-        return;
-      }
-
-      console.log('📡 [FB-CONN] Inscrevendo webhook para:', form.name);
-
       const { data, error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
         body: {
-          form_id: form.id,
-          form_name: form.name,
           integration_id: integration.id,
           organization_id: organizationId,
+          // form_id intentionally omitted → page-level subscription only
         },
       });
-
-      if (error) {
-        console.error('Invoke error:', error);
-        throw new Error('O servidor de integração demorou a responder. Verifique sua conexão e tente novamente.');
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      toast.success(`Webhook inscrito para "${form.name}"!`);
-      setShowFormSelector(false);
-      setShowSuccess(true);
-      await checkConnection();
+      if (error) throw new Error('O servidor demorou a responder. Verifique sua conexão e tente novamente.');
+      if (data?.error) throw new Error(data.error);
     } catch (error) {
-      console.error('Error subscribing webhook:', error);
-      toast.error('Erro ao inscrever webhook');
+      console.error('Error subscribing page webhook:', error);
+      toast.error('Erro ao ativar webhook da página');
     } finally {
       setSubscribing(false);
     }
+  };
+
+  // Called when user configures a funnel for a form — marks it as configured
+  const handleFormConfigured = (formId: string) => {
+    setConfiguredFormIds(prev => new Set([...prev, formId]));
   };
 
   const copyToClipboard = async (text: string, type: 'webhook' | 'token') => {
@@ -569,17 +573,17 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                     ? `Conectado - ${integration?.page_name || 'Página configurada'}`
                     : 'Não conectado'}
               </p>
-              {isConnected && integration?.selected_form_name && !needsReconnect && (
+              {isConnected && configuredFormIds.size > 0 && !needsReconnect && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Formulário: {integration.selected_form_name}
+                  {configuredFormIds.size} formulário{configuredFormIds.size !== 1 ? 's' : ''} configurado{configuredFormIds.size !== 1 ? 's' : ''}
                 </p>
               )}
             </div>
           </div>
           <div className="flex gap-2">
-            {isConnected && !integration?.selected_form_id && !needsReconnect && (
+            {isConnected && !needsReconnect && (
               <Button onClick={() => fetchLeadForms()} disabled={loadingForms} variant="outline">
-                {loadingForms ? 'Carregando...' : 'Selecionar Formulário'}
+                {loadingForms ? 'Carregando...' : 'Gerenciar Formulários'}
               </Button>
             )}
             {isConnected ? (
@@ -600,26 +604,19 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             <p className="font-medium">Como funciona:</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
               <li>Conecte sua conta do Facebook Business</li>
-              <li>Configure o webhook (instruções aparecerão após conexão)</li>
-              <li>Leads serão automaticamente importados para as seções Leads e Pipeline</li>
+              <li>Configure um funil de destino para cada formulário desejado</li>
+              <li>Múltiplos formulários podem receber leads simultaneamente</li>
               <li>Cada lead virá com a fonte "Facebook Leads"</li>
             </ul>
           </div>
         )}
 
-        {isConnected && integration && integration.selected_form_id && (
-          <div className="space-y-3">
-            <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-              <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Tudo Configurado!</p>
-              <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                Os leads do formulário <strong>"{integration.selected_form_name}"</strong> aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
-              </p>
-            </div>
-            <FunnelSelector
-              sourceType="facebook"
-              sourceIdentifier={integration.selected_form_id}
-              organizationId={organizationId}
-            />
+        {isConnected && integration && configuredFormIds.size > 0 && (
+          <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+            <p className="font-medium text-sm text-green-800 dark:text-green-200">✅ Tudo Configurado!</p>
+            <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+              {configuredFormIds.size} formulário{configuredFormIds.size !== 1 ? 's' : ''} ativo{configuredFormIds.size !== 1 ? 's' : ''} — os leads aparecerão automaticamente nas seções <strong>Leads</strong> e <strong>Pipeline</strong> com a fonte "Facebook Leads".
+            </p>
           </div>
         )}
       </CardContent>
@@ -628,9 +625,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       <Dialog open={showFormSelector} onOpenChange={setShowFormSelector}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Selecione o Formulário de Lead</DialogTitle>
+            <DialogTitle>Formulários de Lead</DialogTitle>
             <DialogDescription>
-              Escolha qual formulário do Facebook você deseja monitorar para receber leads automaticamente
+              Configure um funil de destino para cada formulário. Todos os formulários configurados receberão leads automaticamente.
             </DialogDescription>
           </DialogHeader>
 
@@ -644,67 +641,73 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
               <p className="text-sm mt-2">Crie um formulário no Facebook Ads Manager primeiro.</p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {leadForms.map((form) => {
-                const isSelected = integration?.selected_form_id === form.id;
+            <>
+              <div className="flex items-center gap-2 px-1 pb-1 text-sm text-muted-foreground">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>
+                  {configuredFormIds.size} de {leadForms.length} formulário{leadForms.length !== 1 ? 's' : ''} com funil configurado
+                </span>
+              </div>
+              <div className="space-y-2 max-h-[420px] overflow-y-auto">
+                {leadForms.map((form) => {
+                  const isConfigured = configuredFormIds.has(form.id);
 
-                return (
-                  <div
-                    key={form.id}
-                    className={cn(
-                      "w-full p-4 border rounded-lg transition-all",
-                      isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted"
-                    )}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium">{form.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">ID: {form.id}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className={`text-xs px-2 py-1 rounded font-medium ${form.status === 'ACTIVE'
-                            ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                            : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
-                            }`}>
-                            {form.status}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {form.leads_count || 0} leads
-                          </span>
+                  return (
+                    <div
+                      key={form.id}
+                      className={cn(
+                        "w-full p-4 border rounded-lg transition-all",
+                        isConfigured
+                          ? "border-green-400 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20"
+                          : "hover:bg-muted"
+                      )}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{form.name}</p>
+                            {isConfigured && (
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium">
+                                <CheckCircle className="h-3 w-3" />
+                                Ativo
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">ID: {form.id}</p>
+                          <div className="flex items-center gap-4 mt-1.5">
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${form.status === 'ACTIVE'
+                              ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                              : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                              }`}>
+                              {form.status}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {form.leads_count || 0} leads
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      {!isSelected ? (
-                        <Button
-                          onClick={() => handleFormSelect(form)}
-                          disabled={subscribing}
-                          size="sm"
-                          className="ml-4"
-                        >
-                          {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Escolher"}
-                        </Button>
-                      ) : (
-                        <CheckCircle className="h-5 w-5 text-green-500 ml-4" />
-                      )}
+                      {/* Funnel Selector para cada formulário individualmente */}
+                      <div className="mt-3 pt-3 border-t border-dashed">
+                        <FunnelSelector
+                          sourceType="facebook"
+                          sourceIdentifier={form.id}
+                          organizationId={organizationId}
+                          className="mt-0 bg-transparent border-none p-0"
+                          onMappingChange={() => handleFormConfigured(form.id)}
+                        />
+                        {!isConfigured && (
+                          <p className="text-[10px] text-muted-foreground mt-1.5 italic">
+                            Selecione um funil acima para ativar o recebimento de leads deste formulário.
+                          </p>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Integrated Funnel Selector for the specific form */}
-                    <div className="mt-4 pt-4 border-t border-dashed">
-                      <FunnelSelector
-                        sourceType="facebook"
-                        sourceIdentifier={form.id}
-                        organizationId={organizationId}
-                        className="mt-0 bg-transparent border-none p-0"
-                      />
-                      {!isSelected && (
-                        <p className="text-[10px] text-muted-foreground mt-2 italic">
-                          * Configure o funil de destino antes ou depois de escolher o formulário.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

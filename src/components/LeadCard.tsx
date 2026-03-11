@@ -311,14 +311,21 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
               <span>{date}</span>
             </div>
             {responsavelName && (
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0 max-w-[50%]">
+              <div
+                className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0 max-w-[50%]"
+                title="Este é o colaborador responsável por este lead."
+              >
                 <LazyAvatar
                   src={responsavelAvatarUrl || undefined}
                   name={responsavelName}
                   size="sm"
                   className="h-4 w-4 flex-shrink-0"
                 />
-                <span className="truncate">{responsavelName.split(" ")[0]}</span>
+                <span className="truncate">
+                  {responsavelName.length > 11
+                    ? responsavelName.substring(0, 10) + "…"
+                    : responsavelName}
+                </span>
               </div>
             )}
           </div>

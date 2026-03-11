@@ -303,6 +303,23 @@ const Pipeline = () => {
             // Adicionar ao estado
             setLeads(prev => [newLead, ...prev]);
             leadIdsRef.current.add(newLead.id);
+            // Carregar perfil do responsável se disponível
+            const uid = (newLead as any).responsavel_user_id;
+            if (uid) {
+              supabase
+                .from('profiles')
+                .select('user_id, full_name, avatar_url')
+                .eq('user_id', uid)
+                .single()
+                .then(({ data }) => {
+                  if (data) {
+                    setProfilesMap(prev => ({
+                      ...prev,
+                      [data.user_id]: { full_name: data.full_name || '', avatar_url: data.avatar_url },
+                    }));
+                  }
+                });
+            }
           }
         }
       )

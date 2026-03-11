@@ -45,8 +45,9 @@ Deno.serve(async (req) => {
   try {
     const { form_id, form_name, integration_id, organization_id } = await req.json();
 
-    if (!form_id || !integration_id || !organization_id) {
-      throw new Error('Missing required parameters: form_id, integration_id, organization_id');
+    // form_id is optional — when omitted, we subscribe at the PAGE level only
+    if (!integration_id || !organization_id) {
+      throw new Error('Missing required parameters: integration_id, organization_id');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -127,14 +128,15 @@ Deno.serve(async (req) => {
     const data = await response.json();
     console.log('Webhook subscribed successfully:', data);
 
-    // Update integration with selected form
+    // Update integration — only set selected_form_id when a specific form is provided (backwards compat)
+    const updatePayload: Record<string, any> = { webhook_verified: true };
+    if (form_id) {
+      updatePayload.selected_form_id = form_id;
+      updatePayload.selected_form_name = form_name || form_id;
+    }
     const { error: updateError } = await supabase
       .from('facebook_integrations')
-      .update({
-        selected_form_id: form_id,
-        selected_form_name: form_name,
-        webhook_verified: true,
-      })
+      .update(updatePayload)
       .eq('id', integration_id);
 
     if (updateError) {
