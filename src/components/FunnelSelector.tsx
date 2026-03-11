@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowRight, CheckCircle, Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,26 +14,40 @@ interface Funnel {
 
 interface FunnelSelectorProps {
   sourceType: 'whatsapp' | 'facebook' | 'webhook';
-  sourceIdentifier?: string; // Add this to handle specific forms/IDs
-  organizationId?: string; // Explicit organization ID
+  sourceIdentifier?: string;
+  organizationId?: string;
   disabled?: boolean;
   className?: string;
-  onMappingChange?: () => void; // Callback when a funnel mapping is created/updated
+  onMappingChange?: () => void;    // Chamado quando um funil é selecionado
+  onMappingRemoved?: () => void;   // Chamado quando o mapeamento é removido
 }
 
-export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, disabled, className, onMappingChange }: FunnelSelectorProps) => {
+// Valor especial para indicar "remover mapeamento"
+const REMOVE_VALUE = "__REMOVE__";
+
+export const FunnelSelector = ({
+  sourceType,
+  sourceIdentifier,
+  organizationId,
+  disabled,
+  className,
+  onMappingChange,
+  onMappingRemoved,
+}: FunnelSelectorProps) => {
   const { user } = useAuth();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [selectedFunnel, setSelectedFunnel] = useState<string>("");
   const [selectedFunnelName, setSelectedFunnelName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  // org resolvida (prop ou lookup)
+  const [resolvedOrgId, setResolvedOrgId] = useState<string | undefined>(organizationId);
 
   useEffect(() => {
     if (user) {
       loadFunnelsAndMapping();
     }
-  }, [user, sourceType]);
+  }, [user, sourceType, sourceIdentifier, organizationId]);
 
   const loadFunnelsAndMapping = async () => {
     if (!user) return;
@@ -43,7 +57,7 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
 
       let targetOrgId = organizationId;
 
-      // If no explicit organizationId, try to find it
+      // Se não recebemos organizationId explicitamente, buscar via organization_members
       if (!targetOrgId) {
         const { data: orgData } = await supabase
           .from("organization_members")
@@ -61,49 +75,48 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
         return;
       }
 
-      console.log(`🎯 [FunnelSelector] Loading funnels for org: ${targetOrgId}`);
+      setResolvedOrgId(targetOrgId);
 
-      // Load all funnels for this organization
-      const { data: funnelsData, error: funnelsError } = await supabase
-        .from("sales_funnels")
-        .select("id, name, is_active, is_default")
-        .eq("organization_id", targetOrgId)
-        .order("name");
+      // Carregar funis e mapeamento existente em paralelo
+      const [funnelsResult, mappingResult] = await Promise.all([
+        supabase
+          .from("sales_funnels")
+          .select("id, name, is_active, is_default")
+          .eq("organization_id", targetOrgId)
+          .order("name"),
+        // Buscar mapeamento específico para esse source+identifier
+        (() => {
+          let q = supabase
+            .from("funnel_source_mappings")
+            .select("funnel_id, source_type, source_identifier, id")
+            .eq("source_type", sourceType);
+          if (sourceIdentifier) {
+            q = q.eq("source_identifier", sourceIdentifier);
+          } else {
+            q = q.is("source_identifier", null);
+          }
+          return q.limit(1).maybeSingle();
+        })(),
+      ]);
 
-      if (funnelsError) {
-        console.error("Error fetching funnels:", funnelsError);
+      const funnelsData = funnelsResult.data || [];
+
+      if (funnelsResult.error) {
+        console.error("Error fetching funnels:", funnelsResult.error);
       }
-      console.log(`📊 [FunnelSelector] Funnels found:`, funnelsData?.length || 0);
 
-      if (funnelsData && funnelsData.length > 0) {
-        // Show all funnels regardless of active status to avoid hiding default pipelines
-        setFunnels(funnelsData);
+      setFunnels(funnelsData);
+
+      // Aplicar mapeamento existente (se funil ainda existe na org)
+      const mappingData = mappingResult.data;
+      if (mappingData && funnelsData.some(f => f.id === mappingData.funnel_id)) {
+        setSelectedFunnel(mappingData.funnel_id);
+        const funnel = funnelsData.find(f => f.id === mappingData.funnel_id);
+        if (funnel) setSelectedFunnelName(funnel.name);
       } else {
-        setFunnels([]);
-      }
-
-      // Load existing mapping for this source type and specific identifier
-      let query = supabase
-        .from("funnel_source_mappings")
-        .select("funnel_id, source_type, source_identifier")
-        .eq("source_type", sourceType)
-        .in("funnel_id", funnelsData?.map(f => f.id) || []);
-
-      if (sourceIdentifier) {
-        query = query.eq("source_identifier", sourceIdentifier);
-      } else {
-        query = query.is("source_identifier", null);
-      }
-
-      const { data: mappingsData } = await query;
-
-      if (mappingsData && mappingsData.length > 0) {
-        const currentMapping = mappingsData[0];
-        setSelectedFunnel(currentMapping.funnel_id);
-        const funnel = funnelsData?.find(f => f.id === currentMapping.funnel_id);
-        if (funnel) {
-          setSelectedFunnelName(funnel.name);
-        }
+        // Mapeamento inválido (funil excluído) — limpar estado visual
+        setSelectedFunnel("");
+        setSelectedFunnelName("");
       }
     } catch (error) {
       console.error("Error loading funnels:", error);
@@ -112,23 +125,36 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
     }
   };
 
-  const handleFunnelChange = async (funnelId: string) => {
+  const handleFunnelChange = async (value: string) => {
     if (!user || updating) return;
+
+    // --- REMOVER mapeamento ---
+    if (value === REMOVE_VALUE) {
+      await removeMappingForIdentifier();
+      return;
+    }
+
+    const funnelId = value;
 
     try {
       setUpdating(true);
 
-      // Get organization
-      const { data: orgData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
+      // Resolver org se ainda não temos
+      let targetOrgId = resolvedOrgId;
+      if (!targetOrgId) {
+        const { data: orgData } = await supabase
+          .from("organization_members")
+          .select("organization_id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+        targetOrgId = orgData?.organization_id;
+        if (targetOrgId) setResolvedOrgId(targetOrgId);
+      }
 
-      if (!orgData) return;
+      if (!targetOrgId) return;
 
-      // Get first stage of selected funnel
+      // Buscar primeira etapa do funil
       const { data: stageData } = await supabase
         .from("funnel_stages")
         .select("id")
@@ -142,12 +168,11 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
         return;
       }
 
-      // Check if mapping already exists for this source type and identifier
+      // Verificar se já existe mapeamento para este source+identifier
       let query = supabase
         .from("funnel_source_mappings")
         .select("id")
-        .eq("source_type", sourceType)
-        .in("funnel_id", funnels.map(f => f.id));
+        .eq("source_type", sourceType);
 
       if (sourceIdentifier) {
         query = query.eq("source_identifier", sourceIdentifier);
@@ -155,22 +180,20 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
         query = query.is("source_identifier", null);
       }
 
-      const { data: specificMapping } = await query.limit(1).maybeSingle();
+      const { data: existingMapping } = await query.limit(1).maybeSingle();
 
-      if (specificMapping) {
-        // Update existing mapping
+      if (existingMapping) {
         const { error } = await supabase
           .from("funnel_source_mappings")
           .update({
             funnel_id: funnelId,
             target_stage_id: stageData.id,
-            source_identifier: sourceIdentifier || null
+            source_identifier: sourceIdentifier || null,
           })
-          .eq("id", specificMapping.id);
+          .eq("id", existingMapping.id);
 
         if (error) throw error;
       } else {
-        // Create new mapping
         const { error } = await supabase
           .from("funnel_source_mappings")
           .insert({
@@ -183,18 +206,46 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
         if (error) throw error;
       }
 
-      // Update local state
       setSelectedFunnel(funnelId);
       const funnel = funnels.find(f => f.id === funnelId);
-      if (funnel) {
-        setSelectedFunnelName(funnel.name);
-      }
+      if (funnel) setSelectedFunnelName(funnel.name);
 
       toast.success("Direcionamento atualizado!");
       onMappingChange?.();
     } catch (error) {
       console.error("Error updating mapping:", error);
       toast.error("Erro ao atualizar direcionamento");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const removeMappingForIdentifier = async () => {
+    if (!user || updating) return;
+    try {
+      setUpdating(true);
+
+      let query = supabase
+        .from("funnel_source_mappings")
+        .delete()
+        .eq("source_type", sourceType);
+
+      if (sourceIdentifier) {
+        query = query.eq("source_identifier", sourceIdentifier);
+      } else {
+        query = query.is("source_identifier", null);
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+
+      setSelectedFunnel("");
+      setSelectedFunnelName("");
+      toast.success("Formulário desativado.");
+      onMappingRemoved?.();
+    } catch (error) {
+      console.error("Error removing mapping:", error);
+      toast.error("Erro ao desativar formulário");
     } finally {
       setUpdating(false);
     }
@@ -217,7 +268,7 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
   if (funnels.length === 0) {
     return (
       <div className="p-3 text-sm text-amber-500 border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 rounded mt-3">
-        Nenhum funil ativo encontrado. Crie um funil de vendas primeiro para poder direcionar os leads.
+        Nenhum funil encontrado. Crie um funil de vendas primeiro.
       </div>
     );
   }
@@ -243,6 +294,15 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
           <SelectValue placeholder="Selecione o funil de destino" />
         </SelectTrigger>
         <SelectContent>
+          {/* Opção para desativar (só aparece quando há um funil selecionado) */}
+          {selectedFunnel && (
+            <SelectItem value={REMOVE_VALUE} className="text-destructive focus:text-destructive">
+              <span className="flex items-center gap-1.5">
+                <X className="h-3.5 w-3.5" />
+                Desativar este formulário
+              </span>
+            </SelectItem>
+          )}
           {funnels.map((funnel) => (
             <SelectItem key={funnel.id} value={funnel.id}>
               {funnel.name}
