@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3, Pencil, Shield, DollarSign } from "lucide-react";
+import { UserCircle, UserPlus, UserMinus, UserX, Users, Search, Loader2, BarChart3, Pencil, Shield, DollarSign, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -51,6 +51,9 @@ const Colaboradores = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [colaboradorToDelete, setColaboradorToDelete] = useState<Colaborador | null>(null);
   const [showInactive, setShowInactive] = useState(false);
+  // Visibilidade de senha nos modais
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   // Edit modal state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -797,13 +800,24 @@ const Colaboradores = () => {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={newColaborador.password}
-                onChange={(e) => setNewColaborador({ ...newColaborador, password: e.target.value })}
-                placeholder="Mínimo 6 caracteres"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newColaborador.password}
+                  onChange={(e) => setNewColaborador({ ...newColaborador, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="role">Cargo do Sistema</Label>
@@ -891,13 +905,24 @@ const Colaboradores = () => {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-password">Nova Senha (opcional)</Label>
-              <Input
-                id="edit-password"
-                type="password"
-                value={editData.newPassword}
-                onChange={(e) => setEditData({ ...editData, newPassword: e.target.value })}
-                placeholder="Deixe em branco para manter"
-              />
+              <div className="relative">
+                <Input
+                  id="edit-password"
+                  type={showEditPassword ? "text" : "password"}
+                  value={editData.newPassword}
+                  onChange={(e) => setEditData({ ...editData, newPassword: e.target.value })}
+                  placeholder="Deixe em branco para manter"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-role">Cargo do Sistema</Label>
