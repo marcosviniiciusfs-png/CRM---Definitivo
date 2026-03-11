@@ -103,22 +103,20 @@ export default function AdminUserDetails() {
 
   const adminRpc = async (operation: string, params?: Record<string, unknown>) => {
     const token = getAdminToken();
-    // No novo sistema SQL-only, mapeamos as 'operations' para as novas RPCs 'safe_*'
-    // ou usamos a rpc() do Supabase diretamente se o nome bater.
-    const rpcMap: Record<string, string> = {
-      'get_user_details': 'safe_get_user_details', // Precisamos criar esta no SQL ainda
-      'get_organization_members': 'safe_get_organization_members',
-      'admin_get_user_subscription': 'safe_get_user_subscription',
-      'get_section_access': 'safe_get_section_access',
-      'admin_manage_user_subscription': 'safe_manage_user_subscription',
-      'upsert_section_access': 'safe_upsert_section_access',
-    };
+    if (!token) throw new Error("Token admin não encontrado. Faça login novamente.");
 
-    const rpcName = rpcMap[operation] || operation;
-    const { data, error } = await (supabase as any).rpc(rpcName, { ...params, p_token: token });
+    // Chama a Edge Function admin-panel-rpc que usa service_role (bypass RLS)
+    const { data, error } = await supabase.functions.invoke('admin-panel-rpc', {
+      headers: { 'x-admin-token': token },
+      body: { operation, ...params },
+    });
 
     if (error) throw error;
-    return { data };
+    if (data?.error) throw new Error(data.error);
+
+    // A edge function retorna { data: ... } para operações com dados
+    // ou { success: true } para operações de escrita
+    return { data: data?.data !== undefined ? data.data : data };
   };
 
   const loadUserDetails = async () => {
@@ -136,8 +134,10 @@ export default function AdminUserDetails() {
           setMembers(membersData || []);
         }
 
-        // Load subscription viaadmin-panel-rpc (service_role, bypass RLS)
-        const subData = (await adminRpc('admin_get_user_subscription', { user_id: userId })).data as { status: string; plan_id: string | null } | null;
+        // Load subscription via admin-panel-rpc (service_role, bypass RLS)
+        const rawSubData = (await adminRpc('admin_get_user_subscription', { user_id: userId })).data;
+        // Normalizar: RPC pode retornar objeto único ou array com um elemento
+        const subData = Array.isArray(rawSubData) ? rawSubData[0] : rawSubData as { status: string; plan_id: string | null } | null;
 
         if (subData && subData.status === 'authorized' && subData.plan_id) {
           setCurrentPlan(subData.plan_id);

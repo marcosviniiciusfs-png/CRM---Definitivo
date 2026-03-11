@@ -80,12 +80,12 @@ export const PipelineColumn = memo(({
             </p>
           ) : (
             leads.map((lead) => {
-              const profile = lead.responsavel_user_id
+              const responsavelProfile = lead.responsavel_user_id
                 ? profilesMap[lead.responsavel_user_id]
                 : undefined;
-              // Fallback: if UUID profile not loaded, use the text field
-              const responsavelName = profile?.full_name || (lead as any).responsavel || undefined;
-              const responsavelAvatarUrl = profile?.avatar_url || undefined;
+              // Fallback: se o perfil não foi carregado mas o campo texto existe, usa ele
+              const responsavelName = responsavelProfile?.full_name || (lead as any).responsavel || undefined;
+              const responsavelAvatarUrl = responsavelProfile?.avatar_url || undefined;
               return (
                 <SortableLeadCard
                   key={lead.id}

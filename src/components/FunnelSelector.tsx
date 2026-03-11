@@ -18,9 +18,10 @@ interface FunnelSelectorProps {
   organizationId?: string; // Explicit organization ID
   disabled?: boolean;
   className?: string;
+  onMappingChange?: () => void; // Callback when a funnel mapping is created/updated
 }
 
-export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, disabled, className }: FunnelSelectorProps) => {
+export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, disabled, className, onMappingChange }: FunnelSelectorProps) => {
   const { user } = useAuth();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [selectedFunnel, setSelectedFunnel] = useState<string>("");
@@ -190,6 +191,7 @@ export const FunnelSelector = ({ sourceType, sourceIdentifier, organizationId, d
       }
 
       toast.success("Direcionamento atualizado!");
+      onMappingChange?.();
     } catch (error) {
       console.error("Error updating mapping:", error);
       toast.error("Erro ao atualizar direcionamento");

@@ -58,7 +58,7 @@ export interface BaseLeadCardProps {
   isDraggingActive?: boolean;
   duplicateAttemptsCount?: number;
   responsavelName?: string;
-  responsavelAvatarUrl?: string;
+  responsavelAvatarUrl?: string | null;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -73,7 +73,7 @@ interface LeadCardViewProps extends BaseLeadCardProps {
   attributes?: Record<string, any>;
   setNodeRef?: (node: HTMLElement | null) => void;
   responsavelName?: string;
-  responsavelAvatarUrl?: string;
+  responsavelAvatarUrl?: string | null;
 }
 
 // Componente puramente visual, sem lógica de drag
@@ -311,15 +311,20 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
               <span>{date}</span>
             </div>
             {responsavelName && (
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0 max-w-[50%]">
+              <div
+                className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0 max-w-[50%]"
+                title="Este é o colaborador responsável por este lead."
+              >
                 <LazyAvatar
                   src={responsavelAvatarUrl || undefined}
                   name={responsavelName}
                   size="sm"
                   className="h-4 w-4 flex-shrink-0"
                 />
-                <span className="truncate" style={{ maxWidth: "60px" }}>
-                  {responsavelName.length > 11 ? responsavelName.substring(0, 11) + "…" : responsavelName}
+                <span className="truncate">
+                  {responsavelName.length > 11
+                    ? responsavelName.substring(0, 10) + "…"
+                    : responsavelName}
                 </span>
               </div>
             )}

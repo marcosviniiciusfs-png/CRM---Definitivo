@@ -202,6 +202,16 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         });
         return;
       }
+
+      // Limite máximo de 100 leads por importação
+      if (jsonData.length > 100) {
+        toast({
+          title: "Limite excedido",
+          description: `A planilha contém ${jsonData.length} registros. O limite máximo é 100 leads por importação. Divida a planilha em múltiplos arquivos de até 100 registros.`,
+          variant: "destructive",
+        });
+        return;
+      }
       
       const cols = Object.keys(jsonData[0] as object);
       setColumns(cols);
@@ -416,29 +426,35 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       return;
     }
     
-    const BATCH_SIZE = 50;
+    // Processamento controlado: 1 lead por vez com delay entre cada inserção
+    const DELAY_MS = 1500; // 1.5 segundos entre cada lead
     let successCount = 0;
     let errorCount = 0;
     const errorDetails: string[] = [];
-    
-    for (let i = 0; i < validLeads.length; i += BATCH_SIZE) {
-      const batch = validLeads.slice(i, i + BATCH_SIZE);
-      
+
+    for (let i = 0; i < validLeads.length; i++) {
+      const lead = validLeads[i];
+
       try {
-        const { data, error } = await supabase.from("leads").insert(batch).select();
-        
+        const { data, error } = await supabase.from("leads").insert([lead]).select();
+
         if (error) {
-          errorCount += batch.length;
-          errorDetails.push(`Lote ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`);
+          errorCount += 1;
+          errorDetails.push(`Lead ${i + 1} (${lead.nome_lead}): ${error.message}`);
         } else {
           successCount += data?.length || 0;
         }
       } catch (err: any) {
-        errorCount += batch.length;
-        errorDetails.push(`Lote ${Math.floor(i / BATCH_SIZE) + 1}: ${err.message}`);
+        errorCount += 1;
+        errorDetails.push(`Lead ${i + 1} (${lead.nome_lead}): ${err.message}`);
       }
-      
-      setImportProgress(Math.round(((i + batch.length) / validLeads.length) * 100));
+
+      setImportProgress(Math.round(((i + 1) / validLeads.length) * 100));
+
+      // Delay entre cada lead para não sobrecarregar o banco
+      if (i < validLeads.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      }
     }
     
     setImportResults({ success: successCount, errors: errorCount, errorDetails });
@@ -518,6 +534,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                 <p className="text-lg font-medium mb-2">Arraste sua planilha aqui</p>
                 <p className="text-sm text-muted-foreground mb-4">ou clique para selecionar</p>
                 <p className="text-xs text-muted-foreground">Formatos aceitos: .xlsx, .xls, .csv</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium">Máximo: 100 leads por importação</p>
                 <input
                   id="file-input"
                   type="file"
@@ -651,6 +668,13 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                     </span>
                   </div>
                 </div>
+              </div>
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  O processamento é feito de forma controlada (1 lead a cada 1,5s) para não sobrecarregar o sistema. Tempo estimado:{" "}
+                  <strong>~{Math.ceil((parsedData.length * 1.5) / 60)} min</strong>. Aguarde a conclusão sem fechar esta janela.
+                </span>
               </div>
             </div>
           )}

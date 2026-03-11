@@ -45,8 +45,9 @@ Deno.serve(async (req) => {
   try {
     const { form_id, form_name, integration_id, organization_id } = await req.json();
 
-    if (!form_id || !integration_id || !organization_id) {
-      throw new Error('Missing required parameters: form_id, integration_id, organization_id');
+    // form_id is optional — when omitted, we subscribe at the PAGE level only
+    if (!integration_id || !organization_id) {
+      throw new Error('Missing required parameters: integration_id, organization_id');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -127,37 +128,20 @@ Deno.serve(async (req) => {
     const data = await response.json();
     console.log('Webhook subscribed successfully:', data);
 
-    // Mark webhook as verified on the integration (backward compat)
+    // Update integration — only set selected_form_id when a specific form is provided (backwards compat)
+    const updatePayload: Record<string, any> = { webhook_verified: true };
+    if (form_id) {
+      updatePayload.selected_form_id = form_id;
+      updatePayload.selected_form_name = form_name || form_id;
+    }
     const { error: updateError } = await supabase
       .from('facebook_integrations')
-      .update({
-        selected_form_id: form_id,
-        selected_form_name: form_name,
-        webhook_verified: true,
-      })
+      .update(updatePayload)
       .eq('id', integration_id);
 
     if (updateError) {
       console.error('Error updating integration:', updateError);
       throw updateError;
-    }
-
-    // Upsert into facebook_selected_forms to support multiple forms per integration
-    const { error: upsertError } = await supabase
-      .from('facebook_selected_forms')
-      .upsert(
-        {
-          integration_id,
-          organization_id,
-          form_id,
-          form_name: form_name || form_id,
-        },
-        { onConflict: 'integration_id,form_id' }
-      );
-
-    if (upsertError) {
-      // Non-fatal: log but don't fail. The backward-compat update above succeeded.
-      console.error('Warning: could not upsert facebook_selected_forms:', upsertError);
     }
 
     return new Response(

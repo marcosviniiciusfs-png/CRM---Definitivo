@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, ArrowLeft, Edit, Trash2, Copy } from "lucide-react";
+import { Plus, ArrowLeft, Edit, Trash2, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FunnelConfigDialog } from "@/components/FunnelConfigDialog";
 import { Badge } from "@/components/ui/badge";
@@ -115,7 +115,6 @@ const FunnelBuilder = () => {
   };
 
   const handleDuplicate = async (funnel: Funnel) => {
-    if (duplicatingFunnelId) return;
     setDuplicatingFunnelId(funnel.id);
     try {
       const { data: orgData } = await supabase
@@ -129,47 +128,47 @@ const FunnelBuilder = () => {
         return;
       }
 
-      // Fetch all stages from the original funnel
-      const { data: stages, error: stagesError } = await supabase
-        .from("funnel_stages")
-        .select("*")
-        .eq("funnel_id", funnel.id)
-        .order("position", { ascending: true });
-
-      if (stagesError) throw stagesError;
-
-      // Create the new funnel (copy)
+      // Criar novo funil com nome "Cópia de ..."
       const { data: newFunnel, error: funnelError } = await supabase
         .from("sales_funnels")
         .insert({
-          name: `${funnel.name} (cópia)`,
+          name: `Cópia de ${funnel.name}`,
           description: funnel.description,
-          organization_id: orgData.organization_id,
-          is_default: false,
           is_active: funnel.is_active,
+          is_default: false,
+          organization_id: orgData.organization_id,
         })
         .select()
         .single();
 
-      if (funnelError) throw funnelError;
+      if (funnelError || !newFunnel) throw funnelError || new Error("Falha ao criar funil");
 
-      // Copy stages into the new funnel
-      if (stages && stages.length > 0) {
-        const newStages = stages.map((s: any) => ({
+      // Buscar etapas do funil original
+      const { data: originalStages, error: stagesError } = await supabase
+        .from("funnel_stages")
+        .select("*")
+        .eq("funnel_id", funnel.id)
+        .order("position");
+
+      if (stagesError) throw stagesError;
+
+      // Duplicar etapas para o novo funil
+      if (originalStages && originalStages.length > 0) {
+        const newStages = originalStages.map((stage: any) => ({
           funnel_id: newFunnel.id,
-          title: s.title,
-          color: s.color,
-          position: s.position,
-          description: s.description,
-          is_won_stage: s.is_won_stage,
-          is_lost_stage: s.is_lost_stage,
+          name: stage.name,
+          position: stage.position,
+          color: stage.color,
+          icon: stage.icon,
+          is_final: stage.is_final,
+          automation_enabled: false,
         }));
 
-        const { error: stageInsertError } = await supabase
+        const { error: insertError } = await supabase
           .from("funnel_stages")
           .insert(newStages);
 
-        if (stageInsertError) throw stageInsertError;
+        if (insertError) throw insertError;
       }
 
       toast.success(`Funil "${funnel.name}" duplicado com sucesso!`);
@@ -264,12 +263,12 @@ const FunnelBuilder = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDuplicate(funnel)}
-                    disabled={duplicatingFunnelId === funnel.id}
                     title="Duplicar funil"
+                    disabled={duplicatingFunnelId === funnel.id}
+                    onClick={() => handleDuplicate(funnel)}
                   >
                     {duplicatingFunnelId === funnel.id ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Copy className="h-4 w-4" />
                     )}
