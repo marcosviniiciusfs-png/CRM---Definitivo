@@ -11,7 +11,8 @@ import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users } from "lucide-react";
+import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
@@ -127,6 +128,9 @@ const Pipeline = () => {
     event: DragEndEvent | null;
   }>({ show: false, lead: null, targetStage: '', event: null });
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [permissionsFunnelId, setPermissionsFunnelId] = useState<string | null>(null);
+  // Mapa user_id -> { full_name, avatar_url } para exibir no card
+  const [profilesMap, setProfilesMap] = useState<Record<string, { full_name: string; avatar_url: string | null }>>({});
 
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -443,13 +447,38 @@ const Pipeline = () => {
         return { isCustom: false, funnel: null };
       }
 
-      // Armazenar todos os funis
-      setAllFunnels(funnels);
+      // PERMISSÕES: Colaboradores (não owners/admins) só veem funis que têm acesso
+      let visibleFunnels = funnels;
+      if (!permissions.canManagePipeline && user?.id) {
+        // Buscar funis com acesso liberado para este usuário
+        const { data: accessList } = await supabase
+          .from("funnel_collaborators")
+          .select("funnel_id")
+          .eq("user_id", user.id)
+          .eq("organization_id", organizationId);
+
+        const accessibleIds = new Set((accessList || []).map((a: any) => a.funnel_id));
+        // Mostrar apenas funis não-restritos OU onde o usuário tem acesso explícito
+        visibleFunnels = funnels.filter(
+          (f: any) => !f.is_restricted || accessibleIds.has(f.id)
+        );
+      }
+
+      // Armazenar todos os funis visíveis
+      setAllFunnels(visibleFunnels);
+
+      // Se não há funis visíveis, usar padrão
+      if (visibleFunnels.length === 0) {
+        setStages(DEFAULT_STAGES);
+        setUsingCustomFunnel(false);
+        setActiveFunnel(null);
+        return { isCustom: false, funnel: null };
+      }
 
       // Selecionar o funil apropriado sem criar loop
       const funnelToActivate = selectedFunnelId
-        ? funnels.find((f) => f.id === selectedFunnelId) || funnels[0]
-        : funnels[0];
+        ? visibleFunnels.find((f) => f.id === selectedFunnelId) || visibleFunnels[0]
+        : visibleFunnels[0];
 
       if (!funnelToActivate.stages || funnelToActivate.stages.length === 0) {
         setStages(DEFAULT_STAGES);
@@ -533,10 +562,12 @@ const Pipeline = () => {
       // Armazenar IDs dos leads carregados inicialmente
       if (data) {
         leadIdsRef.current = new Set(data.map(lead => lead.id));
-        // Buscar todos lead_items e tags de uma vez
+        // Buscar todos lead_items, tags e perfis de responsáveis de uma vez
+        const responsavelIds = [...new Set(data.map(l => l.responsavel_user_id).filter(Boolean))] as string[];
         await Promise.all([
           loadLeadItems(data.map(l => l.id)),
-          loadLeadTags(data.map(l => l.id))
+          loadLeadTags(data.map(l => l.id)),
+          loadProfiles(responsavelIds),
         ]);
       }
     } catch (error) {
@@ -604,6 +635,23 @@ const Pipeline = () => {
         }
       });
       setLeadTagsMap(tagsMap);
+    }
+  };
+
+  const loadProfiles = async (userIds: string[]) => {
+    if (userIds.length === 0) return;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, avatar_url')
+      .in('user_id', userIds);
+
+    if (!error && data) {
+      const map: Record<string, { full_name: string; avatar_url: string | null }> = {};
+      data.forEach((p) => {
+        map[p.user_id] = { full_name: p.full_name || '', avatar_url: p.avatar_url };
+      });
+      setProfilesMap((prev) => ({ ...prev, ...map }));
     }
   };
 
@@ -1305,21 +1353,41 @@ const Pipeline = () => {
                 {allFunnels.map((funnel) => {
                   const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
                   return (
-                    <TabsTrigger
-                      key={funnel.id}
-                      value={funnel.id}
-                      className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        {iconEmoji && (
-                          <span className="text-lg">{iconEmoji}</span>
-                        )}
-                        <span>{funnel.name}</span>
-                        {funnel.is_default && (
-                          <span className="text-xs text-muted-foreground">(Padrão)</span>
-                        )}
-                      </div>
-                    </TabsTrigger>
+                    <div key={funnel.id} className="flex items-center">
+                      <TabsTrigger
+                        value={funnel.id}
+                        className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          {iconEmoji && (
+                            <span className="text-lg">{iconEmoji}</span>
+                          )}
+                          <span>{funnel.name}</span>
+                          {funnel.is_default && (
+                            <span className="text-xs text-muted-foreground">(Padrão)</span>
+                          )}
+                        </div>
+                      </TabsTrigger>
+                      {/* Botão de permissões: visível apenas para owners/admins */}
+                      {permissions.canManagePipeline && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setPermissionsFunnelId(funnel.id);
+                          }}
+                          className={cn(
+                            "ml-1 p-1 rounded transition-colors",
+                            funnel.is_restricted
+                              ? "text-amber-500 hover:text-amber-400"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          title="Configurar permissões de acesso"
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </TabsList>
@@ -1354,6 +1422,7 @@ const Pipeline = () => {
                         leadItems={leadItems}
                         leadTagsMap={leadTagsMap}
                         isDraggingActive={isDraggingActive}
+                        profilesMap={profilesMap}
                       />
                     );
                   })}
@@ -1387,6 +1456,7 @@ const Pipeline = () => {
                     leadItems={leadItems}
                     leadTagsMap={leadTagsMap}
                     isDraggingActive={isDraggingActive}
+                    profilesMap={profilesMap}
                   />
                 );
               })}
@@ -1509,6 +1579,19 @@ const Pipeline = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Permissões do Funil */}
+      {permissionsFunnelId && organizationId && (
+        <FunnelPermissionsDialog
+          funnel={allFunnels.find((f) => f.id === permissionsFunnelId) || { id: permissionsFunnelId, name: "" }}
+          organizationId={organizationId}
+          onClose={() => {
+            setPermissionsFunnelId(null);
+            // Recarregar funis para refletir mudanças de is_restricted
+            loadFunnel();
+          }}
+        />
+      )}
 
       {/* Barra de rolagem fixa no rodapé */}
       {showScrollbar && (

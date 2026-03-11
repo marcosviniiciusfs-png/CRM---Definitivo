@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_credentials: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          password_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          password_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          password_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      admin_sessions: {
+        Row: {
+          admin_email: string
+          created_at: string
+          expires_at: string
+          id: string
+          token: string
+        }
+        Insert: {
+          admin_email: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          token: string
+        }
+        Update: {
+          admin_email?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token?: string
+        }
+        Relationships: []
+      }
       agent_distribution_settings: {
         Row: {
           created_at: string
@@ -93,47 +141,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      appointment_goals: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          month: number
-          organization_id: string
-          target_value: number
-          updated_at: string
-          year: number
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          month: number
-          organization_id: string
-          target_value?: number
-          updated_at?: string
-          year: number
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          month?: number
-          organization_id?: string
-          target_value?: number
-          updated_at?: string
-          year?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appointment_goals_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       automation_logs: {
         Row: {
@@ -378,7 +385,6 @@ export type Database = {
       }
       facebook_integrations: {
         Row: {
-          access_token: string
           ad_account_id: string | null
           ad_accounts: Json | null
           business_id: string | null
@@ -387,7 +393,6 @@ export type Database = {
           expires_at: string | null
           id: string
           organization_id: string
-          page_access_token: string | null
           page_id: string | null
           page_name: string | null
           selected_form_id: string | null
@@ -397,7 +402,6 @@ export type Database = {
           webhook_verified: boolean | null
         }
         Insert: {
-          access_token: string
           ad_account_id?: string | null
           ad_accounts?: Json | null
           business_id?: string | null
@@ -406,7 +410,6 @@ export type Database = {
           expires_at?: string | null
           id?: string
           organization_id: string
-          page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
           selected_form_id?: string | null
@@ -416,7 +419,6 @@ export type Database = {
           webhook_verified?: boolean | null
         }
         Update: {
-          access_token?: string
           ad_account_id?: string | null
           ad_accounts?: Json | null
           business_id?: string | null
@@ -425,7 +427,6 @@ export type Database = {
           expires_at?: string | null
           id?: string
           organization_id?: string
-          page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
           selected_form_id?: string | null
@@ -599,6 +600,84 @@ export type Database = {
           },
         ]
       }
+      funnel_collaborators: {
+        Row: {
+          created_at: string
+          funnel_id: string
+          id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          funnel_id: string
+          id?: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          funnel_id?: string
+          id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_collaborators_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "sales_funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_collaborators_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_permissions: {
+        Row: {
+          created_at: string | null
+          funnel_id: string
+          id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          funnel_id: string
+          id?: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          funnel_id?: string
+          id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_permissions_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "sales_funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_source_mappings: {
         Row: {
           created_at: string
@@ -645,35 +724,35 @@ export type Database = {
         Row: {
           duration_in_previous_stage: number | null
           from_stage_id: string | null
-          funnel_id: string
+          funnel_id: string | null
           id: string
-          lead_id: string
-          moved_at: string
+          lead_id: string | null
+          moved_at: string | null
           moved_by: string | null
           notes: string | null
-          to_stage_id: string
+          to_stage_id: string | null
         }
         Insert: {
           duration_in_previous_stage?: number | null
           from_stage_id?: string | null
-          funnel_id: string
+          funnel_id?: string | null
           id?: string
-          lead_id: string
-          moved_at?: string
+          lead_id?: string | null
+          moved_at?: string | null
           moved_by?: string | null
           notes?: string | null
-          to_stage_id: string
+          to_stage_id?: string | null
         }
         Update: {
           duration_in_previous_stage?: number | null
           from_stage_id?: string | null
-          funnel_id?: string
+          funnel_id?: string | null
           id?: string
-          lead_id?: string
-          moved_at?: string
+          lead_id?: string | null
+          moved_at?: string | null
           moved_by?: string | null
           notes?: string | null
-          to_stage_id?: string
+          to_stage_id?: string | null
         }
         Relationships: [
           {
@@ -1021,7 +1100,6 @@ export type Database = {
         Row: {
           calendar_event_id: string | null
           calendar_event_link: string | null
-          color: string | null
           column_id: string
           content: string
           created_at: string
@@ -1030,18 +1108,14 @@ export type Database = {
           due_date: string | null
           estimated_time: number | null
           id: string
-          is_collaborative: boolean | null
           lead_id: string | null
           position: number
-          requires_all_approval: boolean | null
-          timer_start_column_id: string | null
           timer_started_at: string | null
           updated_at: string
         }
         Insert: {
           calendar_event_id?: string | null
           calendar_event_link?: string | null
-          color?: string | null
           column_id: string
           content: string
           created_at?: string
@@ -1050,18 +1124,14 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
-          is_collaborative?: boolean | null
           lead_id?: string | null
           position?: number
-          requires_all_approval?: boolean | null
-          timer_start_column_id?: string | null
           timer_started_at?: string | null
           updated_at?: string
         }
         Update: {
           calendar_event_id?: string | null
           calendar_event_link?: string | null
-          color?: string | null
           column_id?: string
           content?: string
           created_at?: string
@@ -1070,11 +1140,8 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
-          is_collaborative?: boolean | null
           lead_id?: string | null
           position?: number
-          requires_all_approval?: boolean | null
-          timer_start_column_id?: string | null
           timer_started_at?: string | null
           updated_at?: string
         }
@@ -1093,50 +1160,28 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "kanban_cards_timer_start_column_id_fkey"
-            columns: ["timer_start_column_id"]
-            isOneToOne: false
-            referencedRelation: "kanban_columns"
-            referencedColumns: ["id"]
-          },
         ]
       }
       kanban_columns: {
         Row: {
-          auto_delete_enabled: boolean | null
-          auto_delete_hours: number | null
-          block_backward_movement: boolean | null
           board_id: string
           created_at: string
           id: string
-          is_completion_stage: boolean | null
           position: number
-          stage_color: string | null
           title: string
         }
         Insert: {
-          auto_delete_enabled?: boolean | null
-          auto_delete_hours?: number | null
-          block_backward_movement?: boolean | null
           board_id: string
           created_at?: string
           id?: string
-          is_completion_stage?: boolean | null
           position?: number
-          stage_color?: string | null
           title: string
         }
         Update: {
-          auto_delete_enabled?: boolean | null
-          auto_delete_hours?: number | null
-          block_backward_movement?: boolean | null
           board_id?: string
           created_at?: string
           id?: string
-          is_completion_stage?: boolean | null
           position?: number
-          stage_color?: string | null
           title?: string
         }
         Relationships: [
@@ -1441,7 +1486,6 @@ export type Database = {
           avatar_url: string | null
           calendar_event_id: string | null
           created_at: string
-          data_agendamento_venda: string | null
           data_conclusao: string | null
           data_inicio: string | null
           descricao_negocio: string | null
@@ -1473,7 +1517,6 @@ export type Database = {
           avatar_url?: string | null
           calendar_event_id?: string | null
           created_at?: string
-          data_agendamento_venda?: string | null
           data_conclusao?: string | null
           data_inicio?: string | null
           descricao_negocio?: string | null
@@ -1505,7 +1548,6 @@ export type Database = {
           avatar_url?: string | null
           calendar_event_id?: string | null
           created_at?: string
-          data_agendamento_venda?: string | null
           data_conclusao?: string | null
           data_inicio?: string | null
           descricao_negocio?: string | null
@@ -1817,13 +1859,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "notifications_card_id_fkey"
-            columns: ["card_id"]
-            isOneToOne: false
-            referencedRelation: "kanban_cards"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "notifications_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -1940,7 +1975,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           organization_id: string
           role: Database["public"]["Enums"]["organization_role"]
           user_id: string | null
@@ -1951,7 +1986,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           organization_id: string
           role?: Database["public"]["Enums"]["organization_role"]
           user_id?: string | null
@@ -1962,7 +1997,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           organization_id?: string
           role?: Database["public"]["Enums"]["organization_role"]
           user_id?: string | null
@@ -2106,54 +2141,6 @@ export type Database = {
           },
         ]
       }
-      production_expenses: {
-        Row: {
-          amount: number
-          category: string
-          created_at: string
-          created_by: string | null
-          description: string
-          id: string
-          organization_id: string
-          production_block_id: string
-        }
-        Insert: {
-          amount?: number
-          category?: string
-          created_at?: string
-          created_by?: string | null
-          description: string
-          id?: string
-          organization_id: string
-          production_block_id: string
-        }
-        Update: {
-          amount?: number
-          category?: string
-          created_at?: string
-          created_by?: string | null
-          description?: string
-          id?: string
-          organization_id?: string
-          production_block_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "production_expenses_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "production_expenses_production_block_id_fkey"
-            columns: ["production_block_id"]
-            isOneToOne: false
-            referencedRelation: "production_blocks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2199,6 +2186,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_default: boolean
+          is_restricted: boolean
           name: string
           organization_id: string
           updated_at: string
@@ -2211,6 +2199,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_default?: boolean
+          is_restricted?: boolean
           name: string
           organization_id: string
           updated_at?: string
@@ -2223,6 +2212,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_default?: boolean
+          is_restricted?: boolean
           name?: string
           organization_id?: string
           updated_at?: string
@@ -2293,6 +2283,21 @@ export type Database = {
           },
         ]
       }
+      super_admins_list: {
+        Row: {
+          email: string | null
+          user_id: string
+        }
+        Insert: {
+          email?: string | null
+          user_id: string
+        }
+        Update: {
+          email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       system_activities: {
         Row: {
           activity_type: string
@@ -2334,72 +2339,6 @@ export type Database = {
           },
           {
             foreignKeyName: "system_activities_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      task_completion_logs: {
-        Row: {
-          base_points: number
-          bonus_due_date: number | null
-          bonus_timer: number | null
-          card_id: string
-          completed_at: string
-          created_at: string | null
-          had_due_date: boolean | null
-          had_timer: boolean | null
-          id: string
-          organization_id: string
-          total_points: number | null
-          user_id: string
-          was_on_time_due_date: boolean | null
-          was_on_time_timer: boolean | null
-        }
-        Insert: {
-          base_points?: number
-          bonus_due_date?: number | null
-          bonus_timer?: number | null
-          card_id: string
-          completed_at?: string
-          created_at?: string | null
-          had_due_date?: boolean | null
-          had_timer?: boolean | null
-          id?: string
-          organization_id: string
-          total_points?: number | null
-          user_id: string
-          was_on_time_due_date?: boolean | null
-          was_on_time_timer?: boolean | null
-        }
-        Update: {
-          base_points?: number
-          bonus_due_date?: number | null
-          bonus_timer?: number | null
-          card_id?: string
-          completed_at?: string
-          created_at?: string | null
-          had_due_date?: boolean | null
-          had_timer?: boolean | null
-          id?: string
-          organization_id?: string
-          total_points?: number | null
-          user_id?: string
-          was_on_time_due_date?: boolean | null
-          was_on_time_timer?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_completion_logs_card_id_fkey"
-            columns: ["card_id"]
-            isOneToOne: false
-            referencedRelation: "kanban_cards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_completion_logs_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2539,24 +2478,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      user_active_org: {
-        Row: {
-          active_organization_id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          active_organization_id: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          active_organization_id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
       }
       user_roles: {
         Row: {
@@ -2853,25 +2774,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_get_all_subscriptions: {
-        Args: Record<PropertyKey, never>
-        Returns: { user_id: string; plan_id: string; status: string }[]
-      }
       admin_get_user_subscription: {
         Args: { p_user_id: string }
         Returns: Json
       }
-      admin_manage_user_subscription: {
-        Args: {
-          p_user_id: string
-          p_plan_id: string
-          p_organization_id?: string | null
-        }
+      admin_login_system: {
+        Args: { p_email: string; p_password: string }
         Returns: Json
       }
-      cleanup_old_integration_logs: { Args: never; Returns: undefined }
-      cleanup_old_user_sessions: { Args: never; Returns: undefined }
-      count_main_users: { Args: never; Returns: number }
+      admin_manage_user_subscription: { Args: { params: Json }; Returns: Json }
+      admin_update_subscription: {
+        Args: {
+          target_amount?: number
+          target_organization_id?: string
+          target_plan_id: string
+          target_user_id: string
+        }
+        Returns: undefined
+      }
+      check_admin_password: {
+        Args: { p_email: string; p_password: string }
+        Returns: boolean
+      }
       decrypt_oauth_token: {
         Args: { encrypted_token: string; encryption_key: string }
         Returns: string
@@ -2880,24 +2804,37 @@ export type Database = {
         Args: { encryption_key: string; plain_token: string }
         Returns: string
       }
+      ensure_user_organization: { Args: never; Returns: Json }
+      get_accessible_funnel_ids: {
+        Args: { p_organization_id: string }
+        Returns: {
+          funnel_id: string
+        }[]
+      }
+      get_auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
       get_facebook_integrations_masked: {
         Args: never
         Returns: {
-          ad_account_id: string
-          ad_accounts: Json
-          business_id: string
-          business_name: string
           created_at: string
-          expires_at: string
           id: string
+          needs_reconnect: boolean
           organization_id: string
           page_id: string
           page_name: string
           selected_form_id: string
           selected_form_name: string
           updated_at: string
-          user_id: string
           webhook_verified: boolean
+        }[]
+      }
+      get_facebook_token_by_integration: {
+        Args: { p_integration_id: string }
+        Returns: {
+          ad_account_id: string
+          encrypted_access_token: string
+          encrypted_page_access_token: string
+          integration_id: string
+          page_id: string
         }[]
       }
       get_facebook_tokens_secure: {
@@ -2910,119 +2847,51 @@ export type Database = {
           page_id: string
         }[]
       }
-      get_google_calendar_integrations_masked: {
-        Args: never
-        Returns: {
-          calendar_id: string
-          created_at: string
-          id: string
-          is_active: boolean
-          organization_id: string
-          token_expires_at: string
-          updated_at: string
-          user_id: string
-        }[]
-      }
-      get_google_calendar_tokens_for_user: {
-        Args: { target_user_id: string }
-        Returns: {
-          access_token: string
-          calendar_id: string
-          id: string
-          organization_id: string
-          refresh_token: string
-          token_expires_at: string
-          user_id: string
-        }[]
-      }
-      get_google_calendar_tokens_secure: {
-        Args: { target_user_id: string }
-        Returns: {
-          calendar_id: string
-          encrypted_access_token: string
-          encrypted_refresh_token: string
-          integration_id: string
-          token_expires_at: string
-        }[]
-      }
-      get_member_custom_role_permissions: {
-        Args: { org_id: string }
-        Returns: {
-          can_assign_leads: boolean
-          can_create_leads: boolean
-          can_create_tasks: boolean
-          can_delete_leads: boolean
-          can_delete_tasks: boolean
-          can_edit_all_tasks: boolean
-          can_edit_leads: boolean
-          can_edit_own_tasks: boolean
-          can_manage_automations: boolean
-          can_manage_collaborators: boolean
-          can_manage_integrations: boolean
-          can_manage_tags: boolean
-          can_move_leads_pipeline: boolean
-          can_send_messages: boolean
-          can_view_all_conversations: boolean
-          can_view_all_leads: boolean
-          can_view_assigned_leads: boolean
-          can_view_chat: boolean
-          can_view_kanban: boolean
-          can_view_pipeline: boolean
-          can_view_reports: boolean
-          custom_role_color: string
-          custom_role_id: string
-          custom_role_name: string
-        }[]
-      }
-      get_meta_pixel_integrations_masked: {
-        Args: never
-        Returns: {
-          access_token: string
-          created_at: string
-          funnel_id: string
-          id: string
-          is_active: boolean
-          organization_id: string
-          pixel_id: string
-          updated_at: string
-        }[]
-      }
+      get_my_org_ids: { Args: never; Returns: string[] }
+      get_my_org_ids_final: { Args: never; Returns: string[] }
       get_my_organization_memberships: {
         Args: never
         Returns: {
           is_owner: boolean
           organization_id: string
           organization_name: string
-          role: Database["public"]["Enums"]["organization_role"]
+          role: string
         }[]
       }
-      get_organization_members: {
-        Args: { _organization_id: string }
+      get_my_whatsapp_instances: {
+        Args: never
+        Returns: {
+          connected_at: string | null
+          created_at: string
+          id: string
+          instance_name: string
+          organization_id: string | null
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "whatsapp_instances"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_organization_members_masked: {
+        Args: never
         Returns: {
           avatar_url: string
           created_at: string
           email: string
           full_name: string
-          last_sign_in_at: string
-          member_id: string
-          role: string
-          user_id: string
-        }[]
-      }
-      get_organization_members_masked: {
-        Args: never
-        Returns: {
-          created_at: string
-          email: string
           id: string
           organization_id: string
           role: Database["public"]["Enums"]["organization_role"]
           user_id: string
         }[]
-      }
-      get_organization_owner: {
-        Args: { p_organization_id: string }
-        Returns: string
       }
       get_user_details: {
         Args: { _target_user_id: string }
@@ -3040,45 +2909,44 @@ export type Database = {
           user_role: string
         }[]
       }
-      get_user_organization_id: { Args: { _user_id: string }; Returns: string }
+      get_user_organization_id: { Args: { p_user_id: string }; Returns: string }
       get_user_organization_role: {
         Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["organization_role"]
-      }
-      get_webhook_configs_masked: {
-        Args: never
         Returns: {
-          created_at: string
-          id: string
-          is_active: boolean
           organization_id: string
-          tag_id: string
-          updated_at: string
-          webhook_token: string
+          role: Database["public"]["Enums"]["organization_role"]
         }[]
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      get_user_role_in_org: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: string
       }
+      has_org_access: { Args: { org_id: string }; Returns: boolean }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_same_organization: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
-      is_super_admin: { Args: never; Returns: boolean }
-      list_all_users: {
-        Args: never
-        Returns: {
-          created_at: string
-          email: string
-          email_confirmed_at: string
-          id: string
-          last_sign_in_at: string
-        }[]
+      safe_calculate_daily_revenue: { Args: { p_token: string }; Returns: Json }
+      safe_calculate_mrr: { Args: { p_token: string }; Returns: Json }
+      safe_count_main_users: { Args: { p_token: string }; Returns: number }
+      safe_count_paying_users: { Args: { p_token: string }; Returns: Json }
+      safe_get_all_subscriptions: { Args: { p_token: string }; Returns: Json }
+      safe_get_user_subscription: {
+        Args: { p_token: string; user_id: string }
+        Returns: Json
       }
+      safe_list_all_users: { Args: { p_token: string }; Returns: Json }
+      safe_manage_user_subscription: {
+        Args: {
+          p_organization_id?: string
+          p_plan_id: string
+          p_token: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      safe_subscription_growth: { Args: { p_token: string }; Returns: Json }
       set_user_active_organization: {
         Args: { _org_id: string }
         Returns: boolean
@@ -3089,16 +2957,13 @@ export type Database = {
           p_encrypted_page_access_token: string
           p_integration_id: string
         }
-        Returns: undefined
+        Returns: boolean
       }
-      update_google_calendar_tokens_secure: {
-        Args: {
-          p_encrypted_access_token: string
-          p_integration_id: string
-          p_token_expires_at: string
-        }
-        Returns: undefined
+      upsert_admin_credential: {
+        Args: { p_email: string; p_password: string }
+        Returns: Json
       }
+      validate_admin_token: { Args: { p_token: string }; Returns: boolean }
     }
     Enums: {
       app_role: "super_admin" | "owner" | "admin" | "member"
@@ -3116,116 +2981,116 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {

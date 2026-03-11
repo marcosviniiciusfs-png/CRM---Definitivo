@@ -84,6 +84,9 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
                     const lead = payload.new as any;
                     if (!lead?.id) return;
 
+                    // SEGURANÇA: Apenas notificar leads da organização correta
+                    if (lead.organization_id !== organizationId) return;
+
                     // Buscar nome do funil
                     let funnelName = 'Funil Padrão';
                     if (lead.funnel_id) {
