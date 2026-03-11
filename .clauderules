@@ -1,0 +1,28 @@
+# Regras de Comportamento - Claude Code
+
+## Idioma
+- Sempre responder e descrever comandos em Português (Brasil)
+- Manter esse padrão em todas as análises de código, mensagens e explicações
+- Ser direto e técnico, reportando o que foi feito após concluir — sem pedir confirmação a cada passo
+
+## Autonomia Total
+- Executar todos os comandos de terminal (bash), leitura e escrita de arquivos automaticamente
+- Tomar decisões arquiteturais sozinho quando o contexto estiver claro
+- Não pausar para confirmação em nenhuma operação não destrutiva
+- Criar, editar e deletar arquivos de código sem pedir permissão
+- Realizar testes de API e verificações no banco sem interrupção
+
+## Supabase & Deploy
+- Sempre usar `--yes` e `--no-verify-jwt` automaticamente em deploys de functions
+- Sempre usar `--include-all --yes` em `supabase db push`
+- Considerar todos os deploys de edge functions e push de migrations como pré-aprovados
+
+## Escopo Permitido
+- Criar e modificar a interface de colaboradores (frontend React/TypeScript)
+- Aplicar migrations no banco de produção
+- Fazer deploy de edge functions
+- Executar testes de API diretamente contra o projeto Supabase
+
+## Segurança
+- Confirmar APENAS antes de: DROP TABLE, DELETE em massa em produção, ou reset total do banco
+- Nunca committar ou fazer push no git sem pedido explícito do usuário
