@@ -206,60 +206,35 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   const checkConnection = async () => {
     try {
       setCheckingTokens(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
 
-      // 1. Tentar carregar dados da integração
-      let { data, error } = await supabase.rpc('get_facebook_integrations_masked');
+      // Otimizado: query direta sem RPC (evita waterfall RPC → fallback → token RPC → token fallback)
+      // organizationId já disponível via prop — sem necessidade de getUser() extra
+      if (!organizationId) return null;
 
-      // Fallback: Se a RPC falhar ou não existir (404), tenta query direta na tabela
-      if (error || !data || data.length === 0) {
-        console.warn('⚠️ [FB-CONN] RPC falhou ou ausente, tentando query direta...');
-        const { data: directData, error: directError } = await supabase
+      // Buscar integração e token em PARALELO
+      const [{ data: integrationData, error: intError }, { data: tokenData }] = await Promise.all([
+        supabase
           .from('facebook_integrations')
           .select('*')
           .eq('organization_id', organizationId)
-          .maybeSingle();
+          .maybeSingle(),
+        supabase
+          .from('facebook_integration_tokens')
+          .select('encrypted_access_token, integration_id')
+          .eq('organization_id', organizationId)
+          .maybeSingle(),
+      ]);
 
-        if (!directError && directData) {
-          data = [directData];
-          error = null;
-        }
-      }
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error checking Facebook connection:', error);
+      if (intError && intError.code !== 'PGRST116') {
+        console.error('Error checking Facebook connection:', intError);
         return null;
       }
-
-      const integrationData = data?.find((item: any) => item.organization_id === organizationId) || data?.[0];
 
       if (integrationData && integrationData.page_id) {
         setIsConnected(true);
         setIntegration(integrationData);
-
-        // Verificar integridade dos tokens via RPC segura
-        if (organizationId) {
-          // Tentar buscar tokens seguros para esta integração específica
-          const { data: tokenCheck, error: tokenError } = await (supabase.rpc as any)('get_facebook_token_by_integration', {
-            p_integration_id: integrationData.id
-          });
-
-          let hasSecureTokens = tokenCheck && (tokenCheck as any[]).length > 0 && (tokenCheck as any[])[0].encrypted_access_token;
-
-          // Fallback para query direta se a RPC falhar
-          if (tokenError || !hasSecureTokens) {
-            const { data: directTokens } = await supabase
-              .from('facebook_integration_tokens')
-              .select('encrypted_access_token')
-              .eq('integration_id', integrationData.id)
-              .maybeSingle();
-
-            hasSecureTokens = !!directTokens?.encrypted_access_token;
-          }
-
-          setNeedsReconnect(!hasSecureTokens);
-        }
+        const hasSecureTokens = !!tokenData?.encrypted_access_token;
+        setNeedsReconnect(!hasSecureTokens);
         return integrationData;
       } else if (integrationData) {
         setIsConnected(false);

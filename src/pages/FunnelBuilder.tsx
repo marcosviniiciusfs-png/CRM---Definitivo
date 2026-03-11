@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,8 @@ interface Funnel {
 
 const FunnelBuilder = () => {
   const navigate = useNavigate();
-  const { user, organizationId, isReady } = useOrganizationReady();
+  // organizationId já disponível via contexto — sem precisar de query extra
+  const { organizationId, isReady } = useOrganizationReady();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -40,27 +41,19 @@ const FunnelBuilder = () => {
   const [deletingFunnel, setDeletingFunnel] = useState<Funnel | null>(null);
   const [duplicatingFunnelId, setDuplicatingFunnelId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadFunnels();
-  }, []);
-
-  const loadFunnels = async () => {
+  // Usa useCallback para poder referenciar de fora do useEffect sem problemas
+  const loadFunnels = useCallback(async () => {
+    if (!organizationId) return;
+    setLoading(true);
     try {
-      const { data: orgData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user?.id)
-        .maybeSingle();
-
-      if (!orgData) return;
-
+      // Uma única query — organizationId já disponível, sem waterfall
       const { data, error } = await supabase
         .from("sales_funnels")
         .select(`
           *,
           stages:funnel_stages(count)
         `)
-        .eq("organization_id", orgData.organization_id)
+        .eq("organization_id", organizationId)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
 
@@ -72,7 +65,13 @@ const FunnelBuilder = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
+
+  // Só carrega quando auth + org estiverem prontos
+  useEffect(() => {
+    if (!isReady || !organizationId) return;
+    loadFunnels();
+  }, [isReady, organizationId, loadFunnels]);
 
   const handleDelete = async () => {
     if (!deletingFunnel) return;
@@ -115,20 +114,13 @@ const FunnelBuilder = () => {
   };
 
   const handleDuplicate = async (funnel: Funnel) => {
+    if (!organizationId) {
+      toast.error("Organização não encontrada");
+      return;
+    }
     setDuplicatingFunnelId(funnel.id);
     try {
-      const { data: orgData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user?.id)
-        .maybeSingle();
-
-      if (!orgData) {
-        toast.error("Organização não encontrada");
-        return;
-      }
-
-      // Criar novo funil com nome "Cópia de ..."
+      // Criar novo funil com nome "Cópia de ..." — usa organizationId do contexto diretamente
       const { data: newFunnel, error: funnelError } = await supabase
         .from("sales_funnels")
         .insert({
@@ -136,7 +128,7 @@ const FunnelBuilder = () => {
           description: funnel.description,
           is_active: funnel.is_active,
           is_default: false,
-          organization_id: orgData.organization_id,
+          organization_id: organizationId,
         })
         .select()
         .single();
@@ -180,6 +172,15 @@ const FunnelBuilder = () => {
       setDuplicatingFunnelId(null);
     }
   };
+
+  // Tela de carregamento enquanto auth/org inicializa
+  if (!isReady) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <LoadingAnimation text="Carregando..." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -239,7 +240,7 @@ const FunnelBuilder = () => {
                     {funnel.stages?.[0]?.count || 0} etapas
                   </span>
                   <span>•</span>
-                  <Badge 
+                  <Badge
                     variant={funnel.is_active ? "default" : "secondary"}
                     style={funnel.is_active ? { backgroundColor: '#66ee78', color: '#000' } : undefined}
                   >

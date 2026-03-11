@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
@@ -145,24 +145,19 @@ function ComingSoonCard({ g }: { g: typeof COMING_SOON[number] }) {
   );
 }
 
-/* ── WhatsApp summary card ── */
-function WhatsAppCard({ onManage }: { onManage: () => void }) {
+/* ── WhatsApp summary card — recebe dados já carregados pelo pai ── */
+function WhatsAppCard({
+  onManage,
+  instanceCount,
+  connectedCount,
+  loading,
+}: {
+  onManage: () => void;
+  instanceCount: number;
+  connectedCount: number;
+  loading: boolean;
+}) {
   const [hov, setHov] = useState(false);
-  const [instanceCount, setInstanceCount] = useState(0);
-  const [connectedCount, setConnectedCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Query whatsapp_instances without org filter (component already filters)
-    supabase.from("whatsapp_instances").select("status").then(({ data }) => {
-      if (data) {
-        setInstanceCount(data.length);
-        setConnectedCount(data.filter((i: any) => i.status === "open" || i.status === "connected").length);
-      }
-      setLoading(false);
-    });
-  }, []);
-
   const isConnected = connectedCount > 0;
 
   return (
@@ -255,62 +250,19 @@ function WhatsAppCard({ onManage }: { onManage: () => void }) {
   );
 }
 
-/* ── Facebook summary card ── */
+/* ── Facebook summary card — recebe dados já carregados pelo pai ── */
 function FacebookCard({
-  organizationId,
   onManage,
+  integration,
+  configuredForms,
+  loading,
 }: {
-  organizationId: string;
   onManage: () => void;
+  integration: any | null;
+  configuredForms: number;
+  loading: boolean;
 }) {
   const [hov, setHov] = useState(false);
-  const [integration, setIntegration] = useState<any>(null);
-  const [configuredForms, setConfiguredForms] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!organizationId) return;
-    (async () => {
-      setLoading(true);
-      try {
-        // Try RPC first
-        let intData: any = null;
-        const { data: rpcData, error: rpcError } = await supabase.rpc("get_facebook_integrations_masked");
-        if (!rpcError && rpcData && rpcData.length > 0) {
-          intData = rpcData.find((r: any) => r.organization_id === organizationId) || rpcData[0];
-        } else {
-          const { data: direct } = await supabase
-            .from("facebook_integrations")
-            .select("*")
-            .eq("organization_id", organizationId)
-            .maybeSingle();
-          intData = direct;
-        }
-
-        if (intData?.page_id) {
-          setIntegration(intData);
-          // Count configured forms
-          const { data: funnels } = await supabase
-            .from("sales_funnels")
-            .select("id")
-            .eq("organization_id", organizationId);
-          if (funnels && funnels.length > 0) {
-            const { count } = await supabase
-              .from("funnel_source_mappings")
-              .select("*", { count: "exact", head: true })
-              .eq("source_type", "facebook")
-              .in("funnel_id", funnels.map((f: any) => f.id));
-            setConfiguredForms(count || 0);
-          }
-        }
-      } catch (e) {
-        console.error("FacebookCard status check failed:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [organizationId]);
-
   const isConnected = !!integration?.page_id;
 
   return (
@@ -369,11 +321,9 @@ function FacebookCard({
               background: "rgba(24,119,242,.07)", border: "1px solid rgba(24,119,242,.2)",
               display: "flex", alignItems: "center", gap: 7,
             }}>
-              {FACEBOOK_IC && <span style={{ flexShrink: 0, opacity: 0.7 }}>{
-                <svg viewBox="0 0 24 24" fill="#1877F2" width="11" height="11">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-              }</span>}
+              <svg viewBox="0 0 24 24" fill="#1877F2" width="11" height="11">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
               <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Página:</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: "#99BBDD", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {integration?.page_name || "Página conectada"}
@@ -439,6 +389,74 @@ const Integrations = () => {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showFacebook, setShowFacebook] = useState(false);
   const [fbKey, setFbKey] = useState(0); // force remount on dialog open
+
+  // ── Dados carregados em paralelo uma única vez ──
+  const [dataLoading, setDataLoading] = useState(true);
+  const [fbIntegration, setFbIntegration] = useState<any>(null);
+  const [fbConfiguredForms, setFbConfiguredForms] = useState(0);
+  const [waInstanceCount, setWaInstanceCount] = useState(0);
+  const [waConnectedCount, setWaConnectedCount] = useState(0);
+
+  const loadAllData = useCallback(async () => {
+    if (!organizationId) return;
+    setDataLoading(true);
+    try {
+      // Carregar WhatsApp e Facebook em PARALELO (sem waterfall)
+      const [waResult, fbResult] = await Promise.all([
+        // WhatsApp instances para esta org
+        supabase
+          .from("whatsapp_instances")
+          .select("status")
+          .eq("organization_id", organizationId),
+
+        // Facebook integration direta (sem RPC para o card de status)
+        supabase
+          .from("facebook_integrations")
+          .select("id, page_id, page_name, webhook_verified")
+          .eq("organization_id", organizationId)
+          .maybeSingle(),
+      ]);
+
+      // WhatsApp
+      if (waResult.data) {
+        setWaInstanceCount(waResult.data.length);
+        setWaConnectedCount(
+          waResult.data.filter((i: any) => i.status === "open" || i.status === "connected").length
+        );
+      }
+
+      // Facebook
+      const fbData = fbResult.data;
+      setFbIntegration(fbData || null);
+
+      // Contar formulários configurados (somente se conectado)
+      if (fbData?.page_id) {
+        const { data: funnels } = await supabase
+          .from("sales_funnels")
+          .select("id")
+          .eq("organization_id", organizationId);
+
+        if (funnels && funnels.length > 0) {
+          const funnelIds = funnels.map((f: any) => f.id);
+          const { count } = await supabase
+            .from("funnel_source_mappings")
+            .select("*", { count: "exact", head: true })
+            .eq("source_type", "facebook")
+            .in("funnel_id", funnelIds);
+          setFbConfiguredForms(count || 0);
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao carregar dados de integrações:", e);
+    } finally {
+      setDataLoading(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (!isReady || !organizationId) return;
+    loadAllData();
+  }, [isReady, organizationId, loadAllData]);
 
   if (!isReady || !organizationId) {
     return (
@@ -530,12 +548,19 @@ const Integrations = () => {
               gap: 12,
             }}
           >
-            {/* WhatsApp */}
-            <WhatsAppCard onManage={() => setShowWhatsApp(true)} />
+            {/* WhatsApp — dados já carregados pelo pai */}
+            <WhatsAppCard
+              onManage={() => setShowWhatsApp(true)}
+              instanceCount={waInstanceCount}
+              connectedCount={waConnectedCount}
+              loading={dataLoading}
+            />
 
-            {/* Facebook */}
+            {/* Facebook — dados já carregados pelo pai */}
             <FacebookCard
-              organizationId={organizationId}
+              integration={fbIntegration}
+              configuredForms={fbConfiguredForms}
+              loading={dataLoading}
               onManage={() => { setFbKey(k => k + 1); setShowFacebook(true); }}
             />
 
@@ -597,7 +622,11 @@ const Integrations = () => {
       </Dialog>
 
       {/* ── Facebook Management Dialog ── */}
-      <Dialog open={showFacebook} onOpenChange={setShowFacebook}>
+      <Dialog open={showFacebook} onOpenChange={(open) => {
+        setShowFacebook(open);
+        // Ao fechar o modal, recarregar os dados para refletir novas configurações
+        if (!open) loadAllData();
+      }}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <FacebookLeadsConnection
             key={fbKey}
