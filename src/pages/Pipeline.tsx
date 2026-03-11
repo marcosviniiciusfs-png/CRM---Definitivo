@@ -1130,19 +1130,11 @@ const Pipeline = () => {
 
   const createFollowUpTask = async (leadId: string, lead: Lead, config: any) => {
     try {
-      const { data: orgMember } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user?.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (!orgMember) return;
 
       const { data: board } = await supabase
         .from("kanban_boards")
         .select("id, kanban_columns(id)")
-        .eq("organization_id", orgMember.organization_id)
+        .eq("organization_id", organizationId)
         .limit(1)
         .maybeSingle();
 
