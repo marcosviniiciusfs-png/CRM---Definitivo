@@ -33,7 +33,7 @@ async function decryptToken(encryptedToken: string, key: string): Promise<string
     return new TextDecoder().decode(decrypted);
   } catch (error) {
     console.error('Decryption error:', error);
-    return encryptedToken;
+    return ''; // CRÍTICO: retornar '' para não usar token corrompido
   }
 }
 
