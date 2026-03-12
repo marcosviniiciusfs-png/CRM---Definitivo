@@ -126,60 +126,81 @@ export function IntegratedLogsViewer() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+
+  // Buscar organizationId uma única vez
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.organization_id) setOrganizationId(data.organization_id);
+      });
+  }, [user]);
 
   const loadLogs = async () => {
-    if (!user) return;
+    if (!user || !organizationId) return;
 
     setLoading(true);
     try {
       let data: any[] = [];
 
       switch (selectedSource) {
-        case "facebook":
+        case "facebook": {
           const { data: fbData, error: fbError } = await supabase
             .from("facebook_webhook_logs")
             .select("*")
+            .eq("organization_id", organizationId)
             .order("created_at", { ascending: false })
-            .limit(100);
+            .limit(200);
           if (fbError) throw fbError;
           data = fbData || [];
           break;
-
-        case "whatsapp":
+        }
+        case "whatsapp": {
+          // webhook_logs = logs de mensagens WhatsApp (instâncias da org via RLS)
           const { data: waData, error: waError } = await supabase
             .from("webhook_logs")
             .select("*")
+            .eq("organization_id", organizationId)
             .order("created_at", { ascending: false })
-            .limit(100);
+            .limit(200);
           if (waError) throw waError;
           data = waData || [];
           break;
-
-        case "webhook":
+        }
+        case "webhook": {
           const { data: whData, error: whError } = await supabase
             .from("form_webhook_logs")
             .select("*")
+            .eq("organization_id", organizationId)
             .order("created_at", { ascending: false })
-            .limit(100);
+            .limit(200);
           if (whError) throw whError;
           data = whData || [];
           break;
-
-        case "meta_pixel":
+        }
+        case "meta_pixel": {
           const { data: mpData, error: mpError } = await supabase
             .from("meta_conversion_logs")
             .select("*")
+            .eq("organization_id", organizationId)
             .order("created_at", { ascending: false })
-            .limit(100);
+            .limit(200);
           if (mpError) throw mpError;
           data = mpData || [];
           break;
+        }
       }
 
       setLogs(data);
     } catch (error: any) {
       console.error("Error loading logs:", error);
-      toast.error("Erro ao carregar logs");
+      toast.error("Erro ao carregar logs: " + (error?.message || "tente novamente"));
     } finally {
       setLoading(false);
     }
@@ -247,48 +268,34 @@ export function IntegratedLogsViewer() {
     }
   };
 
+  // Recarregar logs quando mudar source OU quando organizationId ficar disponível
   useEffect(() => {
-    loadLogs();
-  }, [user, selectedSource]);
+    if (organizationId) loadLogs();
+  }, [user, selectedSource, organizationId]);
 
+  // Realtime: atualizar automaticamente quando novos logs chegarem
   useEffect(() => {
-    if (!user) return;
+    if (!user || !organizationId) return;
 
-    let tableName: string;
-    switch (selectedSource) {
-      case "facebook":
-        tableName = "facebook_webhook_logs";
-        break;
-      case "whatsapp":
-        tableName = "webhook_logs";
-        break;
-      case "webhook":
-        tableName = "form_webhook_logs";
-        break;
-      case "meta_pixel":
-        tableName = "meta_conversion_logs";
-        break;
-    }
+    const tableMap: Record<LogSource, string> = {
+      facebook: "facebook_webhook_logs",
+      whatsapp: "webhook_logs",
+      webhook: "form_webhook_logs",
+      meta_pixel: "meta_conversion_logs",
+    };
+    const tableName = tableMap[selectedSource];
 
     const channel = supabase
-      .channel(`${tableName}_changes_${selectedSource}`)
+      .channel(`${tableName}_realtime_${organizationId}_${selectedSource}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: tableName,
-        },
-        () => {
-          loadLogs();
-        }
+        { event: "*", schema: "public", table: tableName },
+        () => { loadLogs(); }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, selectedSource]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user, selectedSource, organizationId]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
