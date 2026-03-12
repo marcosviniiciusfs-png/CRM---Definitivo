@@ -269,7 +269,54 @@ Deno.serve(async (req) => {
       console.warn(`⚠️ [FB-CALLBACK] Falha no storage seguro para ${selectedPage.name}:`, e.message);
     }
 
-    console.log('✅ [FB-CALLBACK] Integração única concluída com sucesso!');
+    // 6. Renovar tokens de todas as outras integrações do mesmo usuário do Facebook.
+    //    Quando o mesmo usuário autentica via OAuth novamente, o Facebook pode invalidar
+    //    os tokens antigos. Por isso, atualizamos todos os tokens vinculados ao mesmo user_id.
+    try {
+      const { data: otherIntegrations } = await supabase
+        .from('facebook_integrations')
+        .select('id, page_id')
+        .eq('user_id', user_id)
+        .neq('id', integrationId);
+
+      if (otherIntegrations && otherIntegrations.length > 0) {
+        // Mapear page_id → page access token fresco da sessão OAuth atual
+        const pageTokenMap: Record<string, string> = {};
+        for (const page of pagesData.data) {
+          pageTokenMap[page.id] = page.access_token;
+        }
+
+        for (const other of otherIntegrations) {
+          if (!other.page_id) continue;
+          const freshPageToken = pageTokenMap[other.page_id];
+          if (!freshPageToken) continue;
+
+          const encryptedFreshPageToken = await encryptToken(freshPageToken, ENCRYPTION_KEY);
+
+          // Atualizar token seguro da integração
+          await supabase.rpc('update_facebook_tokens_secure', {
+            p_integration_id: other.id,
+            p_encrypted_access_token: encryptedMainToken,
+            p_encrypted_page_access_token: encryptedFreshPageToken
+          });
+
+          // Atualizar expires_at para refletir o novo token
+          await supabase
+            .from('facebook_integrations')
+            .update({
+              expires_at: expiresAt.toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', other.id);
+
+          console.log(`🔄 [FB-CALLBACK] Token renovado para integração ${other.id} (página ${other.page_id})`);
+        }
+      }
+    } catch (e: any) {
+      console.warn('⚠️ [FB-CALLBACK] Erro ao renovar tokens de outras integrações:', e.message);
+    }
+
+    console.log('✅ [FB-CALLBACK] Integração concluída com sucesso!');
     if (isApiCall) {
       return new Response(JSON.stringify({
         success: true,
