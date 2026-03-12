@@ -593,9 +593,10 @@ const Pipeline = () => {
         query = query.eq("responsavel_user_id", user.id);
       }
 
-      // Se estiver usando funil customizado, filtrar apenas leads desse funil específico
+      // Se estiver usando funil customizado, filtrar leads desse funil OU sem funil (orphans)
       if (isCustom && funnel) {
-        query = query.eq("funnel_id", funnel.id);
+        // Inclui leads do funil específico E leads sem funil atribuído (orphans da mesma org)
+        query = query.or(`funnel_id.eq.${funnel.id},funnel_id.is.null`);
       } else {
         // No funil padrão (legado), mostrar apenas leads que não pertencem a nenhum funil customizado
         query = query.is("funnel_id", null);
@@ -1548,6 +1549,7 @@ const Pipeline = () => {
         <ImportLeadsModal
           open={showImportModal}
           onOpenChange={setShowImportModal}
+          organizationId={organizationId}
         />
       )}
 
