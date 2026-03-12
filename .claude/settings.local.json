@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(tsx|ts|js\\)$\")",
+      "Bash(xargs grep:*)",
+      "Bash(ls \"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\.claude\\\\worktrees\\\\recursing-ritchie\\\\supabase\\\\migrations\"\" | tail -5 2>/dev/null || echo \"No migrations folder \")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(where npm:*)",
+      "Bash(where gh:*)",
+      "Bash(gh pr:*)",
+      "Bash(grep -l \"facebook_integrations\" \"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\migrations_backup\"/*.sql)",
+      "Bash(grep -A 30 \"CREATE TABLE.*facebook_integration_tokens\" \"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\migrations_backup\"/*.sql)",
+      "Bash(grep -l \"facebook_webhook_logs\\\\|funnel_source_mappings\" \"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\migrations_backup\"/*.sql)",
+      "Bash(grep -l \"funnel_source_mappings\" \"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\migrations_backup\"/*.sql)",
+      "Bash(grep -l \"facebook_integration_tokens\" \"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\migrations_backup\"/*.sql)",
+      "Bash(node -e \":*)",
+      "Bash(Get-Content \"C:\\\\Users\\\\Brito\\\\Desktop\\\\extracted_component.tsx\" -Raw)",
+      "Bash(Out-String)",
+      "Bash(sed -i '1107,1114d' src/pages/Pipeline.tsx)",
+      "Bash(sed -i '1107s/orgMember.organization_id/organizationId/' src/pages/Pipeline.tsx)"
+    ]
+  }
+}

@@ -6,6 +6,7 @@ import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WebhookIntegrationsTab } from "@/components/WebhookIntegrationsTab";
 import { IntegratedLogsViewer } from "@/components/IntegratedLogsViewer";
+import { MetaPixelConnection } from "@/components/MetaPixelConnection";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 /* ── Design tokens ── */
@@ -30,16 +31,7 @@ const COMING_SOON = [
       </svg>
     ),
   },
-  {
-    id: "meta", name: "Meta Conversions", cat: "Anúncios",
-    desc: "Envie eventos de conversão para o Meta Ads e otimize suas campanhas.",
-    color: "#0081FB", bg: "rgba(0,129,251,.06)", br: "rgba(0,129,251,.16)",
-    ic: (
-      <svg viewBox="0 0 24 24" fill="#0081FB" width="22" height="22">
-        <path d="M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 2.93 1.22 1.586 0 2.687-.7 3.637-2.36a9.558 9.558 0 0 0 1.07-4.124c0-2.91-.964-5.387-2.715-7.072C21.27 5.638 19.927 5 18.552 5c-2.3 0-3.615 1.145-4.735 3.498L12.58 11.3l-.347-.575c-1.342-2.21-2.587-3.496-4.267-3.496z"/>
-      </svg>
-    ),
-  },
+  // Meta Conversions foi promovido para card funcional — removido do coming soon
   {
     id: "gmail", name: "Gmail", cat: "Email",
     desc: "Envie e-mails com templates personalizados diretamente do CRM.",
@@ -384,13 +376,122 @@ function FacebookCard({
   );
 }
 
+const META_PIXEL_IC = (
+  <svg viewBox="0 0 24 24" fill="#0082FB" width="22" height="22">
+    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.016 8.009c-.36-.027-.72.027-1.053.162-.62.243-1.134.72-1.512 1.296-.351.54-.567 1.188-.675 1.863-.189 1.188-.027 2.43.486 3.483.243.513.567.972.972 1.323.162.135.351.27.54.351.378.162.81.189 1.188.054.27-.108.513-.297.675-.54.162-.243.27-.54.324-.837.135-.756.054-1.539-.243-2.241-.189-.432-.459-.837-.783-1.161l-.216-.189c.054-.27.108-.54.135-.81.054-.378.054-.783 0-1.161-.054-.459-.162-.918-.378-1.323.162-.027.324-.027.486-.054.756-.081 1.539.054 2.241.351.783.324 1.458.837 1.971 1.512.513.675.837 1.485.972 2.322.27 1.755-.27 3.564-1.458 4.887-1.188 1.323-2.862 2.079-4.617 2.133-1.728.054-3.456-.594-4.725-1.782-1.269-1.188-2.025-2.835-2.133-4.563-.108-1.728.432-3.456 1.512-4.779.216-.27.459-.513.729-.729C8.99 8.55 10.394 8.01 11.826 8.01c.378 0 .783.027 1.161.081-.243.378-.432.81-.54 1.269-.108.486-.135.972-.108 1.458-.189-.108-.378-.216-.594-.297-.432-.162-.918-.189-1.377-.081-.486.108-.945.378-1.296.756-.351.378-.594.864-.702 1.377-.243 1.107.054 2.268.756 3.132.324.405.729.756 1.188.999.459.243.972.378 1.485.378.486 0 .972-.108 1.404-.324.405-.216.756-.54 1.026-.918.27-.378.459-.81.54-1.269.189-.918.054-1.89-.378-2.727-.216-.405-.513-.783-.864-1.08.108-.351.243-.675.432-.972.216-.351.486-.675.81-.918.135.243.243.513.324.783.108.405.135.837.108 1.269z"/>
+  </svg>
+);
+
+/* ── Meta Conversions API card ── */
+function MetaConversionsCard({
+  isActive,
+  loading,
+  onManage,
+}: {
+  isActive: boolean;
+  loading: boolean;
+  onManage: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        height: 190,
+        borderRadius: R,
+        border: `1px solid ${isActive ? "rgba(0,130,251,.25)" : hov ? "rgba(0,130,251,.15)" : "rgba(255,255,255,.07)"}`,
+        background: isActive ? "rgba(0,130,251,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
+        boxShadow: isActive ? "0 4px 24px rgba(0,130,251,.1)" : hov ? "0 6px 24px rgba(0,0,0,.3)" : "none",
+        transform: hov ? "translateY(-2px)" : "none",
+        transition: "all .2s",
+        display: "flex", flexDirection: "column",
+        padding: "16px 16px 14px",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: R, flexShrink: 0,
+            background: "rgba(0,130,251,.08)", border: "1px solid rgba(0,130,251,.22)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {META_PIXEL_IC}
+          </div>
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#E8E8F0", lineHeight: 1.2, marginBottom: 4 }}>Meta Conversions</div>
+            <span style={{
+              fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 3,
+              background: "rgba(0,130,251,.1)", border: "1px solid rgba(0,130,251,.22)", color: "#0082FB",
+            }}>Pixel</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+          <span style={{
+            width: 7, height: 7, borderRadius: "50%",
+            background: isActive ? "#2ECC71" : "#222230",
+            boxShadow: isActive ? "0 0 6px rgba(46,204,113,.5)" : "none",
+          }}/>
+          <span style={{ fontSize: 11, fontWeight: 500, color: isActive ? "#2ECC71" : "#2A2A3A" }}>
+            {isActive ? "Ativo" : "Inativo"}
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <p style={{ fontSize: 12.5, color: "#606070", flex: 1 }}>Verificando configuração...</p>
+      ) : isActive ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div style={{
+            padding: "8px 10px", borderRadius: R,
+            background: "rgba(0,130,251,.06)", border: "1px solid rgba(0,130,251,.15)",
+            fontSize: 12, color: "#5599DD",
+          }}>
+            Pixel configurado e rastreando conversões
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={onManage}
+              style={{
+                border: "1px solid rgba(0,130,251,.3)", borderRadius: R, fontFamily: "inherit",
+                fontSize: 12, fontWeight: 600, padding: "6px 14px", cursor: "pointer",
+                background: "rgba(0,130,251,.1)", color: "#5599DD", transition: "all .18s",
+              }}
+            >Gerenciar Pixel</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6 }}>
+            Envie eventos de conversão ao Meta e otimize suas campanhas de anúncios.
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={onManage}
+              style={{
+                border: "none", borderRadius: R, fontFamily: "inherit",
+                fontSize: 12, fontWeight: 700, padding: "7px 15px", cursor: "pointer",
+                color: "white", background: "linear-gradient(135deg,#0082FB,#0050A0)",
+                boxShadow: "0 3px 12px rgba(0,130,251,.35)", transition: "all .18s",
+              }}
+            >Configurar Pixel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Integrations Page ── */
 const Integrations = () => {
   const { organizationId, isReady } = useOrganizationReady();
   const [tab, setTab] = useState<"connections" | "webhooks" | "logs">("connections");
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showFacebook, setShowFacebook] = useState(false);
+  const [showMetaPixel, setShowMetaPixel] = useState(false);
   const [fbKey, setFbKey] = useState(0); // force remount on dialog open
+  const [metaPixelActive, setMetaPixelActive] = useState(false);
 
   // ── Dados carregados em paralelo uma única vez ──
   const [dataLoading, setDataLoading] = useState(true);
@@ -431,6 +532,14 @@ const Integrations = () => {
       const fbData = fbResult.data;
       setFbIntegration(fbData || null);
 
+      // Verificar se há pixel Meta configurado
+      const { data: pixelData } = await supabase
+        .from("meta_pixel_integrations")
+        .select("id, is_active")
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+      setMetaPixelActive(!!(pixelData?.is_active));
+
       // Contar formulários configurados (somente se conectado)
       if (fbData?.page_id) {
         const { data: funnels } = await supabase
@@ -440,9 +549,7 @@ const Integrations = () => {
 
         if (funnels && funnels.length > 0) {
           const funnelIds = funnels.map((f: any) => f.id);
-          // FIX: filtrar apenas mapeamentos com source_identifier (form_id real do Facebook)
-          // Mapeamentos antigos com source_identifier = null eram do fluxo single-form
-          // e não devem ser contabilizados como "formulários ativos no CRM"
+          // Filtrar apenas mapeamentos com source_identifier (form_id real do Facebook)
           const { count } = await supabase
             .from("funnel_source_mappings")
             .select("*", { count: "exact", head: true })
@@ -570,6 +677,13 @@ const Integrations = () => {
               onManage={() => { setFbKey(k => k + 1); setShowFacebook(true); }}
             />
 
+            {/* Meta Conversions API — card funcional */}
+            <MetaConversionsCard
+              isActive={metaPixelActive}
+              loading={dataLoading}
+              onManage={() => setShowMetaPixel(true)}
+            />
+
             {/* Coming soon */}
             {COMING_SOON.map(g => <ComingSoonCard key={g.id} g={g} />)}
 
@@ -630,7 +744,6 @@ const Integrations = () => {
       {/* ── Facebook Management Dialog ── */}
       <Dialog open={showFacebook} onOpenChange={(open) => {
         setShowFacebook(open);
-        // Ao fechar o modal, recarregar os dados para refletir novas configurações
         if (!open) loadAllData();
       }}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -638,6 +751,16 @@ const Integrations = () => {
             key={fbKey}
             organizationId={organizationId}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Meta Conversions API Dialog ── */}
+      <Dialog open={showMetaPixel} onOpenChange={(open) => {
+        setShowMetaPixel(open);
+        if (!open) loadAllData();
+      }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <MetaPixelConnection onBack={() => setShowMetaPixel(false)} />
         </DialogContent>
       </Dialog>
     </>
