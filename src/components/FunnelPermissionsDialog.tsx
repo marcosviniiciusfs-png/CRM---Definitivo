@@ -33,9 +33,10 @@ export function FunnelPermissionsDialog({
     setLoading(true);
     try {
       // Buscar membros da organização (excluindo owners/admins da lista, pois sempre têm acesso)
+      // NOTA: organization_members NÃO tem FK para profiles — usar duas queries separadas
       const { data: members, error: membersError } = await supabase
         .from("organization_members")
-        .select("user_id, role, profiles!inner(full_name, avatar_url)")
+        .select("user_id, role, email, display_name")
         .eq("organization_id", organizationId)
         .eq("role", "member");
 
@@ -52,10 +53,30 @@ export function FunnelPermissionsDialog({
 
       const accessSet = new Set((accessList || []).map((a) => a.user_id));
 
+      // Buscar profiles separadamente (sem FK direta)
+      const userIds = (members || []).map((m: any) => m.user_id).filter(Boolean);
+      let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, avatar_url")
+          .in("user_id", userIds);
+        if (profiles) {
+          profilesMap = profiles.reduce((acc, p) => {
+            acc[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url };
+            return acc;
+          }, {} as Record<string, { full_name: string | null; avatar_url: string | null }>);
+        }
+      }
+
       const list: Collaborator[] = (members || []).map((m: any) => ({
         user_id: m.user_id,
-        full_name: m.profiles?.full_name || "Sem nome",
-        avatar_url: m.profiles?.avatar_url || null,
+        full_name:
+          profilesMap[m.user_id]?.full_name ||
+          m.display_name ||
+          m.email ||
+          "Sem nome",
+        avatar_url: profilesMap[m.user_id]?.avatar_url || null,
         role: m.role,
         hasAccess: accessSet.has(m.user_id),
       }));

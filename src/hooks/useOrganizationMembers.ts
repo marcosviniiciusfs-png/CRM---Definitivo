@@ -26,12 +26,17 @@ export function useOrganizationMembers(organizationId?: string | null) {
       // Fallback para query direta se a RPC não existir
       if (error && (error.code === 'PGRST202' || error.message?.includes('not found'))) {
         console.warn('[ORG] RPC get_organization_members_masked not found, using direct table fallback...');
+        // organization_members NÃO tem full_name/avatar_url — usar email e display_name
         const { data: directData, error: directError } = await supabase
           .from('organization_members')
-          .select('id, user_id, organization_id, role, created_at, full_name, avatar_url');
+          .select('id, user_id, organization_id, role, created_at, email, display_name');
 
-        if (!directError) {
-          members = directData as any;
+        if (!directError && directData) {
+          // Normalizar para o formato esperado pela interface
+          members = directData.map((m: any) => ({
+            ...m,
+            email: m.email || null,
+          })) as any;
           error = null;
         }
       }
@@ -39,7 +44,7 @@ export function useOrganizationMembers(organizationId?: string | null) {
       if (error) throw error;
       if (!members) return [];
 
-      // Buscar profiles em paralelo
+      // Buscar profiles em paralelo para obter full_name e avatar_url
       const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
 
       let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
@@ -58,10 +63,13 @@ export function useOrganizationMembers(organizationId?: string | null) {
         }
       }
 
-      // Combinar dados
+      // Combinar dados — prioridade: profiles > display_name > email
       return members.map((member: any) => ({
         ...member,
-        full_name: member.user_id && profilesMap[member.user_id]?.full_name || null,
+        full_name:
+          (member.user_id && profilesMap[member.user_id]?.full_name) ||
+          (member as any).display_name ||
+          null,
         avatar_url: member.user_id && profilesMap[member.user_id]?.avatar_url || null,
       }));
     },
@@ -80,12 +88,16 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
   // Fallback para query direta se a RPC não existir
   if (error && (error.code === 'PGRST202' || error.message?.includes('not found'))) {
     console.warn('[ORG] RPC get_organization_members_masked not found, using direct table fallback...');
+    // organization_members NÃO tem full_name/avatar_url — usar email e display_name
     const { data: directData, error: directError } = await supabase
       .from('organization_members')
-      .select('id, user_id, organization_id, role, created_at, full_name, avatar_url');
+      .select('id, user_id, organization_id, role, created_at, email, display_name');
 
-    if (!directError) {
-      members = directData as any;
+    if (!directError && directData) {
+      members = directData.map((m: any) => ({
+        ...m,
+        email: m.email || null,
+      })) as any;
       error = null;
     }
   }
@@ -111,9 +123,13 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
     }
   }
 
+  // Combinar dados — prioridade: profiles > display_name > email
   return members.map((member: any) => ({
     ...member,
-    full_name: member.user_id && profilesMap[member.user_id]?.full_name || null,
+    full_name:
+      (member.user_id && profilesMap[member.user_id]?.full_name) ||
+      (member as any).display_name ||
+      null,
     avatar_url: member.user_id && profilesMap[member.user_id]?.avatar_url || null,
   }));
 }
