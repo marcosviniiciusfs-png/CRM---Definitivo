@@ -407,15 +407,31 @@ const Pipeline = () => {
     fetchPipelineData();
 
     // Carregar colaboradores para filtro de responsável
+    // NOTA: organization_members NÃO tem FK para profiles — duas queries separadas
     const loadColaboradores = async () => {
-      const { data } = await supabase
+      const { data: membersData } = await supabase
         .from('organization_members')
-        .select('user_id, profiles!inner(full_name)')
+        .select('user_id, email, display_name')
         .eq('organization_id', organizationId);
-      if (data) {
-        setColaboradores(data.map((m: any) => ({
+
+      if (membersData && membersData.length > 0) {
+        const userIds = membersData.map((m: any) => m.user_id).filter(Boolean);
+        let profilesMap: Record<string, string | null> = {};
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', userIds);
+          if (profiles) {
+            profilesMap = profiles.reduce((acc, p) => {
+              acc[p.user_id] = p.full_name;
+              return acc;
+            }, {} as Record<string, string | null>);
+          }
+        }
+        setColaboradores(membersData.map((m: any) => ({
           user_id: m.user_id,
-          full_name: (m.profiles as any)?.full_name || 'Sem nome',
+          full_name: profilesMap[m.user_id] || m.display_name || m.email || 'Sem nome',
         })));
       }
     };

@@ -273,7 +273,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
         const colabsWithNames = orgMembers.map((colab: any) => ({
           id: colab.id,
-          email: '', // Email mascarado
+          email: colab.email || '', // Usar email da RPC (mascarado para não-admins, exceto próprio)
           user_id: colab.user_id,
           full_name: colab.user_id && profilesMap[colab.user_id]?.full_name || null
         }));
