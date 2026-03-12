@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { StarsBackground } from "@/components/ui/stars-background";
 import { Login1 } from "@/components/ui/login-1";
 import kairozLogo from "@/assets/kairoz-logo-red.png";
@@ -10,7 +10,6 @@ import kairozLogo from "@/assets/kairoz-logo-red.png";
 const Auth = () => {
   const { signUp, signIn, signInWithGoogle, resetPassword, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
 
@@ -51,10 +50,8 @@ const Auth = () => {
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao CRM",
       });
-      // Navegar para o destino original ou dashboard
-      const fromPath = (location.state as any)?.from?.pathname || "/dashboard";
-      const fromSearch = (location.state as any)?.from?.search || "";
-      navigate(fromPath + fromSearch, { state: { fromAuth: true } });
+      // Redirect handled automatically by the `if (user && !authLoading)` check above
+      // once onAuthStateChange fires and updates the user state.
     }
   };
 
