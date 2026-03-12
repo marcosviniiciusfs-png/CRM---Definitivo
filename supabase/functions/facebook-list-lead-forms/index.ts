@@ -110,34 +110,49 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Etapa 3: Fallback legado — buscar page_access_token direto da tabela ──
-    // Integrações antigas armazenam o token PLAINTEXT em facebook_integrations.page_access_token
+    // ── Etapa 3: Renovar page token via user_access_token ──
+    // NOTA: facebook_integrations NÃO tem page_access_token/access_token.
+    // Tokens ficam APENAS em facebook_integration_tokens (colunas encrypted_*).
     if (!pageAccessToken) {
-      console.log('[FB-FORMS] Etapa 3: Fallback legado — page_access_token em facebook_integrations');
+      console.log('[FB-FORMS] Etapa 3: Tentando renovar token via user_access_token');
 
       const filterCol = integration_id ? 'id' : 'organization_id';
       const filterVal = integration_id || organization_id;
 
-      const { data: legacyData, error: legacyError } = await supabase
+      const { data: intData } = await supabase
         .from('facebook_integrations')
-        .select('id, page_id, page_access_token, access_token')
+        .select('id, page_id')
         .eq(filterCol, filterVal)
         .maybeSingle();
 
-      if (!legacyError && legacyData) {
-        page_id = legacyData.page_id;
+      if (intData) {
+        if (!page_id) page_id = intData.page_id;
 
-        if (legacyData.page_access_token) {
-          // Token legado em texto puro
-          pageAccessToken = legacyData.page_access_token;
-          console.log('[FB-FORMS] ✅ Token legado (page_access_token) encontrado');
-        } else if (legacyData.access_token) {
-          // Último recurso: usar user access token
-          pageAccessToken = legacyData.access_token;
-          console.log('[FB-FORMS] ✅ Token legado (access_token) encontrado como fallback');
+        const { data: tokenRow } = await supabase
+          .from('facebook_integration_tokens')
+          .select('encrypted_access_token, encrypted_page_access_token')
+          .eq('integration_id', intData.id)
+          .maybeSingle();
+
+        if (tokenRow) {
+          // Tentar user token para renovar page token
+          const userToken = await decryptToken(tokenRow.encrypted_access_token || '', ENCRYPTION_KEY);
+          if (userToken && page_id) {
+            try {
+              const resp = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userToken}`);
+              if (resp.ok) {
+                const accs = await resp.json();
+                const pg = (accs.data || []).find((p: any) => p.id === page_id);
+                if (pg?.access_token) {
+                  pageAccessToken = pg.access_token;
+                  console.log('[FB-FORMS] ✅ Page token renovado via user_access_token → /me/accounts');
+                }
+              }
+            } catch (e) {
+              console.warn('[FB-FORMS] ⚠️ Falha ao renovar via /me/accounts:', e);
+            }
+          }
         }
-      } else {
-        console.warn('[FB-FORMS] ⚠️ Fallback legado falhou:', legacyError?.message);
       }
     }
 
