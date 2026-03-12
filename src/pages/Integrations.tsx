@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
@@ -143,11 +144,13 @@ function WhatsAppCard({
   instanceCount,
   connectedCount,
   loading,
+  canManage,
 }: {
   onManage: () => void;
   instanceCount: number;
   connectedCount: number;
   loading: boolean;
+  canManage: boolean;
 }) {
   const [hov, setHov] = useState(false);
   const isConnected = connectedCount > 0;
@@ -211,11 +214,15 @@ function WhatsAppCard({
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
-              onClick={onManage}
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
               style={{
                 border: "1px solid rgba(37,211,102,.3)", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 600, padding: "6px 14px", cursor: "pointer",
+                fontSize: 12, fontWeight: 600, padding: "6px 14px",
+                cursor: canManage ? "pointer" : "not-allowed",
                 background: "rgba(37,211,102,.1)", color: "#2ECC71", transition: "all .18s",
+                opacity: canManage ? 1 : 0.45,
               }}
             >Gerenciar</button>
           </div>
@@ -227,12 +234,16 @@ function WhatsAppCard({
           </p>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
-              onClick={onManage}
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
               style={{
                 border: "none", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 700, padding: "7px 15px", cursor: "pointer",
+                fontSize: 12, fontWeight: 700, padding: "7px 15px",
+                cursor: canManage ? "pointer" : "not-allowed",
                 color: "white", background: "linear-gradient(135deg,#128C7E,#25D366)",
                 boxShadow: "0 3px 12px rgba(37,211,102,.3)", transition: "all .18s",
+                opacity: canManage ? 1 : 0.45,
               }}
             >Conectar WhatsApp</button>
           </div>
@@ -248,11 +259,13 @@ function FacebookCard({
   integration,
   configuredForms,
   loading,
+  canManage,
 }: {
   onManage: () => void;
   integration: any | null;
   configuredForms: number;
   loading: boolean;
+  canManage: boolean;
 }) {
   const [hov, setHov] = useState(false);
   const isConnected = !!integration?.page_id;
@@ -345,11 +358,15 @@ function FacebookCard({
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
-              onClick={onManage}
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
               style={{
                 border: "1px solid rgba(24,119,242,.3)", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 600, padding: "6px 14px", cursor: "pointer",
+                fontSize: 12, fontWeight: 600, padding: "6px 14px",
+                cursor: canManage ? "pointer" : "not-allowed",
                 background: "rgba(24,119,242,.1)", color: "#5599DD", transition: "all .18s",
+                opacity: canManage ? 1 : 0.45,
               }}
             >Gerenciar Formulários</button>
           </div>
@@ -361,12 +378,16 @@ function FacebookCard({
           </p>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
-              onClick={onManage}
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
               style={{
                 border: "none", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 700, padding: "7px 15px", cursor: "pointer",
+                fontSize: 12, fontWeight: 700, padding: "7px 15px",
+                cursor: canManage ? "pointer" : "not-allowed",
                 color: "white", background: "linear-gradient(135deg,#1877F2,#1565C0)",
                 boxShadow: "0 3px 12px rgba(24,119,242,.35)", transition: "all .18s",
+                opacity: canManage ? 1 : 0.45,
               }}
             >Conectar ao Facebook</button>
           </div>
@@ -387,10 +408,12 @@ function MetaConversionsCard({
   isActive,
   loading,
   onManage,
+  canManage,
 }: {
   isActive: boolean;
   loading: boolean;
   onManage: () => void;
+  canManage: boolean;
 }) {
   const [hov, setHov] = useState(false);
 
@@ -452,11 +475,15 @@ function MetaConversionsCard({
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
-              onClick={onManage}
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
               style={{
                 border: "1px solid rgba(0,130,251,.3)", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 600, padding: "6px 14px", cursor: "pointer",
+                fontSize: 12, fontWeight: 600, padding: "6px 14px",
+                cursor: canManage ? "pointer" : "not-allowed",
                 background: "rgba(0,130,251,.1)", color: "#5599DD", transition: "all .18s",
+                opacity: canManage ? 1 : 0.45,
               }}
             >Gerenciar Pixel</button>
           </div>
@@ -468,12 +495,16 @@ function MetaConversionsCard({
           </p>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
-              onClick={onManage}
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
               style={{
                 border: "none", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 700, padding: "7px 15px", cursor: "pointer",
+                fontSize: 12, fontWeight: 700, padding: "7px 15px",
+                cursor: canManage ? "pointer" : "not-allowed",
                 color: "white", background: "linear-gradient(135deg,#0082FB,#0050A0)",
                 boxShadow: "0 3px 12px rgba(0,130,251,.35)", transition: "all .18s",
+                opacity: canManage ? 1 : 0.45,
               }}
             >Configurar Pixel</button>
           </div>
@@ -486,6 +517,8 @@ function MetaConversionsCard({
 /* ── Main Integrations Page ── */
 const Integrations = () => {
   const { organizationId, isReady } = useOrganizationReady();
+  const { permissions } = useOrganization();
+  const canManage = permissions.canManageIntegrations;
   const [tab, setTab] = useState<"connections" | "webhooks" | "logs">("connections");
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showFacebook, setShowFacebook] = useState(false);
@@ -667,6 +700,7 @@ const Integrations = () => {
               instanceCount={waInstanceCount}
               connectedCount={waConnectedCount}
               loading={dataLoading}
+              canManage={canManage}
             />
 
             {/* Facebook — dados já carregados pelo pai */}
@@ -675,6 +709,7 @@ const Integrations = () => {
               configuredForms={fbConfiguredForms}
               loading={dataLoading}
               onManage={() => { setFbKey(k => k + 1); setShowFacebook(true); }}
+              canManage={canManage}
             />
 
             {/* Meta Conversions API — card funcional */}
@@ -682,6 +717,7 @@ const Integrations = () => {
               isActive={metaPixelActive}
               loading={dataLoading}
               onManage={() => setShowMetaPixel(true)}
+              canManage={canManage}
             />
 
             {/* Coming soon */}
