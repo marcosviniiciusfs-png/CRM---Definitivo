@@ -88,6 +88,7 @@ const parseCSV = (text: string): any[] => {
 interface ImportLeadsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  organizationId?: string | null;
 }
 
 interface FieldMapping {
@@ -135,7 +136,7 @@ const CRM_FIELDS = [
   { value: "additional_data", label: "→ Dados Adicionais" },
 ];
 
-export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) {
+export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportLeadsModalProps) {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
@@ -254,12 +255,17 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       
       setMappings(autoMappings);
       
-      // Load funnels for step 3
-      const { data: funnelData } = await supabase
+      // Load funnels for step 3 — filtrar por organização quando disponível
+      let funnelQuery = supabase
         .from("sales_funnels")
         .select("id, name, is_default")
-        .eq("is_active", true)
-        .order("is_default", { ascending: false });
+        .eq("is_active", true);
+
+      if (organizationId) {
+        funnelQuery = funnelQuery.eq("organization_id", organizationId);
+      }
+
+      const { data: funnelData } = await funnelQuery.order("is_default", { ascending: false });
       
       setFunnels(funnelData || []);
       if (funnelData && funnelData.length > 0) {
@@ -360,6 +366,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         source: "Importação",
         funnel_id: selectedFunnel || null,
         funnel_stage_id: selectedStage || null,
+        ...(organizationId ? { organization_id: organizationId } : {}),
       };
       const additionalData: Record<string, any> = {};
       

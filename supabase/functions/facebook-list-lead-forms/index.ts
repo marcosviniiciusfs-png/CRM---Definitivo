@@ -33,7 +33,7 @@ async function decryptToken(encryptedToken: string, key: string): Promise<string
     return new TextDecoder().decode(decrypted);
   } catch (error) {
     console.error('Decryption error:', error);
-    return encryptedToken;
+    return '';
   }
 }
 
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       throw new Error('Missing organization_id or integration_id');
     }
 
-    console.log('Fetching lead forms for:', integration_id ? `integration ${integration_id}` : `organization ${organization_id}`);
+    console.log(`[FB-FORMS] Buscando formulários para: ${integration_id ? `integration ${integration_id}` : `org ${organization_id}`}`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -58,91 +58,142 @@ Deno.serve(async (req) => {
 
     const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
 
-    // Buscar tokens de forma segura
-    let tokenData, tokenError;
+    let pageAccessToken: string | null = null;
+    let page_id: string | null = null;
 
+    // ── Etapa 1: Tentar RPC get_facebook_token_by_integration ──
     if (integration_id) {
-      console.log('Using integration_id for secure token fetch');
+      console.log('[FB-FORMS] Etapa 1: RPC get_facebook_token_by_integration');
       const { data, error } = await supabase.rpc('get_facebook_token_by_integration', {
         p_integration_id: integration_id
       });
-      tokenData = data;
-      tokenError = error;
-    } else {
-      console.log('Falling back to get_facebook_tokens_secure (DEPRECATED for multi-page)');
+
+      if (!error && data && data.length > 0) {
+        const row = data[0];
+        page_id = row.page_id;
+
+        if (row.encrypted_page_access_token) {
+          console.log('[FB-FORMS] Token criptografado encontrado via RPC, descriptografando...');
+          const decrypted = await decryptToken(row.encrypted_page_access_token, ENCRYPTION_KEY);
+          if (decrypted) {
+            pageAccessToken = decrypted;
+            console.log('[FB-FORMS] ✅ Token descriptografado com sucesso via RPC');
+          } else {
+            console.warn('[FB-FORMS] ⚠️ Falha na descriptografia — tentando fallback');
+          }
+        } else {
+          console.warn('[FB-FORMS] ⚠️ RPC retornou token vazio — integration pode ser legada');
+        }
+      } else {
+        console.warn('[FB-FORMS] ⚠️ RPC falhou ou sem dados:', error?.message);
+      }
+    }
+
+    // ── Etapa 2: Fallback via org_id ──
+    if (!pageAccessToken && organization_id) {
+      console.log('[FB-FORMS] Etapa 2: RPC get_facebook_tokens_secure (org fallback)');
       const { data, error } = await supabase.rpc('get_facebook_tokens_secure', {
         p_organization_id: organization_id
       });
-      tokenData = data;
-      tokenError = error;
-    }
 
-    // Fallback if RPC is missing
-    if (tokenError || !tokenData || tokenData.length === 0) {
-      console.warn('⚠️ RPC get_facebook_tokens_secure failed or missing, trying fallback...');
+      if (!error && data && data.length > 0) {
+        const row = data[0];
+        page_id = row.page_id;
 
-      const { data: integrationData } = await supabase
-        .from('facebook_integrations')
-        .select('id, page_id')
-        .eq(integration_id ? 'id' : 'organization_id', integration_id || organization_id)
-        .maybeSingle();
-
-      if (integrationData) {
-        const { data: secureData } = await supabase
-          .from('facebook_integration_tokens')
-          .select('encrypted_page_access_token')
-          .eq('integration_id', integrationData.id)
-          .maybeSingle();
-
-        if (secureData) {
-          tokenData = [{
-            encrypted_page_access_token: secureData.encrypted_page_access_token,
-            page_id: integrationData.page_id
-          }];
-          tokenError = null;
+        if (row.encrypted_page_access_token) {
+          const decrypted = await decryptToken(row.encrypted_page_access_token, ENCRYPTION_KEY);
+          if (decrypted) {
+            pageAccessToken = decrypted;
+            console.log('[FB-FORMS] ✅ Token via org fallback RPC');
+          }
         }
       }
     }
 
-    if (tokenError || !tokenData || tokenData.length === 0) {
-      console.error('Error fetching secure tokens:', tokenError);
-      throw new Error('Integração do Facebook não encontrada ou incompleta. Por favor, reconecte.');
+    // ── Etapa 3: Fallback legado — buscar page_access_token direto da tabela ──
+    // Integrações antigas armazenam o token PLAINTEXT em facebook_integrations.page_access_token
+    if (!pageAccessToken) {
+      console.log('[FB-FORMS] Etapa 3: Fallback legado — page_access_token em facebook_integrations');
+
+      const filterCol = integration_id ? 'id' : 'organization_id';
+      const filterVal = integration_id || organization_id;
+
+      const { data: legacyData, error: legacyError } = await supabase
+        .from('facebook_integrations')
+        .select('id, page_id, page_access_token, access_token')
+        .eq(filterCol, filterVal)
+        .maybeSingle();
+
+      if (!legacyError && legacyData) {
+        page_id = legacyData.page_id;
+
+        if (legacyData.page_access_token) {
+          // Token legado em texto puro
+          pageAccessToken = legacyData.page_access_token;
+          console.log('[FB-FORMS] ✅ Token legado (page_access_token) encontrado');
+        } else if (legacyData.access_token) {
+          // Último recurso: usar user access token
+          pageAccessToken = legacyData.access_token;
+          console.log('[FB-FORMS] ✅ Token legado (access_token) encontrado como fallback');
+        }
+      } else {
+        console.warn('[FB-FORMS] ⚠️ Fallback legado falhou:', legacyError?.message);
+      }
     }
 
-    const { encrypted_page_access_token, page_id } = tokenData[0];
+    // ── Etapa 4: Fallback — direto em facebook_integration_tokens ──
+    if (!pageAccessToken && integration_id) {
+      console.log('[FB-FORMS] Etapa 4: Query direta em facebook_integration_tokens');
+
+      const { data: tokenRow } = await supabase
+        .from('facebook_integration_tokens')
+        .select('encrypted_page_access_token, integration_id')
+        .eq('integration_id', integration_id)
+        .maybeSingle();
+
+      if (tokenRow?.encrypted_page_access_token) {
+        const decrypted = await decryptToken(tokenRow.encrypted_page_access_token, ENCRYPTION_KEY);
+        if (decrypted) {
+          pageAccessToken = decrypted;
+          console.log('[FB-FORMS] ✅ Token via query direta em facebook_integration_tokens');
+        }
+      }
+    }
+
+    // ── Sem token após todas as tentativas ──
+    if (!pageAccessToken) {
+      console.error('[FB-FORMS] ❌ Nenhum token encontrado após todas as tentativas');
+      throw new Error('Token não encontrado. Por favor, desconecte e reconecte ao Facebook nas Integrações.');
+    }
 
     if (!page_id) {
-      throw new Error('No page_id found in integration');
+      throw new Error('page_id não encontrado. Por favor, reconecte ao Facebook.');
     }
 
-    // Descriptografar o page_access_token
-    const pageAccessToken = await decryptToken(encrypted_page_access_token, ENCRYPTION_KEY);
+    console.log(`[FB-FORMS] Buscando formulários da página: ${page_id}`);
 
-    if (!pageAccessToken) {
-      throw new Error('Failed to decrypt page access token. Please reconnect Facebook.');
-    }
-
-    console.log('Fetching lead forms for page:', page_id);
-
-    // Fetch lead forms from Facebook Graph API
+    // Buscar formulários na API do Facebook
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${page_id}/leadgen_forms?access_token=${pageAccessToken}&fields=id,name,status,leads_count`,
       {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       }
     );
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Facebook API error:', errorData);
-      throw new Error(`Facebook API error: ${response.status} - ${errorData}`);
+      console.error('[FB-FORMS] Erro na API do Facebook:', errorData);
+
+      // Token expirado → sugerir reconexão
+      if (response.status === 400 || response.status === 401 || response.status === 403) {
+        throw new Error('Token do Facebook expirado ou inválido. Por favor, desconecte e reconecte ao Facebook.');
+      }
+      throw new Error(`Erro na API do Facebook: ${response.status} - ${errorData}`);
     }
 
     const data = await response.json();
-    console.log('Lead forms fetched successfully:', data);
+    console.log(`[FB-FORMS] ✅ ${(data.data || []).length} formulários encontrados`);
 
     return new Response(
       JSON.stringify({ forms: data.data || [] }),
@@ -153,9 +204,9 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error fetching lead forms:', error);
+    console.error('[FB-FORMS] Erro:', error);
 
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
 
     return new Response(
       JSON.stringify({ error: errorMessage }),

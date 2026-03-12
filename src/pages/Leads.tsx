@@ -943,6 +943,7 @@ const Leads = () => {
       <ImportLeadsModal
         open={showImportModal}
         onOpenChange={setShowImportModal}
+        organizationId={organizationId}
       />
     </div>
   );
