@@ -1548,6 +1548,7 @@ const Pipeline = () => {
         <ImportLeadsModal
           open={showImportModal}
           onOpenChange={setShowImportModal}
+          organizationId={organizationId}
         />
       )}
 
