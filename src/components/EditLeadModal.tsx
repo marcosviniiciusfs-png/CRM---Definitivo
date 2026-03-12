@@ -1696,6 +1696,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
                                               setEditingResponsavel(false);
                                               toast.success(`Responsável alterado para ${displayName}`);
+                                              // Notifica o pai para atualizar o card no Pipeline
+                                              onUpdate();
                                             } catch (error) {
                                               console.error('Erro ao salvar responsável:', error);
                                               toast.error('Erro ao salvar responsável');

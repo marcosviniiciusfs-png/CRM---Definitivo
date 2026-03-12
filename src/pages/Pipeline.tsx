@@ -1539,6 +1539,10 @@ const Pipeline = () => {
                 .single();
               if (data) {
                 setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
+                // Se o lead tem um novo responsável, garantir que o perfil está no mapa
+                if (data.responsavel_user_id && !profilesMap[data.responsavel_user_id]) {
+                  loadProfiles([data.responsavel_user_id]);
+                }
               }
             }
           }}
