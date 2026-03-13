@@ -1245,6 +1245,8 @@ export type Database = {
           description: string | null
           distribution_method: string
           eligible_agents: string[] | null
+          funnel_id: string | null
+          funnel_stage_id: string | null
           id: string
           is_active: boolean
           name: string
@@ -1262,6 +1264,8 @@ export type Database = {
           description?: string | null
           distribution_method?: string
           eligible_agents?: string[] | null
+          funnel_id?: string | null
+          funnel_stage_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -1279,6 +1283,8 @@ export type Database = {
           description?: string | null
           distribution_method?: string
           eligible_agents?: string[] | null
+          funnel_id?: string | null
+          funnel_stage_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -1291,6 +1297,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_distribution_configs_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "sales_funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_distribution_configs_funnel_stage_id_fkey"
+            columns: ["funnel_stage_id"]
+            isOneToOne: false
+            referencedRelation: "funnel_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_distribution_configs_organization_id_fkey"
             columns: ["organization_id"]
