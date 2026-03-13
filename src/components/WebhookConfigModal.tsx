@@ -173,10 +173,14 @@ export const WebhookConfigModal = ({
         .select('user_id, full_name, avatar_url')
         .in('user_id', userIds);
       
+      // Build RPC names map for fallback (includes auth.users metadata)
+      const rpcWebhookNamesMap: Record<string, string | null> = {};
+      (members || []).forEach((m: any) => { if (m.user_id) rpcWebhookNamesMap[m.user_id] = m.full_name; });
+
       if (profiles) {
         setColaboradores(profiles.map(p => ({
           user_id: p.user_id,
-          full_name: p.full_name,
+          full_name: p.full_name || rpcWebhookNamesMap[p.user_id] || null,
           avatar_url: p.avatar_url
         })));
       }

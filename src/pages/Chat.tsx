@@ -509,7 +509,7 @@ const Chat = () => {
             .filter((id): id is string => !!id)
         )];
 
-        const [tagAssignmentsResult, responsiblesResult] = await Promise.all([
+        const [tagAssignmentsResult, responsiblesResult, rpcChatResult] = await Promise.all([
           supabase
             .from("lead_tag_assignments")
             .select("lead_id, tag_id")
@@ -519,8 +519,13 @@ const Chat = () => {
               .from("profiles")
               .select("user_id, full_name, avatar_url")
               .in("user_id", responsibleUserIds)
-            : Promise.resolve({ data: [] })
+            : Promise.resolve({ data: [] }),
+          supabase.rpc("get_organization_members_masked"),
         ]);
+
+        // Build RPC names fallback map
+        const rpcChatNamesMap: Record<string, string | null> = {};
+        (rpcChatResult.data || []).forEach((m: any) => { if (m.user_id) rpcChatNamesMap[m.user_id] = m.full_name; });
 
         // Set tag assignments
         const newTagMap = new Map<string, string[]>();
@@ -535,9 +540,15 @@ const Chat = () => {
         responsiblesResult.data?.forEach((profile) => {
           if (profile.user_id) {
             newResponsiblesMap.set(profile.user_id, {
-              full_name: profile.full_name || "Sem nome",
+              full_name: profile.full_name || rpcChatNamesMap[profile.user_id] || "Sem nome",
               avatar_url: profile.avatar_url
             });
+          }
+        });
+        // Add entries for users in RPC but not in profiles
+        (rpcChatResult.data || []).forEach((m: any) => {
+          if (m.user_id && !newResponsiblesMap.has(m.user_id) && responsibleUserIds.includes(m.user_id)) {
+            newResponsiblesMap.set(m.user_id, { full_name: m.full_name || "Sem nome", avatar_url: null });
           }
         });
         setResponsiblesMap(newResponsiblesMap);

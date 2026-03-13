@@ -429,9 +429,14 @@ const Pipeline = () => {
             }, {} as Record<string, string | null>);
           }
         }
+        // Fallback via RPC (includes auth.users metadata)
+        const rpcPipelineNamesMap: Record<string, string | null> = {};
+        const { data: rpcPipelineMembers } = await supabase.rpc('get_organization_members_masked');
+        (rpcPipelineMembers || []).forEach((rm: any) => { if (rm.user_id) rpcPipelineNamesMap[rm.user_id] = rm.full_name; });
+
         setColaboradores(membersData.map((m: any) => ({
           user_id: m.user_id,
-          full_name: profilesMap[m.user_id] || m.display_name || m.email || 'Sem nome',
+          full_name: profilesMap[m.user_id] || rpcPipelineNamesMap[m.user_id] || m.display_name || m.email || 'Sem nome',
         })));
       }
     };

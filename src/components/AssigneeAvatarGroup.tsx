@@ -51,15 +51,24 @@ export const AssigneeAvatarGroup = ({
 
       // Buscar profiles separadamente
       const userIds = data.map((a) => a.user_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, avatar_url")
-        .in("user_id", userIds);
+      const [profilesResult, rpcResult] = await Promise.all([
+        supabase.from("profiles").select("user_id, full_name, avatar_url").in("user_id", userIds),
+        supabase.rpc("get_organization_members_masked"),
+      ]);
+      const profiles = profilesResult.data;
+      const rpcNamesMap: Record<string, string | null> = {};
+      (rpcResult.data || []).forEach((m: any) => { if (m.user_id) rpcNamesMap[m.user_id] = m.full_name; });
 
-      return data.map((assignee) => ({
-        ...assignee,
-        profile: profiles?.find((p) => p.user_id === assignee.user_id) || null,
-      })) as AssigneeWithProfile[];
+      return data.map((assignee) => {
+        const p = profiles?.find((p) => p.user_id === assignee.user_id);
+        return {
+          ...assignee,
+          profile: {
+            full_name: p?.full_name || rpcNamesMap[assignee.user_id] || null,
+            avatar_url: p?.avatar_url || null,
+          },
+        };
+      }) as AssigneeWithProfile[];
     },
     staleTime: 30000,
   });
