@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,31 +143,16 @@ export function LeadDistributionConfigModal({
     enabled: !!formData.funnel_id,
   });
 
-  // Buscar membros da organização usando RPC segura
-  const { data: members } = useQuery({
-    queryKey: ["organization-members-safe", organizationId],
-    queryFn: async () => {
-      if (!organizationId) return [];
+  // Buscar membros da organização usando o hook dedicado (com fallback correto)
+  const { data: rawMembers } = useOrganizationMembers(organizationId);
 
-      const { data: orgMembers, error } = await supabase.rpc('get_organization_members_masked');
-      if (error) throw error;
-      if (!orgMembers) return [];
-
-      const userIds = orgMembers.filter((m: any) => m.user_id).map((m: any) => m.user_id!);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", userIds);
-
-      return orgMembers
-        .filter((m: any) => m.user_id)
-        .map((member: any) => ({
-          user_id: member.user_id,
-          full_name: profiles?.find(p => p.user_id === member.user_id)?.full_name || 'Sem nome'
-        }));
-    },
-    enabled: !!organizationId,
-  });
+  // Normalizar para o formato simples usado no modal
+  const members = rawMembers
+    ?.filter((m) => m.user_id)
+    .map((m) => ({
+      user_id: m.user_id!,
+      full_name: m.full_name || (m as any).display_name || m.email || 'Sem nome',
+    }));
 
   // Quando o funil muda, limpar o estágio selecionado
   const handleFunnelChange = (value: string) => {
