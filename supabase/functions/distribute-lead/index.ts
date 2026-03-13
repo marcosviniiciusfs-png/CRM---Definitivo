@@ -267,24 +267,55 @@ serve(async (req) => {
 });
 
 async function getAvailableAgents(supabase: any, organization_id: string, eligibleAgentIds?: string[] | null) {
-  // 1. Buscar agent_distribution_settings
+  // 1. Buscar agent_distribution_settings — ORDER BY user_id garante ordem estável para round-robin
   let settingsQuery = supabase
     .from('agent_distribution_settings')
     .select('*')
     .eq('organization_id', organization_id)
     .eq('is_active', true)
-    .eq('is_paused', false);
+    .eq('is_paused', false)
+    .order('user_id', { ascending: true });
 
   // Se há lista de agentes elegíveis, filtrar por ela
   if (eligibleAgentIds && eligibleAgentIds.length > 0) {
     settingsQuery = settingsQuery.in('user_id', eligibleAgentIds);
   }
 
-  const { data: settings, error: settingsError } = await settingsQuery;
+  let { data: settings, error: settingsError } = await settingsQuery;
 
+  // Fallback: se nenhum agente tem agent_distribution_settings configurado,
+  // criar entradas virtuais para os membros elegíveis da organização
   if (settingsError || !settings || settings.length === 0) {
-    console.error('Error fetching agent settings:', settingsError);
-    return [];
+    console.warn('No agent_distribution_settings found, falling back to organization_members');
+
+    let membersQuery = supabase
+      .from('organization_members')
+      .select('user_id')
+      .eq('organization_id', organization_id)
+      .eq('is_active', true)
+      .order('user_id', { ascending: true });
+
+    if (eligibleAgentIds && eligibleAgentIds.length > 0) {
+      membersQuery = membersQuery.in('user_id', eligibleAgentIds);
+    }
+
+    const { data: orgMembers, error: membersError } = await membersQuery;
+    if (membersError || !orgMembers || orgMembers.length === 0) {
+      console.error('No organization members found:', membersError);
+      return [];
+    }
+
+    // Criar settings virtuais com valores padrão
+    settings = orgMembers.map((m: any) => ({
+      user_id: m.user_id,
+      organization_id,
+      is_active: true,
+      is_paused: false,
+      max_capacity: 999,
+      priority_weight: 1,
+      pause_until: null,
+      working_hours: null,
+    }));
   }
 
   // 2. Buscar profiles para cada user_id
@@ -402,23 +433,37 @@ async function selectAgent(
 }
 
 async function selectRoundRobin(supabase: any, agents: any[], organization_id: string) {
-  // Buscar o último agente que recebeu um lead
-  const { data: lastDistribution } = await supabase
+  // Buscar os últimos 50 registros de distribuição para encontrar o último agente disponível
+  // (agents[] já está ordenado por user_id — ordem estável garantida pelo getAvailableAgents)
+  const { data: recentHistory } = await supabase
     .from('lead_distribution_history')
     .select('to_user_id')
     .eq('organization_id', organization_id)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(50);
 
-  if (!lastDistribution) {
+  if (!recentHistory || recentHistory.length === 0) {
+    // Sem histórico: começar pelo primeiro agente
+    console.log('[RoundRobin] No history found, starting from agents[0]');
     return agents[0];
   }
 
-  // Encontrar o próximo agente na sequência
-  const lastIndex = agents.findIndex(a => a.user_id === lastDistribution.to_user_id);
-  const nextIndex = (lastIndex + 1) % agents.length;
-  return agents[nextIndex];
+  // Percorrer o histórico recente e encontrar o ÚLTIMO agente que ainda está disponível
+  // Isso corrige o bug onde findIndex retorna -1 (agente cheio/pausado) causando nextIndex=0 sempre
+  for (const record of recentHistory) {
+    const lastIndex = agents.findIndex(a => a.user_id === record.to_user_id);
+    if (lastIndex !== -1) {
+      // Encontrou o último agente disponível no histórico
+      const nextIndex = (lastIndex + 1) % agents.length;
+      const selected = agents[nextIndex];
+      console.log(`[RoundRobin] Last available in history: index=${lastIndex} (${record.to_user_id}), next: index=${nextIndex} (${selected.user_id})`);
+      return selected;
+    }
+  }
+
+  // Nenhum agente do histórico recente está disponível — começar do início
+  console.log('[RoundRobin] No recent history agent is available, starting from agents[0]');
+  return agents[0];
 }
 
 function selectWeighted(agents: any[]) {
