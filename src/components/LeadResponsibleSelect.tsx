@@ -76,8 +76,8 @@ export function LeadResponsibleSelect({
       const colaboradoresWithNames = members?.filter((m: any) => m.user_id).map((m: any) => ({
         user_id: m.user_id,
         email: null, // Não expor email
-        full_name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id].full_name : null,
-        avatar_url: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id].avatar_url : null
+        full_name: (m.user_id && profilesMap[m.user_id]?.full_name) || m.full_name || null,
+        avatar_url: (m.user_id && profilesMap[m.user_id]?.avatar_url) || null
       })) || [];
 
       setColaboradores(colaboradoresWithNames);

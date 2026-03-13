@@ -128,13 +128,20 @@ const Colaboradores = () => {
         }
       }
 
+      // Fallback names via SECURITY DEFINER RPC (includes auth.users metadata)
+      const rpcNamesMap: Record<string, string | null> = {};
+      const { data: rpcMembers } = await supabase.rpc('get_organization_members_masked');
+      (rpcMembers || []).forEach((m: any) => {
+        if (m.user_id) rpcNamesMap[m.user_id] = m.full_name;
+      });
+
       const transformedMembers: Colaborador[] = members.map((member: any) => {
         const profileName = member.user_id && profilesMap[member.user_id]
           ? profilesMap[member.user_id].full_name : null;
         return {
           ...member,
           is_active: member.is_active ?? true,
-          full_name: profileName || member.display_name || null,
+          full_name: profileName || (member.user_id && rpcNamesMap[member.user_id]) || member.display_name || null,
           avatar_url: member.user_id && profilesMap[member.user_id] ? profilesMap[member.user_id].avatar_url : null
         };
       });

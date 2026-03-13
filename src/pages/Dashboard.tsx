@@ -143,7 +143,7 @@ const Dashboard = () => {
       const sellers: TopSeller[] = memberUserIds.filter(userId => salesByUser[userId]?.won_leads > 0).map(userId => {
         const profile = profiles.find(p => p.user_id === userId);
         const sales = salesByUser[userId];
-        return { user_id: userId, full_name: profile?.full_name || 'Colaborador', avatar_url: profile?.avatar_url || null, won_leads: sales.won_leads, total_revenue: sales.total_revenue };
+        return { user_id: userId, full_name: profile?.full_name || members.find((m: any) => m.user_id === userId)?.full_name || 'Colaborador', avatar_url: profile?.avatar_url || null, won_leads: sales.won_leads, total_revenue: sales.total_revenue };
       }).sort((a, b) => b.total_revenue - a.total_revenue).slice(0, 5);
       return { topSellers: sellers, loading: false };
     },

@@ -65,6 +65,11 @@ const fetchSalesData = async (organizationId: string, periodType: PeriodType): P
     profiles?.forEach(p => { profilesMap[p.user_id] = p; });
   }
 
+  // Fallback names via RPC (includes auth.users metadata)
+  const rpcSalesNamesMap: Record<string, string | null> = {};
+  const { data: rpcSalesMembers } = await supabase.rpc('get_organization_members_masked');
+  (rpcSalesMembers || []).forEach((m: any) => { if (m.user_id) rpcSalesNamesMap[m.user_id] = m.full_name; });
+
   // Aggregate sales data by user
   const userSalesMap: { [userId: string]: LeaderboardData } = {};
   validData.forEach(item => {
@@ -75,7 +80,7 @@ const fetchSalesData = async (organizationId: string, periodType: PeriodType): P
       const profile = profilesMap[userId];
       userSalesMap[userId] = {
         user_id: userId,
-        full_name: profile?.full_name || 'Sem nome',
+        full_name: profile?.full_name || rpcSalesNamesMap[userId] || 'Sem nome',
         avatar_url: profile?.avatar_url || null,
         total_revenue: 0,
         won_leads: 0,
@@ -116,6 +121,11 @@ const fetchTasksData = async (organizationId: string, periodType: PeriodType): P
     profiles?.forEach(p => { profilesMap[p.user_id] = p; });
   }
 
+  // Fallback names via RPC (includes auth.users metadata)
+  const rpcTasksNamesMap: Record<string, string | null> = {};
+  const { data: rpcTasksMembers } = await supabase.rpc('get_organization_members_masked');
+  (rpcTasksMembers || []).forEach((m: any) => { if (m.user_id) rpcTasksNamesMap[m.user_id] = m.full_name; });
+
   // Aggregate tasks data by user
   const userTasksMap: { [userId: string]: LeaderboardData } = {};
   (assignees || []).forEach(item => {
@@ -126,7 +136,7 @@ const fetchTasksData = async (organizationId: string, periodType: PeriodType): P
       const profile = profilesMap[userId];
       userTasksMap[userId] = {
         user_id: userId,
-        full_name: profile?.full_name || 'Sem nome',
+        full_name: profile?.full_name || rpcTasksNamesMap[userId] || 'Sem nome',
         avatar_url: profile?.avatar_url || null,
         task_points: 0,
         tasks_completed: 0,

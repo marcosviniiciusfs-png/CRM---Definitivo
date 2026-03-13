@@ -104,7 +104,7 @@ export function AgentDistributionSettings() {
           .filter((m: any) => m.user_id)
           .map((m: any) => ({
             user_id: m.user_id!,
-            full_name: profilesMap[m.user_id] || 'Sem nome',
+            full_name: profilesMap[m.user_id] || m.full_name || 'Sem nome',
             email: '', // Email mascarado - não exibir
           }));
 
