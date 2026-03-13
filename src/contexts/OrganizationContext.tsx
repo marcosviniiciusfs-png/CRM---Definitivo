@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
-import { OrganizationSelectorModal, OrganizationMembership } from "@/components/OrganizationSelectorModal";
 
 // Custom role permissions from organization_custom_roles table
 interface CustomRolePermissions {
@@ -75,14 +74,25 @@ interface Permissions {
   loading: boolean;
 }
 
-export type { OrganizationMembership };
+// Kept for backward compatibility - but will always have 0 or 1 org
+export interface OrganizationMembership {
+  organization_id: string;
+  role: 'owner' | 'admin' | 'member';
+  organizations?: {
+    id: string;
+    name: string;
+  };
+}
 
 interface OrganizationContextType {
   organizationId: string | null;
   permissions: Permissions;
+  // Kept for compatibility but will always be 0 or 1 item
   availableOrganizations: OrganizationMembership[];
+  // No-op: org switching is disabled
   switchOrganization: (orgId: string) => Promise<void>;
   refresh: () => Promise<void>;
+  // Always false: org selection modal is disabled
   needsOrgSelection: boolean;
   isInitialized: boolean;
 }
@@ -322,15 +332,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Permissions>(defaultPermissions);
   const [availableOrganizations, setAvailableOrganizations] = useState<OrganizationMembership[]>([]);
-  const [needsOrgSelection, setNeedsOrgSelection] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  // Use ref for retryCount to avoid changing loadOrganizationData callback reference on each retry
   const retryCountRef = useRef(0);
   const dataLoadedRef = useRef(false);
-  // Track background refresh timer so we can cancel it on unmount
   const backgroundRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1500; // 1.5 seconds
+  const RETRY_DELAY = 1500;
 
   // Fetch custom role permissions for a specific organization
   const fetchCustomRolePermissions = async (orgId: string): Promise<CustomRolePermissions | null> => {
@@ -381,13 +388,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loadOrganizationData = useCallback(async (forceRefresh = false, selectedOrgId?: string) => {
+  const loadOrganizationData = useCallback(async (forceRefresh = false) => {
     if (!user) {
       console.log('[ORG] No user, skipping organization load');
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
       setAvailableOrganizations([]);
-      setNeedsOrgSelection(false);
       setIsInitialized(true);
       clearOrgCache();
       dataLoadedRef.current = false;
@@ -400,9 +406,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (cachedData) {
         console.log('[ORG] Using cached organization data');
         setOrganizationId(cachedData.selectedOrganizationId);
-        setAvailableOrganizations(cachedData.availableOrganizations);
+        // Always expose only 1 org in cached data (enforce isolation)
+        const singleOrg = cachedData.availableOrganizations.slice(0, 1);
+        setAvailableOrganizations(singleOrg);
         setPermissions({ ...cachedData.permissions, loading: false });
-        setNeedsOrgSelection(false);
         setIsInitialized(true);
         dataLoadedRef.current = true;
         return;
@@ -412,11 +419,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     try {
       console.log('[ORG] Loading organization data for user:', user.email);
 
-      // Tentar carregar memberships via RPC (mais performático e evita RLS recursão em alguns casos)
+      // Load memberships via RPC
       let { data: memberships, error: rpcError } = await supabase.rpc('get_my_organization_memberships');
 
-      // Se a RPC falhou (especialmente com 404 ou PGRST202), tentamos consulta direta
-      // Não logamos como erro imediatamente se pudermos recuperar via fallback
+      // If RPC not found, fallback to direct query
       const isMissingRpc = rpcError && (
         rpcError.code === 'PGRST202' ||
         rpcError.message?.includes('not found') ||
@@ -426,6 +432,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (isMissingRpc) {
         console.warn('[ORG] RPC get_my_organization_memberships not found, using direct table fallback...');
         const { data: directData, error: directError } = await supabase
+          .from('organization_members')
           .from('organization_members')
           .select('organization_id, role, organizations(id, name)')
           .eq('user_id', user.id);
@@ -437,7 +444,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             role: m.role,
             is_owner: m.role === 'owner'
           }));
-          rpcError = null; // Caso resolvido pelo fallback
+          rpcError = null;
         } else if (directError) {
           console.error('[ORG] Direct table fallback also failed:', directError);
           rpcError = directError;
@@ -447,27 +454,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (rpcError) {
         console.error('[ORG] All membership load attempts failed:', rpcError);
 
-        // Se a falha for 404, não adianta tentar novamente via retries padrão
-        if (isMissingRpc && retryCountRef.current === 0) {
-          console.log('[ORG] RPC missing and fallback failed. Forcing ensure_user_organization backup...');
-          const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
-          if (!ensureErr && ensureData?.success) {
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Delay maior para garantir propagação
-            retryCountRef.current = 1;
-            loadOrganizationData(true);
-            return;
-          }
-        }
-
-        // Retentativas genéricas para erros temporários
-        if (!isMissingRpc && retryCountRef.current < MAX_RETRIES) {
-          console.log(`[ORG] Temporary error, retrying... Attempt ${retryCountRef.current + 1}/${MAX_RETRIES}`);
+        if (retryCountRef.current < MAX_RETRIES) {
           retryCountRef.current += 1;
           setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
           return;
         }
 
-        // Se chegarmos aqui, desistimos para não travar o app
         setIsInitialized(true);
         setPermissions(prev => ({ ...prev, loading: false }));
         return;
@@ -475,49 +467,47 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
       if (memberships && memberships.length > 0) {
         retryCountRef.current = 0;
-        const formattedMemberships: OrganizationMembership[] = memberships.map((m: any) => ({
-          organization_id: m.organization_id,
-          role: m.role as 'owner' | 'admin' | 'member',
+
+        // ============================================================
+        // CRITICAL SECURITY: Always use ONLY the FIRST membership.
+        // A user must have exactly 1 organization.
+        // If there are somehow multiple, use only the first one (owner preferred).
+        // ============================================================
+        const sortedMemberships = [...memberships].sort((a: any, b: any) => {
+          // Prefer owner role
+          if (a.role === 'owner' && b.role !== 'owner') return -1;
+          if (b.role === 'owner' && a.role !== 'owner') return 1;
+          // Then admin
+          if (a.role === 'admin' && b.role === 'member') return -1;
+          if (b.role === 'admin' && a.role === 'member') return 1;
+          return 0;
+        });
+
+        // Take ONLY the single best membership
+        const primaryMembership = sortedMemberships[0];
+
+        if (memberships.length > 1) {
+          console.warn(`[ORG] SECURITY: User ${user.email} has ${memberships.length} memberships. Enforcing single-org isolation - using only primary org.`);
+        }
+
+        const formattedMemberships: OrganizationMembership[] = [{
+          organization_id: primaryMembership.organization_id,
+          role: primaryMembership.role as 'owner' | 'admin' | 'member',
           organizations: {
-            id: m.organization_id,
-            name: m.organization_name
+            id: primaryMembership.organization_id,
+            name: primaryMembership.organization_name
           }
-        }));
+        }];
 
         setAvailableOrganizations(formattedMemberships);
 
-        let targetOrgId = selectedOrgId;
-        if (!targetOrgId) {
-          const cachedData = getOrgCache(user.id);
-          if (cachedData?.selectedOrganizationId) {
-            const stillAvailable = formattedMemberships.find(m => m.organization_id === cachedData.selectedOrganizationId);
-            if (stillAvailable) targetOrgId = cachedData.selectedOrganizationId;
-          }
-        }
+        const targetOrgId = primaryMembership.organization_id;
 
-        if (!targetOrgId && formattedMemberships.length > 1) {
-          setNeedsOrgSelection(true);
-          setIsInitialized(true);
-          setPermissions(prev => ({ ...prev, loading: false }));
-          return;
-        } else {
-          setNeedsOrgSelection(false);
-        }
-
-        if (!targetOrgId) {
-          const sorted = [...formattedMemberships].sort((a, b) => {
-            const order = { owner: 0, admin: 1, member: 2 };
-            return order[a.role] - order[b.role];
-          });
-          targetOrgId = sorted[0].organization_id;
-        }
-
-        // Sync and finalize
+        // Sync active org to backend for RLS
         await supabase.rpc('set_user_active_organization', { _org_id: targetOrgId });
         setOrganizationId(targetOrgId);
 
-        const selectedM = formattedMemberships.find(m => m.organization_id === targetOrgId);
-        const role = selectedM?.role || null;
+        const role = primaryMembership.role as 'owner' | 'admin' | 'member';
         const customPerms = role === 'member' ? await fetchCustomRolePermissions(targetOrgId) : null;
 
         const perms = calculatePermissions(role, customPerms);
@@ -527,22 +517,19 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         dataLoadedRef.current = true;
         refreshSubscription(targetOrgId);
       } else {
-        // Nenhuma org encontrada. Tentar criar automaticamente.
+        // No org found. Try to create one automatically.
         console.log('[ORG] No memberships found. Potential orphan user.');
 
-        // Tentar criar via RPC
         try {
           const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
 
           if (!ensureErr && ensureData?.success) {
             console.log('[ORG] New organization created for orphan user, refreshing...');
-            // Recarregar imediatamente para pegar a nova org nas memberships
             await loadOrganizationData(true);
             return;
-          } else if (ensureErr || !ensureData?.success) {
+          } else {
             console.error('[ORG] Automatic workspace creation failed:', ensureErr || ensureData?.error);
 
-            // Se falhou e ainda temos tentativas, tentar novamente com delay
             if (retryCountRef.current < MAX_RETRIES) {
               retryCountRef.current += 1;
               setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
@@ -553,8 +540,6 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           console.error('[ORG] Exception during automatic creation:', e);
         }
 
-        // Caso final: realmente sem org após tentativas. 
-        // Libera para o redirecionamento do roteador (/pricing).
         console.warn('[ORG] Cleanup: User definitively has no organizations after retries.');
         setIsInitialized(true);
         setPermissions(prev => ({ ...prev, loading: false }));
@@ -566,202 +551,66 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   }, [user, refreshSubscription]);
 
-  // Ref para prevenir cliques duplos durante seleção
-  const isProcessingSelection = useRef(false);
-
-  // Sync active organization to backend for RLS
-  const syncActiveOrgToBackend = useCallback(async (orgId: string): Promise<boolean> => {
-    try {
-      console.log('[ORG] Syncing active organization to backend:', orgId);
-      const { data, error } = await supabase.rpc('set_user_active_organization', {
-        _org_id: orgId
-      });
-
-      if (error) {
-        console.error('[ORG] Failed to sync active org to backend:', error);
-        return false;
-      }
-
-      console.log('[ORG] Active organization synced successfully:', data);
-      return data === true;
-    } catch (error) {
-      console.error('[ORG] Error syncing active org:', error);
-      return false;
-    }
+  // DISABLED: Organization switching is not allowed.
+  // Each account has exactly one organization - no switching permitted.
+  const switchOrganization = useCallback(async (_orgId: string) => {
+    console.warn('[ORG] SECURITY: switchOrganization is disabled. Each account has exactly one organization.');
   }, []);
 
-  const handleOrgSelect = useCallback(async (orgId: string) => {
-    // Prevenir cliques duplos
-    if (!user || isProcessingSelection.current) {
-      console.log('[ORG] Ignoring selection - already processing or no user');
-      return;
-    }
-
-    isProcessingSelection.current = true;
-    console.log('[ORG] Processing organization selection:', orgId);
-
-    const targetMembership = availableOrganizations.find(
-      m => m.organization_id === orgId
-    );
-
-    if (!targetMembership) {
-      console.error('[ORG] Organization not found in available organizations');
-      isProcessingSelection.current = false;
-      return;
-    }
-
-    try {
-      // CRITICAL: Sync to backend FIRST before any data loads
-      // This ensures RLS policies will use the correct organization
-      const syncSuccess = await syncActiveOrgToBackend(orgId);
-      if (!syncSuccess) {
-        console.error('[ORG] Backend sync FAILED for organization:', orgId);
-        // Se o sync falhou e o usuário tem múltiplas orgs, NÃO continuar
-        // porque as queries subsequentes vão falhar com 403
-        if (availableOrganizations.length > 1) {
-          console.warn('[ORG] Multi-org user sync failed - keeping selection modal open');
-          isProcessingSelection.current = false;
-          // Não fechar o modal, deixar usuário tentar novamente
-          return;
-        }
-        // Para usuário de org única, continuar mesmo com falha (fallback)
-        console.warn('[ORG] Single-org user - continuing despite sync failure');
-      }
-
-      const role = targetMembership.role;
-
-      // Fetch custom role permissions for members
-      let customRolePerms: CustomRolePermissions | null = null;
-      if (role === 'member') {
-        customRolePerms = await fetchCustomRolePermissions(orgId);
-      }
-
-      // Calculate full permissions
-      const newPermissions = calculatePermissions(role, customRolePerms);
-
-      // Salvar no cache ANTES de atualizar estados (crítico para evitar race conditions)
-      setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
-
-      // Atualizar todos os estados de forma síncrona
-      setOrganizationId(orgId);
-      setPermissions(newPermissions);
-      setNeedsOrgSelection(false);
-      setIsInitialized(true);
-      dataLoadedRef.current = true;
-
-      console.log('[ORG] Organization selected successfully:', orgId);
-
-      // Atualizar subscription em background
-      refreshSubscription(orgId);
-    } catch (error) {
-      console.error('[ORG] Error during organization selection:', error);
-    } finally {
-      // Delay para garantir que estados propagaram antes de permitir nova seleção
-      setTimeout(() => {
-        isProcessingSelection.current = false;
-      }, 500);
-    }
-  }, [user, availableOrganizations, refreshSubscription, syncActiveOrgToBackend]);
-
-  const switchOrganization = useCallback(async (orgId: string) => {
-    if (!user) return;
-
-    console.log('[ORG] Switching to organization:', orgId);
-
-    const targetMembership = availableOrganizations.find(
-      m => m.organization_id === orgId
-    );
-
-    if (!targetMembership) {
-      console.error('[ORG] Organization not found in available organizations');
-      return;
-    }
-
-    // CRITICAL: Sync to backend FIRST before any data loads
-    // This ensures RLS policies will use the correct organization
-    const syncSuccess = await syncActiveOrgToBackend(orgId);
-    if (!syncSuccess) {
-      console.warn('[ORG] Backend sync failed during switch, but continuing');
-    }
-
-    setOrganizationId(orgId);
-
-    const role = targetMembership.role;
-
-    // Fetch custom role permissions for members
-    let customRolePerms: CustomRolePermissions | null = null;
-    if (role === 'member') {
-      customRolePerms = await fetchCustomRolePermissions(orgId);
-    }
-
-    const newPermissions = calculatePermissions(role, customRolePerms);
-    setPermissions(newPermissions);
-
-    // Atualizar cache com a nova seleção
-    setOrgCache(orgId, availableOrganizations, newPermissions, user.id);
-
-    // IMPORTANTE: Atualizar subscription com a nova organização
-    console.log('[ORG] Refreshing subscription after org switch:', orgId);
-    await refreshSubscription(orgId);
-  }, [user, availableOrganizations, refreshSubscription, syncActiveOrgToBackend]);
-
-  // Safety timeout para garantir que o usuário NUNCA fique preso na tela de carregamento
+  // Safety timeout to prevent user from being stuck on loading screen
   useEffect(() => {
     if (user?.id && !isInitialized) {
       const timer = setTimeout(() => {
         if (!isInitialized) {
-          console.warn('[ORG] Safety timeout! Forçando inicialização para evitar tela trancada.');
+          console.warn('[ORG] Safety timeout! Forcing initialization to avoid locked screen.');
           setIsInitialized(true);
           setPermissions(prev => ({ ...prev, loading: false }));
         }
-      }, 5000); // 5 segundos de limite máximo
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [user?.id, isInitialized]);
 
-  // Initial load with cache - OPTIMIZED: Wait for initialization before rendering
+  // Initial load with cache
   useEffect(() => {
     if (!user?.id) {
       setPermissions(prev => ({ ...prev, loading: false }));
       setOrganizationId(null);
       setAvailableOrganizations([]);
-      setNeedsOrgSelection(false);
       setIsInitialized(true);
       return;
     }
 
-    // Try to load from cache FIRST (load instantâneo)
+    // Try to load from cache FIRST (instant load)
     const cachedData = getOrgCache(user.id);
     if (cachedData) {
       console.log('[ORG] Restoring from cache on mount - instant load');
       setOrganizationId(cachedData.selectedOrganizationId);
-      setAvailableOrganizations(cachedData.availableOrganizations);
+      // Enforce single org even from cache
+      setAvailableOrganizations(cachedData.availableOrganizations.slice(0, 1));
       setPermissions({ ...cachedData.permissions, loading: false });
-      setNeedsOrgSelection(false);
       setIsInitialized(true);
       dataLoadedRef.current = true;
 
-      // Refresh in background silently - stored in ref so it can be cancelled
+      // Refresh in background silently
       backgroundRefreshTimerRef.current = setTimeout(() => loadOrganizationData(true), 100);
     } else {
-      // SEM CACHE: Manter isInitialized=false até dados chegarem
+      // No cache: keep isInitialized=false until data arrives
       console.log('[ORG] No cache - loading data from API');
       setIsInitialized(false);
-
-      // Carregar dados reais - isInitialized será setado quando completar
       loadOrganizationData();
     }
 
     return () => {
-      // Cancel any pending background refresh to prevent setState after unmount
       if (backgroundRefreshTimerRef.current) {
         clearTimeout(backgroundRefreshTimerRef.current);
         backgroundRefreshTimerRef.current = null;
       }
     };
-  }, [user?.id]); // Only depend on user.id to avoid re-running on every user object change
+  }, [user?.id]);
 
   const refresh = useCallback(async () => {
+    clearOrgCache();
     await loadOrganizationData(true);
   }, [loadOrganizationData]);
 
@@ -772,17 +621,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       availableOrganizations,
       switchOrganization,
       refresh,
-      needsOrgSelection,
+      needsOrgSelection: false, // ALWAYS FALSE: org selection is disabled
       isInitialized
     }}>
-      {/* GATE GLOBAL: Modal de seleção de organização */}
-      {user && needsOrgSelection && availableOrganizations.length > 1 && (
-        <OrganizationSelectorModal
-          open={true}
-          organizations={availableOrganizations}
-          onSelect={handleOrgSelect}
-        />
-      )}
+      {/* NO ORGANIZATION SELECTOR MODAL: Each account has exactly one organization */}
       {children}
     </OrganizationContext.Provider>
   );
@@ -792,7 +634,7 @@ export function useOrganization() {
   return useContext(OrganizationContext);
 }
 
-// Hook de compatibilidade para código existente
+// Backward compatibility hook for existing code
 export function useOrganizationPermissions() {
   const { permissions } = useOrganization();
   return permissions;

@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useOrganization } from "@/contexts/OrganizationContext";
 
 // Detect delimiter automatically (TAB, semicolon, comma)
 const detectDelimiter = (text: string): string => {
@@ -88,7 +89,6 @@ const parseCSV = (text: string): any[] => {
 interface ImportLeadsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  organizationId?: string | null;
 }
 
 interface FieldMapping {
@@ -136,8 +136,9 @@ const CRM_FIELDS = [
   { value: "additional_data", label: "→ Dados Adicionais" },
 ];
 
-export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportLeadsModalProps) {
+export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) {
   const { toast } = useToast();
+  const { organizationId } = useOrganization();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<any[]>([]);
@@ -255,17 +256,20 @@ export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportL
       
       setMappings(autoMappings);
       
-      // Load funnels for step 3 — filtrar por organização quando disponível
-      let funnelQuery = supabase
+      // Load funnels for step 3 — filter by organization to avoid cross-org contamination
+      const funnelQuery = supabase
         .from("sales_funnels")
         .select("id, name, is_default")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("is_default", { ascending: false });
 
-      if (organizationId) {
-        funnelQuery = funnelQuery.eq("organization_id", organizationId);
+      // If organizationId is available, restrict to the user's org
+      const currentOrgId = organizationId;
+      if (currentOrgId) {
+        funnelQuery.eq("organization_id", currentOrgId);
       }
 
-      const { data: funnelData } = await funnelQuery.order("is_default", { ascending: false });
+      const { data: funnelData } = await funnelQuery;
       
       setFunnels(funnelData || []);
       if (funnelData && funnelData.length > 0) {
@@ -295,7 +299,7 @@ export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportL
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [toast, organizationId]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -366,7 +370,7 @@ export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportL
         source: "Importação",
         funnel_id: selectedFunnel || null,
         funnel_stage_id: selectedStage || null,
-        ...(organizationId ? { organization_id: organizationId } : {}),
+        organization_id: organizationId || null,
       };
       const additionalData: Record<string, any> = {};
       
@@ -412,6 +416,32 @@ export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportL
 
   const handleImport = async () => {
     if (!validateMappings()) return;
+
+    // Validate funnel/stage selection
+    if (!selectedFunnel) {
+      toast({
+        title: "Funil não selecionado",
+        description: "Selecione o funil de destino antes de importar",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!selectedStage) {
+      toast({
+        title: "Etapa não selecionada",
+        description: "Selecione a etapa inicial antes de importar",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!organizationId) {
+      toast({
+        title: "Organização não identificada",
+        description: "Recarregue a página e tente novamente",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setImporting(true);
     setImportProgress(0);
@@ -433,35 +463,34 @@ export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportL
       return;
     }
     
-    // Processamento controlado: 1 lead por vez com delay entre cada inserção
-    const DELAY_MS = 1500; // 1.5 segundos entre cada lead
+    // Inserção em lote: divide em chunks de 25 para não sobrecarregar a API
+    const CHUNK_SIZE = 25;
     let successCount = 0;
     let errorCount = 0;
     const errorDetails: string[] = [];
 
-    for (let i = 0; i < validLeads.length; i++) {
-      const lead = validLeads[i];
+    for (let i = 0; i < validLeads.length; i += CHUNK_SIZE) {
+      const chunk = validLeads.slice(i, i + CHUNK_SIZE);
 
       try {
-        const { data, error } = await supabase.from("leads").insert([lead]).select();
+        const { data, error } = await supabase.from("leads").insert(chunk).select();
 
         if (error) {
-          errorCount += 1;
-          errorDetails.push(`Lead ${i + 1} (${lead.nome_lead}): ${error.message}`);
+          errorCount += chunk.length;
+          chunk.forEach((lead, idx) => {
+            errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${error.message}`);
+          });
         } else {
           successCount += data?.length || 0;
         }
       } catch (err: any) {
-        errorCount += 1;
-        errorDetails.push(`Lead ${i + 1} (${lead.nome_lead}): ${err.message}`);
+        errorCount += chunk.length;
+        chunk.forEach((lead, idx) => {
+          errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${err.message}`);
+        });
       }
 
-      setImportProgress(Math.round(((i + 1) / validLeads.length) * 100));
-
-      // Delay entre cada lead para não sobrecarregar o banco
-      if (i < validLeads.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-      }
+      setImportProgress(Math.round((Math.min(i + CHUNK_SIZE, validLeads.length) / validLeads.length) * 100));
     }
     
     setImportResults({ success: successCount, errors: errorCount, errorDetails });
@@ -679,8 +708,7 @@ export function ImportLeadsModal({ open, onOpenChange, organizationId }: ImportL
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                 <span>
-                  O processamento é feito de forma controlada (1 lead a cada 1,5s) para não sobrecarregar o sistema. Tempo estimado:{" "}
-                  <strong>~{Math.ceil((parsedData.length * 1.5) / 60)} min</strong>. Aguarde a conclusão sem fechar esta janela.
+                  Os leads serão inseridos em lote. Aguarde a conclusão sem fechar esta janela.
                 </span>
               </div>
             </div>

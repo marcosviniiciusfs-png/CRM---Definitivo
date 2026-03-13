@@ -186,7 +186,19 @@ Deno.serve(async (req) => {
       `&fb_exchange_token=${tokenData.access_token}`
     );
     const longLivedData = await longLivedResponse.json();
-    const accessToken = longLivedData.access_token || tokenData.access_token;
+    console.log('🔍 [FB-CALLBACK] Resposta do long-lived token:', {
+      hasToken: !!longLivedData.access_token,
+      expiresIn: longLivedData.expires_in,
+      error: longLivedData.error?.message
+    });
+
+    if (!longLivedData.access_token) {
+      throw new Error(
+        `Falha ao obter token de longa duração do Facebook: ${longLivedData.error?.message || 'Resposta inválida'}`
+      );
+    }
+
+    const accessToken = longLivedData.access_token;
 
     // 3. Buscar páginas do usuário
     console.log('🔄 [FB-CALLBACK] Buscando páginas gerenciadas...');
@@ -206,8 +218,18 @@ Deno.serve(async (req) => {
     console.log(`💾 [FB-CALLBACK] Salvando integração para página: ${selectedPage.name} (${selectedPage.id})`);
 
     const supabase = createClient(SUPABASE_URL ?? '', SUPABASE_SERVICE_ROLE_KEY ?? '');
+    // Garantir pelo menos 60 dias de validade (5184000s).
+    // Se o Facebook retornar expires_in suspeito (< 1h), usamos o fallback para evitar
+    // tokens curtos sendo armazenados silenciosamente.
+    const SIXTY_DAYS = 5184000;
+    const ONE_HOUR = 3600;
+    const rawExpiresIn = longLivedData.expires_in;
+    const expiresIn = (rawExpiresIn && rawExpiresIn > ONE_HOUR) ? rawExpiresIn : SIXTY_DAYS;
+    if (rawExpiresIn && rawExpiresIn <= ONE_HOUR) {
+      console.warn(`⚠️ [FB-CALLBACK] Facebook retornou expires_in suspeito (${rawExpiresIn}s). Usando fallback de 60 dias.`);
+    }
     const expiresAt = new Date();
-    expiresAt.setSeconds(expiresAt.getSeconds() + (longLivedData.expires_in || 5184000));
+    expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
     const encryptedMainToken = await encryptToken(accessToken, ENCRYPTION_KEY);
 

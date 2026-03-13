@@ -87,6 +87,10 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
                     // SEGURANÇA: Apenas notificar leads da organização correta
                     if (lead.organization_id !== organizationId) return;
 
+                    // Suprimir notificação para leads importados em lote
+                    if ((lead.source || '').toLowerCase() === 'importação' ||
+                        (lead.source || '').toLowerCase() === 'importacao') return;
+
                     // Buscar nome do funil
                     let funnelName = 'Funil Padrão';
                     if (lead.funnel_id) {
