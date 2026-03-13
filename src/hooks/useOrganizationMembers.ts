@@ -63,14 +63,17 @@ export function useOrganizationMembers(organizationId?: string | null) {
         }
       }
 
-      // Combinar dados — prioridade: profiles > display_name > email
+      // Combinar dados — prioridade: profiles > display_name > full_name da RPC (auth.users metadata + email prefix) > null
       return members.map((member: any) => ({
         ...member,
         full_name:
           (member.user_id && profilesMap[member.user_id]?.full_name) ||
           (member as any).display_name ||
+          member.full_name ||  // RPC já fez COALESCE: profiles > auth.users metadata > display_name > email prefix
           null,
-        avatar_url: member.user_id && profilesMap[member.user_id]?.avatar_url || null,
+        avatar_url:
+          (member.user_id && profilesMap[member.user_id]?.avatar_url) ||
+          null,
       }));
     },
     enabled: true,
@@ -123,13 +126,16 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
     }
   }
 
-  // Combinar dados — prioridade: profiles > display_name > email
+  // Combinar dados — prioridade: profiles > display_name > full_name da RPC (auth.users metadata + email prefix) > null
   return members.map((member: any) => ({
     ...member,
     full_name:
       (member.user_id && profilesMap[member.user_id]?.full_name) ||
       (member as any).display_name ||
+      member.full_name ||  // RPC já fez COALESCE: profiles > auth.users metadata > display_name > email prefix
       null,
-    avatar_url: member.user_id && profilesMap[member.user_id]?.avatar_url || null,
+    avatar_url:
+      (member.user_id && profilesMap[member.user_id]?.avatar_url) ||
+      null,
   }));
 }
