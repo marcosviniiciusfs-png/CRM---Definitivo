@@ -180,13 +180,43 @@ serve(async (req) => {
       );
     }
 
-    // 7. Atribuir lead ao agente - ATUALIZADO: usar UUID + TEXT para compatibilidade
+    // 7. Atribuir lead ao agente e mover para o funil/estágio correto da roleta
+    const leadUpdate: Record<string, any> = {
+      responsavel_user_id: selectedAgent.user_id,
+      responsavel: selectedAgent.full_name || selectedAgent.email, // Mantém TEXT para compatibilidade
+    };
+
+    // Se a config tem funil definido, mover o lead para o funil/estágio correto
+    if (config.funnel_id) {
+      leadUpdate.funnel_id = config.funnel_id;
+
+      if (config.funnel_stage_id) {
+        // Usar estágio específico definido na roleta
+        leadUpdate.funnel_stage_id = config.funnel_stage_id;
+        console.log(`Setting funnel_id=${config.funnel_id}, funnel_stage_id=${config.funnel_stage_id} (from config)`);
+      } else {
+        // Buscar o primeiro estágio ativo do funil (menor position, sem won/lost)
+        const { data: firstStage } = await supabase
+          .from('funnel_stages')
+          .select('id, name, position')
+          .eq('funnel_id', config.funnel_id)
+          .not('stage_type', 'in', '("won","lost")')
+          .order('position', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (firstStage) {
+          leadUpdate.funnel_stage_id = firstStage.id;
+          console.log(`Setting funnel_id=${config.funnel_id}, funnel_stage_id=${firstStage.id} (first stage: "${firstStage.name}")`);
+        } else {
+          console.log(`Funnel ${config.funnel_id} has no active stages, skipping funnel_stage_id`);
+        }
+      }
+    }
+
     const { error: updateError } = await supabase
       .from('leads')
-      .update({ 
-        responsavel_user_id: selectedAgent.user_id,
-        responsavel: selectedAgent.full_name || selectedAgent.email // Mantém TEXT para compatibilidade
-      })
+      .update(leadUpdate)
       .eq('id', lead_id);
 
     if (updateError) {
