@@ -1,8 +1,8 @@
-import { memo } from "react";
+import React, { memo, useState, useCallback } from "react";
 import { Lead } from "@/types/chat";
 import { PresenceInfo } from "./types";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
-import { Phone, Pin, User } from "lucide-react";
+import { Phone, Pin, User, Copy, Check } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { LeadTagsBadge } from "@/components/LeadTagsBadge";
 
@@ -22,6 +22,28 @@ interface ChatLeadItemProps {
   onClick: () => void;
   onAvatarClick: (url: string, name: string) => void;
 }
+
+const CopyPhoneButton: React.FC<{ phone: string }> = ({ phone }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(phone).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [phone]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="opacity-0 group-hover/phone:opacity-100 transition-opacity ml-0.5 text-muted-foreground hover:text-foreground flex-shrink-0"
+      title="Copiar número"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+};
 
 export const ChatLeadItem = memo(function ChatLeadItem({
   lead,
@@ -93,9 +115,12 @@ export const ChatLeadItem = memo(function ChatLeadItem({
             <LeadTagsBadge leadId={lead.id} version={tagVersion} />
           </div>
         </div>
-        <p className="text-sm text-muted-foreground flex items-center gap-1 truncate">
+        <p className="text-sm text-muted-foreground flex items-center gap-1 truncate group/phone">
           <Phone className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">{formatPhoneNumber(lead.telefone_lead)}</span>
+          {lead.telefone_lead && (
+            <CopyPhoneButton phone={lead.telefone_lead} />
+          )}
         </p>
         {responsibleInfo && (
           <div className="flex items-center gap-1.5 mt-0.5">
