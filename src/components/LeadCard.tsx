@@ -1,9 +1,9 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect, CSSProperties, memo } from "react";
+import { useState, useEffect, CSSProperties, memo, useCallback } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +37,28 @@ const ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
 // Mapa de ícones customizados (não-lucide)
 const customIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Tooth: ToothIcon,
+};
+
+const CopyPhoneButton: React.FC<{ phone: string }> = ({ phone }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(phone).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [phone]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="opacity-0 group-hover/phone:opacity-100 transition-opacity ml-0.5 text-muted-foreground hover:text-foreground flex-shrink-0"
+      title="Copiar número"
+    >
+      {copied ? <Check className="h-2.5 w-2.5 text-green-500" /> : <Copy className="h-2.5 w-2.5" />}
+    </button>
+  );
 };
 
 export interface BaseLeadCardProps {
@@ -301,9 +323,12 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
         </div>
 
         <div className="space-y-0.5 pl-2">
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground group/phone">
             <Phone className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{phone}</span>
+            {phone && (
+              <CopyPhoneButton phone={phone} />
+            )}
           </div>
           <div className="flex items-center justify-between gap-1">
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
