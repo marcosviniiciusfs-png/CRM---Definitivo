@@ -169,7 +169,8 @@ serve(async (req) => {
       supabase,
       availableAgents,
       config.distribution_method,
-      organization_id
+      organization_id,
+      config.id  // config_id para isolar round-robin por roleta
     );
 
     if (!selectedAgent) {
@@ -233,6 +234,7 @@ serve(async (req) => {
       .insert({
         lead_id,
         organization_id,
+        config_id: config.id,  // isola o round-robin por roleta
         from_user_id: from_user_id || null,
         to_user_id: selectedAgent.user_id,
         distribution_method: config.distribution_method,
@@ -241,7 +243,11 @@ serve(async (req) => {
       });
 
     if (historyError) {
-      console.error('Error recording history:', historyError);
+      // Logar detalhes completos para diagnóstico
+      console.error('[HISTORY] Error recording distribution history:', JSON.stringify(historyError));
+      console.error('[HISTORY] Attempted insert: lead_id=' + lead_id + ' org=' + organization_id + ' to=' + selectedAgent.user_id + ' config=' + config.id);
+    } else {
+      console.log('[HISTORY] Distribution recorded: lead=' + lead_id + ' → agent=' + selectedAgent.user_id + ' (config=' + config.id + ')');
     }
 
     console.log('Lead distributed successfully to:', selectedAgent.full_name || selectedAgent.email, '(UUID:', selectedAgent.user_id, ')');
@@ -412,41 +418,57 @@ async function selectAgent(
   supabase: any,
   agents: any[],
   method: string,
-  organization_id: string
+  organization_id: string,
+  config_id?: string
 ) {
   switch (method) {
     case 'round_robin':
-      return selectRoundRobin(supabase, agents, organization_id);
-    
+      return selectRoundRobin(supabase, agents, organization_id, config_id);
+
     case 'weighted':
       return selectWeighted(agents);
-    
+
     case 'load_based':
       return selectLoadBased(agents);
-    
+
     case 'random':
       return selectRandom(agents);
-    
+
     default:
-      return selectRoundRobin(supabase, agents, organization_id);
+      return selectRoundRobin(supabase, agents, organization_id, config_id);
   }
 }
 
-async function selectRoundRobin(supabase: any, agents: any[], organization_id: string) {
-  // Buscar os últimos 50 registros de distribuição para encontrar o último agente disponível
+async function selectRoundRobin(supabase: any, agents: any[], organization_id: string, config_id?: string) {
+  // Buscar os últimos 50 registros de distribuição desta ROLETA ESPECÍFICA
+  // Filtrar por config_id garante que rolettas distintas não interferem entre si
   // (agents[] já está ordenado por user_id — ordem estável garantida pelo getAvailableAgents)
-  const { data: recentHistory } = await supabase
+  let historyQuery = supabase
     .from('lead_distribution_history')
     .select('to_user_id')
     .eq('organization_id', organization_id)
     .order('created_at', { ascending: false })
     .limit(50);
 
+  // Filtrar por esta roleta se config_id estiver disponível
+  if (config_id) {
+    historyQuery = historyQuery.eq('config_id', config_id);
+  }
+
+  const { data: recentHistory, error: historyFetchError } = await historyQuery;
+
+  if (historyFetchError) {
+    console.error('[RoundRobin] Error fetching history:', JSON.stringify(historyFetchError));
+  }
+
   if (!recentHistory || recentHistory.length === 0) {
     // Sem histórico: começar pelo primeiro agente
-    console.log('[RoundRobin] No history found, starting from agents[0]');
+    console.log(`[RoundRobin] No history found (config_id=${config_id || 'none'}), starting from agents[0]: ${agents[0]?.user_id}`);
     return agents[0];
   }
+
+  console.log(`[RoundRobin] Found ${recentHistory.length} history records. Last to_user_id: ${recentHistory[0]?.to_user_id}`);
+  console.log(`[RoundRobin] Available agents (${agents.length}): ${agents.map(a => a.user_id).join(', ')}`);
 
   // Percorrer o histórico recente e encontrar o ÚLTIMO agente que ainda está disponível
   // Isso corrige o bug onde findIndex retorna -1 (agente cheio/pausado) causando nextIndex=0 sempre
@@ -462,7 +484,7 @@ async function selectRoundRobin(supabase: any, agents: any[], organization_id: s
   }
 
   // Nenhum agente do histórico recente está disponível — começar do início
-  console.log('[RoundRobin] No recent history agent is available, starting from agents[0]');
+  console.log('[RoundRobin] No recent history agent is available, starting from agents[0]:', agents[0]?.user_id);
   return agents[0];
 }
 
