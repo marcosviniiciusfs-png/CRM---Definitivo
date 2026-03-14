@@ -140,40 +140,19 @@ serve(async (req) => {
         )
       }
     } else {
-      const { error: preInsertError } = await supabaseAdmin
-        .from('organization_members')
-        .insert({
-          organization_id: organizationId,
-          user_id: null,
-          role,
-          email: emailLower,
-          display_name: name.trim(),
-          custom_role_id: custom_role_id || null
-        })
-
-      if (preInsertError) {
-        console.error('Erro no pré-cadastro:', preInsertError)
-        return new Response(
-          JSON.stringify({ error: 'Não foi possível preparar o cadastro do colaborador' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        )
-      }
-
+      // Cria o usuário primeiro para ter o user_id real antes de inserir na tabela
+      // (evita trigger de subscription falhar com user_id = null)
       const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
         email: emailLower,
         password,
         email_confirm: true,
-        user_metadata: { name: name.trim(), full_name: name.trim() }
+        // is_collaborator: true evita que o trigger handle_new_user crie
+        // uma organização própria para este usuário convidado
+        user_metadata: { name: name.trim(), full_name: name.trim(), is_collaborator: true }
       })
 
       if (signUpError || !newUser?.user) {
-        await supabaseAdmin
-          .from('organization_members')
-          .delete()
-          .eq('email', emailLower)
-          .eq('organization_id', organizationId)
-          .is('user_id', null)
-
+        console.error('Erro ao criar usuário:', signUpError)
         return new Response(
           JSON.stringify({ error: signUpError?.message || 'Não foi possível criar o usuário' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -183,12 +162,28 @@ serve(async (req) => {
       userId = newUser.user.id
       console.log('Novo usuário criado:', userId)
 
-      await supabaseAdmin
+      // Agora insere o membro com o user_id real (sem null)
+      const { error: memberInsertError } = await supabaseAdmin
         .from('organization_members')
-        .update({ user_id: userId, is_active: true })
-        .eq('email', emailLower)
-        .eq('organization_id', organizationId)
-        .is('user_id', null)
+        .insert({
+          organization_id: organizationId,
+          user_id: userId,
+          role,
+          email: emailLower,
+          display_name: name.trim(),
+          custom_role_id: custom_role_id || null,
+          is_active: true
+        })
+
+      if (memberInsertError) {
+        console.error('Erro ao inserir membro:', memberInsertError)
+        // Compensação: remove o usuário criado
+        await supabaseAdmin.auth.admin.deleteUser(userId)
+        return new Response(
+          JSON.stringify({ error: 'Não foi possível adicionar o colaborador à organização' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
 
       await supabaseAdmin
         .from('profiles')

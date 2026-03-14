@@ -89,13 +89,7 @@ const FunnelBuilder = () => {
         return;
       }
 
-      // Deletar stages primeiro
-      await supabase
-        .from("funnel_stages")
-        .delete()
-        .eq("funnel_id", deletingFunnel.id);
-
-      // Deletar funil
+      // Deletar funil (as etapas são removidas automaticamente por CASCADE)
       const { error } = await supabase
         .from("sales_funnels")
         .delete()
@@ -294,7 +288,10 @@ const FunnelBuilder = () => {
         open={showDialog}
         onOpenChange={(open) => {
           setShowDialog(open);
-          if (!open) setEditingFunnel(null);
+          if (!open) {
+            setEditingFunnel(null);
+            loadFunnels();
+          }
         }}
         funnel={editingFunnel}
         onSuccess={() => {
