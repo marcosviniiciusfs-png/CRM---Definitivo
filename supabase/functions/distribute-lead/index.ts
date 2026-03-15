@@ -12,6 +12,8 @@ interface DistributeLeadRequest {
   trigger_source: 'new_lead' | 'whatsapp' | 'facebook' | 'webhook' | 'manual' | 'auto_redistribution';
   is_redistribution?: boolean;
   from_user_id?: string;
+  /** Token do formulário/webhook de origem (para roletas específicas por formulário) */
+  webhook_token?: string;
 }
 
 serve(async (req) => {
@@ -25,14 +27,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { lead_id, organization_id, trigger_source, is_redistribution, from_user_id } = await req.json() as DistributeLeadRequest;
+    const { lead_id, organization_id, trigger_source, is_redistribution, from_user_id, webhook_token } = await req.json() as DistributeLeadRequest;
 
     console.log('Distributing lead:', { lead_id, organization_id, trigger_source });
 
-    // 1. Buscar lead para identificar o source
+    // 1. Buscar lead para identificar o source e o funil atual
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('source')
+      .select('source, funnel_id')
       .eq('id', lead_id)
       .single();
 
@@ -44,8 +46,10 @@ serve(async (req) => {
       );
     }
 
-    // 2. Buscar configuração específica da roleta baseada no source do lead
+    // 2. Buscar configuração da roleta usando hierarquia de especificidade:
+    //    (source_type + funnel_id) → (source_type sem funil) → (all + funnel_id) → (all genérico)
     const leadSource = lead.source?.toLowerCase() || '';
+    const leadFunnelId: string | null = lead.funnel_id || null;
     let sourceType = 'all';
     
     if (leadSource.includes('whatsapp')) {
@@ -56,29 +60,121 @@ serve(async (req) => {
       sourceType = 'webhook';
     }
 
-    console.log(`Lead source: "${lead.source}" → mapped to sourceType: "${sourceType}"`);
+    console.log(`Lead source: "${lead.source}" → sourceType: "${sourceType}", funnel_id: ${leadFunnelId || 'none'}`);
 
-    // Tentar buscar config específica para o source, senão buscar config 'all'
-    let { data: config, error: configError } = await supabase
-      .from('lead_distribution_configs')
-      .select('*')
-      .eq('organization_id', organization_id)
-      .eq('source_type', sourceType)
-      .eq('is_active', true)
-      .maybeSingle();
+    let config: any = null;
 
-    // Se não encontrou config específica, buscar config 'all'
-    if (!config) {
-      console.log(`No specific config for "${sourceType}", trying "all"`);
-      const { data: allConfig } = await supabase
+    // ── Hierarquia de busca de roleta (mais específica → mais genérica) ──
+    // A roleta mais específica ganha. Prioridades:
+    //   P1: webhook_token exato + funil
+    //   P2: webhook_token exato (sem funil)
+    //   P3: source_type + funil
+    //   P4: source_type sem funil
+    //   P5: "all" + funil
+    //   P6: "all" genérica
+
+    const candidateQueries: Array<{ label: string; promise: Promise<{ data: any }> }> = [];
+
+    // P1 & P2: Roleta específica pelo token do webhook (source_identifiers contém o token)
+    if (webhook_token && sourceType === 'webhook') {
+      // Buscar todas as configs de webhook ativas da org
+      const { data: webhookConfigs } = await supabase
         .from('lead_distribution_configs')
         .select('*')
         .eq('organization_id', organization_id)
-        .eq('source_type', 'all')
-        .eq('is_active', true)
-        .maybeSingle();
-      
-      config = allConfig;
+        .eq('source_type', 'webhook')
+        .eq('is_active', true);
+
+      const matchingByToken = (webhookConfigs || []).filter((c: any) => {
+        const ids: string[] = Array.isArray(c.source_identifiers) ? c.source_identifiers : [];
+        return ids.includes(webhook_token);
+      });
+
+      console.log(`Configs webhook com token "${webhook_token}": ${matchingByToken.length}`);
+
+      // P1: token + funil específico
+      if (leadFunnelId) {
+        const withFunnel = matchingByToken.find((c: any) => c.funnel_id === leadFunnelId);
+        if (withFunnel) {
+          config = withFunnel;
+          console.log(`Roleta encontrada na prioridade 1 (token + funil): "${config.name}"`);
+        }
+      }
+
+      // P2: token sem funil
+      if (!config) {
+        const withoutFunnel = matchingByToken.find((c: any) => !c.funnel_id);
+        if (withoutFunnel) {
+          config = withoutFunnel;
+          console.log(`Roleta encontrada na prioridade 2 (token + sem funil): "${config.name}"`);
+        }
+      }
+    }
+
+    // P3–P6: Busca genérica por source_type / funil (sem token)
+    if (!config) {
+      const genericCandidates = await Promise.all([
+        // P3: source específico + funil específico
+        leadFunnelId
+          ? supabase
+              .from('lead_distribution_configs')
+              .select('*')
+              .eq('organization_id', organization_id)
+              .eq('source_type', sourceType)
+              .eq('funnel_id', leadFunnelId)
+              .eq('is_active', true)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+
+        // P4: source específico sem funil
+        supabase
+          .from('lead_distribution_configs')
+          .select('*')
+          .eq('organization_id', organization_id)
+          .eq('source_type', sourceType)
+          .is('funnel_id', null)
+          .eq('is_active', true)
+          .maybeSingle(),
+
+        // P5: source "all" + funil específico
+        leadFunnelId
+          ? supabase
+              .from('lead_distribution_configs')
+              .select('*')
+              .eq('organization_id', organization_id)
+              .eq('source_type', 'all')
+              .eq('funnel_id', leadFunnelId)
+              .eq('is_active', true)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+
+        // P6: source "all" sem funil (roleta genérica)
+        supabase
+          .from('lead_distribution_configs')
+          .select('*')
+          .eq('organization_id', organization_id)
+          .eq('source_type', 'all')
+          .is('funnel_id', null)
+          .eq('is_active', true)
+          .maybeSingle(),
+      ]);
+
+      const genericLabels = [
+        `source="${sourceType}" + funnel_id="${leadFunnelId}"`,
+        `source="${sourceType}" + sem funil`,
+        `source="all" + funnel_id="${leadFunnelId}"`,
+        `source="all" + sem funil (genérica)`,
+      ];
+
+      for (let i = 0; i < genericCandidates.length; i++) {
+        const candidate = genericCandidates[i].data;
+        if (candidate) {
+          config = candidate;
+          console.log(`Roleta encontrada na prioridade ${i + 3}: ${genericLabels[i]} → "${config.name}"`);
+          break;
+        }
+        console.log(`Prioridade ${i + 3} sem resultado: ${genericLabels[i]}`);
+      }
     }
 
     if (config) {

@@ -551,6 +551,7 @@ Deno.serve(async (req) => {
         lead_id: lead.id,
         organization_id: webhookConfig.organization_id,
         trigger_source: 'webhook',
+        webhook_token: webhookToken,
       },
     }).then(({ data, error }) => {
       if (error) {

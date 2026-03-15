@@ -51,6 +51,13 @@ interface FunnelStage {
   stage_type: string;
 }
 
+interface WebhookConfig {
+  id: string;
+  name: string | null;
+  webhook_token: string;
+  is_active: boolean;
+}
+
 interface LeadDistributionConfigModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -143,6 +150,22 @@ export function LeadDistributionConfigModal({
     enabled: !!formData.funnel_id,
   });
 
+  // Buscar webhooks configurados (formulários) — apenas quando source_type = webhook
+  const { data: webhookConfigs } = useQuery({
+    queryKey: ["webhook-configs", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data, error } = await supabase
+        .from("webhook_configs")
+        .select("id, name, webhook_token, is_active")
+        .eq("organization_id", organizationId)
+        .order("name");
+      if (error) throw error;
+      return data as WebhookConfig[];
+    },
+    enabled: !!organizationId && formData.source_type === "webhook",
+  });
+
   // Buscar membros da organização usando o hook dedicado (com fallback correto)
   const { data: rawMembers } = useOrganizationMembers(organizationId);
 
@@ -162,6 +185,27 @@ export function LeadDistributionConfigModal({
       funnel_stage_id: "",
     }));
   };
+
+  // Quando o canal muda, limpar source_identifiers se não for webhook
+  const handleSourceTypeChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      source_type: value,
+      source_identifiers: value === "webhook" ? prev.source_identifiers : [],
+    }));
+  };
+
+  // Alternar seleção de token de formulário em source_identifiers
+  const handleWebhookTokenToggle = (token: string, checked: boolean) => {
+    const currentIds: string[] = Array.isArray(formData.source_identifiers)
+      ? formData.source_identifiers
+      : [];
+    const updated = checked
+      ? [...currentIds, token]
+      : currentIds.filter((t) => t !== token);
+    setFormData((prev) => ({ ...prev, source_identifiers: updated }));
+  };
+
 
   useEffect(() => {
     if (config) {
@@ -284,7 +328,7 @@ export function LeadDistributionConfigModal({
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: Roleta Facebook - Imóveis"
+                placeholder="Ex: Roleta WhatsApp - Consórcio"
               />
             </div>
 
@@ -307,7 +351,7 @@ export function LeadDistributionConfigModal({
               <Label htmlFor="source_type">Canal de Origem</Label>
               <Select
                 value={formData.source_type}
-                onValueChange={(value) => setFormData({ ...formData, source_type: value })}
+                onValueChange={handleSourceTypeChange}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -320,9 +364,79 @@ export function LeadDistributionConfigModal({
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Esta roleta será aplicada apenas para leads vindos do canal selecionado
+                A roleta só será ativada para leads vindos do canal selecionado.
+                Combinado com o Funil abaixo, você pode ter roletas separadas por canal + funil.
               </p>
             </div>
+
+            {/* Formulários Webhook — visível somente quando source_type = webhook */}
+            {formData.source_type === "webhook" && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-sm font-semibold">Formulários desta Roleta</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-sm">
+                        <p className="font-semibold mb-1">Como funciona:</p>
+                        <p>Selecione quais formulários/webhooks devem ativar <strong>esta</strong> roleta em específico.</p>
+                        <p className="mt-1">Se nenhum for selecionado, a roleta atua como fallback para qualquer webhook sem roleta específica configurada.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  <div className="space-y-2 max-h-44 overflow-y-auto border rounded-md p-3">
+                    {webhookConfigs && webhookConfigs.length > 0 ? (
+                      webhookConfigs.map((wh) => {
+                        const selectedTokens: string[] = Array.isArray(formData.source_identifiers)
+                          ? formData.source_identifiers
+                          : [];
+                        const isSelected = selectedTokens.includes(wh.webhook_token);
+                        return (
+                          <div key={wh.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`wh-${wh.id}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) =>
+                                handleWebhookTokenToggle(wh.webhook_token, !!checked)
+                              }
+                            />
+                            <label
+                              htmlFor={`wh-${wh.id}`}
+                              className="flex-1 text-sm font-medium leading-none cursor-pointer"
+                            >
+                              {wh.name || wh.webhook_token}
+                              {!wh.is_active && (
+                                <span className="ml-2 text-xs text-muted-foreground">(inativo)</span>
+                              )}
+                            </label>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum formulário webhook configurado.
+                        Crie um em Configurações → Integrações.
+                      </p>
+                    )}
+                  </div>
+
+                  {Array.isArray(formData.source_identifiers) && formData.source_identifiers.length > 0 ? (
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      ✅ Esta roleta será ativada <strong>apenas</strong> para os {formData.source_identifiers.length} formulário(s) selecionado(s).
+                    </p>
+                  ) : (
+                    <p className="text-sm text-amber-500">
+                      ⚠️ Sem formulários selecionados, esta roleta atua como fallback para qualquer webhook sem roleta específica.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
 
             {/* Método de Distribuição com Tooltip */}
             <div className="space-y-2">
@@ -364,17 +478,23 @@ export function LeadDistributionConfigModal({
 
             <Separator />
 
-            {/* ── FUNIL DE DESTINO ── */}
+            {/* ── FUNIL (FILTRO + DESTINO) ── */}
             <div className="space-y-4">
               <div className="flex items-center gap-1.5">
-                <Label className="text-sm font-semibold">Funil de Destino</Label>
+                <Label className="text-sm font-semibold">Funil da Roleta</Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
-                    Define em qual funil os leads distribuídos por esta roleta serão colocados.
-                    Isso garante que os colaboradores elegíveis consigam visualizar e trabalhar os leads recebidos.
+                  <TooltipContent side="right" className="max-w-sm">
+                    <p className="font-semibold mb-1">Como funciona o filtro por funil:</p>
+                    <p>Quando um funil é selecionado, esta roleta será ativada <strong>somente</strong> para leads desse funil.</p>
+                    <p className="mt-1">Isso permite criar roletas separadas por produto/negócio:</p>
+                    <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                      <li>Roleta Consórcio → agentes A, B, C</li>
+                      <li>Roleta Veículos → agentes D, E</li>
+                      <li>Roleta Imóveis → agentes F, G</li>
+                    </ul>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -391,7 +511,7 @@ export function LeadDistributionConfigModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">
-                      Não definir funil (manter funil atual do lead)
+                      Todos os funis (roleta genérica)
                     </SelectItem>
                     {funnels?.map((funnel) => (
                       <SelectItem key={funnel.id} value={funnel.id}>
@@ -400,9 +520,15 @@ export function LeadDistributionConfigModal({
                     ))}
                   </SelectContent>
                 </Select>
-                {!formData.funnel_id && (
+                {formData.funnel_id ? (
+                  <p className="text-sm text-green-600 dark:text-green-400">
+                    ✅ Esta roleta será ativada <strong>apenas</strong> para leads do funil selecionado.
+                    Leads de outros funis usarão outra roleta (ou não serão distribuídos).
+                  </p>
+                ) : (
                   <p className="text-sm text-amber-500">
-                    ⚠️ Sem funil definido, leads podem cair em funis aos quais os colaboradores não têm acesso.
+                    ⚠️ Sem funil definido, esta roleta atua como genérica e pode ser usada por leads de qualquer funil
+                    (somente se nenhuma roleta específica for encontrada).
                   </p>
                 )}
               </div>
@@ -410,7 +536,7 @@ export function LeadDistributionConfigModal({
               {/* Seletor de Estágio — aparece somente quando um funil for escolhido */}
               {formData.funnel_id && (
                 <div className="space-y-2">
-                  <Label htmlFor="funnel_stage_id">Estágio Inicial</Label>
+                  <Label htmlFor="funnel_stage_id">Estágio de Entrada</Label>
                   <Select
                     value={formData.funnel_stage_id || "__first__"}
                     onValueChange={(value) =>
@@ -435,7 +561,7 @@ export function LeadDistributionConfigModal({
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-muted-foreground">
-                    Estágio em que o lead será colocado ao ser distribuído por esta roleta.
+                    Estágio em que o lead entrará ao ser distribuído por esta roleta.
                     Se não especificado, o primeiro estágio do funil será utilizado.
                   </p>
                 </div>
