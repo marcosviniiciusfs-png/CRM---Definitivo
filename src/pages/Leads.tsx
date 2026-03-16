@@ -473,69 +473,54 @@ const Leads = () => {
     }
   };
 
-  // Fase 5: Exportação CSV
+  // Fase 5: Exportação XLSX (Excel nativo - cada campo em sua própria coluna)
   const handleExportCSV = () => {
-    // Função para escapar campos CSV corretamente
-    // Envolve em aspas duplas e escapa aspas duplas internas
-    const escapeCSVField = (value: string | number | null | undefined): string => {
-      const str = String(value ?? "");
-      // Se contém ponto-e-vírgula, aspas ou quebra de linha, envolve em aspas
-      if (str.includes(";") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
+    // Importação dinâmica da lib xlsx
+    import("xlsx").then((XLSX) => {
+      // Montar dados como array de objetos para a planilha
+      const data = filteredLeads.map((lead) => ({
+        "Nome": lead.nome_lead || "",
+        "Email": lead.email || "",
+        "Telefone": lead.telefone_lead || "",
+        "Responsável": lead.responsavel || "",
+        "Status": statusConfig[lead.stage || "NOVO"]?.label || "Novo",
+        "Origem": lead.source || "WhatsApp",
+        "Valor (R$)": lead.valor ? parseFloat(String(lead.valor)) : 0,
+        "Criado em": format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+      }));
 
-    const SEPARATOR = ";"; // Ponto-e-vírgula: padrão para Excel PT-BR / Excel europeu
+      // Criar workbook e worksheet
+      const worksheet = XLSX.utils.json_to_sheet(data);
 
-    const headers = [
-      "Nome",
-      "Email",
-      "Telefone",
-      "Responsável",
-      "Status",
-      "Origem",
-      "Valor (R$)",
-      "Criado em",
-    ];
+      // Definir larguras das colunas para melhor visualização
+      worksheet["!cols"] = [
+        { wch: 30 }, // Nome
+        { wch: 30 }, // Email
+        { wch: 18 }, // Telefone
+        { wch: 25 }, // Responsável
+        { wch: 18 }, // Status
+        { wch: 15 }, // Origem
+        { wch: 15 }, // Valor
+        { wch: 20 }, // Criado em
+      ];
 
-    const rows = filteredLeads.map((lead) => {
-      // Valor numérico sem formatação de moeda para facilitar cálculos na planilha
-      const valorNumerico = lead.valor ? String(parseFloat(String(lead.valor)).toFixed(2)).replace(".", ",") : "0,00";
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
 
-      return [
-        escapeCSVField(lead.nome_lead),
-        escapeCSVField(lead.email || ""),
-        escapeCSVField(lead.telefone_lead),
-        escapeCSVField(lead.responsavel || ""),
-        escapeCSVField(statusConfig[lead.stage || "NOVO"]?.label || "Novo"),
-        escapeCSVField(lead.source || "WhatsApp"),
-        escapeCSVField(valorNumerico),
-        escapeCSVField(format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })),
-      ].join(SEPARATOR);
-    });
+      // Gerar arquivo e download
+      XLSX.writeFile(workbook, `leads_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 
-    const csvLines = [headers.join(SEPARATOR), ...rows];
-
-    // BOM UTF-8 (\uFEFF) garante que o Excel abra o arquivo com encoding correto,
-    // evitando caracteres quebrados como "ResponsÃ¡vel"
-    const BOM = "\uFEFF";
-    const csvContent = BOM + csvLines.join("\r\n"); // \r\n: padrão Windows/Excel
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `leads_${format(new Date(), "yyyy-MM-dd")}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url); // Libera memória após o download
-
-    toast({
-      title: "Exportação concluída",
-      description: `${filteredLeads.length} leads exportados com sucesso`,
+      toast({
+        title: "Exportação concluída",
+        description: `${filteredLeads.length} leads exportados com sucesso`,
+      });
+    }).catch((err) => {
+      console.error("Erro ao exportar:", err);
+      toast({
+        title: "Erro na exportação",
+        description: "Não foi possível gerar o arquivo Excel",
+        variant: "destructive",
+      });
     });
   };
 
