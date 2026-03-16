@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Power, PowerOff } from "lucide-react";
+import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users } from "lucide-react";
 import { toast } from "sonner";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -22,6 +22,15 @@ interface DistributionConfig {
   triggers: any;
   auto_redistribute: boolean;
   redistribution_timeout_minutes?: number;
+  eligible_agents?: string[];
+  team_id?: string | null;
+  funnel_id?: string | null;
+  funnel_stage_id?: string | null;
+}
+
+interface Funnel {
+  id: string;
+  name: string;
 }
 
 export function LeadDistributionList() {
@@ -54,9 +63,27 @@ export function LeadDistributionList() {
         .select("*")
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data as DistributionConfig[];
+    },
+    enabled: !!organizationId,
+  });
+
+  // Buscar todos os funis da organização para exibir nomes nos cards
+  const { data: funnelsMap } = useQuery({
+    queryKey: ["funnels-map", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return {} as Record<string, string>;
+      const { data, error } = await supabase
+        .from("sales_funnels")
+        .select("id, name")
+        .eq("organization_id", organizationId);
+
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data as Funnel[]).forEach((f) => { map[f.id] = f.name; });
+      return map;
     },
     enabled: !!organizationId,
   });
@@ -140,7 +167,7 @@ export function LeadDistributionList() {
         <div>
           <h2 className="text-2xl font-bold">Roletas de Distribuição</h2>
           <p className="text-muted-foreground">
-            Gerencie múltiplas configurações de distribuição para diferentes canais
+            Gerencie múltiplas roletas por canal e funil. Leads são roteados para a roleta mais específica encontrada.
           </p>
         </div>
         <Button onClick={handleCreate}>
@@ -163,76 +190,107 @@ export function LeadDistributionList() {
             </CardContent>
           </Card>
         ) : (
-          configs?.map((config) => (
-            <Card key={config.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <CardTitle>{config.name}</CardTitle>
-                      <Badge 
-                        variant={config.is_active ? "default" : "secondary"}
-                        style={config.is_active ? { backgroundColor: '#66ee78', color: '#000' } : undefined}
-                      >
-                        {config.is_active ? "Ativa" : "Inativa"}
-                      </Badge>
-                      <Badge variant="outline">{getSourceTypeLabel(config.source_type)}</Badge>
-                    </div>
-                    {config.description && (
-                      <CardDescription>{config.description}</CardDescription>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghostIcon"
-                      size="icon"
-                      onClick={() => toggleActiveMutation.mutate({ configId: config.id, isActive: config.is_active })}
-                    >
-                      {config.is_active ? (
-                        <PowerOff className="h-4 w-4" />
-                      ) : (
-                        <Power className="h-4 w-4" />
+          configs?.map((config) => {
+            const funnelName = config.funnel_id && funnelsMap
+              ? funnelsMap[config.funnel_id]
+              : null;
+            const agentCount = config.eligible_agents?.length ?? 0;
+
+            return (
+              <Card key={config.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <CardTitle>{config.name}</CardTitle>
+                        <Badge
+                          variant={config.is_active ? "default" : "secondary"}
+                          style={config.is_active ? { backgroundColor: '#66ee78', color: '#000' } : undefined}
+                        >
+                          {config.is_active ? "Ativa" : "Inativa"}
+                        </Badge>
+                        <Badge variant="outline">{getSourceTypeLabel(config.source_type)}</Badge>
+                        {funnelName && (
+                          <Badge variant="outline" className="gap-1 text-blue-600 border-blue-300 bg-blue-50 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-400">
+                            <GitFork className="h-3 w-3" />
+                            {funnelName}
+                          </Badge>
+                        )}
+                        {!funnelName && (
+                          <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 dark:text-amber-400 text-xs">
+                            Genérica
+                          </Badge>
+                        )}
+                      </div>
+                      {config.description && (
+                        <CardDescription>{config.description}</CardDescription>
                       )}
-                    </Button>
-                    <Button
-                      variant="ghostIcon"
-                      size="icon"
-                      onClick={() => handleEdit(config)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    {permissions.canDeleteRoulettes && (
+                    </div>
+                    <div className="flex gap-2 shrink-0">
                       <Button
                         variant="ghostIcon"
                         size="icon"
-                        onClick={() => {
-                          if (confirm("Tem certeza que deseja excluir esta roleta?")) {
-                            deleteMutation.mutate(config.id);
-                          }
-                        }}
+                        onClick={() => toggleActiveMutation.mutate({ configId: config.id, isActive: config.is_active })}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {config.is_active ? (
+                          <PowerOff className="h-4 w-4" />
+                        ) : (
+                          <Power className="h-4 w-4" />
+                        )}
                       </Button>
-                    )}
+                      <Button
+                        variant="ghostIcon"
+                        size="icon"
+                        onClick={() => handleEdit(config)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      {permissions.canDeleteRoulettes && (
+                        <Button
+                          variant="ghostIcon"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm("Tem certeza que deseja excluir esta roleta?")) {
+                              deleteMutation.mutate(config.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Método:</span>{" "}
-                    <span className="font-medium">{getMethodLabel(config.distribution_method)}</span>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Método:</span>{" "}
+                      <span className="font-medium">{getMethodLabel(config.distribution_method)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Funil:</span>{" "}
+                      <span className="font-medium">
+                        {funnelName ?? <span className="text-amber-500">Todos (genérica)</span>}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Agentes:</span>{" "}
+                      <span className="font-medium flex items-center gap-1 inline-flex">
+                        <Users className="h-3.5 w-3.5" />
+                        {agentCount === 0 ? "Todos os ativos" : `${agentCount} selecionado${agentCount !== 1 ? "s" : ""}`}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Gatilhos:</span>{" "}
+                      <span className="font-medium">
+                        {Array.isArray(config.triggers) ? config.triggers.length : 0} configurados
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Gatilhos:</span>{" "}
-                    <span className="font-medium">
-                      {Array.isArray(config.triggers) ? config.triggers.length : 0} configurados
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 

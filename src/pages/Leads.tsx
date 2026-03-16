@@ -475,30 +475,63 @@ const Leads = () => {
 
   // Fase 5: Exportação CSV
   const handleExportCSV = () => {
-    const headers = ["Nome", "Email", "Telefone", "Responsável", "Status", "Origem", "Valor", "Criado em"];
-    const csvContent = [
-      headers.join(","),
-      ...filteredLeads.map(lead => [
-        `"${lead.nome_lead}"`,
-        `"${lead.email || ""}"`,
-        `"${lead.telefone_lead}"`,
-        `"${lead.responsavel || ""}"`,
-        `"${statusConfig[lead.stage || 'NOVO']?.label || 'Novo'}"`,
-        `"${lead.source || 'WhatsApp'}"`,
-        `"${formatCurrency(lead.valor || 0)}"`,
-        `"${format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}"`,
-      ].join(","))
-    ].join("\n");
+    // Função para escapar campos CSV corretamente
+    // Envolve em aspas duplas e escapa aspas duplas internas
+    const escapeCSVField = (value: string | number | null | undefined): string => {
+      const str = String(value ?? "");
+      // Se contém ponto-e-vírgula, aspas ou quebra de linha, envolve em aspas
+      if (str.includes(";") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const SEPARATOR = ";"; // Ponto-e-vírgula: padrão para Excel PT-BR / Excel europeu
+
+    const headers = [
+      "Nome",
+      "Email",
+      "Telefone",
+      "Responsável",
+      "Status",
+      "Origem",
+      "Valor (R$)",
+      "Criado em",
+    ];
+
+    const rows = filteredLeads.map((lead) => {
+      // Valor numérico sem formatação de moeda para facilitar cálculos na planilha
+      const valorNumerico = lead.valor ? String(parseFloat(String(lead.valor)).toFixed(2)).replace(".", ",") : "0,00";
+
+      return [
+        escapeCSVField(lead.nome_lead),
+        escapeCSVField(lead.email || ""),
+        escapeCSVField(lead.telefone_lead),
+        escapeCSVField(lead.responsavel || ""),
+        escapeCSVField(statusConfig[lead.stage || "NOVO"]?.label || "Novo"),
+        escapeCSVField(lead.source || "WhatsApp"),
+        escapeCSVField(valorNumerico),
+        escapeCSVField(format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })),
+      ].join(SEPARATOR);
+    });
+
+    const csvLines = [headers.join(SEPARATOR), ...rows];
+
+    // BOM UTF-8 (\uFEFF) garante que o Excel abra o arquivo com encoding correto,
+    // evitando caracteres quebrados como "ResponsÃ¡vel"
+    const BOM = "\uFEFF";
+    const csvContent = BOM + csvLines.join("\r\n"); // \r\n: padrão Windows/Excel
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `leads_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.setAttribute("download", `leads_${format(new Date(), "yyyy-MM-dd")}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Libera memória após o download
 
     toast({
       title: "Exportação concluída",
