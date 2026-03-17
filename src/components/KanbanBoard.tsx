@@ -106,24 +106,16 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const loadOrgMembers = async () => {
     try {
       const { data: members } = await supabase.rpc('get_organization_members_masked');
-      
-      if (members) {
-        const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, avatar_url")
-          .in("user_id", userIds);
 
+      if (members) {
+        // A RPC já retorna full_name e avatar_url com fallback — usar diretamente
         const memberOptions: UserOption[] = members
           .filter((m: any) => m.user_id)
-          .map((m: any) => {
-            const profile = profiles?.find(p => p.user_id === m.user_id);
-            return {
-              user_id: m.user_id,
-              full_name: profile?.full_name || null,
-              avatar_url: profile?.avatar_url || null,
-            };
-          });
+          .map((m: any) => ({
+            user_id: m.user_id,
+            full_name: m.full_name || null,
+            avatar_url: m.avatar_url || null,
+          }));
 
         setOrgMembers(memberOptions);
       }
@@ -371,11 +363,21 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       }
     }
 
-    const { data } = await supabase
+    const { data, error: insertError } = await supabase
       .from("kanban_cards")
       .insert(insertData)
       .select("*, leads:lead_id(id, nome_lead, telefone_lead, email)")
       .single();
+
+    if (insertError) {
+      console.error("[KANBAN] Erro ao criar tarefa:", insertError);
+      toast({
+        title: "Erro ao criar tarefa",
+        description: insertError.message || "Não foi possível salvar a tarefa.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (data) {
       // Salvar assignees se houver
