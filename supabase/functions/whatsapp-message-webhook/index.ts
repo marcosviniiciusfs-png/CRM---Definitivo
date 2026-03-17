@@ -619,12 +619,17 @@ serve(async (req) => {
             funnelStageId = funnelMapping.target_stage_id;
           } else {
             console.log('⚠️ Nenhum mapeamento encontrado para lead existente, usando funil padrão');
-            const { data: defaultFunnel } = await supabase
+            // CORREÇÃO: usar .limit(1) em vez de .maybeSingle() para evitar erro
+            // quando há múltiplos funis com is_default = true.
+            const { data: defaultFunnels } = await supabase
               .from('sales_funnels')
               .select('id')
               .eq('organization_id', organizationId)
               .eq('is_default', true)
-              .maybeSingle();
+              .order('created_at', { ascending: true })
+              .limit(1);
+
+            const defaultFunnel = defaultFunnels && defaultFunnels.length > 0 ? defaultFunnels[0] : null;
 
             if (defaultFunnel) {
               funnelId = defaultFunnel.id;
@@ -710,17 +715,21 @@ serve(async (req) => {
         funnelStageId = funnelMapping.target_stage_id;
       } else {
         console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
-        // Buscar funil padrão da organização
-        const { data: defaultFunnel } = await supabase
+        // CORREÇÃO: usar .limit(1) em vez de .maybeSingle() para evitar erro
+        // quando há múltiplos funis com is_default = true.
+        const { data: defaultFunnels } = await supabase
           .from('sales_funnels')
           .select('id')
           .eq('organization_id', organizationId)
           .eq('is_default', true)
-          .maybeSingle();
-        
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        const defaultFunnel = defaultFunnels && defaultFunnels.length > 0 ? defaultFunnels[0] : null;
+
         if (defaultFunnel) {
           funnelId = defaultFunnel.id;
-          
+
           // Buscar primeira etapa do funil padrão
           const { data: firstStage } = await supabase
             .from('funnel_stages')
@@ -729,7 +738,7 @@ serve(async (req) => {
             .order('position')
             .limit(1)
             .maybeSingle();
-          
+
           if (firstStage) {
             funnelStageId = firstStage.id;
           }

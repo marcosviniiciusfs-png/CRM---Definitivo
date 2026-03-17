@@ -442,12 +442,19 @@ Deno.serve(async (req) => {
                 console.log(`✅ [FB-WEBHOOK] Mapeamento encontrado: funil=${funnelId}`);
               } else {
                 // Usar funil padrão da organização
-                const { data: defaultFunnel } = await supabase
+                // CORREÇÃO: usar .limit(1) em vez de .maybeSingle() para evitar erro
+                // quando há múltiplos funis com is_default = true (bug histórico).
+                // O índice único parcial da migration 20260323 previne futuros duplicados,
+                // mas esta defesa extra garante robustez para dados legados.
+                const { data: defaultFunnels } = await supabase
                   .from('sales_funnels')
                   .select('id')
                   .eq('organization_id', integration.organization_id)
                   .eq('is_default', true)
-                  .maybeSingle();
+                  .order('created_at', { ascending: true })
+                  .limit(1);
+
+                const defaultFunnel = defaultFunnels && defaultFunnels.length > 0 ? defaultFunnels[0] : null;
 
                 if (defaultFunnel) {
                   funnelId = defaultFunnel.id;
@@ -461,7 +468,30 @@ Deno.serve(async (req) => {
                   funnelStageId = firstStage?.id || null;
                   console.log(`ℹ️ [FB-WEBHOOK] Usando funil padrão: ${funnelId}, etapa: ${funnelStageId}`);
                 } else {
-                  console.warn(`⚠️ [FB-WEBHOOK] Nenhum funil padrão para org ${integration.organization_id}`);
+                  // Fallback: qualquer funil ativo da organização (ordenado por criação)
+                  const { data: anyFunnels } = await supabase
+                    .from('sales_funnels')
+                    .select('id')
+                    .eq('organization_id', integration.organization_id)
+                    .eq('is_active', true)
+                    .order('created_at', { ascending: true })
+                    .limit(1);
+
+                  const anyFunnel = anyFunnels && anyFunnels.length > 0 ? anyFunnels[0] : null;
+                  if (anyFunnel) {
+                    funnelId = anyFunnel.id;
+                    const { data: firstStage } = await supabase
+                      .from('funnel_stages')
+                      .select('id')
+                      .eq('funnel_id', anyFunnel.id)
+                      .order('position')
+                      .limit(1)
+                      .maybeSingle();
+                    funnelStageId = firstStage?.id || null;
+                    console.log(`⚠️ [FB-WEBHOOK] Nenhum funil padrão, usando primeiro funil ativo: ${funnelId}, etapa: ${funnelStageId}`);
+                  } else {
+                    console.warn(`⚠️ [FB-WEBHOOK] Nenhum funil encontrado para org ${integration.organization_id}`);
+                  }
                 }
               }
 
