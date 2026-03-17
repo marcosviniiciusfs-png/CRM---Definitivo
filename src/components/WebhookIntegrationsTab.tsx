@@ -54,7 +54,7 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
       // Buscar webhooks da organização
       const { data: webhooksData, error: webhooksError } = await supabase
         .from("webhook_configs")
-        .select("id, webhook_token, is_active, name, tag_id, default_responsible_user_id")
+        .select("id, webhook_token, is_active, name, tag_id, default_responsible_user_id, funnel_id, funnel_stage_id")
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false });
 

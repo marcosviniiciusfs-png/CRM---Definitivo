@@ -200,10 +200,10 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Buscar configuração do webhook
+    // Buscar configuração do webhook (incluindo funnel_id direto)
     const { data: webhookConfig, error: webhookError } = await supabase
       .from('webhook_configs')
-      .select('id, organization_id, is_active, tag_id')
+      .select('id, organization_id, is_active, tag_id, funnel_id, funnel_stage_id')
       .eq('webhook_token', webhookToken)
       .single();
 
@@ -423,49 +423,72 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WEBHOOK
+    // 🎯 DETERMINAR FUNIL DE DESTINO DO LEAD
+    // Ordem de prioridade:
+    // 1. funnel_id diretamente no webhook_config (mais confiável)
+    // 2. funnel_source_mappings específico (source_identifier = webhook.id)
+    // 3. Funil padrão da organização (fallback final)
+
     console.log('[FORM-WEBHOOK] Webhook ID:', webhookConfig.id);
-    console.log('🔍 Buscando mapeamento de funil para Webhook...');
-
-    // 1º: buscar mapeamento específico para este webhook (source_identifier = webhook.id)
-    const { data: specificMapping, error: specificMappingError } = await supabase
-      .from('funnel_source_mappings')
-      .select('funnel_id, target_stage_id')
-      .eq('source_type', 'webhook')
-      .eq('source_identifier', webhookConfig.id)
-      .maybeSingle();
-
-    if (specificMappingError) {
-      console.error('[FORM-WEBHOOK] Erro ao buscar mapeamento específico:', specificMappingError.message);
-    }
-
-    // 2º: se não houver mapeamento específico, buscar mapeamento genérico (source_identifier IS NULL)
-    let funnelMapping = specificMapping;
-    if (!funnelMapping) {
-      console.log('ℹ️ Sem mapeamento específico para este webhook, buscando mapeamento genérico...');
-      const { data: genericMapping } = await supabase
-        .from('funnel_source_mappings')
-        .select('funnel_id, target_stage_id')
-        .eq('source_type', 'webhook')
-        .is('source_identifier', null)
-        .maybeSingle();
-      funnelMapping = genericMapping;
-    } else {
-      console.log('✅ Mapeamento específico encontrado para webhook:', webhookConfig.id);
-    }
 
     let funnelId: string | null = null;
     let funnelStageId: string | null = null;
 
-    if (funnelMapping) {
-      console.log('[FORM-WEBHOOK] Funil encontrado:', funnelMapping.funnel_id, '(source: funnel_source_mappings)');
-      funnelId = funnelMapping.funnel_id;
-      funnelStageId = funnelMapping.target_stage_id;
-    } else {
-      console.log('[FORM-WEBHOOK] Nenhum mapeamento encontrado para webhook ID:', webhookConfig.id, '— usando funil padrão');
-      // CORREÇÃO: usar .limit(1) em vez de .maybeSingle() para evitar erro
-      // quando há múltiplos funis com is_default = true (bug histórico corrigido
-      // na migration 20260323, mas mantemos defesa extra aqui).
+    // ── 1º: Verificar funnel_id diretamente no webhook_config ──────────────────
+    if (webhookConfig.funnel_id) {
+      funnelId = webhookConfig.funnel_id;
+      funnelStageId = webhookConfig.funnel_stage_id || null;
+      console.log('[FORM-WEBHOOK] ✅ Funil obtido diretamente do webhook_config:', funnelId);
+
+      // Se não há stage configurado, buscar a primeira etapa do funil
+      if (!funnelStageId) {
+        const { data: firstStage } = await supabase
+          .from('funnel_stages')
+          .select('id')
+          .eq('funnel_id', funnelId)
+          .order('position')
+          .limit(1)
+          .maybeSingle();
+        if (firstStage) funnelStageId = firstStage.id;
+      }
+    }
+
+    // ── 2º: Fallback — funnel_source_mappings específico ──────────────────────
+    if (!funnelId) {
+      console.log('[FORM-WEBHOOK] Sem funnel_id no webhook_config, buscando em funnel_source_mappings...');
+
+      const { data: specificMappings } = await supabase
+        .from('funnel_source_mappings')
+        .select('funnel_id, target_stage_id')
+        .eq('source_type', 'webhook')
+        .eq('source_identifier', webhookConfig.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const specificMapping = specificMappings && specificMappings.length > 0 ? specificMappings[0] : null;
+
+      if (specificMapping) {
+        funnelId = specificMapping.funnel_id;
+        funnelStageId = specificMapping.target_stage_id || null;
+        console.log('[FORM-WEBHOOK] ✅ Funil obtido de funnel_source_mappings específico:', funnelId);
+
+        if (!funnelStageId) {
+          const { data: firstStage } = await supabase
+            .from('funnel_stages')
+            .select('id')
+            .eq('funnel_id', funnelId)
+            .order('position')
+            .limit(1)
+            .maybeSingle();
+          if (firstStage) funnelStageId = firstStage.id;
+        }
+      }
+    }
+
+    // ── 3º: Fallback final — funil padrão da organização ──────────────────────
+    if (!funnelId) {
+      console.log('[FORM-WEBHOOK] ⚠️ Nenhum funil configurado para webhook', webhookConfig.id, '— usando funil padrão');
+
       const { data: defaultFunnels } = await supabase
         .from('sales_funnels')
         .select('id')
@@ -478,9 +501,8 @@ Deno.serve(async (req) => {
 
       if (defaultFunnel) {
         funnelId = defaultFunnel.id;
-        console.log('[FORM-WEBHOOK] Funil encontrado:', funnelId, '(source: default)');
+        console.log('[FORM-WEBHOOK] Funil padrão encontrado:', funnelId);
 
-        // Buscar primeira etapa do funil padrão
         const { data: firstStage } = await supabase
           .from('funnel_stages')
           .select('id')
@@ -489,11 +511,11 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
 
-        if (firstStage) {
-          funnelStageId = firstStage.id;
-        }
+        if (firstStage) funnelStageId = firstStage.id;
       }
     }
+
+    console.log('[FORM-WEBHOOK] Funil final:', funnelId, '| Etapa:', funnelStageId);
 
     // Preparar dados do lead com sanitização
     const leadData = {

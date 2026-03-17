@@ -20,6 +20,8 @@ interface WebhookConfigModalProps {
     name: string | null;
     tag_id: string | null;
     default_responsible_user_id: string | null;
+    funnel_id?: string | null;
+    funnel_stage_id?: string | null;
   } | null;
   tagName: string;
   organizationId: string;
@@ -86,10 +88,10 @@ export const WebhookConfigModal = ({
 
   const loadFunnelsAndMapping = async () => {
     if (!webhook) return;
-    
+
     try {
       setLoadingFunnels(true);
-      
+
       // Load funnels
       const { data: funnelsData } = await supabase
         .from("sales_funnels")
@@ -97,57 +99,60 @@ export const WebhookConfigModal = ({
         .eq("organization_id", organizationId)
         .eq("is_active", true)
         .order("name");
-      
+
       if (funnelsData) {
         setFunnels(funnelsData);
       }
-      
-      // Check if there's a mapping for this specific webhook
-      // We use source_identifier to match webhook-specific mappings
-      const { data: mappingData } = await supabase
+
+      // ── 1º: Verificar funnel_id diretamente no webhook_config (fonte autoritativa) ──
+      // Buscar dados atuais do webhook_config incluindo funnel_id e funnel_stage_id
+      const { data: freshWebhook } = await supabase
+        .from("webhook_configs")
+        .select("funnel_id, funnel_stage_id")
+        .eq("id", webhook.id)
+        .maybeSingle();
+
+      const directFunnelId = freshWebhook?.funnel_id || webhook.funnel_id || null;
+      const directStageId = freshWebhook?.funnel_stage_id || webhook.funnel_stage_id || null;
+
+      if (directFunnelId) {
+        setSelectedFunnelId(directFunnelId);
+
+        const { data: stagesData } = await supabase
+          .from("funnel_stages")
+          .select("id, name, position")
+          .eq("funnel_id", directFunnelId)
+          .order("position");
+
+        if (stagesData) {
+          setStages(stagesData);
+          setSelectedStageId(directStageId || (stagesData[0]?.id ?? ""));
+        }
+        return;
+      }
+
+      // ── 2º: Fallback — funnel_source_mappings específico ──────────────────────
+      const { data: specificMappings } = await supabase
         .from("funnel_source_mappings")
         .select("funnel_id, target_stage_id")
         .eq("source_type", "webhook")
         .eq("source_identifier", webhook.id)
-        .maybeSingle();
-      
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const mappingData = specificMappings && specificMappings.length > 0 ? specificMappings[0] : null;
+
       if (mappingData) {
         setSelectedFunnelId(mappingData.funnel_id);
-        setSelectedStageId(mappingData.target_stage_id);
-        
-        // Load stages for the selected funnel
+        setSelectedStageId(mappingData.target_stage_id || "");
+
         const { data: stagesData } = await supabase
           .from("funnel_stages")
           .select("id, name, position")
           .eq("funnel_id", mappingData.funnel_id)
           .order("position");
-        
-        if (stagesData) {
-          setStages(stagesData);
-        }
-      } else {
-        // Check for generic webhook mapping
-        const { data: genericMapping } = await supabase
-          .from("funnel_source_mappings")
-          .select("funnel_id, target_stage_id")
-          .eq("source_type", "webhook")
-          .is("source_identifier", null)
-          .maybeSingle();
-        
-        if (genericMapping) {
-          setSelectedFunnelId(genericMapping.funnel_id);
-          setSelectedStageId(genericMapping.target_stage_id);
-          
-          const { data: stagesData } = await supabase
-            .from("funnel_stages")
-            .select("id, name, position")
-            .eq("funnel_id", genericMapping.funnel_id)
-            .order("position");
-          
-          if (stagesData) {
-            setStages(stagesData);
-          }
-        }
+
+        if (stagesData) setStages(stagesData);
       }
     } catch (error) {
       console.error("Erro ao carregar funis:", error);
@@ -249,13 +254,16 @@ export const WebhookConfigModal = ({
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Update webhook config
+      // ── Atualizar webhook_config com funil diretamente (fonte autoritativa) ──
       const { error: webhookError } = await supabase
         .from("webhook_configs")
         .update({
           name: name.trim() || null,
           is_active: isActive,
           default_responsible_user_id: selectedResponsibleId || null,
+          // Salvar funil diretamente no webhook_config para roteamento confiável
+          funnel_id: selectedFunnelId || null,
+          funnel_stage_id: selectedStageId || null,
         })
         .eq("id", webhook.id);
 
@@ -268,24 +276,23 @@ export const WebhookConfigModal = ({
           .update({ name: editedTagName.trim() })
           .eq("id", webhook.tag_id);
       }
-      
-      // Update or create funnel mapping for this specific webhook
+
+      // Sincronizar também em funnel_source_mappings para manter compatibilidade
       if (selectedFunnelId && selectedStageId) {
-        // Check if mapping exists for this webhook
-        const { data: existingMapping } = await supabase
+        const { data: existingMappings } = await supabase
           .from("funnel_source_mappings")
           .select("id")
           .eq("source_type", "webhook")
           .eq("source_identifier", webhook.id)
-          .maybeSingle();
-        
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        const existingMapping = existingMappings && existingMappings.length > 0 ? existingMappings[0] : null;
+
         if (existingMapping) {
           await supabase
             .from("funnel_source_mappings")
-            .update({
-              funnel_id: selectedFunnelId,
-              target_stage_id: selectedStageId,
-            })
+            .update({ funnel_id: selectedFunnelId, target_stage_id: selectedStageId })
             .eq("id", existingMapping.id);
         } else {
           await supabase
