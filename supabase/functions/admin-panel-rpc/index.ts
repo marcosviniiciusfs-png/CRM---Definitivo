@@ -2,43 +2,20 @@
  * Edge Function: admin-panel-rpc
  *
  * Proxy para operações do painel admin que requerem service_role.
- * Aceita o token admin JWT (gerado por admin-auth) e executa
+ * Aceita o token admin (gerado por admin_login_system no banco) e executa
  * operações no banco com permissões de service_role.
  *
- * Isso garante que o painel admin funciona INDEPENDENTE de
- * o usuário estar logado no CRM via Supabase Auth.
+ * O token admin é um hex de 32 bytes armazenado em admin_sessions,
+ * validado via RPC validate_admin_token — NÃO é um JWT.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
         "authorization, x-client-info, apikey, content-type, x-admin-token",
 };
-
-async function getAdminSecret(): Promise<CryptoKey> {
-    const secret = Deno.env.get("ADMIN_JWT_SECRET") || "kairoz-admin-secret-key-2026-change-me";
-    const encoder = new TextEncoder();
-    return await crypto.subtle.importKey(
-        "raw",
-        encoder.encode(secret),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign", "verify"]
-    );
-}
-
-async function verifyAdminToken(token: string): Promise<boolean> {
-    try {
-        const key = await getAdminSecret();
-        await verify(token, key);
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
@@ -55,19 +32,24 @@ Deno.serve(async (req) => {
         const adminToken = req.headers.get("x-admin-token");
         if (!adminToken) return unauthorized();
 
-        const isValid = await verifyAdminToken(adminToken);
-        if (!isValid) return unauthorized();
-
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+        // Validar token via RPC no banco (tokens são hex, não JWTs)
+        const { data: isValid, error: validError } = await adminClient.rpc(
+            "validate_admin_token",
+            { p_token: adminToken }
+        );
+
+        if (validError || !isValid) return unauthorized();
 
         const body = await req.json();
         const { operation } = body;
 
         // ── list_all_users ───────────────────────────────────────────────
         if (operation === "list_all_users") {
-            const { data, error } = await adminClient.rpc("list_all_users");
+            const { data, error } = await adminClient.rpc("admin_list_all_users");
             if (error) throw error;
             return new Response(JSON.stringify({ data }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -76,7 +58,7 @@ Deno.serve(async (req) => {
 
         // ── count_main_users ─────────────────────────────────────────────
         if (operation === "count_main_users") {
-            const { data, error } = await adminClient.rpc("count_main_users");
+            const { data, error } = await adminClient.rpc("admin_count_main_users");
             if (error) throw error;
             return new Response(JSON.stringify({ data }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -85,7 +67,7 @@ Deno.serve(async (req) => {
 
         // ── admin_get_all_subscriptions ──────────────────────────────────
         if (operation === "admin_get_all_subscriptions") {
-            const { data, error } = await adminClient.rpc("admin_get_all_subscriptions");
+            const { data, error } = await adminClient.rpc("admin_get_all_subscriptions_fn");
             if (error) throw error;
             return new Response(JSON.stringify({ data }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -95,7 +77,7 @@ Deno.serve(async (req) => {
         // ── get_user_details ─────────────────────────────────────────────
         if (operation === "get_user_details") {
             const { user_id } = body;
-            const { data, error } = await adminClient.rpc("get_user_details", {
+            const { data, error } = await adminClient.rpc("admin_get_user_details_fn", {
                 _target_user_id: user_id,
             });
             if (error) throw error;
@@ -107,7 +89,7 @@ Deno.serve(async (req) => {
         // ── get_organization_members ─────────────────────────────────────
         if (operation === "get_organization_members") {
             const { organization_id } = body;
-            const { data, error } = await adminClient.rpc("get_organization_members", {
+            const { data, error } = await adminClient.rpc("admin_get_org_members_fn", {
                 _organization_id: organization_id,
             });
             if (error) throw error;
@@ -119,7 +101,7 @@ Deno.serve(async (req) => {
         // ── admin_get_user_subscription ──────────────────────────────────
         if (operation === "admin_get_user_subscription") {
             const { user_id } = body;
-            const { data, error } = await adminClient.rpc("admin_get_user_subscription", {
+            const { data, error } = await adminClient.rpc("admin_get_user_sub_fn", {
                 p_user_id: user_id,
             });
             if (error) throw error;
@@ -131,7 +113,7 @@ Deno.serve(async (req) => {
         // ── admin_manage_user_subscription ──────────────────────────────
         if (operation === "admin_manage_user_subscription") {
             const { user_id, plan_id, organization_id } = body;
-            const { data, error } = await adminClient.rpc("admin_manage_user_subscription", {
+            const { data, error } = await adminClient.rpc("admin_manage_user_sub_fn", {
                 p_user_id: user_id,
                 p_plan_id: plan_id,
                 p_organization_id: organization_id || null,

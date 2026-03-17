@@ -17,7 +17,26 @@
       "Bash(Get-Content \"C:\\\\Users\\\\Brito\\\\Desktop\\\\extracted_component.tsx\" -Raw)",
       "Bash(Out-String)",
       "Bash(sed -i '1107,1114d' src/pages/Pipeline.tsx)",
-      "Bash(sed -i '1107s/orgMember.organization_id/organizationId/' src/pages/Pipeline.tsx)"
+      "Bash(sed -i '1107s/orgMember.organization_id/organizationId/' src/pages/Pipeline.tsx)",
+      "Bash(find /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/.claude/worktrees/sharp-cartwright -type f -name package.json -o -name package-lock.json -o -name tsconfig.json -o -name .env*)",
+      "Bash(find /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/.claude/worktrees/sharp-cartwright -name *migration* -o -name *schema*)",
+      "Bash(find /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/.claude/worktrees/sharp-cartwright -type d -name *functions* -o -type d -name *api*)",
+      "Bash(grep -n \"handle_new_user\\\\|auto_create_default_funnel\\\\|is_default.*true\\\\|on_auth_user_created\" /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/supabase/migrations/*.sql)",
+      "Bash(curl -s http://localhost:8080)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 20336 /F)",
+      "Bash(cmd /c 'taskkill /PID 20336 /F')",
+      "Bash(powershell -Command \"Stop-Process -Id 20336 -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 3; \\(Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue\\).OwningProcess\")",
+      "Bash(command -v supabase)",
+      "Bash(powershell -Command \"Get-Command supabase -ErrorAction SilentlyContinue | Select-Object Source\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path $env:USERPROFILE -Recurse -Filter ''supabase.exe'' -ErrorAction SilentlyContinue | Select-Object -First 3 FullName\")",
+      "Bash(powershell -Command \"Get-ChildItem ''C:/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo'' -Recurse -Filter ''supabase*'' -ErrorAction SilentlyContinue | Where-Object {$_Name -match ''supabase''} | Select-Object -First 5 FullName\")",
+      "Read(//c/Users/Brito/AppData/Roaming/**)",
+      "Read(//c/Users/Brito/**)",
+      "Bash(ls /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/*.env*)",
+      "Bash(ls /c/Users/Brito/Desktop/principal/Kairoz/*.env*)",
+      "Bash(grep -r \"safe_list_admins\\\\|safe_count_main_users\\\\|safe_list_all_users\\\\|safe_get_all_subscriptions\\\\|safe_count_paying_users\\\\|safe_calculate_mrr\\\\|safe_calculate_daily_revenue\\\\|safe_subscription_growth\" /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/supabase/ --include=*.sql -l)",
+      "Bash(\"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\.claude\\\\worktrees\\\\sharp-cartwright\\\\supabase\\\\functions\\\\admin-delete-user\\\\index.ts\")"
     ]
   }
 }
