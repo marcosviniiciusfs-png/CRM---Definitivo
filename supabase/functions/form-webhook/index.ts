@@ -424,15 +424,20 @@ Deno.serve(async (req) => {
     }
 
     // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WEBHOOK
+    console.log('[FORM-WEBHOOK] Webhook ID:', webhookConfig.id);
     console.log('🔍 Buscando mapeamento de funil para Webhook...');
 
     // 1º: buscar mapeamento específico para este webhook (source_identifier = webhook.id)
-    const { data: specificMapping } = await supabase
+    const { data: specificMapping, error: specificMappingError } = await supabase
       .from('funnel_source_mappings')
       .select('funnel_id, target_stage_id')
       .eq('source_type', 'webhook')
       .eq('source_identifier', webhookConfig.id)
       .maybeSingle();
+
+    if (specificMappingError) {
+      console.error('[FORM-WEBHOOK] Erro ao buscar mapeamento específico:', specificMappingError.message);
+    }
 
     // 2º: se não houver mapeamento específico, buscar mapeamento genérico (source_identifier IS NULL)
     let funnelMapping = specificMapping;
@@ -448,16 +453,16 @@ Deno.serve(async (req) => {
     } else {
       console.log('✅ Mapeamento específico encontrado para webhook:', webhookConfig.id);
     }
-    
+
     let funnelId: string | null = null;
     let funnelStageId: string | null = null;
-    
+
     if (funnelMapping) {
-      console.log('✅ Mapeamento encontrado:', funnelMapping);
+      console.log('[FORM-WEBHOOK] Funil encontrado:', funnelMapping.funnel_id, '(source: funnel_source_mappings)');
       funnelId = funnelMapping.funnel_id;
       funnelStageId = funnelMapping.target_stage_id;
     } else {
-      console.log('⚠️ Nenhum mapeamento encontrado, usando funil padrão');
+      console.log('[FORM-WEBHOOK] Nenhum mapeamento encontrado para webhook ID:', webhookConfig.id, '— usando funil padrão');
       // CORREÇÃO: usar .limit(1) em vez de .maybeSingle() para evitar erro
       // quando há múltiplos funis com is_default = true (bug histórico corrigido
       // na migration 20260323, mas mantemos defesa extra aqui).
@@ -473,6 +478,7 @@ Deno.serve(async (req) => {
 
       if (defaultFunnel) {
         funnelId = defaultFunnel.id;
+        console.log('[FORM-WEBHOOK] Funil encontrado:', funnelId, '(source: default)');
 
         // Buscar primeira etapa do funil padrão
         const { data: firstStage } = await supabase

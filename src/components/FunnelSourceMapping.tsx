@@ -105,11 +105,11 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
           toast.error("Selecione pelo menos um webhook");
           return;
         }
-        selectedWebhooks.forEach((webhookToken) => {
+        selectedWebhooks.forEach((webhookId) => {
           mappingsToCreate.push({
             funnel_id: funnelId,
             source_type: sourceType,
-            source_identifier: webhookToken,
+            source_identifier: webhookId,
             target_stage_id: targetStageId,
           });
         });
@@ -178,9 +178,9 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
       return form ? `Facebook: ${form.selected_form_name}` : "Facebook";
     }
     if (mapping.source_type === "webhook") {
-      const webhook = webhookConfigs.find((w) => w.webhook_token === mapping.source_identifier);
+      const webhook = webhookConfigs.find((w) => w.id === mapping.source_identifier);
       return webhook
-        ? `Webhook: ${webhook.lead_tags?.name || "Sem tag"}`
+        ? `Webhook: ${webhook.name || webhook.lead_tags?.name || "Sem tag"}`
         : "Webhook";
     }
     return mapping.source_type;
@@ -239,13 +239,13 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
                   >
                     <input
                       type="checkbox"
-                      checked={selectedWebhooks.includes(webhook.webhook_token)}
+                      checked={selectedWebhooks.includes(webhook.id)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedWebhooks([...selectedWebhooks, webhook.webhook_token]);
+                          setSelectedWebhooks([...selectedWebhooks, webhook.id]);
                         } else {
                           setSelectedWebhooks(
-                            selectedWebhooks.filter((w) => w !== webhook.webhook_token)
+                            selectedWebhooks.filter((w) => w !== webhook.id)
                           );
                         }
                       }}
