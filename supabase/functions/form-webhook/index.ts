@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
     // Buscar configuração do webhook
     const { data: webhookConfig, error: webhookError } = await supabase
       .from('webhook_configs')
-      .select('organization_id, is_active, tag_id')
+      .select('id, organization_id, is_active, tag_id')
       .eq('webhook_token', webhookToken)
       .single();
 
@@ -425,23 +425,29 @@ Deno.serve(async (req) => {
 
     // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WEBHOOK
     console.log('🔍 Buscando mapeamento de funil para Webhook...');
-    
-    // Primeiro, buscar os funis da organização
-    const { data: orgFunnels } = await supabase
-      .from('sales_funnels')
-      .select('id')
-      .eq('organization_id', webhookConfig.organization_id);
-    
-    const funnelIds = orgFunnels?.map(f => f.id) || [];
-    console.log('🎯 Funis da organização:', funnelIds);
-    
-    // Depois, buscar o mapeamento para esses funis
-    const { data: funnelMapping } = await supabase
+
+    // 1º: buscar mapeamento específico para este webhook (source_identifier = webhook.id)
+    const { data: specificMapping } = await supabase
       .from('funnel_source_mappings')
       .select('funnel_id, target_stage_id')
       .eq('source_type', 'webhook')
-      .in('funnel_id', funnelIds)
+      .eq('source_identifier', webhookConfig.id)
       .maybeSingle();
+
+    // 2º: se não houver mapeamento específico, buscar mapeamento genérico (source_identifier IS NULL)
+    let funnelMapping = specificMapping;
+    if (!funnelMapping) {
+      console.log('ℹ️ Sem mapeamento específico para este webhook, buscando mapeamento genérico...');
+      const { data: genericMapping } = await supabase
+        .from('funnel_source_mappings')
+        .select('funnel_id, target_stage_id')
+        .eq('source_type', 'webhook')
+        .is('source_identifier', null)
+        .maybeSingle();
+      funnelMapping = genericMapping;
+    } else {
+      console.log('✅ Mapeamento específico encontrado para webhook:', webhookConfig.id);
+    }
     
     let funnelId: string | null = null;
     let funnelStageId: string | null = null;
