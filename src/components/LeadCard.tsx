@@ -61,11 +61,54 @@ const CopyPhoneButton: React.FC<{ phone: string }> = ({ phone }) => {
   );
 };
 
+interface CopyLeadButtonProps {
+  name: string;
+  phone: string;
+  email?: string;
+  value?: number;
+  source?: string;
+  responsavelName?: string;
+}
+
+const CopyLeadButton: React.FC<CopyLeadButtonProps> = ({ name, phone, email, value, source, responsavelName }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const lines: string[] = [];
+    if (name) lines.push(`Nome: ${name}`);
+    if (phone) lines.push(`Telefone: ${phone}`);
+    if (email) lines.push(`Email: ${email}`);
+    if (value) lines.push(`Valor: R$ ${value.toFixed(2)}`);
+    if (source) lines.push(`Origem: ${source}`);
+    if (responsavelName) lines.push(`Responsável: ${responsavelName}`);
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [name, phone, email, value, source, responsavelName]);
+
+  return (
+    <button
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onClick={handleCopy}
+      className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1.5 right-7 z-10 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+      title="Copiar informações do lead"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+};
+
 export interface BaseLeadCardProps {
   id: string;
   name: string;
   phone: string;
   date: string;
+  email?: string;
   avatarUrl?: string;
   stage?: string;
   value?: number;
@@ -81,6 +124,7 @@ export interface BaseLeadCardProps {
   duplicateAttemptsCount?: number;
   responsavelName?: string;
   responsavelAvatarUrl?: string | null;
+  isDuplicate?: boolean;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -96,6 +140,7 @@ interface LeadCardViewProps extends BaseLeadCardProps {
   setNodeRef?: (node: HTMLElement | null) => void;
   responsavelName?: string;
   responsavelAvatarUrl?: string | null;
+  isDuplicate?: boolean;
 }
 
 // Componente puramente visual, sem lógica de drag
@@ -104,8 +149,10 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   name,
   phone,
   date,
+  email,
   avatarUrl,
   stage,
+  value,
   createdAt,
   source,
   description,
@@ -127,6 +174,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   listeners,
   attributes,
   setNodeRef,
+  isDuplicate = false,
 }) => {
   const [totalValue, setTotalValue] = useState<number>(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -197,9 +245,21 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
         hasRedBorder && !dragging
           ? "border-border animate-glow-pulse"
+          : isDuplicate && !dragging
+          ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
+      {!dragging && (
+        <CopyLeadButton
+          name={name}
+          phone={phone}
+          email={email}
+          value={value}
+          source={source}
+          responsavelName={responsavelName}
+        />
+      )}
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
           <LazyAvatar
@@ -215,6 +275,15 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   {name}
                 </h3>
                 <div className="flex items-center gap-1 flex-wrap" data-lead-badges>
+                  {isDuplicate && (
+                    <Badge
+                      variant="secondary"
+                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-700"
+                    >
+                      <Copy className="h-2.5 w-2.5" />
+                      Duplicado
+                    </Badge>
+                  )}
                   {duplicateAttemptsCount > 0 && (
                     <Badge
                       variant="secondary"
@@ -483,6 +552,7 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.id === nextProps.id &&
     prevProps.name === nextProps.name &&
     prevProps.phone === nextProps.phone &&
+    prevProps.email === nextProps.email &&
     prevProps.date === nextProps.date &&
     prevProps.avatarUrl === nextProps.avatarUrl &&
     prevProps.value === nextProps.value &&
@@ -492,7 +562,8 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.leadTags?.length === nextProps.leadTags?.length &&
     prevProps.duplicateAttemptsCount === nextProps.duplicateAttemptsCount &&
     prevProps.responsavelName === nextProps.responsavelName &&
-    prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl
+    prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl &&
+    prevProps.isDuplicate === nextProps.isDuplicate
   );
 });
 

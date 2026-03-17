@@ -20,6 +20,7 @@ interface PipelineColumnProps {
   leadTagsMap: Record<string, Array<{ id: string; name: string; color: string }>>;
   isDraggingActive: boolean;
   profilesMap?: Record<string, { full_name: string; avatar_url: string | null }>;
+  duplicateLeadIds?: Set<string>;
 }
 
 export const PipelineColumn = memo(({
@@ -36,6 +37,7 @@ export const PipelineColumn = memo(({
   leadTagsMap,
   isDraggingActive,
   profilesMap = {},
+  duplicateLeadIds,
 }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
@@ -92,6 +94,7 @@ export const PipelineColumn = memo(({
                   id={lead.id}
                   name={lead.nome_lead}
                   phone={lead.telefone_lead}
+                  email={(lead as any).email}
                   date={(lead as any).formattedDate || new Date(lead.created_at).toLocaleString("pt-BR")}
                   avatarUrl={lead.avatar_url}
                   stage={lead.stage}
@@ -107,6 +110,7 @@ export const PipelineColumn = memo(({
                   isDraggingActive={isDraggingActive}
                   responsavelName={responsavelName}
                   responsavelAvatarUrl={responsavelAvatarUrl}
+                  isDuplicate={duplicateLeadIds ? duplicateLeadIds.has(lead.id) : false}
                 />
               );
             })
@@ -126,7 +130,8 @@ export const PipelineColumn = memo(({
     prevProps.isDraggingActive === nextProps.isDraggingActive &&
     prevProps.leads.length === nextProps.leads.length &&
     prevProps.leads.every((lead, i) => lead.id === nextProps.leads[i]?.id) &&
-    prevProps.profilesMap === nextProps.profilesMap
+    prevProps.profilesMap === nextProps.profilesMap &&
+    prevProps.duplicateLeadIds === nextProps.duplicateLeadIds
   );
 });
 

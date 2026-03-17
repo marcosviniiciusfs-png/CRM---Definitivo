@@ -463,6 +463,41 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       return;
     }
     
+    // Verificar leads duplicados (mesmo email ou telefone na mesma organização)
+    // e registrar a tentativa no lead existente (sem bloquear a importação)
+    const checkAndRegisterDuplicates = async (leadsToCheck: typeof validLeads) => {
+      for (const lead of leadsToCheck) {
+        const conditions: string[] = [];
+        if (lead.telefone_lead) conditions.push(`telefone_lead.eq.${lead.telefone_lead}`);
+        if (lead.email) conditions.push(`email.eq.${lead.email}`);
+        if (conditions.length === 0) continue;
+
+        const { data: existing } = await supabase
+          .from("leads")
+          .select("id, duplicate_attempts_count, duplicate_attempts_history")
+          .eq("organization_id", organizationId)
+          .or(conditions.join(","))
+          .limit(1)
+          .maybeSingle();
+
+        if (existing) {
+          const currentCount = (existing.duplicate_attempts_count as number) || 0;
+          const currentHistory = Array.isArray(existing.duplicate_attempts_history) ? existing.duplicate_attempts_history : [];
+          await supabase
+            .from("leads")
+            .update({
+              duplicate_attempts_count: currentCount + 1,
+              last_duplicate_attempt_at: new Date().toISOString(),
+              duplicate_attempts_history: [
+                ...currentHistory,
+                { source: "Importação", attempted_at: new Date().toISOString() },
+              ],
+            })
+            .eq("id", existing.id);
+        }
+      }
+    };
+
     // Inserção em lote: divide em chunks de 25 para não sobrecarregar a API
     const CHUNK_SIZE = 25;
     let successCount = 0;
@@ -482,6 +517,8 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
           });
         } else {
           successCount += data?.length || 0;
+          // Verificar e registrar duplicatas em background (sem bloquear)
+          checkAndRegisterDuplicates(chunk).catch(console.error);
         }
       } catch (err: any) {
         errorCount += chunk.length;

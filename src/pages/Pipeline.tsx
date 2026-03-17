@@ -448,29 +448,39 @@ const Pipeline = () => {
   }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.loading]);
 
   const handleExportCSV = () => {
-    const headers = ["Nome", "Email", "Telefone", "Responsável", "Status", "Origem", "Valor", "Criado em"];
-    const csvContent = [
-      headers.join(","),
-      ...filteredLeads.map(lead => [
-        `"${lead.nome_lead || ''}"`,
-        `"${lead.email || ''}"`,
-        `"${lead.telefone_lead || ''}"`,
-        `"${lead.responsavel || ''}"`,
-        `"${lead.stage || 'NOVO'}"`,
-        `"${lead.source || ''}"`,
-        `"${lead.valor || 0}"`,
-        `"${format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}"`,
-      ].join(","))
-    ].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.setAttribute("href", URL.createObjectURL(blob));
-    link.setAttribute("download", `leads_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toastUI({ title: "Exportação concluída", description: `${filteredLeads.length} leads exportados` });
+    import("xlsx").then((XLSX) => {
+      const data = filteredLeads.map((lead) => ({
+        "Nome": lead.nome_lead || "",
+        "Email": (lead as any).email || "",
+        "Telefone": lead.telefone_lead || "",
+        "Responsável": lead.responsavel || "",
+        "Etapa": lead.stage || "NOVO",
+        "Origem": lead.source || "",
+        "Valor (R$)": lead.valor ? parseFloat(String(lead.valor)) : 0,
+        "Criado em": format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      worksheet["!cols"] = [
+        { wch: 30 }, // Nome
+        { wch: 30 }, // Email
+        { wch: 18 }, // Telefone
+        { wch: 25 }, // Responsável
+        { wch: 18 }, // Etapa
+        { wch: 15 }, // Origem
+        { wch: 15 }, // Valor
+        { wch: 20 }, // Criado em
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+      XLSX.writeFile(workbook, `leads_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+
+      toastUI({ title: "Exportação concluída", description: `${filteredLeads.length} leads exportados` });
+    }).catch((err) => {
+      console.error("Erro ao exportar:", err);
+      toastUI({ title: "Erro na exportação", description: "Não foi possível gerar o arquivo Excel", variant: "destructive" });
+    });
   };
 
   const loadFunnel = async () => {
@@ -590,7 +600,7 @@ const Pipeline = () => {
       // Usar organizationId do contexto diretamente - evita query redundante a organization_members
       let query = supabase
         .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
+        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count")
         .eq("organization_id", organizationId);
 
       // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
@@ -786,6 +796,30 @@ const Pipeline = () => {
 
     return map;
   }, [filteredLeads, stages, usingCustomFunnel]);
+
+  // Calcular quais leads são duplicados (mesmo email ou telefone na mesma org)
+  const duplicateLeadIds = useMemo(() => {
+    const phoneMap = new Map<string, string[]>(); // phone -> lead ids
+    const emailMap = new Map<string, string[]>(); // email -> lead ids
+    filteredLeads.forEach((lead) => {
+      const phone = lead.telefone_lead?.replace(/\D/g, "");
+      if (phone) {
+        const arr = phoneMap.get(phone) || [];
+        arr.push(lead.id);
+        phoneMap.set(phone, arr);
+      }
+      const email = lead.email?.toLowerCase().trim();
+      if (email) {
+        const arr = emailMap.get(email) || [];
+        arr.push(lead.id);
+        emailMap.set(email, arr);
+      }
+    });
+    const duplicates = new Set<string>();
+    phoneMap.forEach((ids) => { if (ids.length > 1) ids.forEach((id) => duplicates.add(id)); });
+    emailMap.forEach((ids) => { if (ids.length > 1) ids.forEach((id) => duplicates.add(id)); });
+    return duplicates;
+  }, [filteredLeads]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -1480,6 +1514,7 @@ const Pipeline = () => {
                         leadTagsMap={leadTagsMap}
                         isDraggingActive={isDraggingActive}
                         profilesMap={profilesMap}
+                        duplicateLeadIds={duplicateLeadIds}
                       />
                     );
                   })}
@@ -1514,6 +1549,7 @@ const Pipeline = () => {
                     leadTagsMap={leadTagsMap}
                     isDraggingActive={isDraggingActive}
                     profilesMap={profilesMap}
+                    duplicateLeadIds={duplicateLeadIds}
                   />
                 );
               })}
@@ -1567,7 +1603,7 @@ const Pipeline = () => {
             if (editingLead) {
               const { data } = await supabase
                 .from("leads")
-                .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio")
+                .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count")
                 .eq("id", editingLead.id)
                 .single();
               if (data) {
