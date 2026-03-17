@@ -294,8 +294,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     }
 
     const customStagesCount = stages.filter((s) => !s.is_final).length;
-    if (!editingStage && customStagesCount >= 6) {
-      toast.error("Máximo de 6 etapas customizáveis");
+    if (!editingStage && customStagesCount >= 12) {
+      toast.error("Máximo de 12 etapas customizáveis");
       return;
     }
 
@@ -405,10 +405,10 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         <div>
           <h3 className="font-semibold">Etapas do Funil</h3>
           <p className="text-sm text-muted-foreground">
-            Configure o comportamento de cada etapa: enviar mensagens automáticas, criar tarefas, atribuir agentes e mais. Arraste para reordenar (máximo de 6 etapas customizáveis).
+            Configure o comportamento de cada etapa: enviar mensagens automáticas, criar tarefas, atribuir agentes e mais. Arraste para reordenar (máximo de 12 etapas customizáveis).
           </p>
         </div>
-        {!showForm && stages.filter((s) => !s.is_final).length < 6 && (
+        {!showForm && stages.filter((s) => !s.is_final).length < 12 && (
           <Button onClick={() => setShowForm(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
             Nova Etapa

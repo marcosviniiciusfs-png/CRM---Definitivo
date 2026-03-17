@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle, ExternalLink, Loader2, CalendarClock } from "lucide-react";
+import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle, ExternalLink, Loader2, CalendarClock, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
@@ -76,10 +77,13 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
   const [calendarEvent, setCalendarEvent] = useState<CalendarEventDetails | null>(null);
   const [loadingCalendarEvent, setLoadingCalendarEvent] = useState(false);
   const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [isDuplicate, setIsDuplicate] = useState(false);
 
   useEffect(() => {
     if (open && leadId) {
       loadLeadDetails();
+    } else if (!open) {
+      setIsDuplicate(false);
     }
   }, [open, leadId]);
 
@@ -191,6 +195,26 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
       }
       setDetails(leadData);
 
+      // Verificar se é um lead duplicado (mesmo email ou telefone na mesma organização)
+      if (leadData?.organization_id) {
+        const conditions: string[] = [];
+        const phone = leadData.telefone_lead?.replace(/\D/g, "");
+        if (phone) conditions.push(`telefone_lead.eq.${phone}`);
+        if (leadData.email) conditions.push(`email.eq.${leadData.email}`);
+        if (conditions.length > 0) {
+          const { data: dupData } = await supabase
+            .from("leads")
+            .select("id")
+            .eq("organization_id", leadData.organization_id)
+            .or(conditions.join(","))
+            .neq("id", leadId)
+            .limit(1);
+          setIsDuplicate((dupData?.length ?? 0) > 0);
+        } else {
+          setIsDuplicate(false);
+        }
+      }
+
 
       // Buscar atividades do lead
       const { data: activitiesData, error: activitiesError } = await supabase
@@ -268,6 +292,16 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Badge de Lead Duplicado */}
+            {isDuplicate && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-700">
+                <Copy className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                <span className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                  Lead Duplicado — já existe outro lead com o mesmo email ou telefone no banco de dados
+                </span>
+              </div>
+            )}
+
             {/* Valor do Negócio */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-muted-foreground">
