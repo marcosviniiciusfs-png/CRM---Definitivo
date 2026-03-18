@@ -302,11 +302,19 @@ serve(async (req) => {
           }
         }
 
-        // Cleanup database records
-        await supabase
-          .from('whatsapp_instances')
-          .delete()
-          .eq('user_id', cleanupData.userId);
+        // CORREÇÃO: Deletar apenas as instâncias antigas capturadas NO INÍCIO do cleanup.
+        // Antes: .delete().eq('user_id', ...) apagava QUALQUER instância incluindo a nova
+        // criada em paralelo pelo fluxo principal — race condition.
+        if (dbInstances && dbInstances.length > 0) {
+          const oldInstanceNames = dbInstances.map((inst: any) => inst.instance_name).filter(Boolean);
+          if (oldInstanceNames.length > 0) {
+            await supabase
+              .from('whatsapp_instances')
+              .delete()
+              .eq('user_id', cleanupData.userId)
+              .in('instance_name', oldInstanceNames);
+          }
+        }
 
         console.log('✅ [CLEANUP] Background cleanup completed');
       } catch (error) {

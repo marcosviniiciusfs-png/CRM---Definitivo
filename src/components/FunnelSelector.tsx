@@ -170,23 +170,21 @@ export const FunnelSelector = ({
         return;
       }
 
-      // Verificar se já existe mapeamento para este source+identifier dentro dos funis da org
-      const orgFunnelIds = funnels.map(f => f.id);
-      let query = supabase
+      // Search globally (any funnel, any org) for existing mapping with this source+identifier
+      // This handles the case where the same form was previously configured in a different org
+      let globalQuery = supabase
         .from("funnel_source_mappings")
         .select("id")
-        .eq("source_type", sourceType)
-        .in("funnel_id", orgFunnelIds.length > 0 ? orgFunnelIds : ['00000000-0000-0000-0000-000000000000']);
-
+        .eq("source_type", sourceType);
       if (sourceIdentifier) {
-        query = query.eq("source_identifier", sourceIdentifier);
+        globalQuery = globalQuery.eq("source_identifier", sourceIdentifier);
       } else {
-        query = query.is("source_identifier", null);
+        globalQuery = globalQuery.is("source_identifier", null);
       }
+      const { data: globalMapping } = await globalQuery.limit(1).maybeSingle();
 
-      const { data: existingMapping } = await query.limit(1).maybeSingle();
-
-      if (existingMapping) {
+      if (globalMapping) {
+        // Update the existing mapping to point to the new funnel
         const { error } = await supabase
           .from("funnel_source_mappings")
           .update({
@@ -194,8 +192,7 @@ export const FunnelSelector = ({
             target_stage_id: stageData.id,
             source_identifier: sourceIdentifier || null,
           })
-          .eq("id", existingMapping.id);
-
+          .eq("id", globalMapping.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
@@ -206,7 +203,6 @@ export const FunnelSelector = ({
             source_identifier: sourceIdentifier || null,
             target_stage_id: stageData.id,
           });
-
         if (error) throw error;
       }
 
@@ -229,10 +225,19 @@ export const FunnelSelector = ({
     try {
       setUpdating(true);
 
+      // Only delete mappings belonging to the current org's funnels to prevent cross-org deletion
+      const orgFunnelIds = funnels.map(f => f.id);
+      if (orgFunnelIds.length === 0) {
+        setSelectedFunnel("");
+        setSelectedFunnelName("");
+        return;
+      }
+
       let query = supabase
         .from("funnel_source_mappings")
         .delete()
-        .eq("source_type", sourceType);
+        .eq("source_type", sourceType)
+        .in("funnel_id", orgFunnelIds);
 
       if (sourceIdentifier) {
         query = query.eq("source_identifier", sourceIdentifier);

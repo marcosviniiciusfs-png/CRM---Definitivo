@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
 
     // Subscribe to leadgen webhook on the PAGE (not the form)
     const response = await fetch(
-      `https://graph.facebook.com/v18.0/${page_id}/subscribed_apps`,
+      `https://graph.facebook.com/v21.0/${page_id}/subscribed_apps`,
       {
         method: 'POST',
         headers: {
@@ -127,6 +127,17 @@ Deno.serve(async (req) => {
 
     const data = await response.json();
     console.log('Webhook subscribed successfully:', data);
+
+    // Verify the subscription was registered
+    try {
+      const verifyResponse = await fetch(
+        `https://graph.facebook.com/v21.0/${page_id}/subscribed_apps?access_token=${pageAccessToken}`
+      );
+      const verifyData = await verifyResponse.json();
+      console.log('📋 [FB-SUBSCRIBE] Apps atualmente assinados na página:', JSON.stringify(verifyData));
+    } catch (verifyErr: any) {
+      console.warn('⚠️ [FB-SUBSCRIBE] Falha ao verificar assinaturas:', verifyErr.message);
+    }
 
     // Update integration — only set selected_form_id when a specific form is provided (backwards compat)
     const updatePayload: Record<string, any> = { webhook_verified: true };

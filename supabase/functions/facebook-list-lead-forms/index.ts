@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
           const userToken = await decryptToken(tokenRow.encrypted_access_token || '', ENCRYPTION_KEY);
           if (userToken && page_id) {
             try {
-              const resp = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userToken}`);
+              const resp = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${userToken}`);
               if (resp.ok) {
                 const accs = await resp.json();
                 const pg = (accs.data || []).find((p: any) => p.id === page_id);
@@ -176,9 +176,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Sem token após todas as tentativas ──
-    if (!pageAccessToken) {
-      console.error('[FB-FORMS] ❌ Nenhum token encontrado após todas as tentativas');
-      throw new Error('Token não encontrado. Por favor, desconecte e reconecte ao Facebook nas Integrações.');
+    if (!pageAccessToken || pageAccessToken.length < 10) {
+      console.error('[FB-FORMS] ❌ Token ausente ou inválido após todas as tentativas (length:', pageAccessToken?.length ?? 0, ')');
+      throw new Error('Token de acesso expirado ou inválido. Por favor, desconecte e reconecte ao Facebook nas Integrações.');
     }
 
     if (!page_id) {
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
 
     // Buscar formulários na API do Facebook
     const response = await fetch(
-      `https://graph.facebook.com/v18.0/${page_id}/leadgen_forms?access_token=${pageAccessToken}&fields=id,name,status,leads_count`,
+      `https://graph.facebook.com/v21.0/${page_id}/leadgen_forms?access_token=${pageAccessToken}&fields=id,name,status,leads_count`,
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },

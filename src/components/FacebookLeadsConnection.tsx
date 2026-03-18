@@ -37,6 +37,11 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   const [configuredFormIds, setConfiguredFormIds] = useState<Set<string>>(new Set());
   // Store the redirect_uri used during OAuth initiation so the callback uses the exact same one
   const [oauthRedirectUri, setOauthRedirectUri] = useState<string | null>(null);
+  // Page selection state after OAuth when multiple pages are available
+  const [availablePages, setAvailablePages] = useState<{id: string, name: string}[]>([]);
+  const [showPageSelector, setShowPageSelector] = useState(false);
+  const [pendingIntegrationId, setPendingIntegrationId] = useState<string | null>(null);
+  const [switchingPage, setSwitchingPage] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -174,9 +179,19 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         window.history.replaceState({}, '', window.location.pathname);
       }
 
-      const integrationData = await checkConnection();
-      if (integrationData) {
-        setTimeout(() => fetchLeadForms(integrationData), 500);
+      // If multiple pages available, prompt user to select which one to use
+      if (data?.available_pages && data.available_pages.length > 1) {
+        console.log('📄 [FB-CONN] Multiple pages detected, showing page selector...');
+        setPendingIntegrationId(data.integration_id);
+        setAvailablePages(data.available_pages);
+        setShowPageSelector(true);
+        // Integration is already saved with page[0], still refresh connection info
+        await checkConnection();
+      } else {
+        const integrationData = await checkConnection();
+        if (integrationData) {
+          setTimeout(() => fetchLeadForms(integrationData), 500);
+        }
       }
     } catch (err: any) {
       console.error('❌ [FB-CONN] Erro no callback:', err);
@@ -354,6 +369,39 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     }
   };
 
+  const handlePageSelect = async (selectedPageId: string) => {
+    if (!pendingIntegrationId || !organizationId) return;
+    setSwitchingPage(true);
+    try {
+      console.log('🔄 [FB-CONN] Switching to page:', selectedPageId);
+      const { data, error } = await supabase.functions.invoke('facebook-switch-page', {
+        body: {
+          integration_id: pendingIntegrationId,
+          page_id: selectedPageId,
+          organization_id: organizationId,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      console.log('✅ [FB-CONN] Page switched to:', data.page_name);
+      toast.success(`Página "${data.page_name}" selecionada!`);
+      setShowPageSelector(false);
+      setAvailablePages([]);
+      setPendingIntegrationId(null);
+
+      const integrationData = await checkConnection();
+      if (integrationData) {
+        setTimeout(() => fetchLeadForms(integrationData), 500);
+      }
+    } catch (err: any) {
+      console.error('❌ [FB-CONN] Error switching page:', err);
+      toast.error(`Erro ao selecionar página: ${err.message}`);
+    } finally {
+      setSwitchingPage(false);
+    }
+  };
+
   const fetchLeadForms = async (integrationData?: any | null) => {
     let activeIntegration = integrationData || integration;
 
@@ -399,8 +447,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       setShowFormSelector(true);
 
       // Garantir que o webhook de página está subscrito (uma vez apenas)
+      // CORREÇÃO: passa activeIntegration explicitamente para evitar stale closure
       if (activeIntegration && !activeIntegration.webhook_verified) {
-        subscribePageWebhook();
+        subscribePageWebhook(activeIntegration);
       }
 
       // Carregar quais formulários já têm mapeamento de funil configurado
@@ -433,18 +482,27 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   };
 
   // Subscribes the PAGE-level webhook (needed only once per connection).
-  const subscribePageWebhook = async () => {
-    if (!integration || !organizationId) return;
+  // CORREÇÃO: Recebe integrationData como parâmetro para evitar stale closure.
+  // Antes: usava `integration` do estado React — que está null logo após OAuth
+  // porque React ainda não atualizou o estado quando a função é chamada via setTimeout.
+  const subscribePageWebhook = async (integrationData?: any) => {
+    const target = integrationData || integration;
+    if (!target || !organizationId) {
+      console.warn('⚠️ [FB-CONN] subscribePageWebhook: sem integração disponível, abortando');
+      return;
+    }
     setSubscribing(true);
     try {
+      console.log('🔔 [FB-CONN] Ativando webhook da página para integração:', target.id);
       const { data, error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
         body: {
-          integration_id: integration.id,
+          integration_id: target.id,
           organization_id: organizationId,
         },
       });
       if (error) throw new Error('O servidor demorou a responder. Verifique sua conexão e tente novamente.');
       if (data?.error) throw new Error(data.error);
+      console.log('✅ [FB-CONN] Webhook da página ativado com sucesso');
     } catch (error) {
       console.error('Error subscribing page webhook:', error);
       toast.error('Erro ao ativar webhook da página');
@@ -552,6 +610,19 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             </div>
           </div>
           <div className="flex gap-2">
+            {/* Botão para ativar/reativar webhook — sempre visível quando conectado */}
+            {isConnected && !needsReconnect && integration && (
+              <Button
+                onClick={() => subscribePageWebhook(integration)}
+                disabled={subscribing}
+                variant={integration.webhook_verified ? 'ghost' : 'outline'}
+                size="sm"
+              >
+                {subscribing ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Ativando...</>
+                ) : integration.webhook_verified ? '✅ Webhook' : '🔔 Ativar Webhook'}
+              </Button>
+            )}
             {/* Mostrar "Gerenciar" mesmo quando needsReconnect = true para facilitar diagnóstico */}
             {isConnected && (
               <Button
@@ -598,6 +669,47 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           </div>
         )}
       </CardContent>
+
+      {/* Page Selection Dialog — shown when multiple Facebook pages are available */}
+      <Dialog open={showPageSelector} onOpenChange={(open) => {
+        if (!open) {
+          setShowPageSelector(false);
+          // If user dismisses without selecting, still load forms with default page
+          if (pendingIntegrationId) {
+            checkConnection().then(data => {
+              if (data) setTimeout(() => fetchLeadForms(data), 500);
+            });
+            setPendingIntegrationId(null);
+          }
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecione a Página do Facebook</DialogTitle>
+            <DialogDescription>
+              Sua conta gerencia múltiplas páginas. Escolha qual página será usada para receber leads nesta organização.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {availablePages.map((page) => (
+              <Button
+                key={page.id}
+                variant="outline"
+                className="w-full justify-start gap-3 h-auto py-3"
+                disabled={switchingPage}
+                onClick={() => handlePageSelect(page.id)}
+              >
+                <Facebook className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <div className="text-left">
+                  <p className="font-medium">{page.name}</p>
+                  <p className="text-xs text-muted-foreground">ID: {page.id}</p>
+                </div>
+                {switchingPage && <Loader2 className="h-4 w-4 animate-spin ml-auto" />}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Form Selection Dialog */}
       <Dialog open={showFormSelector} onOpenChange={setShowFormSelector}>

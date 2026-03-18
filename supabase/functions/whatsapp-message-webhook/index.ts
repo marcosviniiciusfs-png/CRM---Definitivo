@@ -138,7 +138,10 @@ serve(async (req) => {
   const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
   const authHeader = req.headers.get('x-api-key');
 
-  if (!webhookSecret || !authHeader || authHeader !== webhookSecret) {
+  // CRÍTICO: Só validar autenticação quando EVOLUTION_WEBHOOK_SECRET está configurado.
+  // Se não estiver configurado, aceitar requisições sem header (webhook sem auth).
+  // Antes: !webhookSecret → rejeitava TODOS os eventos quando a variável não estava definida.
+  if (webhookSecret && (!authHeader || authHeader !== webhookSecret)) {
     console.error('❌ Unauthorized webhook access attempt');
     return new Response(
       JSON.stringify({ error: 'Unauthorized' }),

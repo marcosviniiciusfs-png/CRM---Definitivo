@@ -50,7 +50,7 @@ async function refreshPageToken(
   try {
     console.log(`🔄 [FB-WEBHOOK] Tentando renovar token da página ${pageId} via user token...`);
     const resp = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`
+      `https://graph.facebook.com/v21.0/me/accounts?access_token=${userAccessToken}`
     );
     if (!resp.ok) {
       const err = await resp.json();
@@ -301,6 +301,13 @@ Deno.serve(async (req) => {
               if (!pageAccessToken) {
                 const msg = `Token não encontrado para integração ${integration.id}. Reconecte o Facebook.`;
                 console.error(`❌ [FB-WEBHOOK] ${msg}`);
+                // CORREÇÃO: Marcar integração como precisando reconexão (expires_at = now())
+                // para que o frontend mostre o aviso "needs_reconnect = true" ao usuário.
+                await supabase
+                  .from('facebook_integrations')
+                  .update({ expires_at: new Date().toISOString() })
+                  .eq('id', integration.id)
+                  .catch((e: any) => console.warn('⚠️ [FB-WEBHOOK] Erro ao marcar expiração:', e));
                 if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'error', error_message: msg }).eq('id', logId);
                 continue;
               }
@@ -308,7 +315,7 @@ Deno.serve(async (req) => {
               // Buscar dados do lead na Graph API (explicitar campos para garantir form_id)
               console.log(`📡 [FB-WEBHOOK] Buscando lead ${leadgenId} na Graph API...`);
               const leadResponse = await fetch(
-                `https://graph.facebook.com/v18.0/${leadgenId}?fields=id,form_id,ad_id,ad_name,adgroup_id,created_time,field_data&access_token=${pageAccessToken}`
+                `https://graph.facebook.com/v21.0/${leadgenId}?fields=id,form_id,ad_id,ad_name,adgroup_id,created_time,field_data&access_token=${pageAccessToken}`
               );
 
               if (!leadResponse.ok) {
@@ -342,7 +349,7 @@ Deno.serve(async (req) => {
               let formName = leadData.form_id || 'Formulário Facebook';
               try {
                 if (leadData.form_id) {
-                  const formResp = await fetch(`https://graph.facebook.com/v18.0/${leadData.form_id}?fields=name&access_token=${pageAccessToken}`);
+                  const formResp = await fetch(`https://graph.facebook.com/v21.0/${leadData.form_id}?fields=name&access_token=${pageAccessToken}`);
                   const formData = await formResp.json();
                   if (formData.name) formName = formData.name;
                 }
@@ -352,7 +359,7 @@ Deno.serve(async (req) => {
               let campaignName = 'N/A';
               try {
                 if (leadData.ad_id) {
-                  const adResp = await fetch(`https://graph.facebook.com/v18.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${pageAccessToken}`);
+                  const adResp = await fetch(`https://graph.facebook.com/v21.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${pageAccessToken}`);
                   const adData = await adResp.json();
                   campaignName = adData.campaign?.name || adData.name || leadData.ad_id;
                 }
