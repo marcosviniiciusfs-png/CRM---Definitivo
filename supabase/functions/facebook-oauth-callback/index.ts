@@ -252,6 +252,8 @@ Deno.serve(async (req) => {
           page_name: selectedPage.name,
           business_id: businessId,
           business_name: businessName,
+          // Reset webhook_verified so fetchLeadForms re-subscribes on next open
+          webhook_verified: false,
           updated_at: new Date().toISOString()
         })
         .eq('id', existing.id);

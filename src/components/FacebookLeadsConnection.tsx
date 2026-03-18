@@ -562,17 +562,17 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             </div>
           </div>
           <div className="flex gap-2">
-            {/* Botão para forçar re-ativação do webhook quando não está verificado */}
-            {isConnected && !needsReconnect && integration && !integration.webhook_verified && (
+            {/* Botão para ativar/reativar webhook — sempre visível quando conectado */}
+            {isConnected && !needsReconnect && integration && (
               <Button
                 onClick={() => subscribePageWebhook(integration)}
                 disabled={subscribing}
-                variant="outline"
+                variant={integration.webhook_verified ? 'ghost' : 'outline'}
                 size="sm"
               >
                 {subscribing ? (
                   <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Ativando...</>
-                ) : '🔔 Reativar Webhook'}
+                ) : integration.webhook_verified ? '✅ Webhook' : '🔔 Ativar Webhook'}
               </Button>
             )}
             {/* Mostrar "Gerenciar" mesmo quando needsReconnect = true para facilitar diagnóstico */}
