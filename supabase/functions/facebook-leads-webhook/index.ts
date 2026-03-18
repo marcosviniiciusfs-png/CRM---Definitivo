@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
               // Buscar dados do lead na Graph API (explicitar campos para garantir form_id)
               console.log(`📡 [FB-WEBHOOK] Buscando lead ${leadgenId} na Graph API...`);
               const leadResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${leadgenId}?fields=id,form_id,ad_id,ad_name,adgroup_id,created_time,field_data&access_token=${pageAccessToken}`
+                `https://graph.facebook.com/v21.0/${leadgenId}?fields=id,form_id,ad_id,ad_name,created_time,field_data&access_token=${pageAccessToken}`
               );
 
               if (!leadResponse.ok) {
