@@ -170,21 +170,24 @@ export const FunnelSelector = ({
         return;
       }
 
-      // Search globally (any funnel, any org) for existing mapping with this source+identifier
-      // This handles the case where the same form was previously configured in a different org
-      let globalQuery = supabase
+      // Search ONLY within this org's funnels to avoid overwriting another org's mapping.
+      // The unique constraint is now per-org (organization_id, source_type, source_identifier),
+      // so each org can independently map the same form_id to their own funnel.
+      const orgFunnelIdsForSave = funnels.map(f => f.id);
+      let orgQuery = supabase
         .from("funnel_source_mappings")
         .select("id")
-        .eq("source_type", sourceType);
+        .eq("source_type", sourceType)
+        .in("funnel_id", orgFunnelIdsForSave);
       if (sourceIdentifier) {
-        globalQuery = globalQuery.eq("source_identifier", sourceIdentifier);
+        orgQuery = orgQuery.eq("source_identifier", sourceIdentifier);
       } else {
-        globalQuery = globalQuery.is("source_identifier", null);
+        orgQuery = orgQuery.is("source_identifier", null);
       }
-      const { data: globalMapping } = await globalQuery.limit(1).maybeSingle();
+      const { data: orgMapping } = await orgQuery.limit(1).maybeSingle();
 
-      if (globalMapping) {
-        // Update the existing mapping to point to the new funnel
+      if (orgMapping) {
+        // Update the existing mapping within this org
         const { error } = await supabase
           .from("funnel_source_mappings")
           .update({
@@ -192,12 +195,14 @@ export const FunnelSelector = ({
             target_stage_id: stageData.id,
             source_identifier: sourceIdentifier || null,
           })
-          .eq("id", globalMapping.id);
+          .eq("id", orgMapping.id);
         if (error) throw error;
       } else {
+        // Insert new row — safe because constraint is now per-org
         const { error } = await supabase
           .from("funnel_source_mappings")
           .insert({
+            organization_id: targetOrgId,
             funnel_id: funnelId,
             source_type: sourceType,
             source_identifier: sourceIdentifier || null,

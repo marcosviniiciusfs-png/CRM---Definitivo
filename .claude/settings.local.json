@@ -36,7 +36,29 @@
       "Bash(ls /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/*.env*)",
       "Bash(ls /c/Users/Brito/Desktop/principal/Kairoz/*.env*)",
       "Bash(grep -r \"safe_list_admins\\\\|safe_count_main_users\\\\|safe_list_all_users\\\\|safe_get_all_subscriptions\\\\|safe_count_paying_users\\\\|safe_calculate_mrr\\\\|safe_calculate_daily_revenue\\\\|safe_subscription_growth\" /c/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/supabase/ --include=*.sql -l)",
-      "Bash(\"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\.claude\\\\worktrees\\\\sharp-cartwright\\\\supabase\\\\functions\\\\admin-delete-user\\\\index.ts\")"
+      "Bash(\"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\.claude\\\\worktrees\\\\sharp-cartwright\\\\supabase\\\\functions\\\\admin-delete-user\\\\index.ts\")",
+      "Bash(\"C:\\\\Users\\\\Brito\\\\Desktop\\\\principal\\\\Kairoz\\\\CRM---Definitivo\\\\.claude\\\\worktrees\\\\affectionate-sinoussi\\\\.vercel\\\\project.json\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://www.kairozcrm.com.br\")",
+      "Bash(curl -s \"https://uxttihjsxfowursjyult.supabase.co/functions/v1/facebook-leads-webhook?hub.mode=subscribe&hub.verify_token=kairoz_webhook_verify_token&hub.challenge=PROD_TEST_123\")",
+      "Bash(curl -s \"https://uxttihjsxfowursjyult.supabase.co/functions/v1/facebook-leads-webhook\")",
+      "Bash(ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODM5NTAsImV4cCI6MjA4NDQ1OTk1MH0.-gyL85krJA-16ieNnCtoi-HK-oXxSLl1m26yMJLKmxA\" curl -s \"https://uxttihjsxfowursjyult.supabase.co/functions/v1/get-facebook-debug\" -H \"Authorization: Bearer $ANON_KEY\")",
+      "Bash(npx supabase:*)",
+      "Bash(find C:/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo -name .env* -not -path */node_modules/*)",
+      "Bash(ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODM5NTAsImV4cCI6MjA4NDQ1OTk1MH0.-gyL85krJA-16ieNnCtoi-HK-oXxSLl1m26yMJLKmxA\" SUPABASE_URL=\"https://uxttihjsxfowursjyult.supabase.co\" __NEW_LINE_b5f001f8958743df__ curl -s -X POST \"$SUPABASE_URL/auth/v1/token?grant_type=password\" -H \"apikey: $ANON_KEY\" -H \"Content-Type: application/json\" -d \"{\"\"email\"\":\"\"Lrepresentacoes8@gmail.com\"\",\"\"password\"\":\"\"funcionariolr2817\"\"}\")",
+      "Bash(ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODM5NTAsImV4cCI6MjA4NDQ1OTk1MH0.-gyL85krJA-16ieNnCtoi-HK-oXxSLl1m26yMJLKmxA\")",
+      "Bash(JWT=\"eyJhbGciOiJFUzI1NiIsImtpZCI6IjFlZTMyZTEzLTI3MzUtNDBlNy05YzRiLWU0NTRhZDQwM2NmYyIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3V4dHRpaGpzeGZvd3Vyc2p5dWx0LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI0MzAxYzAzNS1jN2Y0LTQ0NTAtYTA2MS0wZjc1YzYyMTI3ZWMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzczODU1MTM2LCJpYXQiOjE3NzM4NTE1MzYsImVtYWlsIjoibHJlcHJlc2VudGFjb2VzOEBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoibHJlcHJlc2VudGFjb2VzOEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsIm5hbWUiOiJMUiAtIEVxdWlwZSBQcmluY2lwYWwiLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6IjQzMDFjMDM1LWM3ZjQtNDQ1MC1hMDYxLTBmNzVjNjIxMjdlYyJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzczODUxNTM2fV0sInNlc3Npb25faWQiOiJlMzI5MDMwNC1iNWNkLTQ4MzQtYjZiNC0wOWVmZDcwMzAwYWUiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.uYrWvuoHfEqMVew0i-h6FJkc8QXXvJg2gz8084XjngCCAuCFz8QcGrzYWfKUjmzzU1AgQVmCgRvynMPSTznwPw\")",
+      "Bash(SUPABASE_URL=\"https://uxttihjsxfowursjyult.supabase.co\")",
+      "Bash(__NEW_LINE_2ace4888585bb691__ echo:*)",
+      "Bash(curl -s \"$SUPABASE_URL/rest/v1/leads?select=id,nome_lead,source,funnel_id,funnel_stage_id,telefone_lead,additional_data,created_at&organization_id=eq.1a7d8bb6-fd85-435d-aa36-bce147a72167&source=eq.Facebook Leads&order=created_at.desc&limit=10\" -H \"apikey: $ANON_KEY\" -H \"Authorization: Bearer $JWT\")",
+      "Bash(curl -s \"$SUPABASE_URL/rest/v1/funnel_stages?select=id,funnel_id,name,position&order=funnel_id,position&limit=20\" -H \"apikey: $ANON_KEY\" -H \"Authorization: Bearer $JWT\")",
+      "Bash(find C:/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo -name *.sql -path */migrations/*)",
+      "Bash(find C:/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo/.claude/worktrees/affectionate-sinoussi/supabase/migrations -name *.sql)",
+      "Bash(find C:/Users/Brito/Desktop/principal/Kairoz/CRM---Definitivo -name *.sql)",
+      "Bash(__NEW_LINE_814554d7c538f044__ echo:*)",
+      "Bash(curl -s -X POST \"$SUPABASE_URL/functions/v1/facebook-list-lead-forms\" -H \"apikey: $ANON_KEY\" -H \"Authorization: Bearer $JWT\" -H \"Content-Type: application/json\" -d '{:*)",
+      "Bash(__NEW_LINE_deeb0086f4680313__ echo:*)",
+      "Bash(curl -s \"$SUPABASE_URL/rest/v1/leads?select=id,nome_lead,additional_data,created_at&organization_id=eq.1a7d8bb6-fd85-435d-aa36-bce147a72167&order=created_at.desc&limit=3\" -H \"apikey: $ANON_KEY\" -H \"Authorization: Bearer $JWT\")",
+      "Bash(curl -s \"https://uxttihjsxfowursjyult.supabase.co/rest/v1/facebook_integrations?select=id,organization_id,page_id,page_name,webhook_verified\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODg4Mzk1MCwiZXhwIjoyMDg0NDU5OTUwfQ.LwkMTgGre6mkPZbMAXp_I8aES0qc94BWa_OCTWrF4Yg\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODg4Mzk1MCwiZXhwIjoyMDg0NDU5OTUwfQ.LwkMTgGre6mkPZbMAXp_I8aES0qc94BWa_OCTWrF4Yg\")"
     ]
   }
 }
