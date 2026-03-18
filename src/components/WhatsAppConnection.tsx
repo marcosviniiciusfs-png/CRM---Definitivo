@@ -309,8 +309,17 @@ const WhatsAppConnection = () => {
         description: "Gerando QR Code...",
       });
 
+      // CRÍTICO: Garantir sessão válida antes de chamar a Edge Function
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!session || sessionError) {
+        throw new Error('Sessão expirada. Por favor, faça login novamente.');
+      }
+
       const { data, error } = await supabase.functions.invoke('create-whatsapp-instance', {
         body: {},
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) throw error;

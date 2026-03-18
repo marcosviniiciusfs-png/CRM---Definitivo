@@ -77,27 +77,12 @@ export const FunnelSelector = ({
 
       setResolvedOrgId(targetOrgId);
 
-      // Carregar funis e mapeamento existente em paralelo
-      const [funnelsResult, mappingResult] = await Promise.all([
-        supabase
-          .from("sales_funnels")
-          .select("id, name, is_active, is_default")
-          .eq("organization_id", targetOrgId)
-          .order("name"),
-        // Buscar mapeamento específico para esse source+identifier
-        (() => {
-          let q = supabase
-            .from("funnel_source_mappings")
-            .select("funnel_id, source_type, source_identifier, id")
-            .eq("source_type", sourceType);
-          if (sourceIdentifier) {
-            q = q.eq("source_identifier", sourceIdentifier);
-          } else {
-            q = q.is("source_identifier", null);
-          }
-          return q.limit(1).maybeSingle();
-        })(),
-      ]);
+      // Carregar funis da org primeiro
+      const funnelsResult = await supabase
+        .from("sales_funnels")
+        .select("id, name, is_active, is_default")
+        .eq("organization_id", targetOrgId)
+        .order("name");
 
       const funnelsData = funnelsResult.data || [];
 
@@ -107,14 +92,31 @@ export const FunnelSelector = ({
 
       setFunnels(funnelsData);
 
-      // Aplicar mapeamento existente (se funil ainda existe na org)
-      const mappingData = mappingResult.data;
-      if (mappingData && funnelsData.some(f => f.id === mappingData.funnel_id)) {
+      // Buscar mapeamento APENAS entre os funis desta organização (evita capturar mapeamentos de outras orgs)
+      const orgFunnelIds = funnelsData.map(f => f.id);
+      let mappingData: any = null;
+
+      if (orgFunnelIds.length > 0) {
+        let q = supabase
+          .from("funnel_source_mappings")
+          .select("funnel_id, source_type, source_identifier, id")
+          .eq("source_type", sourceType)
+          .in("funnel_id", orgFunnelIds);
+        if (sourceIdentifier) {
+          q = q.eq("source_identifier", sourceIdentifier);
+        } else {
+          q = q.is("source_identifier", null);
+        }
+        const mappingResult = await q.limit(1).maybeSingle();
+        mappingData = mappingResult.data;
+      }
+
+      // Aplicar mapeamento existente (já garantido que pertence à org)
+      if (mappingData) {
         setSelectedFunnel(mappingData.funnel_id);
         const funnel = funnelsData.find(f => f.id === mappingData.funnel_id);
         if (funnel) setSelectedFunnelName(funnel.name);
       } else {
-        // Mapeamento inválido (funil excluído) — limpar estado visual
         setSelectedFunnel("");
         setSelectedFunnelName("");
       }
@@ -168,11 +170,13 @@ export const FunnelSelector = ({
         return;
       }
 
-      // Verificar se já existe mapeamento para este source+identifier
+      // Verificar se já existe mapeamento para este source+identifier dentro dos funis da org
+      const orgFunnelIds = funnels.map(f => f.id);
       let query = supabase
         .from("funnel_source_mappings")
         .select("id")
-        .eq("source_type", sourceType);
+        .eq("source_type", sourceType)
+        .in("funnel_id", orgFunnelIds.length > 0 ? orgFunnelIds : ['00000000-0000-0000-0000-000000000000']);
 
       if (sourceIdentifier) {
         query = query.eq("source_identifier", sourceIdentifier);
