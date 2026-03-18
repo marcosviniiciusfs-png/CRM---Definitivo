@@ -248,8 +248,11 @@ Deno.serve(async (req) => {
           const leadgenData = change.value;
           const pageId = leadgenData.page_id || entry.id;
           const leadgenId = leadgenData.leadgen_id;
+          // CORREÇÃO CRÍTICA: extrair form_id do payload do webhook
+          // O Facebook envia form_id diretamente no payload — usar isso como fonte primária
+          const webhookFormId = leadgenData.form_id || null;
 
-          console.log(`🎯 [FB-WEBHOOK] leadgen_id=${leadgenId} page_id=${pageId}`);
+          console.log(`🎯 [FB-WEBHOOK] leadgen_id=${leadgenId} page_id=${pageId} form_id=${webhookFormId}`);
 
           if (!pageId || !leadgenId) {
             console.warn('⚠️ [FB-WEBHOOK] page_id ou leadgen_id ausente, pulando');
@@ -328,7 +331,12 @@ Deno.serve(async (req) => {
               }
 
               const leadData = await leadResponse.json();
-              console.log(`✅ [FB-WEBHOOK] Dados do lead obtidos: form_id=${leadData.form_id}`);
+              // Usar form_id do webhook payload (mais confiável) ou da Graph API como fallback
+              const resolvedFormId = webhookFormId || leadData.form_id || null;
+              if (!leadData.form_id && resolvedFormId) {
+                leadData.form_id = resolvedFormId; // garantir consistência no restante do código
+              }
+              console.log(`✅ [FB-WEBHOOK] Dados do lead obtidos: form_id=${resolvedFormId} (webhook=${webhookFormId}, graphapi=${leadData.form_id})`);
 
               // Buscar nome do formulário
               let formName = leadData.form_id || 'Formulário Facebook';
