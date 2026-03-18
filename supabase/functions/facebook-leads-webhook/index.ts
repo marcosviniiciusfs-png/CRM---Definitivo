@@ -301,6 +301,13 @@ Deno.serve(async (req) => {
               if (!pageAccessToken) {
                 const msg = `Token não encontrado para integração ${integration.id}. Reconecte o Facebook.`;
                 console.error(`❌ [FB-WEBHOOK] ${msg}`);
+                // CORREÇÃO: Marcar integração como precisando reconexão (expires_at = now())
+                // para que o frontend mostre o aviso "needs_reconnect = true" ao usuário.
+                await supabase
+                  .from('facebook_integrations')
+                  .update({ expires_at: new Date().toISOString() })
+                  .eq('id', integration.id)
+                  .catch((e: any) => console.warn('⚠️ [FB-WEBHOOK] Erro ao marcar expiração:', e));
                 if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'error', error_message: msg }).eq('id', logId);
                 continue;
               }
