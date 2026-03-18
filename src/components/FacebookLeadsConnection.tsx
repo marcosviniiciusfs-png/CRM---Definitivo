@@ -399,8 +399,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       setShowFormSelector(true);
 
       // Garantir que o webhook de página está subscrito (uma vez apenas)
+      // CORREÇÃO: passa activeIntegration explicitamente para evitar stale closure
       if (activeIntegration && !activeIntegration.webhook_verified) {
-        subscribePageWebhook();
+        subscribePageWebhook(activeIntegration);
       }
 
       // Carregar quais formulários já têm mapeamento de funil configurado
@@ -433,18 +434,27 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   };
 
   // Subscribes the PAGE-level webhook (needed only once per connection).
-  const subscribePageWebhook = async () => {
-    if (!integration || !organizationId) return;
+  // CORREÇÃO: Recebe integrationData como parâmetro para evitar stale closure.
+  // Antes: usava `integration` do estado React — que está null logo após OAuth
+  // porque React ainda não atualizou o estado quando a função é chamada via setTimeout.
+  const subscribePageWebhook = async (integrationData?: any) => {
+    const target = integrationData || integration;
+    if (!target || !organizationId) {
+      console.warn('⚠️ [FB-CONN] subscribePageWebhook: sem integração disponível, abortando');
+      return;
+    }
     setSubscribing(true);
     try {
+      console.log('🔔 [FB-CONN] Ativando webhook da página para integração:', target.id);
       const { data, error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
         body: {
-          integration_id: integration.id,
+          integration_id: target.id,
           organization_id: organizationId,
         },
       });
       if (error) throw new Error('O servidor demorou a responder. Verifique sua conexão e tente novamente.');
       if (data?.error) throw new Error(data.error);
+      console.log('✅ [FB-CONN] Webhook da página ativado com sucesso');
     } catch (error) {
       console.error('Error subscribing page webhook:', error);
       toast.error('Erro ao ativar webhook da página');
@@ -552,6 +562,19 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             </div>
           </div>
           <div className="flex gap-2">
+            {/* Botão para forçar re-ativação do webhook quando não está verificado */}
+            {isConnected && !needsReconnect && integration && !integration.webhook_verified && (
+              <Button
+                onClick={() => subscribePageWebhook(integration)}
+                disabled={subscribing}
+                variant="outline"
+                size="sm"
+              >
+                {subscribing ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Ativando...</>
+                ) : '🔔 Reativar Webhook'}
+              </Button>
+            )}
             {/* Mostrar "Gerenciar" mesmo quando needsReconnect = true para facilitar diagnóstico */}
             {isConnected && (
               <Button
