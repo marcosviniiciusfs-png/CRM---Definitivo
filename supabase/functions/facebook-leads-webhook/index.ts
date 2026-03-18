@@ -313,10 +313,58 @@ Deno.serve(async (req) => {
               }
 
               // Buscar dados do lead na Graph API (explicitar campos para garantir form_id)
+              // ESTRATÉGIA: tentativa 1 com page token; se falhar com erro 100 (leadgen não encontrado,
+              // comum em leads de TESTE da ferramenta Facebook), tentar com user token como fallback.
               console.log(`📡 [FB-WEBHOOK] Buscando lead ${leadgenId} na Graph API...`);
-              const leadResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${leadgenId}?fields=id,form_id,ad_id,ad_name,created_time,field_data&access_token=${pageAccessToken}`
+              const LEAD_FIELDS = 'id,form_id,ad_id,ad_name,created_time,field_data';
+              let leadResponse = await fetch(
+                `https://graph.facebook.com/v21.0/${leadgenId}?fields=${LEAD_FIELDS}&access_token=${pageAccessToken}`
               );
+
+              // Fallback com user token para leads de teste (error 100 = Object does not exist)
+              if (!leadResponse.ok) {
+                const firstError = await leadResponse.json();
+                const firstCode = firstError?.error?.code;
+                console.warn(`⚠️ [FB-WEBHOOK] Erro ${firstCode} com page token para lead ${leadgenId}: ${firstError?.error?.message}`);
+
+                if (firstCode === 100) {
+                  // Leads de teste às vezes só são acessíveis via user access token
+                  // Tentar recuperar user token da tabela de tokens
+                  const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
+                  const { data: secureTokens } = await supabase
+                    .from('facebook_integration_tokens')
+                    .select('encrypted_access_token')
+                    .eq('integration_id', integration.id)
+                    .maybeSingle();
+
+                  if (secureTokens?.encrypted_access_token) {
+                    const userToken = await decryptToken(secureTokens.encrypted_access_token, ENCRYPTION_KEY);
+                    if (userToken && userToken.length > 20) {
+                      console.log(`🔄 [FB-WEBHOOK] Tentando buscar lead ${leadgenId} com user token (fallback para lead de teste)...`);
+                      leadResponse = await fetch(
+                        `https://graph.facebook.com/v21.0/${leadgenId}?fields=${LEAD_FIELDS}&access_token=${userToken}`
+                      );
+                      if (leadResponse.ok) {
+                        console.log(`✅ [FB-WEBHOOK] Lead ${leadgenId} obtido com user token (era lead de teste)`);
+                      } else {
+                        const retryErr = await leadResponse.json();
+                        console.error(`❌ [FB-WEBHOOK] Fallback com user token também falhou: ${retryErr?.error?.message}`);
+                        // Reconstruir Response com o erro original para o handler abaixo
+                        leadResponse = new Response(JSON.stringify(firstError), { status: 400 });
+                      }
+                    } else {
+                      leadResponse = new Response(JSON.stringify(firstError), { status: 400 });
+                    }
+                  } else {
+                    leadResponse = new Response(JSON.stringify(firstError), { status: 400 });
+                  }
+                } else {
+                  // Recriar response com os dados do erro original
+                  leadResponse = new Response(JSON.stringify(firstError), {
+                    status: leadResponse.status || 400
+                  });
+                }
+              }
 
               if (!leadResponse.ok) {
                 const errorData = await leadResponse.json();
@@ -393,11 +441,37 @@ Deno.serve(async (req) => {
                 if (v) allFieldsDescription += `${field.name}: ${v}\n`;
               });
 
-              const phoneNumber = leadInfo.phone_number || leadInfo.phone || leadInfo.telefone || '';
-              const email = leadInfo.email || null;
+              // Extrair telefone — cobrir todos os nomes de campo usados pelo Facebook
+              // incluindo os campos padrão da ferramenta de teste (phone_number, full_phone_number)
+              const phoneNumber = (
+                leadInfo.phone_number ||
+                leadInfo.full_phone_number ||
+                leadInfo.phone ||
+                leadInfo.telefone ||
+                leadInfo.celular ||
+                leadInfo.whatsapp ||
+                leadInfo.numero ||
+                leadInfo.numero_telefone ||
+                // suporte a campos customizados com "whatsapp" ou "telefone" no nome
+                Object.entries(leadInfo).find(([k]) => k.includes('whatsapp') || k.includes('celular') || k.includes('fone'))?.[1] ||
+                ''
+              );
+              const email = leadInfo.email || leadInfo.e_mail || leadInfo['e-mail'] || null;
 
-              // Verificar duplicidade
-              const duplicateCheck = await checkDuplicateLead(supabase, integration.organization_id, phoneNumber, email || undefined);
+              // Identificar se é lead de teste (para log mais claro)
+              const isTestLead = (
+                (leadInfo.full_name || leadInfo['full name'] || '').toLowerCase().includes('test lead') ||
+                phoneNumber.includes('+1 (800)') ||
+                phoneNumber.includes('+1-202-555')
+              );
+              if (isTestLead) {
+                console.log(`🧪 [FB-WEBHOOK] Lead de teste detectado (leadgen_id=${leadgenId})`);
+              }
+
+              // Verificar duplicidade — leads de teste são sempre criados de novo (sem bloqueio)
+              const duplicateCheck = isTestLead
+                ? { isDuplicate: false, existingLead: null, hasAdvancedInFunnel: false, matchType: null }
+                : await checkDuplicateLead(supabase, integration.organization_id, phoneNumber, email || undefined);
 
               if (duplicateCheck.isDuplicate && duplicateCheck.existingLead) {
                 console.log(`⚠️ [FB-WEBHOOK] Lead duplicado via ${duplicateCheck.matchType}: ${duplicateCheck.existingLead.id}`);
