@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
@@ -67,8 +67,6 @@ const Chat = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
   const { theme } = useTheme();
   const permissions = usePermissions();
-  const queryClient = useQueryClient();
-
   // Core state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -254,7 +252,6 @@ const Chat = () => {
       setSelectedLead(location.state.selectedLead);
     }
 
-    let reloadTimeout: NodeJS.Timeout;
     const globalChannelName = `chat-global-${user?.id}`;
     let globalChannel: ReturnType<typeof supabase.channel> | null = null;
 
@@ -280,13 +277,18 @@ const Chat = () => {
             setPresenceStatus((prev) => new Map(prev).set(updatedLead.id, { isOnline: !!updatedLead.is_online, lastSeen: updatedLead.last_seen || undefined }));
           }
         })
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, () => {
-          clearTimeout(reloadTimeout);
-          reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, (payload) => {
+          // Add the new lead directly to state without a full refetch to avoid briefly clearing the list
+          const newLead = payload.new as Lead;
+          setLeads((prev) => {
+            if (prev.some((l) => l.id === newLead.id)) return prev;
+            return [newLead, ...prev];
+          });
         })
-        .on("postgres_changes", { event: "DELETE", schema: "public", table: "leads" }, () => {
-          clearTimeout(reloadTimeout);
-          reloadTimeout = setTimeout(() => queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey }), 500);
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "leads" }, (payload) => {
+          // Remove the deleted lead directly from state without a full refetch
+          const deletedLead = payload.old as Lead;
+          setLeads((prev) => prev.filter((l) => l.id !== deletedLead.id));
         })
         // Tags changes
         .on("postgres_changes", { event: "*", schema: "public", table: "lead_tags" }, () => loadAvailableTags())
@@ -317,7 +319,6 @@ const Chat = () => {
     setupGlobalChannel();
 
     return () => {
-      clearTimeout(reloadTimeout);
       if (globalChannel) {
         supabase.removeChannel(globalChannel);
       }
@@ -343,9 +344,9 @@ const Chat = () => {
 
       if (!isMountedRef.current) return;
 
-      loadMessages(selectedLead.id);
-
-      // Single consolidated channel for all lead-specific changes
+      // IMPORTANT: Subscribe to the realtime channel BEFORE loading messages to avoid
+      // a race condition where an incoming message arrives between loadMessages() completing
+      // and the subscription being established. The INSERT handler deduplicates by ID.
       leadChannel = supabase
         .channel(leadChannelName)
         // Messages INSERT
@@ -407,6 +408,10 @@ const Chat = () => {
           });
         })
         .subscribe();
+
+      // Load messages AFTER subscribing so no incoming messages are missed
+      // while the initial fetch is in flight
+      loadMessages(selectedLead.id);
     }, 200);
 
     return () => {
@@ -479,7 +484,13 @@ const Chat = () => {
           .single()
       ]);
 
-      // Process leads
+      // Process leads — only update state if the query succeeded to avoid wiping
+      // the list with an empty array on a transient network/auth error during refetch
+      if (leadsResult.error) {
+        console.error('Erro ao carregar leads:', leadsResult.error);
+        setLoading(false);
+        return;
+      }
       const leadsData = leadsResult.data || [];
       setLeads(leadsData);
 
