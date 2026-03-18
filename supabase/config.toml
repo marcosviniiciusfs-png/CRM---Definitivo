@@ -47,3 +47,30 @@ verify_jwt = false
 
 [functions.facebook-switch-page]
 verify_jwt = false
+
+[functions.set-whatsapp-presence]
+verify_jwt = false
+
+[functions.fetch-presence-status]
+verify_jwt = false
+
+[functions.send-whatsapp-message]
+verify_jwt = false
+
+[functions.send-whatsapp-media]
+verify_jwt = false
+
+[functions.check-whatsapp-status]
+verify_jwt = false
+
+[functions.create-whatsapp-instance]
+verify_jwt = false
+
+[functions.delete-whatsapp-instance]
+verify_jwt = false
+
+[functions.disconnect-whatsapp-instance]
+verify_jwt = false
+
+[functions.send-whatsapp-reaction]
+verify_jwt = false

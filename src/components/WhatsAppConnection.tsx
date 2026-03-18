@@ -896,23 +896,31 @@ const WhatsAppConnection = () => {
         </DialogContent>
       </Dialog>
 
-      <Card className="border-muted">
+      <Card className={`border-muted ${instances.some(i => i.status === 'CONNECTED') ? 'border-green-500/40 bg-green-500/5' : ''}`}>
         <CardContent className="p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <img src={whatsappLogo} alt="WhatsApp" className="h-7 w-7 flex-shrink-0" />
+              {/* Status dot indicator */}
+              <div className="relative flex-shrink-0">
+                <img src={whatsappLogo} alt="WhatsApp" className="h-7 w-7" />
+                {instances.some(i => i.status === 'CONNECTED') && (
+                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                )}
+              </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold">WhatsApp</h3>
-                <p className="text-xs text-muted-foreground truncate">
+                <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                  WhatsApp
+                </h3>
+                <p className={`text-xs truncate ${instances.some(i => i.status === 'CONNECTED') ? 'text-green-600 dark:text-green-400 font-medium' : 'text-muted-foreground'}`}>
                   {instances.some(i => i.status === 'CONNECTED')
-                    ? `Conectado: ${instances.find(i => i.status === 'CONNECTED')?.phone_number || 'Ativo'}`
+                    ? `✓ Conectado${instances.find(i => i.status === 'CONNECTED')?.phone_number ? ': ' + instances.find(i => i.status === 'CONNECTED')?.phone_number : ''}`
                     : 'Conecte seu número'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {instances.some(i => i.status === 'CONNECTED') && (
-                <Badge variant="default" className="bg-[#66ee78] text-xs">Ativo</Badge>
+                <Badge variant="default" className="bg-green-500 hover:bg-green-500 text-white text-xs font-semibold px-2">● Ativo</Badge>
               )}
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

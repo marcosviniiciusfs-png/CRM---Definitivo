@@ -86,9 +86,9 @@ export const WhatsAppStatus = () => {
         return;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
         setStatus('connected');
-        setInstanceName(data.instance_name);
+        setInstanceName(data[0].instance_name);
       } else {
         setStatus('disconnected');
       }

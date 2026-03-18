@@ -19,22 +19,17 @@ serve(async (req) => {
   }
 
   try {
-    // Get user from JWT
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify JWT and get user
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      throw new Error('Invalid authorization token');
+    // Auth é opcional — presença é não-crítica e chamada via sendBeacon (sem headers)
+    // Logar user se JWT estiver presente, mas não bloquear se ausente
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user) console.log(`👤 set-whatsapp-presence: user ${user.id}`);
     }
 
     const { instance_name, presence } = await req.json() as SetPresenceRequest;
