@@ -89,11 +89,15 @@ Deno.serve(async (req) => {
 
       user_id = stateData.user_id;
       organization_id = stateData.organization_id;
+      // CORREÇÃO: extrair redirect_uri salvo no state pelo initiate para garantir consistência
+      if (stateData.redirect_uri) {
+        customRedirectUri = stateData.redirect_uri;
+      }
 
       if (stateData.origin) {
         origin = stateData.origin.replace(/\/$/, '');
       }
-      console.log('✅ [FB-CALLBACK] State decodificado:', { user_id, organization_id, origin });
+      console.log('✅ [FB-CALLBACK] State decodificado:', { user_id, organization_id, origin, redirect_uri: customRedirectUri });
     }
   } catch (e) {
     console.error('❌ [FB-CALLBACK] Falha ao decodificar state:', e instanceof Error ? e.message : e);
@@ -156,9 +160,9 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Exchange authorization code for short-lived token
-    const exchangeRedirectUri = isApiCall && customRedirectUri
-      ? customRedirectUri
-      : SUPABASE_CALLBACK_URI;
+    // Prioridade: redirect_uri do state (salvo pelo initiate) > body.redirect_uri > SUPABASE_CALLBACK_URI
+    // Isso garante que o mesmo redirect_uri usado na URL do Facebook seja usado na troca de token
+    const exchangeRedirectUri = customRedirectUri || SUPABASE_CALLBACK_URI;
 
     console.log('🔄 [FB-CALLBACK] Obtendo access_token com redirect_uri:', exchangeRedirectUri);
 
@@ -342,10 +346,14 @@ Deno.serve(async (req) => {
 
     console.log('✅ [FB-CALLBACK] Integração concluída com sucesso!');
     if (isApiCall) {
+      // Return available_pages (id and name only, no tokens for security)
+      const availablePages = pagesData.data.map((p: any) => ({ id: p.id, name: p.name }));
       return new Response(JSON.stringify({
         success: true,
         integration_id: integrationId,
-        page_name: selectedPage.name
+        page_name: selectedPage.name,
+        page_id: selectedPage.id,
+        available_pages: availablePages
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

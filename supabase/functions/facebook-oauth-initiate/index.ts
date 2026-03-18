@@ -33,12 +33,15 @@ Deno.serve(async (req) => {
       throw new Error('Configuração do servidor incompleta (FACEBOOK_APP_ID)');
     }
 
-    // Priorizar redirect_uri vindo do frontend para manter o usuário no domínio correto
-    const REDIRECT_URI = body.redirect_uri || `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
+    // SEMPRE usar a URL da edge function como redirect_uri para o Facebook
+    // (o frontend não deve sobrescrever isso — causa mismatch no callback)
+    const SUPABASE_CALLBACK_URI = `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
+    const REDIRECT_URI = SUPABASE_CALLBACK_URI;
     const origin = body_origin || req.headers.get('origin')?.replace(/\/$/, '') || 'https://www.kairozcrm.com.br';
 
     // Encode state como JSON base64-safe
-    const stateObj = { user_id, organization_id, origin };
+    // Incluir redirect_uri no state para que o callback use exatamente o mesmo valor
+    const stateObj = { user_id, organization_id, origin, redirect_uri: REDIRECT_URI };
     const stateStr = JSON.stringify(stateObj);
     const state = btoa(stateStr)
       .replace(/\+/g, '-')
@@ -63,7 +66,7 @@ Deno.serve(async (req) => {
       'email'
     ].join(',');
 
-    const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
+    const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?` +
       `client_id=${FACEBOOK_APP_ID}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
       `&state=${state}` +

@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.admin-delete-user]
 verify_jwt = false
+
+[functions.facebook-switch-page]
+verify_jwt = false
