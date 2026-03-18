@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
               // Buscar dados do lead na Graph API (explicitar campos para garantir form_id)
               console.log(`📡 [FB-WEBHOOK] Buscando lead ${leadgenId} na Graph API...`);
               const leadResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${leadgenId}?fields=id,form_id,ad_id,ad_name,adgroup_id,created_time,field_data&access_token=${pageAccessToken}`
+                `https://graph.facebook.com/v21.0/${leadgenId}?fields=id,form_id,ad_id,ad_name,created_time,field_data&access_token=${pageAccessToken}`
               );
 
               if (!leadResponse.ok) {
@@ -419,33 +419,32 @@ Deno.serve(async (req) => {
               }
 
               // Buscar mapeamento de funil para este formulário
-              const { data: orgFunnels } = await supabase.from('sales_funnels').select('id').eq('organization_id', integration.organization_id);
-              const funnelIds = orgFunnels?.map((f: any) => f.id) || [];
-
+              // CORREÇÃO: usar organization_id diretamente (coluna adicionada na migration 20260318210000)
+              // Antes usava .in('funnel_id', funnelIds) que falhava quando o mapeamento era de outra org
               let funnelMapping: any = null;
 
-              // 1. Mapeamento específico por form_id
-              if (leadData.form_id && funnelIds.length > 0) {
+              // 1. Mapeamento específico por form_id dentro da org
+              if (leadData.form_id) {
                 const { data: specific } = await supabase
                   .from('funnel_source_mappings')
                   .select('funnel_id, target_stage_id')
                   .eq('source_type', 'facebook')
                   .eq('source_identifier', leadData.form_id)
-                  .in('funnel_id', funnelIds)
+                  .eq('organization_id', integration.organization_id)
                   .maybeSingle();
                 funnelMapping = specific;
               }
 
-              // 2. Mapeamento global do facebook
-              if (!funnelMapping && funnelIds.length > 0) {
-                const { data: global } = await supabase
+              // 2. Mapeamento global do facebook (sem form_id específico) dentro da org
+              if (!funnelMapping) {
+                const { data: globalMapping } = await supabase
                   .from('funnel_source_mappings')
                   .select('funnel_id, target_stage_id')
                   .eq('source_type', 'facebook')
                   .is('source_identifier', null)
-                  .in('funnel_id', funnelIds)
+                  .eq('organization_id', integration.organization_id)
                   .maybeSingle();
-                funnelMapping = global;
+                funnelMapping = globalMapping;
               }
 
               let funnelId: string | null = null;
