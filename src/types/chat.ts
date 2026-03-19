@@ -4,6 +4,7 @@ export interface Lead {
   nome_lead: string;
   created_at: string;
   updated_at: string;
+  organization_id?: string | null;
   last_message_at?: string;
   source?: string;
   stage?: string;
@@ -15,6 +16,10 @@ export interface Lead {
   responsavel?: string;
   responsavel_user_id?: string | null;
   descricao_negocio?: string;
+  data_inicio?: string | null;
+  data_conclusao?: string | null;
+  data_agendamento_venda?: string | null;
+  idade?: number | null;
   is_online?: boolean | null;
   last_seen?: string | null;
   funnel_id?: string | null;

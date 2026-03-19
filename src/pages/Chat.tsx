@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Tag, Filter, Check, Pin, PinOff } from "lucide-react";
+import { Search, Tag, Filter, Check, Pin, PinOff, Loader2 } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -134,6 +134,13 @@ const Chat = () => {
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Messages pagination
+  const MESSAGE_PAGE_SIZE = 50;
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const oldestMessageTimeRef = useRef<string | null>(null);
+  const isLoadingMoreRef = useRef(false); // Prevent auto-scroll when prepending older msgs
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchResultRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
@@ -236,6 +243,10 @@ const Chat = () => {
     },
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000,
+    // gcTime: 0 ensures cache is cleared when component unmounts.
+    // Without this, React Query keeps {loaded:true} cached while local state
+    // (leads[]) resets on unmount → blank list on re-navigation.
+    gcTime: 0,
     refetchOnWindowFocus: false,
   });
 
@@ -418,8 +429,12 @@ const Chat = () => {
     };
   }, [selectedLead?.id, notificationSoundEnabled]);
 
-  // Auto-scroll
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  // Auto-scroll — skip when prepending older messages (loadMore) to preserve position
+  useEffect(() => {
+    if (!isLoadingMoreRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   // Search navigation
   useEffect(() => {
@@ -597,26 +612,41 @@ const Chat = () => {
     setLeadTagsMap(newMap);
   };
 
+  const parseMessages = (data: any[]): Message[] =>
+    data.map((msg: any) => ({
+      ...msg,
+      quoted_message: msg.quoted ? {
+        corpo_mensagem: msg.quoted.corpo_mensagem,
+        direcao: msg.quoted.direcao,
+        media_type: msg.quoted.media_type,
+      } : null,
+      quoted_message_id: msg.quoted_message_id,
+    })) as Message[];
+
   const loadMessages = async (leadId: string) => {
     setLoading(true);
+    setHasMoreMessages(false);
+    oldestMessageTimeRef.current = null;
     try {
-      const { data, error } = await supabase.from("mensagens_chat").select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)").eq("id_lead", leadId).order("data_hora", { ascending: true });
+      // Load last MESSAGE_PAGE_SIZE messages (most recent first), then reverse for display
+      const { data, error } = await supabase
+        .from("mensagens_chat")
+        .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
+        .eq("id_lead", leadId)
+        .order("data_hora", { ascending: false })
+        .limit(MESSAGE_PAGE_SIZE);
       if (error) throw error;
 
-      // Map quoted messages to the correct format
-      const messagesWithQuotes = (data || []).map((msg: any) => ({
-        ...msg,
-        quoted_message: msg.quoted ? {
-          corpo_mensagem: msg.quoted.corpo_mensagem,
-          direcao: msg.quoted.direcao,
-          media_type: msg.quoted.media_type,
-        } : null,
-        quoted_message_id: msg.quoted_message_id,
-      })) as Message[];
-
+      const reversed = (data || []).slice().reverse();
+      const messagesWithQuotes = parseMessages(reversed);
       setMessages(messagesWithQuotes);
 
-      const messageIds = data?.map((m) => m.id) || [];
+      if ((data || []).length === MESSAGE_PAGE_SIZE) {
+        setHasMoreMessages(true);
+        oldestMessageTimeRef.current = reversed[0]?.data_hora ?? null;
+      }
+
+      const messageIds = reversed.map((m: any) => m.id);
       if (messageIds.length > 0) {
         const [reactionsRes, pinnedRes] = await Promise.all([
           supabase.from("message_reactions").select("*").in("message_id", messageIds),
@@ -637,6 +667,62 @@ const Chat = () => {
       setLoading(false);
     }
   };
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!selectedLead || !oldestMessageTimeRef.current || loadingMoreMessages) return;
+    isLoadingMoreRef.current = true;
+    setLoadingMoreMessages(true);
+    try {
+      const { data, error } = await supabase
+        .from("mensagens_chat")
+        .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
+        .eq("id_lead", selectedLead.id)
+        .lt("data_hora", oldestMessageTimeRef.current)
+        .order("data_hora", { ascending: false })
+        .limit(MESSAGE_PAGE_SIZE);
+      if (error) throw error;
+
+      const reversed = (data || []).slice().reverse();
+      const older = parseMessages(reversed);
+
+      // Load reactions for these older messages
+      const messageIds = reversed.map((m: any) => m.id);
+      if (messageIds.length > 0) {
+        const { data: reactionsData } = await supabase
+          .from("message_reactions")
+          .select("*")
+          .in("message_id", messageIds);
+        if (reactionsData) {
+          setMessageReactions((prev) => {
+            const updated = new Map(prev);
+            reactionsData.forEach((r) => {
+              const existing = updated.get(r.message_id) || [];
+              if (!existing.some((e) => e.id === r.id)) {
+                updated.set(r.message_id, [...existing, r]);
+              }
+            });
+            return updated;
+          });
+        }
+      }
+
+      setMessages((prev) => [...older, ...prev]);
+
+      if ((data || []).length === MESSAGE_PAGE_SIZE) {
+        setHasMoreMessages(true);
+        oldestMessageTimeRef.current = reversed[0]?.data_hora ?? null;
+      } else {
+        setHasMoreMessages(false);
+        oldestMessageTimeRef.current = null;
+      }
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível carregar mensagens anteriores", variant: "destructive" });
+    } finally {
+      setLoadingMoreMessages(false);
+      // Re-enable auto-scroll on next realtime message after a brief delay
+      setTimeout(() => { isLoadingMoreRef.current = false; }, 100);
+    }
+  }, [selectedLead, loadingMoreMessages, toast]);
 
   // Message actions
   const sendMessage = useCallback(async (messageText: string) => {
@@ -1255,6 +1341,22 @@ const Chat = () => {
                     <div className="flex items-center justify-center h-full text-muted-foreground">Nenhuma mensagem ainda. Inicie a conversa!</div>
                   ) : (
                     <div className="space-y-4 max-w-full overflow-x-hidden">
+                      {/* Botão carregar mensagens anteriores */}
+                      {hasMoreMessages && (
+                        <div className="flex justify-center py-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={loadMoreMessages}
+                            disabled={loadingMoreMessages}
+                            className="text-xs text-muted-foreground gap-1.5"
+                          >
+                            {loadingMoreMessages
+                              ? <><Loader2 className="h-3 w-3 animate-spin" /> Carregando...</>
+                              : "⬆ Carregar mensagens anteriores"}
+                          </Button>
+                        </div>
+                      )}
                       {messages.map((message, index) => {
                         const isSearchMatch = messageSearchQuery.trim() && message.corpo_mensagem.toLowerCase().includes(messageSearchQuery.toLowerCase());
                         let searchResultIndex = -1;

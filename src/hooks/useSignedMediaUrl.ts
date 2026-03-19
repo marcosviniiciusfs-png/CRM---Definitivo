@@ -28,6 +28,12 @@ export function useSignedMediaUrl(mediaUrl: string | null | undefined) {
       return;
     }
 
+    // Public bucket URLs don't need signing — return directly
+    if (mediaUrl.includes('/storage/v1/object/public/')) {
+      setSignedUrl(mediaUrl);
+      return;
+    }
+
     // Check cache first
     const cached = signedUrlCache.get(mediaUrl);
     if (cached && cached.expiresAt > Date.now()) {
@@ -75,8 +81,12 @@ export function useSignedMediaUrl(mediaUrl: string | null | undefined) {
 
 // Utility to get signed URL imperatively (for batch operations)
 export async function getSignedMediaUrl(mediaUrl: string): Promise<string> {
-  // Check if it's a blob URL or non-Supabase URL
-  if (mediaUrl.startsWith('blob:') || (!mediaUrl.includes('/storage/v1/object/') && !mediaUrl.includes('/chat-media/'))) {
+  // Check if it's a blob URL, non-Supabase URL, or public bucket URL — use directly
+  if (
+    mediaUrl.startsWith('blob:') ||
+    (!mediaUrl.includes('/storage/v1/object/') && !mediaUrl.includes('/chat-media/')) ||
+    mediaUrl.includes('/storage/v1/object/public/')
+  ) {
     return mediaUrl;
   }
 

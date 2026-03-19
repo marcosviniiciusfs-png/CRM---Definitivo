@@ -1,6 +1,15 @@
 import React from 'react';
 import { useLeadNotification, LeadNotif } from '@/contexts/LeadNotificationContext';
 
+function getInitials(name: string): string {
+    return name
+        .split(' ')
+        .slice(0, 2)
+        .map(w => w[0] || '')
+        .join('')
+        .toUpperCase();
+}
+
 const SOURCES: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
     facebook: {
         label: 'Facebook',
@@ -102,17 +111,23 @@ function LeadCard({ notif, onClose }: { notif: LeadNotif; onClose: () => void })
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
-                            width: 30, height: 30, borderRadius: 7,
+                            width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                            overflow: 'hidden', border: '2px solid rgba(146,16,9,0.35)',
                             background: 'linear-gradient(135deg, #1a0a0a, #2a0e0e)',
-                            border: '1px solid rgba(146,16,9,0.3)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e97555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                                <circle cx="9" cy="7" r="4" />
-                                <line x1="19" y1="8" x2="19" y2="14" />
-                                <line x1="22" y1="11" x2="16" y2="11" />
-                            </svg>
+                            {notif.avatar_url ? (
+                                <img
+                                    src={notif.avatar_url}
+                                    alt={notif.nome_lead}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#e97555' }}>
+                                    {getInitials(notif.nome_lead)}
+                                </span>
+                            )}
                         </div>
                         <div>
                             <div style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#e97555', marginBottom: 2 }}>
