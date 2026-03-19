@@ -164,6 +164,8 @@ const Chat = () => {
 
   // Ref para rastrear se o componente está montado
   const isMountedRef = useRef(true);
+  // Ref para evitar restauração dupla do lead selecionado após F5
+  const hasRestoredSelectedLead = useRef(false);
 
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
@@ -175,6 +177,28 @@ const Chat = () => {
       await Promise.all(matchingChannels.map(ch => supabase.removeChannel(ch)));
     }
   }, []);
+
+  // Selecionar lead e persistir no localStorage para sobreviver ao F5
+  const handleSelectLead = useCallback((lead: Lead) => {
+    setSelectedLead(lead);
+    setLockedLeadId(lead.id);
+    localStorage.setItem('chat_selected_lead_id', lead.id);
+    refreshPresenceForLead(lead);
+  }, [refreshPresenceForLead]);
+
+  // Após os leads serem carregados, restaurar o lead selecionado salvo no localStorage
+  // Isso garante que após um F5 o chat re-abre automaticamente a conversa anterior
+  useEffect(() => {
+    if (leads.length === 0 || selectedLead || hasRestoredSelectedLead.current) return;
+    hasRestoredSelectedLead.current = true;
+    const savedLeadId = localStorage.getItem('chat_selected_lead_id');
+    if (!savedLeadId) return;
+    const savedLead = leads.find((l) => l.id === savedLeadId);
+    if (savedLead) {
+      setSelectedLead(savedLead);
+      setLockedLeadId(savedLead.id);
+    }
+  }, [leads, selectedLead]);
 
   // Cleanup orphan channels periodically
   useEffect(() => {
@@ -1049,7 +1073,7 @@ const Chat = () => {
                 presenceStatus={presenceStatus.get(lead.id)}
                 tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
                 responsibleInfo={permissions.canViewAllLeads && lead.responsavel_user_id ? responsiblesMap.get(lead.responsavel_user_id) : undefined}
-                onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
+                onClick={() => handleSelectLead(lead)}
                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
               />
             </div>
@@ -1174,7 +1198,7 @@ const Chat = () => {
                                 presenceStatus={presenceStatus.get(lead.id)}
                                 tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
                                 responsibleInfo={permissions.canViewAllLeads && lead.responsavel_user_id ? responsiblesMap.get(lead.responsavel_user_id) : undefined}
-                                onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
+                                onClick={() => handleSelectLead(lead)}
                                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
                               />
                             </div>
