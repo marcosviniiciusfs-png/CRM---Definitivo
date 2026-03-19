@@ -371,22 +371,36 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       }
     }
 
-    const { data } = await supabase
+    const { data, error: insertError } = await supabase
       .from("kanban_cards")
       .insert(insertData)
       .select("*, leads:lead_id(id, nome_lead, telefone_lead, email)")
       .single();
 
+    if (insertError) {
+      console.error("Erro ao criar tarefa:", insertError);
+      toast({
+        title: "Erro ao criar tarefa",
+        description: "Não foi possível criar a tarefa. Tente novamente.",
+        variant: "destructive",
+      });
+      setSelectedColumnForTask(null);
+      return;
+    }
+
     if (data) {
       // Salvar assignees se houver
       if (task.assignees && task.assignees.length > 0) {
-        await supabase.from("kanban_card_assignees").insert(
+        const { error: assigneeError } = await supabase.from("kanban_card_assignees").insert(
           task.assignees.map((userId) => ({
             card_id: data.id,
             user_id: userId,
             assigned_by: user.id,
           }))
         );
+        if (assigneeError) {
+          console.error("Erro ao atribuir responsáveis:", assigneeError);
+        }
         // Notificações são criadas automaticamente via trigger no banco
       }
 
