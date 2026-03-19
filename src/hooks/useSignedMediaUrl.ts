@@ -29,8 +29,7 @@ export function useSignedMediaUrl(mediaUrl: string | null | undefined) {
     }
 
     // Public bucket URLs don't need signing — return directly
-    // Exception: chat-media bucket is private even if URL was stored with /public/ format
-    if (mediaUrl.includes('/storage/v1/object/public/') && !mediaUrl.includes('/chat-media/')) {
+    if (mediaUrl.includes('/storage/v1/object/public/')) {
       setSignedUrl(mediaUrl);
       return;
     }
@@ -85,8 +84,8 @@ export async function getSignedMediaUrl(mediaUrl: string): Promise<string> {
   // Check if it's a blob URL, non-Supabase URL, or public bucket URL — use directly
   if (
     mediaUrl.startsWith('blob:') ||
-    (!mediaUrl.includes('/storage/v1/object/') && !mediaUrl.includes('/chat-media/')) ||
-    (mediaUrl.includes('/storage/v1/object/public/') && !mediaUrl.includes('/chat-media/'))
+    !mediaUrl.includes('/storage/v1/object/') ||
+    mediaUrl.includes('/storage/v1/object/public/')
   ) {
     return mediaUrl;
   }
