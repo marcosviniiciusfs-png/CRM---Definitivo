@@ -10,6 +10,8 @@ import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { TaskAlertProvider } from "@/contexts/TaskAlertContext";
 import { LeadNotificationProvider } from '@/contexts/LeadNotificationContext';
 import { LeadNotificationDisplay } from '@/components/LeadNotificationDisplay';
+import { ChatMessageNotificationProvider } from '@/contexts/ChatMessageNotificationContext';
+import { ChatMessageNotificationDisplay } from '@/components/ChatMessageNotificationDisplay';
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
@@ -91,6 +93,7 @@ const App = () => (
             <OrganizationProvider>
               <TaskAlertProvider>
                 <LeadNotificationProvider>
+                <ChatMessageNotificationProvider>
                   <Routes>
                     <Route path="/" element={<Landing />} />
                     <Route path="/auth" element={<Auth />} />
@@ -129,6 +132,8 @@ const App = () => (
                     <Route path="*" element={<LazyPage><NotFound /></LazyPage>} />
                   </Routes>
                   <LeadNotificationDisplay />
+                  <ChatMessageNotificationDisplay />
+                </ChatMessageNotificationProvider>
                 </LeadNotificationProvider>
               </TaskAlertProvider>
             </OrganizationProvider>

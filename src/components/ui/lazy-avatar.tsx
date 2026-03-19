@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOptimizedAvatarUrl, getInitials, type AvatarSize } from "@/lib/image-utils";
 import { cn } from "@/lib/utils";
+import { useSignedMediaUrl } from "@/hooks/useSignedMediaUrl";
 
 interface LazyAvatarProps {
   src?: string | null;
@@ -28,7 +29,12 @@ export const LazyAvatar = memo(function LazyAvatar({
   const containerRef = useRef<HTMLDivElement>(null);
   
   const initials = getInitials(name);
-  const optimizedUrl = getOptimizedAvatarUrl(src, initials, size);
+
+  // Se o avatar estiver em um bucket privado do Supabase, obtemos a URL assinada.
+  // Para URLs externas, blob:// e buckets públicos, useSignedMediaUrl retorna diretamente.
+  const { signedUrl } = useSignedMediaUrl(src ?? null);
+  const resolvedSrc = signedUrl ?? src ?? null;
+  const optimizedUrl = getOptimizedAvatarUrl(resolvedSrc, initials, size);
 
   useEffect(() => {
     const element = containerRef.current;

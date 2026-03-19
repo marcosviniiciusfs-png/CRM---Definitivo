@@ -32,7 +32,8 @@ export const SecureImage = memo(function SecureImage({
     return <Skeleton className="w-48 h-48 rounded-lg" />;
   }
 
-  if (error || imageError) {
+  // Só bloqueia se não há URL alguma para tentar — imageError é tratado pelo onError do <img>
+  if (imageError && !signedUrl) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/50 rounded-lg">
         <AlertCircle className="h-4 w-4" />
@@ -85,7 +86,10 @@ export const SecureAudio = memo(function SecureAudio({
     return <Skeleton className="w-64 h-12 rounded-lg" />;
   }
 
-  if (error) {
+  // Só mostra erro se não houver nenhuma URL disponível para tentar reproduzir.
+  // Quando o signing falha, useSignedMediaUrl define signedUrl = mediaUrl como fallback,
+  // então passamos para o AudioPlayer que tem seu próprio tratamento de erro.
+  if (error && !signedUrl) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <AlertCircle className="h-4 w-4" />
@@ -96,7 +100,7 @@ export const SecureAudio = memo(function SecureAudio({
 
   return (
     <AudioPlayer
-      audioUrl={signedUrl || mediaUrl}
+      audioUrl={signedUrl || mediaUrl!}
       mimetype={mimetype}
       duration={duration}
     />
@@ -134,7 +138,7 @@ export const SecureVideo = memo(function SecureVideo({
     return <Skeleton className="w-48 h-48 rounded-lg" />;
   }
 
-  if (error || videoError) {
+  if (videoError && !signedUrl) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/50 rounded-lg">
         <AlertCircle className="h-4 w-4" />

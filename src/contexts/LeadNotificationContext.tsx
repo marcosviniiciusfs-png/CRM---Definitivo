@@ -11,6 +11,7 @@ export interface LeadNotif {
     source: string;
     funnelName: string;
     tag?: string;
+    avatar_url?: string | null;
 }
 
 interface LeadNotificationContextType {
@@ -121,6 +122,7 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
                         source: normalizeSource(lead.source || ''),
                         funnelName,
                         tag,
+                        avatar_url: lead.avatar_url ?? null,
                     });
                 }
             )

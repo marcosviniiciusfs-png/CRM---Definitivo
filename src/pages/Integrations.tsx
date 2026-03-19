@@ -145,12 +145,14 @@ function WhatsAppCard({
   connectedCount,
   loading,
   canManage,
+  funnelName,
 }: {
   onManage: () => void;
   instanceCount: number;
   connectedCount: number;
   loading: boolean;
   canManage: boolean;
+  funnelName?: string | null;
 }) {
   const [hov, setHov] = useState(false);
   const isConnected = connectedCount > 0;
@@ -204,13 +206,36 @@ function WhatsAppCard({
         <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6, flex: 1 }}>Verificando conexão...</p>
       ) : isConnected ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div style={{
-            padding: "8px 10px", borderRadius: R,
-            background: "rgba(37,211,102,.06)", border: "1px solid rgba(37,211,102,.15)",
-            fontSize: 12, color: "#88DDAA",
-          }}>
-            {connectedCount} instância{connectedCount !== 1 ? "s" : ""} conectada{connectedCount !== 1 ? "s" : ""}
-            {instanceCount > connectedCount && <span style={{ color: "#555566", marginLeft: 6 }}>({instanceCount - connectedCount} desconectada{instanceCount - connectedCount !== 1 ? "s" : ""})</span>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <div style={{
+              padding: "5px 9px", borderRadius: R,
+              background: "rgba(37,211,102,.06)", border: "1px solid rgba(37,211,102,.15)",
+              display: "flex", alignItems: "center", gap: 7,
+            }}>
+              <svg viewBox="0 0 24 24" fill="#25D366" width="11" height="11">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+              </svg>
+              <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Instâncias:</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#88DDAA" }}>
+                {connectedCount} conectada{connectedCount !== 1 ? "s" : ""}
+                {instanceCount > connectedCount && <span style={{ color: "#555566", marginLeft: 4 }}>({instanceCount - connectedCount} off)</span>}
+              </span>
+            </div>
+            {funnelName && (
+              <div style={{
+                padding: "5px 9px", borderRadius: R,
+                background: "rgba(37,211,102,.04)", border: "1px solid rgba(37,211,102,.12)",
+                display: "flex", alignItems: "center", gap: 7,
+              }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" width="11" height="11" strokeWidth="2" strokeLinecap="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Funil:</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#88DDAA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {funnelName}
+                </span>
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
@@ -532,6 +557,7 @@ const Integrations = () => {
   const [fbConfiguredForms, setFbConfiguredForms] = useState(0);
   const [waInstanceCount, setWaInstanceCount] = useState(0);
   const [waConnectedCount, setWaConnectedCount] = useState(0);
+  const [waFunnelName, setWaFunnelName] = useState<string | null>(null);
 
   const loadAllData = useCallback(async () => {
     if (!organizationId) return;
@@ -553,12 +579,27 @@ const Integrations = () => {
           .maybeSingle(),
       ]);
 
-      // WhatsApp
+      // WhatsApp — statuses can be "CONNECTED" (uppercase) or "open" (from Evolution API)
       if (waResult.data) {
         setWaInstanceCount(waResult.data.length);
-        setWaConnectedCount(
-          waResult.data.filter((i: any) => i.status === "open" || i.status === "connected").length
-        );
+        const connected = waResult.data.filter((i: any) => {
+          const s = (i.status || "").toLowerCase();
+          return s === "connected" || s === "open";
+        });
+        setWaConnectedCount(connected.length);
+      }
+
+      // WhatsApp funnel mapping
+      const { data: waMappingData } = await supabase
+        .from("funnel_source_mappings")
+        .select("funnel_id, sales_funnels(name)")
+        .eq("source_type", "whatsapp")
+        .maybeSingle();
+      if (waMappingData) {
+        const fName = (waMappingData as any)?.sales_funnels?.name;
+        setWaFunnelName(fName || null);
+      } else {
+        setWaFunnelName(null);
       }
 
       // Facebook
@@ -602,6 +643,18 @@ const Integrations = () => {
   useEffect(() => {
     if (!isReady || !organizationId) return;
     loadAllData();
+
+    // Realtime: atualizar card WhatsApp quando status mudar
+    const channel = supabase
+      .channel(`integrations-wa-${organizationId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "whatsapp_instances", filter: `organization_id=eq.${organizationId}` },
+        () => { loadAllData(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [isReady, organizationId, loadAllData]);
 
   if (!isReady || !organizationId) {
@@ -701,6 +754,7 @@ const Integrations = () => {
               connectedCount={waConnectedCount}
               loading={dataLoading}
               canManage={canManage}
+              funnelName={waFunnelName}
             />
 
             {/* Facebook — dados já carregados pelo pai */}
@@ -771,7 +825,10 @@ const Integrations = () => {
       </div>
 
       {/* ── WhatsApp Management Dialog ── */}
-      <Dialog open={showWhatsApp} onOpenChange={setShowWhatsApp}>
+      <Dialog open={showWhatsApp} onOpenChange={(open) => {
+        setShowWhatsApp(open);
+        if (!open) loadAllData();
+      }}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <WhatsAppConnection />
         </DialogContent>
