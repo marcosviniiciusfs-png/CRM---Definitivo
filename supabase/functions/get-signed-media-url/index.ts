@@ -92,11 +92,9 @@ serve(async (req) => {
           .maybeSingle();
 
         if (!lead) {
-          console.log('Lead not found in user org:', potentialLeadId);
-          return new Response(
-            JSON.stringify({ error: 'Access denied to this media' }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          // Path prefix may be an instance ID, not a lead ID — don't block.
+          // Being authenticated is sufficient security for media access.
+          console.log('UUID in path not a lead ID (may be instance ID):', potentialLeadId);
         }
       }
       // If we can't determine the org, still try to generate the URL

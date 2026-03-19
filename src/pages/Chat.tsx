@@ -84,6 +84,10 @@ const Chat = () => {
   const [messageSearchExpanded, setMessageSearchExpanded] = useState(false);
   const [currentSearchResultIndex, setCurrentSearchResultIndex] = useState(0);
 
+  // Pagination state
+  const LEADS_PAGE_SIZE = 100;
+  const [displayLimit, setDisplayLimit] = useState(LEADS_PAGE_SIZE);
+
   // UI state
   const [viewingAvatar, setViewingAvatar] = useState<{ url: string; name: string } | null>(null);
   const [manageTagsOpen, setManageTagsOpen] = useState(false);
@@ -1106,6 +1110,22 @@ const Chat = () => {
 
   const activeFiltersCount = (filterOption !== "none" ? 1 : 0) + selectedTagIds.length;
 
+  // Reset pagination when search or filters change
+  useEffect(() => {
+    setDisplayLimit(LEADS_PAGE_SIZE);
+  }, [searchQuery, selectedTagIds, filterOption]);
+
+  // Paginated leads — always include the locked lead even if outside the page
+  const displayedUnpinnedLeads = useMemo(() => {
+    if (unpinnedFilteredLeads.length <= displayLimit) return unpinnedFilteredLeads;
+    const page = unpinnedFilteredLeads.slice(0, displayLimit);
+    if (lockedLeadId && !page.find(l => l.id === lockedLeadId)) {
+      const locked = unpinnedFilteredLeads.find(l => l.id === lockedLeadId);
+      if (locked) return [locked, ...page.slice(0, displayLimit - 1)];
+    }
+    return page;
+  }, [unpinnedFilteredLeads, displayLimit, lockedLeadId]);
+
   // Sortable Lead Item component
   const SortableLeadItem = ({ lead }: { lead: Lead }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id });
@@ -1237,7 +1257,7 @@ const Chat = () => {
                     <div className="p-4 text-center text-muted-foreground">Nenhum contato encontrado</div>
                   ) : (
                     <div className="space-y-1 p-2">
-                      {unpinnedFilteredLeads.map((lead) => (
+                      {displayedUnpinnedLeads.map((lead) => (
                         <ContextMenu key={lead.id}>
                           <ContextMenuTrigger asChild>
                             <div>
@@ -1273,6 +1293,14 @@ const Chat = () => {
                           </ContextMenuContent>
                         </ContextMenu>
                       ))}
+                      {unpinnedFilteredLeads.length > displayLimit && (
+                        <button
+                          className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors text-center"
+                          onClick={() => setDisplayLimit(prev => prev + LEADS_PAGE_SIZE)}
+                        >
+                          Ver mais {unpinnedFilteredLeads.length - displayLimit} contatos
+                        </button>
+                      )}
                     </div>
                   )}
                 </ScrollArea>
