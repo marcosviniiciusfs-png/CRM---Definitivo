@@ -60,6 +60,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { ChatHeader, ChatInput, ChatLeadItem, MessageBubble, PinnedMessagesBar, PresenceInfo } from "@/components/chat";
 import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
+import { SyncProfilePicturesButton } from "@/components/SyncProfilePicturesButton";
 
 const Chat = () => {
   const location = useLocation();
@@ -1230,6 +1231,7 @@ const Chat = () => {
                 <Tag className="h-4 w-4" />
                 Etiquetas
               </Button>
+              <SyncProfilePicturesButton />
             </div>
           </div>
           <div className="relative">
