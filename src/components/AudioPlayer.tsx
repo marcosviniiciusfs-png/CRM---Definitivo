@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, Volume2 } from "lucide-react";
+import { Play, Pause, Volume2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 
@@ -125,15 +125,29 @@ export const AudioPlayer = ({ audioUrl, mimetype, duration, className }: AudioPl
     return (
       <div className={`flex flex-col gap-2 p-3 bg-destructive/10 rounded-lg ${className}`}>
         <span className="text-sm text-destructive">
-          {isWhatsAppEncryptedUrl 
-            ? 'Áudio recebido antes da atualização do sistema' 
+          {isWhatsAppEncryptedUrl
+            ? 'Áudio recebido antes da atualização do sistema'
             : 'Erro ao carregar áudio'}
         </span>
-        <span className="text-xs text-muted-foreground">
-          {isWhatsAppEncryptedUrl
-            ? 'Envie um novo áudio para testar a reprodução'
-            : 'Tente novamente mais tarde'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {isWhatsAppEncryptedUrl
+              ? 'Envie um novo áudio para testar a reprodução'
+              : 'Não foi possível reproduzir o áudio'}
+          </span>
+          {!isWhatsAppEncryptedUrl && (
+            <a
+              href={audioUrl}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <Download className="h-3 w-3" />
+              Baixar
+            </a>
+          )}
+        </div>
       </div>
     );
   }

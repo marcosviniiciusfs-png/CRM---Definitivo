@@ -111,35 +111,18 @@ export const CreateTaskModal = ({
   }, [open, taskType]);
 
   const loadOrgMembers = async () => {
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
-      .single();
+    const { data: members } = await supabase.rpc('get_organization_members_masked');
 
-    if (orgMember) {
-      const { data: members } = await supabase.rpc('get_organization_members_masked');
-      
-      if (members) {
-        const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, avatar_url")
-          .in("user_id", userIds);
+    if (members) {
+      const memberOptions: UserOption[] = members
+        .filter((m: any) => m.user_id)
+        .map((m: any) => ({
+          user_id: m.user_id,
+          full_name: m.full_name || null,
+          avatar_url: m.avatar_url || null,
+        }));
 
-        const memberOptions: UserOption[] = members
-          .filter((m: any) => m.user_id)
-          .map((m: any) => {
-            const profile = profiles?.find(p => p.user_id === m.user_id);
-            return {
-              user_id: m.user_id,
-              full_name: profile?.full_name || null,
-              avatar_url: profile?.avatar_url || null,
-            };
-          });
-
-        setOrgMembers(memberOptions);
-      }
+      setOrgMembers(memberOptions);
     }
   };
 
