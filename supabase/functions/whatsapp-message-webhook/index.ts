@@ -555,19 +555,35 @@ serve(async (req) => {
     // ========================================
     // CRIAR OU BUSCAR LEAD
     // ========================================
-    
-    // Verificar se o lead já existe
-    const { data: existingLead, error: leadSearchError } = await supabase
+
+    // Normaliza o número de telefone para comparação: remove tudo que não seja dígito
+    const normalizePhone = (p: string) => (p || '').replace(/\D/g, '');
+    const phoneDigits = normalizePhone(phoneNumber);
+    // Últimos 9 dígitos (sufixo único de número celular no Brasil)
+    const phoneSuffix = phoneDigits.slice(-9);
+
+    // Busca leads cujo telefone_lead contenha os últimos 9 dígitos (busca tolerante ao formato)
+    // Isso resolve o mismatch entre "5594999086403" e "+55 94 9990-8643"
+    const { data: leadCandidates, error: leadSearchError } = await supabase
       .from('leads')
-      .select('id, nome_lead, funnel_id, funnel_stage_id')
-      .eq('telefone_lead', phoneNumber)
+      .select('id, nome_lead, funnel_id, funnel_stage_id, telefone_lead')
       .eq('organization_id', organizationId)
-      .maybeSingle();
+      .ilike('telefone_lead', `%${phoneSuffix}%`);
 
     if (leadSearchError) {
       console.error('❌ Erro ao buscar lead:', leadSearchError);
       throw leadSearchError;
     }
+
+    // Seleciona o candidato cujo número normalizado bate exatamente com os dígitos do JID
+    const existingLead = (leadCandidates || []).find(l => {
+      const storedDigits = normalizePhone(l.telefone_lead || '');
+      return storedDigits === phoneDigits
+        || storedDigits.endsWith(phoneSuffix)
+        || phoneDigits.endsWith(normalizePhone(l.telefone_lead || '').slice(-9));
+    }) || null;
+
+    console.log(`📞 Busca de lead: phoneDigits=${phoneDigits}, sufixo=${phoneSuffix}, candidatos=${leadCandidates?.length || 0}, encontrado=${!!existingLead}`);
 
     let leadId: string;
     let leadName: string;

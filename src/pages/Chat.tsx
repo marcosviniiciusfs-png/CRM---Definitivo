@@ -166,6 +166,10 @@ const Chat = () => {
   const isMountedRef = useRef(true);
   // Ref para evitar restauração dupla do lead selecionado após F5
   const hasRestoredSelectedLead = useRef(false);
+  // Ref para notificationSoundEnabled — evita rebuildar o canal de mensagens quando essa pref muda
+  const notificationSoundRef = useRef(notificationSoundEnabled);
+  // Mantém o ref sincronizado com o estado
+  useEffect(() => { notificationSoundRef.current = notificationSoundEnabled; }, [notificationSoundEnabled]);
 
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
@@ -354,6 +358,9 @@ const Chat = () => {
   useEffect(() => {
     if (!selectedLead) return;
 
+    // Limpa as mensagens imediatamente ao trocar de lead para não exibir dados do lead anterior
+    setMessages([]);
+
     let leadChannel: ReturnType<typeof supabase.channel> | null = null;
     const leadChannelName = `chat-lead-${selectedLead.id}`;
 
@@ -376,7 +383,7 @@ const Chat = () => {
         // Messages INSERT
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
           const newMessage = payload.new as Message;
-          if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
+          if (newMessage.direcao === "ENTRADA" && notificationSoundRef.current) {
             notificationAudioRef.current?.play().catch(() => { });
           }
           setMessages((prev) => {
@@ -445,7 +452,7 @@ const Chat = () => {
         supabase.removeChannel(leadChannel);
       }
     };
-  }, [selectedLead?.id, notificationSoundEnabled]);
+  }, [selectedLead?.id]); // notificationSoundEnabled removido — usa ref para evitar rebuild do canal
 
   // Auto-scroll
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -468,7 +475,8 @@ const Chat = () => {
   // Data loading functions - OPTIMIZED with parallel queries
   const loadAllChatData = async () => {
     if (!user?.id) return;
-    setLoading(true);
+    // NOTE: Do NOT touch the `loading` state here — it belongs only to loadMessages.
+    // Calling setLoading(true) here would hide the messages area during background refreshes.
 
     try {
       // Get organization ID first
@@ -479,7 +487,6 @@ const Chat = () => {
         .maybeSingle();
 
       if (!orgMember?.organization_id) {
-        setLoading(false);
         return;
       }
 
@@ -512,7 +519,6 @@ const Chat = () => {
       // the list with an empty array on a transient network/auth error during refetch
       if (leadsResult.error) {
         console.error('Erro ao carregar leads:', leadsResult.error);
-        setLoading(false);
         return;
       }
       const leadsData = leadsResult.data || [];
@@ -590,8 +596,6 @@ const Chat = () => {
       }
     } catch (error) {
       toast({ title: "Erro", description: "Não foi possível carregar os contatos", variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
   };
 
