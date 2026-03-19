@@ -243,6 +243,10 @@ const Chat = () => {
     },
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000,
+    // gcTime: 0 ensures cache is cleared when component unmounts.
+    // Without this, React Query keeps {loaded:true} cached while local state
+    // (leads[]) resets on unmount → blank list on re-navigation.
+    gcTime: 0,
     refetchOnWindowFocus: false,
   });
 
