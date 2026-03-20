@@ -6,6 +6,7 @@ import { LeadDetailsDialog } from "./LeadDetailsDialog";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -22,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DollarSign, TrendingUp, MessageSquare, Globe, Plus, Trash2, Receipt, Phone } from "lucide-react";
+import { DollarSign, TrendingUp, MessageSquare, Globe, Plus, Trash2, Receipt, Phone, Download } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LoadingAnimation } from "./LoadingAnimation";
@@ -39,6 +40,8 @@ interface ProductionBlock {
   profit_change_value: number | null;
   profit_change_percentage: number | null;
   is_closed: boolean;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 interface Sale {
@@ -106,8 +109,13 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange, onBlockU
         .maybeSingle();
       if (!memberData) return;
 
-      const startDate = new Date(block.year, block.month - 1, 1);
-      const endDate = new Date(block.year, block.month, 0, 23, 59, 59);
+      // Use custom date range if available, otherwise derive from month/year
+      const startDate = block.start_date
+        ? new Date(block.start_date + 'T00:00:00')
+        : new Date(block.year, block.month - 1, 1);
+      const endDate = block.end_date
+        ? new Date(block.end_date + 'T23:59:59')
+        : new Date(block.year, block.month, 0, 23, 59, 59);
 
       const { data, error } = await supabase
         .from("leads")
@@ -194,11 +202,91 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange, onBlockU
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
   const monthName = format(new Date(block.year, block.month - 1), "MMMM yyyy", { locale: ptBR });
 
+  const exportToCSV = () => {
+    const rows: string[][] = [];
+
+    // ── Sales section ──────────────────────────────────────────────
+    rows.push(['=== VENDAS ===', '', '', '', '', '']);
+    rows.push(['Lead', 'Telefone', 'Canal', 'Responsável', 'Data/Hora', 'Valor (R$)']);
+    sales.forEach((s) => {
+      rows.push([
+        s.nome_lead || '',
+        s.telefone_lead || '',
+        getSourceLabel(s.source),
+        s.responsavel || '',
+        s.data_conclusao ? format(new Date(s.data_conclusao), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '',
+        String(s.valor || 0).replace('.', ','),
+      ]);
+    });
+    rows.push(['', '', '', '', 'TOTAL VENDAS', String(block.total_revenue).replace('.', ',')]);
+
+    // ── blank separator ────────────────────────────────────────────
+    rows.push(['', '', '', '', '', '']);
+
+    // ── Expenses section ───────────────────────────────────────────
+    rows.push(['=== DESPESAS ===', '', '', '', '', '']);
+    rows.push(['Categoria', 'Descrição', '', '', 'Data', 'Valor (R$)']);
+    expenses.forEach((e) => {
+      rows.push([
+        EXPENSE_CATEGORIES.find((c) => c.value === e.category)?.label || e.category,
+        e.description || '',
+        '', '',
+        format(new Date(e.created_at), "dd/MM/yyyy", { locale: ptBR }),
+        String(e.amount || 0).replace('.', ','),
+      ]);
+    });
+    rows.push(['', '', '', '', 'TOTAL DESPESAS', String(totalExpenses).replace('.', ',')]);
+
+    // ── blank separator ────────────────────────────────────────────
+    rows.push(['', '', '', '', '', '']);
+
+    // ── Summary ────────────────────────────────────────────────────
+    rows.push(['=== RESUMO ===', '', '', '', '', '']);
+    rows.push(['Faturamento', '', '', '', '', String(block.total_revenue).replace('.', ',')]);
+    rows.push(['Total Despesas', '', '', '', '', String(totalExpenses).replace('.', ',')]);
+    rows.push(['Lucro Real', '', '', '', '', String(realProfit).replace('.', ',')]);
+
+    // Build CSV string (BOM for Excel compatibility)
+    const csv =
+      '\uFEFF' +
+      rows
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+        .join('\r\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `producao-${monthName.replace(/\s+/g, '-').toLowerCase()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: 'Exportado com sucesso', description: `Arquivo .csv compatível com Excel e Google Sheets` });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="capitalize text-2xl">📅 {monthName} - Detalhes de Produção</DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <DialogTitle className="capitalize text-2xl">📅 {monthName} - Detalhes de Produção</DialogTitle>
+              <DialogDescription className="mt-1">
+                {sales.length} {sales.length === 1 ? 'venda' : 'vendas'} · {expenses.length} {expenses.length === 1 ? 'despesa' : 'despesas'} · Lucro: {fmt(realProfit)}
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToCSV}
+              className="shrink-0 gap-2"
+              title="Exportar para Excel / Google Sheets"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </Button>
+          </div>
         </DialogHeader>
 
         {/* Summary Cards */}

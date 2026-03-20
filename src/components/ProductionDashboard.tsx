@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -403,7 +404,27 @@ export function ProductionDashboard() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Blocos de Produção</h2>
         {isAdmin && (
-          <Button onClick={() => setIsNewBlockOpen(true)} size="sm">
+          <Button
+            onClick={() => {
+              // Smart default: if current month already has a block, default to next month
+              const hasCurrentBlock = blocks.some(
+                (b) => b.month === currentMonth && b.year === currentYear
+              );
+              let startD: Date;
+              if (hasCurrentBlock) {
+                startD = new Date(currentYear, currentMonth, 1); // first day of next month
+              } else {
+                startD = new Date(currentYear, currentMonth - 1, 1); // first day of current month
+              }
+              const endD = new Date(startD.getFullYear(), startD.getMonth() + 1, 0); // last day
+              setNewBlockStart(startD.toISOString().split('T')[0]);
+              setNewBlockEnd(endD.toISOString().split('T')[0]);
+              setNewBlockAutoRecurring(false);
+              setNewBlockRecurrenceDay('1');
+              setIsNewBlockOpen(true);
+            }}
+            size="sm"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Novo Bloco
           </Button>
@@ -448,6 +469,9 @@ export function ProductionDashboard() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Novo Bloco de Produção</DialogTitle>
+            <DialogDescription>
+              Defina o período do bloco. As métricas de vendas serão calculadas automaticamente.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
@@ -498,7 +522,9 @@ export function ProductionDashboard() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">O próximo bloco será criado automaticamente no dia {newBlockRecurrenceDay} do mês seguinte</p>
+                <p className="text-xs text-muted-foreground">
+                  ✅ Todo dia <strong>{newBlockRecurrenceDay}</strong> de cada mês, um novo bloco de produção será criado automaticamente para o período seguinte.
+                </p>
               </div>
             )}
           </div>
@@ -516,7 +542,7 @@ export function ProductionDashboard() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir bloco de produção?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               {blockToDelete && (
                 <>
                   Deseja excluir o bloco de{" "}
