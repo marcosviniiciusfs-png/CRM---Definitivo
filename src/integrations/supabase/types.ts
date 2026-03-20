@@ -2164,6 +2164,54 @@ export type Database = {
           },
         ]
       }
+      production_expenses: {
+        Row: {
+          id: string
+          organization_id: string
+          production_block_id: string
+          category: string
+          description: string | null
+          amount: number
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          production_block_id: string
+          category?: string
+          description?: string | null
+          amount: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          production_block_id?: string
+          category?: string
+          description?: string | null
+          amount?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_expenses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_expenses_production_block_id_fkey"
+            columns: ["production_block_id"]
+            isOneToOne: false
+            referencedRelation: "production_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

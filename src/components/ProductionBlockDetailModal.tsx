@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DollarSign, TrendingUp, MessageSquare, Globe, Plus, Trash2, Receipt } from "lucide-react";
+import { DollarSign, TrendingUp, MessageSquare, Globe, Plus, Trash2, Receipt, Phone } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LoadingAnimation } from "./LoadingAnimation";
@@ -43,6 +43,7 @@ interface ProductionBlock {
 interface Sale {
   id: string;
   nome_lead: string;
+  telefone_lead: string;
   source: string;
   valor: number;
   data_conclusao: string;
@@ -61,6 +62,7 @@ interface ProductionBlockDetailModalProps {
   block: ProductionBlock;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onBlockUpdated?: () => void;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -72,7 +74,7 @@ const EXPENSE_CATEGORIES = [
   { value: "other", label: "Outros" },
 ];
 
-export function ProductionBlockDetailModal({ block, open, onOpenChange }: ProductionBlockDetailModalProps) {
+export function ProductionBlockDetailModal({ block, open, onOpenChange, onBlockUpdated }: ProductionBlockDetailModalProps) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
@@ -94,7 +96,11 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", user.id).single();
+      const { data: memberData } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
       if (!memberData) return;
 
       const startDate = new Date(block.year, block.month - 1, 1);
@@ -102,13 +108,13 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
 
       const { data, error } = await supabase
         .from("leads")
-        .select("id, nome_lead, source, valor, data_conclusao, responsavel, funnel_stages(stage_type)")
+        .select("id, nome_lead, telefone_lead, source, valor, data_conclusao, responsavel, funnel_stages(stage_type)")
         .eq("organization_id", memberData.organization_id)
         .gte("data_conclusao", startDate.toISOString())
         .lte("data_conclusao", endDate.toISOString());
 
       if (error) throw error;
-      const wonSales = data?.filter(s => s.funnel_stages?.stage_type === 'won') || [];
+      const wonSales = data?.filter(s => (s.funnel_stages as any)?.stage_type === 'won') || [];
       setSales(wonSales as Sale[]);
     } catch (error: any) {
       toast({ title: "Erro ao carregar detalhes", description: error.message, variant: "destructive" });
@@ -149,6 +155,7 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
       toast({ title: "Despesa adicionada" });
       setNewExpense({ category: "other", description: "", amount: "" });
       loadExpenses();
+      onBlockUpdated?.();
     } catch (error: any) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } finally {
@@ -159,6 +166,7 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
   const handleDeleteExpense = async (id: string) => {
     await supabase.from("production_expenses").delete().eq("id", id);
     loadExpenses();
+    onBlockUpdated?.();
   };
 
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -191,14 +199,14 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
         </DialogHeader>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <DollarSign className="h-8 w-8 text-green-600" />
+                <DollarSign className="h-7 w-7 text-green-600 shrink-0" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Receita</p>
-                  <p className="text-lg font-bold">{fmt(block.total_revenue)}</p>
+                  <p className="text-xs text-muted-foreground">Faturamento</p>
+                  <p className="text-base font-bold">{fmt(block.total_revenue)}</p>
                 </div>
               </div>
             </CardContent>
@@ -206,10 +214,10 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Receipt className="h-8 w-8 text-orange-600" />
+                <Receipt className="h-7 w-7 text-orange-600 shrink-0" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Despesas</p>
-                  <p className="text-lg font-bold text-orange-600">{fmt(totalExpenses)}</p>
+                  <p className="text-xs text-muted-foreground">Despesas</p>
+                  <p className="text-base font-bold text-orange-600">{fmt(totalExpenses)}</p>
                 </div>
               </div>
             </CardContent>
@@ -217,17 +225,17 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-primary" />
+                <TrendingUp className="h-7 w-7 text-primary shrink-0" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Lucro Real</p>
-                  <p className={`text-lg font-bold ${realProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(realProfit)}</p>
+                  <p className="text-xs text-muted-foreground">Lucro</p>
+                  <p className={`text-base font-bold ${realProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(realProfit)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground mb-2">vs Mês Anterior</p>
+              <p className="text-xs text-muted-foreground mb-2">vs Mês Anterior</p>
               {block.profit_change_percentage !== null ? (
                 <Badge variant={block.profit_change_percentage >= 0 ? "default" : "destructive"} className="text-sm">
                   {block.profit_change_percentage > 0 ? '+' : ''}{block.profit_change_percentage.toFixed(1)}%
@@ -239,15 +247,16 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
           </Card>
         </div>
 
-        {/* Expenses Section */}
-        {isAdmin && (
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Receipt className="h-5 w-5" /> Despesas Operacionais
-            </h3>
+        {/* Expenses Section - visible to all, editable by admins */}
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Receipt className="h-5 w-5" /> Despesas Operacionais
+          </h3>
+
+          {isAdmin && (
             <div className="flex gap-2 mb-3">
               <Select value={newExpense.category} onValueChange={(v) => setNewExpense(p => ({ ...p, category: v }))}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -261,81 +270,101 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange }: Produc
                 value={newExpense.description}
                 onChange={(e) => setNewExpense(p => ({ ...p, description: e.target.value }))}
                 className="flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddExpense()}
               />
               <Input
                 type="number"
-                placeholder="Valor"
+                placeholder="Valor (R$)"
                 value={newExpense.amount}
                 onChange={(e) => setNewExpense(p => ({ ...p, amount: e.target.value }))}
-                className="w-[120px]"
+                className="w-[130px]"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddExpense()}
               />
               <Button onClick={handleAddExpense} disabled={addingExpense} size="sm">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            {expenses.length > 0 && (
-              <div className="border rounded-lg max-h-[200px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {expenses.map((exp) => (
-                      <TableRow key={exp.id}>
-                        <TableCell>
-                          <Badge variant="secondary">{EXPENSE_CATEGORIES.find(c => c.value === exp.category)?.label || exp.category}</Badge>
-                        </TableCell>
-                        <TableCell>{exp.description}</TableCell>
-                        <TableCell className="text-right font-semibold">{fmt(Number(exp.amount))}</TableCell>
+          )}
+
+          {expenses.length > 0 ? (
+            <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    {isAdmin && <TableHead className="w-10"></TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {expenses.map((exp) => (
+                    <TableRow key={exp.id}>
+                      <TableCell>
+                        <Badge variant="secondary">{EXPENSE_CATEGORIES.find(c => c.value === exp.category)?.label || exp.category}</Badge>
+                      </TableCell>
+                      <TableCell>{exp.description}</TableCell>
+                      <TableCell className="text-right font-semibold text-orange-600">{fmt(Number(exp.amount))}</TableCell>
+                      {isAdmin && (
                         <TableCell>
                           <button onClick={() => handleDeleteExpense(exp.id)} className="text-destructive hover:text-destructive/80">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        )}
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-4 bg-muted/20 rounded-lg">
+              <p className="text-sm text-muted-foreground">Nenhuma despesa registrada neste período</p>
+            </div>
+          )}
+        </div>
 
         {/* Sales Table */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">Vendas do Mês ({block.total_sales} vendas)</h3>
+          <h3 className="text-lg font-semibold mb-4">Vendas do Mês ({sales.length} vendas)</h3>
           {loading ? (
             <div className="flex justify-center py-8"><LoadingAnimation /></div>
           ) : sales.length > 0 ? (
-            <div className="border rounded-lg">
+            <div className="border rounded-lg overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Lead</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-3.5 w-3.5" />
+                        Telefone
+                      </div>
+                    </TableHead>
                     <TableHead>Canal</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead>Data</TableHead>
                     <TableHead>Responsável</TableHead>
+                    <TableHead>Data/Hora</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sales.map((sale) => (
                     <TableRow key={sale.id}>
                       <TableCell className="font-medium">{sale.nome_lead}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{sale.telefone_lead || '-'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getSourceIcon(sale.source)}
                           <span className="text-sm">{getSourceLabel(sale.source)}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-semibold">{fmt(sale.valor)}</TableCell>
-                      <TableCell>{sale.data_conclusao ? format(new Date(sale.data_conclusao), "dd/MM/yyyy", { locale: ptBR }) : '-'}</TableCell>
                       <TableCell>{sale.responsavel || '-'}</TableCell>
+                      <TableCell>
+                        {sale.data_conclusao
+                          ? format(new Date(sale.data_conclusao), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-green-600">{fmt(sale.valor)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
