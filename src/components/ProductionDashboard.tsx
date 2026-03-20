@@ -42,27 +42,13 @@ export interface ProductionBlock {
   profit_change_value: number | null;
   profit_change_percentage: number | null;
   is_closed: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  auto_recurring: boolean;
+  recurrence_day: number | null;
 }
 
-const MONTHS = [
-  { value: "1", label: "Janeiro" },
-  { value: "2", label: "Fevereiro" },
-  { value: "3", label: "Março" },
-  { value: "4", label: "Abril" },
-  { value: "5", label: "Maio" },
-  { value: "6", label: "Junho" },
-  { value: "7", label: "Julho" },
-  { value: "8", label: "Agosto" },
-  { value: "9", label: "Setembro" },
-  { value: "10", label: "Outubro" },
-  { value: "11", label: "Novembro" },
-  { value: "12", label: "Dezembro" },
-];
-
-const calculateMetrics = async (organizationId: string, month: number, year: number) => {
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0, 23, 59, 59);
-
+const calculateMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
   const { data: leads } = await supabase
     .from("leads")
     .select("id, valor, funnel_stage_id, funnel_stages(stage_type)")
@@ -100,7 +86,7 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
     // Use maybeSingle() instead of single() — avoids 406 when no row is found
     const { data: existing, error: selectError } = await supabase
       .from("production_blocks")
-      .select("id")
+      .select("id, start_date, end_date")
       .eq("organization_id", organizationId)
       .eq("month", month)
       .eq("year", year)
@@ -111,8 +97,11 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
       return;
     }
 
+    const blockStartDate = new Date(year, month - 1, 1);
+    const blockEndDate = new Date(year, month, 0, 23, 59, 59);
+
     if (existing) {
-      const metrics = await calculateMetrics(organizationId, month, year);
+      const metrics = await calculateMetrics(organizationId, blockStartDate, blockEndDate);
 
       // Safely fetch expenses — table may not exist yet (migration pending)
       const { data: expenses } = await supabase
@@ -140,17 +129,27 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
       const profitChange = realProfit - previousProfit;
       const profitChangePercentage = previousProfit > 0 ? (profitChange / previousProfit) * 100 : 0;
 
+      const updatePayload: any = {
+        total_sales: metrics.totalSales,
+        total_revenue: metrics.totalRevenue,
+        total_cost: metrics.totalCost,
+        total_profit: realProfit,
+        previous_month_profit: previousProfit,
+        profit_change_value: profitChange,
+        profit_change_percentage: profitChangePercentage,
+      };
+
+      // Set start_date and end_date if not already set
+      if (!existing.start_date) {
+        updatePayload.start_date = blockStartDate.toISOString().split('T')[0];
+      }
+      if (!existing.end_date) {
+        updatePayload.end_date = new Date(year, month, 0).toISOString().split('T')[0];
+      }
+
       await supabase
         .from("production_blocks")
-        .update({
-          total_sales: metrics.totalSales,
-          total_revenue: metrics.totalRevenue,
-          total_cost: metrics.totalCost,
-          total_profit: realProfit,
-          previous_month_profit: previousProfit,
-          profit_change_value: profitChange,
-          profit_change_percentage: profitChangePercentage,
-        })
+        .update(updatePayload)
         .eq("organization_id", organizationId)
         .eq("month", month)
         .eq("year", year);
@@ -158,7 +157,7 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
     }
 
     // Block doesn't exist yet — try to create it
-    const metrics = await calculateMetrics(organizationId, month, year);
+    const metrics = await calculateMetrics(organizationId, blockStartDate, blockEndDate);
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
 
@@ -179,6 +178,8 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
       organization_id: organizationId,
       month,
       year,
+      start_date: blockStartDate.toISOString().split('T')[0],
+      end_date: new Date(year, month, 0).toISOString().split('T')[0],
       total_sales: metrics.totalSales,
       total_revenue: metrics.totalRevenue,
       total_cost: metrics.totalCost,
@@ -233,8 +234,13 @@ export function ProductionDashboard() {
   // New block dialog
   const [isNewBlockOpen, setIsNewBlockOpen] = useState(false);
   const currentDate = new Date();
-  const [newBlockMonth, setNewBlockMonth] = useState(String(currentDate.getMonth() + 1));
-  const [newBlockYear, setNewBlockYear] = useState(String(currentDate.getFullYear()));
+  // Default: first day of current month to last day of current month
+  const defaultStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0];
+  const defaultEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
+  const [newBlockStart, setNewBlockStart] = useState(defaultStart);
+  const [newBlockEnd, setNewBlockEnd] = useState(defaultEnd);
+  const [newBlockAutoRecurring, setNewBlockAutoRecurring] = useState(false);
+  const [newBlockRecurrenceDay, setNewBlockRecurrenceDay] = useState('1');
   const [creatingBlock, setCreatingBlock] = useState(false);
 
   // Delete confirmation
@@ -318,26 +324,29 @@ export function ProductionDashboard() {
 
   const handleCreateBlock = async () => {
     if (!organizationId) return;
-    const month = parseInt(newBlockMonth);
-    const year = parseInt(newBlockYear);
-
-    // Check if block already exists
-    const existing = blocks.find(b => b.month === month && b.year === year);
-    if (existing) {
-      toast({
-        title: "Bloco já existe",
-        description: `Já existe um bloco para ${format(new Date(year, month - 1), "MMMM yyyy", { locale: ptBR })}`,
-        variant: "destructive",
-      });
+    if (!newBlockStart || !newBlockEnd) {
+      toast({ title: "Selecione as datas de início e fim", variant: "destructive" });
       return;
     }
-
+    const startDate = new Date(newBlockStart + 'T00:00:00');
+    const endDate = new Date(newBlockEnd + 'T23:59:59');
+    if (endDate <= startDate) {
+      toast({ title: "A data de término deve ser após a data de início", variant: "destructive" });
+      return;
+    }
+    const month = startDate.getMonth() + 1;
+    const year = startDate.getFullYear();
+    // Check if block already exists for this period
+    const existing = blocks.find(b => b.month === month && b.year === year);
+    if (existing) {
+      toast({ title: "Bloco já existe", description: `Já existe um bloco para este período`, variant: "destructive" });
+      return;
+    }
     setCreatingBlock(true);
     try {
-      const metrics = await calculateMetrics(organizationId, month, year);
+      const metrics = await calculateMetrics(organizationId, startDate, endDate);
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
-
       const { data: previousBlock } = await supabase
         .from("production_blocks")
         .select("total_profit")
@@ -345,15 +354,17 @@ export function ProductionDashboard() {
         .eq("month", prevMonth)
         .eq("year", prevYear)
         .maybeSingle();
-
       const previousProfit = previousBlock?.total_profit || 0;
       const profitChange = metrics.profit - previousProfit;
       const profitChangePercentage = previousProfit > 0 ? (profitChange / previousProfit) * 100 : 0;
-
       const { error } = await supabase.from("production_blocks").insert({
         organization_id: organizationId,
         month,
         year,
+        start_date: newBlockStart,
+        end_date: newBlockEnd,
+        auto_recurring: newBlockAutoRecurring,
+        recurrence_day: newBlockAutoRecurring ? parseInt(newBlockRecurrenceDay) : null,
         total_sales: metrics.totalSales,
         total_revenue: metrics.totalRevenue,
         total_cost: metrics.totalCost,
@@ -362,14 +373,14 @@ export function ProductionDashboard() {
         profit_change_value: profitChange,
         profit_change_percentage: profitChangePercentage,
       });
-
       if (error) throw error;
-
-      toast({
-        title: "Bloco criado",
-        description: `Bloco de ${format(new Date(year, month - 1), "MMMM yyyy", { locale: ptBR })} criado com sucesso`,
-      });
+      toast({ title: "Bloco criado com sucesso" });
       setIsNewBlockOpen(false);
+      // Reset form
+      setNewBlockStart(defaultStart);
+      setNewBlockEnd(defaultEnd);
+      setNewBlockAutoRecurring(false);
+      setNewBlockRecurrenceDay('1');
       queryClient.invalidateQueries({ queryKey: ['production-blocks', organizationId] });
     } catch (error: any) {
       toast({ title: "Erro ao criar bloco", description: error.message, variant: "destructive" });
@@ -377,12 +388,6 @@ export function ProductionDashboard() {
       setCreatingBlock(false);
     }
   };
-
-  // Build year options: 3 years back to 2 years forward
-  const yearOptions = [];
-  for (let y = currentYear - 3; y <= currentYear + 2; y++) {
-    yearOptions.push(String(y));
-  }
 
   if (!isReady || isLoading) {
     return (
@@ -440,42 +445,65 @@ export function ProductionDashboard() {
 
       {/* New Block Dialog */}
       <Dialog open={isNewBlockOpen} onOpenChange={setIsNewBlockOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Novo Bloco de Produção</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Mês</label>
-              <Select value={newBlockMonth} onValueChange={setNewBlockMonth}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map(m => (
-                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Data de Início</label>
+                <input
+                  type="date"
+                  value={newBlockStart}
+                  onChange={(e) => setNewBlockStart(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Data de Término</label>
+                <input
+                  type="date"
+                  value={newBlockEnd}
+                  onChange={(e) => setNewBlockEnd(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Ano</label>
-              <Select value={newBlockYear} onValueChange={setNewBlockYear}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {yearOptions.map(y => (
-                    <SelectItem key={y} value={y}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+              <input
+                id="auto-recurring"
+                type="checkbox"
+                checked={newBlockAutoRecurring}
+                onChange={(e) => setNewBlockAutoRecurring(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+              />
+              <div className="flex-1">
+                <label htmlFor="auto-recurring" className="text-sm font-medium cursor-pointer">
+                  Recorrência automática mensal
+                </label>
+                <p className="text-xs text-muted-foreground">Cria um novo bloco automaticamente todo mês</p>
+              </div>
             </div>
+            {newBlockAutoRecurring && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Dia do mês para criar o próximo bloco</label>
+                <Select value={newBlockRecurrenceDay} onValueChange={setNewBlockRecurrenceDay}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
+                      <SelectItem key={day} value={String(day)}>Dia {day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">O próximo bloco será criado automaticamente no dia {newBlockRecurrenceDay} do mês seguinte</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewBlockOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setIsNewBlockOpen(false)}>Cancelar</Button>
             <Button onClick={handleCreateBlock} disabled={creatingBlock}>
               {creatingBlock ? "Criando..." : "Criar Bloco"}
             </Button>

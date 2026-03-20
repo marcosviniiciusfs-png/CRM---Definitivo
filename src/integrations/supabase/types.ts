@@ -2104,7 +2104,9 @@ export type Database = {
       }
       production_blocks: {
         Row: {
+          auto_recurring: boolean | null
           created_at: string | null
+          end_date: string | null
           id: string
           is_closed: boolean | null
           month: number
@@ -2113,6 +2115,8 @@ export type Database = {
           previous_month_profit: number | null
           profit_change_percentage: number | null
           profit_change_value: number | null
+          recurrence_day: number | null
+          start_date: string | null
           total_cost: number | null
           total_profit: number | null
           total_revenue: number | null
@@ -2121,7 +2125,9 @@ export type Database = {
           year: number
         }
         Insert: {
+          auto_recurring?: boolean | null
           created_at?: string | null
+          end_date?: string | null
           id?: string
           is_closed?: boolean | null
           month: number
@@ -2130,6 +2136,8 @@ export type Database = {
           previous_month_profit?: number | null
           profit_change_percentage?: number | null
           profit_change_value?: number | null
+          recurrence_day?: number | null
+          start_date?: string | null
           total_cost?: number | null
           total_profit?: number | null
           total_revenue?: number | null
@@ -2138,7 +2146,9 @@ export type Database = {
           year: number
         }
         Update: {
+          auto_recurring?: boolean | null
           created_at?: string | null
+          end_date?: string | null
           id?: string
           is_closed?: boolean | null
           month?: number
@@ -2147,6 +2157,8 @@ export type Database = {
           previous_month_profit?: number | null
           profit_change_percentage?: number | null
           profit_change_value?: number | null
+          recurrence_day?: number | null
+          start_date?: string | null
           total_cost?: number | null
           total_profit?: number | null
           total_revenue?: number | null

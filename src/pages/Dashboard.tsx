@@ -64,7 +64,7 @@ const Dashboard = () => {
       let avgTicket = 0;
       if (wonStagesResult.data && wonStagesResult.data.length > 0) {
         const wonStageIds = wonStagesResult.data.map(s => s.id);
-        const { data: wonLeadsMonth, count: customersCount } = await supabase.from('leads').select('id, valor', { count: 'exact' }).eq('organization_id', organizationId).in('funnel_stage_id', wonStageIds).gte('updated_at', startOfMonth);
+        const { data: wonLeadsMonth, count: customersCount } = await supabase.from('leads').select('id, valor', { count: 'exact' }).eq('organization_id', organizationId).in('funnel_stage_id', wonStageIds).gte('data_conclusao', startOfMonth).not('data_conclusao', 'is', null);
         newCustomersCount = customersCount || 0;
         const revenue = (wonLeadsMonth || []).reduce((sum, lead) => sum + (lead.valor || 0), 0);
         const salesCount = wonLeadsMonth?.length || 0;
@@ -92,13 +92,13 @@ const Dashboard = () => {
       const sixMonthsAgo = monthRanges[0].start;
       const [wonStagesResult, allLeadsResult] = await Promise.all([
         supabase.from('funnel_stages').select('id').eq('stage_type', 'won'),
-        supabase.from('leads').select('id, created_at, updated_at, funnel_stage_id').eq('organization_id', organizationId).gte('created_at', sixMonthsAgo)
+        supabase.from('leads').select('id, created_at, updated_at, data_conclusao, funnel_stage_id').eq('organization_id', organizationId).gte('created_at', sixMonthsAgo)
       ]);
       const wonStageIds = new Set(wonStagesResult.data?.map(s => s.id) || []);
       const allLeads = allLeadsResult.data || [];
       const months: ConversionDataPoint[] = monthRanges.map(range => {
         const leadsInMonth = allLeads.filter(lead => lead.created_at >= range.start && lead.created_at < range.end);
-        const convertedInMonth = allLeads.filter(lead => lead.funnel_stage_id && wonStageIds.has(lead.funnel_stage_id) && lead.updated_at >= range.start && lead.updated_at < range.end);
+        const convertedInMonth = allLeads.filter(lead => lead.funnel_stage_id && wonStageIds.has(lead.funnel_stage_id) && lead.data_conclusao && lead.data_conclusao >= range.start && lead.data_conclusao < range.end);
         const totalLeads = leadsInMonth.length;
         const convertedLeads = convertedInMonth.length;
         const rate = totalLeads > 0 ? convertedLeads / totalLeads * 100 : 0;

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { LeadDetailsDialog } from "./LeadDetailsDialog";
 import {
   Dialog,
   DialogContent,
@@ -80,6 +81,8 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange, onBlockU
   const [loading, setLoading] = useState(false);
   const [newExpense, setNewExpense] = useState({ category: "other", description: "", amount: "" });
   const [addingExpense, setAddingExpense] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [selectedLeadName, setSelectedLeadName] = useState<string>('');
   const { toast } = useToast();
   const { organizationId, permissions } = useOrganization();
   const isAdmin = !permissions.loading && (permissions.role === 'owner' || permissions.role === 'admin');
@@ -349,7 +352,11 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange, onBlockU
                 </TableHeader>
                 <TableBody>
                   {sales.map((sale) => (
-                    <TableRow key={sale.id}>
+                    <TableRow
+                      key={sale.id}
+                      className="cursor-pointer hover:bg-muted/60"
+                      onClick={() => { setSelectedLeadId(sale.id); setSelectedLeadName(sale.nome_lead); }}
+                    >
                       <TableCell className="font-medium">{sale.nome_lead}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{sale.telefone_lead || '-'}</TableCell>
                       <TableCell>
@@ -377,6 +384,16 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange, onBlockU
           )}
         </div>
       </DialogContent>
+
+      {/* Lead details modal */}
+      {selectedLeadId && (
+        <LeadDetailsDialog
+          open={!!selectedLeadId}
+          onOpenChange={(open) => { if (!open) { setSelectedLeadId(null); setSelectedLeadName(''); } }}
+          leadId={selectedLeadId}
+          leadName={selectedLeadName}
+        />
+      )}
     </Dialog>
   );
 }
