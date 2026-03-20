@@ -233,19 +233,26 @@ Deno.serve(async (req) => {
 
     console.log('✅ Webhook válido para organização:', webhookConfig.organization_id);
 
-    // Parse payload (suporta JSON e form data)
-    let payload: WebhookPayload = {};
+    // Parse payload — preserva TODAS as entradas, inclusive chaves duplicadas
+    // (Object.fromEntries descartaria duplicatas; usamos um array de pares)
+    let rawEntries: Array<[string, string]> = [];
     const contentType = req.headers.get('content-type') || '';
 
     if (contentType.includes('application/json')) {
-      payload = await req.json();
+      const jsonPayload = await req.json();
+      // JSON não tem chaves duplicadas; flatten simples serve
+      rawEntries = Object.entries(jsonPayload).map(([k, v]) => [k, String(v ?? '')]);
     } else if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
-      payload = Object.fromEntries(formData.entries());
+      // formData.entries() itera TODAS as entradas, inclusive duplicatas
+      for (const [key, value] of formData.entries()) {
+        rawEntries.push([key, typeof value === 'string' ? value : (value as File).name]);
+      }
     } else {
       // Tentar JSON como fallback
       try {
-        payload = await req.json();
+        const jsonPayload = await req.json();
+        rawEntries = Object.entries(jsonPayload).map(([k, v]) => [k, String(v ?? '')]);
       } catch {
         return new Response(
           JSON.stringify({ error: 'Formato de dados não suportado' }),
@@ -254,68 +261,92 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('📦 Payload recebido (campos):', Object.keys(payload));
+    // Objeto de payload para logging (última ocorrência de cada chave)
+    const payload: WebhookPayload = Object.fromEntries(rawEntries);
 
-    // Mapear campos longos para campos padrão
+    console.log('📦 Payload recebido (campos):', rawEntries.map(([k]) => k));
+
+    // Mapeamento normalizado (tudo em minúsculas) para matching case-insensitive
+    // Chave = nome do campo em lowercase; Valor = campo padrão do CRM
     const fieldMappings: Record<string, string> = {
       // Nome
       'nome': 'nome',
       'name': 'nome',
       'nome_lead': 'nome',
-      'Nome Completo': 'nome',
       'nome completo': 'nome',
-      'Nome': 'nome',
-      
-      // Telefone
+      'full name': 'nome',
+      'nome do cliente': 'nome',
+
+      // Telefone / WhatsApp
       'telefone': 'telefone',
       'phone': 'telefone',
       'telefone_lead': 'telefone',
-      'WhatsApp': 'telefone',
       'whatsapp': 'telefone',
-      'WhatsApp para contato': 'telefone',
-      
+      'whatsapp para contato': 'telefone',
+      'celular': 'telefone',
+      'mobile': 'telefone',
+      'número de whatsapp': 'telefone',
+      'numero de whatsapp': 'telefone',
+      'seu whatsapp': 'telefone',
+
       // Email
       'email': 'email',
       'e-mail': 'email',
-      'Email': 'email',
-      
+      'e_mail': 'email',
+      'seu email': 'email',
+      'seu e-mail': 'email',
+
       // Empresa
       'empresa': 'empresa',
       'company': 'empresa',
-      'Empresa': 'empresa',
-      
+      'nome da empresa': 'empresa',
+      'razão social': 'empresa',
+      'razao social': 'empresa',
+
       // Valor
       'valor': 'valor',
       'value': 'valor',
-      'Valor Pretendido (R$)': 'valor',
+      'valor pretendido (r$)': 'valor',
       'valor_pretendido': 'valor',
+      'investimento': 'valor',
+      'budget': 'valor',
     };
 
-    // Extrair campos mapeados
+    // Extrair campos padrão (first-match-wins) e armazenar TUDO em additionalData
     let nome = '';
     let telefone = '';
     let email = '';
     let empresa = '';
     let valor = 0;
+    // additionalData recebe TODOS os campos originais (inclusive os mapeados para campos padrão)
+    // para que nenhuma pergunta do formulário seja perdida na visualização do CRM
     const additionalData: Record<string, any> = {};
 
-    // Processar payload
-    for (const [key, value] of Object.entries(payload)) {
-      const mappedKey = fieldMappings[key] || fieldMappings[key.toLowerCase()];
-      
-      if (mappedKey === 'nome') {
-        nome = String(value || '').trim();
-      } else if (mappedKey === 'telefone') {
-        telefone = String(value || '').trim();
-      } else if (mappedKey === 'email') {
-        email = String(value || '').trim();
-      } else if (mappedKey === 'empresa') {
-        empresa = String(value || '').trim();
-      } else if (mappedKey === 'valor') {
-        valor = Number(value) || 0;
+    for (const [key, rawValue] of rawEntries) {
+      const value = String(rawValue ?? '').trim();
+      const normalizedKey = key.toLowerCase().trim();
+      const mappedField = fieldMappings[normalizedKey];
+
+      // ── Sempre armazenar em additionalData com a chave original ──────────────
+      // Se a chave já existe (entrada duplicada), converter para array
+      if (Object.prototype.hasOwnProperty.call(additionalData, key)) {
+        const existing = additionalData[key];
+        additionalData[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
       } else {
-        // Todos os outros campos vão para additional_data
         additionalData[key] = value;
+      }
+
+      // ── Mapear para campo padrão (first-match-wins: só preenche se vazio) ────
+      if (mappedField === 'nome' && !nome) {
+        nome = value;
+      } else if (mappedField === 'telefone' && !telefone) {
+        telefone = value;
+      } else if (mappedField === 'email' && !email) {
+        email = value;
+      } else if (mappedField === 'empresa' && !empresa) {
+        empresa = value;
+      } else if (mappedField === 'valor' && !valor) {
+        valor = Number(value) || 0;
       }
     }
 

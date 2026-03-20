@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, DollarSign, ShoppingBag, TrendingUpIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, Minus, DollarSign, ShoppingBag, TrendingUpIcon, Trash2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -22,11 +23,12 @@ interface ProductionBlockCardProps {
   block: ProductionBlock;
   isCurrent?: boolean;
   onClick?: () => void;
+  onDelete?: () => void;
 }
 
-export function ProductionBlockCard({ block, isCurrent, onClick }: ProductionBlockCardProps) {
+export function ProductionBlockCard({ block, isCurrent, onClick, onDelete }: ProductionBlockCardProps) {
   const monthName = format(new Date(block.year, block.month - 1), "MMMM yyyy", { locale: ptBR });
-  
+
   const getTrendIcon = () => {
     if (!block.profit_change_percentage) return <Minus className="h-4 w-4" />;
     if (block.profit_change_percentage > 0) return <TrendingUp className="h-4 w-4" />;
@@ -41,27 +43,51 @@ export function ProductionBlockCard({ block, isCurrent, onClick }: ProductionBlo
     return "text-muted-foreground";
   };
 
-  const getTrendBadgeVariant = () => {
-    if (!block.profit_change_percentage) return "secondary";
-    if (block.profit_change_percentage > 0) return "default";
-    if (block.profit_change_percentage < 0) return "destructive";
-    return "secondary";
-  };
-
   return (
-    <Card 
-      className="transition-all duration-300 hover:shadow-lg hover:scale-105 cursor-pointer group"
+    <Card
+      className="transition-all duration-300 hover:shadow-lg hover:scale-105 cursor-pointer group relative"
       onClick={onClick}
     >
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold capitalize text-foreground/90">{monthName}</h3>
-          {isCurrent && (
-            <Badge variant="default" className="text-xs px-2 py-0">
-              Atual
-            </Badge>
-          )}
+          <div className="flex items-center gap-1">
+            {isCurrent && (
+              <Badge variant="default" className="text-xs px-2 py-0">
+                Atual
+              </Badge>
+            )}
+            {/* Edit button — always visible on hover */}
+            {onClick && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                title="Editar bloco"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClick();
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                title="Excluir bloco"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Metrics Grid */}
@@ -91,13 +117,13 @@ export function ProductionBlockCard({ block, isCurrent, onClick }: ProductionBlo
           </div>
 
           {/* Profit */}
-          <div className="flex items-center gap-2 p-2 rounded-md bg-primary/5 transition-colors group-hover:bg-primary/10">
-            <div className="p-1.5 rounded-md bg-primary/10">
-              <TrendingUpIcon className="h-3.5 w-3.5 text-primary" />
+          <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30 transition-colors group-hover:bg-muted/50">
+            <div className={`p-1.5 rounded-md ${block.total_profit > 0 ? 'bg-emerald-500/10' : block.total_profit < 0 ? 'bg-red-500/10' : 'bg-muted/40'}`}>
+              <TrendingUpIcon className={`h-3.5 w-3.5 ${block.total_profit > 0 ? 'text-emerald-600' : block.total_profit < 0 ? 'text-red-600' : 'text-muted-foreground'}`} />
             </div>
             <div className="flex-1">
               <p className="text-xs text-muted-foreground">Lucro</p>
-              <p className="text-sm font-bold text-primary">
+              <p className={`text-sm font-bold ${block.total_profit > 0 ? 'text-emerald-600' : block.total_profit < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 }).format(block.total_profit)}
               </p>
             </div>

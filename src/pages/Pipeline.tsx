@@ -116,6 +116,9 @@ const Pipeline = () => {
   const usingCustomFunnelRef = useRef<boolean>(false);
   const orgIdRef = useRef<string | undefined>(undefined);
   const pauseRealtimeRef = useRef<boolean>(false);
+  // Refs de segurança: permissões e userId para filtrar eventos Realtime sem stale closure
+  const canViewAllLeadsRef = useRef<boolean>(false);
+  const currentUserIdRef = useRef<string | undefined>(undefined);
   const [stages, setStages] = useState<any[]>(DEFAULT_STAGES);
   const [usingCustomFunnel, setUsingCustomFunnel] = useState(false);
   const [activeFunnel, setActiveFunnel] = useState<any>(null);
@@ -273,6 +276,9 @@ const Pipeline = () => {
   useEffect(() => { usingCustomFunnelRef.current = usingCustomFunnel; }, [usingCustomFunnel]);
   useEffect(() => { orgIdRef.current = organizationId; }, [organizationId]);
   useEffect(() => { pauseRealtimeRef.current = pauseRealtime; }, [pauseRealtime]);
+  // Sincronizar refs de segurança com permissões e userId atuais
+  useEffect(() => { canViewAllLeadsRef.current = permissions.canViewAllLeads; }, [permissions.canViewAllLeads]);
+  useEffect(() => { currentUserIdRef.current = user?.id; }, [user?.id]);
 
   // Inicialização de áudio e subscrição a novos leads
   useEffect(() => {
@@ -314,6 +320,14 @@ const Pipeline = () => {
           } else if (!uc && newLead.funnel_id !== null) {
             // Se estamos no funil padrão, ignorar leads de funis customizados
             return;
+          }
+
+          // SEGURANÇA: Verificar permissão antes de exibir o lead via Realtime.
+          // Membros sem canViewAllLeads só podem ver leads atribuídos a eles.
+          // Sem este filtro, leads sem responsável apareceriam momentaneamente para todos.
+          if (!canViewAllLeadsRef.current) {
+            const assignedTo = (newLead as any).responsavel_user_id;
+            if (assignedTo !== currentUserIdRef.current) return;
           }
 
           // Verificar se é realmente um lead novo (não carregado anteriormente)
