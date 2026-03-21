@@ -22,6 +22,7 @@ interface PipelineColumnProps {
   profilesMap?: Record<string, { full_name: string; avatar_url: string | null }>;
   duplicateLeadIds?: Set<string>;
   agendamentosMap?: Record<string, { reuniao?: string | null; venda?: string | null }>;
+  redistributedMap?: Record<string, { fromName: string; minutes: number }>;
 }
 
 export const PipelineColumn = memo(({
@@ -40,6 +41,7 @@ export const PipelineColumn = memo(({
   profilesMap = {},
   duplicateLeadIds,
   agendamentosMap = {},
+  redistributedMap = {},
 }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
@@ -115,6 +117,9 @@ export const PipelineColumn = memo(({
                   isDuplicate={duplicateLeadIds ? duplicateLeadIds.has(lead.id) : false}
                   dataAgendamentoReuniao={agendamentosMap[lead.id]?.reuniao}
                   dataAgendamentoVenda={agendamentosMap[lead.id]?.venda}
+                  isRedistributed={!!redistributedMap[lead.id]}
+                  redistributedFromName={redistributedMap[lead.id]?.fromName}
+                  redistributionMinutes={redistributedMap[lead.id]?.minutes}
                 />
               );
             })
@@ -136,7 +141,8 @@ export const PipelineColumn = memo(({
     prevProps.leads.every((lead, i) => lead.id === nextProps.leads[i]?.id) &&
     prevProps.profilesMap === nextProps.profilesMap &&
     prevProps.duplicateLeadIds === nextProps.duplicateLeadIds &&
-    prevProps.agendamentosMap === nextProps.agendamentosMap
+    prevProps.agendamentosMap === nextProps.agendamentosMap &&
+    prevProps.redistributedMap === nextProps.redistributedMap
   );
 });
 
