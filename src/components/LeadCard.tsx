@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check, CalendarDays, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +125,8 @@ export interface BaseLeadCardProps {
   responsavelName?: string;
   responsavelAvatarUrl?: string | null;
   isDuplicate?: boolean;
+  dataAgendamentoReuniao?: string | null;
+  dataAgendamentoVenda?: string | null;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -141,6 +143,8 @@ interface LeadCardViewProps extends BaseLeadCardProps {
   responsavelName?: string;
   responsavelAvatarUrl?: string | null;
   isDuplicate?: boolean;
+  dataAgendamentoReuniao?: string | null;
+  dataAgendamentoVenda?: string | null;
 }
 
 // Componente puramente visual, sem lógica de drag
@@ -175,6 +179,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   attributes,
   setNodeRef,
   isDuplicate = false,
+  dataAgendamentoReuniao,
+  dataAgendamentoVenda,
 }) => {
   const [totalValue, setTotalValue] = useState<number>(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -335,6 +341,31 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   <LeadTagsBadgeStatic tags={tags} />
                 </div>
               </div>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                {dataAgendamentoReuniao && !dragging && (
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(); }}
+                    title={`Reunião: ${new Date(dataAgendamentoReuniao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                    className="h-4 w-4 flex items-center justify-center text-blue-500 hover:text-blue-400 transition-colors"
+                  >
+                    <CalendarDays className="h-3 w-3" />
+                  </button>
+                )}
+                {dataAgendamentoVenda && !dragging && (
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(); }}
+                    title={`Venda: ${new Date(dataAgendamentoVenda).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                    className="h-4 w-4 flex items-center justify-center text-yellow-500 hover:text-yellow-400 transition-colors"
+                  >
+                    <CalendarCheck className="h-3 w-3" />
+                  </button>
+                )}
               <DropdownMenu onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger
                   asChild
@@ -387,6 +418,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
           </div>
         </div>
@@ -563,7 +595,9 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.duplicateAttemptsCount === nextProps.duplicateAttemptsCount &&
     prevProps.responsavelName === nextProps.responsavelName &&
     prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl &&
-    prevProps.isDuplicate === nextProps.isDuplicate
+    prevProps.isDuplicate === nextProps.isDuplicate &&
+    prevProps.dataAgendamentoReuniao === nextProps.dataAgendamentoReuniao &&
+    prevProps.dataAgendamentoVenda === nextProps.dataAgendamentoVenda
   );
 });
 

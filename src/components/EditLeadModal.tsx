@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check, LucideIcon, CalendarClock } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check, LucideIcon, CalendarDays, CalendarCheck } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -75,14 +75,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editingDataConclusao, setEditingDataConclusao] = useState(false);
   const [editingDescricao, setEditingDescricao] = useState(false);
   const [editingIdade, setEditingIdade] = useState(false);
-  const [editingAgendamentoVenda, setEditingAgendamentoVenda] = useState(false);
-  const [dataAgendamentoVenda, setDataAgendamentoVenda] = useState<Date | undefined>(undefined);
-  const [horaAgendamentoVenda, setHoraAgendamentoVenda] = useState("10:00");
   const [dataInicio, setDataInicio] = useState<Date | undefined>(new Date());
   const [dataConclusao, setDataConclusao] = useState<Date | undefined>(undefined);
   const [descricao, setDescricao] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [idade, setIdade] = useState<number | null>(null);
+
+  // Agendamento Reunião states
+  const [agendReuniaoData, setAgendReuniaoData] = useState<Date | undefined>(undefined);
+  const [agendReuniaoHora, setAgendReuniaoHora] = useState("10:00");
+  const [agendReuniaoTelefone, setAgendReuniaoTelefone] = useState(lead.telefone_lead || "");
+  const [agendReuniaoObs, setAgendReuniaoObs] = useState("");
+
+  // Agendamento Venda states
+  const [agendVendaData, setAgendVendaData] = useState<Date | undefined>(undefined);
+  const [agendVendaHora, setAgendVendaHora] = useState("10:00");
+  const [agendVendaTelefone, setAgendVendaTelefone] = useState(lead.telefone_lead || "");
+  const [agendVendaObs, setAgendVendaObs] = useState("");
+  const [agendVendaValor, setAgendVendaValor] = useState("");
+
   const [colaboradores, setColaboradores] = useState<Array<{
     id: string;
     email: string;
@@ -162,7 +173,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       const { data, error } = await supabase
         .from('leads')
-        .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor, idade, data_agendamento_venda')
+        .select('responsavel, data_inicio, data_conclusao, descricao_negocio, valor, idade')
         .eq('id', lead.id)
         .single();
 
@@ -174,15 +185,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         setDataConclusao(data.data_conclusao ? new Date(data.data_conclusao) : undefined);
         setDescricao(data.descricao_negocio || '');
         setIdade(data.idade || null);
-        // Agendamento de venda
-        if (data.data_agendamento_venda) {
-          const agDate = new Date(data.data_agendamento_venda);
-          setDataAgendamentoVenda(agDate);
-          setHoraAgendamentoVenda(`${agDate.getHours().toString().padStart(2, '0')}:${agDate.getMinutes().toString().padStart(2, '0')}`);
-        } else {
-          setDataAgendamentoVenda(undefined);
-          setHoraAgendamentoVenda("10:00");
-        }
         // Atualizar o valor com os dados mais recentes do banco
         setEditedValue(data.valor?.toString() || "0");
       } else {
@@ -646,6 +648,101 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     setEditingContent("");
   };
 
+  const handleSaveAgendamento = async (tipo: "Agendamento Reunião" | "Agendamento Venda") => {
+    const isReuniao = tipo === "Agendamento Reunião";
+    const data = isReuniao ? agendReuniaoData : agendVendaData;
+    const hora = isReuniao ? agendReuniaoHora : agendVendaHora;
+    const telefone = isReuniao ? agendReuniaoTelefone : agendVendaTelefone;
+    const obs = isReuniao ? agendReuniaoObs : agendVendaObs;
+
+    if (!data) {
+      toast.error("Por favor, selecione uma data para o agendamento");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const content: Record<string, string> = {
+        data: format(data, "yyyy-MM-dd"),
+        hora,
+        telefone,
+      };
+
+      if (obs.trim()) content.observacoes = obs.trim();
+      if (!isReuniao && agendVendaValor.trim()) content.valor = agendVendaValor.trim();
+
+      const { error } = await supabase
+        .from("lead_activities")
+        .insert({
+          lead_id: lead.id,
+          user_id: user.id,
+          activity_type: tipo,
+          content: JSON.stringify(content),
+        });
+
+      if (error) throw error;
+
+      toast.success(`${tipo} salvo com sucesso!`);
+
+      if (isReuniao) {
+        setAgendReuniaoData(undefined);
+        setAgendReuniaoHora("10:00");
+        setAgendReuniaoObs("");
+      } else {
+        setAgendVendaData(undefined);
+        setAgendVendaHora("10:00");
+        setAgendVendaObs("");
+        setAgendVendaValor("");
+      }
+
+      await fetchActivities();
+      onUpdate();
+    } catch (error) {
+      console.error(`Erro ao salvar ${tipo}:`, error);
+      toast.error(`Erro ao salvar ${tipo}`);
+    }
+  };
+
+  const renderAgendamentoContent = (content: string, tipo: string) => {
+    try {
+      const parsed = JSON.parse(content);
+      return (
+        <div className="space-y-1.5 text-sm">
+          <div className="flex gap-2">
+            <span className="text-muted-foreground text-xs">Data/Hora:</span>
+            <span className="font-medium">
+              {format(new Date(`${parsed.data}T${parsed.hora}`), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </span>
+          </div>
+          {parsed.telefone && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground text-xs">Telefone:</span>
+              <span>{parsed.telefone}</span>
+            </div>
+          )}
+          {tipo === "Agendamento Venda" && parsed.valor && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground text-xs">Valor:</span>
+              <span className="text-green-600 font-medium">
+                R$ {parseFloat(parsed.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+          {parsed.observacoes && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground text-xs">Obs:</span>
+              <span className="whitespace-pre-wrap">{parsed.observacoes}</span>
+            </div>
+          )}
+        </div>
+      );
+    } catch {
+      return <p className="text-sm text-foreground whitespace-pre-wrap">{content}</p>;
+    }
+  };
+
   const handleEditActivity = (activity: any) => {
     setEditingActivityId(activity.id);
     setEditingContent(activity.content);
@@ -741,7 +838,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       "WhatsApp": MessageSquare,
       "Proposta": FileText,
       "Reunião": Video,
-      "Visita": MapPin
+      "Visita": MapPin,
+      "Agendamento Reunião": CalendarDays,
+      "Agendamento Venda": CalendarCheck,
     };
     return icons[type] || Pencil;
   };
@@ -856,29 +955,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <Pencil className="h-4 w-4" />
                       Nota
                     </TabsTrigger>
-                    <TabsTrigger value="email" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <Mail className="h-4 w-4" />
-                      E-mail
+                    <TabsTrigger value="agendamento_reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
+                      <CalendarDays className="h-4 w-4 text-blue-500" />
+                      Ag. Reunião
                     </TabsTrigger>
-                    <TabsTrigger value="ligacao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <Phone className="h-4 w-4" />
-                      Ligação
-                    </TabsTrigger>
-                    <TabsTrigger value="whatsapp" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <MessageSquare className="h-4 w-4" />
-                      WhatsApp
-                    </TabsTrigger>
-                    <TabsTrigger value="proposta" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <FileText className="h-4 w-4" />
-                      Proposta
-                    </TabsTrigger>
-                    <TabsTrigger value="reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <Video className="h-4 w-4" />
-                      Reunião
-                    </TabsTrigger>
-                    <TabsTrigger value="visita" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <MapPin className="h-4 w-4" />
-                      Visita
+                    <TabsTrigger value="agendamento_venda" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
+                      <CalendarCheck className="h-4 w-4 text-yellow-500" />
+                      Ag. Venda
                     </TabsTrigger>
                   </TabsList>
 
@@ -939,338 +1022,169 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         </div>
                       </div>
                     </TabsContent>
-                    <TabsContent value="email" className="mt-0 space-y-3">
-                      <Textarea
-                        placeholder="Escreva seu e-mail..."
-                        className="min-h-[120px] resize-none"
-                        value={currentTab === "email" ? activityContent : ""}
-                        onChange={(e) => currentTab === "email" && setActivityContent(e.target.value)}
-                      />
-                      {selectedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
+
+                    <TabsContent value="agendamento_reuniao" className="mt-0 space-y-4">
+                      <div className="space-y-3">
                         <div>
-                          <input
-                            type="file"
-                            id="email-file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="*/*"
+                          <Label className="text-xs text-muted-foreground mb-2 block">Data do agendamento</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                <CalendarDays className="h-4 w-4 mr-2 text-blue-500" />
+                                {agendReuniaoData
+                                  ? format(agendReuniaoData, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                                  : "Selecionar data"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={agendReuniaoData}
+                                onSelect={setAgendReuniaoData}
+                                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                initialFocus
+                                locale={ptBR}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap min-w-fit">Horário:</Label>
+                          <Input
+                            type="time"
+                            value={agendReuniaoHora}
+                            onChange={(e) => setAgendReuniaoHora(e.target.value)}
+                            className="h-9 text-sm"
                           />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-1 block">Telefone do lead</Label>
+                          <Input
+                            type="tel"
+                            value={agendReuniaoTelefone}
+                            onChange={(e) => setAgendReuniaoTelefone(e.target.value)}
+                            placeholder="Ex: +5511999999999"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</Label>
+                          <Textarea
+                            placeholder="Detalhes sobre a reunião..."
+                            className="min-h-[80px] resize-none text-sm"
+                            value={agendReuniaoObs}
+                            onChange={(e) => setAgendReuniaoObs(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="gap-2"
-                            onClick={() => document.getElementById('email-file')?.click()}
-                            disabled={isUploadingFile}
+                            onClick={() => {
+                              setAgendReuniaoData(undefined);
+                              setAgendReuniaoHora("10:00");
+                              setAgendReuniaoTelefone(lead.telefone_lead || "");
+                              setAgendReuniaoObs("");
+                            }}
                           >
-                            <Paperclip className="h-4 w-4" />
-                            Adicionar anexo
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
-                            Cancelar
+                            Limpar
                           </Button>
                           <Button
                             size="sm"
-                            onClick={handleSaveActivity}
-                            disabled={isUploadingFile}
-                            className="bg-primary hover:bg-primary/90"
+                            onClick={() => handleSaveAgendamento("Agendamento Reunião")}
+                            disabled={!agendReuniaoData}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
                           >
-                            {isUploadingFile ? "Enviando..." : "Salvar e-mail"}
+                            Salvar Agendamento
                           </Button>
                         </div>
                       </div>
                     </TabsContent>
-                    <TabsContent value="ligacao" className="mt-0 space-y-3">
-                      <Textarea
-                        placeholder="Notas sobre a ligação..."
-                        className="min-h-[120px] resize-none"
-                        value={currentTab === "ligacao" ? activityContent : ""}
-                        onChange={(e) => currentTab === "ligacao" && setActivityContent(e.target.value)}
-                      />
-                      {selectedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
+
+                    <TabsContent value="agendamento_venda" className="mt-0 space-y-4">
+                      <div className="space-y-3">
                         <div>
-                          <input
-                            type="file"
-                            id="ligacao-file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="*/*"
+                          <Label className="text-xs text-muted-foreground mb-2 block">Data do agendamento</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                <CalendarCheck className="h-4 w-4 mr-2 text-yellow-500" />
+                                {agendVendaData
+                                  ? format(agendVendaData, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                                  : "Selecionar data"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={agendVendaData}
+                                onSelect={setAgendVendaData}
+                                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                initialFocus
+                                locale={ptBR}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap min-w-fit">Horário:</Label>
+                          <Input
+                            type="time"
+                            value={agendVendaHora}
+                            onChange={(e) => setAgendVendaHora(e.target.value)}
+                            className="h-9 text-sm"
                           />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-1 block">Telefone do lead</Label>
+                          <Input
+                            type="tel"
+                            value={agendVendaTelefone}
+                            onChange={(e) => setAgendVendaTelefone(e.target.value)}
+                            placeholder="Ex: +5511999999999"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-1 block">Valor da venda (opcional)</Label>
+                          <Input
+                            type="text"
+                            value={agendVendaValor}
+                            onChange={(e) => setAgendVendaValor(e.target.value)}
+                            placeholder="Ex: 1500,00"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</Label>
+                          <Textarea
+                            placeholder="Detalhes sobre a venda..."
+                            className="min-h-[80px] resize-none text-sm"
+                            value={agendVendaObs}
+                            onChange={(e) => setAgendVendaObs(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="gap-2"
-                            onClick={() => document.getElementById('ligacao-file')?.click()}
-                            disabled={isUploadingFile}
+                            onClick={() => {
+                              setAgendVendaData(undefined);
+                              setAgendVendaHora("10:00");
+                              setAgendVendaTelefone(lead.telefone_lead || "");
+                              setAgendVendaObs("");
+                              setAgendVendaValor("");
+                            }}
                           >
-                            <Paperclip className="h-4 w-4" />
-                            Adicionar anexo
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
-                            Cancelar
+                            Limpar
                           </Button>
                           <Button
                             size="sm"
-                            onClick={handleSaveActivity}
-                            disabled={isUploadingFile}
-                            className="bg-primary hover:bg-primary/90"
+                            onClick={() => handleSaveAgendamento("Agendamento Venda")}
+                            disabled={!agendVendaData}
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white"
                           >
-                            {isUploadingFile ? "Enviando..." : "Salvar ligação"}
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="whatsapp" className="mt-0 space-y-3">
-                      <Textarea
-                        placeholder="Escreva sua mensagem..."
-                        className="min-h-[120px] resize-none"
-                        value={currentTab === "whatsapp" ? activityContent : ""}
-                        onChange={(e) => currentTab === "whatsapp" && setActivityContent(e.target.value)}
-                      />
-                      {selectedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <input
-                            type="file"
-                            id="whatsapp-file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="*/*"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => document.getElementById('whatsapp-file')?.click()}
-                            disabled={isUploadingFile}
-                          >
-                            <Paperclip className="h-4 w-4" />
-                            Adicionar anexo
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleSaveActivity}
-                            disabled={isUploadingFile}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            {isUploadingFile ? "Enviando..." : "Salvar WhatsApp"}
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="proposta" className="mt-0 space-y-3">
-                      <Textarea
-                        placeholder="Detalhes da proposta..."
-                        className="min-h-[120px] resize-none"
-                        value={currentTab === "proposta" ? activityContent : ""}
-                        onChange={(e) => currentTab === "proposta" && setActivityContent(e.target.value)}
-                      />
-                      {selectedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <input
-                            type="file"
-                            id="proposta-file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="*/*"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => document.getElementById('proposta-file')?.click()}
-                            disabled={isUploadingFile}
-                          >
-                            <Paperclip className="h-4 w-4" />
-                            Adicionar anexo
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleSaveActivity}
-                            disabled={isUploadingFile}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            {isUploadingFile ? "Enviando..." : "Salvar proposta"}
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="reuniao" className="mt-0 space-y-3">
-                      <Textarea
-                        placeholder="Notas sobre a reunião..."
-                        className="min-h-[120px] resize-none"
-                        value={currentTab === "reuniao" ? activityContent : ""}
-                        onChange={(e) => currentTab === "reuniao" && setActivityContent(e.target.value)}
-                      />
-                      {selectedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <input
-                            type="file"
-                            id="reuniao-file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="*/*"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => document.getElementById('reuniao-file')?.click()}
-                            disabled={isUploadingFile}
-                          >
-                            <Paperclip className="h-4 w-4" />
-                            Adicionar anexo
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleSaveActivity}
-                            disabled={isUploadingFile}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            {isUploadingFile ? "Enviando..." : "Salvar reunião"}
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="visita" className="mt-0 space-y-3">
-                      <Textarea
-                        placeholder="Notas sobre a visita..."
-                        className="min-h-[120px] resize-none"
-                        value={currentTab === "visita" ? activityContent : ""}
-                        onChange={(e) => currentTab === "visita" && setActivityContent(e.target.value)}
-                      />
-                      {selectedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <input
-                            type="file"
-                            id="visita-file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="*/*"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => document.getElementById('visita-file')?.click()}
-                            disabled={isUploadingFile}
-                          >
-                            <Paperclip className="h-4 w-4" />
-                            Adicionar anexo
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleSaveActivity}
-                            disabled={isUploadingFile}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            {isUploadingFile ? "Enviando..." : "Salvar visita"}
+                            Salvar Agendamento
                           </Button>
                         </div>
                       </div>
@@ -1448,9 +1362,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     </div>
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-foreground whitespace-pre-wrap">
-                                    {activity.content}
-                                  </p>
+                                  (activity.activity_type === "Agendamento Reunião" || activity.activity_type === "Agendamento Venda")
+                                    ? renderAgendamentoContent(activity.content, activity.activity_type)
+                                    : <p className="text-sm text-foreground whitespace-pre-wrap">{activity.content}</p>
                                 )}
                               </div>
 
@@ -2064,98 +1978,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   }}
                                 >
                                   <Check className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-
-                    {/* Agendamento de Venda */}
-                    <div className="flex items-start justify-between group">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <CalendarClock className="h-3.5 w-3.5" />
-                        Agend. Venda
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className={cn("font-medium", !dataAgendamentoVenda && "text-muted-foreground")}>
-                          {dataAgendamentoVenda
-                            ? format(dataAgendamentoVenda, "dd/MM/yy HH:mm", { locale: ptBR })
-                            : "Agendar"}
-                        </span>
-                        <Popover open={editingAgendamentoVenda} onOpenChange={setEditingAgendamentoVenda} modal={false}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 p-0 hover:bg-accent/50"
-                              type="button"
-                            >
-                              <Pencil className="h-3.5 w-3.5 text-primary" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="end" sideOffset={5}>
-                            <div className="p-3 space-y-3">
-                              <Calendar
-                                mode="single"
-                                selected={dataAgendamentoVenda}
-                                onSelect={(date) => setDataAgendamentoVenda(date)}
-                                initialFocus
-                                className={cn("p-3 pointer-events-auto")}
-                                locale={ptBR}
-                              />
-                              <div className="flex items-center gap-2 px-3">
-                                <Label className="text-xs whitespace-nowrap">Horário:</Label>
-                                <Input
-                                  type="time"
-                                  value={horaAgendamentoVenda}
-                                  onChange={(e) => setHoraAgendamentoVenda(e.target.value)}
-                                  className="h-8 text-sm"
-                                />
-                              </div>
-                              <div className="flex gap-2 px-3 pb-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1"
-                                  onClick={() => {
-                                    setDataAgendamentoVenda(undefined);
-                                    setEditingAgendamentoVenda(false);
-                                    // Clear from DB
-                                    supabase.from('leads').update({ data_agendamento_venda: null }).eq('id', lead.id).then(() => {
-                                      toast.success("Agendamento removido");
-                                    });
-                                  }}
-                                >
-                                  Limpar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  className="flex-1"
-                                  disabled={!dataAgendamentoVenda}
-                                  onClick={async () => {
-                                    if (!dataAgendamentoVenda) return;
-                                    const [hours, minutes] = horaAgendamentoVenda.split(':').map(Number);
-                                    const dateTime = new Date(dataAgendamentoVenda);
-                                    dateTime.setHours(hours, minutes, 0, 0);
-
-                                    try {
-                                      const { error } = await supabase
-                                        .from('leads')
-                                        .update({ data_agendamento_venda: dateTime.toISOString() })
-                                        .eq('id', lead.id);
-                                      if (error) throw error;
-                                      setDataAgendamentoVenda(dateTime);
-                                      setEditingAgendamentoVenda(false);
-                                      toast.success("Agendamento de venda salvo!");
-                                    } catch (error) {
-                                      console.error('Erro ao salvar agendamento:', error);
-                                      toast.error('Erro ao salvar agendamento');
-                                    }
-                                  }}
-                                >
-                                  Salvar
                                 </Button>
                               </div>
                             </div>

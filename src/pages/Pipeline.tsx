@@ -139,6 +139,8 @@ const Pipeline = () => {
   const [permissionsFunnelId, setPermissionsFunnelId] = useState<string | null>(null);
   // Mapa user_id -> { full_name, avatar_url } para exibir no card
   const [profilesMap, setProfilesMap] = useState<Record<string, { full_name: string; avatar_url: string | null }>>({});
+  // Mapa leadId -> { reuniao, venda } para ícones de agendamento nos cards
+  const [agendamentosMap, setAgendamentosMap] = useState<Record<string, { reuniao?: string | null; venda?: string | null }>>({});
 
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -657,6 +659,7 @@ const Pipeline = () => {
           loadLeadItems(data.map(l => l.id)),
           loadLeadTags(data.map(l => l.id)),
           loadProfiles(responsavelIds),
+          loadAgendamentos(data.map(l => l.id)),
         ]);
       }
     } catch (error) {
@@ -741,6 +744,34 @@ const Pipeline = () => {
         map[p.user_id] = { full_name: p.full_name || '', avatar_url: p.avatar_url };
       });
       setProfilesMap((prev) => ({ ...prev, ...map }));
+    }
+  };
+
+  const loadAgendamentos = async (leadIds: string[]) => {
+    if (leadIds.length === 0) return;
+
+    const { data } = await supabase
+      .from('lead_activities')
+      .select('lead_id, activity_type, content, created_at')
+      .in('lead_id', leadIds)
+      .in('activity_type', ['Agendamento Reunião', 'Agendamento Venda'])
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      const map: Record<string, { reuniao?: string | null; venda?: string | null }> = {};
+      data.forEach((a: any) => {
+        if (!map[a.lead_id]) map[a.lead_id] = {};
+        try {
+          const parsed = JSON.parse(a.content);
+          const isoDate = parsed.data && parsed.hora ? `${parsed.data}T${parsed.hora}:00` : null;
+          if (a.activity_type === 'Agendamento Reunião' && !map[a.lead_id].reuniao) {
+            map[a.lead_id].reuniao = isoDate;
+          } else if (a.activity_type === 'Agendamento Venda' && !map[a.lead_id].venda) {
+            map[a.lead_id].venda = isoDate;
+          }
+        } catch {}
+      });
+      setAgendamentosMap(map);
     }
   };
 
@@ -1529,6 +1560,7 @@ const Pipeline = () => {
                         isDraggingActive={isDraggingActive}
                         profilesMap={profilesMap}
                         duplicateLeadIds={duplicateLeadIds}
+                        agendamentosMap={agendamentosMap}
                       />
                     );
                   })}
@@ -1564,6 +1596,7 @@ const Pipeline = () => {
                     isDraggingActive={isDraggingActive}
                     profilesMap={profilesMap}
                     duplicateLeadIds={duplicateLeadIds}
+                    agendamentosMap={agendamentosMap}
                   />
                 );
               })}

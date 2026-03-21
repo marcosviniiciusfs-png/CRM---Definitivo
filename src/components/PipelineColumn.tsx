@@ -21,6 +21,7 @@ interface PipelineColumnProps {
   isDraggingActive: boolean;
   profilesMap?: Record<string, { full_name: string; avatar_url: string | null }>;
   duplicateLeadIds?: Set<string>;
+  agendamentosMap?: Record<string, { reuniao?: string | null; venda?: string | null }>;
 }
 
 export const PipelineColumn = memo(({
@@ -38,6 +39,7 @@ export const PipelineColumn = memo(({
   isDraggingActive,
   profilesMap = {},
   duplicateLeadIds,
+  agendamentosMap = {},
 }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
@@ -111,6 +113,8 @@ export const PipelineColumn = memo(({
                   responsavelName={responsavelName}
                   responsavelAvatarUrl={responsavelAvatarUrl}
                   isDuplicate={duplicateLeadIds ? duplicateLeadIds.has(lead.id) : false}
+                  dataAgendamentoReuniao={agendamentosMap[lead.id]?.reuniao}
+                  dataAgendamentoVenda={agendamentosMap[lead.id]?.venda}
                 />
               );
             })
@@ -131,7 +135,8 @@ export const PipelineColumn = memo(({
     prevProps.leads.length === nextProps.leads.length &&
     prevProps.leads.every((lead, i) => lead.id === nextProps.leads[i]?.id) &&
     prevProps.profilesMap === nextProps.profilesMap &&
-    prevProps.duplicateLeadIds === nextProps.duplicateLeadIds
+    prevProps.duplicateLeadIds === nextProps.duplicateLeadIds &&
+    prevProps.agendamentosMap === nextProps.agendamentosMap
   );
 });
 
