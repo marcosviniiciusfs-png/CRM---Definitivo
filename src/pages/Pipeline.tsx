@@ -141,6 +141,8 @@ const Pipeline = () => {
   const [profilesMap, setProfilesMap] = useState<Record<string, { full_name: string; avatar_url: string | null }>>({});
   // Mapa leadId -> { reuniao, venda } para ícones de agendamento nos cards
   const [agendamentosMap, setAgendamentosMap] = useState<Record<string, { reuniao?: string | null; venda?: string | null }>>({});
+  // Mapa leadId -> { fromName, minutes } para badge de redistribuição nos cards
+  const [redistributedMap, setRedistributedMap] = useState<Record<string, { fromName: string; minutes: number }>>({});;
 
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -319,6 +321,34 @@ const Pipeline = () => {
           } catch (err) {
             console.warn('Erro ao parsear agendamento realtime:', err);
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'lead_distribution_history',
+        },
+        async (payload) => {
+          const row = payload.new as any;
+          if (!row.is_redistribution || !row.lead_id) return;
+          // Buscar nome do colaborador anterior e timeout do config
+          const [profileRes, configRes] = await Promise.all([
+            row.from_user_id
+              ? supabase.from('profiles').select('full_name').eq('user_id', row.from_user_id).maybeSingle()
+              : Promise.resolve({ data: null }),
+            row.config_id
+              ? supabase.from('lead_distribution_configs').select('redistribution_timeout_minutes').eq('id', row.config_id).maybeSingle()
+              : Promise.resolve({ data: null }),
+          ]);
+          setRedistributedMap(prev => ({
+            ...prev,
+            [row.lead_id]: {
+              fromName: (profileRes.data as any)?.full_name || '',
+              minutes: (configRes.data as any)?.redistribution_timeout_minutes || 0,
+            },
+          }));
         }
       )
       .on(
@@ -687,6 +717,7 @@ const Pipeline = () => {
           loadLeadTags(data.map(l => l.id)),
           loadProfiles(responsavelIds),
           loadAgendamentos(data.map(l => l.id)),
+          loadRedistributionData(data.map(l => l.id)),
         ]);
       }
     } catch (error) {
@@ -800,6 +831,57 @@ const Pipeline = () => {
       });
       setAgendamentosMap(map);
     }
+  };
+
+  const loadRedistributionData = async (leadIds: string[]) => {
+    if (leadIds.length === 0) return;
+
+    // Buscar a redistribuição mais recente por lead
+    const { data } = await supabase
+      .from('lead_distribution_history')
+      .select('lead_id, from_user_id, config_id, created_at')
+      .in('lead_id', leadIds)
+      .eq('is_redistribution', true)
+      .order('created_at', { ascending: false });
+
+    if (!data || data.length === 0) return;
+
+    // Pegar apenas a entrada mais recente por lead
+    const latestByLead = new Map<string, typeof data[0]>();
+    data.forEach((row: any) => {
+      if (!latestByLead.has(row.lead_id)) {
+        latestByLead.set(row.lead_id, row);
+      }
+    });
+
+    // Buscar nomes dos "from_user_id" e timeout dos configs
+    const fromUserIds = [...new Set([...latestByLead.values()].map(r => r.from_user_id).filter(Boolean))];
+    const configIds = [...new Set([...latestByLead.values()].map(r => r.config_id).filter(Boolean))];
+
+    const [profilesRes, configsRes] = await Promise.all([
+      fromUserIds.length > 0
+        ? supabase.from('profiles').select('user_id, full_name').in('user_id', fromUserIds)
+        : Promise.resolve({ data: [] }),
+      configIds.length > 0
+        ? supabase.from('lead_distribution_configs').select('id, redistribution_timeout_minutes').in('id', configIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const profilesById: Record<string, string> = {};
+    (profilesRes.data || []).forEach((p: any) => { profilesById[p.user_id] = p.full_name || ''; });
+
+    const configsById: Record<string, number> = {};
+    (configsRes.data || []).forEach((c: any) => { configsById[c.id] = c.redistribution_timeout_minutes || 0; });
+
+    const map: Record<string, { fromName: string; minutes: number }> = {};
+    latestByLead.forEach((row, leadId) => {
+      map[leadId] = {
+        fromName: row.from_user_id ? (profilesById[row.from_user_id] || '') : '',
+        minutes: row.config_id ? (configsById[row.config_id] || 0) : 0,
+      };
+    });
+
+    setRedistributedMap(map);
   };
 
   // Pré-calcular datas formatadas para evitar recálculo a cada render
@@ -1588,6 +1670,7 @@ const Pipeline = () => {
                         profilesMap={profilesMap}
                         duplicateLeadIds={duplicateLeadIds}
                         agendamentosMap={agendamentosMap}
+                        redistributedMap={redistributedMap}
                       />
                     );
                   })}
@@ -1624,6 +1707,7 @@ const Pipeline = () => {
                     profilesMap={profilesMap}
                     duplicateLeadIds={duplicateLeadIds}
                     agendamentosMap={agendamentosMap}
+                    redistributedMap={redistributedMap}
                   />
                 );
               })}

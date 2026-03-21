@@ -127,6 +127,9 @@ export interface BaseLeadCardProps {
   isDuplicate?: boolean;
   dataAgendamentoReuniao?: string | null;
   dataAgendamentoVenda?: string | null;
+  isRedistributed?: boolean;
+  redistributedFromName?: string;
+  redistributionMinutes?: number;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -145,6 +148,9 @@ interface LeadCardViewProps extends BaseLeadCardProps {
   isDuplicate?: boolean;
   dataAgendamentoReuniao?: string | null;
   dataAgendamentoVenda?: string | null;
+  isRedistributed?: boolean;
+  redistributedFromName?: string;
+  redistributionMinutes?: number;
 }
 
 // Componente puramente visual, sem lógica de drag
@@ -181,6 +187,9 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   isDuplicate = false,
   dataAgendamentoReuniao,
   dataAgendamentoVenda,
+  isRedistributed = false,
+  redistributedFromName,
+  redistributionMinutes,
 }) => {
   const [totalValue, setTotalValue] = useState<number>(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -251,6 +260,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
         hasRedBorder && !dragging
           ? "border-border animate-glow-pulse"
+          : isRedistributed && !dragging
+          ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
           : isDuplicate && !dragging
           ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
@@ -271,6 +282,18 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   {name}
                 </h3>
                 <div className="flex items-center gap-1 flex-wrap" data-lead-badges>
+                  {isRedistributed && (
+                    <Badge
+                      variant="secondary"
+                      title={redistributedFromName && redistributionMinutes
+                        ? `Lead redistribuído automaticamente pois o colaborador anterior (${redistributedFromName}) não interagiu dentro de ${redistributionMinutes} min`
+                        : "Lead redistribuído automaticamente para este colaborador"}
+                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-blue-950 text-blue-300 border-blue-800 cursor-default"
+                    >
+                      <RefreshCw className="h-2.5 w-2.5" />
+                      Redistribuído
+                    </Badge>
+                  )}
                   {isDuplicate && (
                     <Badge
                       variant="secondary"
@@ -597,7 +620,8 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl &&
     prevProps.isDuplicate === nextProps.isDuplicate &&
     prevProps.dataAgendamentoReuniao === nextProps.dataAgendamentoReuniao &&
-    prevProps.dataAgendamentoVenda === nextProps.dataAgendamentoVenda
+    prevProps.dataAgendamentoVenda === nextProps.dataAgendamentoVenda &&
+    prevProps.isRedistributed === nextProps.isRedistributed
   );
 });
 

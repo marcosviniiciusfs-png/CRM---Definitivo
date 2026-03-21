@@ -574,8 +574,8 @@ export function LeadDistributionConfigModal({
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Redistribuição Automática</Label>
-                <p className="text-sm text-muted-foreground">
-                  Redistribuir leads sem resposta após timeout
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Se o colaborador atribuído não interagir com o lead dentro do tempo definido, o lead é automaticamente repassado para outro disponível nesta roleta.
                 </p>
               </div>
               <Switch
@@ -588,7 +588,10 @@ export function LeadDistributionConfigModal({
 
             {formData.auto_redistribute && (
               <div className="space-y-2">
-                <Label htmlFor="timeout">Tempo para Redistribuição (minutos)</Label>
+                <Label htmlFor="timeout">Tempo sem interação para redistribuir (minutos)</Label>
+                <p className="text-xs text-muted-foreground">
+                  O lead será redistribuído se o colaborador não movê-lo de etapa nem enviar mensagem dentro deste prazo.
+                </p>
                 <Input
                   id="timeout"
                   type="number"
