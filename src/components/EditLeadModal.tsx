@@ -86,6 +86,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [agendReuniaoHora, setAgendReuniaoHora] = useState("10:00");
   const [agendReuniaoTelefone, setAgendReuniaoTelefone] = useState(lead.telefone_lead || "");
   const [agendReuniaoObs, setAgendReuniaoObs] = useState("");
+  const [agendReuniaoLembreteData, setAgendReuniaoLembreteData] = useState<Date | undefined>(undefined);
+  const [agendReuniaoLembreteHora, setAgendReuniaoLembreteHora] = useState("09:00");
 
   // Agendamento Venda states
   const [agendVendaData, setAgendVendaData] = useState<Date | undefined>(undefined);
@@ -93,6 +95,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [agendVendaTelefone, setAgendVendaTelefone] = useState(lead.telefone_lead || "");
   const [agendVendaObs, setAgendVendaObs] = useState("");
   const [agendVendaValor, setAgendVendaValor] = useState("");
+  const [agendVendaLembreteData, setAgendVendaLembreteData] = useState<Date | undefined>(undefined);
+  const [agendVendaLembreteHora, setAgendVendaLembreteHora] = useState("09:00");
 
   const [colaboradores, setColaboradores] = useState<Array<{
     id: string;
@@ -654,6 +658,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     const hora = isReuniao ? agendReuniaoHora : agendVendaHora;
     const telefone = isReuniao ? agendReuniaoTelefone : agendVendaTelefone;
     const obs = isReuniao ? agendReuniaoObs : agendVendaObs;
+    const lembreteData = isReuniao ? agendReuniaoLembreteData : agendVendaLembreteData;
+    const lembreteHora = isReuniao ? agendReuniaoLembreteHora : agendVendaLembreteHora;
 
     if (!data) {
       toast.error("Por favor, selecione uma data para o agendamento");
@@ -673,6 +679,15 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (obs.trim()) content.observacoes = obs.trim();
       if (!isReuniao && agendVendaValor.trim()) content.valor = agendVendaValor.trim();
 
+      // Armazenar lembrete agendado se o usuário definiu data/hora
+      if (lembreteData) {
+        const [lh, lm] = lembreteHora.split(":").map(Number);
+        const lembreteDt = new Date(lembreteData);
+        lembreteDt.setHours(lh, lm, 0, 0);
+        content.lembrete_at = lembreteDt.toISOString();
+        content.lembrete_sent = "false";
+      }
+
       const { error } = await supabase
         .from("lead_activities")
         .insert({
@@ -684,47 +699,24 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
 
-      toast.success(`${tipo} salvo com sucesso!`);
+      const lembreteMsg = lembreteData
+        ? ` Lembrete agendado para ${format(lembreteData, "dd/MM")} às ${lembreteHora}.`
+        : "";
+      toast.success(`${tipo} salvo!${lembreteMsg}`);
 
       if (isReuniao) {
         setAgendReuniaoData(undefined);
         setAgendReuniaoHora("10:00");
         setAgendReuniaoObs("");
+        setAgendReuniaoLembreteData(undefined);
+        setAgendReuniaoLembreteHora("09:00");
       } else {
         setAgendVendaData(undefined);
         setAgendVendaHora("10:00");
         setAgendVendaObs("");
         setAgendVendaValor("");
-      }
-
-      // Enviar lembrete via WhatsApp (não-bloqueante)
-      try {
-        const { data: instance } = await supabase
-          .from('whatsapp_instances')
-          .select('instance_name')
-          .eq('user_id', user.id)
-          .eq('status', 'CONNECTED')
-          .maybeSingle();
-
-        if (instance?.instance_name && telefone) {
-          const tipoLabel = isReuniao ? 'Reunião' : 'Venda';
-          const dataFormatted = format(data, "dd/MM/yyyy");
-          const reminderMsg = `🗓️ *Agendamento de ${tipoLabel} confirmado!*\n\nData: ${dataFormatted}\nHorário: ${hora}${obs.trim() ? `\nObs: ${obs.trim()}` : ''}`;
-
-          supabase.functions.invoke('send-whatsapp-message', {
-            body: {
-              instance_name: instance.instance_name,
-              remoteJid: telefone,
-              message_text: reminderMsg,
-              leadId: lead.id,
-            },
-          }).then(({ error: sendErr }) => {
-            if (!sendErr) toast.success("Lembrete WhatsApp enviado!");
-            else console.warn('Erro ao enviar lembrete WhatsApp:', sendErr);
-          }).catch(err => console.warn('Erro ao enviar lembrete WhatsApp:', err));
-        }
-      } catch (err) {
-        console.warn('Erro ao buscar instância WhatsApp para lembrete:', err);
+        setAgendVendaLembreteData(undefined);
+        setAgendVendaLembreteHora("09:00");
       }
 
       await fetchActivities();
@@ -1106,6 +1098,52 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             onChange={(e) => setAgendReuniaoObs(e.target.value)}
                           />
                         </div>
+                        {/* Lembrete WhatsApp */}
+                        <div className="border border-dashed border-blue-300/50 rounded-lg p-3 space-y-2 bg-blue-500/5">
+                          <Label className="text-xs font-medium text-blue-400 flex items-center gap-1.5">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            Lembrete via WhatsApp (opcional)
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-1 block">Data do lembrete</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal h-8 text-xs">
+                                    {agendReuniaoLembreteData
+                                      ? format(agendReuniaoLembreteData, "dd/MM/yyyy")
+                                      : "Selecionar"}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={agendReuniaoLembreteData}
+                                    onSelect={setAgendReuniaoLembreteData}
+                                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                    initialFocus
+                                    locale={ptBR}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-1 block">Horário</Label>
+                              <Input
+                                type="time"
+                                value={agendReuniaoLembreteHora}
+                                onChange={(e) => setAgendReuniaoLembreteHora(e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          {agendReuniaoLembreteData && (
+                            <p className="text-xs text-blue-400">
+                              Mensagem será enviada em {format(agendReuniaoLembreteData, "dd/MM")} às {agendReuniaoLembreteHora}
+                            </p>
+                          )}
+                        </div>
+
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="outline"
@@ -1115,6 +1153,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               setAgendReuniaoHora("10:00");
                               setAgendReuniaoTelefone(lead.telefone_lead || "");
                               setAgendReuniaoObs("");
+                              setAgendReuniaoLembreteData(undefined);
+                              setAgendReuniaoLembreteHora("09:00");
                             }}
                           >
                             Limpar
@@ -1194,6 +1234,52 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             onChange={(e) => setAgendVendaObs(e.target.value)}
                           />
                         </div>
+                        {/* Lembrete WhatsApp */}
+                        <div className="border border-dashed border-yellow-300/50 rounded-lg p-3 space-y-2 bg-yellow-500/5">
+                          <Label className="text-xs font-medium text-yellow-400 flex items-center gap-1.5">
+                            <CalendarCheck className="h-3.5 w-3.5" />
+                            Lembrete via WhatsApp (opcional)
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-1 block">Data do lembrete</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal h-8 text-xs">
+                                    {agendVendaLembreteData
+                                      ? format(agendVendaLembreteData, "dd/MM/yyyy")
+                                      : "Selecionar"}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 pointer-events-auto z-[9999]" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={agendVendaLembreteData}
+                                    onSelect={setAgendVendaLembreteData}
+                                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                    initialFocus
+                                    locale={ptBR}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-1 block">Horário</Label>
+                              <Input
+                                type="time"
+                                value={agendVendaLembreteHora}
+                                onChange={(e) => setAgendVendaLembreteHora(e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          {agendVendaLembreteData && (
+                            <p className="text-xs text-yellow-400">
+                              Mensagem será enviada em {format(agendVendaLembreteData, "dd/MM")} às {agendVendaLembreteHora}
+                            </p>
+                          )}
+                        </div>
+
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="outline"
@@ -1204,6 +1290,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               setAgendVendaTelefone(lead.telefone_lead || "");
                               setAgendVendaObs("");
                               setAgendVendaValor("");
+                              setAgendVendaLembreteData(undefined);
+                              setAgendVendaLembreteHora("09:00");
                             }}
                           >
                             Limpar
