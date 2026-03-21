@@ -66,6 +66,17 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const [editingFile, setEditingFile] = useState<File | null>(null);
   const [editingKeepCurrentAttachment, setEditingKeepCurrentAttachment] = useState(true);
   const [editingCurrentAttachment, setEditingCurrentAttachment] = useState<{ url: string; name: string } | null>(null);
+  // Estados para edição de agendamentos
+  const [editingIsAgendamento, setEditingIsAgendamento] = useState(false);
+  const [editingAgendType, setEditingAgendType] = useState<"Agendamento Reunião" | "Agendamento Venda">("Agendamento Reunião");
+  const [editingAgendData, setEditingAgendData] = useState<Date | undefined>(undefined);
+  const [editingAgendHora, setEditingAgendHora] = useState("10:00");
+  const [editingAgendTelefone, setEditingAgendTelefone] = useState("");
+  const [editingAgendObs, setEditingAgendObs] = useState("");
+  const [editingAgendValor, setEditingAgendValor] = useState("");
+  const [editingAgendLembreteData, setEditingAgendLembreteData] = useState<Date | undefined>(undefined);
+  const [editingAgendLembreteHora, setEditingAgendLembreteHora] = useState("09:00");
+  const [editingAgendLembreteSent, setEditingAgendLembreteSent] = useState("false");
   const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
 
@@ -758,6 +769,19 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
               <span className="whitespace-pre-wrap">{parsed.observacoes}</span>
             </div>
           )}
+          {parsed.lembrete_at && (
+            <div className="flex gap-2 mt-1 pt-1 border-t border-dashed border-muted">
+              <span className="text-muted-foreground text-xs">Lembrete:</span>
+              <span className={parsed.lembrete_sent === 'true' ? 'text-green-500 text-xs' : 'text-blue-400 text-xs'}>
+                {(() => {
+                  try {
+                    const d = new Date(parsed.lembrete_at);
+                    return `${format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}${parsed.lembrete_sent === 'true' ? ' ✓ enviado' : ''}`;
+                  } catch { return parsed.lembrete_at; }
+                })()}
+              </span>
+            </div>
+          )}
         </div>
       );
     } catch {
@@ -765,24 +789,84 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     }
   };
 
+  const resetEditingAgendState = () => {
+    setEditingIsAgendamento(false);
+    setEditingAgendData(undefined);
+    setEditingAgendHora("10:00");
+    setEditingAgendTelefone("");
+    setEditingAgendObs("");
+    setEditingAgendValor("");
+    setEditingAgendLembreteData(undefined);
+    setEditingAgendLembreteHora("09:00");
+    setEditingAgendLembreteSent("false");
+  };
+
   const handleEditActivity = (activity: any) => {
     setEditingActivityId(activity.id);
-    setEditingContent(activity.content);
     setEditingFile(null);
     setEditingKeepCurrentAttachment(true);
     if (activity.attachment_url && activity.attachment_name) {
-      setEditingCurrentAttachment({
-        url: activity.attachment_url,
-        name: activity.attachment_name
-      });
+      setEditingCurrentAttachment({ url: activity.attachment_url, name: activity.attachment_name });
     } else {
       setEditingCurrentAttachment(null);
+    }
+
+    if (activity.activity_type === "Agendamento Reunião" || activity.activity_type === "Agendamento Venda") {
+      setEditingIsAgendamento(true);
+      setEditingAgendType(activity.activity_type as "Agendamento Reunião" | "Agendamento Venda");
+      try {
+        const parsed = JSON.parse(activity.content);
+        setEditingAgendData(parsed.data ? new Date(`${parsed.data}T${parsed.hora || '00:00'}`) : undefined);
+        setEditingAgendHora(parsed.hora || "10:00");
+        setEditingAgendTelefone(parsed.telefone || "");
+        setEditingAgendObs(parsed.observacoes || "");
+        setEditingAgendValor(parsed.valor || "");
+        setEditingAgendLembreteSent(parsed.lembrete_sent || "false");
+        if (parsed.lembrete_at) {
+          const ld = new Date(parsed.lembrete_at);
+          setEditingAgendLembreteData(ld);
+          setEditingAgendLembreteHora(`${String(ld.getHours()).padStart(2, '0')}:${String(ld.getMinutes()).padStart(2, '0')}`);
+        } else {
+          setEditingAgendLembreteData(undefined);
+          setEditingAgendLembreteHora("09:00");
+        }
+      } catch {
+        setEditingIsAgendamento(false);
+        setEditingContent(activity.content);
+      }
+    } else {
+      setEditingIsAgendamento(false);
+      setEditingContent(activity.content);
     }
   };
 
   const handleSaveEdit = async (activityId: string) => {
     try {
-      const updateData: any = { content: editingContent };
+      let contentToSave = editingContent;
+
+      if (editingIsAgendamento) {
+        if (!editingAgendData) {
+          toast.error("Selecione a data do agendamento");
+          return;
+        }
+        const agendContent: any = {
+          data: format(editingAgendData, 'yyyy-MM-dd'),
+          hora: editingAgendHora,
+          telefone: editingAgendTelefone,
+        };
+        if (editingAgendObs.trim()) agendContent.observacoes = editingAgendObs.trim();
+        if (editingAgendType === "Agendamento Venda" && editingAgendValor.trim()) agendContent.valor = editingAgendValor.trim();
+        if (editingAgendLembreteData) {
+          const [lh, lm] = editingAgendLembreteHora.split(":").map(Number);
+          const lembreteDt = new Date(editingAgendLembreteData);
+          lembreteDt.setHours(lh, lm, 0, 0);
+          agendContent.lembrete_at = lembreteDt.toISOString();
+          agendContent.lembrete_sent = editingAgendLembreteSent;
+        }
+        contentToSave = JSON.stringify(agendContent);
+      }
+
+      const updateData: any = { content: contentToSave };
 
       // Se o usuário removeu o anexo atual e não adicionou novo
       if (!editingKeepCurrentAttachment && !editingFile) {
@@ -820,6 +904,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       setEditingFile(null);
       setEditingKeepCurrentAttachment(true);
       setEditingCurrentAttachment(null);
+      resetEditingAgendState();
       toast.success("Atividade atualizada com sucesso!");
     } catch (error) {
       console.error("Erro ao atualizar atividade:", error);
@@ -1389,11 +1474,89 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               <div className="pl-11">
                                 {editingActivityId === activity.id ? (
                                   <div className="space-y-3">
-                                    <Textarea
-                                      value={editingContent}
-                                      onChange={(e) => setEditingContent(e.target.value)}
-                                      className="min-h-[100px]"
-                                    />
+                                    {editingIsAgendamento ? (
+                                      <div className="space-y-3">
+                                        {/* Data */}
+                                        <div>
+                                          <Label className="text-xs text-muted-foreground mb-1 block">Data do agendamento</Label>
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal h-9 text-xs">
+                                                <CalendarDays className="h-3.5 w-3.5 mr-2" />
+                                                {editingAgendData ? format(editingAgendData, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar data"}
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                                              <Calendar mode="single" selected={editingAgendData} onSelect={setEditingAgendData} initialFocus locale={ptBR} />
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
+                                        {/* Hora */}
+                                        <div className="flex items-center gap-2">
+                                          <Label className="text-xs text-muted-foreground whitespace-nowrap">Horário:</Label>
+                                          <Input type="time" value={editingAgendHora} onChange={(e) => setEditingAgendHora(e.target.value)} className="h-8 text-xs" />
+                                        </div>
+                                        {/* Telefone */}
+                                        <div>
+                                          <Label className="text-xs text-muted-foreground mb-1 block">Telefone</Label>
+                                          <Input type="tel" value={editingAgendTelefone} onChange={(e) => setEditingAgendTelefone(e.target.value)} className="h-8 text-xs" />
+                                        </div>
+                                        {/* Valor (apenas Venda) */}
+                                        {editingAgendType === "Agendamento Venda" && (
+                                          <div>
+                                            <Label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</Label>
+                                            <Input type="number" value={editingAgendValor} onChange={(e) => setEditingAgendValor(e.target.value)} className="h-8 text-xs" placeholder="0,00" />
+                                          </div>
+                                        )}
+                                        {/* Observações */}
+                                        <div>
+                                          <Label className="text-xs text-muted-foreground mb-1 block">Observações</Label>
+                                          <Textarea value={editingAgendObs} onChange={(e) => setEditingAgendObs(e.target.value)} className="min-h-[60px] text-xs resize-none" placeholder="Detalhes..." />
+                                        </div>
+                                        {/* Lembrete */}
+                                        <div className="border border-dashed border-blue-300/50 rounded-lg p-3 space-y-2 bg-blue-500/5">
+                                          <Label className="text-xs font-medium text-blue-400 flex items-center gap-1.5">
+                                            <CalendarDays className="h-3.5 w-3.5" />
+                                            Lembrete via WhatsApp (opcional)
+                                          </Label>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                              <Label className="text-xs text-muted-foreground mb-1 block">Data</Label>
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <Button variant="outline" size="sm" className="w-full justify-start h-7 text-xs">
+                                                    {editingAgendLembreteData ? format(editingAgendLembreteData, "dd/MM/yyyy") : "Selecionar"}
+                                                  </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                                                  <Calendar mode="single" selected={editingAgendLembreteData} onSelect={setEditingAgendLembreteData} initialFocus locale={ptBR} />
+                                                </PopoverContent>
+                                              </Popover>
+                                            </div>
+                                            <div>
+                                              <Label className="text-xs text-muted-foreground mb-1 block">Horário</Label>
+                                              <Input type="time" value={editingAgendLembreteHora} onChange={(e) => setEditingAgendLembreteHora(e.target.value)} className="h-7 text-xs" />
+                                            </div>
+                                          </div>
+                                          {editingAgendLembreteData && (
+                                            <p className="text-xs text-blue-400">
+                                              Lembrete em {format(editingAgendLembreteData, "dd/MM")} às {editingAgendLembreteHora}
+                                            </p>
+                                          )}
+                                          {editingAgendLembreteData && (
+                                            <button className="text-xs text-muted-foreground underline" onClick={() => { setEditingAgendLembreteData(undefined); }}>
+                                              Remover lembrete
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <Textarea
+                                        value={editingContent}
+                                        onChange={(e) => setEditingContent(e.target.value)}
+                                        className="min-h-[100px]"
+                                      />
+                                    )}
 
                                     {/* Gerenciamento de anexo durante edição */}
                                     <div className="space-y-2">
@@ -1473,6 +1636,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                           setEditingFile(null);
                                           setEditingKeepCurrentAttachment(true);
                                           setEditingCurrentAttachment(null);
+                                          resetEditingAgendState();
                                         }}
                                       >
                                         Cancelar
