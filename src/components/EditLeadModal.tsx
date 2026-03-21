@@ -697,6 +697,36 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         setAgendVendaValor("");
       }
 
+      // Enviar lembrete via WhatsApp (não-bloqueante)
+      try {
+        const { data: instance } = await supabase
+          .from('whatsapp_instances')
+          .select('instance_name')
+          .eq('user_id', user.id)
+          .eq('status', 'CONNECTED')
+          .maybeSingle();
+
+        if (instance?.instance_name && telefone) {
+          const tipoLabel = isReuniao ? 'Reunião' : 'Venda';
+          const dataFormatted = format(data, "dd/MM/yyyy");
+          const reminderMsg = `🗓️ *Agendamento de ${tipoLabel} confirmado!*\n\nData: ${dataFormatted}\nHorário: ${hora}${obs.trim() ? `\nObs: ${obs.trim()}` : ''}`;
+
+          supabase.functions.invoke('send-whatsapp-message', {
+            body: {
+              instance_name: instance.instance_name,
+              remoteJid: telefone,
+              message_text: reminderMsg,
+              leadId: lead.id,
+            },
+          }).then(({ error: sendErr }) => {
+            if (!sendErr) toast.success("Lembrete WhatsApp enviado!");
+            else console.warn('Erro ao enviar lembrete WhatsApp:', sendErr);
+          }).catch(err => console.warn('Erro ao enviar lembrete WhatsApp:', err));
+        }
+      } catch (err) {
+        console.warn('Erro ao buscar instância WhatsApp para lembrete:', err);
+      }
+
       await fetchActivities();
       onUpdate();
     } catch (error) {
@@ -1243,7 +1273,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                   <h4 className="font-semibold text-sm">
                                     {activity.activity_type}
                                   </h4>
-                                  <span className="text-xs text-primary">
+                                  <span className="text-xs text-blue-500">
                                     {format(new Date(activity.created_at), "'Criada hoje' HH:mm", { locale: ptBR })}
                                   </span>
                                 </div>

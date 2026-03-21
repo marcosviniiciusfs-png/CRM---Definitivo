@@ -291,9 +291,36 @@ const Pipeline = () => {
     // Usar nome único por mount para evitar conflito de channel ao re-navegar
     const channelName = channelIdRef.current;
 
-    // Subscrever a novos leads (canal criado apenas uma vez; valores dinâmicos via refs)
+    // Subscrever a novos leads e agendamentos (canal criado apenas uma vez; valores dinâmicos via refs)
     const channel = supabase
       .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'lead_activities',
+        },
+        (payload) => {
+          const activityType = payload.new?.activity_type;
+          const leadId = payload.new?.lead_id;
+          if (!leadId || (activityType !== 'Agendamento Reunião' && activityType !== 'Agendamento Venda')) return;
+          try {
+            const content = JSON.parse(payload.new.content);
+            const isoDate = `${content.data}T${content.hora}:00`;
+            setAgendamentosMap(prev => {
+              const current = prev[leadId] || {};
+              if (activityType === 'Agendamento Reunião') {
+                return { ...prev, [leadId]: { ...current, reuniao: isoDate } };
+              } else {
+                return { ...prev, [leadId]: { ...current, venda: isoDate } };
+              }
+            });
+          } catch (err) {
+            console.warn('Erro ao parsear agendamento realtime:', err);
+          }
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -1660,6 +1687,8 @@ const Pipeline = () => {
                   loadProfiles([data.responsavel_user_id]);
                 }
               }
+              // Recarregar agendamentos para refletir ícones de calendário em tempo real
+              await loadAgendamentos([editingLead.id]);
             }
           }}
         />

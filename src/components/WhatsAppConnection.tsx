@@ -256,6 +256,33 @@ const WhatsAppConnection = () => {
         })));
       }
 
+      // Auto-deletar instâncias presas em CONNECTING por mais de 5 minutos
+      if (data && data.length > 0) {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const stuckConnecting = data.filter(
+          inst => inst.status === 'CONNECTING' && inst.updated_at < fiveMinutesAgo
+        );
+
+        if (stuckConnecting.length > 0) {
+          console.log(`🧹 Auto-deletando ${stuckConnecting.length} instância(s) presas em CONNECTING`);
+          const { data: { session } } = await supabase.auth.getSession();
+          for (const inst of stuckConnecting) {
+            supabase.functions.invoke('delete-whatsapp-instance', {
+              body: { instanceId: inst.id },
+              headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+            }).then(() => {
+              console.log(`✅ Instância ${inst.instance_name} removida (CONNECTING timeout)`);
+            }).catch(err => {
+              console.warn(`⚠️ Erro ao remover instância ${inst.instance_name}:`, err);
+            });
+          }
+          // Filtrar do estado local imediatamente
+          const stuckIds = new Set(stuckConnecting.map(i => i.id));
+          setInstances((data || []).filter(i => !stuckIds.has(i.id)));
+          return;
+        }
+      }
+
       setInstances(data || []);
     } catch (error: any) {
       console.error('❌ [loadInstances] Exception:', {
