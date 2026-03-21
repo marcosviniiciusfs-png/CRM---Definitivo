@@ -95,7 +95,7 @@ const CopyLeadButton: React.FC<CopyLeadButtonProps> = ({ name, phone, email, val
       onMouseDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
       onClick={handleCopy}
-      className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1.5 right-7 z-10 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+      className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted flex-shrink-0"
       title="Copiar informações do lead"
     >
       {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
@@ -256,16 +256,6 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
-      {!dragging && (
-        <CopyLeadButton
-          name={name}
-          phone={phone}
-          email={email}
-          value={value}
-          source={source}
-          responsavelName={responsavelName}
-        />
-      )}
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
           <LazyAvatar
@@ -342,6 +332,16 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
+                {!dragging && (
+                  <CopyLeadButton
+                    name={name}
+                    phone={phone}
+                    email={email}
+                    value={value}
+                    source={source}
+                    responsavelName={responsavelName}
+                  />
+                )}
                 {dataAgendamentoReuniao && !dragging && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
