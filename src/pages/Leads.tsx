@@ -546,24 +546,24 @@ const Leads = () => {
             <Download className="h-4 w-4" />
             Exportar
           </Button>
-          {(permissions.canViewAllLeads) && (
-            <>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => setShowImportModal(true)}
-              >
-                <Upload className="h-4 w-4" />
-                Importar
-              </Button>
-              <Button
-                className="gap-2 bg-primary hover:bg-primary/90"
-                onClick={() => setShowAddModal(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Adicionar Lead
-              </Button>
-            </>
+          {permissions.canViewAllLeads && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setShowImportModal(true)}
+            >
+              <Upload className="h-4 w-4" />
+              Importar
+            </Button>
+          )}
+          {permissions.canCreateLeads && (
+            <Button
+              className="gap-2 bg-primary hover:bg-primary/90"
+              onClick={() => setShowAddModal(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar Lead
+            </Button>
           )}
         </div>
       </div>

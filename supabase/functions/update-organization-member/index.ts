@@ -24,9 +24,8 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Auth check
+    // Auth check — decode JWT locally (no extra network call, consistent with add-organization-member)
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -35,22 +34,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create client with user's token to get user info
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-
-    if (userError || !user) {
-      console.error("Auth error:", userError);
+    const token = authHeader.replace("Bearer ", "");
+    let currentUserId: string;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      currentUserId = payload.sub;
+      if (!currentUserId) throw new Error("No sub in token");
+    } catch {
       return new Response(JSON.stringify({ error: "Token inválido" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const currentUserId = user.id;
 
     // Parse body
     const body: UpdateMemberRequest = await req.json();
