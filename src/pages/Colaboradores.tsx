@@ -943,6 +943,7 @@ const Colaboradores = () => {
               <Select
                 value={editData.role}
                 onValueChange={(v) => setEditData({ ...editData, role: v as any })}
+                disabled={userRole !== 'owner'}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o cargo" />
@@ -955,6 +956,9 @@ const Colaboradores = () => {
                   )}
                 </SelectContent>
               </Select>
+              {userRole !== 'owner' && (
+                <p className="text-xs text-muted-foreground">Apenas o proprietário pode alterar o cargo do sistema</p>
+              )}
             </div>
             {customRoles.length > 0 && (
               <div className="grid gap-2">

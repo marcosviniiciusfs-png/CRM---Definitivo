@@ -66,11 +66,26 @@ Deno.serve(async (req) => {
     // Create admin client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get current user's role and organization
+    // Get target member first to know the organization_id
+    const { data: targetMemberPre, error: targetMemberPreError } = await adminClient
+      .from("organization_members")
+      .select("id, user_id, organization_id, role, is_active")
+      .eq("id", memberId)
+      .maybeSingle();
+
+    if (targetMemberPreError || !targetMemberPre) {
+      return new Response(JSON.stringify({ error: "Membro não encontrado" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get current user's role and organization — filtered by the same org as the target
     const { data: currentUserMember, error: currentUserError } = await adminClient
       .from("organization_members")
       .select("organization_id, role")
       .eq("user_id", currentUserId)
+      .eq("organization_id", targetMemberPre.organization_id)
       .maybeSingle();
 
     if (currentUserError || !currentUserMember) {
@@ -88,27 +103,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get target member
-    const { data: targetMember, error: targetMemberError } = await adminClient
-      .from("organization_members")
-      .select("id, user_id, organization_id, role, is_active")
-      .eq("id", memberId)
-      .maybeSingle();
-
-    if (targetMemberError || !targetMember) {
-      return new Response(JSON.stringify({ error: "Membro não encontrado" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Ensure same organization
-    if (targetMember.organization_id !== currentUserMember.organization_id) {
-      return new Response(JSON.stringify({ error: "Membro não pertence à sua organização" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Use the already-fetched target member
+    const targetMember = targetMemberPre;
 
     // Prevent self-deactivation
     if (targetMember.user_id === currentUserId && is_active === false) {
@@ -126,17 +122,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Only owners can change roles
-    if (role !== undefined && currentUserMember.role !== "owner") {
-      return new Response(JSON.stringify({ error: "Apenas proprietários podem alterar cargos" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Update organization_members table (role, is_active, custom_role_id, and display_name for users without user_id)
     const memberUpdates: Record<string, unknown> = {};
-    if (role !== undefined) memberUpdates.role = role;
+    // Only owners can change system roles — silently skip if non-owner tries to change it
+    if (role !== undefined && currentUserMember.role === "owner") memberUpdates.role = role;
     if (is_active !== undefined) memberUpdates.is_active = is_active;
     if (custom_role_id !== undefined) memberUpdates.custom_role_id = custom_role_id;
     
