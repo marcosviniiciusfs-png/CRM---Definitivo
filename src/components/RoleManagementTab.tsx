@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Shield, Pencil, Trash2, Users, Loader2, Kanban, MessageCircle, LayoutGrid, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -468,7 +467,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-4">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-4">
             <div className="space-y-6 pb-6">
               {/* Basic Info */}
               <div className="space-y-4">
@@ -699,7 +698,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
 
           <DialogFooter className="flex-shrink-0 pt-4 border-t mt-auto">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
