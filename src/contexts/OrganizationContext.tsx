@@ -614,6 +614,49 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     await loadOrganizationData(true);
   }, [loadOrganizationData]);
 
+  // Realtime: detectar mudança de cargo (custom_role_id) no membership do usuário atual
+  // Assim que o dono atribui/remove/altera um cargo, o membro vê as permissões atualizadas
+  // sem precisar dar F5 ou navegar.
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`org-member-role-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'organization_members',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const oldRoleId = (payload.old as any)?.custom_role_id ?? null;
+          const newRoleId = (payload.new as any)?.custom_role_id ?? null;
+          const oldRoleBase = (payload.old as any)?.role ?? null;
+          const newRoleBase = (payload.new as any)?.role ?? null;
+          const oldActive = (payload.old as any)?.is_active;
+          const newActive = (payload.new as any)?.is_active;
+
+          // Recarregar se mudou cargo, role base ou status ativo
+          if (
+            oldRoleId !== newRoleId ||
+            oldRoleBase !== newRoleBase ||
+            oldActive !== newActive
+          ) {
+            console.log('[ORG] Cargo/role do membro alterado via Realtime — recarregando permissões');
+            clearOrgCache();
+            loadOrganizationData(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, loadOrganizationData]);
+
   return (
     <OrganizationContext.Provider value={{
       organizationId,

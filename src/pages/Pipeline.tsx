@@ -991,6 +991,12 @@ const Pipeline = () => {
       return;
     }
 
+    // Verificar permissão de mover leads no pipeline
+    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline) {
+      toast.error("Você não tem permissão para mover leads no pipeline. Solicite acesso ao administrador.");
+      return;
+    }
+
     const leadId = active.id as string;
     const overId = over.id as string;
 
@@ -1039,7 +1045,7 @@ const Pipeline = () => {
 
     // Processar movimentação normal
     await processLeadMove(event, leadId, overId, activeLead, targetStage, activeStage, isDroppedOverStage, overLead);
-  }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel]);
+  }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel, permissions.role, permissions.canMoveLeadsPipeline]);
 
   const processLeadMove = async (
     event: DragEndEvent,
