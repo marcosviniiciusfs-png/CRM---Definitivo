@@ -199,7 +199,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
     try {
       if (editingRole) {
         // Update existing role
-        const { error } = await supabase
+        const { error, data: updatedRows } = await supabase
           .from("organization_custom_roles")
           .update({
             name: formData.name.trim(),
@@ -227,9 +227,14 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             can_manage_automations: formData.can_manage_automations,
             can_view_reports: formData.can_view_reports,
           })
-          .eq("id", editingRole.id);
+          .eq("id", editingRole.id)
+          .select();
 
         if (error) throw error;
+        // If 0 rows returned, it's a silent RLS failure (user not owner)
+        if (!updatedRows || updatedRows.length === 0) {
+          throw new Error("Sem permissão para atualizar este cargo. Apenas o proprietário pode editar cargos.");
+        }
 
         toast({
           title: "Cargo atualizado!",

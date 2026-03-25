@@ -657,6 +657,37 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.id, loadOrganizationData]);
 
+  // Realtime: detectar mudanças nas permissões do cargo (organization_custom_roles)
+  // Quando o dono edita as permissões de um cargo (ex: habilita can_create_leads),
+  // todos os colaboradores com aquele cargo recebem as permissões atualizadas imediatamente,
+  // sem precisar fazer F5 ou aguardar o cache expirar.
+  useEffect(() => {
+    const customRoleId = permissions.customRoleId;
+    if (!user?.id || !customRoleId) return;
+
+    const channel = supabase
+      .channel(`org-custom-role-perms-${customRoleId}-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'organization_custom_roles',
+          filter: `id=eq.${customRoleId}`,
+        },
+        () => {
+          console.log('[ORG] Permissões do cargo atualizadas pelo dono via Realtime — recarregando permissões');
+          clearOrgCache();
+          loadOrganizationData(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, permissions.customRoleId, loadOrganizationData]);
+
   return (
     <OrganizationContext.Provider value={{
       organizationId,
