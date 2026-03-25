@@ -1,5 +1,14 @@
 project_id = "uxttihjsxfowursjyult"
 
+[functions.admin-panel-rpc]
+verify_jwt = false
+
+[functions.admin-reset-password]
+verify_jwt = false
+
+[functions.admin-generate-temp-password]
+verify_jwt = false
+
 [functions.admin-manage-admins]
 verify_jwt = false
 

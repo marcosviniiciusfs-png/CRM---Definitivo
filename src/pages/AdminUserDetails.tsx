@@ -103,7 +103,10 @@ export default function AdminUserDetails() {
 
   const adminRpc = async (operation: string, params?: Record<string, unknown>) => {
     const token = getAdminToken();
-    if (!token) throw new Error("Token admin não encontrado. Faça login novamente.");
+    if (!token) {
+      navigate("/admin-login");
+      throw new Error("Sessão admin expirada. Faça login novamente.");
+    }
 
     // Chama a Edge Function admin-panel-rpc que usa service_role (bypass RLS)
     const { data, error } = await supabase.functions.invoke('admin-panel-rpc', {
@@ -111,7 +114,15 @@ export default function AdminUserDetails() {
       body: { operation, ...params },
     });
 
-    if (error) throw error;
+    if (error) {
+      // 401 = sessão expirada → redirecionar para login admin
+      const msg = error?.message || '';
+      if (msg.includes('401') || msg.includes('non-2xx') || msg.includes('Unauthorized')) {
+        navigate("/admin-login");
+        throw new Error("Sessão admin expirada. Faça login novamente.");
+      }
+      throw error;
+    }
     if (data?.error) throw new Error(data.error);
 
     // A edge function retorna { data: ... } para operações com dados
@@ -263,7 +274,9 @@ export default function AdminUserDetails() {
     setShowResetConfirm(false);
 
     try {
+      const adminToken = getAdminToken();
       const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        headers: { 'x-admin-token': adminToken || '' },
         body: {
           userId: targetUser.id,
           userEmail: targetUser.email,
@@ -293,7 +306,9 @@ export default function AdminUserDetails() {
     setShowTempPassConfirm(false);
 
     try {
+      const adminToken = getAdminToken();
       const { data, error } = await supabase.functions.invoke('admin-generate-temp-password', {
+        headers: { 'x-admin-token': adminToken || '' },
         body: {
           userId: targetUser.id,
           userEmail: targetUser.email,

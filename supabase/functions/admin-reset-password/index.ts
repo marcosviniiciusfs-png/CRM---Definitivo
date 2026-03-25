@@ -1,93 +1,62 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+/**
+ * Edge Function: admin-reset-password
+ *
+ * Gera um link de redefinição de senha e envia por email.
+ * Requer: x-admin-token válido (mesmo sistema do admin-panel-rpc).
+ */
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-admin-token",
 };
 
-interface ResetPasswordRequest {
-  userId: string;
-  userEmail: string;
-  customMessage?: string;
-}
-
-serve(async (req: Request) => {
-  // Handle CORS preflight requests
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    console.log("[admin-reset-password] Iniciando processamento");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    // Verificar autenticação usando o token do usuário
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Token de autorização ausente");
-    }
-
-    // Extrair o token (remover "Bearer " se presente)
-    const token = authHeader.replace("Bearer ", "");
-
-    // Criar um client com o token do usuário para validar a sessão
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { persistSession: false }
+  const errorResp = (msg: string, status = 400) =>
+    new Response(JSON.stringify({ error: msg }), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    const { data: { user: adminUser }, error: authError } = await supabaseUser.auth.getUser(token);
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    if (authError || !adminUser) {
-      console.error("[admin-reset-password] Erro de autenticação:", authError);
-      throw new Error("Não autorizado");
-    }
+    // Validar token admin
+    const adminToken = req.headers.get("x-admin-token");
+    if (!adminToken) return errorResp("Token admin ausente", 401);
 
-    console.log("[admin-reset-password] Usuário autenticado:", adminUser.id);
+    const { data: isValid, error: tokenError } = await adminClient.rpc(
+      "validate_admin_token",
+      { p_token: adminToken }
+    );
+    if (tokenError || !isValid) return errorResp("Token admin inválido ou expirado", 401);
 
-    // Criar cliente admin para operações privilegiadas
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const { userId, userEmail, customMessage } = await req.json();
 
-    // Verificar se é super admin
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", adminUser.id)
-      .eq("role", "super_admin")
-      .single();
+    if (!userId || !userEmail) return errorResp("userId e userEmail são obrigatórios");
 
-    if (roleError || !roleData) {
-      console.error("[admin-reset-password] Usuário não é super admin:", roleError);
-      throw new Error("Acesso negado: apenas super admins podem resetar senhas");
-    }
-
-    const { userId, userEmail, customMessage }: ResetPasswordRequest = await req.json();
-
-    console.log("[admin-reset-password] Gerando link de reset para:", userEmail);
-
-    // Gerar link de reset usando o admin API
-    const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+    // Gerar link de reset
+    const siteUrl = Deno.env.get("SITE_URL") || "https://kairozcrm.com.br";
+    const { data: resetData, error: resetError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email: userEmail,
-      options: {
-        redirectTo: `${supabaseUrl.replace('.supabase.co', '.lovableproject.com')}/auth`,
-      }
+      options: { redirectTo: `${siteUrl}/auth` },
     });
 
     if (resetError || !resetData) {
-      console.error("[admin-reset-password] Erro ao gerar link:", resetError);
       throw new Error(`Falha ao gerar link de reset: ${resetError?.message || "erro desconhecido"}`);
     }
 
-    console.log("[admin-reset-password] Link gerado com sucesso");
-
-    // Enviar email usando a API do Resend diretamente
+    // Enviar email via Resend
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -113,7 +82,7 @@ serve(async (req: Request) => {
             ` : ''}
             <p>Clique no botão abaixo para criar uma nova senha:</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetData.properties.action_link}" 
+              <a href="${resetData.properties.action_link}"
                  style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 Redefinir Senha
               </a>
@@ -134,32 +103,18 @@ serve(async (req: Request) => {
 
     if (!emailResponse.ok) {
       const emailError = await emailResponse.json();
-      console.error("[admin-reset-password] Erro ao enviar email:", emailError);
       throw new Error(`Falha ao enviar email: ${emailError.message || 'erro desconhecido'}`);
     }
 
-    console.log("[admin-reset-password] Email enviado com sucesso");
-
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        message: "Email de redefinição enviado com sucesso" 
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: true, message: "Email de redefinição enviado com sucesso" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
     console.error("[admin-reset-password] Erro:", error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || "Erro ao enviar email de redefinição" 
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: error.message || "Erro ao enviar email de redefinição" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
