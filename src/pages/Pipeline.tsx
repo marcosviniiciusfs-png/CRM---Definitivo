@@ -11,7 +11,7 @@ import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield } from "lucide-react";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
@@ -1433,6 +1433,20 @@ const Pipeline = () => {
     return <LoadingAnimation text="Carregando pipeline..." />;
   }
 
+  // Guard: membros com cargo personalizado que não têm permissão para ver o pipeline
+  if (!permissions.loading && permissions.role === 'member' && permissions.customRoleId !== null && !permissions.canViewPipeline) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] text-center px-4">
+        <Shield className="h-16 w-16 text-muted-foreground/50 mb-4" />
+        <h2 className="text-xl font-semibold">Acesso Restrito</h2>
+        <p className="text-muted-foreground max-w-md">
+          Você não tem permissão para visualizar o funil de vendas.
+          Entre em contato com o administrador da organização para solicitar acesso.
+        </p>
+      </div>
+    );
+  }
+
   if (initialLoading) {
     return (
       <div className="space-y-6">
@@ -1487,16 +1501,16 @@ const Pipeline = () => {
                   Exportar
                 </Button>
                 {permissions.canViewAllLeads && (
-                  <>
-                    <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Importar
-                    </Button>
-                    <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Lead
-                    </Button>
-                  </>
+                  <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Importar
+                  </Button>
+                )}
+                {permissions.canCreateLeads && (
+                  <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Lead
+                  </Button>
                 )}
               </div>
             </div>

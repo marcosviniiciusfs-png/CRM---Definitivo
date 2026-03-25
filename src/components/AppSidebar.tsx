@@ -90,17 +90,25 @@ function AppSidebarComponent() {
 
   const { sectionAccess, loading: sectionLoading } = useSectionAccess();
 
-  // Helper: check if a URL is visible based on section access
+  // Helper: check if a URL is visible based on section access + custom role
   const isSectionVisible = useCallback((url: string) => {
     // Owners, admins e superadmins nunca são bloqueados
     if (isSuperAdmin || permissions.role === 'owner' || permissions.role === 'admin') {
       return undefined; // undefined = não bloqueia, não força
     }
+
+    // Para membros com cargo personalizado, aplicar permissões do cargo
+    if (permissions.role === 'member' && permissions.customRoleId !== null && !permissions.loading) {
+      if (url === '/pipeline' && !permissions.canViewPipeline) return false;
+      if (url === '/tasks' && !permissions.canViewKanban) return false;
+      if (url === '/chat' && !permissions.canViewChat) return false;
+    }
+
     if (sectionAccess === null) return undefined;
     const key = URL_TO_SECTION[url];
     if (!key) return undefined;
     return sectionAccess[key];
-  }, [sectionAccess, isSuperAdmin, permissions.role]);
+  }, [sectionAccess, isSuperAdmin, permissions]);
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {
