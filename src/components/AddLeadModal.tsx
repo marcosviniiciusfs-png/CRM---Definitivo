@@ -61,6 +61,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   // Current user info for auto-assignment
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   // Funnel and stage states
   const [funnels, setFunnels] = useState<Funnel[]>([]);
@@ -139,6 +140,9 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         .maybeSingle();
 
       if (!orgData) return;
+
+      // Store organization_id — required by the RLS INSERT policy on leads
+      setOrganizationId(orgData.organization_id);
 
       const { data: funnelsData } = await supabase
         .from("sales_funnels")
@@ -242,6 +246,11 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     try {
       const finalSource = source === "Outro" ? customSource.trim() : source;
       
+      if (!organizationId) {
+        toast.error("Organização não encontrada. Recarregue a página e tente novamente.");
+        return;
+      }
+
       const insertData: any = {
         nome_lead: nome.trim(),
         telefone_lead: telefone.trim(),
@@ -252,6 +261,8 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         funnel_id: selectedFunnelId,
         funnel_stage_id: selectedStageId,
         stage: "NOVO",
+        // Required by RLS INSERT policy
+        organization_id: organizationId,
         // Auto-assign lead to the creator
         responsavel_user_id: currentUserId || null,
         responsavel: currentUserName || null,
@@ -273,9 +284,14 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
       toast.success("Lead adicionado com sucesso!");
       handleClose();
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao adicionar lead:", error);
-      toast.error("Erro ao adicionar lead");
+      // 23505 = unique_violation (duplicate phone in same org)
+      if (error?.code === "23505" || error?.message?.includes("unique") || error?.message?.includes("duplicate")) {
+        toast.error("Já existe um lead com este telefone na sua organização.");
+      } else {
+        toast.error("Erro ao adicionar lead. Verifique os dados e tente novamente.");
+      }
     } finally {
       setIsSaving(false);
     }
