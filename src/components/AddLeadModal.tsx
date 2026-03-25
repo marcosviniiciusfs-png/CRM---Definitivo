@@ -58,6 +58,10 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   const [customSource, setCustomSource] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Current user info for auto-assignment
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+
   // Funnel and stage states
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -109,6 +113,24 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Store current user ID for auto-assignment on lead creation
+      setCurrentUserId(user.id);
+
+      // Fetch user's display name from profiles for the responsavel field
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      setCurrentUserName(
+        profile?.full_name ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email ||
+        null
+      );
 
       const { data: orgData } = await supabase
         .from("organization_members")
@@ -178,6 +200,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     setSelectedFunnelId("");
     setSelectedStageId("");
     setStages([]);
+    // Note: keep currentUserId/currentUserName — they are tied to the session, not the form
     onClose();
   };
 
@@ -229,6 +252,9 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         funnel_id: selectedFunnelId,
         funnel_stage_id: selectedStageId,
         stage: "NOVO",
+        // Auto-assign lead to the creator
+        responsavel_user_id: currentUserId || null,
+        responsavel: currentUserName || null,
       };
 
       if (valor.trim()) {
