@@ -22,7 +22,7 @@ const LOCKED_FEATURES: string[] = [];
 
 export function useSectionAccess() {
   const { sectionAccess, sectionAccessLoading, user, isSuperAdmin } = useAuth();
-  const { role } = usePermissions();
+  const permissions = usePermissions();
 
   const loading = sectionAccessLoading || (!!user && sectionAccess === null);
 
@@ -31,7 +31,14 @@ export function useSectionAccess() {
     if (!sectionKey) return true;
 
     // Owners, admins e superadmins sempre têm acesso total — nunca bloqueie
-    if (isSuperAdmin || role === 'owner' || role === 'admin') return true;
+    if (isSuperAdmin || permissions.role === 'owner' || permissions.role === 'admin') return true;
+
+    // Para membros com cargo personalizado, verificar permissões do cargo
+    if (permissions.role === 'member' && permissions.customRoleId !== null && !permissions.loading) {
+      if (path === '/chat' && !permissions.canViewChat) return false;
+      if (path === '/pipeline' && !permissions.canViewPipeline) return false;
+      if (path === '/tasks' && !permissions.canViewKanban) return false;
+    }
 
     if (sectionAccess) {
       if (sectionAccess[sectionKey] === true) return true;
@@ -39,7 +46,7 @@ export function useSectionAccess() {
     }
 
     return !LOCKED_FEATURES.includes(sectionKey);
-  }, [sectionAccess, isSuperAdmin, role]);
+  }, [sectionAccess, isSuperAdmin, permissions]);
 
   return { isSectionUnlocked, loading, sectionAccess };
 }
