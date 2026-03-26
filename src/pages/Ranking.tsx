@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { supabase } from "@/integrations/supabase/client";
 import { TaskLeaderboard, LeaderboardData } from "@/components/dashboard/TaskLeaderboard";
@@ -9,7 +9,7 @@ import { Trophy, Settings2, TrendingUp, CheckSquare, Calendar } from "lucide-rea
 import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear, startOfWeek, endOfWeek } from "date-fns";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TeamSalesMetrics } from "@/components/TeamSalesMetrics";
 
 type PeriodType = "week" | "month" | "quarter" | "year";
@@ -172,19 +172,20 @@ export default function Ranking() {
   const [period, setPeriod] = useState<PeriodType>("month");
   const [rankingType, setRankingType] = useState<RankingType>("tasks");
   const [sortBy, setSortBy] = useState<SortType>("task_points");
+  const queryClient = useQueryClient();
 
   const { data: salesData = [], isLoading: salesLoading } = useQuery({
     queryKey: ['ranking-sales', organizationId, period],
     queryFn: () => fetchSalesData(organizationId!, period),
     enabled: !!organizationId && rankingType === 'sales',
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
   });
 
   const { data: tasksData = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['ranking-tasks', organizationId, period],
     queryFn: () => fetchTasksData(organizationId!, period),
     enabled: !!organizationId && rankingType === 'tasks',
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
   });
 
   const { data: teamsData } = useQuery({
@@ -193,6 +194,34 @@ export default function Ranking() {
     enabled: !!organizationId,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Real-time: invalidate ranking queries when leads or tasks change
+  useEffect(() => {
+    if (!organizationId) return;
+
+    const channel = supabase
+      .channel(`ranking-realtime-${organizationId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'leads',
+        filter: `organization_id=eq.${organizationId}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ranking-sales', organizationId] });
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'kanban_card_assignees',
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ranking-tasks', organizationId] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [organizationId, queryClient]);
 
   const teams = teamsData?.teams ?? [];
   const teamMembers = teamsData?.teamMembers ?? [];

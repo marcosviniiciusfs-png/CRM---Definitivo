@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
@@ -80,6 +80,35 @@ const Colaboradores = () => {
   const { permissions: contextPermissions } = useOrganization();
   const queryClient = useQueryClient();
   const [isMutating, setIsMutating] = useState(false);
+
+  // Real-time: invalidate colaboradores-data when custom roles change
+  useEffect(() => {
+    if (!contextOrgId) return;
+
+    const channel = supabase
+      .channel(`custom-roles-realtime-${contextOrgId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'organization_custom_roles',
+        filter: `organization_id=eq.${contextOrgId}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['colaboradores-data', contextOrgId] });
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'organization_members',
+        filter: `organization_id=eq.${contextOrgId}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['colaboradores-data', contextOrgId] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [contextOrgId, queryClient]);
 
   const { data: orgData, isLoading: isQueryLoading } = useQuery({
     queryKey: ['colaboradores-data', contextOrgId],

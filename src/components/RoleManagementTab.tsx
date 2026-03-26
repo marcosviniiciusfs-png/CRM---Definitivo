@@ -104,6 +104,27 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
     loadRoles();
   }, [organizationId]);
 
+  // Real-time: reload roles when any change happens in organization_custom_roles
+  useEffect(() => {
+    if (!organizationId) return;
+
+    const channel = supabase
+      .channel(`role-mgmt-realtime-${organizationId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'organization_custom_roles',
+        filter: `organization_id=eq.${organizationId}`,
+      }, () => {
+        loadRoles();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [organizationId]);
+
   const loadRoles = async () => {
     setIsLoading(true);
     try {
