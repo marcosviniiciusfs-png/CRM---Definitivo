@@ -68,8 +68,7 @@ interface CalendarEventDetails {
 }
 
 export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: LeadDetailsDialogProps) => {
-  const { user } = useAuth();
-  const isOwner = user?.email === "mateusabcck@gmail.com";
+  const { user, isSuperAdmin } = useAuth();
   const [details, setDetails] = useState<LeadDetails | null>(null);
   const [activities, setActivities] = useState<ActivityWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -272,7 +271,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl">{leadName}</DialogTitle>
-            {isOwner && (
+            {isSuperAdmin && (
               <Button
                 variant="outline"
                 size="sm"
@@ -461,7 +460,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
               </div>
 
               {/* Evento do Google Calendar */}
-              {isOwner && (
+              {isSuperAdmin && (
                 <>
                   {loadingCalendarEvent ? (
                     <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center gap-2">
@@ -549,7 +548,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
         )}
       </DialogContent>
 
-      {isOwner && (
+      {isSuperAdmin && (
         <CreateEventModal
           open={showEventModal}
           onOpenChange={setShowEventModal}
