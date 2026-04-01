@@ -59,3 +59,72 @@ verify_jwt = false
 
 [functions.facebook-switch-page]
 verify_jwt = false
+
+[functions.create-whatsapp-instance]
+verify_jwt = false
+
+[functions.check-whatsapp-status]
+verify_jwt = false
+
+[functions.disconnect-whatsapp-instance]
+verify_jwt = false
+
+[functions.delete-whatsapp-instance]
+verify_jwt = false
+
+[functions.send-whatsapp-message]
+verify_jwt = false
+
+[functions.send-whatsapp-media]
+verify_jwt = false
+
+[functions.send-whatsapp-reaction]
+verify_jwt = false
+
+[functions.set-whatsapp-presence]
+verify_jwt = false
+
+[functions.fetch-presence-status]
+verify_jwt = false
+
+[functions.fetch-profile-picture]
+verify_jwt = false
+
+[functions.sync-all-profile-pictures]
+verify_jwt = false
+
+[functions.cleanup-invalid-instances]
+verify_jwt = false
+
+[functions.cleanup-whatsapp-orphans]
+verify_jwt = false
+
+[functions.fix-webhook-config]
+verify_jwt = false
+
+[functions.fix-webhook-config-v2]
+verify_jwt = false
+
+[functions.test-webhook-evolution]
+verify_jwt = false
+
+[functions.process-automation-rules]
+verify_jwt = false
+
+[functions.send-scheduled-reminders]
+verify_jwt = false
+
+[functions.auto-recurring-blocks]
+verify_jwt = false
+
+[functions.auto-redistribute-leads]
+verify_jwt = false
+
+[functions.distribute-lead]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.get-signed-media-url]
+verify_jwt = false

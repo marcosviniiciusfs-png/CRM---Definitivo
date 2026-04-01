@@ -1,0 +1,79 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - img "K" [ref=e11]
+        - generic [ref=e12]:
+          - generic [ref=e13]: Menu
+          - list [ref=e15]:
+            - listitem [ref=e16]:
+              - link "Início" [ref=e17] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e18]
+                - generic: Início
+            - listitem [ref=e21]:
+              - link "Funil de Vendas" [ref=e22] [cursor=pointer]:
+                - /url: /pipeline
+                - img [ref=e23]
+                - generic: Funil de Vendas
+            - listitem [ref=e25]:
+              - link "Métricas" [ref=e26] [cursor=pointer]:
+                - /url: /lead-metrics
+                - img [ref=e27]
+                - generic: Métricas
+            - listitem [ref=e28]:
+              - link "Roleta de Leads" [ref=e29] [cursor=pointer]:
+                - /url: /lead-distribution
+                - img [ref=e30]
+                - generic: Roleta de Leads
+            - listitem [ref=e36]:
+              - link "Chat" [ref=e37] [cursor=pointer]:
+                - /url: /chat
+                - img [ref=e38]
+                - generic: Chat
+            - listitem [ref=e40]:
+              - link "Ranking" [ref=e41] [cursor=pointer]:
+                - /url: /ranking
+                - img [ref=e42]
+                - generic: Ranking
+            - listitem [ref=e49]:
+              - button "Administrativo" [ref=e50] [cursor=pointer]:
+                - img [ref=e51]
+                - generic [ref=e55]: Administrativo
+                - img [ref=e56]
+            - listitem [ref=e58]:
+              - link "Tarefas" [ref=e59] [cursor=pointer]:
+                - /url: /tasks
+                - img [ref=e60]
+                - generic: Tarefas
+            - listitem [ref=e63]:
+              - link "Integrações" [ref=e64] [cursor=pointer]:
+                - /url: /integrations
+                - img [ref=e65]
+                - generic: Integrações
+            - listitem [ref=e67]:
+              - link "Configurações" [ref=e68] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e69]
+                - generic: Configurações
+      - generic [ref=e73]:
+        - button [ref=e74] [cursor=pointer]:
+          - img
+        - button [ref=e75] [cursor=pointer]:
+          - img
+    - main [ref=e76]:
+      - generic [ref=e77]:
+        - heading "Dashboard" [level=1] [ref=e79]
+        - generic [ref=e80]:
+          - button "Google Calendar" [ref=e81] [cursor=pointer]:
+            - img "Google Calendar" [ref=e82]
+          - button [ref=e83] [cursor=pointer]:
+            - img
+          - button "Mateus Brito" [ref=e84] [cursor=pointer]:
+            - img "Mateus Brito" [ref=e86]
+      - generic [ref=e89]:
+        - img "Carregando..." [ref=e90]
+        - paragraph [ref=e91]: Carregando dashboard...

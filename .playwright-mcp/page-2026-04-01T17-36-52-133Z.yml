@@ -1,0 +1,180 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e632]:
+    - generic [ref=e636]:
+      - generic [ref=e637]:
+        - img "KairoZ" [ref=e639]
+        - generic [ref=e640]:
+          - generic [ref=e641]: Menu
+          - list [ref=e643]:
+            - listitem [ref=e644]:
+              - link "Início" [ref=e645] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e646]
+                - generic [ref=e649]: Início
+            - listitem [ref=e650]:
+              - link "Funil de Vendas" [ref=e651] [cursor=pointer]:
+                - /url: /pipeline
+                - img [ref=e652]
+                - generic [ref=e654]: Funil de Vendas
+            - listitem [ref=e655]:
+              - link "Métricas" [ref=e656] [cursor=pointer]:
+                - /url: /lead-metrics
+                - img [ref=e657]
+                - generic [ref=e658]: Métricas
+            - listitem [ref=e659]:
+              - link "Roleta de Leads" [ref=e660] [cursor=pointer]:
+                - /url: /lead-distribution
+                - img [ref=e661]
+                - generic [ref=e667]: Roleta de Leads
+            - listitem [ref=e668]:
+              - link "Chat" [ref=e669] [cursor=pointer]:
+                - /url: /chat
+                - img [ref=e670]
+                - generic [ref=e672]: Chat
+            - listitem [ref=e673]:
+              - link "Ranking" [ref=e674] [cursor=pointer]:
+                - /url: /ranking
+                - img [ref=e675]
+                - generic [ref=e681]: Ranking
+            - listitem [ref=e683]:
+              - button "Administrativo" [ref=e684] [cursor=pointer]:
+                - img [ref=e685]
+                - generic [ref=e689]: Administrativo
+                - img [ref=e690]
+            - listitem [ref=e692]:
+              - link "Tarefas" [ref=e693] [cursor=pointer]:
+                - /url: /tasks
+                - img [ref=e694]
+                - generic [ref=e697]: Tarefas
+            - listitem [ref=e698]:
+              - link "Integrações" [ref=e699] [cursor=pointer]:
+                - /url: /integrations
+                - img [ref=e700]
+                - generic [ref=e702]: Integrações
+            - listitem [ref=e703]:
+              - link "Configurações" [ref=e704] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e705]
+                - generic [ref=e708]: Configurações
+      - generic [ref=e710]:
+        - button "Bloquear Menu" [ref=e711] [cursor=pointer]:
+          - img [ref=e714]
+          - generic [ref=e717]: Bloquear Menu
+        - generic [ref=e719]: Plano enterprise_free
+        - paragraph [ref=e720]: mateusabcck@gmail.com
+        - button "Sair" [ref=e721] [cursor=pointer]:
+          - img
+          - text: Sair
+    - main [ref=e722]:
+      - generic [ref=e724]:
+        - button "Google Calendar" [ref=e725] [cursor=pointer]:
+          - img "Google Calendar" [ref=e726]
+        - button [ref=e727] [cursor=pointer]:
+          - img
+        - button "Mateus Brito" [ref=e728] [cursor=pointer]:
+          - img "Mateus Brito" [ref=e730]
+      - generic [ref=e732]:
+        - generic [ref=e733]:
+          - generic [ref=e734]:
+            - generic [ref=e735]:
+              - img [ref=e737]
+              - heading "Integrações" [level=1] [ref=e740]
+            - paragraph [ref=e741]: Conecte serviços externos e automatize seus fluxos de trabalho
+          - generic [ref=e743]:
+            - generic [ref=e744]: "7"
+            - generic [ref=e745]: Disponíveis
+        - generic [ref=e746]:
+          - button "Conexões" [ref=e747] [cursor=pointer]: Conexões
+          - button "Webhooks" [ref=e749] [cursor=pointer]: Webhooks
+          - button "Logs" [ref=e751] [cursor=pointer]: Logs
+        - generic [ref=e753]:
+          - generic [ref=e754]:
+            - generic [ref=e755]:
+              - generic [ref=e756]:
+                - img [ref=e758]
+                - generic [ref=e760]:
+                  - generic [ref=e761]: WhatsApp
+                  - text: Mensagens
+              - generic [ref=e764]: Offline
+            - generic [ref=e765]:
+              - paragraph [ref=e766]: Receba e envie mensagens diretamente para seus leads com número Business.
+              - button "Conectar WhatsApp" [ref=e768] [cursor=pointer]
+          - generic [ref=e769]:
+            - generic [ref=e770]:
+              - generic [ref=e771]:
+                - img [ref=e773]
+                - generic [ref=e775]:
+                  - generic [ref=e776]: Facebook Leads
+                  - text: Anúncios
+              - generic [ref=e779]: Online
+            - generic [ref=e780]:
+              - generic [ref=e781]:
+                - generic [ref=e782]:
+                  - img [ref=e783]
+                  - generic [ref=e785]: "Página:"
+                  - generic [ref=e786]: SMK Soluções Financeiras
+                - generic [ref=e787]:
+                  - img [ref=e788]
+                  - generic [ref=e790]: "Ativos no CRM:"
+                  - generic [ref=e791]: 8 formulários
+              - button "Gerenciar Formulários" [ref=e793] [cursor=pointer]
+          - generic [ref=e794]:
+            - generic [ref=e795]:
+              - generic [ref=e796]:
+                - img [ref=e798]
+                - generic [ref=e800]:
+                  - generic [ref=e801]: Meta Conversions
+                  - text: Pixel
+              - generic [ref=e804]: Inativo
+            - generic [ref=e805]:
+              - paragraph [ref=e806]: Envie eventos de conversão ao Meta e otimize suas campanhas de anúncios.
+              - button "Configurar Pixel" [ref=e808] [cursor=pointer]
+          - generic [ref=e809]:
+            - generic [ref=e811]:
+              - img [ref=e813]:
+                - generic [ref=e819]: CAL
+              - generic [ref=e820]:
+                - generic [ref=e821]: Google Calendar
+                - text: Produtividade
+            - paragraph [ref=e822]: Agende reuniões e sincronize eventos com seu calendário automaticamente.
+            - generic [ref=e824]: 🔒 Em breve
+          - generic [ref=e825]:
+            - generic [ref=e827]:
+              - img [ref=e829]
+              - generic [ref=e831]:
+                - generic [ref=e832]: Gmail
+                - text: Email
+            - paragraph [ref=e833]: Envie e-mails com templates personalizados diretamente do CRM.
+            - generic [ref=e835]: 🔒 Em breve
+          - generic [ref=e836]:
+            - generic [ref=e838]:
+              - img [ref=e840]
+              - generic [ref=e842]:
+                - generic [ref=e843]: Slack
+                - text: Comunicação
+            - paragraph [ref=e844]: Notificações em tempo real de novos leads no seu workspace.
+            - generic [ref=e846]: 🔒 Em breve
+          - generic [ref=e847]:
+            - generic [ref=e849]:
+              - img [ref=e851]
+              - generic [ref=e853]:
+                - generic [ref=e854]: Mercado Pago
+                - text: Pagamentos
+            - paragraph [ref=e855]: Processe pagamentos e acompanhe transações dos clientes no CRM.
+            - generic [ref=e857]: 🔒 Em breve
+          - generic [ref=e858]:
+            - generic [ref=e860]:
+              - img [ref=e862]
+              - generic [ref=e864]:
+                - generic [ref=e865]: Notion
+                - text: Produtividade
+            - paragraph [ref=e866]: Sincronize contatos e crie documentações automáticas no Notion.
+            - generic [ref=e868]: 🔒 Em breve
+          - generic [ref=e869] [cursor=pointer]:
+            - img [ref=e871]
+            - generic [ref=e872]:
+              - generic [ref=e873]: Solicitar integração
+              - generic [ref=e874]: Sugira um novo serviço

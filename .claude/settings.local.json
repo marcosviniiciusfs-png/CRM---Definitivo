@@ -59,7 +59,8 @@
       "Bash(__NEW_LINE_deeb0086f4680313__ echo:*)",
       "Bash(curl -s \"$SUPABASE_URL/rest/v1/leads?select=id,nome_lead,additional_data,created_at&organization_id=eq.1a7d8bb6-fd85-435d-aa36-bce147a72167&order=created_at.desc&limit=3\" -H \"apikey: $ANON_KEY\" -H \"Authorization: Bearer $JWT\")",
       "Bash(curl -s \"https://uxttihjsxfowursjyult.supabase.co/rest/v1/facebook_integrations?select=id,organization_id,page_id,page_name,webhook_verified\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODg4Mzk1MCwiZXhwIjoyMDg0NDU5OTUwfQ.LwkMTgGre6mkPZbMAXp_I8aES0qc94BWa_OCTWrF4Yg\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODg4Mzk1MCwiZXhwIjoyMDg0NDU5OTUwfQ.LwkMTgGre6mkPZbMAXp_I8aES0qc94BWa_OCTWrF4Yg\")",
-      "Bash(ls -la *.env*)"
+      "Bash(ls -la *.env*)",
+      "Bash(curl -s 'https://uxttihjsxfowursjyult.supabase.co/rest/v1/whatsapp_instances?select=id,instance_name,status,user_id,created_at&order=created_at.desc&limit=10' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODM5NTAsImV4cCI6MjA4NDQ1OTk1MH0.-gyL85krJA-16ieNnCtoi-HK-oXxSLl1m26yMJLKmxA' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODM5NTAsImV4cCI6MjA4NDQ1OTk1MH0.-gyL85krJA-16ieNnCtoi-HK-oXxSLl1m26yMJLKmxA')"
     ]
   }
 }

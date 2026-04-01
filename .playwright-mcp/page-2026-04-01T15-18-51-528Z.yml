@@ -1,0 +1,217 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: Menu
+                  - generic:
+                    - list:
+                      - listitem:
+                        - link:
+                          - /url: /dashboard
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /pipeline
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-metrics
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-distribution
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /chat
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /ranking
+                          - img
+                      - generic:
+                        - listitem:
+                          - button:
+                            - img
+                            - generic: Administrativo
+                            - img
+                      - listitem:
+                        - link:
+                          - /url: /tasks
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /integrations
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /settings
+                          - img
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                  - button:
+                    - img
+        - main:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+              - button:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                    - heading [level=1]: Integrações
+                  - paragraph: Conecte serviços externos e automatize seus fluxos de trabalho
+                - generic:
+                  - generic:
+                    - generic: "7"
+                    - generic: Disponíveis
+              - generic:
+                - button: Conexões
+                - button: Webhooks
+                - button: Logs
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: WhatsApp
+                        - text: Mensagens
+                    - generic:
+                      - generic: Offline
+                  - generic:
+                    - paragraph: Receba e envie mensagens diretamente para seus leads com número Business.
+                    - generic:
+                      - button: Conectar WhatsApp
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Facebook Leads
+                        - text: Anúncios
+                    - generic:
+                      - generic: Online
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                        - generic: "Página:"
+                        - generic: SMK Soluções Financeiras
+                      - generic:
+                        - img
+                        - generic: "Ativos no CRM:"
+                        - generic: 8 formulários
+                    - generic:
+                      - button: Gerenciar Formulários
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Meta Conversions
+                        - text: Pixel
+                    - generic:
+                      - generic: Inativo
+                  - generic:
+                    - paragraph: Envie eventos de conversão ao Meta e otimize suas campanhas de anúncios.
+                    - generic:
+                      - button: Configurar Pixel
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img:
+                          - generic: CAL
+                      - generic:
+                        - generic: Google Calendar
+                        - text: Produtividade
+                  - paragraph: Agende reuniões e sincronize eventos com seu calendário automaticamente.
+                  - generic:
+                    - generic: 🔒 Em breve
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Gmail
+                        - text: Email
+                  - paragraph: Envie e-mails com templates personalizados diretamente do CRM.
+                  - generic:
+                    - generic: 🔒 Em breve
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Slack
+                        - text: Comunicação
+                  - paragraph: Notificações em tempo real de novos leads no seu workspace.
+                  - generic:
+                    - generic: 🔒 Em breve
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Mercado Pago
+                        - text: Pagamentos
+                  - paragraph: Processe pagamentos e acompanhe transações dos clientes no CRM.
+                  - generic:
+                    - generic: 🔒 Em breve
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Notion
+                        - text: Produtividade
+                  - paragraph: Sincronize contatos e crie documentações automáticas no Notion.
+                  - generic:
+                    - generic: 🔒 Em breve
+                - generic:
+                  - generic:
+                    - img
+                  - generic:
+                    - generic: Solicitar integração
+                    - generic: Sugira um novo serviço
+  - dialog [ref=e234]:
+    - generic [ref=e237]:
+      - generic [ref=e238]:
+        - img "WhatsApp" [ref=e239]
+        - generic [ref=e240]:
+          - heading "WhatsApp" [level=3] [ref=e241]
+          - paragraph [ref=e242]: Conecte seu número
+      - button "Conectar" [ref=e244] [cursor=pointer]:
+        - img
+        - text: Conectar
+    - button "Close" [active] [ref=e245] [cursor=pointer]:
+      - img [ref=e246]
+      - generic [ref=e249]: Close

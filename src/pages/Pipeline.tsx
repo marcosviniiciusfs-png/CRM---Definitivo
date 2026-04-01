@@ -111,6 +111,7 @@ const Pipeline = () => {
   });
   // Unique channel ID per mount to avoid Supabase channel name conflicts on re-navigation
   const channelIdRef = useRef<string>(`leads-ch-${Date.now()}`);
+  const isMountedRef = useRef(true);
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -431,6 +432,13 @@ const Pipeline = () => {
       supabase.removeChannel(channel);
     };
   }, []); // Deps vazias: subscrição criada uma vez por mount; valores dinâmicos acessados via refs
+
+  // Cleanup effect to prevent state updates after unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Carregar perfil do usuário
   useEffect(() => {
@@ -806,8 +814,12 @@ const Pipeline = () => {
   const loadMoreForStage = useCallback(async (stageId: string) => {
     if (!organizationId || !user?.id) return;
 
-    const currentPagination = stagePagination[stageId];
-    if (!currentPagination || currentPagination.isLoading || !currentPagination.hasMore) return;
+    // Check if component is still mounted
+    if (!isMountedRef.current) return;
+
+    // Get current state from the pagination state directly
+    const currentState = stagePagination[stageId];
+    if (!currentState || currentState.isLoading || !currentState.hasMore) return;
 
     // Set loading state
     setStagePagination(prev => ({
@@ -860,16 +872,20 @@ const Pipeline = () => {
         data.forEach(l => leadIdsRef.current.add(l.id));
 
         // Atualizar paginação
-        const newLoadedCount = currentPagination.loadedCount + data.length;
-        setStagePagination(prev => ({
-          ...prev,
-          [stageId]: {
-            ...prev[stageId],
-            loadedCount: newLoadedCount,
-            hasMore: newLoadedCount < prev[stageId].totalCount,
-            isLoading: false,
-          }
-        }));
+        setStagePagination(prev => {
+          const prevStage = prev[stageId];
+          if (!prevStage) return prev;
+          const newLoadedCount = prevStage.loadedCount + data.length;
+          return {
+            ...prev,
+            [stageId]: {
+              ...prevStage,
+              loadedCount: newLoadedCount,
+              hasMore: newLoadedCount < prevStage.totalCount,
+              isLoading: false,
+            }
+          };
+        });
 
         // Carregar dados relacionados para novos leads
         await Promise.all([
