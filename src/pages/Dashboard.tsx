@@ -8,9 +8,9 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  TrendingUp, Users, Target, UserPlus, Calendar,
-  CheckCircle, XCircle, DollarSign, Trophy, AlertTriangle,
-  HelpCircle, ArrowRight, Activity, Zap, BarChart3, Clock
+  Users, Target, UserPlus, Calendar,
+  CheckCircle, XCircle, DollarSign, Trophy,
+  ArrowRight, Activity
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import topSellersEmptyState from '@/assets/top-sellers-empty.gif';
@@ -22,14 +22,6 @@ interface TopSeller {
   avatar_url: string | null;
   won_leads: number;
   total_revenue: number;
-}
-
-interface FunnelStage {
-  id: string;
-  name: string;
-  stage_type: string;
-  position: number;
-  lead_count: number;
 }
 
 const Dashboard = () => {
@@ -253,38 +245,6 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: funnelStages } = useQuery({
-    queryKey: ['dashboard-funnel-stages', organizationId],
-    queryFn: async (): Promise<FunnelStage[]> => {
-      if (!organizationId) return [];
-      const { data: stages } = await supabase
-        .from('funnel_stages')
-        .select('id, name, stage_type, position')
-        .order('position', { ascending: true });
-
-      if (!stages) return [];
-
-      const { data: leads } = await supabase
-        .from('leads')
-        .select('funnel_stage_id')
-        .eq('organization_id', organizationId);
-
-      const stageCounts: Record<string, number> = {};
-      (leads || []).forEach(lead => {
-        if (lead.funnel_stage_id) {
-          stageCounts[lead.funnel_stage_id] = (stageCounts[lead.funnel_stage_id] || 0) + 1;
-        }
-      });
-
-      return stages.map(stage => ({
-        ...stage,
-        lead_count: stageCounts[stage.id] || 0
-      }));
-    },
-    enabled: !!organizationId,
-    staleTime: 1000 * 60 * 5,
-  });
-
   // ========== REALTIME SUBSCRIPTION ==========
   useEffect(() => {
     const leadsChannel = supabase
@@ -302,7 +262,6 @@ const Dashboard = () => {
         queryClient.invalidateQueries({ queryKey: ['dashboard-sold-total'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-leads-funnel'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-top-sellers'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard-funnel-stages'] });
       })
       .subscribe();
 
@@ -322,11 +281,6 @@ const Dashboard = () => {
   const leadsInFunnelValue = leadsInFunnel ?? 0;
   const topSellers = topSellersResult?.topSellers ?? [];
   const topSellersLoading = !topSellersResult;
-
-  const activeStages = (funnelStages || []).filter(s => s.stage_type !== 'won' && s.stage_type !== 'lost');
-  const bottleneck = activeStages.length > 0
-    ? activeStages.reduce((max, stage) => stage.lead_count > max.lead_count ? stage : max, activeStages[0])
-    : null;
 
   const loading = totalLeads === undefined || mqlCount === undefined;
 
@@ -492,185 +446,96 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Bottom Row — Gargalo + Top Vendedores */}
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-          {/* Gargalo do Funil */}
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="rounded-[6px] border border-border/60 bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-[6px] bg-amber-500/10 flex items-center justify-center">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    </div>
-                    <h3 className="text-sm font-medium">Gargalo do Funil</h3>
-                  </div>
-                  {bottleneck && bottleneck.lead_count > 0 ? (
-                    <div className="flex flex-col items-center py-4 text-center space-y-2">
-                      <div className="w-12 h-12 rounded-[6px] bg-gradient-to-br from-amber-500/15 to-orange-500/15 flex items-center justify-center border border-amber-500/15">
-                        <Zap className="w-5 h-5 text-amber-500" />
-                      </div>
-                      <p className="text-base font-semibold">{bottleneck.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-semibold text-amber-600 dark:text-amber-400">{bottleneck.lead_count}</span> leads acumulados
-                      </p>
-                      <p className="text-[11px] text-muted-foreground max-w-[200px]">
-                        Etapa com maior volume de leads parados — considere ações de conversão
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center py-4 text-center space-y-2">
-                      <div className="w-12 h-12 rounded-[6px] bg-gradient-to-br from-emerald-500/15 to-green-500/15 flex items-center justify-center border border-emerald-500/15">
-                        <CheckCircle className="w-5 h-5 text-emerald-500" />
-                      </div>
-                      <p className="text-sm font-medium">Nenhum gargalo</p>
-                      <p className="text-[11px] text-muted-foreground">Leads fluindo normalmente</p>
-                    </div>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[220px] text-xs">
-                Etapa do funil com maior acúmulo de leads, indicando possível ponto de travamento na conversão
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          {/* Top 5 Vendedores */}
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="rounded-[6px] border border-border/60 bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-[6px] bg-yellow-500/10 flex items-center justify-center">
-                        <Trophy className="w-4 h-4 text-yellow-500" />
-                      </div>
-                      <h3 className="text-sm font-medium">Top 5 Vendedores</h3>
-                    </div>
-                    {topSellers.length > 0 && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                        {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
-                      </span>
-                    )}
-                  </div>
-
-                  {topSellersLoading ? (
-                    <div className="space-y-3">
-                      {[...Array(3)].map((_, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <Skeleton className="h-7 w-7 rounded-full" />
-                          <div className="flex-1">
-                            <Skeleton className="h-3.5 w-24 mb-1" />
-                            <Skeleton className="h-3 w-16" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : topSellers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-4 text-center">
-                      <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-16 h-16 mb-2 opacity-70" />
-                      <p className="text-xs text-muted-foreground">Nenhuma venda no período</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {topSellers.map((seller, index) => {
-                        const maxRevenue = topSellers[0]?.total_revenue || 1;
-                        const percentage = (seller.total_revenue / maxRevenue) * 100;
-                        const positionColors = [
-                          'bg-yellow-500 text-yellow-950',
-                          'bg-slate-400 text-slate-950',
-                          'bg-amber-600 text-amber-950',
-                          'bg-muted text-muted-foreground',
-                          'bg-muted text-muted-foreground'
-                        ];
-
-                        return (
-                          <div key={seller.user_id}>
-                            <div className="flex items-center gap-3 mb-1">
-                              <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0 ${positionColors[index]}`}>
-                                {index + 1}
-                              </span>
-                              <Avatar className="h-6 w-6 shrink-0">
-                                <AvatarImage src={seller.avatar_url || undefined} />
-                                <AvatarFallback className="text-[9px] bg-muted">
-                                  {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{seller.full_name}</p>
-                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                                  <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
-                                  <span className="text-muted-foreground/40">·</span>
-                                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                    {formatCurrency(seller.total_revenue)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="pl-[68px]">
-                              <Progress value={percentage} className="h-1" />
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <button
-                        onClick={() => navigate('/ranking')}
-                        className="w-full flex items-center justify-center gap-1 pt-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors border-t border-border/40 mt-2"
-                      >
-                        Ver ranking completo <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[220px] text-xs">
-                Ranking dos 5 vendedores com maior receita no período, ordenados por valor total de vendas
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        {/* Funil por Etapa */}
+        {/* Top 5 Vendedores */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="rounded-[6px] border border-border/60 bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-[6px] bg-primary/10 flex items-center justify-center">
-                    <BarChart3 className="w-4 h-4 text-primary" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-[6px] bg-yellow-500/10 flex items-center justify-center">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                    </div>
+                    <h3 className="text-sm font-medium">Top 5 Vendedores</h3>
                   </div>
-                  <h3 className="text-sm font-medium">Distribuição por Etapa</h3>
+                  {topSellers.length > 0 && (
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
+                    </span>
+                  )}
                 </div>
-                {funnelStages && funnelStages.length > 0 ? (
-                  <div className="space-y-2.5">
-                    {funnelStages.map(stage => {
-                      const maxCount = Math.max(...funnelStages.map(s => s.lead_count), 1);
-                      const pct = (stage.lead_count / maxCount) * 100;
-                      const stageColor =
-                        stage.stage_type === 'won' ? 'bg-emerald-500' :
-                        stage.stage_type === 'lost' ? 'bg-red-400' :
-                        'bg-primary';
+
+                {topSellersLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <Skeleton className="h-7 w-7 rounded-full" />
+                        <div className="flex-1">
+                          <Skeleton className="h-3.5 w-24 mb-1" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : topSellers.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-4 text-center">
+                    <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-16 h-16 mb-2 opacity-70" />
+                    <p className="text-xs text-muted-foreground">Nenhuma venda no período</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {topSellers.map((seller, index) => {
+                      const maxRevenue = topSellers[0]?.total_revenue || 1;
+                      const percentage = (seller.total_revenue / maxRevenue) * 100;
+                      const positionColors = [
+                        'bg-yellow-500 text-yellow-950',
+                        'bg-slate-400 text-slate-950',
+                        'bg-amber-600 text-amber-950',
+                        'bg-muted text-muted-foreground',
+                        'bg-muted text-muted-foreground'
+                      ];
+
                       return (
-                        <div key={stage.id} className="flex items-center gap-3">
-                          <span className="text-[11px] text-muted-foreground w-24 truncate shrink-0">{stage.name}</span>
-                          <div className="flex-1 h-2 rounded-full bg-muted/60 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${stageColor} transition-all duration-500`}
-                              style={{ width: `${pct}%` }}
-                            />
+                        <div key={seller.user_id}>
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0 ${positionColors[index]}`}>
+                              {index + 1}
+                            </span>
+                            <Avatar className="h-6 w-6 shrink-0">
+                              <AvatarImage src={seller.avatar_url || undefined} />
+                              <AvatarFallback className="text-[9px] bg-muted">
+                                {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{seller.full_name}</p>
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
+                                <span className="text-muted-foreground/40">·</span>
+                                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                                  {formatCurrency(seller.total_revenue)}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <span className="text-[11px] font-medium tabular-nums w-8 text-right">{stage.lead_count}</span>
+                          <div className="pl-[68px]">
+                            <Progress value={percentage} className="h-1" />
+                          </div>
                         </div>
                       );
                     })}
+                    <button
+                      onClick={() => navigate('/ranking')}
+                      className="w-full flex items-center justify-center gap-1 pt-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors border-t border-border/40 mt-2"
+                    >
+                      Ver ranking completo <ArrowRight className="w-3 h-3" />
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-4">Nenhuma etapa cadastrada</p>
                 )}
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[220px] text-xs">
-              Quantidade de leads em cada etapa do funil, mostrando a distribuição atual do pipeline
+              Ranking dos 5 vendedores com maior receita no período, ordenados por valor total de vendas
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
