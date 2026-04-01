@@ -670,65 +670,122 @@ const Pipeline = () => {
     if (!user?.id || !organizationId) return;
 
     try {
-      // Controlar estados de loading: Skeletons apenas se realmente necessário
       if (!isTabChange && leads.length === 0) {
         setInitialLoading(true);
       }
       setIsLoadingData(true);
 
-      // Usar dados do funil passados ou estados atuais
       const isCustom = funnelData?.isCustom ?? usingCustomFunnel;
       const funnel = funnelData?.funnel ?? activeFunnel;
 
-      // Otimizado: buscar apenas campos necessários (incluindo source para badges)
-      // Usar organizationId do contexto diretamente - evita query redundante a organization_members
-      let query = supabase
-        .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count")
-        .eq("organization_id", organizationId);
+      // Buscar contagem total por etapa
+      const stageIds = stages.map(s => s.id);
+      const countPromises = stageIds.map(async (stageId) => {
+        let query = supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', organizationId);
 
-      // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
-      if (!permissions.canViewAllLeads && user?.id) {
-        query = query.eq("responsavel_user_id", user.id);
-      }
+        if (!permissions.canViewAllLeads && user?.id) {
+          query = query.eq('responsavel_user_id', user.id);
+        }
 
-      // Se estiver usando funil customizado, filtrar leads desse funil OU sem funil (orphans)
-      if (isCustom && funnel) {
-        // Inclui leads do funil específico E leads sem funil atribuído (orphans da mesma org)
-        query = query.or(`funnel_id.eq.${funnel.id},funnel_id.is.null`);
-      } else {
-        // No funil padrão (legado), mostrar apenas leads que não pertencem a nenhum funil customizado
-        query = query.is("funnel_id", null);
-      }
+        if (isCustom && funnel) {
+          query = query.eq('funnel_id', funnel.id);
+          query = query.eq('funnel_stage_id', stageId);
+        } else {
+          query = query.is('funnel_id', null);
+          query = query.eq('stage', stageId);
+        }
 
-      const { data, error } = await query
-        .order("position", { ascending: true })
-        .order("created_at", { ascending: false })
-        .limit(200); // Limitar para performance
-
-      if (error) throw error;
-
-      // Merge: preservar leads que chegaram via Realtime durante a query (evitar race condition)
-      setLeads(prev => {
-        if (!data || data.length === 0) return prev;
-        const dbIds = new Set(data.map((l: any) => l.id));
-        // Leads que estão no estado atual mas não vieram do banco (chegaram via Realtime)
-        const realtimeOnly = prev.filter(l => !dbIds.has(l.id));
-        return [...data, ...realtimeOnly];
+        const { count, error } = await query;
+        if (error) {
+          console.error(`Erro ao contar leads da etapa ${stageId}:`, error);
+          return { stageId, count: 0 };
+        }
+        return { stageId, count: count || 0 };
       });
 
-      // Armazenar IDs dos leads (DB + Realtime) para deduplicação
-      if (data) {
-        const existingRtIds = [...leadIdsRef.current];
-        leadIdsRef.current = new Set([...data.map((lead: any) => lead.id), ...existingRtIds]);
-        // Buscar todos lead_items, tags e perfis de responsáveis de uma vez
-        const responsavelIds = [...new Set(data.map(l => l.responsavel_user_id).filter(Boolean))] as string[];
+      const countResults = await Promise.all(countPromises);
+      const countMap = new Map(countResults.map(r => [r.stageId, r.count]));
+
+      // Inicializar paginação por etapa
+      const initialPagination: Record<string, StagePaginationState> = {};
+      stageIds.forEach(stageId => {
+        const total = countMap.get(stageId) || 0;
+        initialPagination[stageId] = {
+          loadedCount: 0,
+          totalCount: total,
+          isLoading: false,
+          hasMore: total > 0,
+        };
+      });
+      setStagePagination(initialPagination);
+
+      // Carregar 50 leads por etapa
+      const PAGE_SIZE = 50;
+      const loadPromises = stageIds.map(async (stageId) => {
+        const total = countMap.get(stageId) || 0;
+        if (total === 0) return { stageId, leads: [] };
+
+        let query = supabase
+          .from('leads')
+          .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count')
+          .eq('organization_id', organizationId);
+
+        if (!permissions.canViewAllLeads && user?.id) {
+          query = query.eq('responsavel_user_id', user.id);
+        }
+
+        if (isCustom && funnel) {
+          query = query.eq('funnel_id', funnel.id);
+          query = query.eq('funnel_stage_id', stageId);
+        } else {
+          query = query.is('funnel_id', null);
+          query = query.eq('stage', stageId);
+        }
+
+        const { data, error } = await query
+          .order('position', { ascending: true })
+          .order('created_at', { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+
+        if (error) {
+          console.error(`Erro ao carregar leads da etapa ${stageId}:`, error);
+          return { stageId, leads: [] };
+        }
+
+        return { stageId, leads: data || [] };
+      });
+
+      const loadResults = await Promise.all(loadPromises);
+
+      // Combinar leads e atualizar paginação
+      const allLeads: Lead[] = [];
+      loadResults.forEach(result => {
+        allLeads.push(...result.leads);
+
+        setStagePagination(prev => ({
+          ...prev,
+          [result.stageId]: {
+            ...prev[result.stageId],
+            loadedCount: result.leads.length,
+            hasMore: result.leads.length < (prev[result.stageId]?.totalCount || 0),
+          }
+        }));
+      });
+
+      setLeads(allLeads);
+      leadIdsRef.current = new Set(allLeads.map(l => l.id));
+
+      if (allLeads.length > 0) {
+        const responsavelIds = [...new Set(allLeads.map(l => l.responsavel_user_id).filter(Boolean))] as string[];
         await Promise.all([
-          loadLeadItems(data.map(l => l.id)),
-          loadLeadTags(data.map(l => l.id)),
+          loadLeadItems(allLeads.map(l => l.id)),
+          loadLeadTags(allLeads.map(l => l.id)),
           loadProfiles(responsavelIds),
-          loadAgendamentos(data.map(l => l.id)),
-          loadRedistributionData(data.map(l => l.id)),
+          loadAgendamentos(allLeads.map(l => l.id)),
+          loadRedistributionData(allLeads.map(l => l.id)),
         ]);
       }
     } catch (error) {
