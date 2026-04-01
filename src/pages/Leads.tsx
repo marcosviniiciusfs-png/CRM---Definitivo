@@ -22,7 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus, ArrowUpDown, Edit, Trash2, Loader2, Download, Upload, X, CalendarIcon, Filter } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Search, Plus, ArrowUpDown, Edit, Trash2, Download, Upload, X, CalendarIcon, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -48,13 +53,12 @@ import { ImportLeadsModal } from "@/components/ImportLeadsModal";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useLeadsParallelQueries } from "@/hooks/useParallelQueries";
-import { useInfiniteScroll } from "@/hooks/usePagination";
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  NOVO: { label: "Novo", color: "bg-blue-500" },
-  EM_ATENDIMENTO: { label: "Em Atendimento", color: "bg-yellow-500" },
-  FECHADO: { label: "Fechado", color: "bg-green-500" },
-  PERDIDO: { label: "Perdido", color: "bg-red-500" },
+const statusConfig: Record<string, { label: string; color: string; textColor: string }> = {
+  NOVO: { label: "Novo", color: "bg-blue-100 dark:bg-blue-500/20", textColor: "text-blue-700 dark:text-blue-300" },
+  EM_ATENDIMENTO: { label: "Em Atendimento", color: "bg-amber-100 dark:bg-amber-500/20", textColor: "text-amber-700 dark:text-amber-300" },
+  FECHADO: { label: "Fechado", color: "bg-emerald-100 dark:bg-emerald-500/20", textColor: "text-emerald-700 dark:text-emerald-300" },
+  PERDIDO: { label: "Perdido", color: "bg-red-100 dark:bg-red-500/20", textColor: "text-red-700 dark:text-red-300" },
 };
 
 type SortColumn = "nome_lead" | "email" | "telefone_lead" | "stage" | "source" | "valor";
@@ -79,19 +83,22 @@ const Leads = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
   const [userProfile, setUserProfile] = useState<{ full_name: string | null } | null>(null);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const LEADS_PER_PAGE = 50;
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Parallel queries hook
   const { loadFilterData: loadFilterDataParallel } = useLeadsParallelQueries();
 
-  // Fase 2: Seleção múltipla
+  // Collapsible filters
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Selection
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
 
-  // Fase 3: Filtros avançados
+  // Advanced filters
   const [responsibleFilter, setResponsibleFilter] = useState<string>("all");
   const [funnelFilter, setFunnelFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -99,13 +106,29 @@ const Leads = () => {
     from: undefined,
     to: undefined,
   });
-  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [colaboradores, setColaboradores] = useState<any[]>([]);
   const [funnels, setFunnels] = useState<any[]>([]);
   const [stages, setStages] = useState<any[]>([]);
-  const [availableTags, setAvailableTags] = useState<any[]>([]);
 
-  // Carregar perfil do usuário para filtrar leads de membros
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter !== "all") count++;
+    if (sourceFilter !== "all") count++;
+    if (responsibleFilter !== "all") count++;
+    if (funnelFilter !== "all") count++;
+    if (stageFilter !== "all") count++;
+    if (dateRange.from || dateRange.to) count++;
+    return count;
+  }, [statusFilter, sourceFilter, responsibleFilter, funnelFilter, stageFilter, dateRange]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedLeads([]);
+  }, [searchQuery, statusFilter, sourceFilter, responsibleFilter, funnelFilter, stageFilter, dateRange, itemsPerPage]);
+
+  // Load user profile for member filtering
   useEffect(() => {
     const loadUserProfile = async () => {
       if (!user || permissions.canViewAllLeads) return;
@@ -123,14 +146,13 @@ const Leads = () => {
     loadUserProfile();
   }, [user, permissions.canViewAllLeads]);
 
-  // Carregar dados para filtros avançados (OTIMIZADO: queries paralelas)
+  // Load filter data (OPTIMIZED: parallel queries)
   useEffect(() => {
     const loadAllFilterData = async () => {
       try {
         const result = await loadFilterDataParallel();
         setColaboradores(result.colaboradores);
         setFunnels(result.funnels);
-        setAvailableTags(result.tags);
       } catch (error) {
         console.error('Erro ao carregar dados de filtros:', error);
       }
@@ -139,7 +161,7 @@ const Leads = () => {
     loadAllFilterData();
   }, [loadFilterDataParallel]);
 
-  // Carregar etapas quando funil é selecionado
+  // Load stages when funnel is selected
   useEffect(() => {
     const loadStages = async () => {
       if (funnelFilter === "all") {
@@ -165,15 +187,14 @@ const Leads = () => {
     loadStages();
   }, [funnelFilter]);
 
-  // Carregar leads do Supabase - com debounce realtime
+  // Load all leads from Supabase - with debounce realtime
   useEffect(() => {
-    // Aguardar permissões e perfil carregarem
     if (permissions.loading) return;
     if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
 
-    loadLeads(true);
+    loadAllLeads();
 
-    // Realtime com debounce - usa invalidateQueries para persistência
+    // Realtime with debounce
     let reloadTimeout: NodeJS.Timeout;
     const channel = supabase
       .channel('leads-changes-list')
@@ -187,7 +208,7 @@ const Leads = () => {
         () => {
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
-            loadLeads(true);
+            loadAllLeads();
           }, 500);
         }
       )
@@ -199,53 +220,30 @@ const Leads = () => {
     };
   }, [permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
 
-  const loadLeads = async (reset = false) => {
-    if (reset) {
-      setLoading(true);
-      setPage(0);
-      setHasMore(true);
-    } else {
-      setLoadingMore(true);
-    }
-
+  const loadAllLeads = async () => {
+    setLoading(true);
     try {
-      const startRange = reset ? 0 : page * LEADS_PER_PAGE;
-      const endRange = startRange + LEADS_PER_PAGE - 1;
-
       let query = supabase
         .from("leads")
         .select("id, nome_lead, email, telefone_lead, responsavel, responsavel_user_id, stage, source, valor, updated_at, created_at, funnel_id, funnel_stage_id");
 
-      // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
+      // SECURITY: Members only see leads assigned to them
       if (!permissions.canViewAllLeads && user?.id) {
         query = query.eq("responsavel_user_id", user.id);
       }
 
       const { data, error } = await query
-        .order("updated_at", { ascending: false })
-        .range(startRange, endRange);
+        .order("updated_at", { ascending: false });
 
       if (error) throw error;
 
-      if (reset) {
-        setLeads(data || []);
-        // Filtrar seleções para manter apenas leads que ainda existem
-        setSelectedLeads(prev => {
-          if (prev.length === 0) return prev;
-          const newIds = new Set((data || []).map(l => l.id));
-          return prev.filter(id => newIds.has(id));
-        });
-      } else {
-        // Evitar duplicatas no infinite scroll
-        setLeads(prev => {
-          const existingIds = new Set(prev.map(l => l.id));
-          const newLeads = (data || []).filter(l => !existingIds.has(l.id));
-          return [...prev, ...newLeads];
-        });
-      }
-
-      setHasMore((data || []).length === LEADS_PER_PAGE);
-      if (!reset) setPage(prev => prev + 1);
+      setLeads(data || []);
+      // Filter selections to keep only leads that still exist
+      setSelectedLeads(prev => {
+        if (prev.length === 0) return prev;
+        const newIds = new Set((data || []).map(l => l.id));
+        return prev.filter(id => newIds.has(id));
+      });
     } catch (error) {
       console.error("Erro ao carregar leads:", error);
       toast({
@@ -255,19 +253,8 @@ const Leads = () => {
       });
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
-
-  // Função para carregar mais leads (infinite scroll)
-  const loadMoreLeads = useCallback(() => {
-    if (!loadingMore && hasMore) {
-      loadLeads(false);
-    }
-  }, [loadingMore, hasMore]);
-
-  // Hook otimizado para infinite scroll
-  const observerTarget = useInfiniteScroll(loadMoreLeads, hasMore, loadingMore || loading);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -278,7 +265,7 @@ const Leads = () => {
     }
   };
 
-  // Otimizado: useMemo para evitar recalcular filtros a cada render
+  // Optimized: useMemo for filtering and sorting
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
@@ -289,23 +276,14 @@ const Leads = () => {
 
         const matchesStatus = statusFilter === "all" || (lead.stage || "NOVO") === statusFilter;
         const matchesSource = sourceFilter === "all" || (lead.source || "WhatsApp") === sourceFilter;
-
-        // Filtro de responsável (usando UUID)
         const matchesResponsibleFilter = responsibleFilter === "all" || lead.responsavel_user_id === responsibleFilter;
-
-        // Filtro de funil
         const matchesFunnel = funnelFilter === "all" || lead.funnel_id === funnelFilter;
-
-        // Filtro de etapa
         const matchesStage = stageFilter === "all" || lead.funnel_stage_id === stageFilter;
 
-        // Filtro de data
         const leadDate = new Date(lead.created_at);
         const matchesDateRange =
           (!dateRange.from || leadDate >= dateRange.from) &&
           (!dateRange.to || leadDate <= dateRange.to);
-
-        // Membros só veem leads onde são responsáveis (filtro já aplicado na query)
 
         return matchesSearch && matchesStatus && matchesSource && matchesResponsibleFilter &&
           matchesFunnel && matchesStage && matchesDateRange;
@@ -327,6 +305,46 @@ const Leads = () => {
         return 0;
       });
   }, [leads, searchQuery, statusFilter, sourceFilter, responsibleFilter, funnelFilter, stageFilter, dateRange, sortColumn, sortOrder, permissions.canViewAllLeads, userProfile?.full_name]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredLeads.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setSelectedLeads([]);
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+    setSelectedLeads([]);
+  };
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) pages.push(i);
+
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+
+    return pages;
+  };
 
   const formatCurrency = (value: number | string) => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -368,10 +386,10 @@ const Leads = () => {
     }
   };
 
-  // Fase 2: Funções de seleção múltipla
+  // Multi-selection functions
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(filteredLeads.map(lead => lead.id));
+      setSelectedLeads(currentItems.map(lead => lead.id));
     } else {
       setSelectedLeads([]);
     }
@@ -444,7 +462,6 @@ const Leads = () => {
     if (selectedLeads.length === 0) return;
 
     try {
-      // ATUALIZADO: usar UUID + TEXT para compatibilidade
       const updateData: any = { responsavel: responsibleName };
       if (responsibleUserId) {
         updateData.responsavel_user_id = responsibleUserId;
@@ -473,11 +490,9 @@ const Leads = () => {
     }
   };
 
-  // Fase 5: Exportação XLSX (Excel nativo - cada campo em sua própria coluna)
+  // Export XLSX
   const handleExportCSV = () => {
-    // Importação dinâmica da lib xlsx
     import("xlsx").then((XLSX) => {
-      // Montar dados como array de objetos para a planilha
       const data = filteredLeads.map((lead) => ({
         "Nome": lead.nome_lead || "",
         "Email": lead.email || "",
@@ -489,25 +504,21 @@ const Leads = () => {
         "Criado em": format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
       }));
 
-      // Criar workbook e worksheet
       const worksheet = XLSX.utils.json_to_sheet(data);
 
-      // Definir larguras das colunas para melhor visualização
       worksheet["!cols"] = [
-        { wch: 30 }, // Nome
-        { wch: 30 }, // Email
-        { wch: 18 }, // Telefone
-        { wch: 25 }, // Responsável
-        { wch: 18 }, // Status
-        { wch: 15 }, // Origem
-        { wch: 15 }, // Valor
-        { wch: 20 }, // Criado em
+        { wch: 30 },
+        { wch: 30 },
+        { wch: 18 },
+        { wch: 25 },
+        { wch: 18 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 20 },
       ];
 
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
-
-      // Gerar arquivo e download
       XLSX.writeFile(workbook, `leads_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 
       toast({
@@ -524,22 +535,38 @@ const Leads = () => {
     });
   };
 
-  // Atualizar visibilidade da barra de ações
+  // Update bulk actions visibility
   useEffect(() => {
     setShowBulkActions(selectedLeads.length > 0);
   }, [selectedLeads]);
 
+  // Clear all filters
+  const clearAllFilters = () => {
+    setStatusFilter("all");
+    setSourceFilter("all");
+    setResponsibleFilter("all");
+    setFunnelFilter("all");
+    setStageFilter("all");
+    setDateRange({ from: undefined, to: undefined });
+    setSearchQuery("");
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 p-1">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Gerenciamento de Leads</h1>
-          <p className="text-muted-foreground">Gerencie todos os seus leads em um só lugar</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Leads
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gerencie todos os seus leads em um só lugar
+          </p>
         </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
+            size="sm"
             className="gap-2"
             onClick={handleExportCSV}
           >
@@ -549,6 +576,7 @@ const Leads = () => {
           {permissions.canViewAllLeads && (
             <Button
               variant="outline"
+              size="sm"
               className="gap-2"
               onClick={() => setShowImportModal(true)}
             >
@@ -558,172 +586,328 @@ const Leads = () => {
           )}
           {permissions.canCreateLeads && (
             <Button
+              size="sm"
               className="gap-2 bg-primary hover:bg-primary/90"
               onClick={() => setShowAddModal(true)}
             >
               <Plus className="h-4 w-4" />
-              Adicionar Lead
+              Novo Lead
             </Button>
           )}
         </div>
       </div>
 
-      {/* Filtros e Pesquisa */}
-      <div className="flex flex-col gap-4">
-        {/* Linha 1: Busca e filtros básicos */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, email ou telefone..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-[200px] bg-background">
-              <SelectValue placeholder="Todos os Status" />
-            </SelectTrigger>
-            <SelectContent className="bg-background z-50">
-              <SelectItem value="all">Todos os Status</SelectItem>
-              <SelectItem value="NOVO">Novo</SelectItem>
-              <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-              <SelectItem value="FECHADO">Fechado</SelectItem>
-              <SelectItem value="PERDIDO">Perdido</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="w-full md:w-[200px] bg-background">
-              <SelectValue placeholder="Todas as Origens" />
-            </SelectTrigger>
-            <SelectContent className="bg-background z-50">
-              <SelectItem value="all">Todas as Origens</SelectItem>
-              <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-              <SelectItem value="Manual">Manual</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Linha 2: Filtros avançados */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-            <SelectTrigger className="w-full md:w-[200px] bg-background">
-              <SelectValue placeholder="Todos Responsáveis" />
-            </SelectTrigger>
-            <SelectContent className="bg-background z-50">
-              <SelectItem value="all">Todos Responsáveis</SelectItem>
-              {colaboradores.filter(c => c.user_id).map((colab) => (
-                <SelectItem key={colab.user_id} value={colab.user_id}>
-                  {colab.full_name || colab.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={funnelFilter} onValueChange={setFunnelFilter}>
-            <SelectTrigger className="w-full md:w-[200px] bg-background">
-              <SelectValue placeholder="Todos Funis" />
-            </SelectTrigger>
-            <SelectContent className="bg-background z-50">
-              <SelectItem value="all">Todos Funis</SelectItem>
-              {funnels.map((funnel) => (
-                <SelectItem key={funnel.id} value={funnel.id}>
-                  {funnel.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {funnelFilter !== "all" && stages.length > 0 && (
-            <Select value={stageFilter} onValueChange={setStageFilter}>
-              <SelectTrigger className="w-full md:w-[200px] bg-background">
-                <SelectValue placeholder="Todas Etapas" />
-              </SelectTrigger>
-              <SelectContent className="bg-background z-50">
-                <SelectItem value="all">Todas Etapas</SelectItem>
-                {stages.map((stage) => (
-                  <SelectItem key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Search bar + Filter toggle */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, email ou telefone..."
+            className="pl-10 h-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           )}
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full md:w-[240px] justify-start text-left font-normal",
-                  !dateRange.from && !dateRange.to && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} -{" "}
-                      {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
-                    </>
-                  ) : (
-                    format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
-                  )
-                ) : (
-                  <span>Período de criação</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange.from}
-                selected={{ from: dateRange.from, to: dateRange.to }}
-                onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
-                numberOfMonths={2}
-                locale={ptBR}
-              />
-              {(dateRange.from || dateRange.to) && (
-                <div className="p-3 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setDateRange({ from: undefined, to: undefined })}
-                  >
-                    Limpar datas
-                  </Button>
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
         </div>
+
+        <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant={activeFiltersCount > 0 ? "default" : "outline"}
+              size="sm"
+              className="gap-2 shrink-0"
+            >
+              <Filter className="h-4 w-4" />
+              Filtros
+              {activeFiltersCount > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] bg-background text-foreground"
+                >
+                  {activeFiltersCount}
+                </Badge>
+              )}
+              <ChevronDown className={cn(
+                "h-3.5 w-3.5 transition-transform duration-200",
+                showFilters && "rotate-180"
+              )} />
+            </Button>
+          </CollapsibleTrigger>
+        </Collapsible>
       </div>
 
-      {/* Barra de ações em lote */}
+      {/* Active filters summary */}
+      {activeFiltersCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Filtros ativos:</span>
+          {statusFilter !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              Status: {statusConfig[statusFilter]?.label}
+              <button onClick={() => setStatusFilter("all")}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {sourceFilter !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              Origem: {sourceFilter}
+              <button onClick={() => setSourceFilter("all")}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {responsibleFilter !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              Responsável: {colaboradores.find(c => c.user_id === responsibleFilter)?.full_name || "Selecionado"}
+              <button onClick={() => setResponsibleFilter("all")}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {funnelFilter !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              Funil: {funnels.find(f => f.id === funnelFilter)?.name || "Selecionado"}
+              <button onClick={() => setFunnelFilter("all")}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {stageFilter !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              Etapa: {stages.find(s => s.id === stageFilter)?.name || "Selecionado"}
+              <button onClick={() => setStageFilter("all")}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {(dateRange.from || dateRange.to) && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              Período: {dateRange.from ? format(dateRange.from, "dd/MM/yy", { locale: ptBR }) : "..."} - {dateRange.to ? format(dateRange.to, "dd/MM/yy", { locale: ptBR }) : "..."}
+              <button onClick={() => setDateRange({ from: undefined, to: undefined })}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-muted-foreground hover:text-foreground"
+            onClick={clearAllFilters}
+          >
+            Limpar tudo
+          </Button>
+        </div>
+      )}
+
+      {/* Collapsible Filters */}
+      <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+        <CollapsibleContent>
+          <div className="rounded-lg border bg-card p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 bg-background">
+                  <SelectValue placeholder="Todos os Status" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="NOVO">Novo</SelectItem>
+                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                  <SelectItem value="FECHADO">Fechado</SelectItem>
+                  <SelectItem value="PERDIDO">Perdido</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                <SelectTrigger className="h-9 bg-background">
+                  <SelectValue placeholder="Todas as Origens" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="all">Todas as Origens</SelectItem>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                <SelectTrigger className="h-9 bg-background">
+                  <SelectValue placeholder="Todos Responsáveis" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  {colaboradores.filter(c => c.user_id).map((colab) => (
+                    <SelectItem key={colab.user_id} value={colab.user_id}>
+                      {colab.full_name || colab.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={funnelFilter} onValueChange={setFunnelFilter}>
+                <SelectTrigger className="h-9 bg-background">
+                  <SelectValue placeholder="Todos Funis" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="all">Todos Funis</SelectItem>
+                  {funnels.map((funnel) => (
+                    <SelectItem key={funnel.id} value={funnel.id}>
+                      {funnel.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {funnelFilter !== "all" && stages.length > 0 ? (
+                <Select value={stageFilter} onValueChange={setStageFilter}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue placeholder="Todas Etapas" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="all">Todas Etapas</SelectItem>
+                    {stages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id}>
+                        {stage.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "h-9 justify-start text-left font-normal",
+                        !dateRange.from && !dateRange.to && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} -{" "}
+                            {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
+                          </>
+                        ) : (
+                          format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                        )
+                      ) : (
+                        <span>Período de criação</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange.from}
+                      selected={{ from: dateRange.from, to: dateRange.to }}
+                      onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                      numberOfMonths={2}
+                      locale={ptBR}
+                    />
+                    {(dateRange.from || dateRange.to) && (
+                      <div className="p-3 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setDateRange({ from: undefined, to: undefined })}
+                        >
+                          Limpar datas
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+
+            {/* Date range filter always shown if stage filter is active */}
+            {(funnelFilter !== "all" && stages.length > 0) && (
+              <div className="flex items-center gap-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "h-9 justify-start text-left font-normal",
+                        !dateRange.from && !dateRange.to && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} -{" "}
+                            {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
+                          </>
+                        ) : (
+                          format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                        )
+                      ) : (
+                        <span>Período de criação</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange.from}
+                      selected={{ from: dateRange.from, to: dateRange.to }}
+                      onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                      numberOfMonths={2}
+                      locale={ptBR}
+                    />
+                    {(dateRange.from || dateRange.to) && (
+                      <div className="p-3 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setDateRange({ from: undefined, to: undefined })}
+                        >
+                          Limpar datas
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Bulk Actions Bar */}
       {showBulkActions && permissions.canViewAllLeads && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between animate-in slide-in-from-top">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-white">
-              {selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''} selecionado{selectedLeads.length > 1 ? 's' : ''}
-            </span>
+        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-3">
+            <Badge variant="default" className="gap-1">
+              {selectedLeads.length} selecionado{selectedLeads.length > 1 ? 's' : ''}
+            </Badge>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => setSelectedLeads([])}
+              className="h-7 text-xs text-muted-foreground hover:text-foreground"
             >
-              <X className="h-4 w-4 mr-2" />
-              Limpar seleção
+              <X className="h-3.5 w-3.5 mr-1" />
+              Limpar
             </Button>
           </div>
 
           <div className="flex items-center gap-2">
             <Select onValueChange={handleBulkStatusChange}>
-              <SelectTrigger className="w-[180px] h-9 bg-background">
+              <SelectTrigger className="w-[160px] h-8 bg-background text-sm">
                 <SelectValue placeholder="Alterar Status" />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
@@ -740,7 +924,7 @@ const Leads = () => {
                 handleBulkAssign(colab.full_name || colab.email, colab.user_id);
               }
             }}>
-              <SelectTrigger className="w-[180px] h-9 bg-background">
+              <SelectTrigger className="w-[160px] h-8 bg-background text-sm">
                 <SelectValue placeholder="Atribuir a" />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
@@ -756,9 +940,10 @@ const Leads = () => {
               <Button
                 variant="destructive"
                 size="sm"
+                className="h-8"
                 onClick={handleBulkDelete}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
                 Excluir
               </Button>
             )}
@@ -766,156 +951,267 @@ const Leads = () => {
         </div>
       )}
 
-      {/* Tabela de Leads */}
+      {/* Leads Table */}
       {loading ? (
         <LoadingAnimation text="Carregando leads..." />
       ) : (
-        <div className="rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                {permissions.canViewAllLeads && (
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
-                      data-state={selectedLeads.length > 0 && selectedLeads.length < filteredLeads.length ? "indeterminate" : undefined}
-                      onCheckedChange={handleSelectAll}
-                    />
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent bg-muted/50">
+                  {permissions.canViewAllLeads && (
+                    <TableHead className="w-[44px] pl-4">
+                      <Checkbox
+                        checked={currentItems.length > 0 && selectedLeads.length === currentItems.length}
+                        data-state={selectedLeads.length > 0 && selectedLeads.length < currentItems.length ? "indeterminate" : undefined}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
+                  )}
+                  <TableHead
+                    className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                    onClick={() => handleSort("nome_lead")}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Nome
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    </div>
                   </TableHead>
-                )}
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort("nome_lead")}
-                >
-                  <div className="flex items-center gap-2">
-                    Nome
-                    <ArrowUpDown className="h-4 w-4" />
-                  </div>
-                </TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Colaborador</TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort("stage")}
-                >
-                  <div className="flex items-center gap-2">
-                    Status
-                    <ArrowUpDown className="h-4 w-4" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort("source")}
-                >
-                  <div className="flex items-center gap-2">
-                    Origem
-                    <ArrowUpDown className="h-4 w-4" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none text-right"
-                  onClick={() => handleSort("valor")}
-                >
-                  <div className="flex items-center justify-end gap-2">
-                    Valor
-                    <ArrowUpDown className="h-4 w-4" />
-                  </div>
-                </TableHead>
-                <TableHead className="text-center">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLeads.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={permissions.canViewAllLeads ? 9 : 8} className="text-center py-8 text-muted-foreground">
-                    Nenhum lead encontrado
-                    {searchQuery && <p className="text-sm mt-2">Tente ajustar sua busca ou filtros</p>}
-                  </TableCell>
+                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telefone</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                    onClick={() => handleSort("stage")}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Status
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                    onClick={() => handleSort("source")}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Origem
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right"
+                    onClick={() => handleSort("valor")}
+                  >
+                    <div className="flex items-center justify-end gap-1.5">
+                      Valor
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center w-[100px]">Ações</TableHead>
                 </TableRow>
-              ) : (
-                filteredLeads.map((lead) => {
-                  const statusInfo = statusConfig[lead.stage || 'NOVO'] || statusConfig.NOVO;
-                  const isSelected = selectedLeads.includes(lead.id);
+              </TableHeader>
+              <TableBody>
+                {currentItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={permissions.canViewAllLeads ? 9 : 8} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-muted-foreground text-sm">Nenhum lead encontrado</p>
+                        {searchQuery && (
+                          <p className="text-xs text-muted-foreground">
+                            Tente ajustar sua busca ou filtros
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  currentItems.map((lead) => {
+                    const statusInfo = statusConfig[lead.stage || 'NOVO'] || statusConfig.NOVO;
+                    const isSelected = selectedLeads.includes(lead.id);
 
-                  return (
-                    <TableRow key={lead.id} className={cn(
-                      "hover:bg-muted/50 transition-colors",
-                      isSelected && "bg-primary/10 border-l-2 border-l-primary"
-                    )}>
-                      {permissions.canViewAllLeads && (
+                    return (
+                      <TableRow
+                        key={lead.id}
+                        className={cn(
+                          "transition-colors group",
+                          isSelected
+                            ? "bg-primary/5 hover:bg-primary/10 border-l-2 border-l-primary"
+                            : "hover:bg-muted/50 border-l-2 border-l-transparent"
+                        )}
+                      >
+                        {permissions.canViewAllLeads && (
+                          <TableCell className="pl-4">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleSelectLead(lead.id, checked as boolean)}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => handleSelectLead(lead.id, checked as boolean)}
+                          <span className="font-medium text-sm text-foreground">
+                            {lead.nome_lead}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {lead.email || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm text-foreground">
+                          {formatPhoneNumber(lead.telefone_lead)}
+                        </TableCell>
+                        <TableCell>
+                          <LeadResponsibleSelect
+                            leadId={lead.id}
+                            currentResponsible={lead.responsavel}
+                            onUpdate={loadAllLeads}
                           />
                         </TableCell>
-                      )}
-                      <TableCell className="font-medium">{lead.nome_lead}</TableCell>
-                      <TableCell className="text-muted-foreground">{lead.email || "-"}</TableCell>
-                      <TableCell className="text-white">{formatPhoneNumber(lead.telefone_lead)}</TableCell>
-                      <TableCell>
-                        <LeadResponsibleSelect
-                          leadId={lead.id}
-                          currentResponsible={lead.responsavel}
-                          onUpdate={loadLeads}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${statusInfo.color} text-white border-none`}>
-                          {statusInfo.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{lead.source || "WhatsApp"}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(lead.valor || 0)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-2">
-                          {permissions.canViewAllLeads && (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghostIcon"
-                                className="h-8 w-8 text-muted-foreground hover:text-primary"
-                                onClick={() => handleEditLead(lead)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              {permissions.canDeleteLeads && (
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "text-xs font-medium border-0",
+                              statusInfo.color,
+                              statusInfo.textColor
+                            )}
+                          >
+                            {statusInfo.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {lead.source || "WhatsApp"}
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-medium text-foreground">
+                          {formatCurrency(lead.valor || 0)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {permissions.canViewAllLeads && (
+                              <>
                                 <Button
                                   size="icon"
-                                  variant="ghostIcon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                  onClick={() => setLeadToDelete(lead)}
+                                  variant="ghost"
+                                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                  onClick={() => handleEditLead(lead)}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Edit className="h-3.5 w-3.5" />
                                 </Button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                                {permissions.canDeleteLeads && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={() => setLeadToDelete(lead)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-          {/* Elemento observador para infinite scroll */}
-          <div ref={observerTarget} className="h-4" />
+          {/* Pagination Footer */}
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/30">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                <span className="font-medium text-foreground">
+                  {filteredLeads.length === 0 ? 0 : indexOfFirstItem + 1}
+                </span>
+                {" - "}
+                <span className="font-medium text-foreground">
+                  {Math.min(indexOfLastItem, filteredLeads.length)}
+                </span>
+                {" de "}
+                <span className="font-medium text-foreground">{filteredLeads.length}</span>
+                {" leads"}
+              </span>
 
-          {/* Loading indicator para carregamento de mais leads */}
-          {loadingMore && (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Itens por página:</span>
+                <Select value={String(itemsPerPage)} onValueChange={handleItemsPerPageChange}>
+                  <SelectTrigger className="w-[72px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          )}
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-3.5 w-3.5 -ml-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+
+              {getPageNumbers().map((page, index) => (
+                typeof page === "number" ? (
+                  <Button
+                    key={index}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="icon"
+                    className="h-8 w-8 text-xs"
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </Button>
+                ) : (
+                  <span key={index} className="px-1 text-xs text-muted-foreground">...</span>
+                )
+              ))}
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3.5 w-3.5 -ml-3" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Dialog de confirmação de exclusão */}
+      {/* Delete confirmation dialog */}
       <AlertDialog open={!!leadToDelete} onOpenChange={() => setLeadToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -937,14 +1233,14 @@ const Leads = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal de adicionar lead */}
+      {/* Add Lead Modal */}
       <AddLeadModal
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSuccess={loadLeads}
+        onSuccess={loadAllLeads}
       />
 
-      {/* Modal de editar lead */}
+      {/* Edit Lead Modal */}
       {leadToEdit && (
         <EditLeadModal
           open={showEditModal}
@@ -952,12 +1248,12 @@ const Leads = () => {
             setShowEditModal(false);
             setLeadToEdit(null);
           }}
-          onUpdate={() => loadLeads(true)}
+          onUpdate={() => loadAllLeads()}
           lead={leadToEdit}
         />
       )}
 
-      {/* Modal de importar leads */}
+      {/* Import Leads Modal */}
       <ImportLeadsModal
         open={showImportModal}
         onOpenChange={setShowImportModal}
