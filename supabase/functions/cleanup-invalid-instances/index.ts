@@ -65,7 +65,7 @@ serve(async (req) => {
     if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
       console.log('⚠️ EVOLUTION_API_URL inválida ou ausente. Valor atual:', evolutionApiUrl);
       // Fallback seguro para a URL informada pelo usuário
-      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+      evolutionApiUrl = 'http://161.97.148.99:8080';
       console.log('🔧 Usando URL padrão da Evolution API:', evolutionApiUrl);
     }
 

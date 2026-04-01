@@ -252,7 +252,7 @@ async function executeAction(
 
       if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
         console.warn('EVOLUTION_API_URL inválida. Usando URL padrão.');
-        evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+        evolutionApiUrl = 'http://161.97.148.99:8080';
       }
 
       if (!evolutionApiKey) {

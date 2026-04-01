@@ -52,7 +52,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Buscar configurações do ambiente (secrets)
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution01.kairozspace.com.br';
+    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'http://161.97.148.99:8080';
     const apiKey = Deno.env.get('EVOLUTION_API_KEY');
 
     if (!apiKey) {
@@ -66,7 +66,7 @@ serve(async (req) => {
       evolutionApiUrl = `${parsed.protocol}//${parsed.host}`;
     } catch (e) {
       console.warn('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.', { evolutionApiUrl });
-      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+      evolutionApiUrl = 'http://161.97.148.99:8080';
     }
 
     console.log('🌐 URL da Evolution API (normalizada):', evolutionApiUrl);

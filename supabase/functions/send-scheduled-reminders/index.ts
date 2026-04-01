@@ -95,7 +95,7 @@ serve(async (req) => {
         if (leadData?.nome_lead) msg += `\n👤 Lead: ${leadData.nome_lead}`;
 
         // Enviar mensagem via Evolution API
-        let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution01.kairozspace.com.br';
+        let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'http://161.97.148.99:8080';
         evolutionApiUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
         const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
 

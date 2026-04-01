@@ -113,7 +113,7 @@ serve(async (req) => {
     let evolutionApiUrl = EVOLUTION_API_URL || "";
     if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
       console.log("⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.");
-      evolutionApiUrl = "https://evolution01.kairozspace.com.br";
+      evolutionApiUrl = "http://161.97.148.99:8080";
     }
 
     // Normalizar emoji - permitir apenas os emojis suportados

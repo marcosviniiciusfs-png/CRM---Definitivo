@@ -52,7 +52,7 @@ serve(async (req) => {
     // Validar e corrigir URL da Evolution API
     if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
       console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      evolutionApiUrl = 'https://evolution01.kairozspace.com.br';
+      evolutionApiUrl = 'http://161.97.148.99:8080';
     }
 
     // Limpar URL base de forma consistente com outras functions
