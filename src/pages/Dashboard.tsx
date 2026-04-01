@@ -484,51 +484,6 @@ const Dashboard = () => {
 
       {/* Seções inferiores */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        {/* Card: Funil Completo */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-500" />
-              <span>Funil Completo</span>
-              <span className="text-xs text-muted-foreground font-normal">Distribuicao de leads por etapa</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {funnelStages && funnelStages.length > 0 ? (
-                funnelStages.map(stage => {
-                  const maxCount = Math.max(...funnelStages.map(s => s.lead_count), 1);
-                  const percentage = (stage.lead_count / maxCount) * 100;
-                  const stageColor = stage.stage_type === 'won'
-                    ? 'bg-green-500'
-                    : stage.stage_type === 'lost'
-                      ? 'bg-red-500'
-                      : 'bg-blue-500';
-
-                  return (
-                    <div key={stage.id} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium">{stage.name}</span>
-                        <span className="text-muted-foreground">{stage.lead_count} leads</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${stageColor} transition-all duration-300`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-sm">Nenhuma etapa de funil configurada</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Card: Gargalo do Funil */}
         <Card>
           <CardHeader className="pb-3">
