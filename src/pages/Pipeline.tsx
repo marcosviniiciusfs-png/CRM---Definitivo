@@ -762,20 +762,24 @@ const Pipeline = () => {
 
       // Combinar leads e atualizar paginação
       const allLeads: Lead[] = [];
+      const paginationUpdates: Record<string, StagePaginationState> = {};
       loadResults.forEach(result => {
         allLeads.push(...result.leads);
 
-        setStagePagination(prev => ({
-          ...prev,
-          [result.stageId]: {
-            ...prev[result.stageId],
-            loadedCount: result.leads.length,
-            hasMore: result.leads.length < (prev[result.stageId]?.totalCount || 0),
-          }
-        }));
+        paginationUpdates[result.stageId] = {
+          ...initialPagination[result.stageId],
+          loadedCount: result.leads.length,
+          hasMore: result.leads.length < (initialPagination[result.stageId]?.totalCount || 0),
+        };
       });
+      setStagePagination(prev => ({ ...prev, ...paginationUpdates }));
 
-      setLeads(allLeads);
+      // Merge with Realtime leads that arrived during the query
+      setLeads(prev => {
+        const dbIds = new Set(allLeads.map((l: Lead) => l.id));
+        const realtimeOnly = prev.filter(l => !dbIds.has(l.id));
+        return [...allLeads, ...realtimeOnly];
+      });
       leadIdsRef.current = new Set(allLeads.map(l => l.id));
 
       if (allLeads.length > 0) {
