@@ -1896,6 +1896,8 @@ const Pipeline = () => {
                         duplicateLeadIds={duplicateLeadIds}
                         agendamentosMap={agendamentosMap}
                         redistributedMap={redistributedMap}
+                        pagination={stagePagination[stage.id]}
+                        onLoadMore={() => loadMoreForStage(stage.id)}
                       />
                     );
                   })}
@@ -1933,6 +1935,8 @@ const Pipeline = () => {
                     duplicateLeadIds={duplicateLeadIds}
                     agendamentosMap={agendamentosMap}
                     redistributedMap={redistributedMap}
+                    pagination={stagePagination[stage.id]}
+                    onLoadMore={() => loadMoreForStage(stage.id)}
                   />
                 );
               })}
