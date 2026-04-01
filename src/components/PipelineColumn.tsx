@@ -6,6 +6,13 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Lead } from "@/types/chat";
 import { memo } from "react";
 
+interface StagePaginationState {
+  loadedCount: number;
+  totalCount: number;
+  isLoading: boolean;
+  hasMore: boolean;
+}
+
 interface PipelineColumnProps {
   id: string;
   title: string;
@@ -23,6 +30,9 @@ interface PipelineColumnProps {
   duplicateLeadIds?: Set<string>;
   agendamentosMap?: Record<string, { reuniao?: string | null; venda?: string | null }>;
   redistributedMap?: Record<string, { fromName: string; minutes: number }>;
+  // Props de paginação
+  pagination?: StagePaginationState;
+  onLoadMore?: () => void;
 }
 
 export const PipelineColumn = memo(({
@@ -42,6 +52,8 @@ export const PipelineColumn = memo(({
   duplicateLeadIds,
   agendamentosMap = {},
   redistributedMap = {},
+  pagination,
+  onLoadMore,
 }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
