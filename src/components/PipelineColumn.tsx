@@ -68,13 +68,13 @@ export const PipelineColumn = memo(({
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge
           className={cn(
-            "rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs",
+            "rounded-full w-auto min-w-6 h-6 flex items-center justify-center px-2 text-xs",
             isHexColor(color) ? "text-white" : "",
             !isHexColor(color) && color
           )}
           style={isHexColor(color) ? { backgroundColor: color } : undefined}
         >
-          {count}
+          {pagination ? `${pagination.loadedCount}/${pagination.totalCount}` : count}
         </Badge>
       </div>
 
@@ -135,6 +135,39 @@ export const PipelineColumn = memo(({
                 />
               );
             })
+          )}
+
+          {/* Botão Carregar Mais */}
+          {pagination && pagination.hasMore && (
+            <button
+              onClick={onLoadMore}
+              disabled={pagination.isLoading}
+              className={cn(
+                "w-full py-2 px-3 text-xs font-medium rounded-md transition-colors",
+                "border border-dashed border-muted-foreground/30",
+                "hover:border-primary/50 hover:bg-muted/50",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              {pagination.isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Carregando...
+                </span>
+              ) : (
+                `Carregar mais (${Math.min(50, pagination.totalCount - pagination.loadedCount)})`
+              )}
+            </button>
+          )}
+
+          {/* Info de paginação */}
+          {pagination && pagination.totalCount > 0 && (
+            <p className="text-[10px] text-muted-foreground text-center py-1">
+              Exibindo {pagination.loadedCount} de {pagination.totalCount} leads
+            </p>
           )}
         </div>
       </SortableContext>
