@@ -403,9 +403,32 @@ const Pipeline = () => {
 
           // Verificar se é realmente um lead novo (não carregado anteriormente)
           if (!leadIdsRef.current.has(newLead.id)) {
+            // Determinar o stageId correto
+            const stageId = usingCustomFunnelRef.current
+              ? newLead.funnel_stage_id
+              : (newLead.stage || "NOVO");
+
             // Adicionar ao estado
             setLeads(prev => [newLead, ...prev]);
             leadIdsRef.current.add(newLead.id);
+
+            // Incrementar contador total da etapa
+            setStagePagination(prev => {
+              const current = prev[stageId] || { loadedCount: 0, totalCount: 0, isLoading: false, hasMore: false };
+              const newTotalCount = current.totalCount + 1;
+              const newLoadedCount = current.loadedCount + 1;
+
+              return {
+                ...prev,
+                [stageId]: {
+                  ...current,
+                  totalCount: newTotalCount,
+                  loadedCount: newLoadedCount,
+                  hasMore: newLoadedCount < newTotalCount,
+                }
+              };
+            });
+
             // Carregar perfil do responsável se disponível
             const uid = (newLead as any).responsavel_user_id;
             if (uid) {
