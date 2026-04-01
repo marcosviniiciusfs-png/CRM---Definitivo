@@ -46,6 +46,14 @@ const EMPTY_TAGS: Array<{ id: string; name: string; color: string }> = [];
 type LeadItems = Record<string, any[]>;
 type LeadTagsMap = Record<string, Array<{ id: string; name: string; color: string }>>;
 
+// Interface para estado de paginação por etapa
+interface StagePaginationState {
+  loadedCount: number;      // Quantos leads estão carregados
+  totalCount: number;       // Total no banco (para exibir "X de Y")
+  isLoading: boolean;       // Loading state para o botão
+  hasMore: boolean;         // Se há mais leads para carregar
+}
+
 // Mapeamento de ícones emoji para funis
 const ICON_EMOJI_MAP: Record<string, string> = {
   "target": "🎯",
@@ -143,6 +151,9 @@ const Pipeline = () => {
   const [agendamentosMap, setAgendamentosMap] = useState<Record<string, { reuniao?: string | null; venda?: string | null }>>({});
   // Mapa leadId -> { fromName, minutes } para badge de redistribuição nos cards
   const [redistributedMap, setRedistributedMap] = useState<Record<string, { fromName: string; minutes: number }>>({});;
+
+  // Estado de paginação por etapa
+  const [stagePagination, setStagePagination] = useState<Record<string, StagePaginationState>>({});
 
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
