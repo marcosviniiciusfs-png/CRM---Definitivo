@@ -802,6 +802,100 @@ const Pipeline = () => {
     }
   };
 
+  // Carregar mais leads para uma etapa específica
+  const loadMoreForStage = useCallback(async (stageId: string) => {
+    if (!organizationId || !user?.id) return;
+
+    const currentPagination = stagePagination[stageId];
+    if (!currentPagination || currentPagination.isLoading || !currentPagination.hasMore) return;
+
+    // Set loading state
+    setStagePagination(prev => ({
+      ...prev,
+      [stageId]: { ...prev[stageId], isLoading: true }
+    }));
+
+    try {
+      const PAGE_SIZE = 50;
+      const offset = currentPagination.loadedCount;
+
+      const isCustom = usingCustomFunnel;
+      const funnel = activeFunnel;
+
+      let query = supabase
+        .from('leads')
+        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count')
+        .eq('organization_id', organizationId);
+
+      // Aplicar filtro de permissão
+      if (!permissions.canViewAllLeads && user?.id) {
+        query = query.eq('responsavel_user_id', user.id);
+      }
+
+      // Filtrar por funil
+      if (isCustom && funnel) {
+        query = query.eq('funnel_id', funnel.id);
+        query = query.eq('funnel_stage_id', stageId);
+      } else {
+        query = query.is('funnel_id', null);
+        query = query.eq('stage', stageId);
+      }
+
+      const { data, error } = await query
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Adicionar novos leads ao estado (preservando existentes)
+        setLeads(prev => {
+          const existingIds = new Set(prev.map(l => l.id));
+          const newLeads = data.filter(l => !existingIds.has(l.id));
+          return [...prev, ...newLeads];
+        });
+
+        // Atualizar IDs ref
+        data.forEach(l => leadIdsRef.current.add(l.id));
+
+        // Atualizar paginação
+        const newLoadedCount = currentPagination.loadedCount + data.length;
+        setStagePagination(prev => ({
+          ...prev,
+          [stageId]: {
+            ...prev[stageId],
+            loadedCount: newLoadedCount,
+            hasMore: newLoadedCount < prev[stageId].totalCount,
+            isLoading: false,
+          }
+        }));
+
+        // Carregar dados relacionados para novos leads
+        await Promise.all([
+          loadLeadItems(data.map(l => l.id)),
+          loadLeadTags(data.map(l => l.id)),
+          loadProfiles(data.map(l => l.responsavel_user_id).filter(Boolean) as string[]),
+          loadAgendamentos(data.map(l => l.id)),
+          loadRedistributionData(data.map(l => l.id)),
+        ]);
+      } else {
+        // No more data
+        setStagePagination(prev => ({
+          ...prev,
+          [stageId]: { ...prev[stageId], hasMore: false, isLoading: false }
+        }));
+      }
+    } catch (error) {
+      console.error(`Erro ao carregar mais leads da etapa ${stageId}:`, error);
+      toast.error("Erro ao carregar mais leads");
+      setStagePagination(prev => ({
+        ...prev,
+        [stageId]: { ...prev[stageId], isLoading: false }
+      }));
+    }
+  }, [organizationId, user?.id, stagePagination, usingCustomFunnel, activeFunnel, permissions.canViewAllLeads]);
+
   const loadLeadItems = async (leadIds: string[]) => {
     if (leadIds.length === 0) return;
 
