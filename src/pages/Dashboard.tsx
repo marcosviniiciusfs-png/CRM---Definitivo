@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationReady } from '@/hooks/useOrganizationReady';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardFilters, getPeriodDateRange } from '@/components/dashboard/DashboardFilters';
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { TrendingUp, Users, Target, UserPlus, Calendar, CheckCircle, XCircle, DollarSign, Trophy, AlertTriangle, HelpCircle, ArrowRight, Activity, Zap } from 'lucide-react';
+import {
+  TrendingUp, Users, Target, UserPlus, Calendar,
+  CheckCircle, XCircle, DollarSign, Trophy, AlertTriangle,
+  HelpCircle, ArrowRight, Activity, Zap, BarChart3, Clock
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import topSellersEmptyState from '@/assets/top-sellers-empty.gif';
 import { useNavigate } from 'react-router-dom';
@@ -349,342 +352,328 @@ const Dashboard = () => {
     );
   }
 
-  // ========== METRIC CARD COMPONENT ==========
+  // ========== METRIC CARD ==========
   const MetricTile = ({
     title,
     value,
     subtitle,
     icon: Icon,
-    accentColor,
-    tooltip
+    iconBg,
+    iconColor,
+    tooltip,
   }: {
     title: string;
     value: string | number;
     subtitle?: string;
     icon: React.ElementType;
-    accentColor: string;
-    tooltip?: string;
+    iconBg: string;
+    iconColor: string;
+    tooltip: string;
   }) => (
-    <div className="group relative overflow-hidden rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-5 transition-all duration-300 hover:border-border hover:bg-card hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20">
-      <div className={`absolute top-0 left-0 w-1 h-full ${accentColor} opacity-60 group-hover:opacity-100 transition-opacity`} />
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              {title}
-            </span>
-            {tooltip && (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-3 w-3 text-muted-foreground/40 hover:text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px] text-xs">
-                    {tooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="rounded-[6px] border border-border/60 bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-medium text-muted-foreground">{title}</span>
+              <div className={`w-8 h-8 rounded-[6px] flex items-center justify-center ${iconBg}`}>
+                <Icon className={`w-4 h-4 ${iconColor}`} />
+              </div>
+            </div>
+            <div className="text-2xl font-bold tracking-tight">{value}</div>
+            {subtitle && (
+              <p className="text-[11px] text-muted-foreground mt-1">{subtitle}</p>
             )}
           </div>
-          <div className="text-2xl font-bold tracking-tight">{value}</div>
-          {subtitle && (
-            <div className="text-xs text-muted-foreground mt-1">{subtitle}</div>
-          )}
-        </div>
-        <div className={`p-2.5 rounded-lg ${accentColor.replace('bg-', 'bg-').replace('-500', '-500/10')} transition-transform duration-300 group-hover:scale-110`}>
-          <Icon className={`w-4 h-4 ${accentColor.replace('bg-', 'text-').replace('-500', '-500')}`} />
-        </div>
-      </div>
-    </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px] text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
+
+  const formatCurrency = (val: number) =>
+    `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <div className="sticky top-0 z-10 border-b border-border/40 bg-background/90 backdrop-blur-lg">
         <div className="px-6 py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Visão geral da performance
-              </p>
+              <h1 className="text-lg font-semibold tracking-tight">Dashboard</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Visão geral da performance</p>
             </div>
             <DashboardFilters period={period} onPeriodChange={setPeriod} />
           </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
-        {/* Row 1: Primary Metrics */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-medium text-muted-foreground">Métricas Principais</h2>
-          </div>
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-            <MetricTile
-              title="Leads Totais"
-              value={totalLeadsValue}
-              icon={Users}
-              accentColor="bg-blue-500"
-              tooltip="Total de leads captados no período"
-            />
-            <MetricTile
-              title="MQL"
-              value={mqlValue}
-              icon={Target}
-              accentColor="bg-purple-500"
-              tooltip="Leads que viraram clientes"
-            />
-            <MetricTile
-              title="Taxa MQL"
-              value={`${mqlRate}%`}
-              icon={TrendingUp}
-              accentColor="bg-emerald-500"
-              tooltip="Percentual de conversão em MQL"
-            />
-            <MetricTile
-              title="Leads Hoje"
-              value={todayLeadsValue}
-              icon={UserPlus}
-              accentColor="bg-amber-500"
-              tooltip="Novos leads criados hoje"
-            />
-          </div>
-        </section>
+      <div className="p-6 space-y-5">
+        {/* Primary Metrics — 4 cards */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <MetricTile
+            title="Leads Totais"
+            value={totalLeadsValue}
+            subtitle={period === 'today' ? 'captados hoje' : `captados no período`}
+            icon={Users}
+            iconBg="bg-blue-500/10"
+            iconColor="text-blue-500"
+            tooltip="Total de leads captados no período selecionado, independentemente do status no funil"
+          />
+          <MetricTile
+            title="Leads Qualificados"
+            value={mqlValue}
+            subtitle={`taxa de ${mqlRate}%`}
+            icon={Target}
+            iconBg="bg-violet-500/10"
+            iconColor="text-violet-500"
+            tooltip="Leads que foram convertidos em clientes (chegaram à etapa 'Ganho' no funil)"
+          />
+          <MetricTile
+            title="Leads Hoje"
+            value={todayLeadsValue}
+            subtitle="entradas do dia"
+            icon={UserPlus}
+            iconBg="bg-amber-500/10"
+            iconColor="text-amber-500"
+            tooltip="Quantidade de novos leads criados hoje, independente do filtro de período"
+          />
+          <MetricTile
+            title="Leads no Funil"
+            value={leadsInFunnelValue}
+            subtitle="em etapas ativas"
+            icon={Activity}
+            iconBg="bg-cyan-500/10"
+            iconColor="text-cyan-500"
+            tooltip="Total de leads que estão em etapas ativas do funil, excluindo 'Ganho' e 'Perdido'"
+          />
+        </div>
 
-        {/* Row 2: Meetings */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-medium text-muted-foreground">Reuniões</h2>
-          </div>
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-            <MetricTile
-              title="Agendadas"
-              value={appointmentCountValue}
-              icon={Calendar}
-              accentColor="bg-blue-500"
-              tooltip="Leads com reunião agendada"
-            />
-            <MetricTile
-              title="Realizadas vs No-show"
-              value="—"
-              icon={CheckCircle}
-              accentColor="bg-green-500"
-              tooltip="Em desenvolvimento"
-            />
-            <MetricTile
-              title="Taxa No-show"
-              value="—"
-              icon={XCircle}
-              accentColor="bg-red-500"
-              tooltip="Em desenvolvimento"
-            />
-          </div>
-        </section>
+        {/* Secondary Metrics — Reuniões + Vendas */}
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          <MetricTile
+            title="Reuniões Agendadas"
+            value={appointmentCountValue}
+            subtitle="com evento no calendário"
+            icon={Calendar}
+            iconBg="bg-sky-500/10"
+            iconColor="text-sky-500"
+            tooltip="Leads que possuem pelo menos um evento de calendário vinculado no período"
+          />
+          <MetricTile
+            title="Reuniões Realizadas"
+            value="—"
+            subtitle="em desenvolvimento"
+            icon={CheckCircle}
+            iconBg="bg-emerald-500/10"
+            iconColor="text-emerald-500"
+            tooltip="Reuniões que foram de fato realizadas. Funcionalidade em desenvolvimento"
+          />
+          <MetricTile
+            title="Taxa No-show"
+            value="—"
+            subtitle="em desenvolvimento"
+            icon={XCircle}
+            iconBg="bg-red-500/10"
+            iconColor="text-red-500"
+            tooltip="Percentual de reuniões agendadas onde o lead não compareceu. Em desenvolvimento"
+          />
+          <MetricTile
+            title="Receita do Período"
+            value={formatCurrency(monthRevenueValue)}
+            subtitle={`${soldTotalValue} vendas fechadas`}
+            icon={DollarSign}
+            iconBg="bg-emerald-500/10"
+            iconColor="text-emerald-500"
+            tooltip="Soma do valor financeiro de todas as vendas fechadas (leads na etapa 'Ganho') no período"
+          />
+        </div>
 
-        {/* Row 3: Sales */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <DollarSign className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-medium text-muted-foreground">Vendas</h2>
-          </div>
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-            <MetricTile
-              title="Receita do Período"
-              value={`R$ ${monthRevenueValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-              icon={DollarSign}
-              accentColor="bg-emerald-500"
-              tooltip="Soma do valor das vendas"
-            />
-            <MetricTile
-              title="Vendas Fechadas"
-              value={soldTotalValue}
-              icon={Trophy}
-              accentColor="bg-primary"
-              tooltip="Quantidade de vendas no período"
-            />
-            <MetricTile
-              title="Leads no Funil"
-              value={leadsInFunnelValue}
-              icon={Users}
-              accentColor="bg-cyan-500"
-              tooltip="Leads em etapas ativas"
-            />
-            <div className="group relative overflow-hidden rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-5 transition-all duration-300 hover:border-border hover:bg-card hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20">
-              <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500 opacity-60 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Top Vendedores
-                    </span>
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3 w-3 text-muted-foreground/40 hover:text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[200px] text-xs">
-                          Ranking por receita no período
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <div className="text-2xl font-bold tracking-tight">
-                    {topSellers.length > 0 ? topSellers.length : '—'}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {topSellers.length > 0 ? 'vendedores ativos' : 'sem vendas'}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-lg bg-yellow-500/10 transition-transform duration-300 group-hover:scale-110">
-                  <Trophy className="w-4 h-4 text-yellow-500" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Row 4: Bottleneck + Top Sellers */}
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-          {/* Bottleneck Card */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-amber-500/10">
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                </div>
-                <CardTitle className="text-base font-semibold">Gargalo do Funil</CardTitle>
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[200px] text-xs">
-                      Etapa com maior acúmulo de leads
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {bottleneck && bottleneck.lead_count > 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center border border-amber-500/20">
-                    <Zap className="w-6 h-6 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold">{bottleneck.name}</p>
-                    <p className="text-muted-foreground text-sm mt-1">
-                      <span className="font-medium text-amber-600 dark:text-amber-400">{bottleneck.lead_count}</span> leads parados
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground max-w-[220px]">
-                    Considere ações para destravar a conversão nesta etapa
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 flex items-center justify-center border border-emerald-500/20">
-                    <CheckCircle className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <p className="text-sm font-medium">Nenhum gargalo</p>
-                  <p className="text-xs text-muted-foreground">Leads fluindo normalmente</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Top 5 Sellers Card */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-yellow-500/10">
-                    <Trophy className="w-4 h-4 text-yellow-500" />
-                  </div>
-                  <CardTitle className="text-base font-semibold">Top 5 Vendedores</CardTitle>
-                </div>
-                {topSellers.length > 0 && (
-                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
-                    {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
-                  </span>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {topSellersLoading ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <Skeleton className="h-8 w-8 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-24 mb-1" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
+        {/* Bottom Row — Gargalo + Top Vendedores */}
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+          {/* Gargalo do Funil */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="rounded-[6px] border border-border/60 bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-[6px] bg-amber-500/10 flex items-center justify-center">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
                     </div>
-                  ))}
+                    <h3 className="text-sm font-medium">Gargalo do Funil</h3>
+                  </div>
+                  {bottleneck && bottleneck.lead_count > 0 ? (
+                    <div className="flex flex-col items-center py-4 text-center space-y-2">
+                      <div className="w-12 h-12 rounded-[6px] bg-gradient-to-br from-amber-500/15 to-orange-500/15 flex items-center justify-center border border-amber-500/15">
+                        <Zap className="w-5 h-5 text-amber-500" />
+                      </div>
+                      <p className="text-base font-semibold">{bottleneck.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold text-amber-600 dark:text-amber-400">{bottleneck.lead_count}</span> leads acumulados
+                      </p>
+                      <p className="text-[11px] text-muted-foreground max-w-[200px]">
+                        Etapa com maior volume de leads parados — considere ações de conversão
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center py-4 text-center space-y-2">
+                      <div className="w-12 h-12 rounded-[6px] bg-gradient-to-br from-emerald-500/15 to-green-500/15 flex items-center justify-center border border-emerald-500/15">
+                        <CheckCircle className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      <p className="text-sm font-medium">Nenhum gargalo</p>
+                      <p className="text-[11px] text-muted-foreground">Leads fluindo normalmente</p>
+                    </div>
+                  )}
                 </div>
-              ) : topSellers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-20 h-20 mb-3 opacity-80" />
-                  <p className="text-sm text-muted-foreground">Nenhuma venda no período</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {topSellers.map((seller, index) => {
-                    const maxRevenue = topSellers[0]?.total_revenue || 1;
-                    const percentage = (seller.total_revenue / maxRevenue) * 100;
-                    const positionColors = [
-                      'bg-yellow-500 text-yellow-950',
-                      'bg-slate-400 text-slate-950',
-                      'bg-amber-600 text-amber-950',
-                      'bg-muted text-muted-foreground',
-                      'bg-muted text-muted-foreground'
-                    ];
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[220px] text-xs">
+                Etapa do funil com maior acúmulo de leads, indicando possível ponto de travamento na conversão
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-                    return (
-                      <div key={seller.user_id} className="group">
-                        <div className="flex items-center gap-3 mb-1.5">
-                          <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0 ${positionColors[index]}`}>
-                            {index + 1}
-                          </span>
-                          <Avatar className="h-7 w-7 shrink-0">
-                            <AvatarImage src={seller.avatar_url || undefined} />
-                            <AvatarFallback className="text-[10px] bg-muted">
-                              {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{seller.full_name}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
-                              <span className="text-muted-foreground/50">•</span>
-                              <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                R$ {seller.total_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                              </span>
-                            </div>
+          {/* Top 5 Vendedores */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="rounded-[6px] border border-border/60 bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-[6px] bg-yellow-500/10 flex items-center justify-center">
+                        <Trophy className="w-4 h-4 text-yellow-500" />
+                      </div>
+                      <h3 className="text-sm font-medium">Top 5 Vendedores</h3>
+                    </div>
+                    {topSellers.length > 0 && (
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
+                      </span>
+                    )}
+                  </div>
+
+                  {topSellersLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <Skeleton className="h-7 w-7 rounded-full" />
+                          <div className="flex-1">
+                            <Skeleton className="h-3.5 w-24 mb-1" />
+                            <Skeleton className="h-3 w-16" />
                           </div>
                         </div>
-                        <div className="pl-[76px]">
-                          <Progress value={percentage} className="h-1" />
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <button
-                    onClick={() => navigate('/ranking')}
-                    className="w-full flex items-center justify-center gap-1 pt-3 text-xs text-muted-foreground hover:text-foreground transition-colors border-t border-border/50 mt-3"
-                  >
-                    Ver ranking completo <ArrowRight className="w-3 h-3" />
-                  </button>
+                      ))}
+                    </div>
+                  ) : topSellers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-4 text-center">
+                      <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-16 h-16 mb-2 opacity-70" />
+                      <p className="text-xs text-muted-foreground">Nenhuma venda no período</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {topSellers.map((seller, index) => {
+                        const maxRevenue = topSellers[0]?.total_revenue || 1;
+                        const percentage = (seller.total_revenue / maxRevenue) * 100;
+                        const positionColors = [
+                          'bg-yellow-500 text-yellow-950',
+                          'bg-slate-400 text-slate-950',
+                          'bg-amber-600 text-amber-950',
+                          'bg-muted text-muted-foreground',
+                          'bg-muted text-muted-foreground'
+                        ];
+
+                        return (
+                          <div key={seller.user_id}>
+                            <div className="flex items-center gap-3 mb-1">
+                              <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0 ${positionColors[index]}`}>
+                                {index + 1}
+                              </span>
+                              <Avatar className="h-6 w-6 shrink-0">
+                                <AvatarImage src={seller.avatar_url || undefined} />
+                                <AvatarFallback className="text-[9px] bg-muted">
+                                  {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{seller.full_name}</p>
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
+                                  <span className="text-muted-foreground/40">·</span>
+                                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                                    {formatCurrency(seller.total_revenue)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="pl-[68px]">
+                              <Progress value={percentage} className="h-1" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <button
+                        onClick={() => navigate('/ranking')}
+                        className="w-full flex items-center justify-center gap-1 pt-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors border-t border-border/40 mt-2"
+                      >
+                        Ver ranking completo <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[220px] text-xs">
+                Ranking dos 5 vendedores com maior receita no período, ordenados por valor total de vendas
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
+
+        {/* Funil por Etapa */}
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="rounded-[6px] border border-border/60 bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-[6px] bg-primary/10 flex items-center justify-center">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                  </div>
+                  <h3 className="text-sm font-medium">Distribuição por Etapa</h3>
+                </div>
+                {funnelStages && funnelStages.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {funnelStages.map(stage => {
+                      const maxCount = Math.max(...funnelStages.map(s => s.lead_count), 1);
+                      const pct = (stage.lead_count / maxCount) * 100;
+                      const stageColor =
+                        stage.stage_type === 'won' ? 'bg-emerald-500' :
+                        stage.stage_type === 'lost' ? 'bg-red-400' :
+                        'bg-primary';
+                      return (
+                        <div key={stage.id} className="flex items-center gap-3">
+                          <span className="text-[11px] text-muted-foreground w-24 truncate shrink-0">{stage.name}</span>
+                          <div className="flex-1 h-2 rounded-full bg-muted/60 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${stageColor} transition-all duration-500`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[11px] font-medium tabular-nums w-8 text-right">{stage.lead_count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-4">Nenhuma etapa cadastrada</p>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[220px] text-xs">
+              Quantidade de leads em cada etapa do funil, mostrando a distribuição atual do pipeline
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
