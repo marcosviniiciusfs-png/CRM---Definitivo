@@ -1142,7 +1142,56 @@ const Pipeline = () => {
     }
 
     return result;
-  }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange]);
+  }, [leadsWithFormattedDates, searchTerm, sourceFilter, responsibleFilter, dateRange]);
+
+  // Ordenação da lista
+  const sortedLeads = useMemo(() => {
+    return [...filteredLeads].sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'created_at':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'valor':
+          comparison = (a.valor || 0) - (b.valor || 0);
+          break;
+        case 'nome_lead':
+          comparison = (a.nome_lead || '').localeCompare(b.nome_lead || '');
+          break;
+        default:
+          comparison = 0;
+      }
+      return sortDirection === 'desc' ? -comparison : comparison;
+    });
+  }, [filteredLeads, sortField, sortDirection]);
+
+  // Funções de seleção
+  const handleToggleSelect = useCallback((leadId: string) => {
+    setSelectedLeadIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(leadId)) {
+        newSet.delete(leadId);
+      } else {
+        newSet.add(leadId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback((checked: boolean) => {
+    if (checked) {
+      setSelectedLeadIds(new Set(sortedLeads.map(l => l.id)));
+    } else {
+      setSelectedLeadIds(new Set());
+    }
+  }, [sortedLeads]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedLeadIds(new Set());
+  }, []);
+
+  const isAllSelected = sortedLeads.length > 0 && sortedLeads.every(l => selectedLeadIds.has(l.id));
+  const isSomeSelected = selectedLeadIds.size > 0;
 
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
