@@ -11,7 +11,7 @@ import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, List, LayoutGrid } from "lucide-react";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
@@ -101,7 +101,6 @@ const Pipeline = () => {
   // States for features migrated from Leads page
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [responsibleFilter, setResponsibleFilter] = useState<string>("all");
   const [colaboradores, setColaboradores] = useState<any[]>([]);
@@ -171,6 +170,13 @@ const Pipeline = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Handler para mudança de ordenação
+  const handleSortChange = useCallback((value: string) => {
+    const [field, direction] = value.split('-');
+    setSortField(field);
+    setSortDirection(direction as 'asc' | 'desc');
+  }, []);
 
   // Atualiza a posição e tamanho do thumb da scrollbar
   const updateScrollbarThumb = useCallback(() => {
@@ -1118,10 +1124,6 @@ const Pipeline = () => {
       );
     }
 
-    if (statusFilter !== "all") {
-      result = result.filter(lead => (lead.stage || "NOVO") === statusFilter);
-    }
-
     if (sourceFilter !== "all") {
       result = result.filter(lead => (lead.source || "") === sourceFilter);
     }
@@ -1742,18 +1744,6 @@ const Pipeline = () => {
                   className="pl-9 h-9"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-[145px] bg-background">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="NOVO">Novo</SelectItem>
-                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                  <SelectItem value="FECHADO">Fechado</SelectItem>
-                  <SelectItem value="PERDIDO">Perdido</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
                 <SelectTrigger className="h-9 w-[145px] bg-background">
                   <SelectValue placeholder="Origem" />
