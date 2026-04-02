@@ -1806,6 +1806,41 @@ const Pipeline = () => {
                   />
                 </PopoverContent>
               </Popover>
+
+              {/* Ordenação */}
+              <Select value={`${sortField}-${sortDirection}`} onValueChange={handleSortChange}>
+                <SelectTrigger className="h-9 w-[160px] bg-background">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at-desc">Data criação (mais novos)</SelectItem>
+                  <SelectItem value="created_at-asc">Data criação (mais antigos)</SelectItem>
+                  <SelectItem value="valor-desc">Valor (maior)</SelectItem>
+                  <SelectItem value="valor-asc">Valor (menor)</SelectItem>
+                  <SelectItem value="nome_lead-asc">Nome (A-Z)</SelectItem>
+                  <SelectItem value="nome_lead-desc">Nome (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Toggle Funil/Lista */}
+              <div className="flex border rounded-md overflow-hidden ml-auto">
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-none"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="h-4 w-4 mr-1" /> Lista
+                </Button>
+                <Button
+                  variant={viewMode === 'funnel' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-none border-l"
+                  onClick={() => setViewMode('funnel')}
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" /> Funil
+                </Button>
+              </div>
             </div>
           </div>
 
