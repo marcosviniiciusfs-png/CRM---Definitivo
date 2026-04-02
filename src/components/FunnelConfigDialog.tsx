@@ -70,8 +70,10 @@ export const FunnelConfigDialog = ({
         return;
       }
 
-      if (funnel) {
-        // Atualizar funil existente (permitido para todos os funis, incluindo o padrão)
+      const existingId = funnel?.id || funnelId;
+
+      if (existingId) {
+        // Atualizar funil existente (inclui novos funis já salvos nesta sessão)
         const { error } = await supabase
           .from("sales_funnels")
           .update({
@@ -81,7 +83,7 @@ export const FunnelConfigDialog = ({
             icon: icon || null,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", funnel.id);
+          .eq("id", existingId);
 
         if (error) throw error;
         toast.success("Funil atualizado!");
@@ -135,7 +137,9 @@ export const FunnelConfigDialog = ({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {funnel ? (funnel.is_default ? "Configurar Funil Padrão" : "Editar Funil") : "Novo Funil"}
+            {funnel
+              ? (funnel.is_default ? "Configurar Funil Padrão" : "Editar Funil")
+              : funnelId ? "Editar Funil" : "Novo Funil"}
           </DialogTitle>
           {funnel?.is_default && (
             <p className="text-sm text-muted-foreground mt-2">
