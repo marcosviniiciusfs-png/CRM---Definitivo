@@ -187,7 +187,11 @@ export const PipelineColumn = memo(({
     prevProps.profilesMap === nextProps.profilesMap &&
     prevProps.duplicateLeadIds === nextProps.duplicateLeadIds &&
     prevProps.agendamentosMap === nextProps.agendamentosMap &&
-    prevProps.redistributedMap === nextProps.redistributedMap
+    prevProps.redistributedMap === nextProps.redistributedMap &&
+    prevProps.pagination?.loadedCount === nextProps.pagination?.loadedCount &&
+    prevProps.pagination?.totalCount === nextProps.pagination?.totalCount &&
+    prevProps.pagination?.isLoading === nextProps.pagination?.isLoading &&
+    prevProps.pagination?.hasMore === nextProps.pagination?.hasMore
   );
 });
 
