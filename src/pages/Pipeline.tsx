@@ -166,6 +166,12 @@ const Pipeline = () => {
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Estado para alternar entre visão funil e lista
+  const [viewMode, setViewMode] = useState<'funnel' | 'list'>('funnel');
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Atualiza a posição e tamanho do thumb da scrollbar
   const updateScrollbarThumb = useCallback(() => {
     if (scrollContainerRef.current) {
