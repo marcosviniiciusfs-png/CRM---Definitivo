@@ -1,0 +1,179 @@
+<h2>Design Final: Visão de Lista com Seleção Múltipla</h2>
+<p class="subtitle">Pipeline.tsx com toggle entre Funil e Lista</p>
+
+<div class="mockup">
+  <div class="mockup-header">
+    <span style="font-weight:600;">Pipeline - Visão Lista</span>
+  </div>
+  <div class="mockup-body">
+    <!-- Linha 1: Título + Ações -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div>
+        <div style="font-size:14px;font-weight:700;">Funil de Vendas</div>
+        <div style="font-size:10px;color:#64748b;">Gerencie seus leads em lista ou arraste no funil</div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <div class="mock-button" style="font-size:10px;padding:4px 8px;">⚙️ Gerenciar</div>
+        <div class="mock-button" style="font-size:10px;padding:4px 8px;">📥 Exportar</div>
+        <div class="mock-button" style="font-size:10px;padding:4px 8px;background:#22c55e;color:white;">+ Adicionar Lead</div>
+      </div>
+    </div>
+
+    <!-- Linha 2: Busca + Filtros + Toggle -->
+    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+      <div class="mock-input" style="width:140px;font-size:10px;">🔍 Buscar por nome, email...</div>
+
+      <!-- REMOVIDO: Filtro de Status -->
+
+      <div class="mock-button" style="font-size:10px;background:#e2e8f0;">Origem ▾</div>
+      <div class="mock-button" style="font-size:10px;background:#e2e8f0;">Responsável ▾</div>
+      <div class="mock-button" style="font-size:10px;background:#e2e8f0;">📅 Período</div>
+
+      <!-- Ordenação -->
+      <div class="mock-button" style="font-size:10px;background:#e2e8f0;">⇅ Data criação ▾</div>
+
+      <!-- Toggle Funil/Lista -->
+      <div style="margin-left:auto;display:flex;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+        <div class="mock-button" style="font-size:10px;background:#3b82f6;color:white;border-radius:0;">📋 Lista</div>
+        <div class="mock-button" style="font-size:10px;background:white;border-radius:0;border-left:1px solid #e2e8f0;">📊 Funil</div>
+      </div>
+    </div>
+
+    <!-- Barra de Ações em Lote (aparece quando há seleção) -->
+    <div style="background:#eff6ff;border:1px solid #3b82f6;border-radius:6px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;">
+      <input type="checkbox" checked style="width:14px;height:14px;">
+      <span style="font-size:11px;color:#1e40af;font-weight:600;">3 leads selecionados</span>
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;padding:4px 8px;">👤 Atribuir</div>
+        <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;padding:4px 8px;">📁 Mover Etapa</div>
+        <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;padding:4px 8px;">🏷️ Tags</div>
+        <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;padding:4px 8px;">📥 Exportar</div>
+        <div class="mock-button" style="font-size:9px;background:#ef4444;color:white;padding:4px 8px;">🗑️ Excluir</div>
+      </div>
+      <div class="mock-button" style="font-size:9px;background:#e2e8f0;padding:4px 8px;">✕ Cancelar</div>
+    </div>
+
+    <!-- Tabela de Lista -->
+    <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+      <!-- Header -->
+      <div style="background:#f8fafc;display:flex;padding:8px 12px;font-size:10px;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;align-items:center;">
+        <input type="checkbox" style="width:14px;height:14px;margin-right:8px;">
+        <span style="width:140px;">Nome</span>
+        <span style="width:100px;">Telefone</span>
+        <span style="width:80px;">Tag</span>
+        <span style="width:90px;">Etapa</span>
+        <span style="width:80px;">Resp.</span>
+        <span style="width:70px;">Valor</span>
+        <span style="width:60px;">Ações</span>
+      </div>
+
+      <!-- Row 1 - Selecionada -->
+      <div style="display:flex;padding:8px 12px;font-size:10px;border-bottom:1px solid #f1f5f9;background:#eff6ff;align-items:center;">
+        <input type="checkbox" checked style="width:14px;height:14px;margin-right:8px;">
+        <span style="width:140px;font-weight:500;">João Silva</span>
+        <span style="width:100px;color:#64748b;">(11) 99999-0001</span>
+        <span style="width:80px;"><span style="background:#f97316;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Urgente</span></span>
+        <span style="width:90px;"><span style="background:#3b82f6;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Novo Lead</span></span>
+        <span style="width:80px;">Carlos</span>
+        <span style="width:70px;font-weight:500;">R$ 5.000</span>
+        <span style="width:60px;display:flex;gap:2px;">
+          <span style="cursor:pointer;">✏️</span>
+          <span style="cursor:pointer;">🗑️</span>
+        </span>
+      </div>
+
+      <!-- Row 2 - Selecionada -->
+      <div style="display:flex;padding:8px 12px;font-size:10px;border-bottom:1px solid #f1f5f9;background:#eff6ff;align-items:center;">
+        <input type="checkbox" checked style="width:14px;height:14px;margin-right:8px;">
+        <span style="width:140px;font-weight:500;">Maria Santos</span>
+        <span style="width:100px;color:#64748b;">(11) 99999-0002</span>
+        <span style="width:80px;"><span style="background:#22c55e;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Quente</span></span>
+        <span style="width:90px;"><span style="background:#3b82f6;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Novo Lead</span></span>
+        <span style="width:80px;color:#94a3b8;">—</span>
+        <span style="width:70px;font-weight:500;">R$ 3.000</span>
+        <span style="width:60px;display:flex;gap:2px;">
+          <span style="cursor:pointer;">✏️</span>
+          <span style="cursor:pointer;">🗑️</span>
+        </span>
+      </div>
+
+      <!-- Row 3 - Selecionada -->
+      <div style="display:flex;padding:8px 12px;font-size:10px;border-bottom:1px solid #f1f5f9;background:#eff6ff;align-items:center;">
+        <input type="checkbox" checked style="width:14px;height:14px;margin-right:8px;">
+        <span style="width:140px;font-weight:500;">Pedro Costa</span>
+        <span style="width:100px;color:#64748b;">(11) 99999-0003</span>
+        <span style="width:80px;color:#94a3b8;">—</span>
+        <span style="width:90px;"><span style="background:#06b6d4;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Qualificação</span></span>
+        <span style="width:80px;">Ana</span>
+        <span style="width:70px;font-weight:500;">R$ 8.000</span>
+        <span style="width:60px;display:flex;gap:2px;">
+          <span style="cursor:pointer;">✏️</span>
+          <span style="cursor:pointer;">🗑️</span>
+        </span>
+      </div>
+
+      <!-- Row 4 - Não selecionada -->
+      <div style="display:flex;padding:8px 12px;font-size:10px;border-bottom:1px solid #f1f5f9;align-items:center;">
+        <input type="checkbox" style="width:14px;height:14px;margin-right:8px;">
+        <span style="width:140px;font-weight:500;">Ana Lima</span>
+        <span style="width:100px;color:#64748b;">(11) 99999-0004</span>
+        <span style="width:80px;"><span style="background:#8b5cf6;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">VIP</span></span>
+        <span style="width:90px;"><span style="background:#06b6d4;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Qualificação</span></span>
+        <span style="width:80px;">Carlos</span>
+        <span style="width:70px;font-weight:500;">R$ 2.500</span>
+        <span style="width:60px;display:flex;gap:2px;">
+          <span style="cursor:pointer;">✏️</span>
+          <span style="cursor:pointer;">🗑️</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Paginação -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10px;color:#64748b;">
+      <span>Exibindo 1-50 de 850 leads</span>
+      <div style="display:flex;gap:4px;">
+        <div class="mock-button" style="font-size:9px;background:#e2e8f0;padding:4px 8px;">← Anterior</div>
+        <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;padding:4px 8px;">1</div>
+        <div class="mock-button" style="font-size:9px;background:#e2e8f0;padding:4px 8px;">2</div>
+        <div class="mock-button" style="font-size:9px;background:#e2e8f0;padding:4px 8px;">3</div>
+        <div class="mock-button" style="font-size:9px;background:#e2e8f0;padding:4px 8px;">...</div>
+        <div class="mock-button" style="font-size:9px;background:#e2e8f0;padding:4px 8px;">17</div>
+        <div class="mock-button" style="font-size:9px;background:#e2e8f0;padding:4px 8px;">Próximo →</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px;">
+  <h3>Funcionalidades Confirmadas:</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:11px;">
+    <div style="background:#f8fafc;padding:12px;border-radius:8px;">
+      <strong style="color:#22c55e;">✓ Colunas:</strong>
+      <ul style="margin:4px 0 0 16px;color:#475569;">
+        <li>Nome</li>
+        <li>Telefone</li>
+        <li>Tag</li>
+        <li>Etapa</li>
+        <li>Responsável</li>
+        <li>Valor</li>
+      </ul>
+    </div>
+    <div style="background:#f8fafc;padding:12px;border-radius:8px;">
+      <strong style="color:#22c55e;">✓ Ações em Lote:</strong>
+      <ul style="margin:4px 0 0 16px;color:#475569;">
+        <li>Atribuir responsável</li>
+        <li>Mover etapa</li>
+        <li>Adicionar/Remover tags</li>
+        <li>Exportar (selecionados ou todos)</li>
+        <li>Excluir</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px;margin-top:12px;">
+  <strong style="color:#92400e;">⚠️ Remover:</strong>
+  <span style="color:#78350f;font-size:11px;">Filtro "Todos os Status" será removido (confuso com etapas do funil)</span>
+</div>
+
+<p style="margin-top:16px;font-size:12px;color:#64748b;">Esse é o design final? Posso prosseguir com a implementação?</p>

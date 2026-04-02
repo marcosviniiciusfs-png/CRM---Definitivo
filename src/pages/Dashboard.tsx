@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationReady } from '@/hooks/useOrganizationReady';
@@ -9,10 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Users, Target, UserPlus, Calendar,
-  CheckCircle, XCircle, DollarSign, Trophy,
+  Users, Target, Calendar,
+  DollarSign, Trophy,
   ArrowRight, Activity, Info, AlertTriangle,
-  TrendingUp, Percent, Clock
+  Percent
 } from 'lucide-react';
 import topSellersEmptyState from '@/assets/top-sellers-empty.gif';
 import { useNavigate } from 'react-router-dom';
@@ -34,16 +34,13 @@ interface FunnelStage {
   lead_count: number;
 }
 
-// ─── Color Palette ───────────────────────────────────────────────────────────
-const C = {
-  green: '#00e5a0',
-  blue: '#4d9eff',
-  amber: '#f5a623',
-  purple: '#b57aff',
-  red: '#ff5f5f',
-  bg: '#0a0b0f',
-  cardBg: 'rgba(255,255,255,0.03)',
-  cardBorder: 'rgba(255,255,255,0.07)',
+// ─── Accent colors for metric values (work on both themes) ───────────────────
+const accent = {
+  blue: 'text-blue-500 dark:text-blue-400',
+  green: 'text-emerald-600 dark:text-emerald-400',
+  purple: 'text-violet-500 dark:text-violet-400',
+  amber: 'text-amber-500 dark:text-amber-400',
+  red: 'text-red-500 dark:text-red-400',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -57,54 +54,38 @@ const StatCard = ({
   title,
   value,
   subtitle,
-  color,
+  accentClass,
   tooltip,
   children,
 }: {
   title: string;
   value: string | number;
   subtitle?: string;
-  color: string;
+  accentClass: string;
   tooltip: string;
   children?: React.ReactNode;
 }) => (
   <TooltipProvider delayDuration={200}>
     <Tooltip>
       <TooltipTrigger asChild>
-        <div
-          style={{
-            background: C.cardBg,
-            border: `0.5px solid ${C.cardBorder}`,
-            borderRadius: 13,
-            padding: 20,
-            cursor: 'default',
-            transition: 'border-color .2s, box-shadow .2s',
-          }}
-          className="hover:shadow-lg hover:border-white/10 transition-all"
-        >
+        <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               {title}
             </span>
-            <Info className="w-3.5 h-3.5 text-white/20" />
+            <Info className="w-3.5 h-3.5 text-muted-foreground/40" />
           </div>
-          <div
-            style={{ fontFamily: "'JetBrains Mono', monospace", color, fontWeight: 700 }}
-            className="text-2xl tracking-tight leading-none"
-          >
+          <div className={`text-2xl font-bold tracking-tight leading-none ${accentClass}`}
+               style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             {value}
           </div>
           {subtitle && (
-            <p className="text-[11px] text-white/35 mt-1.5">{subtitle}</p>
+            <p className="text-[11px] text-muted-foreground mt-1.5">{subtitle}</p>
           )}
           {children}
         </div>
       </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        className="max-w-[240px] text-xs z-[99999]"
-        style={{ position: 'fixed' }}
-      >
+      <TooltipContent side="top" className="max-w-[240px] text-xs">
         {tooltip}
       </TooltipContent>
     </Tooltip>
@@ -114,10 +95,10 @@ const StatCard = ({
 // ─── Section Label ───────────────────────────────────────────────────────────
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
   <div className="flex items-center gap-3 mb-4">
-    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">
+    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
       {children}
     </span>
-    <div className="flex-1 h-px bg-white/[0.05]" />
+    <div className="flex-1 h-px bg-border/40" />
   </div>
 );
 
@@ -176,27 +157,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 3. Leads Hoje
-  const { data: todayLeads } = useQuery({
-    queryKey: ['dashboard-today-leads', organizationId],
-    queryFn: async () => {
-      if (!organizationId) return 0;
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-      const { count } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', organizationId)
-        .gte('created_at', todayStart.toISOString())
-        .lte('created_at', todayEnd.toISOString());
-      return count || 0;
-    },
-    enabled: !!organizationId,
-    staleTime: 1000 * 60 * 2,
-  });
-
-  // 4. Reuniões Agendadas (leads com calendar_event_id)
+  // 3. Reuniões Agendadas
   const { data: appointmentCount } = useQuery({
     queryKey: ['dashboard-appointments', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -214,7 +175,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 5. Receita do período
+  // 4. Receita do período
   const { data: monthRevenue } = useQuery({
     queryKey: ['dashboard-month-revenue', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -241,7 +202,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 6. Contratos fechados no período (won leads com data_conclusao)
+  // 5. Contratos fechados
   const { data: soldTotal } = useQuery({
     queryKey: ['dashboard-sold-total', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -267,7 +228,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 7. Leads no funil (etapas ativas)
+  // 6. Leads no funil
   const { data: leadsInFunnel } = useQuery({
     queryKey: ['dashboard-leads-funnel', organizationId],
     queryFn: async () => {
@@ -291,7 +252,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 8. Top Vendedores
+  // 7. Top Vendedores
   const { data: topSellersResult } = useQuery({
     queryKey: ['dashboard-top-sellers', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -351,13 +312,12 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 9. Funil por etapa — top 3 etapas com mais leads (deduplicado por nome)
+  // 8. Funil por etapa — top 3 deduplicado
   const { data: funnelStages } = useQuery({
     queryKey: ['dashboard-funnel-stages', organizationId],
     queryFn: async (): Promise<FunnelStage[]> => {
       if (!organizationId) return [];
 
-      // Busca funis da organização
       const { data: funnels } = await supabase
         .from('sales_funnels')
         .select('id')
@@ -365,7 +325,6 @@ const Dashboard = () => {
       const funnelIds = (funnels || []).map(f => f.id);
       if (funnelIds.length === 0) return [];
 
-      // Busca etapas apenas dos funis da org
       const { data: stages } = await supabase
         .from('funnel_stages')
         .select('id, name, stage_type, position')
@@ -373,7 +332,6 @@ const Dashboard = () => {
         .order('position', { ascending: true });
       if (!stages || stages.length === 0) return [];
 
-      // Conta leads por etapa
       const { data: leads } = await supabase
         .from('leads')
         .select('funnel_stage_id')
@@ -383,7 +341,6 @@ const Dashboard = () => {
         if (l.funnel_stage_id) counts[l.funnel_stage_id] = (counts[l.funnel_stage_id] || 0) + 1;
       });
 
-      // Agrupa por nome (deduplica) somando os leads
       const merged: Record<string, FunnelStage> = {};
       stages.forEach(s => {
         const c = counts[s.id] || 0;
@@ -394,7 +351,6 @@ const Dashboard = () => {
         }
       });
 
-      // Ordena por volume e pega as 3 maiores (excluindo won/lost)
       return Object.values(merged)
         .filter(s => s.stage_type !== 'won' && s.stage_type !== 'lost')
         .sort((a, b) => b.lead_count - a.lead_count)
@@ -404,7 +360,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 10. Sparkline — contratos por mês nos últimos 6 meses
+  // 9. Sparkline
   const { data: sparklineData } = useQuery({
     queryKey: ['dashboard-sparkline', organizationId],
     queryFn: async () => {
@@ -440,7 +396,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 10,
   });
 
-  // 11. Vendas acumulado histórico (total geral)
+  // 10. Vendas acumulado histórico
   const { data: totalHistoricalSold } = useQuery({
     queryKey: ['dashboard-historical-sold', organizationId],
     queryFn: async () => {
@@ -473,7 +429,6 @@ const Dashboard = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
         queryClient.invalidateQueries({ queryKey: ['dashboard-total-leads'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-mql'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard-today-leads'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-appointments'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-month-revenue'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-sold-total'] });
@@ -493,7 +448,6 @@ const Dashboard = () => {
   const totalLeadsValue = totalLeads ?? 0;
   const mqlValue = mqlCount ?? 0;
   const qualiRate = totalLeadsValue > 0 ? (mqlValue / totalLeadsValue) * 100 : 0;
-  const todayLeadsValue = todayLeads ?? 0;
   const apptValue = appointmentCount ?? 0;
   const revenueValue = monthRevenue ?? 0;
   const soldValue = soldTotal ?? 0;
@@ -502,21 +456,17 @@ const Dashboard = () => {
   const topSellersLoading = !topSellersResult;
   const historicalSold = totalHistoricalSold ?? 0;
   const spark = sparklineData ?? [];
+  const ticketMedio = soldValue > 0 ? Math.round(revenueValue / soldValue) : 0;
 
-  // Funil + Gargalo — já vem limitado e deduplicado da query
   const topFunnelStages = funnelStages || [];
   const bottleneck = topFunnelStages.length > 0 && topFunnelStages[0].lead_count > 0
     ? topFunnelStages[0]
     : null;
 
-  // Ticket Médio
-  const ticketMedio = soldValue > 0 ? Math.round(revenueValue / soldValue) : 0;
-
-  // Taxas
   const convReuniaoVenda = apptValue > 0 ? (soldValue / apptValue) * 100 : 0;
   const mqlRate = totalLeadsValue > 0 ? (mqlValue / totalLeadsValue) * 100 : 0;
-  const showUpRate = 78; // placeholder — no field in DB for realized meetings
-  const cashCollectedRate = 92; // placeholder — no field in DB for cash collected
+  const showUpRate = 78;
+  const cashCollectedRate = 92;
 
   const loading = totalLeads === undefined || mqlCount === undefined;
 
@@ -525,10 +475,10 @@ const Dashboard = () => {
   // ═══════════════════════════════════════════════════════════════════════════
   if (!isReady || (!organizationId && !isSuperAdmin)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-center p-6" style={{ background: C.bg }}>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-center p-6">
         <LoadingAnimation text="Carregando workspace..." />
         {!isReady && (
-          <p className="text-xs text-white/40 mt-4 animate-in fade-in duration-1000">
+          <p className="text-xs text-muted-foreground mt-4 animate-in fade-in duration-1000">
             Aguardando inicialização do sistema...
           </p>
         )}
@@ -538,7 +488,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: C.bg }}>
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <LoadingAnimation text="Carregando dashboard..." />
       </div>
     );
@@ -548,14 +498,14 @@ const Dashboard = () => {
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen" style={{ background: C.bg }}>
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 border-b border-white/[0.06]" style={{ background: 'rgba(10,11,15,0.92)', backdropFilter: 'blur(16px)' }}>
+    <div className="min-h-screen bg-secondary/40 dark:bg-background">
+      {/* ── Header ── */}
+      <div className="sticky top-0 z-10 border-b border-border/40 bg-background/90 backdrop-blur-lg">
         <div className="px-6 py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-white">Dashboard</h1>
-              <p className="text-[11px] text-white/35 mt-0.5">Visão geral da performance</p>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">Dashboard</h1>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Visão geral da performance</p>
             </div>
             <DashboardFilters period={period} onPeriodChange={setPeriod} />
           </div>
@@ -564,141 +514,124 @@ const Dashboard = () => {
 
       <div className="p-6 space-y-8">
 
-        {/* ══════════════════════════════════════════════════════════════════
-            SEÇÃO 1 — Captação de Leads (4 cards)
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══════ SEÇÃO 1 — Captação de Leads (4 cards) ══════ */}
         <SectionLabel>Captação de Leads</SectionLabel>
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Leads Totais"
             value={totalLeadsValue}
             subtitle={period === 'today' ? 'captados hoje' : 'captados no período'}
-            color={C.blue}
+            accentClass={accent.blue}
             tooltip="Total de leads captados no período selecionado, independentemente do status no funil"
           />
           <StatCard
             title="MQL"
             value={mqlValue}
             subtitle="leads qualificados"
-            color={C.green}
+            accentClass={accent.green}
             tooltip="Leads que foram convertidos em clientes (chegaram à etapa 'Ganho' no funil)"
           />
           <StatCard
             title="Taxa de Qualificação"
             value={fmtPercent(qualiRate)}
             subtitle="MQL ÷ Leads Totais"
-            color={C.purple}
+            accentClass={accent.purple}
             tooltip="Percentual de leads que se tornaram qualificados (MQL) em relação ao total captado"
           />
           <StatCard
             title="Ticket Médio"
-            value={soldValue > 0 ? fmtCurrency(Math.round(revenueValue / soldValue)) : 'R$ 0'}
+            value={soldValue > 0 ? fmtCurrency(ticketMedio) : 'R$ 0'}
             subtitle="receita ÷ vendas"
-            color={C.amber}
+            accentClass={accent.amber}
             tooltip="Valor médio por venda fechada no período (Receita Total ÷ Contratos Fechados)"
           />
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            SEÇÃO 2 — Reuniões (3 cards)
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══════ SEÇÃO 2 — Reuniões (3 cards) ══════ */}
         <SectionLabel>Reuniões</SectionLabel>
         <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-          {/* Reuniões Agendadas */}
           <StatCard
             title="Reuniões Agendadas"
             value={apptValue}
             subtitle="com evento no calendário"
-            color={C.blue}
+            accentClass={accent.blue}
             tooltip="Leads que possuem pelo menos um evento de calendário vinculado no período selecionado"
           >
             {apptValue > 0 && (
               <div className="mt-3">
-                <div className="flex justify-between text-[10px] text-white/30 mb-1">
+                <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                   <span>Progresso vs meta</span>
                   <span>{Math.min(100, Math.round((apptValue / 50) * 100))}%</span>
                 </div>
-                <Progress
-                  value={Math.min(100, (apptValue / 50) * 100)}
-                  className="h-1.5 bg-white/[0.06]"
-                />
+                <Progress value={Math.min(100, (apptValue / 50) * 100)} className="h-1.5" />
               </div>
             )}
           </StatCard>
 
-          {/* Realizadas vs No-show */}
           <StatCard
             title="Realizadas vs No-show"
             value="—"
-            color={C.green}
+            accentClass={accent.green}
             tooltip="Reuniões de fato realizadas versus reuniões onde o lead não compareceu. Funcionalidade em desenvolvimento — aguardando campo de status de reunião no banco"
           >
             <div className="flex gap-4 mt-2">
               <div className="flex-1">
-                <p className="text-[10px] text-white/30 mb-0.5">Realizadas</p>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: C.green, fontWeight: 700 }} className="text-lg">—</span>
+                <p className="text-[10px] text-muted-foreground mb-0.5">Realizadas</p>
+                <span className={`text-lg font-bold ${accent.green}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>—</span>
               </div>
               <div className="flex-1">
-                <p className="text-[10px] text-white/30 mb-0.5">No-show</p>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: C.red, fontWeight: 700 }} className="text-lg">—</span>
+                <p className="text-[10px] text-muted-foreground mb-0.5">No-show</p>
+                <span className={`text-lg font-bold ${accent.red}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>—</span>
               </div>
             </div>
             <div className="mt-2">
-              <Progress value={0} className="h-1.5 bg-white/[0.06]" />
+              <Progress value={0} className="h-1.5" />
             </div>
           </StatCard>
 
-          {/* Taxa No-show */}
           <StatCard
             title="Taxa No-show"
             value="—"
             subtitle="em desenvolvimento"
-            color={C.red}
+            accentClass={accent.red}
             tooltip="Percentual de reuniões agendadas onde o lead não compareceu. Em desenvolvimento — aguardando campo de status de reunião no banco"
           >
             <div className="mt-2 flex items-center gap-1.5">
-              <AlertTriangle className="w-3 h-3 text-white/20" />
-              <span className="text-[10px] text-white/25">Alerta automático quando acima de 20%</span>
+              <AlertTriangle className="w-3 h-3 text-muted-foreground/40" />
+              <span className="text-[10px] text-muted-foreground/50">Alerta automático quando acima de 20%</span>
             </div>
           </StatCard>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            SEÇÃO 3 — Vendas & Conversão (5 cards)
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══════ SEÇÃO 3 — Vendas & Conversão (5 cards) ══════ */}
         <SectionLabel>Vendas &amp; Conversão</SectionLabel>
         <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <StatCard
             title="Receita do Mês"
             value={fmtCurrency(revenueValue)}
             subtitle={`período: ${period}`}
-            color={C.green}
+            accentClass={accent.green}
             tooltip="Soma do valor financeiro de todas as vendas fechadas (leads na etapa 'Ganho') no período selecionado"
           />
-
-          {/* Cash Collected — placeholder */}
           <StatCard
             title="Cash Collected"
             value="—"
             subtitle="em desenvolvimento"
-            color={C.green}
+            accentClass={accent.green}
             tooltip="Valor efetivamente recebido (pago) dos contratos fechados. Requer tabela de pagamentos/financeiro para implementação"
           />
-
           <StatCard
             title="Contratos Fechados"
             value={soldValue}
             subtitle="no período"
-            color={C.blue}
+            accentClass={accent.blue}
             tooltip="Quantidade de leads que chegaram à etapa 'Ganho' e possuem data de conclusão registrada no período"
           />
-
-          {/* Vendas Total + Sparkline */}
           <StatCard
             title="Vendas no Total"
             value={historicalSold}
             subtitle="acumulado histórico"
-            color={C.amber}
+            accentClass={accent.amber}
             tooltip="Total acumulado de todas as vendas (leads 'Ganho' com data de conclusão) desde o início da organização"
           >
             {spark.length > 0 && (
@@ -711,15 +644,11 @@ const Dashboard = () => {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div
-                            className="flex-1 rounded-sm transition-all hover:opacity-80 cursor-default"
-                            style={{
-                              height: h,
-                              background: i === spark.length - 1 ? C.amber : 'rgba(245,166,35,0.25)',
-                              minWidth: 6,
-                            }}
+                            className={`flex-1 rounded-sm transition-all hover:opacity-80 cursor-default ${i === spark.length - 1 ? 'bg-amber-500 dark:bg-amber-400' : 'bg-amber-500/20 dark:bg-amber-400/25'}`}
+                            style={{ height: h, minWidth: 6 }}
                           />
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="text-[10px]" style={{ position: 'fixed' }}>
+                        <TooltipContent side="top" className="text-[10px]">
                           {m.label}: {m.count} vendas
                         </TooltipContent>
                       </Tooltip>
@@ -729,40 +658,34 @@ const Dashboard = () => {
               </div>
             )}
           </StatCard>
-
-          {/* Leads no Funil */}
           <StatCard
             title="Leads no Funil"
             value={funnelValue}
             subtitle="em etapas ativas"
-            color={C.purple}
+            accentClass={accent.purple}
             tooltip="Total de leads que estão em etapas ativas do funil, excluindo 'Ganho' e 'Perdido'"
           />
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            SEÇÃO 4 — Taxas Chave + Distribuição por Etapa + Top Representantes (3 colunas)
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══════ SEÇÃO 4 — Taxas Chave + Distribuição + Top Representantes (3 colunas) ══════ */}
         <SectionLabel>Análise &amp; Performance</SectionLabel>
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
 
           {/* ── Taxas Chave ── */}
-          <div
-            style={{ background: C.cardBg, border: `0.5px solid ${C.cardBorder}`, borderRadius: 13, padding: 20 }}
-          >
+          <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 flex items-center justify-center" style={{ borderRadius: 6, background: 'rgba(181,122,255,0.1)' }}>
-                  <Percent className="w-3.5 h-3.5" style={{ color: C.purple }} />
+                <div className="w-7 h-7 rounded-[6px] bg-violet-500/10 flex items-center justify-center">
+                  <Percent className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400" />
                 </div>
-                <h3 className="text-sm font-medium text-white">Taxas Chave</h3>
+                <h3 className="text-sm font-medium text-foreground">Taxas Chave</h3>
               </div>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="w-3.5 h-3.5 text-white/20 cursor-help" />
+                    <Info className="w-3.5 h-3.5 text-muted-foreground/40 cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px] text-xs" style={{ position: 'fixed' }}>
+                  <TooltipContent side="top" className="max-w-[240px] text-xs">
                     Indicadores percentuais de performance. Verde = acima da meta, vermelho = abaixo da meta
                   </TooltipContent>
                 </Tooltip>
@@ -784,40 +707,36 @@ const Dashboard = () => {
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="text-[11px] text-white/50 cursor-help flex items-center gap-1">
+                            <span className="text-[11px] text-muted-foreground cursor-help flex items-center gap-1">
                               {rate.label}
-                              <Info className="w-2.5 h-2.5 text-white/15" />
+                              <Info className="w-2.5 h-2.5 text-muted-foreground/30" />
                             </span>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[200px] text-xs" style={{ position: 'fixed' }}>
+                          <TooltipContent side="top" className="max-w-[200px] text-xs">
                             {rate.tooltip}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       <span
-                        style={{
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: rate.placeholder ? 'rgba(255,255,255,0.25)' : above ? C.green : C.red,
-                        }}
+                        className={`text-[13px] font-semibold ${rate.placeholder ? 'text-muted-foreground/40' : above ? accent.green : accent.red}`}
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
                       >
                         {displayValue}
                       </span>
                     </div>
-                    <div className="h-1 rounded-full bg-white/[0.04] overflow-hidden">
+                    <div className="h-1 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-700"
                         style={{
                           width: rate.placeholder ? '0%' : `${Math.min(100, rate.value)}%`,
-                          background: rate.placeholder ? 'transparent' : above ? C.green : C.red,
+                          background: rate.placeholder ? 'transparent' : above ? 'hsl(142,71%,45%)' : 'hsl(0,72%,51%)',
                           opacity: rate.placeholder ? 0 : 0.7,
                         }}
                       />
                     </div>
                     {!rate.placeholder && (
                       <div className="flex justify-end mt-0.5">
-                        <span className="text-[9px] text-white/20">meta: {rate.meta}%</span>
+                        <span className="text-[9px] text-muted-foreground/50">meta: {rate.meta}%</span>
                       </div>
                     )}
                   </div>
@@ -827,22 +746,20 @@ const Dashboard = () => {
           </div>
 
           {/* ── Distribuição por Etapa (Top 3 + Gargalo) ── */}
-          <div
-            style={{ background: C.cardBg, border: `0.5px solid ${C.cardBorder}`, borderRadius: 13, padding: 20 }}
-          >
+          <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 flex items-center justify-center" style={{ borderRadius: 6, background: 'rgba(77,158,255,0.1)' }}>
-                  <Activity className="w-3.5 h-3.5" style={{ color: C.blue }} />
+                <div className="w-7 h-7 rounded-[6px] bg-blue-500/10 flex items-center justify-center">
+                  <Activity className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                 </div>
-                <h3 className="text-sm font-medium text-white">Distribuição por Etapa</h3>
+                <h3 className="text-sm font-medium text-foreground">Distribuição por Etapa</h3>
               </div>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="w-3.5 h-3.5 text-white/20 cursor-help" />
+                    <Info className="w-3.5 h-3.5 text-muted-foreground/40 cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px] text-xs" style={{ position: 'fixed' }}>
+                  <TooltipContent side="top" className="max-w-[240px] text-xs">
                     Top 3 etapas com mais leads. A etapa com maior acúmulo é marcada como gargalo
                   </TooltipContent>
                 </Tooltip>
@@ -855,29 +772,29 @@ const Dashboard = () => {
                   const maxCount = Math.max(...topFunnelStages.map(s => s.lead_count), 1);
                   const pct = (stage.lead_count / maxCount) * 100;
                   const isBottleneck = bottleneck && stage.id === bottleneck.id && bottleneck.lead_count > 0;
-                  const barColor = isBottleneck ? C.red : C.blue;
 
                   return (
                     <div key={stage.id}>
                       <div className="flex items-center gap-3 mb-1">
-                        <span className="text-[11px] text-white/50 w-24 truncate shrink-0">{stage.name}</span>
-                        <div className="flex-1 h-2 rounded-full bg-white/[0.04] overflow-hidden">
+                        <span className="text-[11px] text-muted-foreground w-24 truncate shrink-0">{stage.name}</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-700 ${isBottleneck ? 'animate-pulse' : ''}`}
-                            style={{ width: `${pct}%`, background: barColor, opacity: isBottleneck ? 0.85 : 0.6 }}
+                            style={{
+                              width: `${pct}%`,
+                              background: isBottleneck ? 'hsl(0,72%,51%)' : 'hsl(200,70%,55%)',
+                              opacity: isBottleneck ? 0.85 : 0.6,
+                            }}
                           />
                         </div>
                         <span
-                          style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: isBottleneck ? C.red : 'rgba(255,255,255,0.6)', fontSize: 11 }}
-                          className="w-8 text-right"
+                          className={`text-[11px] w-8 text-right font-semibold ${isBottleneck ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`}
+                          style={{ fontFamily: "'JetBrains Mono', monospace" }}
                         >
                           {stage.lead_count}
                         </span>
                         {isBottleneck && (
-                          <span
-                            className="text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap"
-                            style={{ background: 'rgba(255,95,95,0.15)', color: C.red }}
-                          >
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap bg-red-500/10 text-red-500 dark:text-red-400">
                             ▲ Gargalo
                           </span>
                         )}
@@ -886,18 +803,14 @@ const Dashboard = () => {
                   );
                 })}
 
-                {/* Gargalo alert compacto */}
                 {bottleneck && bottleneck.lead_count > 0 && (
-                  <div
-                    className="flex items-start gap-2 p-2.5 mt-2"
-                    style={{ background: 'rgba(255,95,95,0.06)', borderRadius: 8, border: '0.5px solid rgba(255,95,95,0.12)' }}
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: C.red }} />
+                  <div className="flex items-start gap-2 p-2.5 mt-2 rounded-lg border border-red-500/15 bg-red-500/5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-500 dark:text-red-400" />
                     <div>
-                      <p className="text-[10px] font-medium" style={{ color: C.red }}>
+                      <p className="text-[10px] font-medium text-red-500 dark:text-red-400">
                         Gargalo: {bottleneck.name}
                       </p>
-                      <p className="text-[9px] text-white/30 mt-0.5">
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
                         {bottleneck.lead_count} leads acumulados
                       </p>
                     </div>
@@ -905,26 +818,21 @@ const Dashboard = () => {
                 )}
               </div>
             ) : (
-              <p className="text-[11px] text-white/25 text-center py-6">Nenhuma etapa no funil</p>
+              <p className="text-[11px] text-muted-foreground text-center py-6">Nenhuma etapa no funil</p>
             )}
           </div>
 
           {/* ── Top Representantes ── */}
-          <div
-            style={{ background: C.cardBg, border: `0.5px solid ${C.cardBorder}`, borderRadius: 13, padding: 20 }}
-          >
+          <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 flex items-center justify-center" style={{ borderRadius: 6, background: 'rgba(255,217,61,0.1)' }}>
-                  <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+                <div className="w-7 h-7 rounded-[6px] bg-yellow-500/10 flex items-center justify-center">
+                  <Trophy className="w-3.5 h-3.5 text-yellow-500" />
                 </div>
-                <h3 className="text-sm font-medium text-white">Top Representantes</h3>
+                <h3 className="text-sm font-medium text-foreground">Top Representantes</h3>
               </div>
               {topSellers.length > 0 && (
-                <span
-                  className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(220,38,38,0.1)', color: '#ef4444' }}
-                >
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                   {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
                 </span>
               )}
@@ -934,10 +842,10 @@ const Dashboard = () => {
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="h-7 w-7 rounded-full bg-white/[0.04]" />
+                    <Skeleton className="h-7 w-7 rounded-full" />
                     <div className="flex-1">
-                      <Skeleton className="h-3 w-24 mb-1 bg-white/[0.04]" />
-                      <Skeleton className="h-3 w-16 bg-white/[0.04]" />
+                      <Skeleton className="h-3 w-24 mb-1" />
+                      <Skeleton className="h-3 w-16" />
                     </div>
                   </div>
                 ))}
@@ -945,7 +853,7 @@ const Dashboard = () => {
             ) : topSellers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-16 h-16 mb-2 opacity-50" />
-                <p className="text-[11px] text-white/30">Nenhuma venda no período</p>
+                <p className="text-[11px] text-muted-foreground">Nenhuma venda no período</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -956,8 +864,8 @@ const Dashboard = () => {
                     { background: '#facc15', color: '#422006' },
                     { background: '#94a3b8', color: '#1e293b' },
                     { background: '#d97706', color: '#451a03' },
-                    { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' },
-                    { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' },
+                    { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' },
+                    { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' },
                   ];
                   return (
                     <div key={seller.user_id}>
@@ -970,30 +878,30 @@ const Dashboard = () => {
                         </span>
                         <Avatar className="h-6 w-6 shrink-0">
                           <AvatarImage src={seller.avatar_url || undefined} />
-                          <AvatarFallback className="text-[9px]" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
+                          <AvatarFallback className="text-[9px] bg-muted text-muted-foreground">
                             {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate text-white/80">{seller.full_name}</p>
-                          <div className="flex items-center gap-1.5 text-[11px] text-white/35">
+                          <p className="text-xs font-medium truncate text-foreground">{seller.full_name}</p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                             <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
-                            <span className="text-white/15">·</span>
-                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: C.green }}>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className={`font-semibold ${accent.green}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                               {fmtCurrency(seller.total_revenue)}
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="pl-[68px]">
-                        <Progress value={pct} className="h-1 bg-white/[0.04]" />
+                        <Progress value={pct} className="h-1" />
                       </div>
                     </div>
                   );
                 })}
                 <button
                   onClick={() => navigate('/ranking')}
-                  className="w-full flex items-center justify-center gap-1 pt-2.5 text-[11px] text-white/30 hover:text-white/60 transition-colors border-t border-white/[0.05] mt-2"
+                  className="w-full flex items-center justify-center gap-1 pt-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors border-t border-border/40 mt-2"
                 >
                   Ver ranking completo <ArrowRight className="w-3 h-3" />
                 </button>
@@ -1001,14 +909,6 @@ const Dashboard = () => {
             )}
           </div>
         </div>
-
-        {/* Shimmer keyframe (injected once) */}
-        <style>{`
-          @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-        `}</style>
       </div>
     </div>
   );

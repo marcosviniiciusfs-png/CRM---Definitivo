@@ -38,6 +38,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { PipelineListRow } from "@/components/PipelineListRow";
+import { BulkActionsBar } from "@/components/BulkActionsBar";
+import { BulkAssignDialog } from "@/components/BulkAssignDialog";
+import { BulkMoveDialog } from "@/components/BulkMoveDialog";
+import { BulkTagsDialog } from "@/components/BulkTagsDialog";
+import { ExportDialog } from "@/components/ExportDialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -1193,6 +1200,152 @@ const Pipeline = () => {
   const isAllSelected = sortedLeads.length > 0 && sortedLeads.every(l => selectedLeadIds.has(l.id));
   const isSomeSelected = selectedLeadIds.size > 0;
 
+  // Estados dos dialogs de ação em lote
+  const [showBulkAssignDialog, setShowBulkAssignDialog] = useState(false);
+  const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
+  const [showBulkTagsDialog, setShowBulkTagsDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  // Buscar tags disponíveis
+  const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string; color: string }>>([]);
+
+  // Carregar tags disponíveis
+  useEffect(() => {
+    if (!organizationId) return;
+
+    const loadTags = async () => {
+      const { data } = await supabase
+        .from('lead_tags')
+        .select('id, name, color')
+        .eq('organization_id', organizationId);
+
+      if (data) setAvailableTags(data);
+    };
+
+    loadTags();
+  }, [organizationId]);
+
+  // Ações em lote
+  const handleBulkAssign = useCallback(async (userId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase
+      .from('leads')
+      .update({ responsavel_user_id: userId })
+      .in('id', ids);
+
+    if (error) throw error;
+    toast.success(`${ids.length} leads atribuídos com sucesso`);
+    clearSelection();
+    loadLeads();
+  }, [selectedLeadIds, clearSelection, loadLeads]);
+
+  const handleBulkMoveStage = useCallback(async (stageId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    const updateData = usingCustomFunnel
+      ? { funnel_stage_id: stageId }
+      : { stage: stageId };
+
+    const { error } = await supabase
+      .from('leads')
+      .update(updateData)
+      .in('id', ids);
+
+    if (error) throw error;
+    toast.success(`${ids.length} leads movidos com sucesso`);
+    clearSelection();
+    loadLeads();
+  }, [selectedLeadIds, usingCustomFunnel, clearSelection, loadLeads]);
+
+  const handleBulkTags = useCallback(async (tagIds: string[], mode: 'add' | 'remove') => {
+    const leadIds = Array.from(selectedLeadIds);
+
+    if (mode === 'add') {
+      const inserts = leadIds.flatMap(leadId =>
+        tagIds.map(tagId => ({
+          lead_id: leadId,
+          tag_id: tagId,
+          organization_id: organizationId,
+        }))
+      );
+      const { error } = await supabase.from('lead_tag_assignments').insert(inserts);
+      if (error) {
+        // Ignorar erros de duplicata
+        if (!error.message.includes('duplicate')) {
+          throw error;
+        }
+      }
+    } else {
+      await supabase
+        .from('lead_tag_assignments')
+        .delete()
+        .in('lead_id', leadIds)
+        .in('tag_id', tagIds);
+    }
+
+    toast.success(`Tags atualizadas em ${leadIds.length} leads`);
+    clearSelection();
+    loadLeads();
+  }, [selectedLeadIds, organizationId, clearSelection, loadLeads]);
+
+  const handleBulkExport = useCallback(async (mode: 'selected' | 'filtered' | 'all') => {
+    let leadsToExport: Lead[];
+
+    if (mode === 'selected') {
+      leadsToExport = leads.filter(l => selectedLeadIds.has(l.id));
+    } else if (mode === 'filtered') {
+      leadsToExport = sortedLeads;
+    } else {
+      // Buscar todos do funil
+      let query = supabase
+        .from('leads')
+        .select('*')
+        .eq('organization_id', organizationId);
+
+      if (usingCustomFunnel && activeFunnel) {
+        query = query.eq('funnel_id', activeFunnel.id);
+      } else {
+        query = query.is('funnel_id', null);
+      }
+
+      const { data } = await query;
+      leadsToExport = data || [];
+    }
+
+    // Gerar Excel usando xlsx
+    const XLSX = await import('xlsx');
+    const worksheet = XLSX.utils.json_to_sheet(
+      leadsToExport.map(l => ({
+        Nome: l.nome_lead,
+        Telefone: l.telefone_lead,
+        Email: l.email,
+        Valor: l.valor,
+        Etapa: l.stage,
+        Responsavel: l.responsavel,
+        Origem: l.source,
+        Criado_em: new Date(l.created_at).toLocaleString('pt-BR'),
+      }))
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
+    XLSX.writeFile(workbook, `leads_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    toast.success(`${leadsToExport.length} leads exportados com sucesso`);
+  }, [selectedLeadIds, leads, sortedLeads, organizationId, usingCustomFunnel, activeFunnel]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase
+      .from('leads')
+      .delete()
+      .in('id', ids);
+
+    if (error) throw error;
+    toast.success(`${ids.length} leads excluídos com sucesso`);
+    clearSelection();
+    loadLeads();
+  }, [selectedLeadIds, clearSelection, loadLeads]);
+
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
     const map = new Map<string, Lead[]>();
@@ -1946,42 +2099,101 @@ const Pipeline = () => {
                 value={selectedFunnelId || allFunnels[0]?.id || "default"}
                 className="mt-6"
               >
-                <div
-                  ref={scrollContainerRef}
-                  onScroll={handleScrollContainerScroll}
-                  className={cn(
-                    "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                    isTabTransitioning && "transitioning"
-                  )}
-                  data-dragging-active={isDraggingActive}
-                >
-                  {stages.map((stage) => {
-                    const stageLeads = leadsByStage.get(stage.id) || [];
-                    return (
-                      <PipelineColumn
-                        key={`${selectedFunnelId}-${stage.id}`}
-                        id={stage.id}
-                        title={stage.title}
-                        count={stageLeads.length}
-                        color={stage.color}
-                        leads={stageLeads}
-                        isEmpty={stageLeads.length === 0}
-                        onLeadUpdate={() => loadLeads(undefined, false)}
-                        onEdit={setEditingLead}
-                        onDelete={handleDeleteLead}
-                        leadItems={leadItems}
-                        leadTagsMap={leadTagsMap}
-                        isDraggingActive={isDraggingActive}
-                        profilesMap={profilesMap}
-                        duplicateLeadIds={duplicateLeadIds}
-                        agendamentosMap={agendamentosMap}
-                        redistributedMap={redistributedMap}
-                        pagination={stagePagination[stage.id]}
-                        onLoadMore={() => loadMoreForStage(stage.id)}
-                      />
-                    );
-                  })}
-                </div>
+                {viewMode === 'funnel' ? (
+                  <div
+                    ref={scrollContainerRef}
+                    onScroll={handleScrollContainerScroll}
+                    className={cn(
+                      "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                      isTabTransitioning && "transitioning"
+                    )}
+                    data-dragging-active={isDraggingActive}
+                  >
+                    {stages.map((stage) => {
+                      const stageLeads = leadsByStage.get(stage.id) || [];
+                      return (
+                        <PipelineColumn
+                          key={`${selectedFunnelId}-${stage.id}`}
+                          id={stage.id}
+                          title={stage.title}
+                          count={stageLeads.length}
+                          color={stage.color}
+                          leads={stageLeads}
+                          isEmpty={stageLeads.length === 0}
+                          onLeadUpdate={() => loadLeads(undefined, false)}
+                          onEdit={setEditingLead}
+                          onDelete={handleDeleteLead}
+                          leadItems={leadItems}
+                          leadTagsMap={leadTagsMap}
+                          isDraggingActive={isDraggingActive}
+                          profilesMap={profilesMap}
+                          duplicateLeadIds={duplicateLeadIds}
+                          agendamentosMap={agendamentosMap}
+                          redistributedMap={redistributedMap}
+                          pagination={stagePagination[stage.id]}
+                          onLoadMore={() => loadMoreForStage(stage.id)}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    <BulkActionsBar
+                      selectedCount={selectedLeadIds.size}
+                      onAssign={() => setShowBulkAssignDialog(true)}
+                      onMoveStage={() => setShowBulkMoveDialog(true)}
+                      onTags={() => setShowBulkTagsDialog(true)}
+                      onExport={() => setShowExportDialog(true)}
+                      onDelete={() => setShowBulkDeleteConfirm(true)}
+                      onClear={clearSelection}
+                    />
+
+                    <div className="border rounded-lg overflow-hidden bg-white">
+                      {/* Header */}
+                      <div className="bg-muted/50 flex items-center px-3 py-2.5 text-xs font-medium text-muted-foreground border-b">
+                        <Checkbox
+                          checked={isAllSelected}
+                          onCheckedChange={handleSelectAll}
+                          className="mr-3"
+                        />
+                        <span className="w-40">Nome</span>
+                        <span className="w-28">Telefone</span>
+                        <span className="w-24">Tag</span>
+                        <span className="w-28">Etapa</span>
+                        <span className="w-24">Resp.</span>
+                        <span className="w-20">Valor</span>
+                        <span className="w-16">Ações</span>
+                      </div>
+
+                      {/* Rows */}
+                      {sortedLeads.length === 0 ? (
+                        <div className="p-8 text-center text-muted-foreground">
+                          Nenhum lead encontrado
+                        </div>
+                      ) : (
+                        sortedLeads.map((lead) => {
+                          const stage = stages.find(s =>
+                            usingCustomFunnel ? s.id === lead.funnel_stage_id : s.id === (lead.stage || "NOVO")
+                          );
+                          return (
+                            <PipelineListRow
+                              key={lead.id}
+                              lead={lead}
+                              isSelected={selectedLeadIds.has(lead.id)}
+                              onSelect={() => handleToggleSelect(lead.id)}
+                              onEdit={() => setEditingLead(lead)}
+                              onDelete={() => handleDeleteLead(lead)}
+                              stageName={stage?.title}
+                              stageColor={stage?.color}
+                              responsavelName={lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id]?.full_name : undefined}
+                              tags={leadTagsMap[lead.id] || []}
+                            />
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           ) : (
@@ -2159,6 +2371,67 @@ const Pipeline = () => {
           }}
         />
       )}
+
+      {/* Dialogs de Ação em Lote */}
+      <BulkAssignDialog
+        open={showBulkAssignDialog}
+        onClose={() => setShowBulkAssignDialog(false)}
+        onConfirm={handleBulkAssign}
+        selectedCount={selectedLeadIds.size}
+        colaboradores={colaboradores}
+      />
+
+      <BulkMoveDialog
+        open={showBulkMoveDialog}
+        onClose={() => setShowBulkMoveDialog(false)}
+        onConfirm={handleBulkMoveStage}
+        selectedCount={selectedLeadIds.size}
+        stages={stages}
+      />
+
+      <BulkTagsDialog
+        open={showBulkTagsDialog}
+        onClose={() => setShowBulkTagsDialog(false)}
+        onConfirm={handleBulkTags}
+        selectedCount={selectedLeadIds.size}
+        availableTags={availableTags}
+      />
+
+      <ExportDialog
+        open={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        onExport={handleBulkExport}
+        selectedCount={selectedLeadIds.size}
+        filteredCount={sortedLeads.length}
+        totalCount={Object.values(stagePagination).reduce((sum, s) => sum + s.totalCount, 0)}
+      />
+
+      {/* Confirmação de Exclusão em Lote */}
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Leads</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedLeadIds.size} leads?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowBulkDeleteConfirm(false)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                handleBulkDelete();
+                setShowBulkDeleteConfirm(false);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Barra de rolagem fixa no rodapé */}
       {showScrollbar && (

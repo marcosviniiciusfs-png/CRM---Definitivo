@@ -1,0 +1,129 @@
+<h2>Alternar entre Funil e Lista</h2>
+<p class="subtitle">Comparação da visão atual vs. proposta com seleção múltipla</p>
+
+<div class="split">
+  <!-- Visão Atual - Funil -->
+  <div class="mockup">
+    <div class="mockup-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-weight:600;">Atual: Visão Funil</span>
+        <span style="margin-left:auto;background:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:11px;">Kanban</span>
+      </div>
+    </div>
+    <div class="mockup-body">
+      <!-- Filtros -->
+      <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
+        <div class="mock-input" style="width:120px;font-size:10px;">🔍 Buscar...</div>
+        <div class="mock-button" style="font-size:10px;background:#e2e8f0;">Todos Status ▾</div>
+        <div class="mock-button" style="font-size:10px;background:#e2e8f0;">Origem ▾</div>
+      </div>
+
+      <!-- Colunas -->
+      <div style="display:flex;gap:8px;overflow-x:auto;">
+        <div style="min-width:100px;background:#f1f5f9;border-radius:6px;padding:8px;">
+          <div style="font-size:10px;font-weight:600;margin-bottom:4px;">Novo Lead <span style="background:#3b82f6;color:white;padding:1px 4px;border-radius:8px;font-size:9px;">50/850</span></div>
+          <div style="background:white;border-radius:4px;padding:6px;margin-bottom:4px;font-size:9px;">👤 João Silva</div>
+          <div style="background:white;border-radius:4px;padding:6px;margin-bottom:4px;font-size:9px;">👤 Maria Santos</div>
+          <div style="background:white;border-radius:4px;padding:6px;font-size:9px;">👤 Pedro Costa</div>
+          <div style="text-align:center;font-size:9px;color:#64748b;margin-top:4px;border:1px dashed #94a3b8;border-radius:4px;padding:4px;">+47 mais...</div>
+        </div>
+        <div style="min-width:100px;background:#f1f5f9;border-radius:6px;padding:8px;">
+          <div style="font-size:10px;font-weight:600;margin-bottom:4px;">Qualificação <span style="background:#06b6d4;color:white;padding:1px 4px;border-radius:8px;font-size:9px;">32/120</span></div>
+          <div style="background:white;border-radius:4px;padding:6px;margin-bottom:4px;font-size:9px;">👤 Ana Lima</div>
+        </div>
+        <div style="min-width:100px;background:#f1f5f9;border-radius:6px;padding:8px;">
+          <div style="font-size:10px;font-weight:600;margin-bottom:4px;">Reunião <span style="background:#eab308;color:white;padding:1px 4px;border-radius:8px;font-size:9px;">15/45</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visão Proposta - Lista -->
+  <div class="mockup">
+    <div class="mockup-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-weight:600;">Proposta: Visão Lista</span>
+        <span style="margin-left:auto;background:#22c55e;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Lista</span>
+      </div>
+    </div>
+    <div class="mockup-body">
+      <!-- Filtros com botão de alternar -->
+      <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+        <div class="mock-input" style="width:120px;font-size:10px;">🔍 Buscar...</div>
+        <div class="mock-button" style="font-size:10px;background:#e2e8f0;">Origem ▾</div>
+        <div class="mock-button" style="font-size:10px;background:#e2e8f0;">Responsável ▾</div>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          <div class="mock-button" style="font-size:10px;background:#3b82f6;color:white;">📋 Lista</div>
+          <div class="mock-button" style="font-size:10px;background:#e2e8f0;">📊 Funil</div>
+        </div>
+      </div>
+
+      <!-- Barra de ações em lote -->
+      <div style="background:#eff6ff;border:1px solid #3b82f6;border-radius:6px;padding:8px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" checked style="width:14px;height:14px;">
+        <span style="font-size:10px;color:#1e40af;font-weight:600;">3 selecionados</span>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;">👤 Atribuir</div>
+          <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;">📁 Mover</div>
+          <div class="mock-button" style="font-size:9px;background:#3b82f6;color:white;">🏷️ Tag</div>
+        </div>
+      </div>
+
+      <!-- Tabela de lista -->
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+        <div style="background:#f8fafc;display:flex;padding:6px 8px;font-size:9px;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">
+          <input type="checkbox" style="width:12px;height:12px;margin-right:8px;">
+          <span style="width:100px;">Nome</span>
+          <span style="width:80px;">Telefone</span>
+          <span style="width:60px;">Etapa</span>
+          <span style="width:60px;">Resp.</span>
+          <span style="width:60px;">Valor</span>
+        </div>
+        <div style="display:flex;padding:6px 8px;font-size:9px;border-bottom:1px solid #f1f5f9;background:#eff6ff;">
+          <input type="checkbox" checked style="width:12px;height:12px;margin-right:8px;">
+          <span style="width:100px;font-weight:500;">João Silva</span>
+          <span style="width:80px;color:#64748b;">(11) 99999-0001</span>
+          <span style="width:60px;"><span style="background:#3b82f6;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Novo</span></span>
+          <span style="width:60px;">Carlos</span>
+          <span style="width:60px;">R$ 5.000</span>
+        </div>
+        <div style="display:flex;padding:6px 8px;font-size:9px;border-bottom:1px solid #f1f5f9;background:#eff6ff;">
+          <input type="checkbox" checked style="width:12px;height:12px;margin-right:8px;">
+          <span style="width:100px;font-weight:500;">Maria Santos</span>
+          <span style="width:80px;color:#64748b;">(11) 99999-0002</span>
+          <span style="width:60px;"><span style="background:#3b82f6;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Novo</span></span>
+          <span style="width:60px;">—</span>
+          <span style="width:60px;">R$ 3.000</span>
+        </div>
+        <div style="display:flex;padding:6px 8px;font-size:9px;border-bottom:1px solid #f1f5f9;background:#eff6ff;">
+          <input type="checkbox" checked style="width:12px;height:12px;margin-right:8px;">
+          <span style="width:100px;font-weight:500;">Pedro Costa</span>
+          <span style="width:80px;color:#64748b;">(11) 99999-0003</span>
+          <span style="width:60px;"><span style="background:#06b6d4;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Qualif.</span></span>
+          <span style="width:60px;">Ana</span>
+          <span style="width:60px;">R$ 8.000</span>
+        </div>
+        <div style="display:flex;padding:6px 8px;font-size:9px;">
+          <input type="checkbox" style="width:12px;height:12px;margin-right:8px;">
+          <span style="width:100px;font-weight:500;">Ana Lima</span>
+          <span style="width:80px;color:#64748b;">(11) 99999-0004</span>
+          <span style="width:60px;"><span style="background:#06b6d4;color:white;padding:1px 4px;border-radius:3px;font-size:8px;">Qualif.</span></span>
+          <span style="width:60px;">Carlos</span>
+          <span style="width:60px;">R$ 2.500</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px;">
+  <h3>O que muda:</h3>
+  <ul style="font-size:12px;color:#475569;line-height:1.6;">
+    <li><strong>Remove:</strong> Filtro "Todos os Status" (confuso com etapas do funil)</li>
+    <li><strong>Adiciona:</strong> Botões para alternar entre visão Funil ↔ Lista</li>
+    <li><strong>Lista:</strong> Permite selecionar múltiplos leads com checkboxes</li>
+    <li><strong>Ações em lote:</strong> Atribuir responsável, mover etapa, adicionar tags</li>
+  </ul>
+</div>
+
+<p style="margin-top:16px;font-size:12px;color:#64748b;">Isso está correto? Me diga no terminal se esse é o conceito que você quer, ou se precisa de ajustes.</p>
