@@ -1242,6 +1242,19 @@ const Pipeline = () => {
 
   const handleBulkMoveStage = useCallback(async (stageId: string) => {
     const ids = Array.from(selectedLeadIds);
+
+    // Verificar permissão para mover leads
+    // Membros sem permissão global só podem mover leads atribuídos a eles
+    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline) {
+      const leadsToMove = leads.filter(l => ids.includes(l.id));
+      const notAssignedToUser = leadsToMove.filter(l => l.responsavel_user_id !== user?.id);
+
+      if (notAssignedToUser.length > 0) {
+        toast.error(`Você só pode mover leads atribuídos a você. ${notAssignedToUser.length} leads selecionados não estão atribuídos a você.`);
+        return;
+      }
+    }
+
     const updateData = usingCustomFunnel
       ? { funnel_stage_id: stageId }
       : { stage: stageId };
@@ -1255,7 +1268,7 @@ const Pipeline = () => {
     toast.success(`${ids.length} leads movidos com sucesso`);
     clearSelection();
     loadLeads();
-  }, [selectedLeadIds, usingCustomFunnel, clearSelection, loadLeads]);
+  }, [selectedLeadIds, usingCustomFunnel, clearSelection, loadLeads, permissions.role, permissions.canMoveLeadsPipeline, leads, user?.id]);
 
   const handleBulkTags = useCallback(async (tagIds: string[], mode: 'add' | 'remove') => {
     const leadIds = Array.from(selectedLeadIds);
@@ -1406,17 +1419,19 @@ const Pipeline = () => {
       return;
     }
 
-    // Verificar permissão de mover leads no pipeline
-    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline) {
-      toast.error("Você não tem permissão para mover leads no pipeline. Solicite acesso ao administrador.");
-      return;
-    }
-
     const leadId = active.id as string;
     const overId = over.id as string;
 
     const activeLead = leads.find((l) => l.id === leadId);
     if (!activeLead) return;
+
+    // Verificar permissão de mover leads no pipeline
+    // Membros podem mover leads atribuídos a eles, mesmo sem permissão global
+    const isLeadAssignedToUser = activeLead.responsavel_user_id === user?.id;
+    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline && !isLeadAssignedToUser) {
+      toast.error("Você só pode mover leads atribuídos a você. Solicite acesso ao administrador para mover outros leads.");
+      return;
+    }
 
     // Determinar o stage de destino - usar campo correto baseado no tipo de funil
     const isDroppedOverStage = stages.some((s) => s.id === overId);
