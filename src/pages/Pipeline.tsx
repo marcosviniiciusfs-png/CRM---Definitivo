@@ -852,7 +852,7 @@ const Pipeline = () => {
 
     try {
       const PAGE_SIZE = 50;
-      const offset = currentPagination.loadedCount;
+      const offset = currentState.loadedCount;
 
       const isCustom = usingCustomFunnel;
       const funnel = activeFunnel;
