@@ -1255,10 +1255,12 @@ const Pipeline = () => {
       }
     }
 
-    // IMPORTANTE: Sempre incluir funnel_id para evitar cross-funnel contamination
-    const updateData = usingCustomFunnel
-      ? { funnel_stage_id: stageId, funnel_id: activeFunnel?.id }
-      : { stage: stageId };
+    // IMPORTANTE: Só incluir funnel_id se estiver definido
+    const updateData = usingCustomFunnel && activeFunnel?.id
+      ? { funnel_stage_id: stageId, funnel_id: activeFunnel.id }
+      : usingCustomFunnel
+        ? { funnel_stage_id: stageId }
+        : { stage: stageId };
 
     const { error } = await supabase
       .from('leads')
@@ -1507,9 +1509,9 @@ const Pipeline = () => {
         );
 
         // Atualizar no banco
-        // IMPORTANTE: Sempre incluir funnel_id para evitar cross-funnel contamination
+        // IMPORTANTE: Só incluir funnel_id se estiver definido, para não sobrescrever com undefined/null
         const updateData: any = usingCustomFunnel
-          ? { funnel_stage_id: targetStage, position: newPosition, funnel_id: activeFunnel?.id }
+          ? { funnel_stage_id: targetStage, position: newPosition, ...(activeFunnel?.id && { funnel_id: activeFunnel.id }) }
           : { stage: targetStage, position: newPosition };
 
         // Se for won stage, adicionar data_conclusao
@@ -1620,9 +1622,9 @@ const Pipeline = () => {
               supabase.from("leads").update({ position: lead.position }).eq("id", lead.id)
             ),
             ...updatedTargetWithPositions.map((lead) => {
-              // IMPORTANTE: Sempre incluir funnel_id para evitar cross-funnel contamination
+              // IMPORTANTE: Só incluir funnel_id se estiver definido
               const updateData: any = usingCustomFunnel
-                ? { position: lead.position, funnel_stage_id: lead.funnel_stage_id, funnel_id: activeFunnel?.id }
+                ? { position: lead.position, funnel_stage_id: lead.funnel_stage_id, ...(activeFunnel?.id && { funnel_id: activeFunnel.id }) }
                 : { position: lead.position, stage: lead.stage };
 
               // Adicionar data_conclusao se for won stage e for o lead sendo movido
