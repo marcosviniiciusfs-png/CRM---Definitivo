@@ -218,12 +218,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fallback generoso para não bloquear o usuário durante migração/testes
         console.log('[AUTH] Using fallback plan');
         subData = {
-          subscribed: true,
-          product_id: 'enterprise_free',
+          subscribed: false,
+          product_id: 'free',
           subscription_end: null,
-          max_collaborators: 999,
+          max_collaborators: 5,
           extra_collaborators: 0,
-          total_collaborators: 999
+          total_collaborators: 5
         };
       }
 
@@ -385,12 +385,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (!currentSession?.access_token) return;
 
               setSubscriptionData({
-                subscribed: true,
-                product_id: 'enterprise_free',
+                subscribed: false,
+                product_id: 'free',
                 subscription_end: null,
-                max_collaborators: 999,
+                max_collaborators: 5,
                 extra_collaborators: 0,
-                total_collaborators: 999
+                total_collaborators: 5
               });
 
               // Refresh section access as well
@@ -478,12 +478,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             try {
               setSubscriptionData({
-                subscribed: true,
-                product_id: 'enterprise_free',
+                subscribed: false,
+                product_id: 'free',
                 subscription_end: null,
-                max_collaborators: 999,
+                max_collaborators: 5,
                 extra_collaborators: 0,
-                total_collaborators: 999
+                total_collaborators: 5
               });
               subscriptionFetchedRef.current = true;
 
