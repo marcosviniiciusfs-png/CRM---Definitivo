@@ -18,13 +18,12 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const location = useLocation();
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const isOnChatPage = location.pathname === "/chat";
-  const isOwner = user?.email === "mateusabcck@gmail.com";
 
   // Inicializar com estado do localStorage para evitar flash
   const getInitialOpen = () => {
@@ -69,7 +68,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Button>
                 </>
               )}
-              {isOwner && (
+              {isSuperAdmin && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
