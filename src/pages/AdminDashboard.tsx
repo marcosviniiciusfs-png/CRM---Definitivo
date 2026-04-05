@@ -124,7 +124,7 @@ export default function AdminDashboard() {
       if (error) throw error;
       setAdmins(data || []);
     } catch (err: any) {
-      console.error('[AdminDashboard] Error loading admins:', err);
+      toast.error(err.message || "Erro ao carregar admins");
     } finally {
       setAdminsLoading(false);
     }

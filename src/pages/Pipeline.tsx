@@ -11,7 +11,7 @@ import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check } from "lucide-react";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
@@ -35,6 +35,7 @@ import { ImportLeadsModal } from "@/components/ImportLeadsModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -153,6 +154,12 @@ const Pipeline = () => {
   const [showScrollbar, setShowScrollbar] = useState(false);
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // View mode: 'kanban' or 'list'
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+
+  // Bulk selection for list view
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
 
   // Atualiza a posição e tamanho do thumb da scrollbar
   const updateScrollbarThumb = useCallback(() => {
@@ -1475,192 +1482,381 @@ const Pipeline = () => {
 
   return (
     <>
-      <DndContext
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        sensors={sensors}
-      >
-        <div
-          className="space-y-6"
-          style={{ touchAction: 'none' }}
-          data-dragging-active={isDraggingActive}
-        >
-          <div className="space-y-3">
-            {/* Linha 1: Título + Ações */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                  Funil de Vendas
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  Arraste e solte os cards para mover leads entre as etapas
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
-                  <Settings2 className="h-4 w-4 mr-2" />
-                  Gerenciar Funis
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar
-                </Button>
-                {permissions.canViewAllLeads && (
-                  <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Importar
-                  </Button>
-                )}
-                {permissions.canCreateLeads && (
-                  <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Lead
-                  </Button>
-                )}
-              </div>
+      {/* Header Section - Always Visible */}
+      <div className="space-y-6">
+        <div className="space-y-3">
+          {/* Linha 1: Título + Ações */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                Funil de Vendas
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {viewMode === 'kanban'
+                  ? "Arraste e solte os cards para mover leads entre as etapas"
+                  : "Visualize e gerencie seus leads em formato de lista"}
+              </p>
             </div>
-            {/* Linha 2: Busca + Filtros */}
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative flex-1 min-w-[180px] max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, email, telefone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 h-9"
-                />
+              {/* View Mode Toggle */}
+              <div className="flex items-center border rounded-md overflow-hidden">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "rounded-none h-8 px-3",
+                    viewMode === 'kanban' && "bg-primary/10 text-primary"
+                  )}
+                  onClick={() => setViewMode('kanban')}
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" />
+                  Funil
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "rounded-none h-8 px-3 border-l",
+                    viewMode === 'list' && "bg-primary/10 text-primary"
+                  )}
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="h-4 w-4 mr-1" />
+                  Lista
+                </Button>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-[145px] bg-background">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="NOVO">Novo</SelectItem>
-                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                  <SelectItem value="FECHADO">Fechado</SelectItem>
-                  <SelectItem value="PERDIDO">Perdido</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="h-9 w-[145px] bg-background">
-                  <SelectValue placeholder="Origem" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas Origens</SelectItem>
-                  <SelectItem value="Facebook Leads">Facebook</SelectItem>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="Webhook">Webhook</SelectItem>
-                  <SelectItem value="Manual">Manual</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-                <SelectTrigger className="h-9 w-[155px] bg-background">
-                  <SelectValue placeholder="Responsável" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos Responsáveis</SelectItem>
-                  {colaboradores.map(c => (
-                    <SelectItem key={c.user_id} value={c.user_id}>
-                      {c.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
-                  >
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    {dateRange.from && dateRange.to
-                      ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
-                      : "Período"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="flex flex-col gap-1 p-2 border-b">
-                    <Button variant="ghost" size="sm" className="justify-start text-xs"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
-                      Últimos 7 dias
-                    </Button>
-                    <Button variant="ghost" size="sm" className="justify-start text-xs"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
-                      Últimos 30 dias
-                    </Button>
-                    <Button variant="ghost" size="sm" className="justify-start text-xs"
-                      onClick={() => setDateRange({ from: undefined, to: undefined })}>
-                      Limpar filtro
-                    </Button>
-                  </div>
-                  <Calendar
-                    mode="range"
-                    selected={{ from: dateRange.from, to: dateRange.to }}
-                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
-                    numberOfMonths={1}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
+                <Settings2 className="h-4 w-4 mr-2" />
+                Gerenciar Funis
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+              {permissions.canViewAllLeads && (
+                <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar
+                </Button>
+              )}
+              {permissions.canCreateLeads && (
+                <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Lead
+                </Button>
+              )}
             </div>
           </div>
+          {/* Linha 2: Busca + Filtros */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[180px] max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, email, telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-[145px] bg-background">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Status</SelectItem>
+                <SelectItem value="NOVO">Novo</SelectItem>
+                <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                <SelectItem value="FECHADO">Fechado</SelectItem>
+                <SelectItem value="PERDIDO">Perdido</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="h-9 w-[145px] bg-background">
+                <SelectValue placeholder="Origem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas Origens</SelectItem>
+                <SelectItem value="Facebook Leads">Facebook</SelectItem>
+                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                <SelectItem value="Webhook">Webhook</SelectItem>
+                <SelectItem value="Manual">Manual</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+              <SelectTrigger className="h-9 w-[155px] bg-background">
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Responsáveis</SelectItem>
+                {colaboradores.map(c => (
+                  <SelectItem key={c.user_id} value={c.user_id}>
+                    {c.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  {dateRange.from && dateRange.to
+                    ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
+                    : "Período"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="flex flex-col gap-1 p-2 border-b">
+                  <Button variant="ghost" size="sm" className="justify-start text-xs"
+                    onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                    Últimos 7 dias
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs"
+                    onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                    Últimos 30 dias
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs"
+                    onClick={() => setDateRange({ from: undefined, to: undefined })}>
+                    Limpar filtro
+                  </Button>
+                </div>
+                <Calendar
+                  mode="range"
+                  selected={{ from: dateRange.from, to: dateRange.to }}
+                  onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
 
-          {allFunnels.length > 0 ? (
-            <Tabs
-              value={selectedFunnelId || allFunnels[0]?.id || "default"}
-              onValueChange={handleTabChange}
-              className="w-full pipeline-tabs"
-            >
-              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-                {allFunnels.map((funnel) => {
-                  const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
+        {/* View Mode Content */}
+        {viewMode === 'list' ? (
+          /* List View */
+          <div className="border rounded-lg overflow-hidden bg-background">
+            {/* Bulk Actions Bar */}
+            {selectedLeadIds.size > 0 && (
+              <div className="bg-primary/10 border-b border-primary/20 p-3 flex items-center gap-3">
+                <span className="text-sm font-medium text-primary">
+                  {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                </span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
+                    Limpar seleção
+                  </Button>
+                </div>
+              </div>
+            )}
+            {/* Table Header */}
+            <div className="bg-muted/50 flex items-center px-3 py-2.5 text-xs font-medium text-muted-foreground border-b">
+              <Checkbox
+                checked={selectedLeadIds.size === filteredLeads.length && filteredLeads.length > 0}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedLeadIds(new Set(filteredLeads.map(l => l.id)));
+                  } else {
+                    setSelectedLeadIds(new Set());
+                  }
+                }}
+                className="mr-3"
+              />
+              <span className="w-[200px]">Nome</span>
+              <span className="w-[120px]">Telefone</span>
+              <span className="w-[150px]">Etapa</span>
+              <span className="w-[100px]">Valor</span>
+              <span className="w-[100px]">Origem</span>
+              <span className="w-[120px]">Responsável</span>
+              <span className="flex-1">Data</span>
+              <span className="w-[60px]"></span>
+            </div>
+            {/* Table Rows */}
+            <div className="max-h-[calc(100vh-350px)] overflow-y-auto">
+              {filteredLeads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Nenhum lead encontrado</p>
+                  <p className="text-sm">Tente ajustar os filtros ou adicione um novo lead</p>
+                </div>
+              ) : (
+                filteredLeads.map((lead) => {
+                  const isSelected = selectedLeadIds.has(lead.id);
+                  const stage = stages.find(s => s.id === (lead.funnel_stage_id || lead.stage));
+                  const responsible = lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id] : null;
+
                   return (
-                    <div key={funnel.id} className="flex items-center">
-                      <TabsTrigger
-                        value={funnel.id}
-                        className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-2">
-                          {iconEmoji && (
-                            <span className="text-lg">{iconEmoji}</span>
-                          )}
-                          <span>{funnel.name}</span>
-                          {funnel.is_default && (
-                            <span className="text-xs text-muted-foreground">(Padrão)</span>
-                          )}
-                        </div>
-                      </TabsTrigger>
-                      {/* Botão de permissões: visível apenas para owners/admins */}
-                      {permissions.canManagePipeline && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPermissionsFunnelId(funnel.id);
-                          }}
-                          className={cn(
-                            "ml-1 p-1 rounded transition-colors",
-                            funnel.is_restricted
-                              ? "text-amber-500 hover:text-amber-400"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                          title="Configurar permissões de acesso"
-                        >
-                          <Users className="h-3.5 w-3.5" />
-                        </button>
+                    <div
+                      key={lead.id}
+                      className={cn(
+                        "flex items-center px-3 py-2.5 text-sm border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer",
+                        isSelected && "bg-primary/10"
                       )}
+                      onClick={() => setEditingLead(lead)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedLeadIds(prev => {
+                            const next = new Set(prev);
+                            if (checked) {
+                              next.add(lead.id);
+                            } else {
+                              next.delete(lead.id);
+                            }
+                            return next;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mr-3"
+                      />
+                      <span className="w-[200px] font-medium truncate">{lead.nome_lead || "Sem nome"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground">{lead.telefone_lead || "-"}</span>
+                      <span className="w-[150px]">
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                          stage?.color?.replace('bg-', 'bg-').replace('-500', '-500/20 text-').replace('bg-', '') ||
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {stage?.title || lead.stage || "-"}
+                        </span>
+                      </span>
+                      <span className="w-[100px] font-medium">
+                        {lead.valor
+                          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor)
+                          : "-"}
+                      </span>
+                      <span className="w-[100px] truncate text-muted-foreground">{lead.source || "-"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground">
+                        {responsible?.full_name || lead.responsavel || "-"}
+                      </span>
+                      <span className="flex-1 text-muted-foreground">
+                        {new Date(lead.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                      <span className="w-[60px] flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLead(lead);
+                          }}
+                        >
+                          ×
+                        </Button>
+                      </span>
                     </div>
                   );
-                })}
-              </TabsList>
+                })
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Kanban View */
+          <DndContext
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            sensors={sensors}
+          >
+            <div
+              style={{ touchAction: 'none' }}
+              data-dragging-active={isDraggingActive}
+            >
+              {allFunnels.length > 0 ? (
+                <Tabs
+                  value={selectedFunnelId || allFunnels[0]?.id || "default"}
+                  onValueChange={handleTabChange}
+                  className="w-full pipeline-tabs"
+                >
+                  <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+                    {allFunnels.map((funnel) => {
+                      const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
+                      return (
+                        <div key={funnel.id} className="flex items-center">
+                          <TabsTrigger
+                            value={funnel.id}
+                            className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
+                          >
+                            <div className="flex items-center gap-2">
+                              {iconEmoji && (
+                                <span className="text-lg">{iconEmoji}</span>
+                              )}
+                              <span>{funnel.name}</span>
+                              {funnel.is_default && (
+                                <span className="text-xs text-muted-foreground">(Padrão)</span>
+                              )}
+                            </div>
+                          </TabsTrigger>
+                          {/* Botão de permissões: visível apenas para owners/admins */}
+                          {permissions.canManagePipeline && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setPermissionsFunnelId(funnel.id);
+                              }}
+                              className={cn(
+                                "ml-1 p-1 rounded transition-colors",
+                                funnel.is_restricted
+                                  ? "text-amber-500 hover:text-amber-400"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                              title="Configurar permissões de acesso"
+                            >
+                              <Users className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </TabsList>
 
-              <TabsContent
-                value={selectedFunnelId || allFunnels[0]?.id || "default"}
-                className="mt-6"
-              >
+                  <TabsContent
+                    value={selectedFunnelId || allFunnels[0]?.id || "default"}
+                    className="mt-6"
+                  >
+                    <div
+                      ref={scrollContainerRef}
+                      onScroll={handleScrollContainerScroll}
+                      className={cn(
+                        "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                        isTabTransitioning && "transitioning"
+                      )}
+                      data-dragging-active={isDraggingActive}
+                    >
+                      {stages.map((stage) => {
+                        const stageLeads = leadsByStage.get(stage.id) || [];
+                        return (
+                          <PipelineColumn
+                            key={`${selectedFunnelId}-${stage.id}`}
+                            id={stage.id}
+                            title={stage.title}
+                            count={stageLeads.length}
+                            color={stage.color}
+                            leads={stageLeads}
+                            isEmpty={stageLeads.length === 0}
+                            onLeadUpdate={() => loadLeads(undefined, false)}
+                            onEdit={setEditingLead}
+                            onDelete={handleDeleteLead}
+                            leadItems={leadItems}
+                            leadTagsMap={leadTagsMap}
+                            isDraggingActive={isDraggingActive}
+                            profilesMap={profilesMap}
+                            duplicateLeadIds={duplicateLeadIds}
+                            agendamentosMap={agendamentosMap}
+                            redistributedMap={redistributedMap}
+                          />
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              ) : (
                 <div
                   ref={scrollContainerRef}
                   onScroll={handleScrollContainerScroll}
@@ -1674,7 +1870,7 @@ const Pipeline = () => {
                     const stageLeads = leadsByStage.get(stage.id) || [];
                     return (
                       <PipelineColumn
-                        key={`${selectedFunnelId}-${stage.id}`}
+                        key={`default-${stage.id}`}
                         id={stage.id}
                         title={stage.title}
                         count={stageLeads.length}
@@ -1682,7 +1878,7 @@ const Pipeline = () => {
                         leads={stageLeads}
                         isEmpty={stageLeads.length === 0}
                         onLeadUpdate={() => loadLeads(undefined, false)}
-                        onEdit={setEditingLead}
+                        onEdit={handleEditLead}
                         onDelete={handleDeleteLead}
                         leadItems={leadItems}
                         leadTagsMap={leadTagsMap}
@@ -1695,65 +1891,30 @@ const Pipeline = () => {
                     );
                   })}
                 </div>
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <div
-              ref={scrollContainerRef}
-              onScroll={handleScrollContainerScroll}
-              className={cn(
-                "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                isTabTransitioning && "transitioning"
               )}
-              data-dragging-active={isDraggingActive}
-            >
-              {stages.map((stage) => {
-                const stageLeads = leadsByStage.get(stage.id) || [];
-                return (
-                  <PipelineColumn
-                    key={`default-${stage.id}`}
-                    id={stage.id}
-                    title={stage.title}
-                    count={stageLeads.length}
-                    color={stage.color}
-                    leads={stageLeads}
-                    isEmpty={stageLeads.length === 0}
-                    onLeadUpdate={() => loadLeads(undefined, false)}
-                    onEdit={handleEditLead}
-                    onDelete={handleDeleteLead}
-                    leadItems={leadItems}
-                    leadTagsMap={leadTagsMap}
-                    isDraggingActive={isDraggingActive}
-                    profilesMap={profilesMap}
-                    duplicateLeadIds={duplicateLeadIds}
-                    agendamentosMap={agendamentosMap}
-                    redistributedMap={redistributedMap}
-                  />
-                );
-              })}
             </div>
-          )}
-        </div>
 
-        <DragOverlay dropAnimation={null}>
-          {activeLead ? (
-            <LeadCard
-              id={activeLead.id}
-              name={activeLead.nome_lead}
-              phone={activeLead.telefone_lead}
-              date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
-              avatarUrl={activeLead.avatar_url}
-              stage={activeLead.stage}
-              value={activeLead.valor}
-              createdAt={activeLead.created_at}
-              source={activeLead.source}
-              description={activeLead.descricao_negocio}
-              leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
-              leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+            <DragOverlay dropAnimation={null}>
+              {activeLead ? (
+                <LeadCard
+                  id={activeLead.id}
+                  name={activeLead.nome_lead}
+                  phone={activeLead.telefone_lead}
+                  date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
+                  avatarUrl={activeLead.avatar_url}
+                  stage={activeLead.stage}
+                  value={activeLead.valor}
+                  createdAt={activeLead.created_at}
+                  source={activeLead.source}
+                  description={activeLead.descricao_negocio}
+                  leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
+                  leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
+                />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
+      </div>
 
       {/* Modal de Edição - FORA do DndContext */}
       {showAddModal && (
