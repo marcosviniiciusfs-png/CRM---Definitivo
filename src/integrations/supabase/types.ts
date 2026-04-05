@@ -1529,6 +1529,7 @@ export type Database = {
           responsavel_user_id: string | null
           source: string | null
           stage: string | null
+          status_reuniao: string | null
           telefone_lead: string
           updated_at: string
           valor: number | null
@@ -1561,6 +1562,7 @@ export type Database = {
           responsavel_user_id?: string | null
           source?: string | null
           stage?: string | null
+          status_reuniao?: string | null
           telefone_lead: string
           updated_at?: string
           valor?: number | null
@@ -1593,6 +1595,7 @@ export type Database = {
           responsavel_user_id?: string | null
           source?: string | null
           stage?: string | null
+          status_reuniao?: string | null
           telefone_lead?: string
           updated_at?: string
           valor?: number | null
