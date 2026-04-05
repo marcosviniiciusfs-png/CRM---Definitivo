@@ -12,6 +12,29 @@ interface OrganizationMember {
   avatar_url: string | null;
 }
 
+// Type for RPC response from get_organization_members_masked
+interface RpcMemberResult {
+  id: string;
+  user_id: string | null;
+  organization_id: string;
+  role: string;
+  created_at: string;
+  email: string | null;
+  full_name: string | null;
+  display_name?: string | null;
+}
+
+// Type for direct table query fallback
+interface DirectMemberQuery {
+  id: string;
+  user_id: string | null;
+  organization_id: string;
+  role: string;
+  created_at: string;
+  email: string | null;
+  display_name?: string | null;
+}
+
 /**
  * Hook seguro para buscar membros da organização
  * Usa a função RPC get_organization_members_masked para proteger emails
@@ -33,10 +56,10 @@ export function useOrganizationMembers(organizationId?: string | null) {
 
         if (!directError && directData) {
           // Normalizar para o formato esperado pela interface
-          members = directData.map((m: any) => ({
+          members = directData.map((m: DirectMemberQuery) => ({
             ...m,
             email: m.email || null,
-          })) as any;
+          })) as RpcMemberResult[];
           error = null;
         }
       }
@@ -45,7 +68,7 @@ export function useOrganizationMembers(organizationId?: string | null) {
       if (!members) return [];
 
       // Buscar profiles em paralelo para obter full_name e avatar_url
-      const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
+      const userIds = members.filter((m: RpcMemberResult) => m.user_id).map((m: RpcMemberResult) => m.user_id);
 
       let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
 
@@ -64,11 +87,11 @@ export function useOrganizationMembers(organizationId?: string | null) {
       }
 
       // Combinar dados — prioridade: profiles > display_name > full_name da RPC (auth.users metadata + email prefix) > null
-      return members.map((member: any) => ({
+      return members.map((member: RpcMemberResult) => ({
         ...member,
         full_name:
           (member.user_id && profilesMap[member.user_id]?.full_name) ||
-          (member as any).display_name ||
+          member.display_name ||
           member.full_name ||  // RPC já fez COALESCE: profiles > auth.users metadata > display_name > email prefix
           null,
         avatar_url:
@@ -97,10 +120,10 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
       .select('id, user_id, organization_id, role, created_at, email, display_name');
 
     if (!directError && directData) {
-      members = directData.map((m: any) => ({
+      members = directData.map((m: DirectMemberQuery) => ({
         ...m,
         email: m.email || null,
-      })) as any;
+      })) as RpcMemberResult[];
       error = null;
     }
   }
@@ -108,7 +131,7 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
   if (error) throw error;
   if (!members) return [];
 
-  const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
+  const userIds = members.filter((m: RpcMemberResult) => m.user_id).map((m: RpcMemberResult) => m.user_id);
 
   let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
 
@@ -127,11 +150,11 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
   }
 
   // Combinar dados — prioridade: profiles > display_name > full_name da RPC (auth.users metadata + email prefix) > null
-  return members.map((member: any) => ({
+  return members.map((member: RpcMemberResult) => ({
     ...member,
     full_name:
       (member.user_id && profilesMap[member.user_id]?.full_name) ||
-      (member as any).display_name ||
+      member.display_name ||
       member.full_name ||  // RPC já fez COALESCE: profiles > auth.users metadata > display_name > email prefix
       null,
     avatar_url:

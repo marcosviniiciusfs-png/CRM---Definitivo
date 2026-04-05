@@ -11,7 +11,7 @@ import { EditLeadModal } from "@/components/EditLeadModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, List, LayoutGrid } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check } from "lucide-react";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
@@ -35,16 +35,10 @@ import { ImportLeadsModal } from "@/components/ImportLeadsModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
-import { PipelineListRow } from "@/components/PipelineListRow";
-import { BulkActionsBar } from "@/components/BulkActionsBar";
-import { BulkAssignDialog } from "@/components/BulkAssignDialog";
-import { BulkMoveDialog } from "@/components/BulkMoveDialog";
-import { BulkTagsDialog } from "@/components/BulkTagsDialog";
-import { ExportDialog } from "@/components/ExportDialog";
-import { Checkbox } from "@/components/ui/checkbox";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -52,14 +46,6 @@ const EMPTY_TAGS: Array<{ id: string; name: string; color: string }> = [];
 
 type LeadItems = Record<string, any[]>;
 type LeadTagsMap = Record<string, Array<{ id: string; name: string; color: string }>>;
-
-// Interface para estado de paginação por etapa
-interface StagePaginationState {
-  loadedCount: number;      // Quantos leads estão carregados
-  totalCount: number;       // Total no banco (para exibir "X de Y")
-  isLoading: boolean;       // Loading state para o botão
-  hasMore: boolean;         // Se há mais leads para carregar
-}
 
 // Mapeamento de ícones emoji para funis
 const ICON_EMOJI_MAP: Record<string, string> = {
@@ -108,6 +94,7 @@ const Pipeline = () => {
   // States for features migrated from Leads page
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [responsibleFilter, setResponsibleFilter] = useState<string>("all");
   const [colaboradores, setColaboradores] = useState<any[]>([]);
@@ -117,7 +104,6 @@ const Pipeline = () => {
   });
   // Unique channel ID per mount to avoid Supabase channel name conflicts on re-navigation
   const channelIdRef = useRef<string>(`leads-ch-${Date.now()}`);
-  const isMountedRef = useRef(true);
   const [userProfile, setUserProfile] = useState<{ full_name: string } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -159,9 +145,6 @@ const Pipeline = () => {
   // Mapa leadId -> { fromName, minutes } para badge de redistribuição nos cards
   const [redistributedMap, setRedistributedMap] = useState<Record<string, { fromName: string; minutes: number }>>({});;
 
-  // Estado de paginação por etapa
-  const [stagePagination, setStagePagination] = useState<Record<string, StagePaginationState>>({});
-
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
@@ -172,18 +155,11 @@ const Pipeline = () => {
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Estado para alternar entre visão funil e lista
-  const [viewMode, setViewMode] = useState<'funnel' | 'list'>('funnel');
-  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
-  const [sortField, setSortField] = useState<string>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  // View mode: 'kanban' or 'list'
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
 
-  // Handler para mudança de ordenação
-  const handleSortChange = useCallback((value: string) => {
-    const [field, direction] = value.split('-');
-    setSortField(field);
-    setSortDirection(direction as 'asc' | 'desc');
-  }, []);
+  // Bulk selection for list view
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
 
   // Atualiza a posição e tamanho do thumb da scrollbar
   const updateScrollbarThumb = useCallback(() => {
@@ -422,32 +398,9 @@ const Pipeline = () => {
 
           // Verificar se é realmente um lead novo (não carregado anteriormente)
           if (!leadIdsRef.current.has(newLead.id)) {
-            // Determinar o stageId correto
-            const stageId = usingCustomFunnelRef.current
-              ? newLead.funnel_stage_id
-              : (newLead.stage || "NOVO");
-
             // Adicionar ao estado
             setLeads(prev => [newLead, ...prev]);
             leadIdsRef.current.add(newLead.id);
-
-            // Incrementar contador total da etapa
-            setStagePagination(prev => {
-              const current = prev[stageId] || { loadedCount: 0, totalCount: 0, isLoading: false, hasMore: false };
-              const newTotalCount = current.totalCount + 1;
-              const newLoadedCount = current.loadedCount + 1;
-
-              return {
-                ...prev,
-                [stageId]: {
-                  ...current,
-                  totalCount: newTotalCount,
-                  loadedCount: newLoadedCount,
-                  hasMore: newLoadedCount < newTotalCount,
-                }
-              };
-            });
-
             // Carregar perfil do responsável se disponível
             const uid = (newLead as any).responsavel_user_id;
             if (uid) {
@@ -474,13 +427,6 @@ const Pipeline = () => {
       supabase.removeChannel(channel);
     };
   }, []); // Deps vazias: subscrição criada uma vez por mount; valores dinâmicos acessados via refs
-
-  // Cleanup effect to prevent state updates after unmount
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   // Carregar perfil do usuário
   useEffect(() => {
@@ -720,126 +666,65 @@ const Pipeline = () => {
     if (!user?.id || !organizationId) return;
 
     try {
+      // Controlar estados de loading: Skeletons apenas se realmente necessário
       if (!isTabChange && leads.length === 0) {
         setInitialLoading(true);
       }
       setIsLoadingData(true);
 
+      // Usar dados do funil passados ou estados atuais
       const isCustom = funnelData?.isCustom ?? usingCustomFunnel;
       const funnel = funnelData?.funnel ?? activeFunnel;
 
-      // Buscar contagem total por etapa
-      const stageIds = stages.map(s => s.id);
-      const countPromises = stageIds.map(async (stageId) => {
-        let query = supabase
-          .from('leads')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', organizationId);
+      // Otimizado: buscar apenas campos necessários (incluindo source para badges)
+      // Usar organizationId do contexto diretamente - evita query redundante a organization_members
+      let query = supabase
+        .from("leads")
+        .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count")
+        .eq("organization_id", organizationId);
 
-        if (!permissions.canViewAllLeads && user?.id) {
-          query = query.eq('responsavel_user_id', user.id);
-        }
+      // SEGURANÇA: Members só veem leads atribuídos a eles (usando UUID)
+      if (!permissions.canViewAllLeads && user?.id) {
+        query = query.eq("responsavel_user_id", user.id);
+      }
 
-        if (isCustom && funnel) {
-          query = query.eq('funnel_id', funnel.id);
-          query = query.eq('funnel_stage_id', stageId);
-        } else {
-          query = query.is('funnel_id', null);
-          query = query.eq('stage', stageId);
-        }
+      // Se estiver usando funil customizado, filtrar leads desse funil OU sem funil (orphans)
+      if (isCustom && funnel) {
+        // Inclui leads do funil específico E leads sem funil atribuído (orphans da mesma org)
+        query = query.or(`funnel_id.eq.${funnel.id},funnel_id.is.null`);
+      } else {
+        // No funil padrão (legado), mostrar apenas leads que não pertencem a nenhum funil customizado
+        query = query.is("funnel_id", null);
+      }
 
-        const { count, error } = await query;
-        if (error) {
-          console.error(`Erro ao contar leads da etapa ${stageId}:`, error);
-          return { stageId, count: 0 };
-        }
-        return { stageId, count: count || 0 };
-      });
+      const { data, error } = await query
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: false })
+        .limit(200); // Limitar para performance
 
-      const countResults = await Promise.all(countPromises);
-      const countMap = new Map(countResults.map(r => [r.stageId, r.count]));
+      if (error) throw error;
 
-      // Inicializar paginação por etapa
-      const initialPagination: Record<string, StagePaginationState> = {};
-      stageIds.forEach(stageId => {
-        const total = countMap.get(stageId) || 0;
-        initialPagination[stageId] = {
-          loadedCount: 0,
-          totalCount: total,
-          isLoading: false,
-          hasMore: total > 0,
-        };
-      });
-      setStagePagination(initialPagination);
-
-      // Carregar 50 leads por etapa
-      const PAGE_SIZE = 50;
-      const loadPromises = stageIds.map(async (stageId) => {
-        const total = countMap.get(stageId) || 0;
-        if (total === 0) return { stageId, leads: [] };
-
-        let query = supabase
-          .from('leads')
-          .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count')
-          .eq('organization_id', organizationId);
-
-        if (!permissions.canViewAllLeads && user?.id) {
-          query = query.eq('responsavel_user_id', user.id);
-        }
-
-        if (isCustom && funnel) {
-          query = query.eq('funnel_id', funnel.id);
-          query = query.eq('funnel_stage_id', stageId);
-        } else {
-          query = query.is('funnel_id', null);
-          query = query.eq('stage', stageId);
-        }
-
-        const { data, error } = await query
-          .order('position', { ascending: true })
-          .order('created_at', { ascending: false })
-          .range(0, PAGE_SIZE - 1);
-
-        if (error) {
-          console.error(`Erro ao carregar leads da etapa ${stageId}:`, error);
-          return { stageId, leads: [] };
-        }
-
-        return { stageId, leads: data || [] };
-      });
-
-      const loadResults = await Promise.all(loadPromises);
-
-      // Combinar leads e atualizar paginação
-      const allLeads: Lead[] = [];
-      const paginationUpdates: Record<string, StagePaginationState> = {};
-      loadResults.forEach(result => {
-        allLeads.push(...result.leads);
-
-        paginationUpdates[result.stageId] = {
-          ...initialPagination[result.stageId],
-          loadedCount: result.leads.length,
-          hasMore: result.leads.length < (initialPagination[result.stageId]?.totalCount || 0),
-        };
-      });
-      setStagePagination(prev => ({ ...prev, ...paginationUpdates }));
-
-      // Merge with Realtime leads that arrived during the query
+      // Merge: preservar leads que chegaram via Realtime durante a query (evitar race condition)
       setLeads(prev => {
-        const dbIds = new Set(allLeads.map((l: Lead) => l.id));
+        if (!data || data.length === 0) return prev;
+        const dbIds = new Set(data.map((l: any) => l.id));
+        // Leads que estão no estado atual mas não vieram do banco (chegaram via Realtime)
         const realtimeOnly = prev.filter(l => !dbIds.has(l.id));
-        return [...allLeads, ...realtimeOnly];
+        return [...data, ...realtimeOnly];
       });
-      leadIdsRef.current = new Set(allLeads.map(l => l.id));
 
-      if (allLeads.length > 0) {
-        const responsavelIds = [...new Set(allLeads.map(l => l.responsavel_user_id).filter(Boolean))] as string[];
+      // Armazenar IDs dos leads (DB + Realtime) para deduplicação
+      if (data) {
+        const existingRtIds = [...leadIdsRef.current];
+        leadIdsRef.current = new Set([...data.map((lead: any) => lead.id), ...existingRtIds]);
+        // Buscar todos lead_items, tags e perfis de responsáveis de uma vez
+        const responsavelIds = [...new Set(data.map(l => l.responsavel_user_id).filter(Boolean))] as string[];
         await Promise.all([
-          loadLeadItems(allLeads.map(l => l.id)),
-          loadLeadTags(allLeads.map(l => l.id)),
+          loadLeadItems(data.map(l => l.id)),
+          loadLeadTags(data.map(l => l.id)),
           loadProfiles(responsavelIds),
-          loadAgendamentos(allLeads.map(l => l.id)),
-          loadRedistributionData(allLeads.map(l => l.id)),
+          loadAgendamentos(data.map(l => l.id)),
+          loadRedistributionData(data.map(l => l.id)),
         ]);
       }
     } catch (error) {
@@ -851,108 +736,6 @@ const Pipeline = () => {
       setIsTabTransitioning(false);
     }
   };
-
-  // Carregar mais leads para uma etapa específica
-  const loadMoreForStage = useCallback(async (stageId: string) => {
-    if (!organizationId || !user?.id) return;
-
-    // Check if component is still mounted
-    if (!isMountedRef.current) return;
-
-    // Get current state from the pagination state directly
-    const currentState = stagePagination[stageId];
-    if (!currentState || currentState.isLoading || !currentState.hasMore) return;
-
-    // Set loading state
-    setStagePagination(prev => ({
-      ...prev,
-      [stageId]: { ...prev[stageId], isLoading: true }
-    }));
-
-    try {
-      const PAGE_SIZE = 50;
-      const offset = currentState.loadedCount;
-
-      const isCustom = usingCustomFunnel;
-      const funnel = activeFunnel;
-
-      let query = supabase
-        .from('leads')
-        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count')
-        .eq('organization_id', organizationId);
-
-      // Aplicar filtro de permissão
-      if (!permissions.canViewAllLeads && user?.id) {
-        query = query.eq('responsavel_user_id', user.id);
-      }
-
-      // Filtrar por funil
-      if (isCustom && funnel) {
-        query = query.eq('funnel_id', funnel.id);
-        query = query.eq('funnel_stage_id', stageId);
-      } else {
-        query = query.is('funnel_id', null);
-        query = query.eq('stage', stageId);
-      }
-
-      const { data, error } = await query
-        .order('position', { ascending: true })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        // Adicionar novos leads ao estado (preservando existentes)
-        setLeads(prev => {
-          const existingIds = new Set(prev.map(l => l.id));
-          const newLeads = data.filter(l => !existingIds.has(l.id));
-          return [...prev, ...newLeads];
-        });
-
-        // Atualizar IDs ref
-        data.forEach(l => leadIdsRef.current.add(l.id));
-
-        // Atualizar paginação
-        setStagePagination(prev => {
-          const prevStage = prev[stageId];
-          if (!prevStage) return prev;
-          const newLoadedCount = prevStage.loadedCount + data.length;
-          return {
-            ...prev,
-            [stageId]: {
-              ...prevStage,
-              loadedCount: newLoadedCount,
-              hasMore: newLoadedCount < prevStage.totalCount,
-              isLoading: false,
-            }
-          };
-        });
-
-        // Carregar dados relacionados para novos leads
-        await Promise.all([
-          loadLeadItems(data.map(l => l.id)),
-          loadLeadTags(data.map(l => l.id)),
-          loadProfiles(data.map(l => l.responsavel_user_id).filter(Boolean) as string[]),
-          loadAgendamentos(data.map(l => l.id)),
-          loadRedistributionData(data.map(l => l.id)),
-        ]);
-      } else {
-        // No more data
-        setStagePagination(prev => ({
-          ...prev,
-          [stageId]: { ...prev[stageId], hasMore: false, isLoading: false }
-        }));
-      }
-    } catch (error) {
-      console.error(`Erro ao carregar mais leads da etapa ${stageId}:`, error);
-      toast.error("Erro ao carregar mais leads");
-      setStagePagination(prev => ({
-        ...prev,
-        [stageId]: { ...prev[stageId], isLoading: false }
-      }));
-    }
-  }, [organizationId, user?.id, stagePagination, usingCustomFunnel, activeFunnel, permissions.canViewAllLeads]);
 
   const loadLeadItems = async (leadIds: string[]) => {
     if (leadIds.length === 0) return;
@@ -1131,6 +914,10 @@ const Pipeline = () => {
       );
     }
 
+    if (statusFilter !== "all") {
+      result = result.filter(lead => (lead.stage || "NOVO") === statusFilter);
+    }
+
     if (sourceFilter !== "all") {
       result = result.filter(lead => (lead.source || "") === sourceFilter);
     }
@@ -1149,218 +936,7 @@ const Pipeline = () => {
     }
 
     return result;
-  }, [leadsWithFormattedDates, searchTerm, sourceFilter, responsibleFilter, dateRange]);
-
-  // Ordenação da lista
-  const sortedLeads = useMemo(() => {
-    return [...filteredLeads].sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case 'created_at':
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          break;
-        case 'valor':
-          comparison = (a.valor || 0) - (b.valor || 0);
-          break;
-        case 'nome_lead':
-          comparison = (a.nome_lead || '').localeCompare(b.nome_lead || '');
-          break;
-        default:
-          comparison = 0;
-      }
-      return sortDirection === 'desc' ? -comparison : comparison;
-    });
-  }, [filteredLeads, sortField, sortDirection]);
-
-  // Funções de seleção
-  const handleToggleSelect = useCallback((leadId: string) => {
-    setSelectedLeadIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(leadId)) {
-        newSet.delete(leadId);
-      } else {
-        newSet.add(leadId);
-      }
-      return newSet;
-    });
-  }, []);
-
-  const handleSelectAll = useCallback((checked: boolean) => {
-    if (checked) {
-      setSelectedLeadIds(new Set(sortedLeads.map(l => l.id)));
-    } else {
-      setSelectedLeadIds(new Set());
-    }
-  }, [sortedLeads]);
-
-  const clearSelection = useCallback(() => {
-    setSelectedLeadIds(new Set());
-  }, []);
-
-  const isAllSelected = sortedLeads.length > 0 && sortedLeads.every(l => selectedLeadIds.has(l.id));
-  const isSomeSelected = selectedLeadIds.size > 0;
-
-  // Estados dos dialogs de ação em lote
-  const [showBulkAssignDialog, setShowBulkAssignDialog] = useState(false);
-  const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
-  const [showBulkTagsDialog, setShowBulkTagsDialog] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
-
-  // Buscar tags disponíveis
-  const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string; color: string }>>([]);
-
-  // Carregar tags disponíveis
-  useEffect(() => {
-    if (!organizationId) return;
-
-    const loadTags = async () => {
-      const { data } = await supabase
-        .from('lead_tags')
-        .select('id, name, color')
-        .eq('organization_id', organizationId);
-
-      if (data) setAvailableTags(data);
-    };
-
-    loadTags();
-  }, [organizationId]);
-
-  // Ações em lote
-  const handleBulkAssign = useCallback(async (userId: string) => {
-    const ids = Array.from(selectedLeadIds);
-    const { error } = await supabase
-      .from('leads')
-      .update({ responsavel_user_id: userId })
-      .in('id', ids);
-
-    if (error) throw error;
-    toast.success(`${ids.length} leads atribuídos com sucesso`);
-    clearSelection();
-    loadLeads();
-  }, [selectedLeadIds, clearSelection, loadLeads]);
-
-  const handleBulkMoveStage = useCallback(async (stageId: string) => {
-    const ids = Array.from(selectedLeadIds);
-
-    // Verificar permissão para mover leads
-    // Membros sem permissão global só podem mover leads atribuídos a eles
-    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline) {
-      const leadsToMove = leads.filter(l => ids.includes(l.id));
-      const notAssignedToUser = leadsToMove.filter(l => l.responsavel_user_id !== user?.id);
-
-      if (notAssignedToUser.length > 0) {
-        toast.error(`Você só pode mover leads atribuídos a você. ${notAssignedToUser.length} leads selecionados não estão atribuídos a você.`);
-        return;
-      }
-    }
-
-    // IMPORTANTE: Só incluir funnel_id se estiver definido
-    const updateData = usingCustomFunnel && activeFunnel?.id
-      ? { funnel_stage_id: stageId, funnel_id: activeFunnel.id }
-      : usingCustomFunnel
-        ? { funnel_stage_id: stageId }
-        : { stage: stageId };
-
-    const { error } = await supabase
-      .from('leads')
-      .update(updateData)
-      .in('id', ids);
-
-    if (error) throw error;
-    toast.success(`${ids.length} leads movidos com sucesso`);
-    clearSelection();
-    loadLeads();
-  }, [selectedLeadIds, usingCustomFunnel, clearSelection, loadLeads, permissions.role, permissions.canMoveLeadsPipeline, leads, user?.id]);
-
-  const handleBulkTags = useCallback(async (tagIds: string[], mode: 'add' | 'remove') => {
-    const leadIds = Array.from(selectedLeadIds);
-
-    if (mode === 'add') {
-      const inserts = leadIds.flatMap(leadId =>
-        tagIds.map(tagId => ({
-          lead_id: leadId,
-          tag_id: tagId,
-          organization_id: organizationId,
-        }))
-      );
-      const { error } = await supabase.from('lead_tag_assignments').insert(inserts);
-      if (error) {
-        // Ignorar erros de duplicata
-        if (!error.message.includes('duplicate')) {
-          throw error;
-        }
-      }
-    } else {
-      await supabase
-        .from('lead_tag_assignments')
-        .delete()
-        .in('lead_id', leadIds)
-        .in('tag_id', tagIds);
-    }
-
-    toast.success(`Tags atualizadas em ${leadIds.length} leads`);
-    clearSelection();
-    loadLeads();
-  }, [selectedLeadIds, organizationId, clearSelection, loadLeads]);
-
-  const handleBulkExport = useCallback(async (mode: 'selected' | 'filtered' | 'all') => {
-    let leadsToExport: Lead[];
-
-    if (mode === 'selected') {
-      leadsToExport = leads.filter(l => selectedLeadIds.has(l.id));
-    } else if (mode === 'filtered') {
-      leadsToExport = sortedLeads;
-    } else {
-      // Buscar todos do funil
-      let query = supabase
-        .from('leads')
-        .select('*')
-        .eq('organization_id', organizationId);
-
-      if (usingCustomFunnel && activeFunnel) {
-        query = query.eq('funnel_id', activeFunnel.id);
-      } else {
-        query = query.is('funnel_id', null);
-      }
-
-      const { data } = await query;
-      leadsToExport = data || [];
-    }
-
-    // Gerar Excel usando xlsx
-    const XLSX = await import('xlsx');
-    const worksheet = XLSX.utils.json_to_sheet(
-      leadsToExport.map(l => ({
-        Nome: l.nome_lead,
-        Telefone: l.telefone_lead,
-        Email: l.email,
-        Valor: l.valor,
-        Etapa: l.stage,
-        Responsavel: l.responsavel,
-        Origem: l.source,
-        Criado_em: new Date(l.created_at).toLocaleString('pt-BR'),
-      }))
-    );
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
-    XLSX.writeFile(workbook, `leads_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-    toast.success(`${leadsToExport.length} leads exportados com sucesso`);
-  }, [selectedLeadIds, leads, sortedLeads, organizationId, usingCustomFunnel, activeFunnel]);
-
-  const handleBulkDelete = useCallback(async () => {
-    const ids = Array.from(selectedLeadIds);
-    const { error } = await supabase
-      .from('leads')
-      .delete()
-      .in('id', ids);
-
-    if (error) throw error;
-    toast.success(`${ids.length} leads excluídos com sucesso`);
-    clearSelection();
-    loadLeads();
-  }, [selectedLeadIds, clearSelection, loadLeads]);
+  }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange]);
 
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
@@ -1422,19 +998,17 @@ const Pipeline = () => {
       return;
     }
 
+    // Verificar permissão de mover leads no pipeline
+    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline) {
+      toast.error("Você não tem permissão para mover leads no pipeline. Solicite acesso ao administrador.");
+      return;
+    }
+
     const leadId = active.id as string;
     const overId = over.id as string;
 
     const activeLead = leads.find((l) => l.id === leadId);
     if (!activeLead) return;
-
-    // Verificar permissão de mover leads no pipeline
-    // Membros podem mover leads atribuídos a eles, mesmo sem permissão global
-    const isLeadAssignedToUser = activeLead.responsavel_user_id === user?.id;
-    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline && !isLeadAssignedToUser) {
-      toast.error("Você só pode mover leads atribuídos a você. Solicite acesso ao administrador para mover outros leads.");
-      return;
-    }
 
     // Determinar o stage de destino - usar campo correto baseado no tipo de funil
     const isDroppedOverStage = stages.some((s) => s.id === overId);
@@ -1509,9 +1083,8 @@ const Pipeline = () => {
         );
 
         // Atualizar no banco
-        // IMPORTANTE: Só incluir funnel_id se estiver definido, para não sobrescrever com undefined/null
         const updateData: any = usingCustomFunnel
-          ? { funnel_stage_id: targetStage, position: newPosition, ...(activeFunnel?.id && { funnel_id: activeFunnel.id }) }
+          ? { funnel_stage_id: targetStage, position: newPosition }
           : { stage: targetStage, position: newPosition };
 
         // Se for won stage, adicionar data_conclusao
@@ -1622,9 +1195,8 @@ const Pipeline = () => {
               supabase.from("leads").update({ position: lead.position }).eq("id", lead.id)
             ),
             ...updatedTargetWithPositions.map((lead) => {
-              // IMPORTANTE: Só incluir funnel_id se estiver definido
               const updateData: any = usingCustomFunnel
-                ? { position: lead.position, funnel_stage_id: lead.funnel_stage_id, ...(activeFunnel?.id && { funnel_id: activeFunnel.id }) }
+                ? { position: lead.position, funnel_stage_id: lead.funnel_stage_id }
                 : { position: lead.position, stage: lead.stage };
 
               // Adicionar data_conclusao se for won stage e for o lead sendo movido
@@ -1910,371 +1482,440 @@ const Pipeline = () => {
 
   return (
     <>
-      <DndContext
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        sensors={sensors}
-      >
-        <div
-          className="space-y-6"
-          style={{ touchAction: 'none' }}
-          data-dragging-active={isDraggingActive}
-        >
-          <div className="space-y-3">
-            {/* Linha 1: Título + Ações */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                  Funil de Vendas
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  Arraste e solte os cards para mover leads entre as etapas
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
-                  <Settings2 className="h-4 w-4 mr-2" />
-                  Gerenciar Funis
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar
-                </Button>
-                {permissions.canViewAllLeads && (
-                  <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Importar
-                  </Button>
-                )}
-                {permissions.canCreateLeads && (
-                  <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Lead
-                  </Button>
-                )}
-              </div>
+      {/* Header Section - Always Visible */}
+      <div className="space-y-6">
+        <div className="space-y-3">
+          {/* Linha 1: Título + Ações */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                Funil de Vendas
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {viewMode === 'kanban'
+                  ? "Arraste e solte os cards para mover leads entre as etapas"
+                  : "Visualize e gerencie seus leads em formato de lista"}
+              </p>
             </div>
-            {/* Linha 2: Busca + Filtros */}
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative flex-1 min-w-[180px] max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, email, telefone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 h-9"
-                />
-              </div>
-              <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="h-9 w-[145px] bg-background">
-                  <SelectValue placeholder="Origem" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas Origens</SelectItem>
-                  <SelectItem value="Facebook Leads">Facebook</SelectItem>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="Webhook">Webhook</SelectItem>
-                  <SelectItem value="Manual">Manual</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-                <SelectTrigger className="h-9 w-[155px] bg-background">
-                  <SelectValue placeholder="Responsável" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos Responsáveis</SelectItem>
-                  {colaboradores.map(c => (
-                    <SelectItem key={c.user_id} value={c.user_id}>
-                      {c.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
-                  >
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    {dateRange.from && dateRange.to
-                      ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
-                      : "Período"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="flex flex-col gap-1 p-2 border-b">
-                    <Button variant="ghost" size="sm" className="justify-start text-xs"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
-                      Últimos 7 dias
-                    </Button>
-                    <Button variant="ghost" size="sm" className="justify-start text-xs"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
-                      Últimos 30 dias
-                    </Button>
-                    <Button variant="ghost" size="sm" className="justify-start text-xs"
-                      onClick={() => setDateRange({ from: undefined, to: undefined })}>
-                      Limpar filtro
-                    </Button>
-                  </div>
-                  <Calendar
-                    mode="range"
-                    selected={{ from: dateRange.from, to: dateRange.to }}
-                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
-                    numberOfMonths={1}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-
-              {/* Ordenação */}
-              <Select value={`${sortField}-${sortDirection}`} onValueChange={handleSortChange}>
-                <SelectTrigger className="h-9 w-[160px] bg-background">
-                  <SelectValue placeholder="Ordenar por" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="created_at-desc">Data criação (mais novos)</SelectItem>
-                  <SelectItem value="created_at-asc">Data criação (mais antigos)</SelectItem>
-                  <SelectItem value="valor-desc">Valor (maior)</SelectItem>
-                  <SelectItem value="valor-asc">Valor (menor)</SelectItem>
-                  <SelectItem value="nome_lead-asc">Nome (A-Z)</SelectItem>
-                  <SelectItem value="nome_lead-desc">Nome (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Toggle Funil/Lista */}
-              <div className="flex border rounded-md overflow-hidden ml-auto">
+              {/* View Mode Toggle */}
+              <div className="flex items-center border rounded-md overflow-hidden">
                 <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  variant="ghost"
                   size="sm"
-                  className="rounded-none"
+                  className={cn(
+                    "rounded-none h-8 px-3",
+                    viewMode === 'kanban' && "bg-primary/10 text-primary"
+                  )}
+                  onClick={() => setViewMode('kanban')}
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" />
+                  Funil
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "rounded-none h-8 px-3 border-l",
+                    viewMode === 'list' && "bg-primary/10 text-primary"
+                  )}
                   onClick={() => setViewMode('list')}
                 >
-                  <List className="h-4 w-4 mr-1" /> Lista
-                </Button>
-                <Button
-                  variant={viewMode === 'funnel' ? 'default' : 'ghost'}
-                  size="sm"
-                  className="rounded-none border-l"
-                  onClick={() => setViewMode('funnel')}
-                >
-                  <LayoutGrid className="h-4 w-4 mr-1" /> Funil
+                  <List className="h-4 w-4 mr-1" />
+                  Lista
                 </Button>
               </div>
+              <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
+                <Settings2 className="h-4 w-4 mr-2" />
+                Gerenciar Funis
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+              {permissions.canViewAllLeads && (
+                <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar
+                </Button>
+              )}
+              {permissions.canCreateLeads && (
+                <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Lead
+                </Button>
+              )}
             </div>
           </div>
-
-          {allFunnels.length > 0 ? (
-            <Tabs
-              value={selectedFunnelId || allFunnels[0]?.id || "default"}
-              onValueChange={handleTabChange}
-              className="w-full pipeline-tabs"
-            >
-              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-                {allFunnels.map((funnel) => {
-                  const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
-                  return (
-                    <div key={funnel.id} className="flex items-center">
-                      <TabsTrigger
-                        value={funnel.id}
-                        className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-2">
-                          {iconEmoji && (
-                            <span className="text-lg">{iconEmoji}</span>
-                          )}
-                          <span>{funnel.name}</span>
-                          {funnel.is_default && (
-                            <span className="text-xs text-muted-foreground">(Padrão)</span>
-                          )}
-                        </div>
-                      </TabsTrigger>
-                      {/* Botão de permissões: visível apenas para owners/admins */}
-                      {permissions.canManagePipeline && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPermissionsFunnelId(funnel.id);
-                          }}
-                          className={cn(
-                            "ml-1 p-1 rounded transition-colors",
-                            funnel.is_restricted
-                              ? "text-amber-500 hover:text-amber-400"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                          title="Configurar permissões de acesso"
-                        >
-                          <Users className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </TabsList>
-
-              <TabsContent
-                value={selectedFunnelId || allFunnels[0]?.id || "default"}
-                className="mt-6"
-              >
-                {viewMode === 'funnel' ? (
-                  <div
-                    ref={scrollContainerRef}
-                    onScroll={handleScrollContainerScroll}
-                    className={cn(
-                      "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                      isTabTransitioning && "transitioning"
-                    )}
-                    data-dragging-active={isDraggingActive}
-                  >
-                    {stages.map((stage) => {
-                      const stageLeads = leadsByStage.get(stage.id) || [];
-                      return (
-                        <PipelineColumn
-                          key={`${selectedFunnelId}-${stage.id}`}
-                          id={stage.id}
-                          title={stage.title}
-                          count={stageLeads.length}
-                          color={stage.color}
-                          leads={stageLeads}
-                          isEmpty={stageLeads.length === 0}
-                          onLeadUpdate={() => loadLeads(undefined, false)}
-                          onEdit={setEditingLead}
-                          onDelete={handleDeleteLead}
-                          leadItems={leadItems}
-                          leadTagsMap={leadTagsMap}
-                          isDraggingActive={isDraggingActive}
-                          profilesMap={profilesMap}
-                          duplicateLeadIds={duplicateLeadIds}
-                          agendamentosMap={agendamentosMap}
-                          redistributedMap={redistributedMap}
-                          pagination={stagePagination[stage.id]}
-                          onLoadMore={() => loadMoreForStage(stage.id)}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="w-full">
-                    <BulkActionsBar
-                      selectedCount={selectedLeadIds.size}
-                      onAssign={() => setShowBulkAssignDialog(true)}
-                      onMoveStage={() => setShowBulkMoveDialog(true)}
-                      onTags={() => setShowBulkTagsDialog(true)}
-                      onExport={() => setShowExportDialog(true)}
-                      onDelete={() => setShowBulkDeleteConfirm(true)}
-                      onClear={clearSelection}
-                    />
-
-                    <div className="border rounded-lg overflow-hidden bg-white">
-                      {/* Header */}
-                      <div className="bg-muted/50 flex items-center px-3 py-2.5 text-xs font-medium text-muted-foreground border-b">
-                        <Checkbox
-                          checked={isAllSelected}
-                          onCheckedChange={handleSelectAll}
-                          className="mr-3"
-                        />
-                        <span className="w-40">Nome</span>
-                        <span className="w-28">Telefone</span>
-                        <span className="w-24">Tag</span>
-                        <span className="w-28">Etapa</span>
-                        <span className="w-24">Resp.</span>
-                        <span className="w-20">Valor</span>
-                        <span className="w-16">Ações</span>
-                      </div>
-
-                      {/* Rows */}
-                      {sortedLeads.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground">
-                          Nenhum lead encontrado
-                        </div>
-                      ) : (
-                        sortedLeads.map((lead) => {
-                          const stage = stages.find(s =>
-                            usingCustomFunnel ? s.id === lead.funnel_stage_id : s.id === (lead.stage || "NOVO")
-                          );
-                          return (
-                            <PipelineListRow
-                              key={lead.id}
-                              lead={lead}
-                              isSelected={selectedLeadIds.has(lead.id)}
-                              onSelect={() => handleToggleSelect(lead.id)}
-                              onEdit={() => setEditingLead(lead)}
-                              onDelete={() => handleDeleteLead(lead)}
-                              stageName={stage?.title}
-                              stageColor={stage?.color}
-                              responsavelName={lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id]?.full_name : undefined}
-                              tags={leadTagsMap[lead.id] || []}
-                            />
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <div
-              ref={scrollContainerRef}
-              onScroll={handleScrollContainerScroll}
-              className={cn(
-                "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                isTabTransitioning && "transitioning"
-              )}
-              data-dragging-active={isDraggingActive}
-            >
-              {stages.map((stage) => {
-                const stageLeads = leadsByStage.get(stage.id) || [];
-                return (
-                  <PipelineColumn
-                    key={`default-${stage.id}`}
-                    id={stage.id}
-                    title={stage.title}
-                    count={stageLeads.length}
-                    color={stage.color}
-                    leads={stageLeads}
-                    isEmpty={stageLeads.length === 0}
-                    onLeadUpdate={() => loadLeads(undefined, false)}
-                    onEdit={handleEditLead}
-                    onDelete={handleDeleteLead}
-                    leadItems={leadItems}
-                    leadTagsMap={leadTagsMap}
-                    isDraggingActive={isDraggingActive}
-                    profilesMap={profilesMap}
-                    duplicateLeadIds={duplicateLeadIds}
-                    agendamentosMap={agendamentosMap}
-                    redistributedMap={redistributedMap}
-                    pagination={stagePagination[stage.id]}
-                    onLoadMore={() => loadMoreForStage(stage.id)}
-                  />
-                );
-              })}
+          {/* Linha 2: Busca + Filtros */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[180px] max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, email, telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9"
+              />
             </div>
-          )}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-[145px] bg-background">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Status</SelectItem>
+                <SelectItem value="NOVO">Novo</SelectItem>
+                <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                <SelectItem value="FECHADO">Fechado</SelectItem>
+                <SelectItem value="PERDIDO">Perdido</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="h-9 w-[145px] bg-background">
+                <SelectValue placeholder="Origem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas Origens</SelectItem>
+                <SelectItem value="Facebook Leads">Facebook</SelectItem>
+                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                <SelectItem value="Webhook">Webhook</SelectItem>
+                <SelectItem value="Manual">Manual</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+              <SelectTrigger className="h-9 w-[155px] bg-background">
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Responsáveis</SelectItem>
+                {colaboradores.map(c => (
+                  <SelectItem key={c.user_id} value={c.user_id}>
+                    {c.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  {dateRange.from && dateRange.to
+                    ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
+                    : "Período"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="flex flex-col gap-1 p-2 border-b">
+                  <Button variant="ghost" size="sm" className="justify-start text-xs"
+                    onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                    Últimos 7 dias
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs"
+                    onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                    Últimos 30 dias
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs"
+                    onClick={() => setDateRange({ from: undefined, to: undefined })}>
+                    Limpar filtro
+                  </Button>
+                </div>
+                <Calendar
+                  mode="range"
+                  selected={{ from: dateRange.from, to: dateRange.to }}
+                  onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
-        <DragOverlay dropAnimation={null}>
-          {activeLead ? (
-            <LeadCard
-              id={activeLead.id}
-              name={activeLead.nome_lead}
-              phone={activeLead.telefone_lead}
-              date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
-              avatarUrl={activeLead.avatar_url}
-              stage={activeLead.stage}
-              value={activeLead.valor}
-              createdAt={activeLead.created_at}
-              source={activeLead.source}
-              description={activeLead.descricao_negocio}
-              leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
-              leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        {/* View Mode Content */}
+        {viewMode === 'list' ? (
+          /* List View */
+          <div className="border rounded-lg overflow-hidden bg-card dark:bg-card">
+            {/* Bulk Actions Bar */}
+            {selectedLeadIds.size > 0 && (
+              <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3">
+                <span className="text-sm font-medium text-primary">
+                  {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                </span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
+                    Limpar seleção
+                  </Button>
+                </div>
+              </div>
+            )}
+            {/* Table Header */}
+            <div className="bg-muted/50 dark:bg-muted/20 flex items-center px-3 py-2.5 text-xs font-medium text-muted-foreground border-b border-border dark:border-border">
+              <Checkbox
+                checked={selectedLeadIds.size === filteredLeads.length && filteredLeads.length > 0}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedLeadIds(new Set(filteredLeads.map(l => l.id)));
+                  } else {
+                    setSelectedLeadIds(new Set());
+                  }
+                }}
+                className="mr-3"
+              />
+              <span className="w-[200px]">Nome</span>
+              <span className="w-[120px]">Telefone</span>
+              <span className="w-[150px]">Etapa</span>
+              <span className="w-[100px]">Valor</span>
+              <span className="w-[100px]">Origem</span>
+              <span className="w-[120px]">Responsável</span>
+              <span className="flex-1">Data</span>
+              <span className="w-[60px]"></span>
+            </div>
+            {/* Table Rows */}
+            <div className="max-h-[calc(100vh-350px)] overflow-y-auto bg-card dark:bg-card">
+              {filteredLeads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Nenhum lead encontrado</p>
+                  <p className="text-sm">Tente ajustar os filtros ou adicione um novo lead</p>
+                </div>
+              ) : (
+                filteredLeads.map((lead) => {
+                  const isSelected = selectedLeadIds.has(lead.id);
+                  const stage = stages.find(s => s.id === (lead.funnel_stage_id || lead.stage));
+                  const responsible = lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id] : null;
+
+                  return (
+                    <div
+                      key={lead.id}
+                      className={cn(
+                        "flex items-center px-3 py-2.5 text-sm border-b border-border/50 dark:border-border/30 hover:bg-muted/30 dark:hover:bg-muted/20 transition-colors cursor-pointer bg-card dark:bg-card",
+                        isSelected && "bg-primary/10 dark:bg-primary/20"
+                      )}
+                      onClick={() => setEditingLead(lead)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedLeadIds(prev => {
+                            const next = new Set(prev);
+                            if (checked) {
+                              next.add(lead.id);
+                            } else {
+                              next.delete(lead.id);
+                            }
+                            return next;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mr-3"
+                      />
+                      <span className="w-[200px] font-medium truncate text-foreground dark:text-foreground">{lead.nome_lead || "Sem nome"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground dark:text-muted-foreground">{lead.telefone_lead || "-"}</span>
+                      <span className="w-[150px]">
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                          stage?.color
+                            ? `${stage.color}/20 dark:${stage.color}/30 text-${stage.color.replace('bg-', '').replace('-500', '-700')} dark:text-${stage.color.replace('bg-', '').replace('-500', '-300')}`
+                            : "bg-muted dark:bg-muted/50 text-muted-foreground dark:text-muted-foreground"
+                        )}>
+                          {stage?.title || lead.stage || "-"}
+                        </span>
+                      </span>
+                      <span className="w-[100px] font-medium text-foreground dark:text-foreground">
+                        {lead.valor
+                          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor)
+                          : "-"}
+                      </span>
+                      <span className="w-[100px] truncate text-muted-foreground dark:text-muted-foreground">{lead.source || "-"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground dark:text-muted-foreground">
+                        {responsible?.full_name || lead.responsavel || "-"}
+                      </span>
+                      <span className="flex-1 text-muted-foreground dark:text-muted-foreground">
+                        {new Date(lead.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                      <span className="w-[60px] flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground dark:text-muted-foreground hover:text-destructive dark:hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLead(lead);
+                          }}
+                        >
+                          ×
+                        </Button>
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Kanban View */
+          <DndContext
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            sensors={sensors}
+          >
+            <div
+              style={{ touchAction: 'none' }}
+              data-dragging-active={isDraggingActive}
+            >
+              {allFunnels.length > 0 ? (
+                <Tabs
+                  value={selectedFunnelId || allFunnels[0]?.id || "default"}
+                  onValueChange={handleTabChange}
+                  className="w-full pipeline-tabs"
+                >
+                  <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+                    {allFunnels.map((funnel) => {
+                      const iconEmoji = funnel.icon ? ICON_EMOJI_MAP[funnel.icon] : null;
+                      return (
+                        <div key={funnel.id} className="flex items-center">
+                          <TabsTrigger
+                            value={funnel.id}
+                            className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
+                          >
+                            <div className="flex items-center gap-2">
+                              {iconEmoji && (
+                                <span className="text-lg">{iconEmoji}</span>
+                              )}
+                              <span>{funnel.name}</span>
+                              {funnel.is_default && (
+                                <span className="text-xs text-muted-foreground">(Padrão)</span>
+                              )}
+                            </div>
+                          </TabsTrigger>
+                          {/* Botão de permissões: visível apenas para owners/admins */}
+                          {permissions.canManagePipeline && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setPermissionsFunnelId(funnel.id);
+                              }}
+                              className={cn(
+                                "ml-1 p-1 rounded transition-colors",
+                                funnel.is_restricted
+                                  ? "text-amber-500 hover:text-amber-400"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                              title="Configurar permissões de acesso"
+                            >
+                              <Users className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </TabsList>
+
+                  <TabsContent
+                    value={selectedFunnelId || allFunnels[0]?.id || "default"}
+                    className="mt-6"
+                  >
+                    <div
+                      ref={scrollContainerRef}
+                      onScroll={handleScrollContainerScroll}
+                      className={cn(
+                        "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                        isTabTransitioning && "transitioning"
+                      )}
+                      data-dragging-active={isDraggingActive}
+                    >
+                      {stages.map((stage) => {
+                        const stageLeads = leadsByStage.get(stage.id) || [];
+                        return (
+                          <PipelineColumn
+                            key={`${selectedFunnelId}-${stage.id}`}
+                            id={stage.id}
+                            title={stage.title}
+                            count={stageLeads.length}
+                            color={stage.color}
+                            leads={stageLeads}
+                            isEmpty={stageLeads.length === 0}
+                            onLeadUpdate={() => loadLeads(undefined, false)}
+                            onEdit={setEditingLead}
+                            onDelete={handleDeleteLead}
+                            leadItems={leadItems}
+                            leadTagsMap={leadTagsMap}
+                            isDraggingActive={isDraggingActive}
+                            profilesMap={profilesMap}
+                            duplicateLeadIds={duplicateLeadIds}
+                            agendamentosMap={agendamentosMap}
+                            redistributedMap={redistributedMap}
+                          />
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <div
+                  ref={scrollContainerRef}
+                  onScroll={handleScrollContainerScroll}
+                  className={cn(
+                    "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                    isTabTransitioning && "transitioning"
+                  )}
+                  data-dragging-active={isDraggingActive}
+                >
+                  {stages.map((stage) => {
+                    const stageLeads = leadsByStage.get(stage.id) || [];
+                    return (
+                      <PipelineColumn
+                        key={`default-${stage.id}`}
+                        id={stage.id}
+                        title={stage.title}
+                        count={stageLeads.length}
+                        color={stage.color}
+                        leads={stageLeads}
+                        isEmpty={stageLeads.length === 0}
+                        onLeadUpdate={() => loadLeads(undefined, false)}
+                        onEdit={handleEditLead}
+                        onDelete={handleDeleteLead}
+                        leadItems={leadItems}
+                        leadTagsMap={leadTagsMap}
+                        isDraggingActive={isDraggingActive}
+                        profilesMap={profilesMap}
+                        duplicateLeadIds={duplicateLeadIds}
+                        agendamentosMap={agendamentosMap}
+                        redistributedMap={redistributedMap}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <DragOverlay dropAnimation={null}>
+              {activeLead ? (
+                <LeadCard
+                  id={activeLead.id}
+                  name={activeLead.nome_lead}
+                  phone={activeLead.telefone_lead}
+                  date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
+                  avatarUrl={activeLead.avatar_url}
+                  stage={activeLead.stage}
+                  value={activeLead.valor}
+                  createdAt={activeLead.created_at}
+                  source={activeLead.source}
+                  description={activeLead.descricao_negocio}
+                  leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
+                  leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
+                />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
+      </div>
 
       {/* Modal de Edição - FORA do DndContext */}
       {showAddModal && (
@@ -2391,67 +2032,6 @@ const Pipeline = () => {
           }}
         />
       )}
-
-      {/* Dialogs de Ação em Lote */}
-      <BulkAssignDialog
-        open={showBulkAssignDialog}
-        onClose={() => setShowBulkAssignDialog(false)}
-        onConfirm={handleBulkAssign}
-        selectedCount={selectedLeadIds.size}
-        colaboradores={colaboradores}
-      />
-
-      <BulkMoveDialog
-        open={showBulkMoveDialog}
-        onClose={() => setShowBulkMoveDialog(false)}
-        onConfirm={handleBulkMoveStage}
-        selectedCount={selectedLeadIds.size}
-        stages={stages}
-      />
-
-      <BulkTagsDialog
-        open={showBulkTagsDialog}
-        onClose={() => setShowBulkTagsDialog(false)}
-        onConfirm={handleBulkTags}
-        selectedCount={selectedLeadIds.size}
-        availableTags={availableTags}
-      />
-
-      <ExportDialog
-        open={showExportDialog}
-        onClose={() => setShowExportDialog(false)}
-        onExport={handleBulkExport}
-        selectedCount={selectedLeadIds.size}
-        filteredCount={sortedLeads.length}
-        totalCount={Object.values(stagePagination).reduce((sum, s) => sum + s.totalCount, 0)}
-      />
-
-      {/* Confirmação de Exclusão em Lote */}
-      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Leads</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir {selectedLeadIds.size} leads?
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowBulkDeleteConfirm(false)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                handleBulkDelete();
-                setShowBulkDeleteConfirm(false);
-              }}
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Barra de rolagem fixa no rodapé */}
       {showScrollbar && (

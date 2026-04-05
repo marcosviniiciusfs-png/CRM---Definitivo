@@ -92,16 +92,6 @@ const StatCard = ({
   </TooltipProvider>
 );
 
-// ─── Section Label ───────────────────────────────────────────────────────────
-const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex items-center gap-3 mb-4">
-    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
-      {children}
-    </span>
-    <div className="flex-1 h-px bg-border/40" />
-  </div>
-);
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, organizationId, isReady, isSuperAdmin } = useOrganizationReady();
@@ -110,6 +100,11 @@ const Dashboard = () => {
 
   const [period, setPeriod] = useState<'today' | 'month' | 'quarter' | 'year'>('month');
   const { startDate, endDate } = getPeriodDateRange(period);
+
+  // NOTE: Queries mantidas paralelas para cache granular.
+  // Cada métrica pode ser invalidada independentemente pelo React Query.
+  // Isso permite refresh seletivo de métricas sem re-fetch de todas.
+  // Performance: O overhead de múltiplas queries é compensado pelo cache individual.
 
   // ═══════════════════════════════════════════════════════════════════════════
   // QUERIES
@@ -167,6 +162,42 @@ const Dashboard = () => {
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', organizationId)
         .not('calendar_event_id', 'is', null)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      return count || 0;
+    },
+    enabled: !!organizationId && !!startDate,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 3a. Reuniões Realizadas
+  const { data: realizedCount } = useQuery({
+    queryKey: ['dashboard-realized', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryFn: async () => {
+      if (!organizationId || !startDate) return 0;
+      const { count } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('status_reuniao', 'realizada')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      return count || 0;
+    },
+    enabled: !!organizationId && !!startDate,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 3b. Reuniões No-show
+  const { data: noShowCount } = useQuery({
+    queryKey: ['dashboard-noshow', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryFn: async () => {
+      if (!organizationId || !startDate) return 0;
+      const { count } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('status_reuniao', 'no_show')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
       return count || 0;
@@ -430,6 +461,8 @@ const Dashboard = () => {
         queryClient.invalidateQueries({ queryKey: ['dashboard-total-leads'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-mql'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-appointments'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-realized'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-noshow'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-month-revenue'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-sold-total'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-leads-funnel'] });
@@ -449,6 +482,8 @@ const Dashboard = () => {
   const mqlValue = mqlCount ?? 0;
   const qualiRate = totalLeadsValue > 0 ? (mqlValue / totalLeadsValue) * 100 : 0;
   const apptValue = appointmentCount ?? 0;
+  const realizedValue = realizedCount ?? 0;
+  const noShowValue = noShowCount ?? 0;
   const revenueValue = monthRevenue ?? 0;
   const soldValue = soldTotal ?? 0;
   const funnelValue = leadsInFunnel ?? 0;
@@ -465,7 +500,9 @@ const Dashboard = () => {
 
   const convReuniaoVenda = apptValue > 0 ? (soldValue / apptValue) * 100 : 0;
   const mqlRate = totalLeadsValue > 0 ? (mqlValue / totalLeadsValue) * 100 : 0;
-  const showUpRate = 78;
+  const totalMeetings = realizedValue + noShowValue;
+  const showUpRate = totalMeetings > 0 ? (realizedValue / totalMeetings) * 100 : 0;
+  const noShowRate = totalMeetings > 0 ? (noShowValue / totalMeetings) * 100 : 0;
   const cashCollectedRate = 92;
 
   const loading = totalLeads === undefined || mqlCount === undefined;
@@ -502,7 +539,7 @@ const Dashboard = () => {
       {/* ── Header ── */}
       <div className="sticky top-0 z-10 border-b border-border/40 bg-background/90 backdrop-blur-lg">
         <div className="px-6 py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div>
               <h1 className="text-lg font-semibold tracking-tight text-foreground">Dashboard</h1>
               <p className="text-[11px] text-muted-foreground mt-0.5">Visão geral da performance</p>
@@ -512,17 +549,15 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="p-6 space-y-8">
-
-        {/* ══════ SEÇÃO 1 — Captação de Leads (4 cards) ══════ */}
-        <SectionLabel>Captação de Leads</SectionLabel>
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="p-6 space-y-6">
+        {/* ── Grid de métricas (12 cards) ── */}
+        <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           <StatCard
             title="Leads Totais"
             value={totalLeadsValue}
             subtitle={period === 'today' ? 'captados hoje' : 'captados no período'}
             accentClass={accent.blue}
-            tooltip="Total de leads captados no período selecionado, independentemente do status no funil"
+            tooltip="Total de leads captados no período selecionado"
           />
           <StatCard
             title="MQL"
@@ -536,31 +571,30 @@ const Dashboard = () => {
             value={fmtPercent(qualiRate)}
             subtitle="MQL ÷ Leads Totais"
             accentClass={accent.purple}
-            tooltip="Percentual de leads que se tornaram qualificados (MQL) em relação ao total captado"
+            tooltip="Percentual de leads que se tornaram qualificados (MQL)"
           />
           <StatCard
             title="Ticket Médio"
             value={soldValue > 0 ? fmtCurrency(ticketMedio) : 'R$ 0'}
-            subtitle="receita ÷ vendas"
+            subtitle="receita÷ vendas"
             accentClass={accent.amber}
-            tooltip="Valor médio por venda fechada no período (Receita Total ÷ Contratos Fechados)"
+            tooltip="Valor médio por venda fechada"
           />
         </div>
 
-        {/* ══════ SEÇÃO 2 — Reuniões (3 cards) ══════ */}
-        <SectionLabel>Reuniões</SectionLabel>
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        {/*── Segunda linha de métricas (8 cards) ── */}
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-4">
           <StatCard
             title="Reuniões Agendadas"
             value={apptValue}
             subtitle="com evento no calendário"
             accentClass={accent.blue}
-            tooltip="Leads que possuem pelo menos um evento de calendário vinculado no período selecionado"
+            tooltip="Leads com evento de calendário vinculado"
           >
             {apptValue > 0 && (
               <div className="mt-3">
                 <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                  <span>Progresso vs meta</span>
+                  <span>Progresso</span>
                   <span>{Math.min(100, Math.round((apptValue / 50) * 100))}%</span>
                 </div>
                 <Progress value={Math.min(100, (apptValue / 50) * 100)} className="h-1.5" />
@@ -570,69 +604,64 @@ const Dashboard = () => {
 
           <StatCard
             title="Realizadas vs No-show"
-            value="—"
+            value={totalMeetings > 0 ? `${realizedValue}/${noShowValue}` : '0/0'}
             accentClass={accent.green}
-            tooltip="Reuniões de fato realizadas versus reuniões onde o lead não compareceu. Funcionalidade em desenvolvimento — aguardando campo de status de reunião no banco"
+            tooltip="Reuniões realizadas vs no-show"
           >
-            <div className="flex gap-4 mt-2">
+            <div className="flex gap-6 mt-2">
               <div className="flex-1">
                 <p className="text-[10px] text-muted-foreground mb-0.5">Realizadas</p>
-                <span className={`text-lg font-bold ${accent.green}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>—</span>
+                <span className={`text-lg font-bold ${accent.green}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{realizedValue}</span>
               </div>
               <div className="flex-1">
                 <p className="text-[10px] text-muted-foreground mb-0.5">No-show</p>
-                <span className={`text-lg font-bold ${accent.red}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>—</span>
+                <span className={`text-lg font-bold ${accent.red}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{noShowValue}</span>
               </div>
             </div>
             <div className="mt-2">
-              <Progress value={0} className="h-1.5" />
+              <Progress value={totalMeetings > 0 ? (realizedValue / totalMeetings) * 100 : 0} className="h-1.5" />
             </div>
           </StatCard>
 
           <StatCard
             title="Taxa No-show"
-            value="—"
-            subtitle="em desenvolvimento"
-            accentClass={accent.red}
-            tooltip="Percentual de reuniões agendadas onde o lead não compareceu. Em desenvolvimento — aguardando campo de status de reunião no banco"
+            value={totalMeetings > 0 ? fmtPercent(noShowRate) : '—'}
+            subtitle={totalMeetings > 0 ? `${noShowValue} de ${totalMeetings}` : 'sem dados'}
+            accentClass={noShowRate > 20 ? accent.red : accent.amber}
+            tooltip="Percentual de no-show"
           >
-            <div className="mt-2 flex items-center gap-1.5">
-              <AlertTriangle className="w-3 h-3 text-muted-foreground/40" />
-              <span className="text-[10px] text-muted-foreground/50">Alerta automático quando acima de 20%</span>
-            </div>
+            {noShowRate > 20 && totalMeetings > 0 && (
+              <div className="mt-2 flex items-center gap-1.5">
+                <AlertTriangle className="w-3 h-3.5 text-red-500 animate-pulse" />
+                <span className="text-[10px] text-red-500 font-medium">Acima de 20%</span>
+              </div>
+            )}
           </StatCard>
-        </div>
 
-        {/* ══════ SEÇÃO 3 — Vendas & Conversão (5 cards) ══════ */}
-        <SectionLabel>Vendas &amp; Conversão</SectionLabel>
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <StatCard
             title="Receita do Mês"
             value={fmtCurrency(revenueValue)}
             subtitle={`período: ${period}`}
             accentClass={accent.green}
-            tooltip="Soma do valor financeiro de todas as vendas fechadas (leads na etapa 'Ganho') no período selecionado"
+            tooltip="Soma do valor das vendas"
           />
-          <StatCard
-            title="Cash Collected"
-            value="—"
-            subtitle="em desenvolvimento"
-            accentClass={accent.green}
-            tooltip="Valor efetivamente recebido (pago) dos contratos fechados. Requer tabela de pagamentos/financeiro para implementação"
-          />
+        </div>
+
+        {/*── Terceira linha (5 cards) ── */}
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-4">
           <StatCard
             title="Contratos Fechados"
             value={soldValue}
             subtitle="no período"
             accentClass={accent.blue}
-            tooltip="Quantidade de leads que chegaram à etapa 'Ganho' e possuem data de conclusão registrada no período"
+            tooltip="Contratos fechados no período"
           />
           <StatCard
             title="Vendas no Total"
             value={historicalSold}
-            subtitle="acumulado histórico"
+            subtitle="acumulado"
             accentClass={accent.amber}
-            tooltip="Total acumulado de todas as vendas (leads 'Ganho' com data de conclusão) desde o início da organização"
+            tooltip="Total acumulado de vendas"
           >
             {spark.length > 0 && (
               <div className="flex items-end gap-[3px] mt-3 h-8">
@@ -658,20 +687,27 @@ const Dashboard = () => {
               </div>
             )}
           </StatCard>
+
           <StatCard
             title="Leads no Funil"
             value={funnelValue}
             subtitle="em etapas ativas"
             accentClass={accent.purple}
-            tooltip="Total de leads que estão em etapas ativas do funil, excluindo 'Ganho' e 'Perdido'"
+            tooltip="Leads em etapas ativas do funil"
+          />
+
+          <StatCard
+            title="Cash Collected"
+            value="—"
+            subtitle="em desenvolvimento"
+            accentClass={accent.green}
+            tooltip="Valor recebido - em desenvolvimento"
           />
         </div>
 
-        {/* ══════ SEÇÃO 4 — Taxas Chave + Distribuição + Top Representantes (3 colunas) ══════ */}
-        <SectionLabel>Análise &amp; Performance</SectionLabel>
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-
-          {/* ── Taxas Chave ── */}
+        {/*── Quarta linha: Análise (3 colunas) ── */}
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+          {/*── Taxas Chave ── */}
           <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
@@ -680,43 +716,23 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-sm font-medium text-foreground">Taxas Chave</h3>
               </div>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="w-3.5 h-3.5 text-muted-foreground/40 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px] text-xs">
-                    Indicadores percentuais de performance. Verde = acima da meta, vermelho = abaixo da meta
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
 
             <div className="space-y-4">
               {[
-                { label: 'Conversão Reunião → Venda', value: convReuniaoVenda, meta: 30, tooltip: 'Percentual de reuniões que resultaram em venda' },
-                { label: 'Show-up Rate', value: showUpRate, meta: 80, tooltip: 'Percentual de reuniões onde o lead compareceu. Placeholder — aguardando campo no banco', placeholder: true },
-                { label: 'MQL / Leads', value: mqlRate, meta: 25, tooltip: 'Percentual de leads que se tornaram qualificados (MQL)' },
-                { label: 'Cash Collected Rate', value: cashCollectedRate, meta: 90, tooltip: 'Percentual do valor contratado que foi efetivamente recebido. Placeholder — aguardando tabela financeira', placeholder: true },
+                { label: 'Conversão Reunião → Venda', value: convReuniaoVenda, meta: 30 },
+                { label: 'Show-up Rate', value: showUpRate, meta: 80 },
+                { label: 'MQL /Leads', value: mqlRate, meta: 25 },
+                { label: 'Cash Collected', value: cashCollectedRate, meta: 90, placeholder: true },
               ].map((rate, i) => {
                 const above = rate.value >= rate.meta;
                 const displayValue = rate.placeholder ? '—' : fmtPercent(rate.value);
                 return (
                   <div key={i}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-[11px] text-muted-foreground cursor-help flex items-center gap-1">
-                              {rate.label}
-                              <Info className="w-2.5 h-2.5 text-muted-foreground/30" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[200px] text-xs">
-                            {rate.tooltip}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <span className="text-[11px] text-muted-foreground">
+                        {rate.label}
+                      </span>
                       <span
                         className={`text-[13px] font-semibold ${rate.placeholder ? 'text-muted-foreground/40' : above ? accent.green : accent.red}`}
                         style={{ fontFamily: "'JetBrains Mono', monospace" }}
@@ -745,7 +761,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* ── Distribuição por Etapa (Top 3 + Gargalo) ── */}
+          {/*── Distribuição por Etapa ── */}
           <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
@@ -754,16 +770,6 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-sm font-medium text-foreground">Distribuição por Etapa</h3>
               </div>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="w-3.5 h-3.5 text-muted-foreground/40 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px] text-xs">
-                    Top 3 etapas com mais leads. A etapa com maior acúmulo é marcada como gargalo
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
 
             {topFunnelStages.length > 0 ? (
@@ -822,7 +828,7 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* ── Top Representantes ── */}
+          {/*── Top Representantes ── */}
           <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
