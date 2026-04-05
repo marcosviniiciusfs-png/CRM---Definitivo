@@ -216,15 +216,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           total_collaborators: 5 + (sub.extra_collaborators || 0)
         };
       } else {
-        // Fallback generoso para não bloquear o usuário durante migração/testes
-        logger.log('[AUTH] Using fallback plan');
+        // Fallback inteligente: novas contas = 5 colaboradores, contas existentes = 20 ou mais
+        logger.log('[AUTH] Using fallback plan - checking existing members');
+
+        let maxCollaborators = 5; // Default para novas contas
+
+        if (organizationId) {
+          // Contar membros existentes na organização
+          const { count } = await supabase
+            .from('organization_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', organizationId);
+
+          if (count && count > 0) {
+            // Conta existente: mínimo 20, ou mais se já tiver mais membros
+            maxCollaborators = Math.max(20, count);
+            logger.log('[AUTH] Existing organization with', count, 'members, setting limit to', maxCollaborators);
+          }
+        }
+
         subData = {
           subscribed: false,
           product_id: 'free',
           subscription_end: null,
-          max_collaborators: 5,
+          max_collaborators: maxCollaborators,
           extra_collaborators: 0,
-          total_collaborators: 5
+          total_collaborators: maxCollaborators
         };
       }
 
@@ -385,13 +402,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const { data: { session: currentSession } } = await supabase.auth.getSession();
               if (!currentSession?.access_token) return;
 
+              // Fallback inteligente: buscar organização e contar membros
+              let maxCollaborators = 5; // Default para novas contas
+
+              const { data: memberData } = await supabase
+                .from('organization_members')
+                .select('organization_id')
+                .eq('user_id', session.user.id)
+                .limit(1)
+                .maybeSingle();
+
+              if (memberData?.organization_id) {
+                const { count } = await supabase
+                  .from('organization_members')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('organization_id', memberData.organization_id);
+
+                if (count && count > 0) {
+                  maxCollaborators = Math.max(20, count);
+                }
+              }
+
               setSubscriptionData({
                 subscribed: false,
                 product_id: 'free',
                 subscription_end: null,
-                max_collaborators: 5,
+                max_collaborators: maxCollaborators,
                 extra_collaborators: 0,
-                total_collaborators: 5
+                total_collaborators: maxCollaborators
               });
 
               // Refresh section access as well
@@ -478,13 +516,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (!mounted) return;
 
             try {
+              // Fallback inteligente: buscar organização e contar membros
+              let maxCollaborators = 5; // Default para novas contas
+
+              const { data: memberData } = await supabase
+                .from('organization_members')
+                .select('organization_id')
+                .eq('user_id', session.user.id)
+                .limit(1)
+                .maybeSingle();
+
+              if (memberData?.organization_id) {
+                const { count } = await supabase
+                  .from('organization_members')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('organization_id', memberData.organization_id);
+
+                if (count && count > 0) {
+                  maxCollaborators = Math.max(20, count);
+                }
+              }
+
               setSubscriptionData({
                 subscribed: false,
                 product_id: 'free',
                 subscription_end: null,
-                max_collaborators: 5,
+                max_collaborators: maxCollaborators,
                 extra_collaborators: 0,
-                total_collaborators: 5
+                total_collaborators: maxCollaborators
               });
               subscriptionFetchedRef.current = true;
 
