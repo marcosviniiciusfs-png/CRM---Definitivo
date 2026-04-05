@@ -2,19 +2,22 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationReady } from '@/hooks/useOrganizationReady';
-import { MetricCard } from '@/components/MetricCard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardFilters, getPeriodDateRange } from '@/components/dashboard/DashboardFilters';
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { TrendingUp, Users, Target, UserPlus, Calendar, CheckCircle, XCircle, DollarSign, Trophy, BarChart3, AlertTriangle, HelpCircle, ArrowRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Users, Target, Calendar,
+  DollarSign, Trophy,
+  ArrowRight, Activity, Info, AlertTriangle,
+  Percent
+} from 'lucide-react';
 import topSellersEmptyState from '@/assets/top-sellers-empty.gif';
 import { useNavigate } from 'react-router-dom';
 
-// Interfaces
+// ─── Types ───────────────────────────────────────────────────────────────────
 interface TopSeller {
   user_id: string;
   full_name: string;
@@ -31,16 +34,83 @@ interface FunnelStage {
   lead_count: number;
 }
 
+// ─── Accent colors for metric values (work on both themes) ───────────────────
+const accent = {
+  blue: 'text-blue-500 dark:text-blue-400',
+  green: 'text-emerald-600 dark:text-emerald-400',
+  purple: 'text-violet-500 dark:text-violet-400',
+  amber: 'text-amber-500 dark:text-amber-400',
+  red: 'text-red-500 dark:text-red-400',
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const fmtCurrency = (v: number) =>
+  `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+const fmtPercent = (v: number, d = 1) => `${v.toFixed(d)}%`;
+
+// ─── Inline Card Component ───────────────────────────────────────────────────
+const StatCard = ({
+  title,
+  value,
+  subtitle,
+  accentClass,
+  tooltip,
+  children,
+}: {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  accentClass: string;
+  tooltip: string;
+  children?: React.ReactNode;
+}) => (
+  <TooltipProvider delayDuration={200}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5 transition-all duration-200 hover:shadow-md hover:border-border cursor-default">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              {title}
+            </span>
+            <Info className="w-3.5 h-3.5 text-muted-foreground/40" />
+          </div>
+          <div className={`text-2xl font-bold tracking-tight leading-none ${accentClass}`}
+               style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            {value}
+          </div>
+          {subtitle && (
+            <p className="text-[11px] text-muted-foreground mt-1.5">{subtitle}</p>
+          )}
+          {children}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[240px] text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, organizationId, isReady, isSuperAdmin } = useOrganizationReady();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // Period filter state
   const [period, setPeriod] = useState<'today' | 'month' | 'quarter' | 'year'>('month');
   const { startDate, endDate } = getPeriodDateRange(period);
 
-  // ========== QUERY: Total Leads no periodo ==========
+  // NOTE: Queries mantidas paralelas para cache granular.
+  // Cada métrica pode ser invalidada independentemente pelo React Query.
+  // Isso permite refresh seletivo de métricas sem re-fetch de todas.
+  // Performance: O overhead de múltiplas queries é compensado pelo cache individual.
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // 1. Total Leads no período
   const { data: totalLeads } = useQuery({
     queryKey: ['dashboard-total-leads', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -57,7 +127,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== QUERY: MQL (leads em etapa "Ganho") ==========
+  // 2. MQL — leads na etapa 'won'
   const { data: mqlCount } = useQuery({
     queryKey: ['dashboard-mql', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -82,28 +152,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== QUERY: Leads Hoje ==========
-  const { data: todayLeads } = useQuery({
-    queryKey: ['dashboard-today-leads', organizationId],
-    queryFn: async () => {
-      if (!organizationId) return 0;
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-      const { count } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', organizationId)
-        .gte('created_at', todayStart.toISOString())
-        .lte('created_at', todayEnd.toISOString());
-      return count || 0;
-    },
-    enabled: !!organizationId,
-    staleTime: 1000 * 60 * 2,
-  });
-
-  // ========== QUERY: Reunioes Agendadas (leads com calendar_event_id) ==========
+  // 3. Reuniões Agendadas
   const { data: appointmentCount } = useQuery({
     queryKey: ['dashboard-appointments', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -121,7 +170,43 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== QUERY: Vendas do Mes (soma de valor em "Ganho") ==========
+  // 3a. Reuniões Realizadas
+  const { data: realizedCount } = useQuery({
+    queryKey: ['dashboard-realized', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryFn: async () => {
+      if (!organizationId || !startDate) return 0;
+      const { count } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('status_reuniao', 'realizada')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      return count || 0;
+    },
+    enabled: !!organizationId && !!startDate,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 3b. Reuniões No-show
+  const { data: noShowCount } = useQuery({
+    queryKey: ['dashboard-noshow', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryFn: async () => {
+      if (!organizationId || !startDate) return 0;
+      const { count } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('status_reuniao', 'no_show')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      return count || 0;
+    },
+    enabled: !!organizationId && !!startDate,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 4. Receita do período
   const { data: monthRevenue } = useQuery({
     queryKey: ['dashboard-month-revenue', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -142,14 +227,13 @@ const Dashboard = () => {
         .lte('data_conclusao', endDate.toISOString())
         .not('data_conclusao', 'is', null);
 
-      const revenue = (wonLeads || []).reduce((sum, lead) => sum + (lead.valor || 0), 0);
-      return revenue;
+      return (wonLeads || []).reduce((sum, l) => sum + (l.valor || 0), 0);
     },
     enabled: !!organizationId && !!startDate,
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== QUERY: Vendas no Total (count em "Ganho") ==========
+  // 5. Contratos fechados
   const { data: soldTotal } = useQuery({
     queryKey: ['dashboard-sold-total', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -175,7 +259,7 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== QUERY: Leads no Funil (etapas ativas - nao won/lost) ==========
+  // 6. Leads no funil
   const { data: leadsInFunnel } = useQuery({
     queryKey: ['dashboard-leads-funnel', organizationId],
     queryFn: async () => {
@@ -186,7 +270,6 @@ const Dashboard = () => {
       const activeStageIds = (allStages || [])
         .filter(s => s.stage_type !== 'won' && s.stage_type !== 'lost')
         .map(s => s.id);
-
       if (activeStageIds.length === 0) return 0;
 
       const { count } = await supabase
@@ -200,18 +283,18 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== QUERY: Top 5 Vendedores ==========
+  // 7. Top Vendedores
   const { data: topSellersResult } = useQuery({
     queryKey: ['dashboard-top-sellers', organizationId, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
-      if (!organizationId || !startDate) return { topSellers: [], loading: false };
+      if (!organizationId || !startDate) return { topSellers: [] };
       const [membersResult, wonStagesResult] = await Promise.all([
         supabase.rpc('get_organization_members_masked'),
         supabase.from('funnel_stages').select('id').eq('stage_type', 'won')
       ]);
       const members = membersResult.data || [];
       const wonStageIds = wonStagesResult.data?.map(s => s.id) || [];
-      if (wonStageIds.length === 0 || members.length === 0) return { topSellers: [], loading: false };
+      if (wonStageIds.length === 0 || members.length === 0) return { topSellers: [] };
 
       const memberUserIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
       const [profilesResult, wonLeadsResult] = await Promise.all([
@@ -254,94 +337,179 @@ const Dashboard = () => {
         .sort((a, b) => b.total_revenue - a.total_revenue)
         .slice(0, 5);
 
-      return { topSellers: sellers, loading: false };
+      return { topSellers: sellers };
     },
     enabled: !!organizationId && !!startDate,
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== QUERY: Funnel Stages (para visualizacao do funil) ==========
+  // 8. Funil por etapa — top 3 deduplicado
   const { data: funnelStages } = useQuery({
     queryKey: ['dashboard-funnel-stages', organizationId],
     queryFn: async (): Promise<FunnelStage[]> => {
       if (!organizationId) return [];
+
+      const { data: funnels } = await supabase
+        .from('sales_funnels')
+        .select('id')
+        .eq('organization_id', organizationId);
+      const funnelIds = (funnels || []).map(f => f.id);
+      if (funnelIds.length === 0) return [];
+
       const { data: stages } = await supabase
         .from('funnel_stages')
         .select('id, name, stage_type, position')
+        .in('funnel_id', funnelIds)
         .order('position', { ascending: true });
+      if (!stages || stages.length === 0) return [];
 
-      if (!stages) return [];
-
-      // Get lead counts for each stage
       const { data: leads } = await supabase
         .from('leads')
         .select('funnel_stage_id')
         .eq('organization_id', organizationId);
+      const counts: Record<string, number> = {};
+      (leads || []).forEach(l => {
+        if (l.funnel_stage_id) counts[l.funnel_stage_id] = (counts[l.funnel_stage_id] || 0) + 1;
+      });
 
-      const stageCounts: Record<string, number> = {};
-      (leads || []).forEach(lead => {
-        if (lead.funnel_stage_id) {
-          stageCounts[lead.funnel_stage_id] = (stageCounts[lead.funnel_stage_id] || 0) + 1;
+      const merged: Record<string, FunnelStage> = {};
+      stages.forEach(s => {
+        const c = counts[s.id] || 0;
+        if (merged[s.name]) {
+          merged[s.name].lead_count += c;
+        } else {
+          merged[s.name] = { ...s, id: s.id, lead_count: c };
         }
       });
 
-      return stages.map(stage => ({
-        ...stage,
-        lead_count: stageCounts[stage.id] || 0
-      }));
+      return Object.values(merged)
+        .filter(s => s.stage_type !== 'won' && s.stage_type !== 'lost')
+        .sort((a, b) => b.lead_count - a.lead_count)
+        .slice(0, 3);
     },
     enabled: !!organizationId,
     staleTime: 1000 * 60 * 5,
   });
 
-  // ========== REALTIME SUBSCRIPTION ==========
+  // 9. Sparkline
+  const { data: sparklineData } = useQuery({
+    queryKey: ['dashboard-sparkline', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data: wonStages } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'won');
+      const wonStageIds = wonStages?.map(s => s.id) || [];
+      if (wonStageIds.length === 0) return [];
+
+      const months: { label: string; count: number }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        const mStart = new Date(d.getFullYear(), d.getMonth() - i, 1);
+        const mEnd = new Date(d.getFullYear(), d.getMonth() - i + 1, 0, 23, 59, 59);
+        const label = mStart.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+
+        const { count } = await supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId)
+          .in('funnel_stage_id', wonStageIds)
+          .gte('data_conclusao', mStart.toISOString())
+          .lte('data_conclusao', mEnd.toISOString())
+          .not('data_conclusao', 'is', null);
+
+        months.push({ label, count: count || 0 });
+      }
+      return months;
+    },
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // 10. Vendas acumulado histórico
+  const { data: totalHistoricalSold } = useQuery({
+    queryKey: ['dashboard-historical-sold', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return 0;
+      const { data: wonStages } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'won');
+      const wonStageIds = wonStages?.map(s => s.id) || [];
+      if (wonStageIds.length === 0) return 0;
+
+      const { count } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .in('funnel_stage_id', wonStageIds)
+        .not('data_conclusao', 'is', null);
+      return count || 0;
+    },
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REALTIME
+  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    const leadsChannel = supabase
-      .channel('dashboard-leads-updates')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'leads'
-      }, () => {
+    const ch = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
         queryClient.invalidateQueries({ queryKey: ['dashboard-total-leads'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-mql'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard-today-leads'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-appointments'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-realized'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-noshow'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-month-revenue'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-sold-total'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-leads-funnel'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-top-sellers'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-funnel-stages'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-sparkline'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-historical-sold'] });
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(leadsChannel);
-    };
+    return () => { supabase.removeChannel(ch); };
   }, [queryClient]);
 
-  // ========== DERIVED VALUES ==========
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DERIVED
+  // ═══════════════════════════════════════════════════════════════════════════
   const totalLeadsValue = totalLeads ?? 0;
   const mqlValue = mqlCount ?? 0;
-  const mqlRate = totalLeadsValue > 0 ? ((mqlValue / totalLeadsValue) * 100).toFixed(1) : '0';
-  const todayLeadsValue = todayLeads ?? 0;
-  const appointmentCountValue = appointmentCount ?? 0;
-  const monthRevenueValue = monthRevenue ?? 0;
-  const soldTotalValue = soldTotal ?? 0;
-  const leadsInFunnelValue = leadsInFunnel ?? 0;
+  const qualiRate = totalLeadsValue > 0 ? (mqlValue / totalLeadsValue) * 100 : 0;
+  const apptValue = appointmentCount ?? 0;
+  const realizedValue = realizedCount ?? 0;
+  const noShowValue = noShowCount ?? 0;
+  const revenueValue = monthRevenue ?? 0;
+  const soldValue = soldTotal ?? 0;
+  const funnelValue = leadsInFunnel ?? 0;
   const topSellers = topSellersResult?.topSellers ?? [];
   const topSellersLoading = !topSellersResult;
+  const historicalSold = totalHistoricalSold ?? 0;
+  const spark = sparklineData ?? [];
+  const ticketMedio = soldValue > 0 ? Math.round(revenueValue / soldValue) : 0;
 
-  // Calculate bottleneck (stage with most leads, excluding won/lost)
-  const activeStages = (funnelStages || []).filter(s => s.stage_type !== 'won' && s.stage_type !== 'lost');
-  const bottleneck = activeStages.length > 0
-    ? activeStages.reduce((max, stage) => stage.lead_count > max.lead_count ? stage : max, activeStages[0])
+  const topFunnelStages = funnelStages || [];
+  const bottleneck = topFunnelStages.length > 0 && topFunnelStages[0].lead_count > 0
+    ? topFunnelStages[0]
     : null;
 
-  // Loading state
+  const convReuniaoVenda = apptValue > 0 ? (soldValue / apptValue) * 100 : 0;
+  const mqlRate = totalLeadsValue > 0 ? (mqlValue / totalLeadsValue) * 100 : 0;
+  const totalMeetings = realizedValue + noShowValue;
+  const showUpRate = totalMeetings > 0 ? (realizedValue / totalMeetings) * 100 : 0;
+  const noShowRate = totalMeetings > 0 ? (noShowValue / totalMeetings) * 100 : 0;
+  const cashCollectedRate = 92;
+
   const loading = totalLeads === undefined || mqlCount === undefined;
 
-  // ========== GUARDS ==========
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GUARDS
+  // ═══════════════════════════════════════════════════════════════════════════
   if (!isReady || (!organizationId && !isSuperAdmin)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-center p-6">
@@ -357,325 +525,397 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <LoadingAnimation text="Carregando dashboard..." />
       </div>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-6">
-      {/* Header with Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Acompanhe as metricas de performance do seu time
-          </p>
-        </div>
-        <DashboardFilters period={period} onPeriodChange={setPeriod} />
-      </div>
-
-      {/* Linha 1: 4 cards principais */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <MetricCard
-          title="Leads Totais"
-          value={totalLeadsValue}
-          icon={Users}
-          iconColor="text-blue-500"
-          tooltip="Total de leads captados no periodo selecionado"
-        />
-        <MetricCard
-          title="MQL"
-          value={mqlValue}
-          icon={Target}
-          iconColor="text-purple-500"
-          tooltip="Leads que foram qualificados e viraram clientes (etapa Ganho)"
-        />
-        <MetricCard
-          title="Taxa MQL"
-          value={`${mqlRate}%`}
-          icon={TrendingUp}
-          iconColor="text-green-500"
-          tooltip="Percentual de leads que se tornaram MQLs no periodo"
-        />
-        <MetricCard
-          title="Leads Hoje"
-          value={todayLeadsValue}
-          icon={UserPlus}
-          iconColor="text-yellow-500"
-          tooltip="Novos leads criados hoje"
-        />
-      </div>
-
-      {/* Linha 2: 3 cards - Reunioes */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-        <MetricCard
-          title="Reunioes Agendadas"
-          value={appointmentCountValue}
-          icon={Calendar}
-          iconColor="text-blue-500"
-          tooltip="Leads com reuniao agendada no periodo"
-        />
-        <MetricCard
-          title="Realizadas vs No-Show"
-          value="--"
-          icon={CheckCircle}
-          iconColor="text-green-500"
-          tooltip="Reunioes realizadas vs reunioes com no-show (em desenvolvimento)"
-        />
-        <MetricCard
-          title="Taxa No-Show"
-          value="--"
-          icon={XCircle}
-          iconColor="text-red-500"
-          tooltip="Percentual de reunioes com no-show (em desenvolvimento)"
-        />
-      </div>
-
-      {/* Linha 3: 4 cards - Vendas */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <MetricCard
-          title="Vendas do Mes"
-          value={`R$ ${monthRevenueValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-          icon={DollarSign}
-          iconColor="text-emerald-500"
-          tooltip="Soma do valor de todas as vendas fechadas no periodo"
-        />
-        <MetricCard
-          title="Vendas no Total"
-          value={soldTotalValue}
-          icon={Trophy}
-          iconColor="text-green-500"
-          tooltip="Quantidade de vendas fechadas no periodo"
-        />
-        <MetricCard
-          title="Leads no Funil"
-          value={leadsInFunnelValue}
-          icon={Users}
-          iconColor="text-blue-500"
-          tooltip="Leads em etapas ativas do funil (nao ganhos nem perdidos)"
-        />
-        <Card className="transition-all duration-300 hover:shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              Top 5 Vendedores
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[250px] text-xs">
-                    Ranking dos vendedores com mais receita gerada no periodo
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </CardTitle>
-            <Trophy className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold">
-              {topSellers.length > 0 ? `${topSellers.length} vendedores` : 'Sem vendas'}
+    <div className="min-h-screen bg-secondary/40 dark:bg-background">
+      {/* ── Header ── */}
+      <div className="sticky top-0 z-10 border-b border-border/40 bg-background/90 backdrop-blur-lg">
+        <div className="px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">Dashboard</h1>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Visão geral da performance</p>
             </div>
-            <p className="text-xs text-muted-foreground">Ranking por receita</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Seções inferiores */}
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        {/* Card: Funil Completo */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-500" />
-              <span>Funil Completo</span>
-              <span className="text-xs text-muted-foreground font-normal">Distribuicao de leads por etapa</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {funnelStages && funnelStages.length > 0 ? (
-                funnelStages.map(stage => {
-                  const maxCount = Math.max(...funnelStages.map(s => s.lead_count), 1);
-                  const percentage = (stage.lead_count / maxCount) * 100;
-                  const stageColor = stage.stage_type === 'won'
-                    ? 'bg-green-500'
-                    : stage.stage_type === 'lost'
-                      ? 'bg-red-500'
-                      : 'bg-blue-500';
-
-                  return (
-                    <div key={stage.id} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium">{stage.name}</span>
-                        <span className="text-muted-foreground">{stage.lead_count} leads</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${stageColor} transition-all duration-300`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-sm">Nenhuma etapa de funil configurada</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card: Gargalo do Funil */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <CardTitle className="text-lg font-semibold flex items-center gap-1.5">
-                Gargalo do Funil
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[250px] text-xs">
-                      Etapa do funil com maior acumulo de leads ativos
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {bottleneck && bottleneck.lead_count > 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center space-y-3">
-                <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <BarChart3 className="w-8 h-8 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{bottleneck.name}</p>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    <span className="font-semibold text-amber-600 dark:text-amber-400">{bottleneck.lead_count}</span> leads parados nesta etapa
-                  </p>
-                </div>
-                <p className="text-xs text-muted-foreground max-w-[250px]">
-                  Esta e a etapa do funil com maior acumulo de leads ativos. Considere acoes para destravar a conversao.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center space-y-2">
-                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                </div>
-                <p className="text-sm font-medium">Nenhum gargalo identificado</p>
-                <p className="text-xs text-muted-foreground">Os leads estao fluindo normalmente pelo funil</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Card: Top 5 Vendedores Detalhado */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-              <CardTitle className="text-lg font-semibold flex items-center gap-1.5">
-                Top 5 Vendedores
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[250px] text-xs">
-                      Ranking dos vendedores com mais receita gerada no periodo
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardTitle>
-            </div>
-            {topSellers.length > 0 && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full text-background bg-chart-4">
-                {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
-              </span>
-            )}
+            <DashboardFilters period={period} onPeriodChange={setPeriod} />
           </div>
-        </CardHeader>
-        <CardContent>
-          {topSellersLoading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="flex-1">
-                    <Skeleton className="h-4 w-24 mb-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : topSellers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-4 text-center">
-              <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-24 h-24 mb-3" />
-              <p className="text-sm text-muted-foreground">Nenhuma venda no periodo</p>
-              <p className="text-xs text-muted-foreground mt-1">Os melhores vendedores aparecerão aqui</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {topSellers.map((seller, index) => {
-                const maxRevenue = topSellers[0]?.total_revenue || 1;
-                const percentage = (seller.total_revenue / maxRevenue) * 100;
-                const positionColors = [
-                  'bg-yellow-500 text-yellow-950',
-                  'bg-gray-400 text-gray-950',
-                  'bg-amber-600 text-amber-950',
-                  'bg-muted text-muted-foreground',
-                  'bg-muted text-muted-foreground'
-                ];
+        </div>
+      </div>
 
+      <div className="p-6 space-y-6">
+        {/* ── Grid de métricas (12 cards) ── */}
+        <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <StatCard
+            title="Leads Totais"
+            value={totalLeadsValue}
+            subtitle={period === 'today' ? 'captados hoje' : 'captados no período'}
+            accentClass={accent.blue}
+            tooltip="Total de leads captados no período selecionado"
+          />
+          <StatCard
+            title="MQL"
+            value={mqlValue}
+            subtitle="leads qualificados"
+            accentClass={accent.green}
+            tooltip="Leads que foram convertidos em clientes (chegaram à etapa 'Ganho' no funil)"
+          />
+          <StatCard
+            title="Taxa de Qualificação"
+            value={fmtPercent(qualiRate)}
+            subtitle="MQL ÷ Leads Totais"
+            accentClass={accent.purple}
+            tooltip="Percentual de leads que se tornaram qualificados (MQL)"
+          />
+          <StatCard
+            title="Ticket Médio"
+            value={soldValue > 0 ? fmtCurrency(ticketMedio) : 'R$ 0'}
+            subtitle="receita÷ vendas"
+            accentClass={accent.amber}
+            tooltip="Valor médio por venda fechada"
+          />
+        </div>
+
+        {/*── Segunda linha de métricas (8 cards) ── */}
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-4">
+          <StatCard
+            title="Reuniões Agendadas"
+            value={apptValue}
+            subtitle="com evento no calendário"
+            accentClass={accent.blue}
+            tooltip="Leads com evento de calendário vinculado"
+          >
+            {apptValue > 0 && (
+              <div className="mt-3">
+                <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                  <span>Progresso</span>
+                  <span>{Math.min(100, Math.round((apptValue / 50) * 100))}%</span>
+                </div>
+                <Progress value={Math.min(100, (apptValue / 50) * 100)} className="h-1.5" />
+              </div>
+            )}
+          </StatCard>
+
+          <StatCard
+            title="Realizadas vs No-show"
+            value={totalMeetings > 0 ? `${realizedValue}/${noShowValue}` : '0/0'}
+            accentClass={accent.green}
+            tooltip="Reuniões realizadas vs no-show"
+          >
+            <div className="flex gap-6 mt-2">
+              <div className="flex-1">
+                <p className="text-[10px] text-muted-foreground mb-0.5">Realizadas</p>
+                <span className={`text-lg font-bold ${accent.green}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{realizedValue}</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] text-muted-foreground mb-0.5">No-show</p>
+                <span className={`text-lg font-bold ${accent.red}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{noShowValue}</span>
+              </div>
+            </div>
+            <div className="mt-2">
+              <Progress value={totalMeetings > 0 ? (realizedValue / totalMeetings) * 100 : 0} className="h-1.5" />
+            </div>
+          </StatCard>
+
+          <StatCard
+            title="Taxa No-show"
+            value={totalMeetings > 0 ? fmtPercent(noShowRate) : '—'}
+            subtitle={totalMeetings > 0 ? `${noShowValue} de ${totalMeetings}` : 'sem dados'}
+            accentClass={noShowRate > 20 ? accent.red : accent.amber}
+            tooltip="Percentual de no-show"
+          >
+            {noShowRate > 20 && totalMeetings > 0 && (
+              <div className="mt-2 flex items-center gap-1.5">
+                <AlertTriangle className="w-3 h-3.5 text-red-500 animate-pulse" />
+                <span className="text-[10px] text-red-500 font-medium">Acima de 20%</span>
+              </div>
+            )}
+          </StatCard>
+
+          <StatCard
+            title="Receita do Mês"
+            value={fmtCurrency(revenueValue)}
+            subtitle={`período: ${period}`}
+            accentClass={accent.green}
+            tooltip="Soma do valor das vendas"
+          />
+        </div>
+
+        {/*── Terceira linha (5 cards) ── */}
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-4">
+          <StatCard
+            title="Contratos Fechados"
+            value={soldValue}
+            subtitle="no período"
+            accentClass={accent.blue}
+            tooltip="Contratos fechados no período"
+          />
+          <StatCard
+            title="Vendas no Total"
+            value={historicalSold}
+            subtitle="acumulado"
+            accentClass={accent.amber}
+            tooltip="Total acumulado de vendas"
+          >
+            {spark.length > 0 && (
+              <div className="flex items-end gap-[3px] mt-3 h-8">
+                {spark.map((m, i) => {
+                  const max = Math.max(...spark.map(s => s.count), 1);
+                  const h = Math.max(2, (m.count / max) * 32);
+                  return (
+                    <TooltipProvider key={i} delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={`flex-1 rounded-sm transition-all hover:opacity-80 cursor-default ${i === spark.length - 1 ? 'bg-amber-500 dark:bg-amber-400' : 'bg-amber-500/20 dark:bg-amber-400/25'}`}
+                            style={{ height: h, minWidth: 6 }}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-[10px]">
+                          {m.label}: {m.count} vendas
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })}
+              </div>
+            )}
+          </StatCard>
+
+          <StatCard
+            title="Leads no Funil"
+            value={funnelValue}
+            subtitle="em etapas ativas"
+            accentClass={accent.purple}
+            tooltip="Leads em etapas ativas do funil"
+          />
+
+          <StatCard
+            title="Cash Collected"
+            value="—"
+            subtitle="em desenvolvimento"
+            accentClass={accent.green}
+            tooltip="Valor recebido - em desenvolvimento"
+          />
+        </div>
+
+        {/*── Quarta linha: Análise (3 colunas) ── */}
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+          {/*── Taxas Chave ── */}
+          <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-[6px] bg-violet-500/10 flex items-center justify-center">
+                  <Percent className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400" />
+                </div>
+                <h3 className="text-sm font-medium text-foreground">Taxas Chave</h3>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {[
+                { label: 'Conversão Reunião → Venda', value: convReuniaoVenda, meta: 30 },
+                { label: 'Show-up Rate', value: showUpRate, meta: 80 },
+                { label: 'MQL /Leads', value: mqlRate, meta: 25 },
+                { label: 'Cash Collected', value: cashCollectedRate, meta: 90, placeholder: true },
+              ].map((rate, i) => {
+                const above = rate.value >= rate.meta;
+                const displayValue = rate.placeholder ? '—' : fmtPercent(rate.value);
                 return (
-                  <div key={seller.user_id} className="group overflow-hidden">
-                    <div className="flex items-center gap-3 mb-1.5">
-                      <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0 ${positionColors[index]}`}>
-                        {index + 1}
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] text-muted-foreground">
+                        {rate.label}
                       </span>
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={seller.avatar_url || undefined} />
-                        <AvatarFallback className="text-xs bg-muted">
-                          {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{seller.full_name}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
-                          <span>•</span>
-                          <span className="font-semibold text-green-600 dark:text-green-400">
-                            R$ {seller.total_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </span>
-                        </div>
+                      <span
+                        className={`text-[13px] font-semibold ${rate.placeholder ? 'text-muted-foreground/40' : above ? accent.green : accent.red}`}
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      >
+                        {displayValue}
+                      </span>
+                    </div>
+                    <div className="h-1 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: rate.placeholder ? '0%' : `${Math.min(100, rate.value)}%`,
+                          background: rate.placeholder ? 'transparent' : above ? 'hsl(142,71%,45%)' : 'hsl(0,72%,51%)',
+                          opacity: rate.placeholder ? 0 : 0.7,
+                        }}
+                      />
+                    </div>
+                    {!rate.placeholder && (
+                      <div className="flex justify-end mt-0.5">
+                        <span className="text-[9px] text-muted-foreground/50">meta: {rate.meta}%</span>
                       </div>
-                    </div>
-                    <div className="pl-8 pr-0">
-                      <Progress value={percentage} className="h-1.5" indicatorClassName="bg-[#EAB308]" />
-                    </div>
+                    )}
                   </div>
                 );
               })}
-              <button
-                onClick={() => navigate('/ranking')}
-                className="w-full flex items-center justify-center gap-1 pt-3 text-xs text-muted-foreground hover:text-foreground transition-colors border-t border-border"
-              >
-                Ver ranking completo <ArrowRight className="w-3 h-3" />
-              </button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+
+          {/*── Distribuição por Etapa ── */}
+          <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-[6px] bg-blue-500/10 flex items-center justify-center">
+                  <Activity className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                </div>
+                <h3 className="text-sm font-medium text-foreground">Distribuição por Etapa</h3>
+              </div>
+            </div>
+
+            {topFunnelStages.length > 0 ? (
+              <div className="space-y-3">
+                {topFunnelStages.map(stage => {
+                  const maxCount = Math.max(...topFunnelStages.map(s => s.lead_count), 1);
+                  const pct = (stage.lead_count / maxCount) * 100;
+                  const isBottleneck = bottleneck && stage.id === bottleneck.id && bottleneck.lead_count > 0;
+
+                  return (
+                    <div key={stage.id}>
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="text-[11px] text-muted-foreground w-24 truncate shrink-0">{stage.name}</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ${isBottleneck ? 'animate-pulse' : ''}`}
+                            style={{
+                              width: `${pct}%`,
+                              background: isBottleneck ? 'hsl(0,72%,51%)' : 'hsl(200,70%,55%)',
+                              opacity: isBottleneck ? 0.85 : 0.6,
+                            }}
+                          />
+                        </div>
+                        <span
+                          className={`text-[11px] w-8 text-right font-semibold ${isBottleneck ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`}
+                          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                        >
+                          {stage.lead_count}
+                        </span>
+                        {isBottleneck && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap bg-red-500/10 text-red-500 dark:text-red-400">
+                            ▲ Gargalo
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {bottleneck && bottleneck.lead_count > 0 && (
+                  <div className="flex items-start gap-2 p-2.5 mt-2 rounded-lg border border-red-500/15 bg-red-500/5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-500 dark:text-red-400" />
+                    <div>
+                      <p className="text-[10px] font-medium text-red-500 dark:text-red-400">
+                        Gargalo: {bottleneck.name}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {bottleneck.lead_count} leads acumulados
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground text-center py-6">Nenhuma etapa no funil</p>
+            )}
+          </div>
+
+          {/*── Top Representantes ── */}
+          <div className="rounded-[13px] border border-border/60 bg-muted/80 dark:bg-card p-5">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-[6px] bg-yellow-500/10 flex items-center justify-center">
+                  <Trophy className="w-3.5 h-3.5 text-yellow-500" />
+                </div>
+                <h3 className="text-sm font-medium text-foreground">Top Representantes</h3>
+              </div>
+              {topSellers.length > 0 && (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {topSellers.reduce((sum, s) => sum + s.won_leads, 0)} vendas
+                </span>
+              )}
+            </div>
+
+            {topSellersLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-7 w-7 rounded-full" />
+                    <div className="flex-1">
+                      <Skeleton className="h-3 w-24 mb-1" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : topSellers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <img src={topSellersEmptyState} alt="Nenhuma venda" className="w-16 h-16 mb-2 opacity-50" />
+                <p className="text-[11px] text-muted-foreground">Nenhuma venda no período</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {topSellers.map((seller, idx) => {
+                  const maxRev = topSellers[0]?.total_revenue || 1;
+                  const pct = (seller.total_revenue / maxRev) * 100;
+                  const badgeStyles: React.CSSProperties[] = [
+                    { background: '#facc15', color: '#422006' },
+                    { background: '#94a3b8', color: '#1e293b' },
+                    { background: '#d97706', color: '#451a03' },
+                    { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' },
+                    { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' },
+                  ];
+                  return (
+                    <div key={seller.user_id}>
+                      <div className="flex items-center gap-3 mb-1">
+                        <span
+                          className="w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full shrink-0"
+                          style={badgeStyles[idx]}
+                        >
+                          {idx + 1}
+                        </span>
+                        <Avatar className="h-6 w-6 shrink-0">
+                          <AvatarImage src={seller.avatar_url || undefined} />
+                          <AvatarFallback className="text-[9px] bg-muted text-muted-foreground">
+                            {seller.full_name?.charAt(0)?.toUpperCase() || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate text-foreground">{seller.full_name}</p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span>{seller.won_leads} {seller.won_leads === 1 ? 'venda' : 'vendas'}</span>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className={`font-semibold ${accent.green}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                              {fmtCurrency(seller.total_revenue)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="pl-[68px]">
+                        <Progress value={pct} className="h-1" />
+                      </div>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => navigate('/ranking')}
+                  className="w-full flex items-center justify-center gap-1 pt-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors border-t border-border/40 mt-2"
+                >
+                  Ver ranking completo <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
