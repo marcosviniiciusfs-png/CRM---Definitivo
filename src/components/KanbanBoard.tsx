@@ -21,6 +21,7 @@ import { CreateTaskModal } from "./CreateTaskModal";
 import { format } from "date-fns";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { UserOption } from "./MultiSelectUsers";
+import { logger } from "@/lib/logger";
 
 interface Lead {
   id: string;
@@ -128,7 +129,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         setOrgMembers(memberOptions);
       }
     } catch (error) {
-      console.error("[KANBAN] Error loading org members:", error);
+      logger.error("[KANBAN] Error loading org members:", error);
     }
   };
 
@@ -136,12 +137,12 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
   const [boardNotFound, setBoardNotFound] = useState(false);
 
   const loadOrCreateBoard = async () => {
-    console.log('[KANBAN] Loading board for organization:', organizationId);
+    logger.log('[KANBAN] Loading board for organization:', organizationId);
     setBoardNotFound(false);
     
     // Validar organizationId antes de prosseguir
     if (!organizationId || organizationId.length < 10) {
-      console.error('[KANBAN] Invalid organizationId:', organizationId);
+      logger.error('[KANBAN] Invalid organizationId:', organizationId);
       setLoading(false);
       return;
     }
@@ -154,7 +155,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         .eq("organization_id", organizationId)
         .maybeSingle();
 
-      console.log('[KANBAN] Existing board result:', { existingBoard, fetchError });
+      logger.log('[KANBAN] Existing board result:', { existingBoard, fetchError });
 
       if (fetchError) {
         // Check if it's a 403/permission error
@@ -162,14 +163,14 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         const errorMessage = fetchError?.message?.toLowerCase() || '';
         
         if (errorCode === '42501' || errorMessage.includes('permission') || errorMessage.includes('policy')) {
-          console.error('[KANBAN] Permission error - RLS may be blocking access:', fetchError);
+          logger.error('[KANBAN] Permission error - RLS may be blocking access:', fetchError);
           toast({ 
             title: "Erro de permissão", 
             description: "Verifique se a organização ativa está correta. Tente trocar de organização e voltar.",
             variant: "destructive" 
           });
         } else {
-          console.error('[KANBAN] Error fetching board:', fetchError);
+          logger.error('[KANBAN] Error fetching board:', fetchError);
           toast({ title: "Erro ao carregar quadro", variant: "destructive" });
         }
         setLoading(false);
@@ -179,18 +180,18 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       let currentBoardId = existingBoard?.id;
 
       if (!currentBoardId) {
-        console.log('[KANBAN] No board found for organization:', organizationId);
+        logger.log('[KANBAN] No board found for organization:', organizationId);
         
         // CRITICAL: Only owners/admins can create boards automatically
         // Members should see a friendly message instead of getting 403 error
         if (!isOwnerOrAdmin) {
-          console.log('[KANBAN] User is not owner/admin, cannot create board');
+          logger.log('[KANBAN] User is not owner/admin, cannot create board');
           setBoardNotFound(true);
           setLoading(false);
           return;
         }
 
-        console.log('[KANBAN] Owner/Admin creating new board...');
+        logger.log('[KANBAN] Owner/Admin creating new board...');
         // Criar novo board com colunas padrão
         const { data: newBoard, error: createError } = await supabase
           .from("kanban_boards")
@@ -199,7 +200,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           .single();
 
         if (createError) {
-          console.error('[KANBAN] Error creating board:', createError);
+          logger.error('[KANBAN] Error creating board:', createError);
           // Better error message for 403
           const createErrorCode = (createError as any)?.code;
           if (createErrorCode === '42501') {
@@ -216,7 +217,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         }
 
         currentBoardId = newBoard?.id;
-        console.log('[KANBAN] New board created:', currentBoardId);
+        logger.log('[KANBAN] New board created:', currentBoardId);
 
         if (currentBoardId) {
           await supabase.from("kanban_columns").insert([
@@ -230,7 +231,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       setBoardId(currentBoardId || null);
       await loadColumns(currentBoardId || "");
     } catch (error) {
-      console.error("[KANBAN] Erro ao carregar board:", error);
+      logger.error("[KANBAN] Erro ao carregar board:", error);
       toast({ title: "Erro ao carregar quadro", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -378,7 +379,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
       .single();
 
     if (insertError) {
-      console.error("Erro ao criar tarefa:", insertError);
+      logger.error("Erro ao criar tarefa:", insertError);
       toast({
         title: "Erro ao criar tarefa",
         description: "Não foi possível criar a tarefa. Tente novamente.",
@@ -399,7 +400,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           }))
         );
         if (assigneeError) {
-          console.error("Erro ao atribuir responsáveis:", assigneeError);
+          logger.error("Erro ao atribuir responsáveis:", assigneeError);
         }
         // Notificações são criadas automaticamente via trigger no banco
       }
@@ -447,7 +448,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
     // Menções: notificações via RLS não funcionam no frontend
     // TODO: migrar para trigger no banco se menções precisarem notificar
-    console.log("[KANBAN] Menções detectadas (notificação pendente de implementação):", addedMentions);
+    logger.log("[KANBAN] Menções detectadas (notificação pendente de implementação):", addedMentions);
   };
 
   const updateCard = async (
@@ -586,13 +587,13 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           .in("id", toRemove.map(a => a.id));
       }
 
-      console.log('[KANBAN] Assignees sincronizados:', {
+      logger.log('[KANBAN] Assignees sincronizados:', {
         cardId,
         added: toAdd,
         removed: toRemove.map(a => a.user_id),
       });
     } catch (error) {
-      console.error('[KANBAN] Erro ao sincronizar assignees:', error);
+      logger.error('[KANBAN] Erro ao sincronizar assignees:', error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar os responsáveis.",
@@ -661,7 +662,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
     const card = sourceColumn.cards.find(c => c.id === activeCardId);
     if (!card) return;
 
-    console.log("🔍 DragEnd - Card Info:", {
+    logger.log("🔍 DragEnd - Card Info:", {
       cardId: activeCardId,
       is_collaborative: card.is_collaborative,
       requires_all_approval: card.requires_all_approval,
@@ -671,7 +672,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
     // Verificar se é tarefa colaborativa e está mudando de coluna
     if (sourceColumn.id !== targetColumn.id && card.is_collaborative && card.requires_all_approval) {
-      console.log("🔍 DragEnd - Validando tarefa colaborativa...");
+      logger.log("🔍 DragEnd - Validando tarefa colaborativa...");
       
       // Buscar status dos colaboradores com nomes
       const { data: assignees, error } = await supabase
@@ -679,10 +680,10 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         .select("is_completed, user_id")
         .eq("card_id", activeCardId);
 
-      console.log("🔍 DragEnd - Assignees:", { assignees, error });
+      logger.log("🔍 DragEnd - Assignees:", { assignees, error });
 
       if (error) {
-        console.error("❌ Erro ao buscar assignees:", error);
+        logger.error("❌ Erro ao buscar assignees:", error);
         toast({
           title: "Erro",
           description: "Não foi possível validar a tarefa colaborativa.",
@@ -694,7 +695,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
       if (assignees && assignees.length > 0) {
         const allCompleted = assignees.every(a => a.is_completed);
-        console.log("🔍 DragEnd - Todos completaram?", allCompleted);
+        logger.log("🔍 DragEnd - Todos completaram?", allCompleted);
 
         if (!allCompleted) {
           const completedCount = assignees.filter(a => a.is_completed).length;
@@ -708,7 +709,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           
           const pendingNames = profiles?.map(p => p.full_name).join(", ") || "colaboradores";
           
-          console.log("🚫 DragEnd - BLOQUEANDO movimento. Pendentes:", pendingNames);
+          logger.log("🚫 DragEnd - BLOQUEANDO movimento. Pendentes:", pendingNames);
           
           toast({
             title: "⚠️ Movimentação Bloqueada",
@@ -722,7 +723,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           return;
         }
       } else {
-        console.log("⚠️ DragEnd - Tarefa colaborativa sem assignees cadastrados");
+        logger.log("⚠️ DragEnd - Tarefa colaborativa sem assignees cadastrados");
       }
     }
 
@@ -829,7 +830,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           }, { onConflict: 'card_id,user_id' });
         }
 
-        console.log("📊 Pontuação registrada:", {
+        logger.log("📊 Pontuação registrada:", {
           card: card.content,
           users: usersToScore.length,
           hadTimer,

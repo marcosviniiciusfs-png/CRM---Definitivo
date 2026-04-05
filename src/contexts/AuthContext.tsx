@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
@@ -111,7 +112,7 @@ const setSectionAccessCache = (data: Record<string, boolean>, userId: string) =>
   try {
     sessionStorage.setItem(SECTION_ACCESS_CACHE_KEY, JSON.stringify({ data, userId }));
   } catch (error) {
-    console.error('Error setting section access cache:', error);
+    logger.error('Error setting section access cache:', error);
   }
 };
 
@@ -120,7 +121,7 @@ const clearSectionAccessCache = () => {
     sessionStorage.removeItem(SECTION_ACCESS_CACHE_KEY);
     sessionStorage.removeItem(FAST_ACCESS_CACHE_KEY);
   } catch (error) {
-    console.error('Error clearing section access cache:', error);
+    logger.error('Error clearing section access cache:', error);
   }
 };
 
@@ -134,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const cached = sessionStorage.getItem(FAST_ACCESS_CACHE_KEY);
       return cached ? JSON.parse(cached) : null;
     } catch (error) {
-      console.error('Error parsing fast access cache:', error);
+      logger.error('Error parsing fast access cache:', error);
       return null;
     }
   });
@@ -142,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       return sessionStorage.getItem(FAST_ACCESS_CACHE_KEY) === null;
     } catch (error) {
-      console.error('Error checking fast access cache:', error);
+      logger.error('Error checking fast access cache:', error);
       return true;
     }
   });
@@ -183,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      console.log('[AUTH] refreshing subscription for:', organizationId || 'personal');
+      logger.log('[AUTH] refreshing subscription for:', organizationId || 'personal');
 
       // Tentar buscar assinatura ativa do banco
       const query = supabase
@@ -200,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: sub, error } = await query.limit(1).maybeSingle();
 
       if (error) {
-        console.error('[AUTH] Subscription fetch error:', error);
+        logger.error('[AUTH] Subscription fetch error:', error);
       }
 
       let subData: SubscriptionData;
@@ -216,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       } else {
         // Fallback generoso para não bloquear o usuário durante migração/testes
-        console.log('[AUTH] Using fallback plan');
+        logger.log('[AUTH] Using fallback plan');
         subData = {
           subscribed: false,
           product_id: 'free',
@@ -230,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSubscriptionData(subData);
       setSubscriptionCache(subData, user.id, organizationId);
     } catch (err) {
-      console.error('[AUTH] Refresh subscription failed:', err);
+      logger.error('[AUTH] Refresh subscription failed:', err);
     }
   };
 
@@ -245,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('[AUTH] Erro ao carregar acesso a seções:', error);
+        logger.error('[AUTH] Erro ao carregar acesso a seções:', error);
         return;
       }
 
@@ -334,7 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Erro ao registrar sessão:', error);
+      logger.error('Erro ao registrar sessão:', error);
     }
   };
 
@@ -345,13 +346,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
 
-        console.log('[AUTH] Auth state change:', event, 'user:', session?.user?.email);
+        logger.log('[AUTH] Auth state change:', event, 'user:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
 
         // TOKEN_REFRESHED: keep existing data, don't reset anything
         if (event === 'TOKEN_REFRESHED') {
-          console.log('[AUTH] Token refreshed, keeping existing state');
+          logger.log('[AUTH] Token refreshed, keeping existing state');
           return;
         }
 
@@ -362,13 +363,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Check cache first for faster loading
           const cachedData = getSubscriptionCache(session.user.id);
           if (cachedData) {
-            console.log('[AUTH] Using cached subscription data on SIGNED_IN');
+            logger.log('[AUTH] Using cached subscription data on SIGNED_IN');
             setSubscriptionData(cachedData);
           }
 
           const cachedAccess = getSectionAccessCache(session.user.id);
           if (cachedAccess) {
-            console.log('[AUTH] Using cached section access on SIGNED_IN');
+            logger.log('[AUTH] Using cached section access on SIGNED_IN');
             setSectionAccess(cachedAccess);
             // Mantemos o loading como true se vamos atualizar em background
           }
@@ -410,7 +411,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSectionAccess({});
               }
             } catch (error) {
-              console.error('[AUTH] Erro ao verificar dados após login:', error);
+              logger.error('[AUTH] Erro ao verificar dados após login:', error);
               if (mounted) setSectionAccess({});
             } finally {
               setSectionAccessLoading(false);
@@ -442,7 +443,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data: { session } }) => {
         if (!mounted) return;
 
-        console.log('[AUTH] Initial session check, user:', session?.user?.email);
+        logger.log('[AUTH] Initial session check, user:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -456,14 +457,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Check cache first para UI rápida
           const cachedData = getSubscriptionCache(session.user.id);
           if (cachedData) {
-            console.log('[AUTH] Using cached subscription data on initial load');
+            logger.log('[AUTH] Using cached subscription data on initial load');
             setSubscriptionData(cachedData);
             subscriptionFetchedRef.current = true;
           }
 
           const cachedAccess = getSectionAccessCache(session.user.id);
           if (cachedAccess) {
-            console.log('[AUTH] Using cached section access on initial load');
+            logger.log('[AUTH] Using cached section access on initial load');
             setSectionAccess(cachedAccess);
             // Mantemos o loading como true se vamos atualizar em background
             sectionAccessFetchedRef.current = true;
@@ -505,7 +506,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSectionAccess({});
               }
             } catch (error) {
-              console.error('[AUTH] Erro ao verificar dados iniciais:', error);
+              logger.error('[AUTH] Erro ao verificar dados iniciais:', error);
               if (mounted) setSectionAccess({});
             } finally {
               setSectionAccessLoading(false);
@@ -514,7 +515,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch((error) => {
-        console.error('[AUTH] Erro ao obter sessão:', error);
+        logger.error('[AUTH] Erro ao obter sessão:', error);
         if (mounted) {
           setLoading(false);
         }
@@ -550,7 +551,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.removeItem('kairoz_org_cache');
     } catch (error) {
-      console.error('Error removing org cache:', error);
+      logger.error('Error removing org cache:', error);
     }
 
     const { error } = await supabase.auth.signInWithPassword({

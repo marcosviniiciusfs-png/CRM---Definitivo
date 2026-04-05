@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FunnelSelector } from "@/components/FunnelSelector";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 interface LeadForm {
   id: string;
@@ -58,7 +59,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       const isPopup = hasOpener && (isPopupByName || hasOAuthParams || hasFbStatus);
 
       if (isPopup && (hasOAuthParams || hasFbStatus)) {
-        console.log('🪟 [FB-CONN] Detectado ambiente de popup. Enviando mensagem ao pai...');
+        logger.log('🪟 [FB-CONN] Detectado ambiente de popup. Enviando mensagem ao pai...');
 
         const popupRedirectUri = `${window.location.origin}${window.location.pathname}`;
 
@@ -76,7 +77,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             setTimeout(() => window.close(), 1000);
           }
         } catch (e) {
-          console.error('❌ [FB-CONN] Erro ao enviar mensagem para opener:', e);
+          logger.error('❌ [FB-CONN] Erro ao enviar mensagem para opener:', e);
           if (hasOAuthParams) {
             handleOauthCallback(code!, state!, popupRedirectUri);
           }
@@ -110,22 +111,22 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       if (event.origin !== window.location.origin) return;
 
       if (event.data?.type === 'FACEBOOK_OAUTH_RESPONSE') {
-        console.log('📬 [FB-CONN] Recebida resposta do popup:', event.data.payload);
+        logger.log('📬 [FB-CONN] Recebida resposta do popup:', event.data.payload);
         const { code, state, facebook, message, redirect_uri } = event.data.payload;
 
         if (facebook === 'success') {
-          console.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Sincronizando dados...');
+          logger.log('✅ [FB-CONN] Sucesso confirmado pelo popup. Sincronizando dados...');
           toast.success('Facebook conectado com sucesso!');
 
           checkConnection().then(data => {
             if (data && data.page_id) {
-              console.log('🔄 [FB-CONN] Dados sincronizados. Abrindo seletor...');
+              logger.log('🔄 [FB-CONN] Dados sincronizados. Abrindo seletor...');
               setTimeout(() => {
                 fetchLeadForms(data);
                 toast.info("Carregando seus formulários...");
               }, 1000);
             } else {
-              console.warn('⚠️ [FB-CONN] Dados não encontrados imediatamente. Re-tentando...');
+              logger.warn('⚠️ [FB-CONN] Dados não encontrados imediatamente. Re-tentando...');
               setTimeout(() => {
                 checkConnection().then(retryData => {
                   if (retryData) fetchLeadForms(retryData);
@@ -135,7 +136,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           });
         } else if (code && state) {
           const callbackRedirectUri = redirect_uri || oauthRedirectUri || `${window.location.origin}/integrations`;
-          console.log('🔗 [FB-CONN] Usando redirect_uri para callback:', callbackRedirectUri);
+          logger.log('🔗 [FB-CONN] Usando redirect_uri para callback:', callbackRedirectUri);
           handleOauthCallback(code, state, callbackRedirectUri);
         } else if (facebook === 'error') {
           toast.error(message || 'Erro ao conectar com Facebook');
@@ -154,12 +155,12 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
   const handleOauthCallback = async (code: string, state: string, redirectUri?: string) => {
     setLoading(true);
-    console.log('🔄 [FB-CONN] Processando callback do Facebook...');
+    logger.log('🔄 [FB-CONN] Processando callback do Facebook...');
     toast.info('Finalizando conexão com Facebook...', { id: 'fb-connecting' });
 
     try {
       const finalRedirectUri = redirectUri || oauthRedirectUri || `${window.location.origin}/integrations`;
-      console.log('🔗 [FB-CONN] Usando redirect_uri para troca:', finalRedirectUri);
+      logger.log('🔗 [FB-CONN] Usando redirect_uri para troca:', finalRedirectUri);
 
       const { data, error } = await supabase.functions.invoke('facebook-oauth-callback', {
         body: {
@@ -172,7 +173,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      console.log('✅ [FB-CONN] Sucesso! Resposta:', data);
+      logger.log('✅ [FB-CONN] Sucesso! Resposta:', data);
       toast.success('Facebook conectado com sucesso!', { id: 'fb-connecting' });
 
       if (window.location.search) {
@@ -181,7 +182,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
       // If multiple pages available, prompt user to select which one to use
       if (data?.available_pages && data.available_pages.length > 1) {
-        console.log('📄 [FB-CONN] Multiple pages detected, showing page selector...');
+        logger.log('📄 [FB-CONN] Multiple pages detected, showing page selector...');
         setPendingIntegrationId(data.integration_id);
         setAvailablePages(data.available_pages);
         setShowPageSelector(true);
@@ -194,7 +195,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         }
       }
     } catch (err: any) {
-      console.error('❌ [FB-CONN] Erro no callback:', err);
+      logger.error('❌ [FB-CONN] Erro no callback:', err);
       toast.error(`Erro: ${err.message}`, { id: 'fb-connecting' });
       window.history.replaceState({}, '', window.location.pathname);
     } finally {
@@ -216,7 +217,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         .rpc('get_facebook_integrations_masked');
 
       if (rpcError) {
-        console.warn('⚠️ [FB-CONN] RPC get_facebook_integrations_masked falhou, tentando query direta:', rpcError.message);
+        logger.warn('⚠️ [FB-CONN] RPC get_facebook_integrations_masked falhou, tentando query direta:', rpcError.message);
         // Fallback: query direta na tabela principal (sem verificação de token)
         const { data: directData } = await supabase
           .from('facebook_integrations')
@@ -261,7 +262,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
 
       return null;
     } catch (error) {
-      console.error('Error in checkConnection:', error);
+      logger.error('Error in checkConnection:', error);
       return null;
     } finally {
       setCheckingTokens(false);
@@ -287,7 +288,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       }
 
       const frontendRedirectUri = `${window.location.origin}/integrations`;
-      console.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId);
+      logger.log('🚀 [FB-CONN] Iniciando fluxo para org:', organizationId);
 
       setOauthRedirectUri(frontendRedirectUri);
 
@@ -300,7 +301,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       });
 
       if (error) {
-        console.error('❌ [FB-CONN] Erro na Edge Function:', error);
+        logger.error('❌ [FB-CONN] Erro na Edge Function:', error);
         throw error;
       }
 
@@ -309,7 +310,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       }
 
       if (data?.auth_url) {
-        console.log('✅ [FB-CONN] Abrindo popup do Facebook...');
+        logger.log('✅ [FB-CONN] Abrindo popup do Facebook...');
 
         const width = 600;
         const height = 750;
@@ -340,7 +341,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       }
 
     } catch (error) {
-      console.error('❌ [FB-CONN] Erro ao iniciar:', error);
+      logger.error('❌ [FB-CONN] Erro ao iniciar:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao conectar com Facebook');
       setLoading(false);
     }
@@ -364,7 +365,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       setConfiguredFormIds(new Set());
       toast.success('Facebook desconectado com sucesso');
     } catch (error) {
-      console.error('Error disconnecting Facebook:', error);
+      logger.error('Error disconnecting Facebook:', error);
       toast.error('Erro ao desconectar Facebook');
     }
   };
@@ -373,7 +374,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     if (!pendingIntegrationId || !organizationId) return;
     setSwitchingPage(true);
     try {
-      console.log('🔄 [FB-CONN] Switching to page:', selectedPageId);
+      logger.log('🔄 [FB-CONN] Switching to page:', selectedPageId);
       const { data, error } = await supabase.functions.invoke('facebook-switch-page', {
         body: {
           integration_id: pendingIntegrationId,
@@ -384,7 +385,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      console.log('✅ [FB-CONN] Page switched to:', data.page_name);
+      logger.log('✅ [FB-CONN] Page switched to:', data.page_name);
       toast.success(`Página "${data.page_name}" selecionada!`);
       setShowPageSelector(false);
       setAvailablePages([]);
@@ -395,7 +396,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         setTimeout(() => fetchLeadForms(integrationData), 500);
       }
     } catch (err: any) {
-      console.error('❌ [FB-CONN] Error switching page:', err);
+      logger.error('❌ [FB-CONN] Error switching page:', err);
       toast.error(`Erro ao selecionar página: ${err.message}`);
     } finally {
       setSwitchingPage(false);
@@ -406,7 +407,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     let activeIntegration = integrationData || integration;
 
     if (!activeIntegration || !activeIntegration.page_id) {
-      console.log('🔄 [FB-CONN] Dados incompletos no fetch. Tentando re-sincronizar...');
+      logger.log('🔄 [FB-CONN] Dados incompletos no fetch. Tentando re-sincronizar...');
       activeIntegration = await checkConnection();
     }
 
@@ -427,7 +428,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         return;
       }
 
-      console.log('Fetching forms for integration:', activeIntegration.id, 'page:', activeIntegration.page_id);
+      logger.log('Fetching forms for integration:', activeIntegration.id, 'page:', activeIntegration.page_id);
 
       const { data, error } = await supabase.functions.invoke('facebook-list-lead-forms', {
         body: {
@@ -474,7 +475,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
         }
       }
     } catch (error) {
-      console.error('Error fetching lead forms:', error);
+      logger.error('Error fetching lead forms:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao buscar formulários de lead');
     } finally {
       setLoadingForms(false);
@@ -488,12 +489,12 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
   const subscribePageWebhook = async (integrationData?: any) => {
     const target = integrationData || integration;
     if (!target || !organizationId) {
-      console.warn('⚠️ [FB-CONN] subscribePageWebhook: sem integração disponível, abortando');
+      logger.warn('⚠️ [FB-CONN] subscribePageWebhook: sem integração disponível, abortando');
       return;
     }
     setSubscribing(true);
     try {
-      console.log('🔔 [FB-CONN] Ativando webhook da página para integração:', target.id);
+      logger.log('🔔 [FB-CONN] Ativando webhook da página para integração:', target.id);
       const { data, error } = await supabase.functions.invoke('facebook-subscribe-webhook', {
         body: {
           integration_id: target.id,
@@ -502,9 +503,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       });
       if (error) throw new Error('O servidor demorou a responder. Verifique sua conexão e tente novamente.');
       if (data?.error) throw new Error(data.error);
-      console.log('✅ [FB-CONN] Webhook da página ativado com sucesso');
+      logger.log('✅ [FB-CONN] Webhook da página ativado com sucesso');
     } catch (error) {
-      console.error('Error subscribing page webhook:', error);
+      logger.error('Error subscribing page webhook:', error);
       toast.error('Erro ao ativar webhook da página');
     } finally {
       setSubscribing(false);
