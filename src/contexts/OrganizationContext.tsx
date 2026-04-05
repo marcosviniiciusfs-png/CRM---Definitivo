@@ -2,6 +2,42 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode,
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 
+// Interface for Postgres change payload old/new records
+interface OrganizationMemberPayload {
+  custom_role_id: string | null;
+  role: 'owner' | 'admin' | 'member' | null;
+  is_active: boolean;
+}
+
+// Interface for direct table fallback query result
+interface DirectMemberQueryResult {
+  organization_id: string;
+  role: 'owner' | 'admin' | 'member';
+  organizations?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+// Interface for RPC membership result (from get_my_organization_memberships)
+interface RpcMembershipResult {
+  organization_id: string;
+  organization_name: string;
+  role: 'owner' | 'admin' | 'member';
+  is_owner: boolean;
+}
+
+// Interface for Supabase RPC error with status
+interface RpcErrorWithStatus extends Error {
+  status?: number;
+}
+
+// Interface for ensure_user_organization RPC result
+interface EnsureUserOrganizationResult {
+  success: boolean;
+  error?: string;
+}
+
 // Custom role permissions from organization_custom_roles table
 interface CustomRolePermissions {
   can_view_kanban: boolean;
@@ -426,7 +462,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const isMissingRpc = rpcError && (
         rpcError.code === 'PGRST202' ||
         rpcError.message?.includes('not found') ||
-        (rpcError as any).status === 404
+        (rpcError as RpcErrorWithStatus).status === 404
       );
 
       if (isMissingRpc) {
@@ -438,7 +474,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           .eq('user_id', user.id);
 
         if (!directError && directData) {
-          memberships = directData.map((m: any) => ({
+          memberships = directData.map((m: DirectMemberQueryResult) => ({
             organization_id: m.organization_id,
             organization_name: m.organizations?.name || 'Workspace',
             role: m.role,
@@ -473,7 +509,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         // A user must have exactly 1 organization.
         // If there are somehow multiple, use only the first one (owner preferred).
         // ============================================================
-        const sortedMemberships = [...memberships].sort((a: any, b: any) => {
+        const sortedMemberships = [...memberships].sort((a: RpcMembershipResult, b: RpcMembershipResult) => {
           // Prefer owner role
           if (a.role === 'owner' && b.role !== 'owner') return -1;
           if (b.role === 'owner' && a.role !== 'owner') return 1;
@@ -521,7 +557,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         console.log('[ORG] No memberships found. Potential orphan user.');
 
         try {
-          const { data: ensureData, error: ensureErr } = await (supabase.rpc as any)('ensure_user_organization');
+          const { data: ensureData, error: ensureErr } = await supabase.rpc<EnsureUserOrganizationResult>('ensure_user_organization');
 
           if (!ensureErr && ensureData?.success) {
             console.log('[ORG] New organization created for orphan user, refreshing...');
@@ -631,12 +667,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const oldRoleId = (payload.old as any)?.custom_role_id ?? null;
-          const newRoleId = (payload.new as any)?.custom_role_id ?? null;
-          const oldRoleBase = (payload.old as any)?.role ?? null;
-          const newRoleBase = (payload.new as any)?.role ?? null;
-          const oldActive = (payload.old as any)?.is_active;
-          const newActive = (payload.new as any)?.is_active;
+          const oldRoleId = (payload.old as OrganizationMemberPayload)?.custom_role_id ?? null;
+          const newRoleId = (payload.new as OrganizationMemberPayload)?.custom_role_id ?? null;
+          const oldRoleBase = (payload.old as OrganizationMemberPayload)?.role ?? null;
+          const newRoleBase = (payload.new as OrganizationMemberPayload)?.role ?? null;
+          const oldActive = (payload.old as OrganizationMemberPayload)?.is_active;
+          const newActive = (payload.new as OrganizationMemberPayload)?.is_active;
 
           // Recarregar se mudou cargo, role base ou status ativo
           if (
