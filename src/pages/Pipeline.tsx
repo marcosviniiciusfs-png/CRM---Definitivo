@@ -1638,10 +1638,10 @@ const Pipeline = () => {
         {/* View Mode Content */}
         {viewMode === 'list' ? (
           /* List View */
-          <div className="border rounded-lg overflow-hidden bg-background">
+          <div className="border rounded-lg overflow-hidden bg-card dark:bg-card">
             {/* Bulk Actions Bar */}
             {selectedLeadIds.size > 0 && (
-              <div className="bg-primary/10 border-b border-primary/20 p-3 flex items-center gap-3">
+              <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3">
                 <span className="text-sm font-medium text-primary">
                   {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
                 </span>
@@ -1653,7 +1653,7 @@ const Pipeline = () => {
               </div>
             )}
             {/* Table Header */}
-            <div className="bg-muted/50 flex items-center px-3 py-2.5 text-xs font-medium text-muted-foreground border-b">
+            <div className="bg-muted/50 dark:bg-muted/20 flex items-center px-3 py-2.5 text-xs font-medium text-muted-foreground border-b border-border dark:border-border">
               <Checkbox
                 checked={selectedLeadIds.size === filteredLeads.length && filteredLeads.length > 0}
                 onCheckedChange={(checked) => {
@@ -1675,7 +1675,7 @@ const Pipeline = () => {
               <span className="w-[60px]"></span>
             </div>
             {/* Table Rows */}
-            <div className="max-h-[calc(100vh-350px)] overflow-y-auto">
+            <div className="max-h-[calc(100vh-350px)] overflow-y-auto bg-card dark:bg-card">
               {filteredLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mb-4 opacity-50" />
@@ -1692,8 +1692,8 @@ const Pipeline = () => {
                     <div
                       key={lead.id}
                       className={cn(
-                        "flex items-center px-3 py-2.5 text-sm border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer",
-                        isSelected && "bg-primary/10"
+                        "flex items-center px-3 py-2.5 text-sm border-b border-border/50 dark:border-border/30 hover:bg-muted/30 dark:hover:bg-muted/20 transition-colors cursor-pointer bg-card dark:bg-card",
+                        isSelected && "bg-primary/10 dark:bg-primary/20"
                       )}
                       onClick={() => setEditingLead(lead)}
                     >
@@ -1713,34 +1713,35 @@ const Pipeline = () => {
                         onClick={(e) => e.stopPropagation()}
                         className="mr-3"
                       />
-                      <span className="w-[200px] font-medium truncate">{lead.nome_lead || "Sem nome"}</span>
-                      <span className="w-[120px] truncate text-muted-foreground">{lead.telefone_lead || "-"}</span>
+                      <span className="w-[200px] font-medium truncate text-foreground dark:text-foreground">{lead.nome_lead || "Sem nome"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground dark:text-muted-foreground">{lead.telefone_lead || "-"}</span>
                       <span className="w-[150px]">
                         <span className={cn(
                           "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                          stage?.color?.replace('bg-', 'bg-').replace('-500', '-500/20 text-').replace('bg-', '') ||
-                          "bg-muted text-muted-foreground"
+                          stage?.color
+                            ? `${stage.color}/20 dark:${stage.color}/30 text-${stage.color.replace('bg-', '').replace('-500', '-700')} dark:text-${stage.color.replace('bg-', '').replace('-500', '-300')}`
+                            : "bg-muted dark:bg-muted/50 text-muted-foreground dark:text-muted-foreground"
                         )}>
                           {stage?.title || lead.stage || "-"}
                         </span>
                       </span>
-                      <span className="w-[100px] font-medium">
+                      <span className="w-[100px] font-medium text-foreground dark:text-foreground">
                         {lead.valor
                           ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor)
                           : "-"}
                       </span>
-                      <span className="w-[100px] truncate text-muted-foreground">{lead.source || "-"}</span>
-                      <span className="w-[120px] truncate text-muted-foreground">
+                      <span className="w-[100px] truncate text-muted-foreground dark:text-muted-foreground">{lead.source || "-"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground dark:text-muted-foreground">
                         {responsible?.full_name || lead.responsavel || "-"}
                       </span>
-                      <span className="flex-1 text-muted-foreground">
+                      <span className="flex-1 text-muted-foreground dark:text-muted-foreground">
                         {new Date(lead.created_at).toLocaleDateString('pt-BR')}
                       </span>
                       <span className="w-[60px] flex justify-end">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          className="h-7 w-7 p-0 text-muted-foreground dark:text-muted-foreground hover:text-destructive dark:hover:text-destructive"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteLead(lead);
