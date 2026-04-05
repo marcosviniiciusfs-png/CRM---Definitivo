@@ -71,21 +71,26 @@ export function useKanbanBoard(
   const [cardAssigneesMap, setCardAssigneesMap] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
 
+  // Type for RPC member result from get_organization_members_masked
+  interface RpcMemberResult {
+    user_id: string | null;
+  }
+
   // Load organization members
   const loadOrgMembers = useCallback(async () => {
     try {
       const { data: members } = await supabase.rpc('get_organization_members_masked');
 
       if (members) {
-        const userIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
+        const userIds = members.filter((m: RpcMemberResult) => m.user_id).map((m: RpcMemberResult) => m.user_id);
         const { data: profiles } = await supabase
           .from("profiles")
           .select("user_id, full_name, avatar_url")
           .in("user_id", userIds);
 
         const memberOptions: UserOption[] = members
-          .filter((m: any) => m.user_id)
-          .map((m: any) => {
+          .filter((m: RpcMemberResult) => m.user_id)
+          .map((m: RpcMemberResult) => {
             const profile = profiles?.find(p => p.user_id === m.user_id);
             return {
               user_id: m.user_id,
