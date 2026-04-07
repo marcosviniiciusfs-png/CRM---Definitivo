@@ -520,8 +520,8 @@ const Colaboradores = () => {
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
                 onClick={() => {
                   const activeCount = colaboradores.filter(c => c.is_active !== false).length;
-                  if (activeCount >= 12) {
-                    toast({ title: "Limite atingido", description: "Limite de 12 colaboradores atingido", variant: "destructive" });
+                  if (activeCount >= subscriptionLimits.total) {
+                    toast({ title: "Limite atingido", description: `Limite de ${subscriptionLimits.total} colaboradores atingido`, variant: "destructive" });
                     return;
                   }
                   setIsDialogOpen(true);

@@ -274,7 +274,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
           <div className="space-y-2">
             <Label>Membros da Equipe</Label>
             <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-              {members.map((member) => (
+              {members && members.length > 0 ? members.map((member) => (
                 <div 
                   key={member.user_id}
                   className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
@@ -288,16 +288,15 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={member.avatar_url} />
                     <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-                      {(member.full_name || member.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      {(member.full_name || member.email || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{member.full_name || member.email}</span>
+                  <span className="text-sm">{member.full_name || member.email || 'Usuário'}</span>
                   {formData.leader_id === member.user_id && (
                     <span className="text-xs text-muted-foreground ml-auto">(Líder)</span>
                   )}
                 </div>
-              ))}
-              {members.length === 0 && (
+              )) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Nenhum membro disponível
                 </p>

@@ -325,10 +325,10 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={member.avatar_url} />
                     <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-                      {(member.full_name || member.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      {(member.full_name || member.email || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{member.full_name || member.email}</span>
+                  <span className="text-sm">{member.full_name || member.email || 'Usuário'}</span>
                   {formData.leader_id === member.user_id && (
                     <span className="text-xs text-muted-foreground ml-auto">(Líder)</span>
                   )}

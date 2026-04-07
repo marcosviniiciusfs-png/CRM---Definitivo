@@ -15,7 +15,7 @@ import { CreateTeamModal } from "@/components/CreateTeamModal";
 import { EditTeamModal } from "@/components/EditTeamModal";
 import { TeamGoalsCard } from "@/components/TeamGoalsCard";
 import { MemberTaskBadge } from "@/components/MemberTaskBadge";
-import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
+// import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
@@ -128,26 +128,54 @@ const Equipes = () => {
         teamMembers = teamMembersData || [];
       }
 
-      const orgMembers = await fetchOrganizationMembersSafe();
-      const userIds = orgMembers?.filter((m: any) => m.user_id).map((m: any) => m.user_id!) || [];
+      // Buscar membros da organização diretamente
+      const { data: orgMembersData, error: orgMembersError } = await supabase
+        .from('organization_members')
+        .select('id, user_id, organization_id, role, email, display_name, is_active')
+        .eq('organization_id', organizationId);
 
-      let profiles: any[] = [];
-      if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, avatar_url")
-          .in("user_id", userIds);
-        profiles = profilesData || [];
+      if (orgMembersError) {
+        console.error('[Equipes] Error fetching org members:', orgMembersError);
       }
 
-      const allMembers: Member[] = (orgMembers || [])
-        .filter((m: any) => m.user_id)
+      // Buscar profiles para pegar os nomes completos e avatares
+      const userIds = orgMembersData?.filter((m: any) => m.user_id).map((m: any) => m.user_id) || [];
+
+      let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+
+        if (profiles) {
+          profilesMap = profiles.reduce((acc, profile) => {
+            if (profile.user_id) {
+              acc[profile.user_id] = {
+                full_name: profile.full_name,
+                avatar_url: profile.avatar_url
+              };
+            }
+            return acc;
+          }, {} as { [key: string]: { full_name: string | null; avatar_url: string | null } });
+        }
+      }
+
+      // Combinar dados - profiles primeiro, depois fallbacks
+      const allMembers: Member[] = (orgMembersData || [])
+        .filter((m: any) => m.user_id && m.is_active !== false)
         .map((m: any) => ({
           user_id: m.user_id!,
-          email: '',
-          full_name: profiles.find(p => p.user_id === m.user_id)?.full_name,
-          avatar_url: profiles.find(p => p.user_id === m.user_id)?.avatar_url,
+          email: m.email || m.display_name || '',
+          full_name: (m.user_id && profilesMap[m.user_id]?.full_name) || m.display_name || m.email?.split('@')[0] || 'Usuário',
+          avatar_url: (m.user_id && profilesMap[m.user_id]?.avatar_url) || null,
         }));
+
+      console.log('[Equipes] allMembers:', allMembers);
+      console.log('[Equipes] allMembers count:', allMembers.length);
+      if (allMembers.length > 0) {
+        console.log('[Equipes] First member:', allMembers[0]);
+      }
 
       return { teams, teamMembers, allMembers };
     },
