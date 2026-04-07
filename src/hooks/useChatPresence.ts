@@ -54,20 +54,20 @@ export function useChatPresence({
 
     initPresence();
 
-    const handleBeforeUnload = () => {
-      if (instanceName) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        navigator.sendBeacon(
-          `${supabaseUrl}/functions/v1/set-whatsapp-presence`,
-          JSON.stringify({ instance_name: instanceName, presence: "unavailable" })
-        );
+    // Usar visibilitychange em vez de beforeunload para permitir bfcache
+    const handleVisibilityChange = () => {
+      if (!instanceName) return;
+      if (document.hidden) {
+        setPresence("unavailable");
+      } else {
+        setPresence("available");
       }
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (instanceName) {
         setPresence("unavailable");
       }
