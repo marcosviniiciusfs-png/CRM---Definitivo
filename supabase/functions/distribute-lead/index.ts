@@ -202,7 +202,7 @@ serve(async (req) => {
     const mappedTrigger = triggerTypeMap[trigger_source] || trigger_source;
     
     // Verificar se o trigger está habilitado
-    const triggers = config.triggers as string[];
+    const triggers = (config.triggers as string[]) || [];
     if (!triggers.includes(mappedTrigger)) {
       console.log('Trigger not enabled:', mappedTrigger, 'for trigger_source:', trigger_source);
       return new Response(
