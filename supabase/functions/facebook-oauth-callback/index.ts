@@ -219,6 +219,35 @@ Deno.serve(async (req) => {
     const businessId = selectedPage?.business?.id || null;
     const businessName = selectedPage?.business?.name || null;
 
+    // 3.5. Buscar contas de anúncios do usuário
+    console.log('🔄 [FB-CALLBACK] Buscando contas de anúncios...');
+    let adAccounts: { id: string; name: string; status: number }[] = [];
+    let selectedAdAccountId: string | null = null;
+
+    try {
+      const adAccountsResponse = await fetch(
+        `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`
+      );
+      const adAccountsData = await adAccountsResponse.json();
+
+      if (adAccountsData.data && adAccountsData.data.length > 0) {
+        adAccounts = adAccountsData.data.map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          status: a.account_status ?? 1
+        }));
+        // Selecionar a primeira conta ativa como padrão
+        const activeAccount = adAccounts.find((a: any) => a.status === 1);
+        selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
+        console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) de anúncios encontrada(s). Selecionada: ${selectedAdAccountId}`);
+      } else {
+        console.log('⚠️ [FB-CALLBACK] Nenhuma conta de anúncios encontrada');
+      }
+    } catch (adsError: any) {
+      console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas de anúncios:', adsError.message);
+      // Não falha o fluxo - apenas loga o aviso
+    }
+
     console.log(`💾 [FB-CALLBACK] Salvando integração para página: ${selectedPage.name} (${selectedPage.id})`);
 
     const supabase = createClient(SUPABASE_URL ?? '', SUPABASE_SERVICE_ROLE_KEY ?? '');
@@ -256,6 +285,9 @@ Deno.serve(async (req) => {
           page_name: selectedPage.name,
           business_id: businessId,
           business_name: businessName,
+          // Salvar contas de anúncios
+          ad_account_id: selectedAdAccountId,
+          ad_accounts: adAccounts.length > 0 ? JSON.stringify(adAccounts) : null,
           // Reset webhook_verified so fetchLeadForms re-subscribes on next open
           webhook_verified: false,
           updated_at: new Date().toISOString()
@@ -275,6 +307,9 @@ Deno.serve(async (req) => {
           page_name: selectedPage.name,
           business_id: businessId,
           business_name: businessName,
+          // Salvar contas de anúncios
+          ad_account_id: selectedAdAccountId,
+          ad_accounts: adAccounts.length > 0 ? JSON.stringify(adAccounts) : null,
           webhook_verified: false
         })
         .select('id')
@@ -353,7 +388,10 @@ Deno.serve(async (req) => {
         integration_id: integrationId,
         page_name: selectedPage.name,
         page_id: selectedPage.id,
-        available_pages: availablePages
+        available_pages: availablePages,
+        // Incluir informações de contas de anúncios
+        ad_accounts: adAccounts,
+        selected_ad_account_id: selectedAdAccountId
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

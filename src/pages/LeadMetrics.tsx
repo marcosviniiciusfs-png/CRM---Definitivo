@@ -1494,23 +1494,40 @@ const LeadMetrics = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Conta de Anúncios</p>
                 <p className="font-medium">{selectedAdAccountName || 'Não configurada'}</p>
+                {availableAdAccounts.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {availableAdAccounts.length} conta{availableAdAccounts.length !== 1 ? 's' : ''} disponível{availableAdAccounts.length !== 1 ? 'is' : ''}
+                  </p>
+                )}
               </div>
             </div>
 
-            {availableAdAccounts.length > 1 && (
-              <Select value={selectedAdAccountId || undefined} onValueChange={handleAdAccountChange}>
-                <SelectTrigger className="w-[280px]">
-                  <SelectValue placeholder="Selecionar conta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableAdAccounts.map(account => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <div className="flex items-center gap-2">
+              {availableAdAccounts.length > 1 && (
+                <Select value={selectedAdAccountId || undefined} onValueChange={handleAdAccountChange}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Selecionar conta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableAdAccounts.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {adsNeedsReconnect && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.href = '/integrations'}
+                >
+                  <Facebook className="h-4 w-4 mr-2" />
+                  Reconectar
+                </Button>
+              )}
+            </div>
           </div>
 
           {adsLoading ? (

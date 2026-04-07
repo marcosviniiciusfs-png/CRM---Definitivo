@@ -1,15 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle, Square } from "lucide-react";
 import { toast } from "sonner";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+
+// Chave para persistir estado de redistribuicao
+const REDISTRIBUTION_STATE_KEY = "kairoz_redistribution_state";
+
+interface PersistedRedistributionState {
+  organizationId: string;
+  startTime: number;
+  total: number;
+  processed: number;
+}
 
 interface DistributionConfig {
   id: string;
@@ -50,6 +60,8 @@ export function LeadDistributionList() {
     processed: 0,
     isRunning: false,
   });
+  const [isCancelled, setIsCancelled] = useState(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: organizationId } = useQuery({
     queryKey: ["user-organization", user?.id],
@@ -64,6 +76,47 @@ export function LeadDistributionList() {
     },
     enabled: !!user?.id,
   });
+
+  // Restaurar estado de redistribuicao ao montar
+  useEffect(() => {
+    if (!organizationId) return;
+
+    try {
+      const saved = localStorage.getItem(REDISTRIBUTION_STATE_KEY);
+      if (saved) {
+        const state: PersistedRedistributionState = JSON.parse(saved);
+        // So restaurar se for da mesma org e menos de 10 minutos
+        if (state.organizationId === organizationId && Date.now() - state.startTime < 10 * 60 * 1000) {
+          setProgress({
+            total: state.total,
+            processed: state.processed,
+            isRunning: true,
+          });
+        } else {
+          // Estado antigo, limpar
+          localStorage.removeItem(REDISTRIBUTION_STATE_KEY);
+        }
+      }
+    } catch {
+      localStorage.removeItem(REDISTRIBUTION_STATE_KEY);
+    }
+  }, [organizationId]);
+
+  // Persistir estado de redistribuicao
+  const saveProgressState = useCallback((total: number, processed: number) => {
+    if (!organizationId) return;
+    const state: PersistedRedistributionState = {
+      organizationId,
+      startTime: Date.now(),
+      total,
+      processed,
+    };
+    localStorage.setItem(REDISTRIBUTION_STATE_KEY, JSON.stringify(state));
+  }, [organizationId]);
+
+  const clearProgressState = useCallback(() => {
+    localStorage.removeItem(REDISTRIBUTION_STATE_KEY);
+  }, []);
 
   const { data: configs, isLoading } = useQuery({
     queryKey: ["lead-distribution-configs", organizationId],
@@ -81,7 +134,7 @@ export function LeadDistributionList() {
     enabled: !!organizationId,
   });
 
-  // Buscar todos os funis da organização para exibir nomes nos cards
+  // Buscar todos os funis da organizacao para exibir nomes nos cards
   const { data: funnelsMap } = useQuery({
     queryKey: ["funnels-map", organizationId],
     queryFn: async () => {
@@ -99,7 +152,7 @@ export function LeadDistributionList() {
     enabled: !!organizationId,
   });
 
-  // Buscar contagem de leads sem responsável
+  // Buscar contagem de leads sem responsavel
   const { data: unassignedCount, refetch: refetchUnassigned } = useQuery({
     queryKey: ["unassigned-leads-count", organizationId],
     queryFn: async () => {
@@ -116,13 +169,29 @@ export function LeadDistributionList() {
     enabled: !!organizationId,
   });
 
-  // Mutation para redistribuir leads sem responsável
+  // Funcao para cancelar redistribuicao
+  const cancelRedistribution = useCallback(() => {
+    setIsCancelled(true);
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    setProgress(prev => ({ ...prev, isRunning: false }));
+    clearProgressState();
+    toast.info("Redistribuicao cancelada pelo usuario");
+  }, [clearProgressState]);
+
+  // Mutation para redistribuir leads sem responsavel
   const redistributeMutation = useMutation({
     mutationFn: async () => {
       if (!organizationId) throw new Error("Organizacao nao encontrada");
 
+      // Resetar estado de cancelamento
+      setIsCancelled(false);
+
       // Iniciar redistribuicao
       setProgress({ total: 0, processed: 0, isRunning: true });
+      saveProgressState(0, 0);
 
       const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
         body: { organization_id: organizationId },
@@ -142,6 +211,7 @@ export function LeadDistributionList() {
       }
 
       if (data?.batch_complete || data?.redistributed_count !== undefined) {
+        clearProgressState();
         queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
         toast.success(`${data?.redistributed_count || 0} leads redistribuidos com sucesso!`);
         setProgress(prev => ({ ...prev, isRunning: false }));
@@ -149,29 +219,39 @@ export function LeadDistributionList() {
     },
     onError: (error: any) => {
       console.error("Erro ao redistribuir leads:", error);
+      clearProgressState();
       toast.error(error?.message || "Erro ao redistribuir leads");
       setProgress(prev => ({ ...prev, isRunning: false }));
     },
   });
 
-  // Polling enquanto estiver rodando
+  // Polling enquanto estiver rodando - NAO para ao trocar de aba
   useEffect(() => {
-    if (!progress.isRunning || !organizationId) return;
+    if (!progress.isRunning || !organizationId || isCancelled) return;
 
     const pollProgress = async () => {
+      // Verificar se foi cancelado antes de continuar
+      if (isCancelled) return;
+
       try {
         const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
           body: { organization_id: organizationId, check_progress: true },
         });
 
-        if (!error && data) {
-          setProgress({
+        if (!error && data && !isCancelled) {
+          const newProgress = {
             total: data.total || 0,
             processed: data.processed || 0,
             isRunning: !data.batch_complete,
-          });
+          };
+
+          setProgress(newProgress);
+
+          // Persistir progresso
+          saveProgressState(newProgress.total, newProgress.processed);
 
           if (data.batch_complete) {
+            clearProgressState();
             queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
             toast.success(`${data?.redistributed_count || 0} leads redistribuidos com sucesso!`);
           }
@@ -181,9 +261,16 @@ export function LeadDistributionList() {
       }
     };
 
-    const interval = setInterval(pollProgress, 1000);
-    return () => clearInterval(interval);
-  }, [progress.isRunning, organizationId, queryClient]);
+    // Usar ref para o interval para poder limpar ao cancelar
+    pollingRef.current = setInterval(pollProgress, 1000);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [progress.isRunning, organizationId, queryClient, isCancelled, saveProgressState, clearProgressState]);
 
   const deleteMutation = useMutation({
     mutationFn: async (configId: string) => {
@@ -311,6 +398,16 @@ export function LeadDistributionList() {
                   <span className="text-sm text-amber-600 dark:text-amber-400 min-w-[60px]">
                     {progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0}%
                   </span>
+                  {/* Botao de cancelar */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={cancelRedistribution}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900"
+                  >
+                    <Square className="h-4 w-4 mr-1" />
+                    Cancelar
+                  </Button>
                 </div>
               ) : (
                 <Button

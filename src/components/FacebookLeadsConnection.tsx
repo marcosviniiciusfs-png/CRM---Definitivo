@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Facebook, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Facebook, CheckCircle, AlertCircle, Loader2, Megaphone, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { FunnelSelector } from "@/components/FunnelSelector";
 import { cn } from "@/lib/utils";
@@ -107,9 +107,11 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             payload
           }, window.location.origin);
 
-          if (hasFbStatus) {
-            setTimeout(() => window.close(), 1000);
-          }
+          // Fechar popup após enviar mensagem (tanto para OAuth quanto para status)
+          setTimeout(() => {
+            logger.log('[FB-CONN] Fechando popup...');
+            window.close();
+          }, 500);
         } catch (e) {
           logger.error('[FB-CONN] Erro ao enviar mensagem para opener:', e);
         }
@@ -279,6 +281,65 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             )}
           </div>
         </div>
+
+        {/* Seção de Contas de Anúncios */}
+        {isConnected && !needsReconnect && activeIntegration && (
+          <div className="p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-orange-500" />
+                <p className="font-medium text-sm">Contas de Anúncios</p>
+              </div>
+              <a
+                href="/metrics?tab=campaigns"
+                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                Ver métricas
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            {activeIntegration.ad_accounts && Array.isArray(activeIntegration.ad_accounts) && activeIntegration.ad_accounts.length > 0 ? (
+              <div className="space-y-2">
+                {activeIntegration.ad_accounts.map((account: any) => (
+                  <div
+                    key={account.id}
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded border text-sm",
+                      account.id === activeIntegration.ad_account_id || `act_${account.id}` === activeIntegration.ad_account_id
+                        ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
+                        : "bg-background border-border"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      {(account.id === activeIntegration.ad_account_id || `act_${account.id}` === activeIntegration.ad_account_id) && (
+                        <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                      )}
+                      <span className="font-medium">{account.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "text-xs px-2 py-0.5 rounded",
+                        account.status === 1
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                          : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                      )}>
+                        {account.status === 1 ? 'Ativa' : 'Pausada'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ID: {account.id?.replace('act_', '')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground p-3 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
+                <AlertCircle className="h-4 w-4 inline mr-2 text-amber-500" />
+                Nenhuma conta de anúncios configurada. Acesse a aba <a href="/metrics?tab=campaigns" className="text-blue-600 hover:underline">Campanhas</a> para configurar.
+              </div>
+            )}
+          </div>
+        )}
 
         {!isConnected && (
           <div className="text-sm text-muted-foreground space-y-2">

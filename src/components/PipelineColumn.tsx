@@ -74,7 +74,7 @@ export const PipelineColumn = memo(({
           )}
           style={isHexColor(color) ? { backgroundColor: color } : undefined}
         >
-          {pagination ? `${pagination.loadedCount}/${pagination.totalCount}` : count}
+          {pagination ? `${pagination.loadedCount}/1000` : count}
         </Badge>
       </div>
 
