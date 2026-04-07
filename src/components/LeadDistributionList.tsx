@@ -1,25 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle, Square } from "lucide-react";
+import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
-
-// Chave para persistir estado de redistribuicao
-const REDISTRIBUTION_STATE_KEY = "kairoz_redistribution_state";
-
-interface PersistedRedistributionState {
-  organizationId: string;
-  startTime: number;
-  total: number;
-  processed: number;
-}
 
 interface DistributionConfig {
   id: string;
@@ -60,8 +50,6 @@ export function LeadDistributionList() {
     processed: 0,
     isRunning: false,
   });
-  const [isCancelled, setIsCancelled] = useState(false);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: organizationId } = useQuery({
     queryKey: ["user-organization", user?.id],
@@ -76,47 +64,6 @@ export function LeadDistributionList() {
     },
     enabled: !!user?.id,
   });
-
-  // Restaurar estado de redistribuicao ao montar
-  useEffect(() => {
-    if (!organizationId) return;
-
-    try {
-      const saved = localStorage.getItem(REDISTRIBUTION_STATE_KEY);
-      if (saved) {
-        const state: PersistedRedistributionState = JSON.parse(saved);
-        // So restaurar se for da mesma org e menos de 10 minutos
-        if (state.organizationId === organizationId && Date.now() - state.startTime < 10 * 60 * 1000) {
-          setProgress({
-            total: state.total,
-            processed: state.processed,
-            isRunning: true,
-          });
-        } else {
-          // Estado antigo, limpar
-          localStorage.removeItem(REDISTRIBUTION_STATE_KEY);
-        }
-      }
-    } catch {
-      localStorage.removeItem(REDISTRIBUTION_STATE_KEY);
-    }
-  }, [organizationId]);
-
-  // Persistir estado de redistribuicao
-  const saveProgressState = useCallback((total: number, processed: number) => {
-    if (!organizationId) return;
-    const state: PersistedRedistributionState = {
-      organizationId,
-      startTime: Date.now(),
-      total,
-      processed,
-    };
-    localStorage.setItem(REDISTRIBUTION_STATE_KEY, JSON.stringify(state));
-  }, [organizationId]);
-
-  const clearProgressState = useCallback(() => {
-    localStorage.removeItem(REDISTRIBUTION_STATE_KEY);
-  }, []);
 
   const { data: configs, isLoading } = useQuery({
     queryKey: ["lead-distribution-configs", organizationId],
@@ -169,30 +116,15 @@ export function LeadDistributionList() {
     enabled: !!organizationId,
   });
 
-  // Funcao para cancelar redistribuicao
-  const cancelRedistribution = useCallback(() => {
-    setIsCancelled(true);
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-    setProgress(prev => ({ ...prev, isRunning: false }));
-    clearProgressState();
-    toast.info("Redistribuicao cancelada pelo usuario");
-  }, [clearProgressState]);
-
   // Mutation para redistribuir leads sem responsavel
   const redistributeMutation = useMutation({
     mutationFn: async () => {
       if (!organizationId) throw new Error("Organizacao nao encontrada");
 
-      // Resetar estado de cancelamento
-      setIsCancelled(false);
-
-      // Iniciar redistribuicao
+      // Iniciar redistribuicao - mostrar loading
       setProgress({ total: 0, processed: 0, isRunning: true });
-      saveProgressState(0, 0);
 
+      // Chamar a Edge Function que processa tudo de uma vez
       const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
         body: { organization_id: organizationId },
       });
@@ -201,76 +133,26 @@ export function LeadDistributionList() {
       return data;
     },
     onSuccess: (data) => {
-      // Atualizar com dados do progresso
-      if (data?.total !== undefined && data?.processed !== undefined) {
-        setProgress({
-          total: data.total,
-          processed: data.processed,
-          isRunning: !data.batch_complete,
-        });
-      }
+      // Atualizar com dados finais do progresso
+      setProgress({
+        total: data?.total || 0,
+        processed: data?.processed || 0,
+        isRunning: false,
+      });
+      queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
 
-      if (data?.batch_complete || data?.redistributed_count !== undefined) {
-        clearProgressState();
-        queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
-        toast.success(`${data?.redistributed_count || 0} leads redistribuidos com sucesso!`);
-        setProgress(prev => ({ ...prev, isRunning: false }));
+      if (data?.redistributed_count !== undefined && data.redistributed_count > 0) {
+        toast.success(`${data.redistributed_count} leads redistribuidos com sucesso!`);
+      } else if (data?.message) {
+        toast.info(data.message);
       }
     },
     onError: (error: any) => {
       console.error("Erro ao redistribuir leads:", error);
-      clearProgressState();
       toast.error(error?.message || "Erro ao redistribuir leads");
       setProgress(prev => ({ ...prev, isRunning: false }));
     },
   });
-
-  // Polling enquanto estiver rodando - NAO para ao trocar de aba
-  useEffect(() => {
-    if (!progress.isRunning || !organizationId || isCancelled) return;
-
-    const pollProgress = async () => {
-      // Verificar se foi cancelado antes de continuar
-      if (isCancelled) return;
-
-      try {
-        const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
-          body: { organization_id: organizationId, check_progress: true },
-        });
-
-        if (!error && data && !isCancelled) {
-          const newProgress = {
-            total: data.total || 0,
-            processed: data.processed || 0,
-            isRunning: !data.batch_complete,
-          };
-
-          setProgress(newProgress);
-
-          // Persistir progresso
-          saveProgressState(newProgress.total, newProgress.processed);
-
-          if (data.batch_complete) {
-            clearProgressState();
-            queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
-            toast.success(`${data?.redistributed_count || 0} leads redistribuidos com sucesso!`);
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao verificar progresso:", err);
-      }
-    };
-
-    // Usar ref para o interval para poder limpar ao cancelar
-    pollingRef.current = setInterval(pollProgress, 1000);
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    };
-  }, [progress.isRunning, organizationId, queryClient, isCancelled, saveProgressState, clearProgressState]);
 
   const deleteMutation = useMutation({
     mutationFn: async (configId: string) => {
@@ -282,7 +164,7 @@ export function LeadDistributionList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      toast.success("Roleta excluída com sucesso");
+      toast.success("Roleta excluida com sucesso");
     },
     onError: () => {
       toast.error("Erro ao excluir roleta");
@@ -311,17 +193,17 @@ export function LeadDistributionList() {
       all: "Todos os canais",
       whatsapp: "WhatsApp",
       facebook: "Facebook Leads",
-      webhook: "Webhook (Formulários)",
+      webhook: "Webhook (Formularios)",
     };
     return labels[sourceType] || sourceType;
   };
 
   const getMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
-      round_robin: "Rodízio",
+      round_robin: "Rodizio",
       weighted: "Ponderado",
       load_based: "Por Carga",
-      random: "Aleatório",
+      random: "Aleatorio",
     };
     return labels[method] || method;
   };
@@ -349,9 +231,9 @@ export function LeadDistributionList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Roletas de Distribuição</h2>
+          <h2 className="text-2xl font-bold">Roletas de Distribuicao</h2>
           <p className="text-muted-foreground">
-            Gerencie múltiplas roletas por canal e funil. Leads são roteados para a roleta mais específica encontrada.
+            Gerencie multiplas roletas por canal e funil. Leads sao roteados para a roleta mais especifica encontrada.
           </p>
         </div>
         <Button onClick={handleCreate}>
@@ -372,7 +254,7 @@ export function LeadDistributionList() {
                 <div>
                   <p className="font-medium text-amber-800 dark:text-amber-200">
                     {progress.isRunning
-                      ? `Redistribuindo ${progress.processed} de ${progress.total} leads...`
+                      ? `Redistribuindo leads...`
                       : `${unassignedCount} lead${unassignedCount !== 1 ? "s" : ""} sem responsavel`
                     }
                   </p>
@@ -386,28 +268,11 @@ export function LeadDistributionList() {
               </div>
               {progress.isRunning ? (
                 <div className="flex items-center gap-3">
-                  {/* Barra de progresso */}
-                  <div className="w-32 h-2 bg-amber-200 dark:bg-amber-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500 transition-all duration-300"
-                      style={{
-                        width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%`
-                      }}
-                    />
-                  </div>
-                  <span className="text-sm text-amber-600 dark:text-amber-400 min-w-[60px]">
-                    {progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0}%
+                  {/* Indicador de loading */}
+                  <RefreshCw className="h-5 w-5 text-amber-600 dark:text-amber-400 animate-spin" />
+                  <span className="text-sm text-amber-600 dark:text-amber-400">
+                    Processando...
                   </span>
-                  {/* Botao de cancelar */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={cancelRedistribution}
-                    className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900"
-                  >
-                    <Square className="h-4 w-4 mr-1" />
-                    Cancelar
-                  </Button>
                 </div>
               ) : (
                 <Button
@@ -466,7 +331,7 @@ export function LeadDistributionList() {
                         )}
                         {!funnelName && (
                           <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 dark:text-amber-400 text-xs">
-                            Genérica
+                            Generica
                           </Badge>
                         )}
                       </div>
@@ -512,13 +377,13 @@ export function LeadDistributionList() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Método:</span>{" "}
+                      <span className="text-muted-foreground">Metodo:</span>{" "}
                       <span className="font-medium">{getMethodLabel(config.distribution_method)}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Funil:</span>{" "}
                       <span className="font-medium">
-                        {funnelName ?? <span className="text-amber-500">Todos (genérica)</span>}
+                        {funnelName ?? <span className="text-amber-500">Todos (generica)</span>}
                       </span>
                     </div>
                     <div>
