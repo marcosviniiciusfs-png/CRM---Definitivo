@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users } from "lucide-react";
+import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -33,12 +33,23 @@ interface Funnel {
   name: string;
 }
 
+interface RedistributionProgress {
+  total: number;
+  processed: number;
+  isRunning: boolean;
+}
+
 export function LeadDistributionList() {
   const { user } = useAuth();
   const permissions = usePermissions();
   const queryClient = useQueryClient();
   const [editingConfig, setEditingConfig] = useState<DistributionConfig | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [progress, setProgress] = useState<RedistributionProgress>({
+    total: 0,
+    processed: 0,
+    isRunning: false,
+  });
 
   const { data: organizationId } = useQuery({
     queryKey: ["user-organization", user?.id],
@@ -87,6 +98,92 @@ export function LeadDistributionList() {
     },
     enabled: !!organizationId,
   });
+
+  // Buscar contagem de leads sem responsável
+  const { data: unassignedCount, refetch: refetchUnassigned } = useQuery({
+    queryKey: ["unassigned-leads-count", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return 0;
+      const { count, error } = await supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", organizationId)
+        .is("responsavel_user_id", null);
+
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!organizationId,
+  });
+
+  // Mutation para redistribuir leads sem responsável
+  const redistributeMutation = useMutation({
+    mutationFn: async () => {
+      if (!organizationId) throw new Error("Organizacao nao encontrada");
+
+      // Iniciar redistribuicao
+      setProgress({ total: 0, processed: 0, isRunning: true });
+
+      const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
+        body: { organization_id: organizationId },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      // Atualizar com dados do progresso
+      if (data?.total !== undefined && data?.processed !== undefined) {
+        setProgress({
+          total: data.total,
+          processed: data.processed,
+          isRunning: !data.batch_complete,
+        });
+      }
+
+      if (data?.batch_complete || data?.redistributed_count !== undefined) {
+        queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
+        toast.success(`${data?.redistributed_count || 0} leads redistribuidos com sucesso!`);
+        setProgress(prev => ({ ...prev, isRunning: false }));
+      }
+    },
+    onError: (error: any) => {
+      console.error("Erro ao redistribuir leads:", error);
+      toast.error(error?.message || "Erro ao redistribuir leads");
+      setProgress(prev => ({ ...prev, isRunning: false }));
+    },
+  });
+
+  // Polling enquanto estiver rodando
+  useEffect(() => {
+    if (!progress.isRunning || !organizationId) return;
+
+    const pollProgress = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
+          body: { organization_id: organizationId, check_progress: true },
+        });
+
+        if (!error && data) {
+          setProgress({
+            total: data.total || 0,
+            processed: data.processed || 0,
+            isRunning: !data.batch_complete,
+          });
+
+          if (data.batch_complete) {
+            queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
+            toast.success(`${data?.redistributed_count || 0} leads redistribuidos com sucesso!`);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao verificar progresso:", err);
+      }
+    };
+
+    const interval = setInterval(pollProgress, 1000);
+    return () => clearInterval(interval);
+  }, [progress.isRunning, organizationId, queryClient]);
 
   const deleteMutation = useMutation({
     mutationFn: async (configId: string) => {
@@ -175,6 +272,60 @@ export function LeadDistributionList() {
           Nova Roleta
         </Button>
       </div>
+
+      {/* Secao de leads sem responsavel */}
+      {unassignedCount !== undefined && unassignedCount > 0 && (
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    {progress.isRunning
+                      ? `Redistribuindo ${progress.processed} de ${progress.total} leads...`
+                      : `${unassignedCount} lead${unassignedCount !== 1 ? "s" : ""} sem responsavel`
+                    }
+                  </p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    {progress.isRunning
+                      ? "Por favor, aguarde..."
+                      : "Leads que entraram no CRM mas nao foram distribuidos"
+                    }
+                  </p>
+                </div>
+              </div>
+              {progress.isRunning ? (
+                <div className="flex items-center gap-3">
+                  {/* Barra de progresso */}
+                  <div className="w-32 h-2 bg-amber-200 dark:bg-amber-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 transition-all duration-300"
+                      style={{
+                        width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%`
+                      }}
+                    />
+                  </div>
+                  <span className="text-sm text-amber-600 dark:text-amber-400 min-w-[60px]">
+                    {progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0}%
+                  </span>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => redistributeMutation.mutate()}
+                  disabled={redistributeMutation.isPending}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${redistributeMutation.isPending ? "animate-spin" : ""}`} />
+                  {redistributeMutation.isPending ? "Redistribuindo..." : "Redistribuir agora"}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4">
         {configs?.length === 0 ? (
