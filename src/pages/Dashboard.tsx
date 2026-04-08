@@ -189,8 +189,8 @@ const RevenueCard = ({
   value: number;
   active?: boolean;
 }) => (
-  <div className={`p-4 rounded-xl text-center transition-all ${active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-    <div className={`text-[10px] uppercase tracking-wider mb-1 ${active ? 'text-primary-foreground/70' : ''}`}>
+  <div className={`p-4 rounded-xl text-center transition-all ${active ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
+    <div className={`text-[10px] uppercase tracking-wider mb-1 ${active ? 'text-emerald-600/70 dark:text-emerald-400/70' : ''}`}>
       {label}
     </div>
     <div className="text-lg font-bold" style={{ fontFamily: "'DM Mono', monospace" }}>
