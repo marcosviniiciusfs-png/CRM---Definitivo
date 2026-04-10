@@ -105,17 +105,27 @@ export function RedistributionBatches() {
     queryKey: ["org-collaborators", organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      const { data, error } = await supabase
+      const { data: members, error: membersError } = await supabase
         .from("organization_members")
-        .select("user_id, email, profiles:user_id (full_name)")
+        .select("user_id, email, display_name")
         .eq("organization_id", organizationId)
-        .eq("is_active", true)
-        .order("user_id", { ascending: true });
+        .eq("is_active", true);
 
-      if (error) throw error;
-      return data.map((m: any) => ({
+      if (membersError) throw membersError;
+      if (!members || members.length === 0) return [];
+
+      // Buscar profiles separadamente para obter full_name
+      const userIds = members.map((m: any) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", userIds);
+
+      const profilesMap = new Map((profiles || []).map((p: any) => [p.user_id, p.full_name]));
+
+      return members.map((m: any) => ({
         user_id: m.user_id,
-        name: m.profiles?.full_name || m.email,
+        name: profilesMap.get(m.user_id) || m.display_name || m.email,
       }));
     },
     enabled: !!organizationId,
