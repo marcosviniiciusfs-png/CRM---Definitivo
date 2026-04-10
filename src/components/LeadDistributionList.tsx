@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
+import { RedistributeBatchDialog } from "./RedistributeBatchDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
@@ -50,6 +51,7 @@ export function LeadDistributionList() {
     processed: 0,
     isRunning: false,
   });
+  const [rouletteDialogOpen, setRouletteDialogOpen] = useState(false);
 
   const { data: organizationId } = useQuery({
     queryKey: ["user-organization", user?.id],
@@ -63,6 +65,7 @@ export function LeadDistributionList() {
       return data?.organization_id;
     },
     enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: configs, isLoading } = useQuery({
@@ -79,6 +82,7 @@ export function LeadDistributionList() {
       return data as DistributionConfig[];
     },
     enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Buscar todos os funis da organizacao para exibir nomes nos cards
@@ -97,6 +101,7 @@ export function LeadDistributionList() {
       return map;
     },
     enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Buscar contagem de leads sem responsavel
@@ -114,37 +119,59 @@ export function LeadDistributionList() {
       return count || 0;
     },
     enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Mutation para redistribuir leads sem responsavel
+  // Mutation para redistribuir leads em batches
   const redistributeMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (selectedConfigId: string | null) => {
       if (!organizationId) throw new Error("Organizacao nao encontrada");
 
-      // Iniciar redistribuicao - mostrar loading
       setProgress({ total: 0, processed: 0, isRunning: true });
+      let totalRedistributed = 0;
+      let totalLeads = 0;
+      let hasMore = true;
 
-      // Chamar a Edge Function que processa tudo de uma vez
-      const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
-        body: { organization_id: organizationId },
-      });
+      // Processar em batches ate completar (max 50 iteracoes de seguranca)
+      const MAX_ITERATIONS = 50;
+      let iteration = 0;
 
-      if (error) throw error;
-      return data;
+      while (hasMore && iteration < MAX_ITERATIONS) {
+        iteration++;
+        const body: Record<string, any> = { organization_id: organizationId };
+        if (selectedConfigId) body.config_id = selectedConfigId;
+        const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
+          body,
+        });
+
+        if (error) throw error;
+
+        totalRedistributed += data?.redistributed_count || 0;
+        totalLeads = data?.total || 0;
+        hasMore = data?.has_more === true;
+
+        // Seguranca: se nao redistribuiu nenhum neste batch, parar
+        if ((data?.redistributed_count || 0) === 0) {
+          hasMore = false;
+        }
+
+        setProgress({
+          total: totalLeads,
+          processed: totalRedistributed,
+          isRunning: hasMore,
+        });
+      }
+
+      return { redistributed_count: totalRedistributed, total: totalLeads };
     },
     onSuccess: (data) => {
-      // Atualizar com dados finais do progresso
-      setProgress({
-        total: data?.total || 0,
-        processed: data?.processed || 0,
-        isRunning: false,
-      });
+      setProgress(prev => ({ ...prev, isRunning: false }));
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
 
-      if (data?.redistributed_count !== undefined && data.redistributed_count > 0) {
+      if (data.redistributed_count > 0) {
         toast.success(`${data.redistributed_count} leads redistribuidos com sucesso!`);
-      } else if (data?.message) {
-        toast.info(data.message);
+      } else {
+        toast.info("Nenhum lead para redistribuir");
       }
     },
     onError: (error: any) => {
@@ -153,6 +180,10 @@ export function LeadDistributionList() {
       setProgress(prev => ({ ...prev, isRunning: false }));
     },
   });
+
+  const handleRedistributeConfirm = (configId: string | null) => {
+    redistributeMutation.mutate(configId);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (configId: string) => {
@@ -276,7 +307,7 @@ export function LeadDistributionList() {
                 </div>
               ) : (
                 <Button
-                  onClick={() => redistributeMutation.mutate()}
+                  onClick={() => setRouletteDialogOpen(true)}
                   disabled={redistributeMutation.isPending}
                   className="bg-amber-600 hover:bg-amber-700 text-white"
                 >
@@ -406,6 +437,17 @@ export function LeadDistributionList() {
           })
         )}
       </div>
+
+      <RedistributeBatchDialog
+        open={rouletteDialogOpen}
+        onOpenChange={setRouletteDialogOpen}
+        organizationId={organizationId}
+        onConfirm={handleRedistributeConfirm}
+        isPending={redistributeMutation.isPending}
+        showAutoOption={true}
+        title="Redistribuir Leads sem Responsável"
+        description="Escolha qual roleta usar para redistribuir os leads."
+      />
 
       <LeadDistributionConfigModal
         open={isModalOpen}
