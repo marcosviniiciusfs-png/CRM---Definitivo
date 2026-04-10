@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Calendar, Users, GitFork } from "lucide-react";
 import { toast } from "sonner";
 import { RedistributeBatchDialog } from "./RedistributeBatchDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserCog } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -43,6 +45,8 @@ export function RedistributionBatches() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [selectedCollaborator, setSelectedCollaborator] = useState<string>("");
+  const [collabDialogOpen, setCollabDialogOpen] = useState(false);
 
   const { data: organizationId } = useQuery({
     queryKey: ["user-organization", user?.id],
@@ -96,6 +100,28 @@ export function RedistributionBatches() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Buscar colaboradores ativos da organização
+  const { data: collaborators } = useQuery({
+    queryKey: ["org-collaborators", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select("user_id, email, profiles:user_id (full_name)")
+        .eq("organization_id", organizationId)
+        .eq("is_active", true)
+        .order("user_id", { ascending: true });
+
+      if (error) throw error;
+      return data.map((m: any) => ({
+        user_id: m.user_id,
+        name: m.profiles?.full_name || m.email,
+      }));
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const redistributeBatchMutation = useMutation({
     mutationFn: async ({ batchId, configId }: { batchId: string; configId: string }) => {
       const { data, error } = await supabase.functions.invoke("redistribute-batch", {
@@ -130,6 +156,35 @@ export function RedistributionBatches() {
     redistributeBatchMutation.mutate({ batchId: selectedBatchId, configId });
   };
 
+  const redistributeCollabMutation = useMutation({
+    mutationFn: async ({ collaboratorId, configId }: { collaboratorId: string; configId: string }) => {
+      const { data, error } = await supabase.functions.invoke("redistribute-collaborator-leads", {
+        body: {
+          collaborator_user_id: collaboratorId,
+          config_id: configId,
+          organization_id: organizationId,
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["redistribution-batches"] });
+      setSelectedCollaborator("");
+      toast.success(`${data.redistributed_count || 0} leads redistribuídos com sucesso!`);
+    },
+    onError: (error: any) => {
+      console.error("Erro ao redistribuir leads do colaborador:", error);
+      toast.error(error?.message || "Erro ao redistribuir leads");
+    },
+  });
+
+  const handleCollabDialogConfirm = (configId: string | null) => {
+    if (!selectedCollaborator || !configId) return;
+    redistributeCollabMutation.mutate({ collaboratorId: selectedCollaborator, configId });
+  };
+
   if (isLoading) {
     return <LoadingAnimation text="Carregando redistribuições" />;
   }
@@ -142,6 +197,49 @@ export function RedistributionBatches() {
           Lotes de redistribuição anteriores. Re-distribua usando uma roleta diferente.
         </p>
       </div>
+
+      {/* Redistribuir leads de colaborador */}
+      <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
+                <UserCog className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="font-medium text-blue-800 dark:text-blue-200">
+                  Redistribuir leads de um colaborador
+                </p>
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  Escolha um colaborador e uma roleta para redistribuir seus leads ativos
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Selecionar colaborador" />
+                </SelectTrigger>
+                <SelectContent>
+                  {collaborators?.map((c: any) => (
+                    <SelectItem key={c.user_id} value={c.user_id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => setCollabDialogOpen(true)}
+                disabled={!selectedCollaborator || redistributeCollabMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${redistributeCollabMutation.isPending ? "animate-spin" : ""}`} />
+                Redistribuir
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {!batches || batches.length === 0 ? (
         <Card>
@@ -227,6 +325,17 @@ export function RedistributionBatches() {
         showAutoOption={false}
         title="Re-distribuir Lote"
         description="Escolha a roleta para redistribuir os leads deste lote."
+      />
+
+      <RedistributeBatchDialog
+        open={collabDialogOpen}
+        onOpenChange={setCollabDialogOpen}
+        organizationId={organizationId}
+        onConfirm={handleCollabDialogConfirm}
+        isPending={redistributeCollabMutation.isPending}
+        showAutoOption={false}
+        title="Redistribuir Leads do Colaborador"
+        description="Escolha a roleta para redistribuir os leads do colaborador selecionado."
       />
     </div>
   );
