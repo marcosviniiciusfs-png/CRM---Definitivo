@@ -3,6 +3,8 @@ import { LeadDistributionList } from "@/components/LeadDistributionList";
 import { AgentDistributionSettings } from "@/components/AgentDistributionSettings";
 import { DistributionHistory } from "@/components/DistributionHistory";
 import { Settings2, User, History } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import { RedistributionBatches } from "@/components/RedistributionBatches";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
@@ -35,6 +37,12 @@ export default function LeadDistribution() {
             <History className="h-4 w-4" />
             Histórico
           </TabsTrigger>
+          {permissions.canCreateRoulettes && (
+            <TabsTrigger value="redistributions" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              <RefreshCw className="h-4 w-4" />
+              Redistribuições
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {permissions.canCreateRoulettes && (
@@ -50,6 +58,12 @@ export default function LeadDistribution() {
         <TabsContent value="history">
           <DistributionHistory />
         </TabsContent>
+
+        {permissions.canCreateRoulettes && (
+          <TabsContent value="redistributions">
+            <RedistributionBatches />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
