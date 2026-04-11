@@ -4,13 +4,14 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Lead, Message, MessageReaction, PinnedMessage } from "@/types/chat";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Tag, Filter, Check, Pin, PinOff, Loader2 } from "lucide-react";
+import { Search, Tag, Filter, Check, Pin, PinOff, Loader2, ArrowLeft } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +69,7 @@ const Chat = () => {
   const { theme } = useTheme();
   const permissions = usePermissions();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   // Core state
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -200,7 +202,7 @@ const Chat = () => {
       }
     };
 
-    const interval = setInterval(cleanupOrphanChannels, 5000);
+    const interval = setInterval(cleanupOrphanChannels, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1151,10 +1153,14 @@ const Chat = () => {
     );
   };
 
+  // On mobile, show only the leads list or the conversation (not both)
+  const showLeadsList = !isMobile || !selectedLead;
+  const showChatArea = !isMobile || !!selectedLead;
+
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4 min-w-0 overflow-hidden">
+    <div className="flex h-[calc(100vh-5.5rem)] md:h-[calc(100vh-8rem)] gap-0 md:gap-4 min-w-0 overflow-hidden">
       {/* Leads List */}
-      <Card className="w-80 flex-shrink-0 flex flex-col overflow-hidden h-full">
+      <Card className={`${isMobile ? 'w-full' : 'w-80'} flex-shrink-0 flex flex-col overflow-hidden h-full ${!showLeadsList ? 'hidden md:flex' : ''}`}>
         <div className="p-4 border-b space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Conversas</h2>
@@ -1299,9 +1305,18 @@ const Chat = () => {
       </Card>
 
       {/* Chat Area */}
-      <Card className="flex-1 flex flex-col overflow-hidden h-full min-w-0 max-w-full">
+      <Card className={`flex-1 flex flex-col overflow-hidden h-full min-w-0 max-w-full ${!showChatArea ? 'hidden md:flex' : ''}`}>
         {selectedLead ? (
           <>
+            {/* Mobile back button */}
+            {isMobile && (
+              <div className="flex items-center gap-2 p-2 border-b">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedLead(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Voltar
+                </Button>
+              </div>
+            )}
             <ChatHeader
               lead={selectedLead}
               presenceStatus={presenceStatus.get(selectedLead.id)}

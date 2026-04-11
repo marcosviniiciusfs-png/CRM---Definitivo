@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,8 @@ const PLAN_OPTIONS = [
 export default function AdminUserDetails() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+const location = useLocation();
+const navState = location.state as { tab?: string; page?: number; search?: string; plan?: string } | null;
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -432,7 +434,17 @@ export default function AdminUserDetails() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => navigate("/admin")}
+            onClick={() => {
+  if (navState?.tab) {
+    const params = new URLSearchParams({ tab: navState.tab });
+    if (navState.page) params.set('page', String(navState.page));
+    if (navState.search) params.set('search', navState.search);
+    if (navState.plan) params.set('plan', navState.plan);
+    navigate(`/admin?${params.toString()}`);
+  } else {
+    navigate("/admin");
+  }
+}}
             className="border-gray-300 text-gray-700 hover:bg-gray-100"
           >
             <ArrowLeft className="w-5 h-5" />

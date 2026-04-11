@@ -1,0 +1,12 @@
+[POST] https://uxttihjsxfowursjyult.supabase.co/functions/v1/redistribute-unassigned-leads => [200] 
+  Request headers:
+    sec-ch-ua-platform: "Windows"
+    authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjFlZTMyZTEzLTI3MzUtNDBlNy05YzRiLWU0NTRhZDQwM2NmYyIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3V4dHRpaGpzeGZvd3Vyc2p5dWx0LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI0MzAxYzAzNS1jN2Y0LTQ0NTAtYTA2MS0wZjc1YzYyMTI3ZWMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc1NTg5MDQ1LCJpYXQiOjE3NzU1ODU0NDUsImVtYWlsIjoibHJlcHJlc2VudGFjb2VzOEBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoibHJlcHJlc2VudGFjb2VzOEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsIm5hbWUiOiJMUiAtIEVxdWlwZSBQcmluY2lwYWwiLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6IjQzMDFjMDM1LWM3ZjQtNDQ1MC1hMDYxLTBmNzVjNjIxMjdlYyJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzc1NTg1NDQ1fV0sInNlc3Npb25faWQiOiIxM2QyMzRmYi00ZWQzLTQ0NzQtOGRiMi1kMTI1OTFkOTVmZWIiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.6rHelGVrAqouQY2GMuNqIo7rXWfI6hnKUdmgRu_WjbILLiubALRI-ZbygFPzW6zf-e6p7Dp4Gv9iWw9o3wP2iw
+    referer: https://www.kairozcrm.com.br/
+    sec-ch-ua: "Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"
+    sec-ch-ua-mobile: ?0
+    x-client-info: supabase-js-web/2.97.0
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36
+    content-type: application/json
+    apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4dHRpaGpzeGZvd3Vyc2p5dWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODM5NTAsImV4cCI6MjA4NDQ1OTk1MH0.-gyL85krJA-16ieNnCtoi-HK-oXxSLl1m26yMJLKmxA
+  Request body: {"organization_id":"1a7d8bb6-fd85-435d-aa36-bce147a72167"}

@@ -1,0 +1,113 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e250]:
+        - img [ref=e252]
+        - generic [ref=e255]: Edge Function returned a non-2xx status code
+  - generic [ref=e8]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - img "K" [ref=e15]
+        - generic [ref=e16]:
+          - generic [ref=e17]: Menu
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - link "Início" [ref=e21] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e22]
+                - generic: Início
+            - listitem [ref=e25]:
+              - link "Funil de Vendas" [ref=e26] [cursor=pointer]:
+                - /url: /pipeline
+                - img [ref=e27]
+                - generic: Funil de Vendas
+            - listitem [ref=e29]:
+              - link "Métricas" [ref=e30] [cursor=pointer]:
+                - /url: /lead-metrics
+                - img [ref=e31]
+                - generic: Métricas
+            - listitem [ref=e32]:
+              - link "Roleta de Leads" [ref=e33] [cursor=pointer]:
+                - /url: /lead-distribution
+                - img [ref=e34]
+                - generic: Roleta de Leads
+            - listitem [ref=e40]:
+              - link "Chat" [ref=e41] [cursor=pointer]:
+                - /url: /chat
+                - img [ref=e42]
+                - generic: Chat
+            - listitem [ref=e44]:
+              - link "Ranking" [ref=e45] [cursor=pointer]:
+                - /url: /ranking
+                - img [ref=e46]
+                - generic: Ranking
+            - listitem [ref=e53]:
+              - button "Administrativo" [ref=e54] [cursor=pointer]:
+                - img [ref=e55]
+                - generic [ref=e59]: Administrativo
+                - img [ref=e60]
+            - listitem [ref=e62]:
+              - link "Tarefas" [ref=e63] [cursor=pointer]:
+                - /url: /tasks
+                - img [ref=e64]
+                - generic: Tarefas
+            - listitem [ref=e67]:
+              - link "Integrações" [ref=e68] [cursor=pointer]:
+                - /url: /integrations
+                - img [ref=e69]
+                - generic: Integrações
+            - listitem [ref=e71]:
+              - link "Configurações" [ref=e72] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e73]
+                - generic: Configurações
+      - generic [ref=e77]:
+        - button [ref=e78] [cursor=pointer]:
+          - img
+        - button [ref=e79] [cursor=pointer]:
+          - img
+    - main [ref=e80]:
+      - generic [ref=e82]:
+        - button [ref=e83] [cursor=pointer]:
+          - img
+        - button "L" [ref=e84] [cursor=pointer]:
+          - generic [ref=e86]: L
+      - generic [ref=e88]:
+        - generic [ref=e89]:
+          - heading "Roleta de Leads" [level=1] [ref=e90]
+          - paragraph [ref=e91]: Configure e gerencie a distribuição automática de leads entre sua equipe
+        - generic [ref=e92]:
+          - tablist [ref=e93]:
+            - tab "Roletas" [ref=e94] [cursor=pointer]:
+              - img [ref=e95]
+              - text: Roletas
+            - tab "Configurar Agentes" [ref=e98] [cursor=pointer]:
+              - img [ref=e99]
+              - text: Configurar Agentes
+            - tab "Histórico" [ref=e102] [cursor=pointer]:
+              - img [ref=e103]
+              - text: Histórico
+            - tab "Redistribuições" [selected] [ref=e107] [cursor=pointer]:
+              - img [ref=e108]
+              - text: Redistribuições
+          - tabpanel "Redistribuições" [ref=e163]:
+            - generic [ref=e164]:
+              - generic [ref=e165]:
+                - heading "Histórico de Redistribuições" [level=2] [ref=e166]
+                - paragraph [ref=e167]: Lotes de redistribuição anteriores. Re-distribua usando uma roleta diferente.
+              - generic [ref=e170]:
+                - generic [ref=e171]:
+                  - img [ref=e173]
+                  - generic [ref=e185]:
+                    - paragraph [ref=e186]: Redistribuir leads de um colaborador
+                    - paragraph [ref=e187]: Escolha um colaborador e uma roleta para redistribuir seus leads ativos
+                - generic [ref=e188]:
+                  - combobox [ref=e189] [cursor=pointer]:
+                    - generic: Matheus
+                    - img [ref=e190]
+                  - button "Redistribuir" [ref=e220] [cursor=pointer]:
+                    - img
+                    - text: Redistribuir
+              - paragraph [ref=e194]: Nenhuma redistribuição registrada ainda

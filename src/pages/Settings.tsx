@@ -269,9 +269,9 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6 max-w-4xl">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Configurações</h1>
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
@@ -279,19 +279,19 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground">Gerencie as configurações da sua conta</p>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Configurações</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Gerencie as configurações da sua conta</p>
       </div>
 
       <Tabs defaultValue="perfil" className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-          <TabsTrigger value="perfil" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Perfil</TabsTrigger>
-          <TabsTrigger value="notificacoes" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Notificações</TabsTrigger>
+          <TabsTrigger value="perfil" className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Perfil</TabsTrigger>
+          <TabsTrigger value="notificacoes" className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Notificações</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="perfil" className="space-y-6 mt-6">
+        <TabsContent value="perfil" className="space-y-3 sm:space-y-4 md:space-y-6 mt-3 sm:mt-4 md:mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -299,7 +299,7 @@ const Settings = () => {
                 Perfil do Usuário
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-3 sm:space-y-4 md:space-y-6">
               <AvatarUpload
                 avatarUrl={avatarUrl}
                 userId={user?.id || ""}
@@ -319,7 +319,7 @@ const Settings = () => {
                 }}
               />
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome</Label>
                   <Input
@@ -362,14 +362,14 @@ const Settings = () => {
                 <CreditCard className="h-5 w-5 text-primary" />
                 Assinatura
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="hidden sm:block">
                 Informações sobre o seu plano atual
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {subscriptionData?.subscribed && subscriptionData.product_id ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border border-border/60 rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between p-3 sm:p-4 border border-border/60 rounded-lg bg-muted/30">
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Plano Atual</p>
                       <Badge className="mt-0.5 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20" variant="outline">
@@ -378,7 +378,7 @@ const Settings = () => {
                     </div>
                     <div className="text-right space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Colaboradores</p>
-                      <p className="text-xl font-semibold tabular-nums">{subscriptionData.total_collaborators}</p>
+                      <p className="text-lg sm:text-xl font-semibold tabular-nums">{subscriptionData.total_collaborators}</p>
                     </div>
                   </div>
 
@@ -395,7 +395,8 @@ const Settings = () => {
                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
                       <UserPlus className="h-4 w-4 mr-1.5" />
-                      Adicionar Colaboradores
+                      <span className="hidden sm:inline">Adicionar Colaboradores</span>
+                      <span className="sm:hidden">Adicionar</span>
                     </Button>
                     {/* Botão de planos removido (CRM Grátis) */}
                   </div>
@@ -403,7 +404,7 @@ const Settings = () => {
                   {/* Modal de Adicionar Colaboradores */}
                   {showCollaboratorModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                      <div className="bg-card p-6 rounded-lg border shadow-lg w-full max-w-md space-y-4">
+                      <div className="bg-card p-4 sm:p-6 rounded-lg border shadow-lg w-full max-w-md mx-4 space-y-4">
                         <div>
                           <h3 className="text-lg font-semibold">Adicionar Colaboradores</h3>
                           <p className="text-sm text-muted-foreground">
@@ -470,7 +471,7 @@ const Settings = () => {
                 )}
                 Aparência
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="hidden sm:block">
                 Personalize a aparência do CRM de acordo com sua preferência
               </CardDescription>
             </CardHeader>
@@ -478,7 +479,7 @@ const Settings = () => {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="dark-mode" className="text-base">Tema Escuro</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground hidden sm:block">
                     Alternar entre tema claro e escuro
                   </p>
                 </div>
@@ -542,12 +543,12 @@ const Settings = () => {
                 <Database className="h-5 w-5 text-primary" />
                 Backup de Dados
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="hidden sm:block">
                 Exporte todos os dados da sua organização em formato JSON
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 border rounded-lg bg-muted/30">
+              <div className="p-3 sm:p-4 border rounded-lg bg-muted/30">
                 <p className="text-sm text-muted-foreground mb-3">
                   O backup inclui: leads, mensagens, funis, equipes, tarefas, metas, histórico de distribuição, automações e configurações da organização.
                 </p>
@@ -607,22 +608,22 @@ const Settings = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="notificacoes" className="space-y-6 mt-6">
+        <TabsContent value="notificacoes" className="space-y-3 sm:space-y-4 md:space-y-6 mt-3 sm:mt-4 md:mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5 text-primary" />
                 Notificações
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="hidden sm:block">
                 Configure suas preferências de notificação
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-3 sm:space-y-4 md:space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="notification-sound" className="text-base">Som de Notificação</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground hidden sm:block">
                     Reproduzir som quando novas mensagens chegarem
                   </p>
                 </div>
@@ -635,7 +636,7 @@ const Settings = () => {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="button-click-sound" className="text-base">Som de Clique</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground hidden sm:block">
                     Reproduzir som ao clicar nos botões
                   </p>
                 </div>

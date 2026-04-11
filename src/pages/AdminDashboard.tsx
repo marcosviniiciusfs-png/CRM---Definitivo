@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { useAdminAuth, getAdminToken } from "@/contexts/AdminAuthContext";
 import {
   Users, Shield, ChevronLeft, ChevronRight, TrendingUp, DollarSign,
   Trash2, Search, Download, ShoppingCart, CheckCircle, Clock, BarChart3,
-  Eye, LogOut
+  Eye, LogOut, UserPlus
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -32,6 +32,7 @@ interface User {
   created_at: string;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
+  organization_name?: string | null;
 }
 
 interface ChartDataPoint {
@@ -87,6 +88,7 @@ function AdminMetricCard({
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { adminEmail, adminLogout } = useAdminAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [mainUsersCount, setMainUsersCount] = useState(0);
@@ -114,6 +116,13 @@ export default function AdminDashboard() {
   const [orderSearch, setOrderSearch] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const [orderPlanFilter, setOrderPlanFilter] = useState("all");
+
+  // Criar Conta state
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserConfirmPassword, setNewUserConfirmPassword] = useState("");
+  const [creatingUser, setCreatingUser] = useState(false);
 
   // ─── Data loading (unchanged logic) ───
   const loadAdmins = async () => {
@@ -189,7 +198,7 @@ export default function AdminDashboard() {
       const token = getAdminToken();
       const [countResult, usersResult, subsResult] = await Promise.all([
         supabase.rpc('safe_count_main_users', { p_token: token }),
-        supabase.rpc('safe_list_all_users', { p_token: token }),
+        supabase.rpc('safe_list_owner_users', { p_token: token }),
         supabase.rpc('safe_get_all_subscriptions', { p_token: token }),
       ]);
 
@@ -280,6 +289,42 @@ export default function AdminDashboard() {
     navigate("/admin-login");
   };
 
+  const handleCreateUser = async () => {
+    if (!newUserName || !newUserEmail || !newUserPassword || !newUserConfirmPassword) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+    if (newUserPassword.length < 8) {
+      toast.error("A senha deve ter pelo menos 8 caracteres");
+      return;
+    }
+    if (newUserPassword !== newUserConfirmPassword) {
+      toast.error("As senhas não conferem");
+      return;
+    }
+    setCreatingUser(true);
+    try {
+      const token = getAdminToken();
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        headers: { 'x-admin-token': token || '' },
+        body: { name: newUserName, email: newUserEmail, password: newUserPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(`Conta criada com sucesso para ${newUserEmail}`);
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserConfirmPassword("");
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar conta");
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   // Build growth chart data with pro/free lines
   const growthChartData = chartData.map((point, i) => ({
     date: point.date,
@@ -363,12 +408,16 @@ export default function AdminDashboard() {
 
       {/* ─── Main Content with Tabs ─── */}
       <div className="max-w-[1400px] mx-auto px-6 py-6">
-        <Tabs defaultValue="dashboard" className="w-full">
+        <Tabs value={searchParams.get('tab') || 'dashboard'} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })} className="w-full">
           <TabsList className="bg-white border-b border-gray-200 mb-6">
             <TabsTrigger value="dashboard" className="text-gray-600 data-[state=active]:text-gray-900 data-[state=active]:border-gray-900">Dashboard</TabsTrigger>
             <TabsTrigger value="pedidos" className="text-gray-600 data-[state=active]:text-gray-900 data-[state=active]:border-gray-900">Pedidos</TabsTrigger>
             <TabsTrigger value="clientes" className="text-gray-600 data-[state=active]:text-gray-900 data-[state=active]:border-gray-900">Clientes</TabsTrigger>
             <TabsTrigger value="admins" className="text-gray-600 data-[state=active]:text-gray-900 data-[state=active]:border-gray-900">Usuários Admin</TabsTrigger>
+            <TabsTrigger value="criar-conta" className="text-gray-600 data-[state=active]:text-gray-900 data-[state=active]:border-gray-900">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Criar Conta
+            </TabsTrigger>
           </TabsList>
 
           {/* ══════════ TAB 1: DASHBOARD ══════════ */}
@@ -540,7 +589,7 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell className="text-gray-500 text-sm">{format(new Date(u.created_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/user/${u.id}`)} className="text-gray-400 hover:text-gray-700">
+                          <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/user/${u.id}`, { state: { tab: 'pedidos' } })} className="text-gray-400 hover:text-gray-700">
                             <Eye className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -625,6 +674,7 @@ export default function AdminDashboard() {
                   <TableHeader>
                     <TableRow className="bg-gray-50">
                       <TableHead className="text-gray-500 font-medium">EMAIL</TableHead>
+                      <TableHead className="text-gray-500 font-medium">ORGANIZAÇÃO</TableHead>
                       <TableHead className="text-gray-500 font-medium">DATA DE CADASTRO</TableHead>
                       <TableHead className="text-gray-500 font-medium">PLANO</TableHead>
                       <TableHead className="text-gray-500 font-medium">STATUS</TableHead>
@@ -634,8 +684,11 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {currentClients.map(u => (
-                      <TableRow key={u.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/admin/user/${u.id}`)}>
+                      <TableRow key={u.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/admin/user/${u.id}`, {
+                        state: { tab: 'clientes', page: currentPage, search: clientSearch, plan: clientPlanFilter }
+                      })}>
                         <TableCell className="text-gray-900 font-medium">{u.email}</TableCell>
+                        <TableCell className="text-gray-700 text-sm">{u.organization_name || '-'}</TableCell>
                         <TableCell className="text-gray-500 text-sm">{format(new Date(u.created_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getUserPlanClass(u.id)}>
@@ -653,7 +706,9 @@ export default function AdminDashboard() {
                           {formatDistanceToNow(new Date(u.created_at), { locale: ptBR, addSuffix: false })}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/admin/user/${u.id}`); }}
+                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/admin/user/${u.id}`, {
+                            state: { tab: 'clientes', page: currentPage, search: clientSearch, plan: clientPlanFilter }
+                          }); }}
                             className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 text-xs">
                             Ver Plano
                           </Button>
@@ -736,6 +791,52 @@ export default function AdminDashboard() {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ══════════ TAB 5: CRIAR CONTA ══════════ */}
+          <TabsContent value="criar-conta" className="space-y-6">
+            <div className="max-w-lg mx-auto">
+              <Card className="bg-white border shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                    <UserPlus className="w-5 h-5" />
+                    Criar Nova Conta de Usuário
+                  </CardTitle>
+                  <p className="text-sm text-gray-500">
+                    Crie uma conta para um novo cliente do CRM. A conta será criada como owner de sua própria organização.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-user-name" className="text-sm text-gray-700">Nome Completo</Label>
+                    <Input id="new-user-name" type="text" placeholder="Nome do cliente"
+                      value={newUserName} onChange={e => setNewUserName(e.target.value)}
+                      className="bg-white border-gray-200 text-gray-900" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-user-email" className="text-sm text-gray-700">Email</Label>
+                    <Input id="new-user-email" type="email" placeholder="email@exemplo.com"
+                      value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)}
+                      className="bg-white border-gray-200 text-gray-900" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-user-pass" className="text-sm text-gray-700">Senha</Label>
+                    <Input id="new-user-pass" type="password" placeholder="Mínimo 8 caracteres"
+                      value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)}
+                      className="bg-white border-gray-200 text-gray-900" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-user-confirm-pass" className="text-sm text-gray-700">Confirmar Senha</Label>
+                    <Input id="new-user-confirm-pass" type="password" placeholder="Repita a senha"
+                      value={newUserConfirmPassword} onChange={e => setNewUserConfirmPassword(e.target.value)}
+                      className="bg-white border-gray-200 text-gray-900" />
+                  </div>
+                  <Button onClick={handleCreateUser} disabled={creatingUser} className="w-full bg-gray-900 text-white hover:bg-gray-800">
+                    {creatingUser ? "Criando conta..." : "Criar Conta"}
+                  </Button>
                 </CardContent>
               </Card>
             </div>

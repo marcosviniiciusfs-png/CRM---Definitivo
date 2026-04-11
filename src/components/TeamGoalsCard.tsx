@@ -27,6 +27,8 @@ interface TeamGoalsCardProps {
   teamName: string;
   teamColor: string;
   organizationId: string;
+  isMember?: boolean;
+  isOwner?: boolean;
 }
 
 const GOAL_TYPES = [
@@ -41,7 +43,7 @@ const PERIOD_TYPES = [
   { value: "quarterly", label: "Trimestral" },
 ];
 
-export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId }: TeamGoalsCardProps) {
+export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isMember = true, isOwner = false }: TeamGoalsCardProps) {
   const queryClient = useQueryClient();
   const [goals, setGoals] = useState<TeamGoal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +207,12 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId }: T
   const getPeriodLabel = (type: string) =>
     PERIOD_TYPES.find(t => t.value === type)?.label || type;
 
+  // Owners veem tudo, membros só da sua equipe
+  const canSeeData = isOwner || isMember;
+  const canEdit = isOwner || isMember;
+
   const formatValue = (type: string, value: number) => {
+    if (!canSeeData) return '••••••';
     if (type === 'revenue') {
       return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     }
@@ -231,20 +238,27 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId }: T
               <Target className="h-4 w-4" style={{ color: teamColor }} />
               Metas da Equipe
             </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setEditingGoal(null);
-                setFormData({ goal_type: "sales_count", target_value: 0, period_type: "monthly" });
-                setModalOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditingGoal(null);
+                  setFormData({ goal_type: "sales_count", target_value: 0, period_type: "monthly" });
+                  setModalOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
+          {!canSeeData && (
+            <p className="text-xs text-muted-foreground text-center py-1 mb-2 italic">
+              Dados visíveis apenas para membros desta equipe
+            </p>
+          )}
           {goals.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-2">
               Nenhuma meta definida
@@ -260,20 +274,22 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId }: T
                   <div key={goal.id} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium">{getGoalTypeLabel(goal.goal_type)}</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => openEdit(goal)}
-                          className="p-1 hover:bg-muted rounded"
-                        >
-                          <Edit2 className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(goal.id)}
-                          className="p-1 hover:bg-muted rounded"
-                        >
-                          <Trash2 className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      </div>
+                      {canEdit && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEdit(goal)}
+                            className="p-1 hover:bg-muted rounded"
+                          >
+                            <Edit2 className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(goal.id)}
+                            className="p-1 hover:bg-muted rounded"
+                          >
+                            <Trash2 className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <Progress value={progress} className="h-2" />
                     <div className="flex justify-between text-xs text-muted-foreground">

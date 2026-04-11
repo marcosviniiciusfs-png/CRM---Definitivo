@@ -195,7 +195,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
           {isOwnerOrAdmin && (
             <Button
               variant="outline"
-              className="flex-shrink-0 w-80 h-auto py-8"
+              className="flex-shrink-0 w-60 sm:w-80 h-auto py-8"
               onClick={addColumn}
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -206,7 +206,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
 
         <DragOverlay>
           {activeCard ? (
-            <div className={`bg-card border rounded-lg p-3 shadow-lg opacity-90 w-80 ${
+            <div className={`bg-card border rounded-lg p-3 shadow-lg opacity-90 w-60 sm:w-80 ${
               activeCard.is_collaborative ? "ring-2 ring-primary" : ""
             }`}>
               <div className="space-y-2">

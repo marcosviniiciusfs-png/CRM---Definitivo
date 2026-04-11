@@ -22,9 +22,12 @@ interface TeamSalesMetricsProps {
   organizationId: string;
   teams: Array<{ id: string; name: string; color: string }>;
   teamMembers: Array<{ team_id: string; user_id: string }>;
+  currentUserId?: string;
+  isOwner?: boolean;
+  isHiddenMode?: boolean;
 }
 
-export function TeamSalesMetrics({ organizationId, teams, teamMembers }: TeamSalesMetricsProps) {
+export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUserId, isOwner, isHiddenMode }: TeamSalesMetricsProps) {
   const [salesData, setSalesData] = useState<TeamSalesData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -135,6 +138,25 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers }: TeamSal
 
   const maxRevenue = Math.max(...salesData.map((d) => d.revenue), 1);
 
+  // Verificar se o usuário pode ver dados completos de uma equipe
+  // Owners veem tudo (mesmo em competição), membros só da sua equipe
+  const canSeeTeamData = (teamId: string) => {
+    if (!isHiddenMode && isOwner) return true;
+    if (!currentUserId) return true; // Se não tem userId, mostrar tudo (compatibilidade)
+    return teamMembers.some(tm => tm.team_id === teamId && tm.user_id === currentUserId);
+  };
+
+  // Formatar valor com censura para não-membros (a não ser owner)
+  const formatRevenue = (teamId: string, value: number) => {
+    if (!canSeeTeamData(teamId)) return '••••••';
+    return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`;
+  };
+
+  const formatSalesCount = (teamId: string, count: number) => {
+    if (!canSeeTeamData(teamId)) return '••';
+    return `${count} vendas`;
+  };
+
   return (
     <div className="space-y-6 mb-8">
       {/* Ranking Header */}
@@ -164,7 +186,7 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers }: TeamSal
                 </span>
                 <div className="flex-1">
                   <Progress
-                    value={maxRevenue > 0 ? (team.revenue / maxRevenue) * 100 : 0}
+                    value={canSeeTeamData(team.teamId) && maxRevenue > 0 ? (team.revenue / maxRevenue) * 100 : 0}
                     className="h-2"
                     indicatorClassName="transition-all"
                     style={
@@ -176,10 +198,10 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers }: TeamSal
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <span className="text-xs text-muted-foreground">
-                    {team.salesCount} vendas
+                    {formatSalesCount(team.teamId, team.salesCount)}
                   </span>
                   <span className="text-sm font-semibold text-foreground min-w-[80px] text-right">
-                    R$ {team.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                    {formatRevenue(team.teamId, team.revenue)}
                   </span>
                 </div>
               </div>
@@ -190,7 +212,9 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers }: TeamSal
 
       {/* Per-team mini cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {salesData.map((team) => (
+        {salesData.map((team) => {
+          const visible = canSeeTeamData(team.teamId);
+          return (
           <Card
             key={team.teamId}
             className="border-t-4"
@@ -203,13 +227,15 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers }: TeamSal
                 </span>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <DollarSign className="h-3 w-3" />
-                  {team.salesCount} vendas
+                  {formatSalesCount(team.teamId, team.salesCount)}
                 </div>
               </div>
               <p className="text-xl font-bold text-foreground">
-                R$ {team.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                {visible
+                  ? `R$ ${team.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                  : '••••••'}
               </p>
-              {team.topSeller && (
+              {visible && team.topSeller && (
                 <div className="flex items-center gap-2 pt-1 border-t border-border">
                   <Trophy className="h-3 w-3 text-amber-500" />
                   <Avatar className="h-5 w-5">
@@ -226,9 +252,15 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers }: TeamSal
                   </span>
                 </div>
               )}
+              {!visible && (
+                <p className="text-xs text-muted-foreground italic pt-1 border-t border-border">
+                  Dados visíveis apenas para membros
+                </p>
+              )}
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

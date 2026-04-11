@@ -8,7 +8,7 @@ import { Login1 } from "@/components/ui/login-1";
 import kairozLogo from "@/assets/kairoz-logo-red.png";
 
 const Auth = () => {
-  const { signUp, signIn, signInWithGoogle, resetPassword, user, loading: authLoading } = useAuth();
+  const { signIn, signInWithGoogle, resetPassword, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
@@ -55,36 +55,7 @@ const Auth = () => {
     }
   };
 
-  const handleSignup = async (email: string, password: string, name: string) => {
-    if (!email || !password || !name) {
-      toast({
-        title: "Erro",
-        description: "Por favor, preencha todos os campos",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await signUp(email, password, name);
-    setLoading(false);
-
-    if (error) {
-      toast({
-        title: "Erro ao criar conta",
-        description: (error as any).message === "User already registered"
-          ? "Email já cadastrado"
-          : (error as any).message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "Bem-vindo ao CRM",
-      });
-    }
-  };
-
+  
   const handleGoogleLogin = async () => {
     setLoading(true);
     const { error } = await signInWithGoogle();
@@ -143,8 +114,7 @@ const Auth = () => {
           alt: "KairoZ",
         }}
         onLogin={handleLogin}
-        onSignup={handleSignup}
-        onGoogleLogin={handleGoogleLogin}
+          onGoogleLogin={handleGoogleLogin}
         onForgotPassword={handleForgotPassword}
         loading={loading}
       />

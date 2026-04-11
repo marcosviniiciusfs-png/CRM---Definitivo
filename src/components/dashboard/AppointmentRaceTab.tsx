@@ -24,6 +24,9 @@ interface RacerData {
 
 interface AppointmentRaceTabProps {
   organizationId: string;
+  isHiddenMode?: boolean;
+  currentUserId?: string;
+  teamMemberUserIds?: string[];
 }
 
 const getInitials = (name: string | null) => {
@@ -392,7 +395,7 @@ const RaceSkeleton = () => (
 // ============================================
 // MAIN COMPONENT
 // ============================================
-export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) {
+export function AppointmentRaceTab({ organizationId, isHiddenMode, currentUserId, teamMemberUserIds }: AppointmentRaceTabProps) {
   const [period, setPeriod] = useState<PeriodType>("month");
   const [racers, setRacers] = useState<RacerData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -519,6 +522,12 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
     return Math.max(...racers.map(r => r.appointments_count), 1);
   }, [racers]);
 
+  // Filter racers for competition hidden mode
+  const visibleRacers = useMemo(() => {
+    if (!isHiddenMode || !teamMemberUserIds || teamMemberUserIds.length === 0) return racers;
+    return racers.filter(r => teamMemberUserIds.includes(r.user_id));
+  }, [racers, isHiddenMode, teamMemberUserIds]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -572,7 +581,7 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
 
         {isLoading ? (
           <RaceSkeleton />
-        ) : racers.length === 0 ? (
+        ) : visibleRacers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Calendar className="h-16 w-16 text-muted-foreground/40 mb-4" />
             <p className="text-muted-foreground text-lg">Nenhum participante ainda</p>
@@ -582,7 +591,7 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
           </div>
         ) : (
           <div className="space-y-3">
-            {racers.map((racer, index) => (
+            {visibleRacers.map((racer, index) => (
               <RaceTrack
                 key={racer.user_id}
                 racer={racer}
@@ -598,8 +607,8 @@ export function AppointmentRaceTab({ organizationId }: AppointmentRaceTabProps) 
       </Card>
 
       {/* Stats */}
-      {!isLoading && racers.length > 0 && (
-        <StatsCard racers={racers} period={period} goalTarget={period === "month" ? goalTarget : 0} />
+      {!isLoading && visibleRacers.length > 0 && (
+        <StatsCard racers={visibleRacers} period={period} goalTarget={period === "month" ? goalTarget : 0} />
       )}
     </div>
   );

@@ -120,6 +120,9 @@ const Pipeline = () => {
   // Refs de segurança: permissões e userId para filtrar eventos Realtime sem stale closure
   const canViewAllLeadsRef = useRef<boolean>(false);
   const currentUserIdRef = useRef<string | undefined>(undefined);
+  // Team leader: IDs dos membros da equipe do usuário (incluindo o próprio)
+  const teamMemberIdsRef = useRef<string[]>([]);
+  const [teamMemberIds, setTeamMemberIds] = useState<string[]>([]);
   const [stages, setStages] = useState<any[]>(DEFAULT_STAGES);
   const [usingCustomFunnel, setUsingCustomFunnel] = useState(false);
   const [activeFunnel, setActiveFunnel] = useState<any>(null);
@@ -301,6 +304,42 @@ const Pipeline = () => {
   // Sincronizar refs de segurança com permissões e userId atuais
   useEffect(() => { canViewAllLeadsRef.current = permissions.canViewAllLeads; }, [permissions.canViewAllLeads]);
   useEffect(() => { currentUserIdRef.current = user?.id; }, [user?.id]);
+  useEffect(() => { teamMemberIdsRef.current = teamMemberIds; }, [teamMemberIds]);
+
+  // Buscar IDs dos membros da equipe quando canViewTeamLeads está ativo
+  useEffect(() => {
+    if (!user?.id || !organizationId || !permissions.canViewTeamLeads || permissions.canViewAllLeads) {
+      setTeamMemberIds([]);
+      return;
+    }
+    const fetchTeamMembers = async () => {
+      // Encontrar as equipes do usuário
+      const { data: myTeams } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user.id);
+      if (!myTeams || myTeams.length === 0) {
+        setTeamMemberIds([user.id]);
+        return;
+      }
+      const teamIds = myTeams.map(t => t.team_id);
+      // Buscar todos os membros dessas equipes
+      const { data: members } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .in('team_id', teamIds);
+      const ids = [...new Set((members || []).map(m => m.user_id))];
+      if (ids.length === 0) {
+        setTeamMemberIds([user.id]);
+      } else if (!ids.includes(user.id)) {
+        ids.push(user.id);
+        setTeamMemberIds(ids);
+      } else {
+        setTeamMemberIds(ids);
+      }
+    };
+    fetchTeamMembers();
+  }, [user?.id, organizationId, permissions.canViewTeamLeads, permissions.canViewAllLeads]);
 
   // Inicialização de áudio e subscrição a novos leads
   useEffect(() => {
@@ -400,11 +439,18 @@ const Pipeline = () => {
           }
 
           // SEGURANÇA: Verificar permissão antes de exibir o lead via Realtime.
-          // Membros sem canViewAllLeads só podem ver leads atribuídos a eles.
+          // Membros sem canViewAllLeads só podem ver leads atribuídos a eles ou à sua equipe.
           // Sem este filtro, leads sem responsável apareceriam momentaneamente para todos.
           if (!canViewAllLeadsRef.current) {
             const assignedTo = (newLead as any).responsavel_user_id;
-            if (assignedTo !== currentUserIdRef.current) return;
+            const tmIds = teamMemberIdsRef.current;
+            if (tmIds.length > 0) {
+              // Líder de equipe: pode ver leads de todos os membros da equipe
+              if (!tmIds.includes(assignedTo)) return;
+            } else {
+              // Membro comum: só vê leads próprios
+              if (assignedTo !== currentUserIdRef.current) return;
+            }
           }
 
           // Verificar se é realmente um lead novo (não carregado anteriormente)
@@ -465,6 +511,37 @@ const Pipeline = () => {
     return () => { isMounted = false; };
   }, [user?.id]);
 
+  // Cache de colaboradores com React Query (10 min)
+  const { data: cachedColaboradores } = useQuery({
+    queryKey: ['pipeline-colaboradores', organizationId],
+    queryFn: async () => {
+      const { data: membersData } = await supabase
+        .from('organization_members').select('user_id, email, display_name')
+        .eq('organization_id', organizationId);
+      if (!membersData || membersData.length === 0) return [];
+      const userIds = membersData.map((m: any) => m.user_id).filter(Boolean);
+      let pMap: Record<string, string | null> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
+        if (profiles) profiles.forEach(p => { pMap[p.user_id] = p.full_name; });
+      }
+      const rpcMap: Record<string, string | null> = {};
+      const { data: rpcMembers } = await supabase.rpc('get_organization_members_masked');
+      (rpcMembers || []).forEach((rm: any) => { if (rm.user_id) rpcMap[rm.user_id] = rm.full_name; });
+      return membersData.map((m: any) => ({
+        user_id: m.user_id,
+        full_name: pMap[m.user_id] || rpcMap[m.user_id] || m.display_name || m.email || 'Sem nome',
+      }));
+    },
+    enabled: !!organizationId && isReady,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 20,
+  });
+
+  useEffect(() => {
+    if (cachedColaboradores) setColaboradores(cachedColaboradores);
+  }, [cachedColaboradores]);
+
   // UseEffect para carregar dados do pipeline
   useEffect(() => {
     // Aguardar que auth + organização estejam prontos antes de carregar
@@ -481,7 +558,7 @@ const Pipeline = () => {
           return;
         }
 
-        // Carregar funil e leads (organizationId já disponível via contexto)
+        // Carregar funil e leads (agora via invalidação de cache React Query)
         const funnelData = await loadFunnel();
         if (isMounted) {
           await loadLeads(funnelData);
@@ -497,46 +574,10 @@ const Pipeline = () => {
 
     fetchPipelineData();
 
-    // Carregar colaboradores para filtro de responsável
-    // NOTA: organization_members NÃO tem FK para profiles — duas queries separadas
-    const loadColaboradores = async () => {
-      const { data: membersData } = await supabase
-        .from('organization_members')
-        .select('user_id, email, display_name')
-        .eq('organization_id', organizationId);
-
-      if (membersData && membersData.length > 0) {
-        const userIds = membersData.map((m: any) => m.user_id).filter(Boolean);
-        let profilesMap: Record<string, string | null> = {};
-        if (userIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, full_name')
-            .in('user_id', userIds);
-          if (profiles) {
-            profilesMap = profiles.reduce((acc, p) => {
-              acc[p.user_id] = p.full_name;
-              return acc;
-            }, {} as Record<string, string | null>);
-          }
-        }
-        // Fallback via RPC (includes auth.users metadata)
-        const rpcPipelineNamesMap: Record<string, string | null> = {};
-        const { data: rpcPipelineMembers } = await supabase.rpc('get_organization_members_masked');
-        (rpcPipelineMembers || []).forEach((rm: any) => { if (rm.user_id) rpcPipelineNamesMap[rm.user_id] = rm.full_name; });
-
-        setColaboradores(membersData.map((m: any) => ({
-          user_id: m.user_id,
-          full_name: profilesMap[m.user_id] || rpcPipelineNamesMap[m.user_id] || m.display_name || m.email || 'Sem nome',
-        })));
-      }
-    };
-    loadColaboradores();
-
     return () => {
       isMounted = false;
     };
-  }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.loading, responsibleFilter]);
+  }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.canViewTeamLeads, permissions.loading, teamMemberIds]);
 
   const handleExportCSV = () => {
     import("xlsx").then((XLSX) => {
@@ -574,286 +615,149 @@ const Pipeline = () => {
     });
   };
 
-  const loadFunnel = async () => {
-    // Usar organizationId já disponível via contexto (evita query redundante a organization_members)
-    if (!organizationId) {
-      setStages(DEFAULT_STAGES);
-      setUsingCustomFunnel(false);
-      return { isCustom: false, funnel: null };
-    }
-
-    try {
-      // Buscar TODOS os funis (ativos E inativos)
-      // Proprietarios/Admins veem tudo, membros veem apenas o permitido
+  // Cache de funis com React Query (5 min)
+  const { data: cachedFunnelResult } = useQuery({
+    queryKey: ['pipeline-funnels', organizationId, user?.id, permissions.canManagePipeline],
+    queryFn: async () => {
+      if (!organizationId) return { isCustom: false, funnel: null, allFunnels: [] };
       const { data: funnels, error } = await supabase
-        .from("sales_funnels")
-        .select(`
-          *,
-          stages:funnel_stages(*)
-        `)
-        .eq("organization_id", organizationId)
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: true });
-
-      if (error || !funnels || funnels.length === 0) {
-        // Usar etapas padrão se não houver funil customizado
-        setStages(DEFAULT_STAGES);
-        setUsingCustomFunnel(false);
-        setActiveFunnel(null);
-        setAllFunnels([]);
-        return { isCustom: false, funnel: null };
-      }
-
-      // PERMISSÕES: Controle de visibilidade de funis
-      // - PROPRIETARIOS/ADMINS (canManagePipeline = true): Veem TODOS os funis, NUNCA podem ser bloqueados
-      // - MEMBROS (canManagePipeline = false): So veem funis ATIVOS ou funis com acesso explicito
+        .from('sales_funnels')
+        .select('*, stages:funnel_stages(*)')
+        .eq('organization_id', organizationId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: true });
+      if (error || !funnels || funnels.length === 0)
+        return { isCustom: false, funnel: null, allFunnels: [] };
       let visibleFunnels = funnels;
       if (!permissions.canManagePipeline && user?.id) {
-        // Buscar funis que este usuario tem acesso explicito
         const { data: accessList } = await supabase
-          .from("funnel_collaborators")
-          .select("funnel_id")
-          .eq("user_id", user.id)
-          .eq("organization_id", organizationId);
-
+          .from('funnel_collaborators').select('funnel_id')
+          .eq('user_id', user.id).eq('organization_id', organizationId);
         const accessibleIds = new Set((accessList || []).map((a: any) => a.funnel_id));
-
-        // Membros so veem: funis ATIVOS OU funis com acesso explicito
-        // Funis bloqueados sem acesso sao completamente invisiveis
-        visibleFunnels = funnels.filter(
-          (f: any) => f.is_active !== false || accessibleIds.has(f.id)
-        );
+        visibleFunnels = funnels.filter((f: any) => f.is_active !== false || accessibleIds.has(f.id));
       }
-      // Se canManagePipeline = true (proprietario/admin), visibleFunnels = funnels (ve tudo)
+      return { isCustom: visibleFunnels.length > 0, funnel: visibleFunnels[0] || null, allFunnels: visibleFunnels };
+    },
+    enabled: !!organizationId && !!user?.id && !permissions.loading && isReady,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+  });
 
-      // Armazenar todos os funis visíveis
-      setAllFunnels(visibleFunnels);
+  // Cache de leads com React Query (2 min)
+  const pipelineCacheKey = ['pipeline-leads', organizationId, user?.id,
+    selectedFunnelId, permissions.canViewAllLeads, responsibleFilter];
 
-      // Se não há funis visíveis, usar padrão
-      if (visibleFunnels.length === 0) {
-        setStages(DEFAULT_STAGES);
-        setUsingCustomFunnel(false);
-        setActiveFunnel(null);
-        return { isCustom: false, funnel: null };
+  const { data: cachedLeadsResult, isFetching: isFetchingLeads } = useQuery({
+    queryKey: pipelineCacheKey,
+    queryFn: async () => {
+      if (!user?.id || !organizationId) return null;
+      const funnelResult = cachedFunnelResult;
+      const isCustom = funnelResult?.isCustom ?? false;
+      const funnel = selectedFunnelId
+        ? funnelResult?.allFunnels?.find((f: any) => f.id === selectedFunnelId) ?? funnelResult?.funnel
+        : funnelResult?.funnel;
+      let stageIds: string[] = [];
+      if (isCustom && funnel?.stages?.length) {
+        stageIds = funnel.stages.sort((a: any, b: any) => a.position - b.position).map((s: any) => s.id);
+      } else {
+        stageIds = DEFAULT_STAGES.map(s => s.id);
       }
+      if (stageIds.length === 0) return null;
+      const perStage = await Promise.all(stageIds.map(async (stageId) => {
+        let countQ = supabase.from('leads').select('id', { count: 'exact' }).eq('organization_id', organizationId);
+        let dataQ  = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count').eq('organization_id', organizationId);
+        if (!permissions.canViewAllLeads && user?.id) {
+          if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
+            countQ = countQ.in('responsavel_user_id', teamMemberIds);
+            dataQ  = dataQ.in('responsavel_user_id', teamMemberIds);
+          } else {
+            countQ = countQ.eq('responsavel_user_id', user.id);
+            dataQ  = dataQ.eq('responsavel_user_id', user.id);
+          }
+        }
+        if (responsibleFilter !== 'all') {
+          countQ = countQ.eq('responsavel_user_id', responsibleFilter);
+          dataQ  = dataQ.eq('responsavel_user_id', responsibleFilter);
+        }
+        if (isCustom && funnel) {
+          countQ = countQ.eq('funnel_id', funnel.id).eq('funnel_stage_id', stageId);
+          dataQ  = dataQ.eq('funnel_id', funnel.id).eq('funnel_stage_id', stageId);
+        } else {
+          countQ = countQ.is('funnel_id', null).eq('stage', stageId);
+          dataQ  = dataQ.is('funnel_id', null).eq('stage', stageId);
+        }
+        const [countRes, dataRes] = await Promise.all([
+          countQ,
+          dataQ.order('position', { ascending: true }).order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1),
+        ]);
+        return { stageId, count: countRes.count || 0, leads: (dataRes.data || []) as Lead[] };
+      }));
+      const allLeads: Lead[] = perStage.flatMap(r => r.leads);
+      const paginationInit: Record<string, StagePaginationState> = {};
+      perStage.forEach(r => {
+        paginationInit[r.stageId] = { loadedCount: r.leads.length, totalCount: r.count, isLoading: false, hasMore: r.leads.length < r.count };
+      });
+      return { allLeads, paginationInit };
+    },
+    enabled: !!organizationId && !!user?.id && !permissions.loading && isReady && !!cachedFunnelResult,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
 
-      // Selecionar o funil apropriado sem criar loop
-      const funnelToActivate = selectedFunnelId
-        ? visibleFunnels.find((f) => f.id === selectedFunnelId) || visibleFunnels[0]
-        : visibleFunnels[0];
-
-      if (!funnelToActivate.stages || funnelToActivate.stages.length === 0) {
-        setStages(DEFAULT_STAGES);
-        setUsingCustomFunnel(false);
-        setActiveFunnel(null);
-        return { isCustom: false, funnel: null };
-      }
-
-      // Usar funil selecionado
-      const customStages = funnelToActivate.stages
-        .sort((a, b) => a.position - b.position)
-        .map((stage) => ({
-          id: stage.id,
-          title: stage.name,
-          color: stage.color,
-          icon: stage.icon,
-          stageData: stage,
-        }));
-
-      setStages(customStages);
+  // Sincronização dos caches com o estado local
+  useEffect(() => {
+    if (!cachedFunnelResult) return;
+    const { isCustom, funnel, allFunnels: visible } = cachedFunnelResult as any;
+    setAllFunnels(visible || []);
+    if (visible?.length === 0) { setStages(DEFAULT_STAGES); setUsingCustomFunnel(false); setActiveFunnel(null); return; }
+    const toActivate = selectedFunnelId ? (visible.find((f: any) => f.id === selectedFunnelId) || visible[0]) : visible[0];
+    if (!toActivate) return;
+    if (toActivate.stages?.length) {
+      setStages(toActivate.stages.sort((a: any, b: any) => a.position - b.position).map((s: any) => ({ id: s.id, title: s.name, color: s.color, icon: s.icon, stageData: s })));
       setUsingCustomFunnel(true);
-      setActiveFunnel(funnelToActivate);
-
-      // Inicializar selectedFunnelId apenas se for null (primeira vez)
-      if (selectedFunnelId === null) {
-        setSelectedFunnelId(funnelToActivate.id);
-      }
-
-      return { isCustom: true, funnel: funnelToActivate };
-    } catch (error) {
-      console.error("Erro ao carregar funil:", error);
-      setStages(DEFAULT_STAGES);
-      setUsingCustomFunnel(false);
-      return { isCustom: false, funnel: null };
+      setActiveFunnel(toActivate);
+      if (selectedFunnelId === null) setSelectedFunnelId(toActivate.id);
+    } else {
+      setStages(DEFAULT_STAGES); setUsingCustomFunnel(false); setActiveFunnel(null);
     }
+  }, [cachedFunnelResult, selectedFunnelId]);
+
+  useEffect(() => {
+    if (!cachedLeadsResult) return;
+    const { allLeads, paginationInit } = cachedLeadsResult as any;
+    setLeads(allLeads);
+    setStagePagination(paginationInit);
+    leadIdsRef.current = new Set(allLeads.map((l: Lead) => l.id));
+    setInitialLoading(false);
+    setIsLoadingData(false);
+    setIsTabTransitioning(false);
+    if (allLeads.length > 0) {
+      const responsavelIds = [...new Set(allLeads.map((l: Lead) => l.responsavel_user_id).filter(Boolean))] as string[];
+      Promise.all([
+        loadLeadItems(allLeads.map((l: Lead) => l.id)),
+        loadLeadTags(allLeads.map((l: Lead) => l.id)),
+        loadProfiles(responsavelIds),
+        loadAgendamentos(allLeads.map((l: Lead) => l.id)),
+        loadRedistributionData(allLeads.map((l: Lead) => l.id)),
+      ]);
+    }
+  }, [cachedLeadsResult]);
+
+  useEffect(() => {
+    if (isReady && organizationId && user?.id && !permissions.loading) {
+      setIsLoadingData(isFetchingLeads);
+    }
+  }, [isFetchingLeads, isReady, organizationId, user?.id, permissions.loading]);
+
+  const loadFunnel = async () => {
+    queryClient.invalidateQueries({ queryKey: ['pipeline-funnels', organizationId] });
+    return cachedFunnelResult ?? { isCustom: false, funnel: null };
   };
 
-  const PAGE_SIZE = 1000; // Leads por etapa por carregamento (aumentado de 50 para 1000)
+  const PAGE_SIZE = 50;
 
-  const loadLeads = async (funnelData?: { isCustom: boolean; funnel: any }, isTabChange: boolean = false) => {
-    if (!user?.id || !organizationId) return;
-
-    try {
-      // Controlar estados de loading: Skeletons apenas se realmente necessário
-      if (!isTabChange && leads.length === 0) {
-        setInitialLoading(true);
-      }
-      setIsLoadingData(true);
-
-      // Usar dados do funil passados ou estados atuais
-      const isCustom = funnelData?.isCustom ?? usingCustomFunnel;
-      const funnel = funnelData?.funnel ?? activeFunnel;
-
-      // Obter IDs das etapas atuais - usar stages do funil passado se disponível
-      // Isso evita race condition onde o estado stages ainda não foi atualizado
-      let stageIds: string[];
-      if (isCustom && funnel?.stages && Array.isArray(funnel.stages)) {
-        // Ordenar por position e extrair IDs (que são UUIDs)
-        stageIds = funnel.stages
-          .sort((a: any, b: any) => a.position - b.position)
-          .map((s: any) => s.id);
-      } else {
-        // Usar estado stages (DEFAULT_STAGES ou já atualizado)
-        stageIds = stages.map(s => s.id);
-      }
-      if (stageIds.length === 0) {
-        setIsLoadingData(false);
-        setInitialLoading(false);
-        setIsTabTransitioning(false);
-        return;
-      }
-
-      // PASSO 1: Buscar contagem total por etapa
-      const countPromises = stageIds.map(async (stageId) => {
-        let query = supabase
-          .from('leads')
-          .select('id', { count: 'exact' })
-          .eq('organization_id', organizationId);
-
-        // Aplicar filtro de permissão
-        if (!permissions.canViewAllLeads && user?.id) {
-          query = query.eq('responsavel_user_id', user.id);
-        }
-
-        // Aplicar filtro de responsável (selecionado pelo usuário)
-        if (responsibleFilter !== "all") {
-          query = query.eq('responsavel_user_id', responsibleFilter);
-        }
-
-        // Filtrar por funil e etapa
-        if (isCustom && funnel) {
-          query = query.eq('funnel_id', funnel.id);
-          query = query.eq('funnel_stage_id', stageId);
-        } else {
-          query = query.is('funnel_id', null);
-          query = query.eq('stage', stageId);
-        }
-
-        const { count, error } = await query;
-        if (error) {
-          console.error(`Erro ao contar leads da etapa ${stageId}:`, error);
-          return { stageId, count: 0 };
-        }
-        return { stageId, count: count || 0 };
-      });
-
-      const countResults = await Promise.all(countPromises);
-      const countMap = new Map(countResults.map(r => [r.stageId, r.count]));
-
-      // Inicializar estado de paginação para cada etapa
-      const initialPagination: Record<string, StagePaginationState> = {};
-      stageIds.forEach(stageId => {
-        const total = countMap.get(stageId) || 0;
-        initialPagination[stageId] = {
-          loadedCount: 0,
-          totalCount: total,
-          isLoading: false,
-          hasMore: total > PAGE_SIZE, // Só mostra "Carregar mais" se houver mais que o limite
-        };
-      });
-      setStagePagination(initialPagination);
-
-      // PASSO 2: Carregar primeiros PAGE_SIZE leads de cada etapa em paralelo
-      const loadPromises = stageIds.map(async (stageId) => {
-        const total = countMap.get(stageId) || 0;
-        if (total === 0) return { stageId, leads: [] };
-
-        let query = supabase
-          .from('leads')
-          .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count')
-          .eq('organization_id', organizationId);
-
-        // Aplicar filtro de permissão
-        if (!permissions.canViewAllLeads && user?.id) {
-          query = query.eq('responsavel_user_id', user.id);
-        }
-
-        // Aplicar filtro de responsável (selecionado pelo usuário)
-        if (responsibleFilter !== "all") {
-          query = query.eq('responsavel_user_id', responsibleFilter);
-        }
-
-        // Filtrar por funil e etapa
-        if (isCustom && funnel) {
-          query = query.eq('funnel_id', funnel.id);
-          query = query.eq('funnel_stage_id', stageId);
-        } else {
-          query = query.is('funnel_id', null);
-          query = query.eq('stage', stageId);
-        }
-
-        const { data, error } = await query
-          .order('position', { ascending: true })
-          .order('created_at', { ascending: false })
-          .range(0, PAGE_SIZE - 1);
-
-        if (error) {
-          console.error(`Erro ao carregar leads da etapa ${stageId}:`, error);
-          return { stageId, leads: [] };
-        }
-        return { stageId, leads: data || [] };
-      });
-
-      const loadResults = await Promise.all(loadPromises);
-
-      // Combinar todos os leads
-      const allLeads: Lead[] = [];
-      loadResults.forEach(result => {
-        if (result.leads.length > 0) {
-          allLeads.push(...result.leads);
-        }
-      });
-
-      // Atualizar estado de leads
-      setLeads(allLeads);
-
-      // Atualizar estado de paginação com contagem carregada
-      setStagePagination(prev => {
-        const updated = { ...prev };
-        loadResults.forEach(result => {
-          if (updated[result.stageId]) {
-            updated[result.stageId] = {
-              ...updated[result.stageId],
-              loadedCount: result.leads.length,
-              hasMore: result.leads.length < (updated[result.stageId].totalCount || 0),
-            };
-          }
-        });
-        return updated;
-      });
-
-      // Armazenar IDs dos leads para deduplicação
-      leadIdsRef.current = new Set(allLeads.map(l => l.id));
-
-      // Carregar dados relacionados em paralelo
-      if (allLeads.length > 0) {
-        const responsavelIds = [...new Set(allLeads.map(l => l.responsavel_user_id).filter(Boolean))] as string[];
-        await Promise.all([
-          loadLeadItems(allLeads.map(l => l.id)),
-          loadLeadTags(allLeads.map(l => l.id)),
-          loadProfiles(responsavelIds),
-          loadAgendamentos(allLeads.map(l => l.id)),
-          loadRedistributionData(allLeads.map(l => l.id)),
-        ]);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar leads:", error);
-      toast.error("Erro ao carregar leads");
-    } finally {
-      setIsLoadingData(false);
-      setInitialLoading(false);
-      setIsTabTransitioning(false);
-    }
+  const loadLeads = async (_funnelData?: { isCustom: boolean; funnel: any }, _isTabChange: boolean = false) => {
+    queryClient.invalidateQueries({ queryKey: ['pipeline-leads', organizationId] });
   };
 
   // Carregar mais leads para uma etapa específica
@@ -881,7 +785,11 @@ const Pipeline = () => {
 
       // Aplicar filtro de permissão
       if (!permissions.canViewAllLeads && user?.id) {
-        query = query.eq('responsavel_user_id', user.id);
+        if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
+          query = query.in('responsavel_user_id', teamMemberIds);
+        } else {
+          query = query.eq('responsavel_user_id', user.id);
+        }
       }
 
       // Aplicar filtro de responsável (selecionado pelo usuário)
@@ -1700,83 +1608,83 @@ const Pipeline = () => {
   return (
     <>
       {/* Header Section - Always Visible */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <div className="space-y-3">
           {/* Linha 1: Título + Ações */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
                 Funil de Vendas
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1 hidden sm:block">
                 {viewMode === 'kanban'
                   ? "Arraste e solte os cards para mover leads entre as etapas"
                   : "Visualize e gerencie seus leads em formato de lista"}
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {/* View Mode Toggle */}
               <div className="flex items-center border rounded-md overflow-hidden">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-8 px-3",
+                    "rounded-none h-8 px-2 sm:px-3",
                     viewMode === 'kanban' && "bg-primary/10 text-primary"
                   )}
                   onClick={() => setViewMode('kanban')}
                 >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Funil
+                  <LayoutGrid className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Funil</span>
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-8 px-3 border-l",
+                    "rounded-none h-8 px-2 sm:px-3 border-l",
                     viewMode === 'list' && "bg-primary/10 text-primary"
                   )}
                   onClick={() => setViewMode('list')}
                 >
-                  <List className="h-4 w-4 mr-1" />
-                  Lista
+                  <List className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Lista</span>
                 </Button>
               </div>
               <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
-                <Settings2 className="h-4 w-4 mr-2" />
-                Gerenciar Funis
+                <Settings2 className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Gerenciar Funis</span>
               </Button>
               <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Exportar</span>
               </Button>
               {permissions.canViewAllLeads && (
                 <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Importar
+                  <Upload className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Importar</span>
                 </Button>
               )}
               {permissions.canCreateLeads && (
                 <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Lead
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Adicionar Lead</span>
                 </Button>
               )}
             </div>
           </div>
           {/* Linha 2: Busca + Filtros */}
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <div className="relative flex-1 min-w-[140px] sm:min-w-[180px] max-w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, email, telefone..."
+                placeholder="Buscar por nome, email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 h-9"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[145px] bg-background">
+              <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1788,7 +1696,7 @@ const Pipeline = () => {
               </SelectContent>
             </Select>
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="h-9 w-[145px] bg-background">
+              <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
                 <SelectValue placeholder="Origem" />
               </SelectTrigger>
               <SelectContent>
@@ -1800,7 +1708,7 @@ const Pipeline = () => {
               </SelectContent>
             </Select>
             <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-              <SelectTrigger className="h-9 w-[155px] bg-background">
+              <SelectTrigger className="h-9 w-[120px] sm:w-[155px] bg-background">
                 <SelectValue placeholder="Responsável" />
               </SelectTrigger>
               <SelectContent>
@@ -1855,7 +1763,7 @@ const Pipeline = () => {
         {/* View Mode Content */}
         {viewMode === 'list' ? (
           /* List View */
-          <div className="border rounded-lg overflow-hidden bg-card dark:bg-card">
+          <div className="border rounded-lg overflow-x-auto bg-card dark:bg-card">
             {/* Bulk Actions Bar */}
             {selectedLeadIds.size > 0 && (
               <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3">
@@ -1982,7 +1890,7 @@ const Pipeline = () => {
             sensors={sensors}
           >
             <div
-              style={{ touchAction: 'none' }}
+              style={{ touchAction: 'pan-y pinch-zoom' }}
               data-dragging-active={isDraggingActive}
             >
               {allFunnels.length > 0 ? (
@@ -2252,8 +2160,7 @@ const Pipeline = () => {
           organizationId={organizationId}
           onClose={() => {
             setPermissionsFunnelId(null);
-            // Recarregar funis para refletir mudanças de is_restricted
-            loadFunnel();
+            queryClient.invalidateQueries({ queryKey: ['pipeline-funnels', organizationId] });
           }}
         />
       )}
@@ -2262,7 +2169,7 @@ const Pipeline = () => {
       {showScrollbar && (
         <div
           ref={scrollTrackRef}
-          className="fixed bottom-3 left-[var(--sidebar-width,256px)] right-6 h-2 z-40 bg-muted/20 rounded-full cursor-pointer transition-all hover:h-3 hover:bg-muted/30"
+          className="fixed bottom-3 left-4 sm:left-[var(--sidebar-width,256px)] right-4 sm:right-6 h-2 z-40 bg-muted/20 rounded-full cursor-pointer transition-all hover:h-3 hover:bg-muted/30"
           onClick={handleScrollbarTrackClick}
         >
           <div

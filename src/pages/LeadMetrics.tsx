@@ -7,6 +7,8 @@ import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, Cale
 import { AdCard } from "@/components/AdCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
+import { useFacebookConnection } from "@/hooks/useFacebookConnection";
+import { useFacebookOAuth } from "@/hooks/useFacebookOAuth";
 import { LoadingAnimation as LoadingAnimationComponent } from "@/components/LoadingAnimation";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -159,6 +161,14 @@ interface AdAccount {
 
 const LeadMetrics = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
+  const { isConnected: fbConnected, needsReconnect: fbNeedsReconnect, checkConnection: checkFbConnection } = useFacebookConnection(organizationId ?? undefined);
+  const { handleConnect: handleFbConnect, loading: fbOAuthLoading, showPageSelector: fbShowPageSelector, availablePages: fbAvailablePages, handlePageSelect: handleFbPageSelect, switchingPage: fbSwitchingPage, setShowPageSelector: setFbShowPageSelector } = useFacebookOAuth(organizationId ?? undefined, () => {
+    // Após conexão bem-sucedida, recarregar métricas
+    if (organizationId) {
+      const { startDate, endDate } = getDateRange();
+      loadAdsMetrics(organizationId, startDate, endDate);
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [facebookMetrics, setFacebookMetrics] = useState<MetricsData | null>(null);
@@ -276,6 +286,13 @@ const LeadMetrics = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId]);
 
+  // Verificar conexão Facebook ao montar
+  useEffect(() => {
+    if (organizationId) {
+      checkFbConnection();
+    }
+  }, [organizationId]);
+
   const getDateRange = () => {
     if (!dateRange?.from || !dateRange?.to) {
       return {
@@ -376,6 +393,12 @@ const LeadMetrics = () => {
       setAdsError(null);
       setAdsNeedsReconnect(false);
 
+      // Se não conectado ao Facebook (segundo o hook), nem chamar a Edge Function
+      if (!fbConnected && !fbNeedsReconnect) {
+        setAdsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('fetch-ads-insights', {
         body: {
           organization_id: orgId,
@@ -403,11 +426,6 @@ const LeadMetrics = () => {
         setSelectedAdAccountName(data.selectedAccount.name);
       }
 
-      // Check if reconnection is needed
-      if (data?.needsReconnect) {
-        setAdsNeedsReconnect(true);
-      }
-
       if (data?.error) {
         // Silence "not configured" errors - treat as normal state
         if (data.error.includes('integration not found') ||
@@ -415,7 +433,12 @@ const LeadMetrics = () => {
           data.error.includes('Facebook integration not found')) {
           setAdsError(null);
           setAdsMetrics(null);
+          setAdsNeedsReconnect(false);
           return;
+        }
+        // For other errors (expired token, permission issues), set needsReconnect
+        if (data?.needsReconnect) {
+          setAdsNeedsReconnect(true);
         }
         console.log('Ads insights error:', data.error);
         setAdsError(data.error);
@@ -845,43 +868,45 @@ const LeadMetrics = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard de Leads</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Dashboard de Leads</h1>
         <p className="text-muted-foreground mt-2">
           Acompanhe o volume de entrada de leads por canal
         </p>
       </div>
 
-      <Tabs defaultValue="facebook" className="space-y-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent max-w-2xl">
-            <TabsTrigger value="facebook" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+      <Tabs defaultValue="facebook" className="space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 md:gap-6 items-start lg:items-center justify-between">
+          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent max-w-2xl overflow-x-auto">
+            <TabsTrigger value="facebook" className="flex items-center gap-2 rounded-none px-3 sm:px-4 md:px-6 py-2 sm:py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <Facebook className="h-4 w-4" />
-              Meta Ads
+              <span className="hidden sm:inline">Meta Ads</span>
+              <span className="sm:hidden text-xs">Meta</span>
             </TabsTrigger>
-            <TabsTrigger value="whatsapp" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <TabsTrigger value="whatsapp" className="flex items-center gap-2 rounded-none px-3 sm:px-4 md:px-6 py-2 sm:py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <MessageCircle className="h-4 w-4" />
               WhatsApp
             </TabsTrigger>
-            <TabsTrigger value="manual" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <TabsTrigger value="manual" className="flex items-center gap-2 rounded-none px-3 sm:px-4 md:px-6 py-2 sm:py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <UserPlus className="h-4 w-4" />
-              Cadastro Manual
+              <span className="hidden sm:inline">Cadastro Manual</span>
+              <span className="sm:hidden text-xs">Manual</span>
             </TabsTrigger>
-            <TabsTrigger value="campaigns" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <TabsTrigger value="campaigns" className="flex items-center gap-2 rounded-none px-3 sm:px-4 md:px-6 py-2 sm:py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
               <Megaphone className="h-4 w-4" />
               Campanhas
             </TabsTrigger>
           </TabsList>
 
           {/* Date Range Selector */}
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center w-full sm:w-auto">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "justify-start text-left font-normal min-w-[260px]",
+                    "justify-start text-left font-normal w-full sm:w-auto sm:min-w-[260px]",
                     !dateRange && "text-muted-foreground"
                   )}
                 >
@@ -901,8 +926,8 @@ const LeadMetrics = () => {
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
                 <div className="flex flex-col">
-                  <div className="flex">
-                    <div className="flex flex-col gap-1 border-r p-2">
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="flex flex-row sm:flex-col gap-1 sm:border-r p-2 overflow-x-auto sm:overflow-visible">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -990,9 +1015,9 @@ const LeadMetrics = () => {
         </div>
 
         {/* Facebook Tab */}
-        <TabsContent value="facebook" className="space-y-6">
+        <TabsContent value="facebook" className="space-y-3 sm:space-y-4 md:space-y-6">
           <TooltipProvider>
-            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -1049,7 +1074,7 @@ const LeadMetrics = () => {
               </Tooltip>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 transition-all duration-500">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -1129,9 +1154,9 @@ const LeadMetrics = () => {
         </TabsContent>
 
         {/* WhatsApp Tab */}
-        <TabsContent value="whatsapp" className="space-y-6">
+        <TabsContent value="whatsapp" className="space-y-3 sm:space-y-4 md:space-y-6">
           <TooltipProvider>
-            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -1188,7 +1213,7 @@ const LeadMetrics = () => {
               </Tooltip>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -1285,9 +1310,9 @@ const LeadMetrics = () => {
         </TabsContent>
 
         {/* Manual Registration Tab */}
-        <TabsContent value="manual" className="space-y-6">
+        <TabsContent value="manual" className="space-y-3 sm:space-y-4 md:space-y-6">
           <TooltipProvider>
-            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -1340,7 +1365,7 @@ const LeadMetrics = () => {
               </Tooltip>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3 transition-all duration-500">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-3 transition-all duration-500">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -1450,7 +1475,7 @@ const LeadMetrics = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-6 md:grid-cols-2">
+                <div className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
                   {/* Info cards */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
@@ -1486,9 +1511,9 @@ const LeadMetrics = () => {
         </TabsContent>
 
         {/* Campaigns Tab */}
-        <TabsContent value="campaigns" className="space-y-6">
+        <TabsContent value="campaigns" className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* Ad Account Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg border">
             <div className="flex items-center gap-3">
               <Building2 className="h-5 w-5 text-primary" />
               <div>
@@ -1505,7 +1530,7 @@ const LeadMetrics = () => {
             <div className="flex items-center gap-2">
               {availableAdAccounts.length > 1 && (
                 <Select value={selectedAdAccountId || undefined} onValueChange={handleAdAccountChange}>
-                  <SelectTrigger className="w-[280px]">
+                  <SelectTrigger className="w-full sm:w-[280px]">
                     <SelectValue placeholder="Selecionar conta" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1517,14 +1542,15 @@ const LeadMetrics = () => {
                   </SelectContent>
                 </Select>
               )}
-              {adsNeedsReconnect && (
+              {(adsNeedsReconnect || fbNeedsReconnect) && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.location.href = '/integrations'}
+                  onClick={handleFbConnect}
+                  disabled={fbOAuthLoading}
                 >
                   <Facebook className="h-4 w-4 mr-2" />
-                  Reconectar
+                  {fbOAuthLoading ? 'Conectando...' : 'Reconectar'}
                 </Button>
               )}
             </div>
@@ -1540,17 +1566,18 @@ const LeadMetrics = () => {
                 <div className="text-center text-muted-foreground">
                   <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium mb-2">
-                    {adsNeedsReconnect ? 'Reconexão Necessária' : 'Métricas de Campanhas Indisponíveis'}
+                    {(adsNeedsReconnect || fbNeedsReconnect) ? 'Reconexão Necessária' : 'Métricas de Campanhas Indisponíveis'}
                   </p>
                   <p className="text-sm max-w-md mx-auto">{adsError}</p>
-                  {adsNeedsReconnect ? (
+                  {(adsNeedsReconnect || fbNeedsReconnect) ? (
                     <Button
                       variant="outline"
                       className="mt-4"
-                      onClick={() => window.location.href = '/integrations'}
+                      onClick={handleFbConnect}
+                      disabled={fbOAuthLoading}
                     >
                       <Facebook className="h-4 w-4 mr-2" />
-                      Ir para Integrações
+                      {fbOAuthLoading ? 'Conectando...' : 'Reconectar Facebook'}
                     </Button>
                   ) : (
                     <p className="text-xs mt-2">Certifique-se de ter uma conta de anúncios vinculada ao Facebook.</p>
@@ -1561,7 +1588,7 @@ const LeadMetrics = () => {
           ) : adsMetrics ? (
             <>
               <TooltipProvider>
-                <div className="grid gap-2 grid-cols-2 md:grid-cols-4 transition-all duration-500">
+                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 transition-all duration-500">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
@@ -1631,7 +1658,7 @@ const LeadMetrics = () => {
                   </Tooltip>
                 </div>
 
-                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 transition-all duration-500">
+                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 transition-all duration-500">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
@@ -1687,7 +1714,7 @@ const LeadMetrics = () => {
               </TooltipProvider>
 
               {/* Métricas de Engajamento + Breakdown por Plataforma */}
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
                 {/* Card de Métricas de Engajamento - Compacto */}
                 <Card>
                   <CardHeader className="pb-1 pt-3 px-3">
@@ -1864,7 +1891,7 @@ const LeadMetrics = () => {
               {adsMetrics.campaignBreakdown.length > 0 && (
                 <Card>
                   <CardHeader className="pb-4">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
                       <CardTitle className="flex items-center gap-2">
                         Performance por Campanha
                         <span className="text-sm font-normal text-muted-foreground">(clique para ver anúncios)</span>
@@ -1879,14 +1906,14 @@ const LeadMetrics = () => {
                             placeholder="Buscar..."
                             value={campaignSearchQuery}
                             onChange={(e) => setCampaignSearchQuery(e.target.value)}
-                            className="h-8 w-36 pl-8 text-sm bg-muted/30 border-muted focus:bg-background"
+                            className="h-8 w-28 sm:w-36 pl-8 text-sm bg-muted/30 border-muted focus:bg-background"
                           />
                         </div>
 
                         {/* Filter by lead source */}
                         {availableLeadTypes.length > 0 && (
                           <Select value={selectedLeadTypeFilter} onValueChange={setSelectedLeadTypeFilter}>
-                            <SelectTrigger className="h-8 w-[130px] text-sm bg-muted/30 border-muted">
+                            <SelectTrigger className="h-8 w-[100px] sm:w-[140px] text-sm bg-muted/30 border-muted">
                               <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                               <SelectValue placeholder="Fonte" />
                             </SelectTrigger>
@@ -1964,6 +1991,7 @@ const LeadMetrics = () => {
                   </CardHeader>
                   <CardContent>
                     <TooltipProvider>
+                      <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -1986,7 +2014,7 @@ const LeadMetrics = () => {
                                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                                   onClick={() => handleCampaignClick(campaign)}
                                 >
-                                  <TableCell className="font-medium max-w-[200px]">
+                                  <TableCell className="font-medium max-w-[140px] sm:max-w-[200px]">
                                     <div className="truncate">{campaign.name}</div>
                                     {/* MELHORIA 6: Badge de Objetivo */}
                                     {campaign.objectiveName && (
@@ -2093,6 +2121,7 @@ const LeadMetrics = () => {
                           )}
                         </TableBody>
                       </Table>
+                      </div>
                     </TooltipProvider>
                   </CardContent>
                 </Card>
@@ -2102,9 +2131,22 @@ const LeadMetrics = () => {
             <Card>
               <CardContent className="py-12">
                 <div className="text-center text-muted-foreground">
-                  <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">Nenhum dado de campanha</p>
-                  <p className="text-sm">Configure sua integração com o Facebook para ver métricas de campanhas.</p>
+                  <Facebook className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">Métricas de Campanhas</p>
+                  <p className="text-sm max-w-md mx-auto">
+                    {(adsNeedsReconnect || fbNeedsReconnect)
+                      ? 'Sua conta do Facebook precisa ser reconectada para exibir as métricas de campanhas.'
+                      : 'Conecte sua conta do Facebook para acompanhar o desempenho das suas campanhas de anúncios.'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={handleFbConnect}
+                    disabled={fbOAuthLoading}
+                  >
+                    <Facebook className="h-4 w-4 mr-2" />
+                    {fbOAuthLoading ? 'Conectando...' : ((adsNeedsReconnect || fbNeedsReconnect) ? 'Reconectar Facebook' : 'Conectar Facebook')}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -2114,7 +2156,7 @@ const LeadMetrics = () => {
 
       {/* Campaign Ads Preview Modal - Enhanced with Video Support */}
       <Dialog open={!!selectedCampaign} onOpenChange={() => setSelectedCampaign(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Megaphone className="h-5 w-5 text-primary" />
@@ -2154,6 +2196,28 @@ const LeadMetrics = () => {
               </p>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Facebook Page Selector Modal */}
+      <Dialog open={fbShowPageSelector} onOpenChange={setFbShowPageSelector}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecione a Página do Facebook</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {fbAvailablePages.map(page => (
+              <Button
+                key={page.id}
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => handleFbPageSelect(page.id)}
+                disabled={fbSwitchingPage}
+              >
+                {page.name}
+              </Button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

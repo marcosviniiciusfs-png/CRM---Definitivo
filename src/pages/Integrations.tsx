@@ -95,7 +95,7 @@ function ComingSoonCard({ g }: { g: typeof COMING_SOON[number] }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        height: 190,
+        minHeight: 190,
         borderRadius: R,
         border: `1px solid ${hov ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.06)"}`,
         background: hov ? "rgba(255,255,255,.03)" : "rgba(255,255,255,.015)",
@@ -162,7 +162,7 @@ function WhatsAppCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        height: 190,
+        minHeight: 190,
         borderRadius: R,
         border: `1px solid ${isConnected ? "rgba(37,211,102,.22)" : hov ? "rgba(37,211,102,.15)" : "rgba(255,255,255,.07)"}`,
         background: isConnected ? "rgba(37,211,102,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
@@ -300,7 +300,7 @@ function FacebookCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        height: 190,
+        minHeight: 190,
         borderRadius: R,
         border: `1px solid ${isConnected ? "rgba(24,119,242,.25)" : hov ? "rgba(24,119,242,.15)" : "rgba(255,255,255,.07)"}`,
         background: isConnected ? "rgba(24,119,242,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
@@ -447,7 +447,7 @@ function MetaConversionsCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        height: 190,
+        minHeight: 190,
         borderRadius: R,
         border: `1px solid ${isActive ? "rgba(0,130,251,.25)" : hov ? "rgba(0,130,251,.15)" : "rgba(255,255,255,.07)"}`,
         background: isActive ? "rgba(0,130,251,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
@@ -657,6 +657,40 @@ const Integrations = () => {
     return () => { supabase.removeChannel(channel); };
   }, [isReady, organizationId, loadAllData]);
 
+  // Popup detection - close OAuth popup immediately without rendering the full page
+  if (typeof window !== 'undefined' && window.opener && (
+    window.location.search.includes('code=') || window.location.search.includes('facebook=')
+  )) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const fbStatus = urlParams.get('facebook');
+    const hasOAuthParams = !!(code && state);
+
+    const payload = hasOAuthParams
+      ? { code, state, redirect_uri: `${window.location.origin}${window.location.pathname}` }
+      : { facebook: fbStatus, message: urlParams.get('message') };
+
+    try {
+      window.opener.postMessage({
+        type: 'FACEBOOK_OAUTH_RESPONSE',
+        payload
+      }, window.location.origin);
+    } catch (e) {
+      // Ignore cross-origin errors
+    }
+
+    setTimeout(() => window.close(), 300);
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4" />
+        <h2 className="text-xl font-semibold">Conectando ao Facebook</h2>
+        <p className="text-muted-foreground mt-2">Esta janela fechara automaticamente em instantes.</p>
+      </div>
+    );
+  }
+
   if (!isReady || !organizationId) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -673,9 +707,12 @@ const Integrations = () => {
         @keyframes _sp { to { transform: rotate(360deg) } }
         .int-tab-btn {
           background: none; border: none; cursor: pointer; font-family: inherit;
-          font-size: 13px; font-weight: 500; padding: 9px 17px; border-radius: 5px;
+          font-size: 12px; font-weight: 500; padding: 8px 12px; border-radius: 5px;
           display: flex; align-items: center; gap: 7px;
           color: #555566; transition: all .18s; white-space: nowrap;
+        }
+        @media (min-width: 640px) {
+          .int-tab-btn { font-size: 13px; padding: 9px 17px; }
         }
         .int-tab-btn:hover { color: #C0C0D0; background: rgba(255,255,255,.04); }
         .int-tab-btn.active { color: #F0F0F8; background: rgba(255,255,255,.07); }
@@ -691,11 +728,11 @@ const Integrations = () => {
           color: "#E8E8F0",
           fontFamily: "'DM Sans',system-ui,sans-serif",
           borderRadius: 8,
-          padding: "28px 24px",
         }}
+        className="p-4 sm:p-6 md:p-7"
       >
         {/* ── Header ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4 mb-4 sm:mb-6 md:mb-7">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 7 }}>
               <div style={{
@@ -708,13 +745,13 @@ const Integrations = () => {
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                 </svg>
               </div>
-              <h1 style={{
-                fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em",
+              <h1 className="text-lg sm:text-xl md:text-[22px]" style={{
+                fontWeight: 700, letterSpacing: "-0.03em",
                 background: "linear-gradient(135deg,#F5F0F0 30%,#C09080)",
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
               }}>Integrações</h1>
             </div>
-            <p style={{ fontSize: 13, color: "#555566" }}>Conecte serviços externos e automatize seus fluxos de trabalho</p>
+            <p className="hidden sm:block" style={{ fontSize: 13, color: "#555566" }}>Conecte serviços externos e automatize seus fluxos de trabalho</p>
           </div>
           <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
             <div style={{ padding: "10px 16px", borderRadius: "5px", textAlign: "center", background: "rgba(233,117,85,.07)", border: "1px solid rgba(233,117,85,.2)" }}>
@@ -725,10 +762,11 @@ const Integrations = () => {
         </div>
 
         {/* ── Tabs ── */}
-        <div style={{
-          display: "flex", gap: 3, marginBottom: 24,
+        <div className="mb-4 sm:mb-6 overflow-x-auto" style={{
+          display: "flex", gap: 3,
           background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.07)",
           borderRadius: "5px", padding: 4, width: "fit-content",
+          maxWidth: "100%",
         }}>
           {(["connections", "webhooks", "logs"] as const).map(t => (
             <button key={t} className={`int-tab-btn ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
@@ -741,11 +779,7 @@ const Integrations = () => {
         {/* ── Connections Tab ── */}
         {tab === "connections" && (
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: 12,
-            }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5"
           >
             {/* WhatsApp — dados já carregados pelo pai */}
             <WhatsAppCard
@@ -781,7 +815,7 @@ const Integrations = () => {
             <div
               className="int-grid-card-add"
               style={{
-                height: 190, border: "1px dashed rgba(255,255,255,.07)", borderRadius: "5px",
+                minHeight: 190, border: "1px dashed rgba(255,255,255,.07)", borderRadius: "5px",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 gap: 10, cursor: "pointer", transition: "all .2s",
               }}
@@ -829,7 +863,7 @@ const Integrations = () => {
         setShowWhatsApp(open);
         if (!open) loadAllData();
       }}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <WhatsAppConnection />
         </DialogContent>
       </Dialog>
@@ -839,7 +873,7 @@ const Integrations = () => {
         setShowFacebook(open);
         if (!open) loadAllData();
       }}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <FacebookLeadsConnection
             key={fbKey}
             organizationId={organizationId}
@@ -852,7 +886,7 @@ const Integrations = () => {
         setShowMetaPixel(open);
         if (!open) loadAllData();
       }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <MetaPixelConnection onBack={() => setShowMetaPixel(false)} />
         </DialogContent>
       </Dialog>

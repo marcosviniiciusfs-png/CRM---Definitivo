@@ -403,15 +403,32 @@ Deno.serve(async (req) => {
                 }
               } catch { /* não crítico */ }
 
-              // Buscar nome da campanha
+              // Buscar nome e ID da campanha
               let campaignName = 'N/A';
+              let campaignId: string | null = null;
               try {
                 if (leadData.ad_id) {
-                  const adResp = await fetch(`https://graph.facebook.com/v21.0/${leadData.ad_id}?fields=name,campaign{name}&access_token=${pageAccessToken}`);
+                  const adResp = await fetch(`https://graph.facebook.com/v21.0/${leadData.ad_id}?fields=name,campaign{id,name}&access_token=${pageAccessToken}`);
                   const adData = await adResp.json();
-                  campaignName = adData.campaign?.name || adData.name || leadData.ad_id;
+                  campaignName = adData.campaign?.name || adData.name || 'N/A';
+                  campaignId = adData.campaign?.id || null;
+
+                  // Se campaignName parece ser um ID numérico, buscar nome real diretamente
+                  if (/^\d{10,}$/.test(campaignName)) {
+                    console.log(`🔄 [FB-WEBHOOK] Campaign name parece ID (${campaignName}), buscando nome real...`);
+                    const potentialId = campaignId || campaignName;
+                    const campResp = await fetch(`https://graph.facebook.com/v21.0/${potentialId}?fields=name&access_token=${pageAccessToken}`);
+                    const campData = await campResp.json();
+                    if (campData.name) {
+                      console.log(`✅ [FB-WEBHOOK] Nome real da campanha: ${campData.name}`);
+                      campaignName = campData.name;
+                      if (!campaignId) campaignId = potentialId;
+                    }
+                  }
                 }
-              } catch { /* não crítico */ }
+              } catch (e) {
+                console.warn(`⚠️ [FB-WEBHOOK] Erro ao buscar campanha: ${e}`);
+              }
 
               // Parsear campos do formulário
               const fieldData = leadData.field_data || [];
@@ -431,11 +448,12 @@ Deno.serve(async (req) => {
                 form_id: leadData.form_id,
                 form_name: formName,
                 campaign_name: campaignName,
+                campaign_id: campaignId,
                 facebook_lead_id: leadgenId,
                 fields: structuredFields
               };
 
-              let allFieldsDescription = `Lead capturado via Facebook Ads\n\nFormulário: ${formName}\nCampanha: ${campaignName}\n\n=== INFORMAÇÕES DO FORMULÁRIO ===\n`;
+              let allFieldsDescription = `Lead capturado via Facebook Ads\n\nFormulário: ${formName}\nCampanha: ${campaignName}${campaignId ? ` (ID: ${campaignId})` : ''}\n\n=== INFORMAÇÕES DO FORMULÁRIO ===\n`;
               fieldData.forEach((field: any) => {
                 const v = field.values?.[0] || '';
                 if (v) allFieldsDescription += `${field.name}: ${v}\n`;

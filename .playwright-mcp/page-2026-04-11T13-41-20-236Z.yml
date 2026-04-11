@@ -1,0 +1,132 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: Menu
+                  - generic:
+                    - list:
+                      - listitem:
+                        - link:
+                          - /url: /dashboard
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /pipeline
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-metrics
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-distribution
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /chat
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /ranking
+                          - img
+                      - generic:
+                        - listitem:
+                          - button:
+                            - img
+                            - generic: Administrativo
+                            - img
+                      - listitem:
+                        - link:
+                          - /url: /tasks
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /integrations
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /settings
+                          - img
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                  - button:
+                    - img
+        - main:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - button:
+                - generic:
+                  - generic: L
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Roleta de Leads
+                - paragraph: Configure e gerencie a distribuição automática de leads entre sua equipe
+              - generic:
+                - tablist:
+                  - tab:
+                    - img
+                    - text: Roletas
+                  - tab:
+                    - img
+                    - text: Configurar Agentes
+                  - tab:
+                    - img
+                    - text: Histórico
+                  - tab [selected]:
+                    - img
+                    - text: Redistribuições
+                - tabpanel:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: Histórico de Redistribuições
+                      - paragraph: Lotes de redistribuição anteriores. Re-distribua usando uma roleta diferente.
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - img
+                            - generic:
+                              - paragraph: Redistribuir leads de um colaborador
+                              - paragraph: Escolha um colaborador e uma roleta para redistribuir seus leads ativos
+                          - generic:
+                            - combobox [expanded]:
+                              - generic: Selecionar colaborador
+                              - img
+                            - button [disabled]:
+                              - img
+                              - text: Redistribuir
+                    - generic:
+                      - generic:
+                        - paragraph: Nenhuma redistribuição registrada ainda
+  - listbox [ref=e211]:
+    - option "Lineker" [active] [ref=e212]:
+      - generic [ref=e214]: Lineker
+    - option "Pedro Henrique" [ref=e215]:
+      - generic [ref=e217]: Pedro Henrique
+    - option "Luiz Gustavo" [ref=e218]:
+      - generic [ref=e220]: Luiz Gustavo
+    - option "Riquelme" [ref=e221]:
+      - generic [ref=e223]: Riquelme
+    - option "Matheus" [ref=e224]:
+      - generic [ref=e226]: Matheus
+    - option "Isla" [ref=e227]:
+      - generic [ref=e229]: Isla
+    - option "Vanessa" [ref=e230]:
+      - generic [ref=e232]: Vanessa
+    - option "Paulo Henrique" [ref=e233]:
+      - generic [ref=e235]: Paulo Henrique

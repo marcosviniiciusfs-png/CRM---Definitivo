@@ -82,7 +82,10 @@ const bottomItems = [
 const SIDEBAR_LOCK_KEY = "sidebar-locked";
 
 function AppSidebarComponent() {
-  const { open, setOpen } = useSidebar();
+  const { open, setOpen, isMobile } = useSidebar();
+
+  // On mobile (Sheet overlay), always treat sidebar as expanded for rendering
+  const isOpen = isMobile ? true : open;
   const { theme } = useTheme();
   const { signOut, user, subscriptionData, isSuperAdmin, roleLoading } = useAuth();
   const permissions = usePermissions();
@@ -160,25 +163,28 @@ function AppSidebarComponent() {
     localStorage.setItem(SIDEBAR_LOCK_KEY, String(isLocked));
   }, [isLocked]);
 
-  // Manter sidebar aberto quando bloqueado
+  // Manter sidebar aberto quando bloqueado (apenas desktop)
   useEffect(() => {
+    if (isMobile) return;
     if (isLocked && !open) {
       setOpen(true);
     }
-  }, [isLocked, open, setOpen]);
+  }, [isLocked, open, setOpen, isMobile]);
 
-  // Handlers memoizados para evitar re-renderizações
+  // Handlers memoizados para evitar re-renderizações (apenas desktop)
   const handleMouseEnter = useCallback(() => {
+    if (isMobile) return;
     if (!isLocked) {
       setOpen(true);
     }
-  }, [isLocked, setOpen]);
+  }, [isLocked, setOpen, isMobile]);
 
   const handleMouseLeave = useCallback(() => {
+    if (isMobile) return;
     if (!isLocked) {
       setOpen(false);
     }
-  }, [isLocked, setOpen]);
+  }, [isLocked, setOpen, isMobile]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -195,7 +201,7 @@ function AppSidebarComponent() {
               alt="KairoZ"
               className={cn(
                 "w-auto object-contain",
-                open ? "h-10 block" : "h-10 hidden",
+                isOpen ? "h-10 block" : "h-10 hidden",
                 theme === "dark" ? "brightness-0 invert" : "logo-red-filter"
               )}
             />
@@ -204,7 +210,7 @@ function AppSidebarComponent() {
               alt="K"
               className={cn(
                 "w-auto object-contain",
-                open ? "h-8 hidden" : "h-8 block",
+                isOpen ? "h-8 hidden" : "h-8 block",
                 theme === "dark" ? "brightness-0 invert" : "logo-red-filter"
               )}
             />
@@ -230,7 +236,7 @@ function AppSidebarComponent() {
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild={!locked}>
                         {locked ? (
-                          open ? (
+                          isOpen ? (
                             <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base px-3 py-2.5")}>
                               <item.icon className="h-5 w-5 flex-shrink-0" />
                               <span className="truncate">{item.title}</span>
@@ -332,7 +338,7 @@ function AppSidebarComponent() {
                     return (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton>
-                          {open ? (
+                          {isOpen ? (
                             <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base w-full")}>
                               <item.icon className="h-5 w-5 flex-shrink-0" />
                               <span>{item.title}</span>
@@ -400,7 +406,7 @@ function AppSidebarComponent() {
 
         <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4 overflow-hidden">
           {/* Conteúdo expandido */}
-          {open && (
+          {isOpen && (
             <div className="space-y-3">
               {/* Seletor de Organização */}
               <OrganizationSwitcher collapsed={false} />
@@ -432,7 +438,7 @@ function AppSidebarComponent() {
           )}
 
           {/* Conteúdo colapsado */}
-          {!open && (
+          {!isOpen && (
             <div className="space-y-2">
               {/* Seletor de Organização colapsado */}
               <OrganizationSwitcher collapsed={true} />

@@ -814,9 +814,9 @@ const Dashboard = () => {
       {/* ════════════════════════════════════════════════════════════════════════
           HEADER
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard Comercial</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard Comercial</h1>
           <p className="text-sm text-muted-foreground mt-1">Acompanhe a performance da sua equipe</p>
         </div>
         <div className="flex gap-2">
@@ -914,7 +914,7 @@ const Dashboard = () => {
             <DollarSign className="w-4 h-4 text-emerald-500" />
             Receita Total
           </h3>
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
             <RevenueCard label="Mês" value={revenueValue} active={period === 'month'} />
             <RevenueCard label="Trimestre" value={quarterValue} active={period === 'quarter'} />
             <RevenueCard label="Ano" value={yearValue} active={period === 'year'} />

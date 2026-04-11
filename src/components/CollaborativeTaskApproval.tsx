@@ -91,6 +91,7 @@ export const CollaborativeTaskApproval = ({
       }) as AssigneeWithProfile[];
     },
     enabled: open,
+    staleTime: 5 * 60 * 1000,
   });
 
   const currentUserAssignee = assignees.find((a) => a.user_id === user?.id);

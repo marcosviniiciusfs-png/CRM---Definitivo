@@ -1,0 +1,25 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list [ref=e262]:
+      - listitem [ref=e263]:
+        - generic [ref=e264]:
+          - generic [ref=e265]: Erro ao fazer login
+          - generic [ref=e266]: Email ou senha incorretos
+        - button [ref=e267] [cursor=pointer]:
+          - img [ref=e268]
+  - region "Notifications alt+T"
+  - generic [ref=e245]:
+    - img "KairoZ" [ref=e247]
+    - generic [ref=e248]:
+      - generic [ref=e249]:
+        - textbox "Email" [ref=e250]: marcosviniiciusfs.png@gmail.com
+        - generic [ref=e251]:
+          - textbox "Senha" [ref=e252]: Brito@0809
+          - button [ref=e253] [cursor=pointer]:
+            - img [ref=e254]
+        - button "Esqueceu a senha?" [ref=e257] [cursor=pointer]
+      - generic [ref=e258]:
+        - button "Entrar" [ref=e259] [cursor=pointer]
+        - button "Entrar com Google" [ref=e260] [cursor=pointer]:
+          - img
+          - text: Entrar com Google

@@ -114,6 +114,7 @@ export function LeadDistributionConfigModal({
       return data as Team[];
     },
     enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Buscar funis ativos da organização
@@ -131,6 +132,7 @@ export function LeadDistributionConfigModal({
       return data as Funnel[];
     },
     enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Buscar estágios do funil selecionado (excluindo won/lost)
@@ -148,6 +150,7 @@ export function LeadDistributionConfigModal({
       return data as FunnelStage[];
     },
     enabled: !!formData.funnel_id,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Buscar webhooks configurados (formulários) — apenas quando source_type = webhook
@@ -164,6 +167,7 @@ export function LeadDistributionConfigModal({
       return data as WebhookConfig[];
     },
     enabled: !!organizationId && formData.source_type === "webhook",
+    staleTime: 5 * 60 * 1000,
   });
 
   // Buscar membros da organização usando o hook dedicado (com fallback correto)

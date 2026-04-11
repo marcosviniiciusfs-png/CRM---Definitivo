@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Shield, Pencil, Trash2, Users, Loader2, Kanban, MessageCircle, LayoutGrid, Settings } from "lucide-react";
+import { Plus, Shield, Pencil, Trash2, Users, Loader2, Kanban, MessageCircle, LayoutGrid, Settings, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,6 +23,7 @@ interface CustomRole {
   can_edit_all_tasks: boolean;
   can_delete_tasks: boolean;
   can_view_all_leads: boolean;
+  can_view_team_leads: boolean;
   can_view_assigned_leads: boolean;
   can_create_leads: boolean;
   can_edit_leads: boolean;
@@ -57,6 +58,7 @@ const defaultRoleData: Omit<CustomRole, 'id' | 'created_at' | 'member_count'> = 
   can_edit_all_tasks: false,
   can_delete_tasks: false,
   can_view_all_leads: false,
+  can_view_team_leads: false,
   can_view_assigned_leads: true,
   can_create_leads: false,
   can_edit_leads: false,
@@ -187,6 +189,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
       can_edit_all_tasks: role.can_edit_all_tasks,
       can_delete_tasks: role.can_delete_tasks,
       can_view_all_leads: role.can_view_all_leads,
+      can_view_team_leads: role.can_view_team_leads,
       can_view_assigned_leads: role.can_view_assigned_leads,
       can_create_leads: role.can_create_leads,
       can_edit_leads: role.can_edit_leads,
@@ -232,6 +235,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             can_edit_all_tasks: formData.can_edit_all_tasks,
             can_delete_tasks: formData.can_delete_tasks,
             can_view_all_leads: formData.can_view_all_leads,
+            can_view_team_leads: formData.can_view_team_leads,
             can_view_assigned_leads: formData.can_view_assigned_leads,
             can_create_leads: formData.can_create_leads,
             can_edit_leads: formData.can_edit_leads,
@@ -276,6 +280,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             can_edit_all_tasks: formData.can_edit_all_tasks,
             can_delete_tasks: formData.can_delete_tasks,
             can_view_all_leads: formData.can_view_all_leads,
+            can_view_team_leads: formData.can_view_team_leads,
             can_view_assigned_leads: formData.can_view_assigned_leads,
             can_create_leads: formData.can_create_leads,
             can_edit_leads: formData.can_edit_leads,
@@ -471,6 +476,9 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                   {role.can_view_all_leads && (
                     <Badge variant="outline" className="text-xs">Todos Leads</Badge>
                   )}
+                  {role.can_view_team_leads && (
+                    <Badge variant="outline" className="text-xs">Líder Equipe</Badge>
+                  )}
                   {role.can_view_reports && (
                     <Badge variant="outline" className="text-xs">Relatórios</Badge>
                   )}
@@ -600,6 +608,12 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                     label="Ver TODOS os leads"
                     checked={formData.can_view_all_leads}
                     onChange={(v) => setFormData({ ...formData, can_view_all_leads: v })}
+                  />
+                  <PermissionCheckbox
+                    id="can_view_team_leads"
+                    label="Líder de Equipe (ver leads da equipe)"
+                    checked={formData.can_view_team_leads}
+                    onChange={(v) => setFormData({ ...formData, can_view_team_leads: v })}
                   />
                   <PermissionCheckbox
                     id="can_create_leads"

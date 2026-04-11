@@ -12,6 +12,7 @@ interface StructuredData {
   form_id?: string;
   form_name?: string;
   campaign_name?: string;
+  campaign_id?: string;
   facebook_lead_id?: string;
   fields?: StructuredField[];
 }
@@ -57,7 +58,7 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
         </div>
 
         {/* Form/Campaign info */}
-        {(customFields.form_name || customFields.campaign_name) && (
+        {(customFields.form_name || customFields.campaign_name || customFields.campaign_id) && (
           <Card className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
             <div className="space-y-1.5 text-xs">
               {customFields.form_name && (
@@ -72,6 +73,13 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
                   <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
                   <span className="text-muted-foreground flex-shrink-0">Campanha:</span>
                   <span className="font-medium break-words">{customFields.campaign_name}</span>
+                </div>
+              )}
+              {customFields.campaign_id && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                  <span className="text-muted-foreground flex-shrink-0">ID da Campanha:</span>
+                  <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded break-all">{customFields.campaign_id}</span>
                 </div>
               )}
             </div>
@@ -127,6 +135,8 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
   const formInfo = description.split('=== INFORMAÇÕES DO FORMULÁRIO ===')[0];
   const formIdMatch = formInfo.match(/Formulário: (.+)/);
   const campaignMatch = formInfo.match(/Campanha: (.+)/);
+  const campaignIdMatch = formInfo.match(/ID da Campanha: (.+)/) || formInfo.match(/\(ID: ([^)]+)\)/);
+  const cleanCampaignId = campaignIdMatch?.[1]?.trim() || null;
 
   const cleanFormName = formIdMatch?.[1]?.trim() === 'undefined' ? null : formIdMatch?.[1]?.trim();
   const cleanCampaignName = campaignMatch?.[1]?.trim() === 'N/A' || campaignMatch?.[1]?.trim() === 'undefined' ? null : campaignMatch?.[1]?.trim();
@@ -143,7 +153,7 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
         <Badge variant="secondary" className="text-xs">Lead Ads</Badge>
       </div>
 
-      {(cleanFormName || cleanCampaignName) && (
+      {(cleanFormName || cleanCampaignName || cleanCampaignId) && (
         <Card className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
           <div className="space-y-1.5 text-xs">
             {cleanFormName && (
@@ -158,6 +168,13 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
                 <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
                 <span className="text-muted-foreground flex-shrink-0">Campanha:</span>
                 <span className="font-medium break-words">{cleanCampaignName}</span>
+              </div>
+            )}
+            {cleanCampaignId && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                <span className="text-muted-foreground flex-shrink-0">ID da Campanha:</span>
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded break-all">{cleanCampaignId}</span>
               </div>
             )}
           </div>

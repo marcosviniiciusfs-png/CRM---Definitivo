@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { supabase } from "@/integrations/supabase/client";
 import { TaskLeaderboard, LeaderboardData } from "@/components/dashboard/TaskLeaderboard";
@@ -11,6 +11,9 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TeamSalesMetrics } from "@/components/TeamSalesMetrics";
+import { useRankingCompetition } from "@/hooks/useRankingCompetition";
+import { RankingCompetitionSettings } from "@/components/dashboard/RankingCompetitionSettings";
+import { RankingCompetitionBanner } from "@/components/dashboard/RankingCompetitionBanner";
 
 type PeriodType = "week" | "month" | "quarter" | "year";
 type RankingType = "sales" | "tasks" | "appointments";
@@ -168,7 +171,7 @@ const fetchTeamsData = async (organizationId: string) => {
 };
 
 export default function Ranking() {
-  const { organizationId, isReady } = useOrganizationReady();
+  const { organizationId, isReady, user } = useOrganizationReady();
   const [period, setPeriod] = useState<PeriodType>("month");
   const [rankingType, setRankingType] = useState<RankingType>("tasks");
   const [sortBy, setSortBy] = useState<SortType>("task_points");
@@ -226,6 +229,58 @@ export default function Ranking() {
   const teams = teamsData?.teams ?? [];
   const teamMembers = teamsData?.teamMembers ?? [];
 
+  // Buscar role do usuário atual para determinar visibilidade
+  const { data: userRoleData } = useQuery({
+    queryKey: ['user-role', organizationId, user?.id],
+    queryFn: async () => {
+      if (!user?.id || !organizationId) return null;
+      const { data } = await supabase
+        .from('organization_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('organization_id', organizationId)
+        .single();
+      return data?.role || null;
+    },
+    enabled: !!user?.id && !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const isOwner = userRoleData === 'owner';
+
+  // Ranking Competition
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const {
+    competition,
+    isHiddenMode,
+    isActive: competitionActive,
+    isRevealed: competitionRevealed,
+    revealCompetition,
+    isAdmin: competitionIsAdmin,
+  } = useRankingCompetition(organizationId);
+
+  // Get team member user IDs for current user (for competition filtering)
+  const currentUserTeamMemberIds = useMemo(() => {
+    if (!isHiddenMode || !user?.id) return null;
+    const myTeams = new Set(
+      teamMembers
+        .filter(tm => tm.user_id === user.id)
+        .map(tm => tm.team_id)
+    );
+    const teammateIds = new Set(
+      teamMembers
+        .filter(tm => myTeams.has(tm.team_id))
+        .map(tm => tm.user_id)
+    );
+    teammateIds.add(user.id);
+    return teammateIds;
+  }, [isHiddenMode, user?.id, teamMembers]);
+
+  // Filter data for competition hidden mode
+  const filterData = useCallback((d: LeaderboardData[]) => {
+    if (!isHiddenMode || !currentUserTeamMemberIds) return d;
+    return d.filter(item => currentUserTeamMemberIds.has(item.user_id));
+  }, [isHiddenMode, currentUserTeamMemberIds]);
+
   const data = rankingType === 'sales' ? salesData : tasksData;
   const isLoading = rankingType === 'sales' ? salesLoading : tasksLoading;
 
@@ -243,27 +298,42 @@ export default function Ranking() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="flex items-center justify-center gap-3 py-4 border-b border-border">
-        <Trophy className="h-6 w-6 text-yellow-400" />
-        <h1 className="text-xl font-bold text-foreground">Ranking</h1>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+      <div className="flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 border-b border-border">
+        <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-400" />
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Ranking</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => competitionIsAdmin && setSettingsOpen(true)}
+        >
           <Settings2 className="h-5 w-5" />
         </Button>
       </div>
 
       <div className="p-4 md:p-6">
+        {/* Competition Banner */}
+        <RankingCompetitionBanner
+          title={competition?.title || 'Competição de Ranking'}
+          isActive={competitionActive}
+          isRevealed={competitionRevealed}
+          revealAt={competition?.reveal_at ?? null}
+          isAdmin={competitionIsAdmin}
+          onRevealNow={revealCompetition}
+        />
+
         {/* Ranking Type Tabs */}
-        <Tabs value={rankingType} onValueChange={handleRankingTypeChange} className="space-y-6">
+        <Tabs value={rankingType} onValueChange={handleRankingTypeChange} className="space-y-3 sm:space-y-4 md:space-y-6">
           <TabsList className="grid w-full max-w-lg grid-cols-3">
-            <TabsTrigger value="tasks" className="flex items-center gap-2">
+            <TabsTrigger value="tasks" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <CheckSquare className="h-4 w-4" />
               Tarefas
             </TabsTrigger>
-            <TabsTrigger value="sales" className="flex items-center gap-2">
+            <TabsTrigger value="sales" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <TrendingUp className="h-4 w-4" />
               Vendas
             </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex items-center gap-2">
+            <TabsTrigger value="appointments" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <Calendar className="h-4 w-4" />
               Agendamentos
             </TabsTrigger>
@@ -271,15 +341,15 @@ export default function Ranking() {
 
           {/* Tasks Content */}
           <TabsContent value="tasks" className="mt-0">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                   <span>📊</span>
                   <span>Ranking de Tarefas</span>
                 </div>
-                
+
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[130px] sm:w-[160px]">
                     <SelectValue placeholder="Ordenar por" />
                   </SelectTrigger>
                   <SelectContent>
@@ -291,7 +361,7 @@ export default function Ranking() {
                 </Select>
 
                 <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[130px] sm:w-[160px]">
                     <SelectValue placeholder="Período" />
                   </SelectTrigger>
                   <SelectContent>
@@ -304,9 +374,9 @@ export default function Ranking() {
               </div>
             </div>
 
-            <TaskLeaderboard 
-              data={data} 
-              isLoading={isLoading} 
+            <TaskLeaderboard
+              data={filterData(data)}
+              isLoading={isLoading}
               sortBy={sortBy}
               type="tasks"
               period={period}
@@ -314,26 +384,29 @@ export default function Ranking() {
 
             {/* Team Sales Ranking */}
             {teams.length > 0 && (
-              <div className="mt-6">
+              <div className="mt-4 sm:mt-6">
                 <TeamSalesMetrics
                   organizationId={organizationId}
                   teams={teams.map(t => ({ id: t.id, name: t.name, color: t.color || '#3B82F6' }))}
                   teamMembers={teamMembers}
+                  currentUserId={user?.id}
+                  isOwner={isOwner}
+                  isHiddenMode={isHiddenMode}
                 />
               </div>
             )}
           </TabsContent>
 
           <TabsContent value="sales" className="mt-0">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                   <span>📊</span>
                   <span>Ranking de Vendas</span>
                 </div>
-                
+
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[130px] sm:w-[160px]">
                     <SelectValue placeholder="Ordenar por" />
                   </SelectTrigger>
                   <SelectContent>
@@ -344,7 +417,7 @@ export default function Ranking() {
                 </Select>
 
                 <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[130px] sm:w-[160px]">
                     <SelectValue placeholder="Período" />
                   </SelectTrigger>
                   <SelectContent>
@@ -357,9 +430,9 @@ export default function Ranking() {
               </div>
             </div>
 
-            <TaskLeaderboard 
-              data={data} 
-              isLoading={isLoading} 
+            <TaskLeaderboard
+              data={filterData(data)}
+              isLoading={isLoading}
               sortBy={sortBy}
               type="sales"
               period={period}
@@ -367,21 +440,40 @@ export default function Ranking() {
 
             {/* Team Sales Ranking */}
             {teams.length > 0 && (
-              <div className="mt-6">
+              <div className="mt-4 sm:mt-6">
                 <TeamSalesMetrics
                   organizationId={organizationId}
                   teams={teams.map(t => ({ id: t.id, name: t.name, color: t.color || '#3B82F6' }))}
                   teamMembers={teamMembers}
+                  currentUserId={user?.id}
+                  isOwner={isOwner}
+                  isHiddenMode={isHiddenMode}
                 />
               </div>
             )}
           </TabsContent>
 
           <TabsContent value="appointments" className="mt-0">
-            <AppointmentRaceTab organizationId={organizationId} />
+            <AppointmentRaceTab
+              organizationId={organizationId}
+              isHiddenMode={isHiddenMode}
+              currentUserId={user?.id}
+              teamMemberUserIds={currentUserTeamMemberIds ? Array.from(currentUserTeamMemberIds) : undefined}
+            />
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Competition Settings Dialog (Admin only) */}
+      {competitionIsAdmin && (
+        <RankingCompetitionSettings
+          organizationId={organizationId}
+          competition={competition}
+          isOpen={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          isAdmin={competitionIsAdmin}
+        />
+      )}
     </div>
   );
 }

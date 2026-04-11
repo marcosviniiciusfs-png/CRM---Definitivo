@@ -114,6 +114,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
       return data as AutomationRule[];
     },
     enabled: open,
+    staleTime: 5 * 60 * 1000,
   });
 
   const createMutation = useMutation({

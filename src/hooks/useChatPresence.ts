@@ -21,6 +21,7 @@ export function useChatPresence({
   const presenceQueue = useRef<Array<{ lead: Lead; instanceName: string }>>([]);
   const isProcessingQueue = useRef(false);
   const loadingPresence = useRef(false);
+  const lastPresenceCallRef = useRef<number>(0);
 
   // Set WhatsApp presence when entering/leaving chat
   useEffect(() => {
@@ -28,6 +29,9 @@ export function useChatPresence({
 
     const setPresence = async (presence: "available" | "unavailable") => {
       if (!instanceName) return;
+      const now = Date.now();
+      if (now - lastPresenceCallRef.current < 20000) return;
+      lastPresenceCallRef.current = now;
       try {
         await supabase.functions.invoke("set-whatsapp-presence", {
           body: { instance_name: instanceName, presence },

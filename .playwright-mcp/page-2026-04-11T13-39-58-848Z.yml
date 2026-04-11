@@ -1,0 +1,78 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e595]:
+    - generic [ref=e599]:
+      - generic [ref=e600]:
+        - img "KairoZ" [ref=e602]
+        - generic [ref=e603]:
+          - generic [ref=e604]: Menu
+          - list [ref=e606]:
+            - listitem [ref=e607]:
+              - link "Início" [ref=e608] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e609]
+                - generic [ref=e612]: Início
+            - listitem [ref=e613]:
+              - link "Funil de Vendas" [ref=e614] [cursor=pointer]:
+                - /url: /pipeline
+                - img [ref=e615]
+                - generic [ref=e617]: Funil de Vendas
+            - listitem [ref=e618]:
+              - link "Métricas" [ref=e619] [cursor=pointer]:
+                - /url: /lead-metrics
+                - img [ref=e620]
+                - generic [ref=e621]: Métricas
+            - listitem [ref=e622]:
+              - link "Roleta de Leads" [ref=e623] [cursor=pointer]:
+                - /url: /lead-distribution
+                - img [ref=e624]
+                - generic [ref=e630]: Roleta de Leads
+            - listitem [ref=e631]:
+              - link "Chat" [ref=e632] [cursor=pointer]:
+                - /url: /chat
+                - img [ref=e633]
+                - generic [ref=e635]: Chat
+            - listitem [ref=e636]:
+              - link "Ranking" [ref=e637] [cursor=pointer]:
+                - /url: /ranking
+                - img [ref=e638]
+                - generic [ref=e644]: Ranking
+            - listitem [ref=e646]:
+              - button "Administrativo" [ref=e647] [cursor=pointer]:
+                - img [ref=e648]
+                - generic [ref=e652]: Administrativo
+                - img [ref=e653]
+            - listitem [ref=e655]:
+              - link "Tarefas" [ref=e656] [cursor=pointer]:
+                - /url: /tasks
+                - img [ref=e657]
+                - generic [ref=e660]: Tarefas
+            - listitem [ref=e661]:
+              - link "Integrações" [ref=e662] [cursor=pointer]:
+                - /url: /integrations
+                - img [ref=e663]
+                - generic [ref=e665]: Integrações
+            - listitem [ref=e666]:
+              - link "Configurações" [ref=e667] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e668]
+                - generic [ref=e671]: Configurações
+      - generic [ref=e673]:
+        - button "Bloquear Menu" [ref=e674] [cursor=pointer]:
+          - img [ref=e677]
+          - generic [ref=e680]: Bloquear Menu
+        - paragraph [ref=e681]: linekermont@gmail.com
+        - button "Sair" [ref=e682] [cursor=pointer]:
+          - img
+          - text: Sair
+    - main [ref=e683]:
+      - generic [ref=e685]:
+        - button [ref=e686] [cursor=pointer]:
+          - img
+        - button "L" [ref=e687] [cursor=pointer]:
+          - generic [ref=e689]: L
+      - generic [ref=e692]:
+        - img "Carregando..." [ref=e693]
+        - paragraph [ref=e694]: Carregando...

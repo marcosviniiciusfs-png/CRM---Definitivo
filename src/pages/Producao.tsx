@@ -118,38 +118,38 @@ export default function Producao() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Produção</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Produção</h1>
           <p className="text-muted-foreground">
             Gerencie a produção e produtos da empresa
           </p>
         </div>
 
         <Tabs defaultValue="producao" className="w-full">
-          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent max-w-md">
-            <TabsTrigger value="producao" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent overflow-x-auto max-w-full">
+            <TabsTrigger value="producao" className="flex items-center gap-1 sm:gap-2 rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200 whitespace-nowrap">
               <Factory className="h-4 w-4" />
-              Produção
+              <span className="hidden sm:inline">Produção</span>
             </TabsTrigger>
-            <TabsTrigger value="produtos" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <TabsTrigger value="produtos" className="flex items-center gap-1 sm:gap-2 rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200 whitespace-nowrap">
               <Package className="h-4 w-4" />
-              Produtos da Empresa
+              <span className="hidden sm:inline">Produtos da Empresa</span>
             </TabsTrigger>
-            <TabsTrigger value="financeiro" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+            <TabsTrigger value="financeiro" className="flex items-center gap-1 sm:gap-2 rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200 whitespace-nowrap">
               <DollarSign className="h-4 w-4" />
-              Financeiro
+              <span className="hidden sm:inline">Financeiro</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="producao" className="mt-6">
+          <TabsContent value="producao" className="mt-3 sm:mt-4 md:mt-6">
             <ProductionDashboard />
           </TabsContent>
 
-          <TabsContent value="produtos" className="mt-6">
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                <div className="relative w-full sm:w-96">
+          <TabsContent value="produtos" className="mt-3 sm:mt-4 md:mt-6">
+            <div className="space-y-4 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-start sm:items-center">
+                <div className="relative w-full sm:w-72 md:w-96">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
                     placeholder="Buscar itens..."
@@ -159,8 +159,8 @@ export default function Producao() {
                   />
                 </div>
                 <Button onClick={handleAddItem}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Item
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Novo Item</span>
                 </Button>
               </div>
 
@@ -176,9 +176,10 @@ export default function Producao() {
                       : "Nenhum item cadastrado ainda"}
                   </p>
                   {!searchTerm && (
-                    <Button onClick={handleAddItem} className="mt-4">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Criar primeiro item
+                    <Button onClick={handleAddItem} className="mt-3 sm:mt-4">
+                      <Plus className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Criar primeiro item</span>
+                      <span className="sm:hidden">Criar item</span>
                     </Button>
                   )}
                 </div>
@@ -197,7 +198,7 @@ export default function Producao() {
             </div>
           </TabsContent>
 
-          <TabsContent value="financeiro" className="mt-6">
+          <TabsContent value="financeiro" className="mt-3 sm:mt-4 md:mt-6">
             {organizationId ? (
               <FinancialSummary organizationId={organizationId} />
             ) : (

@@ -357,6 +357,14 @@ All colors MUST be HSL.
   -webkit-overflow-scrolling: touch;
 }
 
+/* Prevent text selection on touch-interactive elements */
+.lead-card {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  touch-action: pan-y pinch-zoom;
+}
+
 /* Custom Success Notification Animations */
 @keyframes shrink-width {
   from {

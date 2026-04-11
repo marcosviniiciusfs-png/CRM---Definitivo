@@ -1,0 +1,171 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: Menu
+                  - generic:
+                    - list:
+                      - listitem:
+                        - link:
+                          - /url: /dashboard
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /pipeline
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-metrics
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-distribution
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /chat
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /ranking
+                          - img
+                      - generic:
+                        - listitem:
+                          - button:
+                            - img
+                            - generic: Administrativo
+                            - img
+                      - listitem:
+                        - link:
+                          - /url: /tasks
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /integrations
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /settings
+                          - img
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                  - button:
+                    - img
+        - main:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - button:
+                - generic:
+                  - generic: L
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Roleta de Leads
+                - paragraph: Configure e gerencie a distribuição automática de leads entre sua equipe
+              - generic:
+                - tablist:
+                  - tab:
+                    - img
+                    - text: Roletas
+                  - tab:
+                    - img
+                    - text: Configurar Agentes
+                  - tab:
+                    - img
+                    - text: Histórico
+                  - tab [selected]:
+                    - img
+                    - text: Redistribuições
+                - tabpanel:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: Histórico de Redistribuições
+                      - paragraph: Lotes de redistribuição anteriores. Re-distribua usando uma roleta diferente.
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - img
+                            - generic:
+                              - paragraph: Redistribuir leads de um colaborador
+                              - paragraph: Escolha um colaborador e uma roleta para redistribuir seus leads ativos
+                          - generic:
+                            - combobox:
+                              - generic: Selecionar colaborador
+                              - img
+                            - button [disabled]:
+                              - img
+                              - text: Redistribuir
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                                - text: 11/04/2026 11:12
+                              - generic: Redistribuição
+                              - generic:
+                                - img
+                                - text: Investbens
+                              - generic:
+                                - img
+                                - generic: 28 leads
+                              - generic: Concluído
+                            - button:
+                              - img
+                              - text: Re-distribuir
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                                - text: 11/04/2026 11:02
+                              - generic: Redistribuição
+                              - generic:
+                                - img
+                                - text: Investbens
+                              - generic:
+                                - img
+                                - generic: 162 leads
+                              - generic: Concluído
+                            - button:
+                              - img
+                              - text: Re-distribuir
+  - dialog "Re-distribuir Lote" [ref=e301]:
+    - generic [ref=e302]:
+      - heading "Re-distribuir Lote" [level=2] [ref=e303]
+      - paragraph [ref=e304]: Escolha a roleta para redistribuir os leads deste lote.
+    - radiogroup [ref=e305]:
+      - generic [ref=e306]:
+        - radio "Investbens Rodízio 7 colaboradores" [ref=e307] [cursor=pointer]
+        - generic [ref=e308] [cursor=pointer]:
+          - generic [ref=e309]:
+            - generic [ref=e310]: Investbens
+            - generic [ref=e311]: Rodízio
+          - generic [ref=e312]:
+            - img [ref=e313]
+            - text: 7 colaboradores
+    - generic [ref=e318]:
+      - button "Cancelar" [active] [ref=e319] [cursor=pointer]
+      - button "Redistribuir" [disabled]:
+        - img
+        - text: Redistribuir
+    - button "Close" [ref=e320] [cursor=pointer]:
+      - img [ref=e321]
+      - generic [ref=e324]: Close

@@ -67,7 +67,7 @@ export const ChatInput = memo(function ChatInput({
           onCancel={onCancelReply}
         />
       )}
-      <div className="p-4 flex gap-2 items-end">
+      <div className="p-2 sm:p-4 flex gap-2 items-end">
         {/* File attachment button */}
         <input
           type="file"

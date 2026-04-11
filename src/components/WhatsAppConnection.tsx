@@ -698,7 +698,7 @@ const WhatsAppConnection = () => {
       } catch (error) {
         console.error('❌ Erro ao verificar status no polling:', error);
       }
-    }, 1500); // OTIMIZAÇÃO: Verificar a cada 1.5 segundos para resposta mais rápida
+    }, 10000); // Verificar a cada 10 segundos para reduzir consumo de Edge Functions
 
     // Limpar interval quando o modal fechar ou a instância mudar
     return () => {

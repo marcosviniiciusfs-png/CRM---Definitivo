@@ -63,7 +63,7 @@ export const PipelineColumn = memo(({
   const isHexColor = (color: string) => color?.startsWith('#');
 
   return (
-    <div className="flex flex-col w-[280px] flex-shrink-0 min-h-[500px]" style={{ contain: "content" }}>
+    <div className="flex flex-col w-[260px] sm:w-[280px] md:w-[300px] lg:w-[320px] flex-shrink-0 min-h-[400px] md:min-h-[500px]" style={{ contain: "content" }}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge

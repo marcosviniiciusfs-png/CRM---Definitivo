@@ -18,6 +18,40 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  // Popup detection - if this page loaded inside a Facebook OAuth popup, close it immediately
+  if (typeof window !== 'undefined' && window.opener && (
+    window.location.search.includes('code=') || window.location.search.includes('facebook=')
+  )) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const fbStatus = urlParams.get('facebook');
+    const hasOAuthParams = !!(code && state);
+
+    const payload = hasOAuthParams
+      ? { code, state, redirect_uri: `${window.location.origin}${window.location.pathname}` }
+      : { facebook: fbStatus, message: urlParams.get('message') };
+
+    try {
+      window.opener.postMessage({
+        type: 'FACEBOOK_OAUTH_RESPONSE',
+        payload
+      }, window.location.origin);
+    } catch (e) {
+      // Ignore cross-origin errors
+    }
+
+    setTimeout(() => window.close(), 300);
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4" />
+        <h2 className="text-xl font-semibold">Conectando ao Facebook</h2>
+        <p className="text-muted-foreground mt-2">Esta janela fechara automaticamente em instantes.</p>
+      </div>
+    );
+  }
+
   const { user, isSuperAdmin } = useAuth();
   const location = useLocation();
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
@@ -38,14 +72,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
         <main className="flex-1 flex flex-col h-screen overflow-hidden bg-background">
-          <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-card px-6 shrink-0">
+          <header className="sticky top-0 z-10 flex h-14 sm:h-16 items-center justify-between gap-4 border-b bg-card px-4 sm:px-6 shrink-0">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="lg:hidden" />
               {location.pathname === "/dashboard" && (
                 <h1 className="text-xl font-semibold text-primary">Dashboard</h1>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {isOnChatPage && (
                 <>
                   <Button
@@ -55,7 +89,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     className="flex items-center gap-2"
                   >
                     <BarChart3 className="h-4 w-4" />
-                    Logs de Automação
+                    <span className="hidden sm:inline">Logs de Automação</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -64,7 +98,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     className="flex items-center gap-2"
                   >
                     <Settings className="h-4 w-4" />
-                    Regras de Automação
+                    <span className="hidden sm:inline">Regras de Automação</span>
                   </Button>
                 </>
               )}
@@ -93,7 +127,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <UserProfileMenu />
             </div>
           </header>
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
             {children}
           </div>
         </main>

@@ -183,9 +183,9 @@ const FunnelBuilder = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <Button
             variant="ghostIcon"
             size="icon"
@@ -194,17 +194,18 @@ const FunnelBuilder = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
               Construtor de Funis
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Crie e personalize seus funis de vendas com etapas e automações
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowDialog(true)}>
+        <Button onClick={() => setShowDialog(true)} className="self-start sm:self-auto">
           <Plus className="h-4 w-4 mr-2" />
-          Novo Funil
+          <span className="hidden sm:inline">Novo Funil</span>
+          <span className="sm:hidden">Novo</span>
         </Button>
       </div>
 
@@ -213,14 +214,15 @@ const FunnelBuilder = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="overflow-x-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
           {funnels.map((funnel) => (
-            <Card key={funnel.id} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="space-y-4">
+            <Card key={funnel.id} className="p-4 sm:p-5 md:p-6 hover:shadow-lg transition-shadow">
+              <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg">{funnel.name}</h3>
+                      <h3 className="font-semibold text-base sm:text-lg">{funnel.name}</h3>
                       {funnel.is_default && (
                         <Badge variant="secondary" className="text-xs">
                           Padrão
@@ -248,7 +250,7 @@ const FunnelBuilder = () => {
                   </Badge>
                 </div>
 
-                <div className="flex items-center gap-2 pt-4 border-t">
+                <div className="flex items-center gap-2 pt-3 sm:pt-4 border-t">
                   <Button
                     variant="outline"
                     size="sm"
@@ -287,6 +289,7 @@ const FunnelBuilder = () => {
               </div>
             </Card>
           ))}
+        </div>
         </div>
       )}
 

@@ -254,7 +254,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       {...listeners}
       data-dragging={dragging}
       className={cn(
-        "lead-card cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group",
+        "lead-card cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
         dragging
           ? "transition-none"
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",

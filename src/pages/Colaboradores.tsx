@@ -468,16 +468,16 @@ const Colaboradores = () => {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between mb-3 sm:mb-4 md:mb-6 gap-3">
         <div className="flex items-center gap-3">
-          <div className="bg-card p-3 rounded-lg shadow-sm">
+          <div className="bg-card p-2 sm:p-3 rounded-lg shadow-sm">
             <Users className="h-6 w-6 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Gestão de Colaboradores</h1>
-            <p className="text-muted-foreground mt-1">Gerencie e acompanhe todos os colaboradores ativos</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Gestão de Colaboradores</h1>
+            <p className="text-muted-foreground mt-1 hidden sm:block">Gerencie e acompanhe todos os colaboradores ativos</p>
           </div>
         </div>
         <div className="flex flex-col gap-3">
@@ -492,29 +492,29 @@ const Colaboradores = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="gerenciamento" className="space-y-6">
+      <Tabs defaultValue="gerenciamento" className="space-y-3 sm:space-y-4 md:space-y-6">
         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-          <TabsTrigger value="gerenciamento" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+          <TabsTrigger value="gerenciamento" className="gap-2 rounded-none px-4 sm:px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <Users className="h-4 w-4" />
-            Gerenciamento
+            <span className="hidden sm:inline">Gerenciamento</span>
           </TabsTrigger>
-          <TabsTrigger value="cargos" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+          <TabsTrigger value="cargos" className="gap-2 rounded-none px-4 sm:px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <Shield className="h-4 w-4" />
-            Cargos
+            <span className="hidden sm:inline">Cargos</span>
           </TabsTrigger>
-          <TabsTrigger value="comissoes" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+          <TabsTrigger value="comissoes" className="gap-2 rounded-none px-4 sm:px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <DollarSign className="h-4 w-4" />
-            Comissões
+            <span className="hidden sm:inline">Comissões</span>
           </TabsTrigger>
-          <TabsTrigger value="dashboard" className="gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+          <TabsTrigger value="dashboard" className="gap-2 rounded-none px-4 sm:px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <BarChart3 className="h-4 w-4" />
-            Dashboard de Colaboradores
+            <span className="hidden sm:inline">Dashboard de Colaboradores</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="gerenciamento" className="space-y-6">
+        <TabsContent value="gerenciamento" className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* Action buttons */}
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-2 sm:gap-3 justify-end flex-wrap">
             {(userRole === 'owner' || userRole === 'admin') && (
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
@@ -527,19 +527,20 @@ const Colaboradores = () => {
                   setIsDialogOpen(true);
                 }}
               >
-                Novo Colaborador
+                <UserPlus className="h-4 w-4 sm:hidden" />
+                <span className="hidden sm:inline">Novo Colaborador</span>
               </Button>
             )}
             <Button
               variant={showInactive ? "default" : "secondary"}
               onClick={() => setShowInactive(!showInactive)}
             >
-              {showInactive ? "Ver Ativos" : "Ver Inativos"}
+              {showInactive ? <><Eye className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">Ver Ativos</span></> : <><EyeOff className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">Ver Inativos</span></>}
             </Button>
           </div>
 
           {/* Metric Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
             <Card className="border-l-4 border-l-green-500 shadow-md">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
@@ -602,24 +603,24 @@ const Colaboradores = () => {
           {/* Table Card */}
           <Card className="shadow-lg">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4 md:mb-6">
                 <Users className="h-5 w-5 text-blue-600" />
                 <h2 className="text-xl font-semibold text-foreground">
                   {showInactive ? "Colaboradores Inativos" : "Lista de Colaboradores"}
                 </h2>
               </div>
-              <p className="text-sm text-muted-foreground mb-6">
+              <p className="text-sm text-muted-foreground mb-3 sm:mb-4 md:mb-6 hidden sm:block">
                 {showInactive
                   ? "Colaboradores com acesso desativado. Você pode reativá-los a qualquer momento."
                   : "Gerencie colaboradores, cargos e status de convites."}
               </p>
 
               {/* Controls */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 md:mb-6 gap-3">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
-                      <SelectTrigger className="w-20">
+                      <SelectTrigger className="w-[70px] sm:w-20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -628,9 +629,9 @@ const Colaboradores = () => {
                         <SelectItem value="50">50</SelectItem>
                       </SelectContent>
                     </Select>
-                    <span className="text-sm text-gray-600">itens por página</span>
+                    <span className="text-sm text-gray-600 hidden sm:inline">itens por página</span>
                   </div>
-                  <span className="text-sm text-gray-600">{filteredColaboradores.length} registros disponíveis</span>
+                  <span className="text-sm text-gray-600 hidden sm:inline">{filteredColaboradores.length} registros disponíveis</span>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -638,20 +639,20 @@ const Colaboradores = () => {
                     placeholder="Buscar por nome ou email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64"
+                    className="pl-10 w-full sm:w-64"
                   />
                 </div>
               </div>
 
               {/* Table */}
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">INFO</TableHead>
                       <TableHead className="font-semibold">CARGO</TableHead>
-                      <TableHead className="font-semibold">VENDAS</TableHead>
-                      <TableHead className="font-semibold">RECEITA</TableHead>
+                      <TableHead className="font-semibold hidden md:table-cell">VENDAS</TableHead>
+                      <TableHead className="font-semibold hidden md:table-cell">RECEITA</TableHead>
                       <TableHead className="font-semibold">STATUS</TableHead>
                       {(userRole === 'owner' || userRole === 'admin') && <TableHead className="font-semibold">AÇÕES</TableHead>}
                     </TableRow>
@@ -703,7 +704,7 @@ const Colaboradores = () => {
                               {colab.custom_role_id && customRoles.find(r => r.id === colab.custom_role_id) && (
                                 <Badge
                                   variant="outline"
-                                  className="text-xs max-w-[100px] truncate"
+                                  className="text-xs max-w-[70px] sm:max-w-[100px] truncate"
                                   style={{
                                     borderColor: customRoles.find(r => r.id === colab.custom_role_id)?.color,
                                     color: customRoles.find(r => r.id === colab.custom_role_id)?.color
@@ -715,14 +716,14 @@ const Colaboradores = () => {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div className="text-center">
                               <span className="text-sm font-semibold text-foreground">
                                 {colab.user_id ? (salesByUser[colab.user_id]?.count || 0) : 0}
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div>
                               {(() => {
                                 const revenue = colab.user_id ? (salesByUser[colab.user_id]?.revenue || 0) : 0;

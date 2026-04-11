@@ -46,6 +46,7 @@ interface CustomRolePermissions {
   can_edit_all_tasks: boolean;
   can_delete_tasks: boolean;
   can_view_all_leads: boolean;
+  can_view_team_leads: boolean;
   can_view_assigned_leads: boolean;
   can_create_leads: boolean;
   can_edit_leads: boolean;
@@ -75,6 +76,7 @@ interface Permissions {
   canDeleteRoulettes: boolean;
   canManualDistribute: boolean;
   canViewAllLeads: boolean;
+  canViewTeamLeads: boolean;
   canAssignLeads: boolean;
   canDeleteLeads: boolean;
   canManageAutomation: boolean;
@@ -142,6 +144,7 @@ const defaultPermissions: Permissions = {
   canDeleteRoulettes: false,
   canManualDistribute: false,
   canViewAllLeads: false,
+  canViewTeamLeads: false,
   canAssignLeads: false,
   canDeleteLeads: false,
   canManageAutomation: false,
@@ -250,6 +253,7 @@ const calculateBasePermissions = (role: 'owner' | 'admin' | 'member' | null): Pa
     canDeleteRoulettes: isOwner,
     canManualDistribute: isOwnerOrAdmin,
     canViewAllLeads: isOwnerOrAdmin,
+    canViewTeamLeads: isOwnerOrAdmin,
     canAssignLeads: isOwnerOrAdmin,
     canDeleteLeads: isOwnerOrAdmin,
     canManageAutomation: isOwnerOrAdmin,
@@ -308,6 +312,7 @@ const calculatePermissions = (
       canEditAllTasks: customRolePerms.can_edit_all_tasks,
       canDeleteTasks: customRolePerms.can_delete_tasks,
       canViewAllLeads: customRolePerms.can_view_all_leads,
+      canViewTeamLeads: customRolePerms.can_view_team_leads,
       canViewAssignedLeads: customRolePerms.can_view_assigned_leads,
       canCreateLeads: customRolePerms.can_create_leads,
       canEditLeads: customRolePerms.can_edit_leads,
@@ -339,6 +344,7 @@ const calculatePermissions = (
     canEditAllTasks: false,
     canDeleteTasks: false,
     canViewAssignedLeads: true, // Members can at least see their assigned leads
+    canViewTeamLeads: false,
     canCreateLeads: false,
     canEditLeads: false,
     canViewPipeline: false,
@@ -396,6 +402,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           can_edit_all_tasks: perms.can_edit_all_tasks ?? false,
           can_delete_tasks: perms.can_delete_tasks ?? false,
           can_view_all_leads: perms.can_view_all_leads ?? false,
+          can_view_team_leads: perms.can_view_team_leads ?? false,
           can_view_assigned_leads: perms.can_view_assigned_leads ?? false,
           can_create_leads: perms.can_create_leads ?? false,
           can_edit_leads: perms.can_edit_leads ?? false,

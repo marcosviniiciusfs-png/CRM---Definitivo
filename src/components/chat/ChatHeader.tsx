@@ -39,14 +39,14 @@ export const ChatHeader = memo(function ChatHeader({
   onAvatarClick,
 }: ChatHeaderProps) {
   return (
-    <div className="p-4 border-b flex items-center justify-between">
-      <div className="flex items-center gap-3">
+    <div className="p-2 sm:p-4 border-b flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <div className="relative">
           <LazyAvatar
             src={lead.avatar_url}
             name={lead.nome_lead}
             size="md"
-            className="h-10 w-10"
+            className="h-8 w-8 sm:h-10 sm:w-10"
             onClick={() => {
               if (lead.avatar_url) {
                 onAvatarClick(lead.avatar_url, lead.nome_lead);
@@ -79,9 +79,9 @@ export const ChatHeader = memo(function ChatHeader({
             }
           />
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold">{lead.nome_lead}</h3>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <h3 className="font-semibold text-sm sm:text-base truncate">{lead.nome_lead}</h3>
             {presenceStatus?.isOnline && (
               <span className="text-xs text-green-600 dark:text-green-400 font-medium bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
                 Online
@@ -94,7 +94,7 @@ export const ChatHeader = memo(function ChatHeader({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         <Button
           variant="ghost"
           size="sm"
@@ -122,7 +122,7 @@ export const ChatHeader = memo(function ChatHeader({
                 placeholder="Buscar na conversa..."
                 value={messageSearchQuery}
                 onChange={(e) => setMessageSearchQuery(e.target.value)}
-                className="w-48 h-8"
+                className="w-32 sm:w-48 h-8"
               />
               {totalSearchResults > 0 && (
                 <>

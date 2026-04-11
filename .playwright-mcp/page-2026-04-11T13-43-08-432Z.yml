@@ -1,0 +1,138 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: Menu
+                  - generic:
+                    - list:
+                      - listitem:
+                        - link:
+                          - /url: /dashboard
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /pipeline
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-metrics
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-distribution
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /chat
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /ranking
+                          - img
+                      - generic:
+                        - listitem:
+                          - button:
+                            - img
+                            - generic: Administrativo
+                            - img
+                      - listitem:
+                        - link:
+                          - /url: /tasks
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /integrations
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /settings
+                          - img
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                  - button:
+                    - img
+        - main:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - button:
+                - generic:
+                  - generic: L
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Roleta de Leads
+                - paragraph: Configure e gerencie a distribuição automática de leads entre sua equipe
+              - generic:
+                - tablist:
+                  - tab:
+                    - img
+                    - text: Roletas
+                  - tab:
+                    - img
+                    - text: Configurar Agentes
+                  - tab:
+                    - img
+                    - text: Histórico
+                  - tab [selected]:
+                    - img
+                    - text: Redistribuições
+                - tabpanel:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: Histórico de Redistribuições
+                      - paragraph: Lotes de redistribuição anteriores. Re-distribua usando uma roleta diferente.
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - img
+                            - generic:
+                              - paragraph: Redistribuir leads de um colaborador
+                              - paragraph: Escolha um colaborador e uma roleta para redistribuir seus leads ativos
+                          - generic:
+                            - combobox:
+                              - generic: Matheus
+                              - img
+                            - button:
+                              - img
+                              - text: Redistribuir
+                    - generic:
+                      - generic:
+                        - paragraph: Nenhuma redistribuição registrada ainda
+  - dialog "Redistribuir Leads do Colaborador" [ref=e238]:
+    - generic [ref=e239]:
+      - heading "Redistribuir Leads do Colaborador" [level=2] [ref=e240]
+      - paragraph [ref=e241]: Escolha a roleta para redistribuir os leads do colaborador selecionado.
+    - radiogroup [ref=e242]:
+      - generic [ref=e243]:
+        - radio "Investbens Rodízio 7 colaboradores" [checked] [active] [ref=e244] [cursor=pointer]:
+          - img [ref=e263]
+        - generic [ref=e245] [cursor=pointer]:
+          - generic [ref=e246]:
+            - generic [ref=e247]: Investbens
+            - generic [ref=e248]: Rodízio
+          - generic [ref=e249]:
+            - img [ref=e250]
+            - text: 7 colaboradores
+    - generic [ref=e255]:
+      - button "Cancelar" [ref=e256] [cursor=pointer]
+      - button "Redistribuir" [ref=e265] [cursor=pointer]:
+        - img
+        - text: Redistribuir
+    - button "Close" [ref=e257] [cursor=pointer]:
+      - img [ref=e258]
+      - generic [ref=e261]: Close

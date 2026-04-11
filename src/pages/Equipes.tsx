@@ -171,13 +171,10 @@ const Equipes = () => {
           avatar_url: (m.user_id && profilesMap[m.user_id]?.avatar_url) || null,
         }));
 
-      console.log('[Equipes] allMembers:', allMembers);
-      console.log('[Equipes] allMembers count:', allMembers.length);
-      if (allMembers.length > 0) {
-        console.log('[Equipes] First member:', allMembers[0]);
-      }
+      // Descobrir o role do usuário atual
+      const currentUserRole = (orgMembersData || []).find((m: any) => m.user_id === user?.id)?.role || null;
 
-      return { teams, teamMembers, allMembers };
+      return { teams, teamMembers, allMembers, currentUserRole };
     },
     enabled: isReady && !!organizationId,
     staleTime: 5 * 60 * 1000,
@@ -186,6 +183,8 @@ const Equipes = () => {
   const teams = equipesData?.teams ?? [];
   const teamMembers = equipesData?.teamMembers ?? [];
   const allMembers = equipesData?.allMembers ?? [];
+  const currentUserRole = equipesData?.currentUserRole ?? null;
+  const isOwner = currentUserRole === 'owner';
 
   const invalidateData = () => {
     queryClient.invalidateQueries({ queryKey: ['equipes-data'] });
@@ -283,26 +282,26 @@ const Equipes = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background p-8">
+      <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4 sm:mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Gerenciamento de Equipes</h1>
-            <p className="text-muted-foreground mt-1">Organize e gerencie suas equipes de vendas</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Gerenciamento de Equipes</h1>
+            <p className="text-muted-foreground mt-1 hidden sm:block">Organize e gerencie suas equipes de vendas</p>
           </div>
-          <Button onClick={() => setCreateModalOpen(true)}>
-            + Nova Equipe
+          <Button onClick={() => setCreateModalOpen(true)} className="w-full sm:w-auto">
+            + <span className="sm:inline">Nova Equipe</span>
           </Button>
         </div>
 
         {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
           <Card className="shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total de Equipes</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{totalTeams}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalTeams}</p>
                 </div>
                 <div className="bg-blue-500 p-3 rounded-lg">
                   <Users className="h-6 w-6 text-white" />
@@ -316,7 +315,7 @@ const Equipes = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total de Membros</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{totalMembersInTeams}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalMembersInTeams}</p>
                 </div>
                 <div className="bg-green-500 p-3 rounded-lg">
                   <User className="h-6 w-6 text-white" />
@@ -330,7 +329,7 @@ const Equipes = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Sem Equipe</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{totalWithoutTeam}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalWithoutTeam}</p>
                 </div>
                 <div className="bg-orange-500 p-3 rounded-lg">
                   <UserX className="h-6 w-6 text-white" />
@@ -344,7 +343,7 @@ const Equipes = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Líderes</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{totalLeaders}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalLeaders}</p>
                 </div>
                 <div className="bg-purple-500 p-3 rounded-lg">
                   <Crown className="h-6 w-6 text-white" />
@@ -355,8 +354,8 @@ const Equipes = () => {
         </div>
 
         {/* Search */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
+        <div className="mb-4 sm:mb-6">
+          <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar equipes ou membros..."
@@ -375,7 +374,7 @@ const Equipes = () => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
             {/* Team Columns */}
             {filteredTeams.map((team) => {
               const teamMembersList = getMembersInTeam(team.id);
@@ -446,7 +445,14 @@ const Equipes = () => {
                     {/* Goals */}
                     {showGoals === team.id && organizationId && (
                       <div className="mb-4">
-                        <TeamGoalsCard teamId={team.id} teamName={team.name} organizationId={organizationId} teamColor={team.color} />
+                        <TeamGoalsCard
+                          teamId={team.id}
+                          teamName={team.name}
+                          organizationId={organizationId}
+                          teamColor={team.color}
+                          isMember={teamMembers.some(tm => tm.team_id === team.id && tm.user_id === user?.id)}
+                          isOwner={isOwner}
+                        />
                       </div>
                     )}
 
