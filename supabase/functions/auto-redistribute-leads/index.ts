@@ -137,7 +137,76 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✅ [auto-redistribute-leads] ${totalRedistributed} lead(s) redistribuído(s)`);
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 2: Distribuir leads que NUNCA foram atribuídos (sem dono)
+    // ═══════════════════════════════════════════════════════════════
+    const UNASSIGNED_LIMIT = 50;
+
+    // Buscar orgs que têm pelo menos uma roleta ativa
+    const { data: orgsWithConfigs } = await supabase
+      .from('lead_distribution_configs')
+      .select('organization_id')
+      .eq('is_active', true);
+
+    const uniqueOrgIds = [...new Set((orgsWithConfigs || []).map((c: any) => c.organization_id))];
+    const projectUrl = supabaseUrl.replace('/rest/v1', '');
+
+    console.log(`📋 [PHASE 2] ${uniqueOrgIds.length} organização(ões) com roletas ativas`);
+
+    for (const orgId of uniqueOrgIds) {
+      try {
+        // Buscar leads sem dono nesta org (limitado para evitar timeout)
+        const { data: unassignedLeads } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('organization_id', orgId)
+          .is('responsavel_user_id', null)
+          .limit(UNASSIGNED_LIMIT);
+
+        if (!unassignedLeads || unassignedLeads.length === 0) continue;
+
+        console.log(`📋 [PHASE 2] Org ${orgId}: ${unassignedLeads.length} lead(s) sem dono`);
+
+        let phase2Count = 0;
+
+        for (const lead of unassignedLeads) {
+          try {
+            const resp = await fetch(`${projectUrl}/functions/v1/distribute-lead`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({
+                lead_id: lead.id,
+                organization_id: orgId,
+                trigger_source: 'auto_redistribution',
+              }),
+            });
+
+            const result = resp.ok ? await resp.json() : null;
+            if (result?.success) {
+              phase2Count++;
+              totalRedistributed++;
+            } else {
+              // distribute-lead retorna success=false quando não há config, agentes, etc.
+              // Não é erro — apenas log detalhado
+              console.log(`📋 [PHASE 2] Lead ${lead.id}: ${result?.message || 'sem config/agente'}`);
+            }
+          } catch (leadErr) {
+            console.error(`❌ [PHASE 2] Erro ao distribuir lead ${lead.id}:`, leadErr);
+          }
+        }
+
+        if (phase2Count > 0) {
+          console.log(`✅ [PHASE 2] Org ${orgId}: ${phase2Count} lead(s) distribuído(s)`);
+        }
+      } catch (orgErr) {
+        console.error(`❌ [PHASE 2] Erro na org ${orgId}:`, orgErr);
+      }
+    }
+
+    console.log(`✅ [auto-redistribute-leads] ${totalRedistributed} lead(s) redistribuído(s) (Phase 1 + Phase 2)`);
 
     return new Response(
       JSON.stringify({ success: true, redistributed: totalRedistributed }),

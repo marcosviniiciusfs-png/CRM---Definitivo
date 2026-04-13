@@ -47,7 +47,7 @@ export function AgentDistributionSettings() {
     organization_id: '',
     is_active: true,
     is_paused: false,
-    max_capacity: 50,
+    max_capacity: 200,
     priority_weight: 1,
   });
   const [currentLoad, setCurrentLoad] = useState(0);
@@ -183,7 +183,7 @@ export function AgentDistributionSettings() {
           organization_id: memberResult.data.organization_id,
           is_active: true,
           is_paused: false,
-          max_capacity: 50,
+          max_capacity: 200,
           priority_weight: 1,
         });
       }
@@ -354,12 +354,18 @@ export function AgentDistributionSettings() {
               id="max_capacity"
               type="number"
               min="1"
+              max="1000"
               value={settings.max_capacity}
-              onChange={(e) => setSettings({ ...settings, max_capacity: parseInt(e.target.value) })}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                if (!isNaN(val) && val >= 1 && val <= 1000) {
+                  setSettings({ ...settings, max_capacity: val });
+                }
+              }}
               disabled={isReadOnly}
             />
             <p className="text-sm text-muted-foreground">
-              Número máximo de leads ativos que você pode ter simultaneamente
+              Capacidade máxima: 1 a 1000 leads. Leads movidos para "Ganho" ou "Perda" liberam vaga automaticamente.
             </p>
             </div>
           )}

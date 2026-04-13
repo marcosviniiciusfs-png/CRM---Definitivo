@@ -5,8 +5,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Power, PowerOff, GitFork, Users, RefreshCw, AlertCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
 import { RedistributeBatchDialog } from "./RedistributeBatchDialog";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -40,7 +41,19 @@ interface RedistributionProgress {
   isRunning: boolean;
 }
 
-export function LeadDistributionList() {
+interface CapacityAlert {
+  configId: string;
+  configName: string;
+  sourceType: string;
+  totalAgents: number;
+  agentsAtCapacity: number;
+}
+
+interface LeadDistributionListProps {
+  onNavigateToAgentSettings?: () => void;
+}
+
+export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistributionListProps) {
   const { user } = useAuth();
   const permissions = usePermissions();
   const queryClient = useQueryClient();
@@ -52,6 +65,7 @@ export function LeadDistributionList() {
     isRunning: false,
   });
   const [rouletteDialogOpen, setRouletteDialogOpen] = useState(false);
+  const [capacityAlertOpen, setCapacityAlertOpen] = useState(false);
 
   const { data: organizationId } = useQuery({
     queryKey: ["user-organization", user?.id],
@@ -121,6 +135,76 @@ export function LeadDistributionList() {
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Verificar se alguma roleta tem TODOS os agentes no limite de capacidade
+  const { data: capacityAlerts } = useQuery({
+    queryKey: ["capacity-alerts", organizationId],
+    queryFn: async () => {
+      if (!organizationId || !permissions.canManageAgentSettings) return [] as CapacityAlert[];
+
+      const { data: activeConfigs } = await supabase
+        .from("lead_distribution_configs")
+        .select("id, name, source_type, eligible_agents")
+        .eq("organization_id", organizationId)
+        .eq("is_active", true);
+
+      if (!activeConfigs || activeConfigs.length === 0) return [] as CapacityAlert[];
+
+      const { data: agentSettings } = await supabase
+        .from("agent_distribution_settings")
+        .select("user_id, max_capacity, is_active, is_paused")
+        .eq("organization_id", organizationId)
+        .eq("is_active", true)
+        .eq("is_paused", false);
+
+      if (!agentSettings || agentSettings.length === 0) return [] as CapacityAlert[];
+
+      const alerts: CapacityAlert[] = [];
+
+      for (const config of activeConfigs) {
+        const eligibleIds: string[] = config.eligible_agents?.length > 0
+          ? config.eligible_agents
+          : agentSettings.map(a => a.user_id);
+
+        const eligibleAgents = agentSettings.filter(a => eligibleIds.includes(a.user_id));
+        if (eligibleAgents.length === 0) continue;
+
+        let atCapacityCount = 0;
+        for (const agent of eligibleAgents) {
+          const { count } = await supabase
+            .from("leads")
+            .select("id", { count: "exact", head: true })
+            .eq("responsavel_user_id", agent.user_id)
+            .eq("organization_id", organizationId);
+
+          if ((count || 0) >= agent.max_capacity) {
+            atCapacityCount++;
+          }
+        }
+
+        if (atCapacityCount === eligibleAgents.length) {
+          alerts.push({
+            configId: config.id,
+            configName: config.name,
+            sourceType: config.source_type,
+            totalAgents: eligibleAgents.length,
+            agentsAtCapacity: atCapacityCount,
+          });
+        }
+      }
+
+      return alerts;
+    },
+    enabled: !!organizationId && !!permissions.canManageAgentSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Auto-abrir alerta de capacidade quando detectado
+  useEffect(() => {
+    if (capacityAlerts && capacityAlerts.length > 0 && permissions.canManageAgentSettings) {
+      setCapacityAlertOpen(true);
+    }
+  }, [capacityAlerts, permissions.canManageAgentSettings]);
 
   // Mutation para redistribuir leads em batches
   const redistributeMutation = useMutation({
@@ -455,6 +539,70 @@ export function LeadDistributionList() {
         config={editingConfig}
         organizationId={organizationId}
       />
+
+      {/* Modal de alerta de capacidade - visível apenas para admin/owner */}
+      <Dialog open={capacityAlertOpen} onOpenChange={setCapacityAlertOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Alerta de Capacidade
+            </DialogTitle>
+            <DialogDescription>
+              Todos os agentes de uma ou mais roletas estão na capacidade máxima.
+              Novos leads não estão sendo distribuídos.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {capacityAlerts?.map((alert) => (
+              <div key={alert.configId} className="rounded-md border border-destructive/50 bg-destructive/5 p-3">
+                <p className="font-medium">{alert.configName}</p>
+                <p className="text-sm text-muted-foreground">
+                  Canal: {getSourceTypeLabel(alert.sourceType)}
+                </p>
+                <p className="text-sm text-destructive font-medium mt-1">
+                  {alert.agentsAtCapacity}/{alert.totalAgents} agentes na capacidade máxima
+                </p>
+              </div>
+            ))}
+
+            {unassignedCount !== undefined && unassignedCount > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3">
+                <p className="font-medium text-amber-800 dark:text-amber-200">
+                  {unassignedCount} leads sem responsável acumulados
+                </p>
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  Estes leads não estão sendo distribuídos porque todos os agentes estão lotados.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <p className="text-sm font-medium">Ações sugeridas:</p>
+            <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
+              <li>Aumentar a capacidade máxima dos agentes nas Configurações de Agente</li>
+              <li>Adicionar mais colaboradores à equipe</li>
+              <li>Mover leads já atendidos para "Ganho" ou "Perda" para liberar vagas</li>
+            </ul>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setCapacityAlertOpen(false)}>
+              Fechar
+            </Button>
+            {onNavigateToAgentSettings && (
+              <Button onClick={() => {
+                setCapacityAlertOpen(false);
+                onNavigateToAgentSettings();
+              }}>
+                Configurações de Agente
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

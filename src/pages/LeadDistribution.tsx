@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeadDistributionList } from "@/components/LeadDistributionList";
 import { AgentDistributionSettings } from "@/components/AgentDistributionSettings";
@@ -11,6 +12,7 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 export default function LeadDistribution() {
   const permissions = usePermissions();
+  const [activeTab, setActiveTab] = useState(permissions.canCreateRoulettes ? "config" : "agent");
 
   return (
     <div className="space-y-6">
@@ -21,7 +23,7 @@ export default function LeadDistribution() {
         </p>
       </div>
 
-      <Tabs defaultValue={permissions.canCreateRoulettes ? "config" : "agent"} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
           {permissions.canCreateRoulettes && (
             <TabsTrigger value="config" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
@@ -47,7 +49,7 @@ export default function LeadDistribution() {
 
         {permissions.canCreateRoulettes && (
           <TabsContent value="config">
-            <LeadDistributionList />
+            <LeadDistributionList onNavigateToAgentSettings={() => setActiveTab("agent")} />
           </TabsContent>
         )}
 

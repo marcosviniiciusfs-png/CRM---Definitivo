@@ -282,7 +282,7 @@ export function LeadDistributionConfigModal({
               organization_id: organizationId,
               is_active: true,
               is_paused: false,
-              max_capacity: 50,
+              max_capacity: 200,
               priority_weight: 1,
             }, {
               onConflict: 'user_id,organization_id',
@@ -371,6 +371,12 @@ export function LeadDistributionConfigModal({
                 A roleta só será ativada para leads vindos do canal selecionado.
                 Combinado com o Funil abaixo, você pode ter roletas separadas por canal + funil.
               </p>
+              {formData.source_type !== "all" && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Dica: Use "Todos os canais" para garantir que leads de qualquer origem sejam distribuídos.
+                  Roletas específicas por canal têm prioridade sobre a roleta genérica.
+                </p>
+              )}
             </div>
 
             {/* Formulários Webhook — visível somente quando source_type = webhook */}
