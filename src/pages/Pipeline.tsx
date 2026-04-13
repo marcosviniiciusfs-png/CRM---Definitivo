@@ -2,7 +2,7 @@ import { PipelineColumn } from "@/components/PipelineColumn";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
@@ -287,11 +287,17 @@ const Pipeline = () => {
     return () => clearTimeout(timer);
   }, [stages, leads, selectedFunnelId, updateScrollbarThumb]);
 
-  // Configurar sensor com constraint de distância
+  // Configurar sensores: PointerSensor para mouse, TouchSensor para celular
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Previne drag acidental
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
       },
     })
   );
@@ -663,34 +669,72 @@ const Pipeline = () => {
         stageIds = DEFAULT_STAGES.map(s => s.id);
       }
       if (stageIds.length === 0) return null;
-      const perStage = await Promise.all(stageIds.map(async (stageId) => {
-        let countQ = supabase.from('leads').select('id', { count: 'exact' }).eq('organization_id', organizationId);
-        let dataQ  = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count').eq('organization_id', organizationId);
+      // Filtros base comuns a todas as queries
+      const applyBaseFilters = (q: any) => {
+        q = q.eq('organization_id', organizationId);
         if (!permissions.canViewAllLeads && user?.id) {
           if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
-            countQ = countQ.in('responsavel_user_id', teamMemberIds);
-            dataQ  = dataQ.in('responsavel_user_id', teamMemberIds);
+            q = q.in('responsavel_user_id', teamMemberIds);
           } else {
-            countQ = countQ.eq('responsavel_user_id', user.id);
-            dataQ  = dataQ.eq('responsavel_user_id', user.id);
+            q = q.eq('responsavel_user_id', user.id);
           }
         }
         if (responsibleFilter !== 'all') {
-          countQ = countQ.eq('responsavel_user_id', responsibleFilter);
-          dataQ  = dataQ.eq('responsavel_user_id', responsibleFilter);
+          q = q.eq('responsavel_user_id', responsibleFilter);
         }
+        return q;
+      };
+      const applyStageFilter = (q: any, stageId: string) => {
         if (isCustom && funnel) {
-          countQ = countQ.eq('funnel_id', funnel.id).eq('funnel_stage_id', stageId);
-          dataQ  = dataQ.eq('funnel_id', funnel.id).eq('funnel_stage_id', stageId);
+          q = q.eq('funnel_id', funnel.id).eq('funnel_stage_id', stageId);
         } else {
-          countQ = countQ.is('funnel_id', null).eq('stage', stageId);
-          dataQ  = dataQ.is('funnel_id', null).eq('stage', stageId);
+          q = q.is('funnel_id', null).eq('stage', stageId);
         }
-        const [countRes, dataRes] = await Promise.all([
-          countQ,
-          dataQ.order('position', { ascending: true }).order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1),
-        ]);
-        return { stageId, count: countRes.count || 0, leads: (dataRes.data || []) as Lead[] };
+        return q;
+      };
+
+      // 1) Buscar contagens por stage em uma única query (group by)
+      //    Em vez de N queries de count, fazemos 1 query que retorna todos os leads
+      //    e contamos no cliente — muito mais rápido para 765 leads
+      let countAllQ = supabase.from('leads').select(isCustom && funnel ? 'funnel_stage_id' : 'stage').eq('organization_id', organizationId);
+      if (!permissions.canViewAllLeads && user?.id) {
+        if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
+          countAllQ = countAllQ.in('responsavel_user_id', teamMemberIds);
+        } else {
+          countAllQ = countAllQ.eq('responsavel_user_id', user.id);
+        }
+      }
+      if (responsibleFilter !== 'all') {
+        countAllQ = countAllQ.eq('responsavel_user_id', responsibleFilter);
+      }
+      if (isCustom && funnel) {
+        countAllQ = countAllQ.eq('funnel_id', funnel.id);
+      } else {
+        countAllQ = countAllQ.is('funnel_id', null);
+      }
+      const countAllRes = await countAllQ;
+
+      // Agrupar contagens no cliente (muito mais rápido que N queries separadas)
+      const countMap: Record<string, number> = {};
+      const groupKey = isCustom && funnel ? 'funnel_stage_id' : 'stage';
+      (countAllRes.data || []).forEach((row: any) => {
+        const key = row[groupKey] || 'NOVO';
+        countMap[key] = (countMap[key] || 0) + 1;
+      });
+      // Para stages que não têm leads, inicializar com 0
+      stageIds.forEach(sid => { if (!countMap[sid]) countMap[sid] = 0; });
+
+      // 2) Buscar dados paginados por stage em paralelo (sem count — já temos)
+      const perStage = await Promise.all(stageIds.map(async (stageId) => {
+        const stageCount = countMap[stageId] || 0;
+        if (stageCount === 0) {
+          return { stageId, count: 0, leads: [] as Lead[] };
+        }
+        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count').eq('organization_id', organizationId);
+        dataQ = applyBaseFilters(dataQ) as any;
+        dataQ = applyStageFilter(dataQ, stageId) as any;
+        const dataRes = await dataQ.order('position', { ascending: true }).order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1);
+        return { stageId, count: stageCount, leads: (dataRes.data || []) as Lead[] };
       }));
       const allLeads: Lead[] = perStage.flatMap(r => r.leads);
       const paginationInit: Record<string, StagePaginationState> = {};
@@ -733,13 +777,9 @@ const Pipeline = () => {
     setIsTabTransitioning(false);
     if (allLeads.length > 0) {
       const responsavelIds = [...new Set(allLeads.map((l: Lead) => l.responsavel_user_id).filter(Boolean))] as string[];
-      Promise.all([
-        loadLeadItems(allLeads.map((l: Lead) => l.id)),
-        loadLeadTags(allLeads.map((l: Lead) => l.id)),
-        loadProfiles(responsavelIds),
-        loadAgendamentos(allLeads.map((l: Lead) => l.id)),
-        loadRedistributionData(allLeads.map((l: Lead) => l.id)),
-      ]);
+      // Apenas carregar profiles (leve) - dados pesados (items, tags, agendamentos, redistribuição)
+      // serão carregados sob demanda ao clicar no olho ou editar
+      loadProfiles(responsavelIds);
     }
   }, [cachedLeadsResult]);
 
@@ -754,7 +794,7 @@ const Pipeline = () => {
     return cachedFunnelResult ?? { isCustom: false, funnel: null };
   };
 
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE = 20;
 
   const loadLeads = async (_funnelData?: { isCustom: boolean; funnel: any }, _isTabChange: boolean = false) => {
     queryClient.invalidateQueries({ queryKey: ['pipeline-leads', organizationId] });
@@ -835,14 +875,11 @@ const Pipeline = () => {
           }
         }));
 
-        // Carregar dados relacionados para novos leads
-        await Promise.all([
-          loadLeadItems(data.map(l => l.id)),
-          loadLeadTags(data.map(l => l.id)),
-          loadProfiles(data.map(l => l.responsavel_user_id).filter(Boolean) as string[]),
-          loadAgendamentos(data.map(l => l.id)),
-          loadRedistributionData(data.map(l => l.id)),
-        ]);
+        // Carregar apenas profiles (leve) - dados pesados sob demanda
+        const newResponsavelIds = data.map(l => l.responsavel_user_id).filter(Boolean) as string[];
+        if (newResponsavelIds.length > 0) {
+          loadProfiles(newResponsavelIds);
+        }
       } else {
         // No more data
         setStagePagination(prev => ({
@@ -1128,10 +1165,11 @@ const Pipeline = () => {
     if (!activeLead) return;
 
     // Verificar permissão de mover leads no pipeline
-    // Membros podem mover leads atribuídos a eles, ou se tiverem permissão geral
+    // Membros podem mover leads atribuídos a eles, leads de membros da sua equipe (líder), ou se tiverem permissão geral
     const isLeadAssignedToUser = activeLead.responsavel_user_id === user?.id;
-    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline && !isLeadAssignedToUser) {
-      toast.error("Você só pode mover leads atribuídos a você. Solicite acesso ao administrador para mover outros leads.");
+    const isLeadFromTeamMember = permissions.canViewTeamLeads && teamMemberIds.includes(activeLead.responsavel_user_id || '');
+    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline && !isLeadAssignedToUser && !isLeadFromTeamMember) {
+      toast.error("Você só pode mover leads atribuídos a você ou da sua equipe. Solicite acesso ao administrador para mover outros leads.");
       return;
     }
 
@@ -1177,7 +1215,7 @@ const Pipeline = () => {
 
     // Processar movimentação normal
     await processLeadMove(event, leadId, overId, activeLead, targetStage, activeStage, isDroppedOverStage, overLead);
-  }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel, permissions.role, permissions.canMoveLeadsPipeline]);
+  }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel, permissions.role, permissions.canMoveLeadsPipeline, permissions.canViewTeamLeads, teamMemberIds]);
 
   const processLeadMove = async (
     event: DragEndEvent,
@@ -1890,7 +1928,7 @@ const Pipeline = () => {
             sensors={sensors}
           >
             <div
-              style={{ touchAction: 'pan-y pinch-zoom' }}
+              style={{ touchAction: 'none' }}
               data-dragging-active={isDraggingActive}
             >
               {allFunnels.length > 0 ? (

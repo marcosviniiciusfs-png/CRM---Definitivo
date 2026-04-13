@@ -393,12 +393,6 @@ const LeadMetrics = () => {
       setAdsError(null);
       setAdsNeedsReconnect(false);
 
-      // Se não conectado ao Facebook (segundo o hook), nem chamar a Edge Function
-      if (!fbConnected && !fbNeedsReconnect) {
-        setAdsLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase.functions.invoke('fetch-ads-insights', {
         body: {
           organization_id: orgId,

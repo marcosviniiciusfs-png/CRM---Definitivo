@@ -74,7 +74,7 @@ export const PipelineColumn = memo(({
           )}
           style={isHexColor(color) ? { backgroundColor: color } : undefined}
         >
-          {pagination ? `${pagination.loadedCount}/1000` : count}
+          {pagination ? `${pagination.loadedCount}/${pagination.totalCount}` : count}
         </Badge>
       </div>
 
@@ -158,7 +158,7 @@ export const PipelineColumn = memo(({
                   Carregando...
                 </span>
               ) : (
-                `Carregar mais (${Math.min(50, pagination.totalCount - pagination.loadedCount)})`
+                `Carregar mais (${Math.min(10, pagination.totalCount - pagination.loadedCount)})`
               )}
             </button>
           )}

@@ -71,13 +71,14 @@ async function refreshPageToken(
   }
 }
 
-// Obtém page_access_token com renovação automática se expirado
-async function getSecurePageAccessToken(
+// Obtém page_access_token e user_access_token com renovação automática se expirado
+// Retorna { pageToken, userToken } — pageToken para leadgen/form, userToken para ads/campaign (requer ads_read)
+async function getSecureTokens(
   supabase: any,
   integrationId: string,
   pageId: string,
   legacyToken: string | null
-): Promise<string> {
+): Promise<{ pageToken: string; userToken: string }> {
   const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
 
   // 1. Buscar tokens da tabela segura
@@ -98,24 +99,24 @@ async function getSecurePageAccessToken(
   // 2. Se o page token foi decriptado com sucesso, validar rapidamente
   if (pageToken && pageToken.length > 20) {
     console.log('✅ [FB-WEBHOOK] Page token obtido da tabela segura');
-    return pageToken;
+    return { pageToken, userToken };
   }
 
   // 3. Tentar usar o user token para obter um page token fresco
   if (userToken && userToken.length > 20) {
     console.log('🔄 [FB-WEBHOOK] Page token inválido, tentando renovar via user token...');
     const freshPageToken = await refreshPageToken(userToken, pageId);
-    if (freshPageToken) return freshPageToken;
+    if (freshPageToken) return { pageToken: freshPageToken, userToken };
   }
 
   // 4. Fallback para token legado (se não for sentinela)
   if (legacyToken && legacyToken !== 'ENCRYPTED_IN_TOKENS_TABLE' && legacyToken.length > 20) {
     console.log('⚠️ [FB-WEBHOOK] Usando token legado de page_access_token');
-    return legacyToken;
+    return { pageToken: legacyToken, userToken };
   }
 
   console.error('❌ [FB-WEBHOOK] Nenhum token válido encontrado para integrationId:', integrationId);
-  return '';
+  return { pageToken: '', userToken };
 }
 
 // Função para verificar duplicidade de lead
@@ -248,11 +249,12 @@ Deno.serve(async (req) => {
           const leadgenData = change.value;
           const pageId = leadgenData.page_id || entry.id;
           const leadgenId = leadgenData.leadgen_id;
-          // CORREÇÃO CRÍTICA: extrair form_id do payload do webhook
-          // O Facebook envia form_id diretamente no payload — usar isso como fonte primária
+          // CORREÇÃO CRÍTICA: extrair form_id e ad_id do payload do webhook
+          // O Facebook envia form_id e ad_id diretamente no payload — usar como fonte primária
           const webhookFormId = leadgenData.form_id || null;
+          const webhookAdId = leadgenData.ad_id || leadgenData.adgroup_id || null;
 
-          console.log(`🎯 [FB-WEBHOOK] leadgen_id=${leadgenId} page_id=${pageId} form_id=${webhookFormId}`);
+          console.log(`🎯 [FB-WEBHOOK] leadgen_id=${leadgenId} page_id=${pageId} form_id=${webhookFormId} ad_id=${webhookAdId}`);
 
           if (!pageId || !leadgenId) {
             console.warn('⚠️ [FB-WEBHOOK] page_id ou leadgen_id ausente, pulando');
@@ -290,8 +292,8 @@ Deno.serve(async (req) => {
                 .single();
               logId = logEntry?.id || null;
 
-              // Obter page_access_token com renovação automática
-              const pageAccessToken = await getSecurePageAccessToken(
+              // Obter tokens (page token para leadgen/form, user token para ads/campaign)
+              const { pageToken: pageAccessToken, userToken: userAccessToken } = await getSecureTokens(
                 supabase,
                 integration.id,
                 pageId,
@@ -404,27 +406,41 @@ Deno.serve(async (req) => {
               } catch { /* não crítico */ }
 
               // Buscar nome e ID da campanha
+              // IMPORTANTE: User token tem ads_read, page token NÃO tem.
+              // Sempre usar userAccessToken para queries de ad/campaign.
+              const resolvedAdId = leadData.ad_id || webhookAdId || null;
               let campaignName = 'N/A';
               let campaignId: string | null = null;
               try {
-                if (leadData.ad_id) {
-                  const adResp = await fetch(`https://graph.facebook.com/v21.0/${leadData.ad_id}?fields=name,campaign{id,name}&access_token=${pageAccessToken}`);
+                if (resolvedAdId) {
+                  // Prefer user token (has ads_read), fallback to page token
+                  const adsToken = userAccessToken || pageAccessToken;
+                  console.log(`🎯 [FB-WEBHOOK] Buscando campanha para ad_id=${resolvedAdId} (usando ${userAccessToken ? 'user' : 'page'} token)`);
+                  const adResp = await fetch(`https://graph.facebook.com/v21.0/${resolvedAdId}?fields=name,campaign{id,name}&access_token=${adsToken}`);
                   const adData = await adResp.json();
-                  campaignName = adData.campaign?.name || adData.name || 'N/A';
-                  campaignId = adData.campaign?.id || null;
 
-                  // Se campaignName parece ser um ID numérico, buscar nome real diretamente
-                  if (/^\d{10,}$/.test(campaignName)) {
-                    console.log(`🔄 [FB-WEBHOOK] Campaign name parece ID (${campaignName}), buscando nome real...`);
-                    const potentialId = campaignId || campaignName;
-                    const campResp = await fetch(`https://graph.facebook.com/v21.0/${potentialId}?fields=name&access_token=${pageAccessToken}`);
-                    const campData = await campResp.json();
-                    if (campData.name) {
-                      console.log(`✅ [FB-WEBHOOK] Nome real da campanha: ${campData.name}`);
-                      campaignName = campData.name;
-                      if (!campaignId) campaignId = potentialId;
+                  if (adData.error) {
+                    console.warn(`⚠️ [FB-WEBHOOK] Erro ao buscar ad: ${adData.error.message}`);
+                  } else {
+                    campaignName = adData.campaign?.name || adData.name || 'N/A';
+                    campaignId = adData.campaign?.id || null;
+
+                    // Se campaignName parece ser um ID numérico, buscar nome real diretamente
+                    if (/^\d{10,}$/.test(campaignName)) {
+                      console.log(`🔄 [FB-WEBHOOK] Campaign name parece ID (${campaignName}), buscando nome real...`);
+                      const potentialId = campaignId || campaignName;
+                      const campResp = await fetch(`https://graph.facebook.com/v21.0/${potentialId}?fields=name&access_token=${adsToken}`);
+                      const campData = await campResp.json();
+                      if (campData.name) {
+                        console.log(`✅ [FB-WEBHOOK] Nome real da campanha: ${campData.name}`);
+                        campaignName = campData.name;
+                        if (!campaignId) campaignId = potentialId;
+                      }
                     }
+                    console.log(`✅ [FB-WEBHOOK] Campanha: ${campaignName} (ID: ${campaignId})`);
                   }
+                } else {
+                  console.log(`⚠️ [FB-WEBHOOK] Sem ad_id disponível para buscar campanha`);
                 }
               } catch (e) {
                 console.warn(`⚠️ [FB-WEBHOOK] Erro ao buscar campanha: ${e}`);

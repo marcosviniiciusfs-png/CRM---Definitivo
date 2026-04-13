@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
@@ -46,6 +46,11 @@ interface EditLeadModalProps {
   onClose: () => void;
   onUpdate: () => void;
 }
+
+// Cache em memória para colaboradores (evita queries repetidas ao abrir/fechar modal)
+let colaboradoresCache: Array<{ id: string; email: string; user_id: string | null; full_name?: string }> | null = null;
+let colaboradoresCacheExpiry = 0;
+const COLAB_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalProps) => {
   const [editedName, setEditedName] = useState(lead.nome_lead);
@@ -125,12 +130,16 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   useEffect(() => {
     if (open) {
+      // Carregar tudo em paralelo para abrir o modal mais rápido
+      Promise.all([
+        fetchColaboradores(),
+        loadDadosNegocio(),
+        fetchAvailableItems(),
+        fetchLeadItems(),
+        fetchCurrentUserName(),
+      ]).catch(err => console.error('Erro ao carregar dados do modal:', err));
+      // Atividades carrega separadamente (aba "Histórico")
       fetchActivities();
-      fetchColaboradores();
-      loadDadosNegocio(); // Já busca e seta o valor correto do banco
-      fetchAvailableItems();
-      fetchLeadItems();
-      fetchCurrentUserName();
     }
   }, [open]);
 
@@ -254,49 +263,48 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const fetchColaboradores = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Buscar organization_id do lead
-      const { data: leadData } = await supabase
-        .from("leads")
-        .select("organization_id")
-        .eq("id", lead.id)
-        .single();
-
-      if (!leadData?.organization_id) return;
-
-      // Buscar membros usando RPC segura (sem expor emails)
-      const { data: orgMembers } = await supabase.rpc('get_organization_members_masked');
-
-      if (orgMembers && orgMembers.length > 0) {
-        const userIds = orgMembers.filter((m: any) => m.user_id).map((m: any) => m.user_id);
-
-        let profilesMap: { [key: string]: { full_name: string | null } } = {};
-
-        if (userIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, full_name')
-            .in('user_id', userIds);
-
-          if (profiles) {
-            profilesMap = profiles.reduce((acc, profile) => {
-              acc[profile.user_id] = { full_name: profile.full_name };
-              return acc;
-            }, {} as { [key: string]: { full_name: string | null } });
-          }
-        }
-
-        const colabsWithNames = orgMembers.map((colab: any) => ({
-          id: colab.id,
-          email: colab.email || '', // Usar email da RPC (mascarado para não-admins, exceto próprio)
-          user_id: colab.user_id,
-          full_name: colab.user_id && profilesMap[colab.user_id]?.full_name || null
-        }));
-
-        setColaboradores(colabsWithNames);
+      // Usar cache se disponível e não expirado
+      const now = Date.now();
+      if (colaboradoresCache && (now - colaboradoresCacheExpiry) < COLAB_CACHE_TTL) {
+        setColaboradores(colaboradoresCache);
+        return;
       }
+
+      // Buscar membros e profiles em paralelo
+      const [orgMembersRes] = await Promise.all([
+        supabase.rpc('get_organization_members_masked'),
+      ]);
+
+      const orgMembers = orgMembersRes.data;
+      if (!orgMembers || orgMembers.length === 0) return;
+
+      const userIds = orgMembers.filter((m: any) => m.user_id).map((m: any) => m.user_id);
+
+      let profilesMap: { [key: string]: { full_name: string | null } } = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds);
+        if (profiles) {
+          profilesMap = profiles.reduce((acc, profile) => {
+            acc[profile.user_id] = { full_name: profile.full_name };
+            return acc;
+          }, {} as { [key: string]: { full_name: string | null } });
+        }
+      }
+
+      const colabsWithNames = orgMembers.map((colab: any) => ({
+        id: colab.id,
+        email: colab.email || '',
+        user_id: colab.user_id,
+        full_name: colab.user_id && profilesMap[colab.user_id]?.full_name || null
+      }));
+
+      // Salvar no cache
+      colaboradoresCache = colabsWithNames;
+      colaboradoresCacheExpiry = Date.now();
+      setColaboradores(colabsWithNames);
     } catch (error) {
       console.error("Erro ao carregar colaboradores:", error);
     }
@@ -1807,7 +1815,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         <Popover
                           open={editingResponsavel}
                           onOpenChange={(open) => {
-                            console.log("🔥 Popover onOpenChange:", open);
                             setEditingResponsavel(open);
                           }}
                           modal={false}
@@ -1819,9 +1826,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               className="h-6 w-6 p-0 hover:bg-accent/50"
                               type="button"
                               onClick={() => {
-                                console.log("🔥 Botão de lápis clicado!");
-                                console.log("Estado atual editingResponsavel:", editingResponsavel);
-                                console.log("Colaboradores disponíveis:", colaboradores);
+                                // Popover toggle handled by onOpenChange
                               }}
                             >
                               <Pencil className="h-3.5 w-3.5 text-primary" />
@@ -1864,7 +1869,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               {/* Lista de outros colaboradores */}
                               <div className="border-t pt-3">
                                 <div className="text-xs font-medium text-muted-foreground mb-2">Trocar responsável</div>
-                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                <div className="space-y-1 max-h-48 overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
                                   {colaboradores
                                     .filter(colab => (colab.full_name || colab.email) !== responsavel)
                                     .map((colab) => {
@@ -1875,7 +1880,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                           type="button"
                                           className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors"
                                           onClick={async () => {
-                                            console.log("Colaborador selecionado:", displayName);
                                             setResponsavel(displayName || '');
 
                                             // Salvar imediatamente - ATUALIZADO: usar UUID + TEXT
