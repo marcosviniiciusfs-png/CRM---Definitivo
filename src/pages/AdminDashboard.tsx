@@ -15,7 +15,7 @@ import { useAdminAuth, getAdminToken } from "@/contexts/AdminAuthContext";
 import {
   Users, Shield, ChevronLeft, ChevronRight, TrendingUp, DollarSign,
   Trash2, Search, Download, ShoppingCart, CheckCircle, Clock, BarChart3,
-  Eye, LogOut, UserPlus
+  Eye, LogOut, UserPlus, Power
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -33,6 +33,7 @@ interface User {
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
   organization_name?: string | null;
+  is_active?: boolean;
 }
 
 interface ChartDataPoint {
@@ -123,6 +124,7 @@ export default function AdminDashboard() {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserConfirmPassword, setNewUserConfirmPassword] = useState("");
   const [creatingUser, setCreatingUser] = useState(false);
+  const [togglingActive, setTogglingActive] = useState<string | null>(null);
 
   // ─── Data loading (unchanged logic) ───
   const loadAdmins = async () => {
@@ -207,7 +209,9 @@ export default function AdminDashboard() {
       if (subsResult.error) throw subsResult.error;
 
       setMainUsersCount(Number(countResult.data) || 0);
-      setUsers(usersResult.data || []);
+      const usersData = usersResult.data || [];
+      // is_active comes directly from the RPC (SECURITY DEFINER bypasses RLS)
+      setUsers(usersData);
 
       const subMap: Record<string, string> = {};
       (subsResult.data || []).forEach((s: any) => { subMap[s.user_id] = s.plan_id; });
@@ -322,6 +326,29 @@ export default function AdminDashboard() {
       toast.error(err.message || "Erro ao criar conta");
     } finally {
       setCreatingUser(false);
+    }
+  };
+
+  const handleToggleActive = async (userId: string, currentActive: boolean) => {
+    setTogglingActive(userId);
+    try {
+      const token = getAdminToken();
+      const { data, error } = await supabase.functions.invoke('admin-panel-rpc', {
+        headers: { 'x-admin-token': token || '' },
+        body: {
+          operation: 'toggle_user_active',
+          target_user_id: userId,
+          is_active: !currentActive,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(currentActive ? 'Conta desativada com sucesso' : 'Conta ativada com sucesso');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao alterar status');
+    } finally {
+      setTogglingActive(null);
     }
   };
 
@@ -581,7 +608,9 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell className="text-gray-700">{getUserPlan(u.id) !== 'none' ? formatCurrency(ticketMedio) : "R$ 0,00"}</TableCell>
                         <TableCell>
-                          {u.last_sign_in_at ? (
+                          {u.is_active === false ? (
+                            <Badge variant="secondary" className="bg-red-100 text-red-700 border-red-200">Desativada</Badge>
+                          ) : u.last_sign_in_at ? (
                             <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ativo</Badge>
                           ) : (
                             <Badge variant="secondary" className="bg-gray-100 text-gray-500">Inativo</Badge>
@@ -696,7 +725,9 @@ export default function AdminDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {u.last_sign_in_at ? (
+                          {u.is_active === false ? (
+                            <Badge variant="secondary" className="bg-red-100 text-red-700 border-red-200">Desativada</Badge>
+                          ) : u.last_sign_in_at ? (
                             <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ativo</Badge>
                           ) : (
                             <Badge variant="secondary" className="bg-gray-100 text-gray-500">Inativo</Badge>
@@ -706,12 +737,20 @@ export default function AdminDashboard() {
                           {formatDistanceToNow(new Date(u.created_at), { locale: ptBR, addSuffix: false })}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/admin/user/${u.id}`, {
-                            state: { tab: 'clientes', page: currentPage, search: clientSearch, plan: clientPlanFilter }
-                          }); }}
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 text-xs">
-                            Ver Plano
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleToggleActive(u.id, u.is_active !== false); }}
+                              disabled={togglingActive === u.id}
+                              className={u.is_active === false ? "text-green-600 hover:text-green-800 hover:bg-green-50 text-xs" : "text-red-600 hover:text-red-800 hover:bg-red-50 text-xs"}>
+                              <Power className="h-3 w-3 mr-1" />
+                              {u.is_active === false ? "Ativar" : "Desativar"}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/admin/user/${u.id}`, {
+                              state: { tab: 'clientes', page: currentPage, search: clientSearch, plan: clientPlanFilter }
+                            }); }}
+                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 text-xs">
+                              Ver Plano
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

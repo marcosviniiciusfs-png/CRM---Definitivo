@@ -159,6 +159,18 @@ Deno.serve(async (req) => {
             });
         }
 
+        if (operation === "toggle_user_active") {
+            const { target_user_id, is_active } = body;
+            const { data, error } = await adminClient.rpc("admin_toggle_user_active", {
+                p_user_id: target_user_id,
+                p_is_active: is_active,
+            });
+            if (error) throw error;
+            return new Response(JSON.stringify(data), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
         return new Response(JSON.stringify({ error: "Operação inválida" }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

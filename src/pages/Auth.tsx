@@ -38,11 +38,16 @@ const Auth = () => {
     setLoading(false);
 
     if (error) {
+      const errMsg = (error as any).message || '';
+      let description = errMsg;
+      if (errMsg === "Invalid login credentials") {
+        description = "Email ou senha incorretos";
+      } else if (errMsg.toLowerCase().includes("banned") || errMsg.toLowerCase().includes("disabled")) {
+        description = "Esta conta foi desativada. Contate o administrador do sistema.";
+      }
       toast({
         title: "Erro ao fazer login",
-        description: (error as any).message === "Invalid login credentials"
-          ? "Email ou senha incorretos"
-          : (error as any).message,
+        description,
         variant: "destructive",
       });
     } else {
