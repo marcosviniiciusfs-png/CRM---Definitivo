@@ -1790,7 +1790,7 @@ const Pipeline = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas Origens</SelectItem>
-                <SelectItem value="Facebook Leads">Facebook</SelectItem>
+                <SelectItem value="Facebook Leads">Meta Ads</SelectItem>
                 <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                 <SelectItem value="Webhook">Webhook</SelectItem>
                 <SelectItem value="Manual">Manual</SelectItem>

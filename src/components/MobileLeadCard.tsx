@@ -34,6 +34,23 @@ export function MobileLeadCard({
   isRedistributed, redistributedFromName,
 }: MobileLeadCardProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedInfo, setCopiedInfo] = useState(false);
+
+  const handleCopyInfo = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const lines: string[] = [];
+    if (lead.nome_lead) lines.push(`Nome: ${lead.nome_lead}`);
+    if (lead.telefone_lead) lines.push(`Telefone: ${lead.telefone_lead}`);
+    if ((lead as any).email) lines.push(`Email: ${(lead as any).email}`);
+    if (lead.valor) lines.push(`Valor: R$ ${lead.valor.toFixed(2)}`);
+    if (lead.source) lines.push(`Origem: ${lead.source}`);
+    if (responsavelName) lines.push(`Responsável: ${responsavelName}`);
+    if (lines.length === 0) return;
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopiedInfo(true);
+      setTimeout(() => setCopiedInfo(false), 1500);
+    });
+  }, [lead, responsavelName]);
 
   const handleCopyPhone = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,7 +93,13 @@ export function MobileLeadCard({
           {getInitials(lead.nome_lead)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{lead.nome_lead || 'Sem nome'}</p>
+          <button
+            onClick={handleCopyInfo}
+            className="text-sm font-medium text-foreground truncate text-left w-full active:text-primary transition-colors"
+            title="Toque para copiar informações"
+          >
+            {copiedInfo ? <span className="text-green-500">Copiado!</span> : (lead.nome_lead || 'Sem nome')}
+          </button>
           {responsavelName && (
             <p className="text-xs text-muted-foreground truncate">{responsavelName}</p>
           )}
@@ -177,8 +200,7 @@ export function MobileLeadCard({
         <div className="flex-1" />
         <Button
           size="sm"
-          variant="outline"
-          className="h-8 text-xs gap-1.5 text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-50 active:scale-95 transition-transform"
+          className="h-8 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white border-0 active:scale-95 transition-transform"
           onClick={(e) => { e.stopPropagation(); onMoveRequest(); }}
         >
           Mover etapa
