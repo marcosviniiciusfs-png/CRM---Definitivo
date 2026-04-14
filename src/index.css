@@ -271,27 +271,13 @@ All colors MUST be HSL.
     @apply bg-primary/20 backdrop-blur-md border border-primary/50 text-primary hover:bg-primary/30 hover:border-primary/70 hover:text-primary transition-all duration-300 shadow-lg shadow-primary/20;
   }
 
-  /* Otimização crítica: desabilitar transições e hover durante drag ativo */
+  /* Otimização: desabilitar transições apenas em elementos relevantes durante drag */
   [data-dragging-active="true"] .lead-card:not([data-dragging="true"]) {
     pointer-events: none !important;
   }
 
-  /* Garantir que tags e badges de origem sejam sempre visíveis */
-  [data-dragging-active="true"] .lead-card [data-lead-tags],
-  [data-dragging-active="true"] .lead-card [data-lead-badges] {
-    pointer-events: auto !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  }
-
   [data-dragging-active="true"] .lead-card {
     transition: none !important;
-  }
-
-  /* Optimized drag interactions - disable ALL transitions and animations during drag */
-  [data-dragging-active="true"] * {
-    transition: none !important;
-    animation: none !important;
   }
 
   [data-dragging-active="true"] .lead-card:hover {
@@ -299,7 +285,6 @@ All colors MUST be HSL.
     box-shadow: none !important;
   }
 
-  /* Desabilitar transições de colunas durante drag */
   [data-dragging-active="true"] .pipeline-column {
     transition: none !important;
   }
@@ -385,6 +370,21 @@ All colors MUST be HSL.
 
 .animate-shrink-width {
   animation: shrink-width 5s linear forwards;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-down {
+  animation: fadeInDown 0.3s ease-out;
 }
 
 /* --- SIDEBAR CUSTOMIZATIONS --- */

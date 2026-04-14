@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AddLeadModal } from "@/components/AddLeadModal";
 import { ImportLeadsModal } from "@/components/ImportLeadsModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -90,6 +91,7 @@ const Pipeline = () => {
   const queryClient = useQueryClient();
   const permissions = usePermissions();
   const { toast: toastUI } = useToast();
+  const isMobile = useIsMobile();
 
   // States for features migrated from Leads page
   const [showAddModal, setShowAddModal] = useState(false);
@@ -1985,6 +1987,7 @@ const Pipeline = () => {
                       onScroll={handleScrollContainerScroll}
                       className={cn(
                         "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                        isMobile && "!flex-col !overflow-x-visible gap-4",
                         isTabTransitioning && "transitioning"
                       )}
                       data-dragging-active={isDraggingActive}
@@ -2024,6 +2027,7 @@ const Pipeline = () => {
                   onScroll={handleScrollContainerScroll}
                   className={cn(
                     "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
+                    isMobile && "!flex-col !overflow-x-visible gap-4",
                     isTabTransitioning && "transitioning"
                   )}
                   data-dragging-active={isDraggingActive}
