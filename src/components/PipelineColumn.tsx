@@ -5,6 +5,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Lead } from "@/types/chat";
 import { memo } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface StagePaginationState {
   loadedCount: number;
@@ -61,9 +62,19 @@ export const PipelineColumn = memo(({
 
   // Detecta se a cor é hex ou classe Tailwind
   const isHexColor = (color: string) => color?.startsWith('#');
+  const isMobile = useIsMobile();
 
   return (
-    <div className="flex flex-col w-full sm:w-[260px] md:w-[300px] lg:w-[320px] flex-shrink-0 sm:flex-shrink min-h-[120px] sm:min-h-[400px] md:min-h-[500px]" style={{ contain: "content" }}>
+    <div
+      className={cn(
+        "flex flex-col flex-shrink-0 sm:flex-shrink min-h-[120px] sm:min-h-[400px] md:min-h-[500px]",
+        !isMobile && "sm:w-[260px] md:w-[300px] lg:w-[320px]"
+      )}
+      style={{
+        contain: "content",
+        ...(isMobile ? { width: '100%' } : {}),
+      }}
+    >
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge

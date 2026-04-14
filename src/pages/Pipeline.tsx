@@ -1988,10 +1988,16 @@ const Pipeline = () => {
                       ref={scrollContainerRef}
                       onScroll={handleScrollContainerScroll}
                       className={cn(
-                        "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                        isMobile && "!flex-col !overflow-x-hidden !overflow-y-auto gap-4",
+                        "flex pb-4 scrollbar-hide pipeline-content",
+                        !isMobile && "gap-3 overflow-x-auto",
                         isTabTransitioning && "transitioning"
                       )}
+                      style={isMobile ? {
+                        flexDirection: 'column',
+                        gap: '16px',
+                        overflowX: 'hidden',
+                        overflowY: 'auto',
+                      } : undefined}
                       data-dragging-active={isDraggingActive}
                     >
                       {stages.map((stage) => {
@@ -2028,10 +2034,16 @@ const Pipeline = () => {
                   ref={scrollContainerRef}
                   onScroll={handleScrollContainerScroll}
                   className={cn(
-                    "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                    isMobile && "!flex-col !overflow-x-hidden !overflow-y-auto gap-4",
+                    "flex pb-4 scrollbar-hide pipeline-content",
+                    !isMobile && "gap-3 overflow-x-auto",
                     isTabTransitioning && "transitioning"
                   )}
+                  style={isMobile ? {
+                    flexDirection: 'column',
+                    gap: '16px',
+                    overflowX: 'hidden',
+                    overflowY: 'auto',
+                  } : undefined}
                   data-dragging-active={isDraggingActive}
                 >
                   {stages.map((stage) => {
