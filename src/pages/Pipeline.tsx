@@ -693,33 +693,25 @@ const Pipeline = () => {
         return q;
       };
 
-      // 1) Buscar contagens por stage em uma única query (group by)
-      //    Em vez de N queries de count, fazemos 1 query que retorna todos os leads
-      //    e contamos no cliente — muito mais rápido para 765 leads
-      let countAllQ = supabase.from('leads').select(isCustom && funnel ? 'funnel_stage_id' : 'stage').eq('organization_id', organizationId);
-      if (!permissions.canViewAllLeads && user?.id) {
+      // 1) Buscar contagens por stage via RPC otimizada (GROUP BY no banco)
+      //    Substitui N queries de count por uma única query
+      const rpcParams: any = {
+        p_organization_id: organizationId,
+        p_funnel_id: isCustom && funnel ? funnel.id : null,
+      };
+      if (responsibleFilter !== 'all') {
+        rpcParams.p_responsavel_user_id = responsibleFilter;
+      } else if (!permissions.canViewAllLeads && user?.id) {
         if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
-          countAllQ = countAllQ.in('responsavel_user_id', teamMemberIds);
+          rpcParams.p_responsavel_user_ids = teamMemberIds;
         } else {
-          countAllQ = countAllQ.eq('responsavel_user_id', user.id);
+          rpcParams.p_responsavel_user_id = user.id;
         }
       }
-      if (responsibleFilter !== 'all') {
-        countAllQ = countAllQ.eq('responsavel_user_id', responsibleFilter);
-      }
-      if (isCustom && funnel) {
-        countAllQ = countAllQ.eq('funnel_id', funnel.id);
-      } else {
-        countAllQ = countAllQ.is('funnel_id', null);
-      }
-      const countAllRes = await countAllQ;
-
-      // Agrupar contagens no cliente (muito mais rápido que N queries separadas)
+      const { data: countData } = await supabase.rpc('get_pipeline_stage_counts', rpcParams);
       const countMap: Record<string, number> = {};
-      const groupKey = isCustom && funnel ? 'funnel_stage_id' : 'stage';
-      (countAllRes.data || []).forEach((row: any) => {
-        const key = row[groupKey] || 'NOVO';
-        countMap[key] = (countMap[key] || 0) + 1;
+      (countData || []).forEach((row: any) => {
+        countMap[row.stage_id] = row.lead_count;
       });
       // Para stages que não têm leads, inicializar com 0
       stageIds.forEach(sid => { if (!countMap[sid]) countMap[sid] = 0; });

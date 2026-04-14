@@ -432,13 +432,14 @@ export function ProductionDashboard() {
       </div>
 
       {blocks.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {blocks.map((block) => {
             const isCurrent = block.month === currentBlock?.month && block.year === currentBlock?.year;
             return (
               <ProductionBlockCard
                 key={block.id}
                 block={block}
+                organizationId={organizationId}
                 isCurrent={isCurrent}
                 onClick={() => handleBlockClick(block)}
                 onDelete={isAdmin && !isCurrent ? () => handleDeleteRequest(block) : undefined}

@@ -2966,6 +2966,18 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_pipeline_stage_counts: {
+        Args: {
+          p_organization_id: string
+          p_funnel_id?: string | null
+          p_responsavel_user_ids?: string[] | null
+          p_responsavel_user_id?: string | null
+        }
+        Returns: {
+          stage_id: string
+          lead_count: number
+        }[]
+      }
       get_organization_members_masked: {
         Args: never
         Returns: {
