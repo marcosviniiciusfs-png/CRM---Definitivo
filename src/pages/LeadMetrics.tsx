@@ -8,7 +8,6 @@ import { AdCard } from "@/components/AdCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useFacebookConnection } from "@/hooks/useFacebookConnection";
-import { useFacebookOAuth } from "@/hooks/useFacebookOAuth";
 import { LoadingAnimation as LoadingAnimationComponent } from "@/components/LoadingAnimation";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -162,13 +161,6 @@ interface AdAccount {
 const LeadMetrics = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
   const { isConnected: fbConnected, needsReconnect: fbNeedsReconnect, checkConnection: checkFbConnection } = useFacebookConnection(organizationId ?? undefined);
-  const { handleConnect: handleFbConnect, loading: fbOAuthLoading, showPageSelector: fbShowPageSelector, availablePages: fbAvailablePages, handlePageSelect: handleFbPageSelect, switchingPage: fbSwitchingPage, setShowPageSelector: setFbShowPageSelector } = useFacebookOAuth(organizationId ?? undefined, () => {
-    // Após conexão bem-sucedida, recarregar métricas
-    if (organizationId) {
-      const { startDate, endDate } = getDateRange();
-      loadAdsMetrics(organizationId, startDate, endDate);
-    }
-  });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [facebookMetrics, setFacebookMetrics] = useState<MetricsData | null>(null);
@@ -421,17 +413,21 @@ const LeadMetrics = () => {
       }
 
       if (data?.error) {
-        // Silence "not configured" errors - treat as normal state
-        if (data.error.includes('integration not found') ||
+        // Se o hook de conexão diz que está conectado, ignorar erros de "not found"
+        // — a conexão existe, o problema pode ser temporário
+        const isNotConfigured = data.error.includes('integration not found') ||
           data.error.includes('not configured') ||
-          data.error.includes('Facebook integration not found')) {
+          data.error.includes('Facebook integration not found');
+
+        if (isNotConfigured) {
           setAdsError(null);
           setAdsMetrics(null);
           setAdsNeedsReconnect(false);
           return;
         }
-        // For other errors (expired token, permission issues), set needsReconnect
-        if (data?.needsReconnect) {
+        // Para erros de token/permissão: só marcar needsReconnect se o hook confirmar
+        // que a conexão NÃO existe ou precisa de reconexão
+        if (data?.needsReconnect && (fbNeedsReconnect || !fbConnected)) {
           setAdsNeedsReconnect(true);
         }
         console.log('Ads insights error:', data.error);
@@ -1540,11 +1536,10 @@ const LeadMetrics = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleFbConnect}
-                  disabled={fbOAuthLoading}
+                  onClick={() => window.location.href = '/integrations'}
                 >
                   <Facebook className="h-4 w-4 mr-2" />
-                  {fbOAuthLoading ? 'Conectando...' : 'Reconectar'}
+                  Reconectar
                 </Button>
               )}
             </div>
@@ -1567,11 +1562,10 @@ const LeadMetrics = () => {
                     <Button
                       variant="outline"
                       className="mt-4"
-                      onClick={handleFbConnect}
-                      disabled={fbOAuthLoading}
+                      onClick={() => window.location.href = '/integrations'}
                     >
                       <Facebook className="h-4 w-4 mr-2" />
-                      {fbOAuthLoading ? 'Conectando...' : 'Reconectar Facebook'}
+                      Ir para Integrações
                     </Button>
                   ) : (
                     <p className="text-xs mt-2">Certifique-se de ter uma conta de anúncios vinculada ao Facebook.</p>
@@ -2135,11 +2129,10 @@ const LeadMetrics = () => {
                   <Button
                     variant="outline"
                     className="mt-4"
-                    onClick={handleFbConnect}
-                    disabled={fbOAuthLoading}
+                    onClick={() => window.location.href = '/integrations'}
                   >
                     <Facebook className="h-4 w-4 mr-2" />
-                    {fbOAuthLoading ? 'Conectando...' : ((adsNeedsReconnect || fbNeedsReconnect) ? 'Reconectar Facebook' : 'Conectar Facebook')}
+                    {(adsNeedsReconnect || fbNeedsReconnect) ? 'Ir para Integrações' : 'Conectar Facebook'}
                   </Button>
                 </div>
               </CardContent>
@@ -2190,28 +2183,6 @@ const LeadMetrics = () => {
               </p>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Facebook Page Selector Modal */}
-      <Dialog open={fbShowPageSelector} onOpenChange={setFbShowPageSelector}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Selecione a Página do Facebook</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            {fbAvailablePages.map(page => (
-              <Button
-                key={page.id}
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => handleFbPageSelect(page.id)}
-                disabled={fbSwitchingPage}
-              >
-                {page.name}
-              </Button>
-            ))}
-          </div>
         </DialogContent>
       </Dialog>
     </div>
