@@ -413,20 +413,63 @@ Deno.serve(async (req) => {
             status: a.account_status ?? 1
           }));
 
-          // Tentativa 2: Se não encontrou contas pessoais e tem business_id, buscar via Business Manager
+          // Tentativa 2: Se não encontrou contas pessoais e tem business_id, buscar via Business Manager salvo
           if (accounts.length === 0 && integration.business_id) {
-            console.log(`[ADS] Tentando via Business Manager: ${integration.business_id}`);
-            const bizAccountsUrl = `https://graph.facebook.com/v21.0/${integration.business_id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
-            const bizAccountsResponse = await fetch(bizAccountsUrl);
-            const bizAccountsData = await bizAccountsResponse.json();
+            console.log(`[ADS] Tentativa 2 — Business Manager salvo: ${integration.business_id}`);
+            try {
+              const bizAccountsUrl = `https://graph.facebook.com/v21.0/${integration.business_id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
+              const bizAccountsResponse = await fetch(bizAccountsUrl);
+              const bizAccountsData = await bizAccountsResponse.json();
 
-            if (bizAccountsData.data && bizAccountsData.data.length > 0) {
-              accounts = bizAccountsData.data.map((a: any) => ({
-                id: a.id,
-                name: a.name,
-                status: a.account_status ?? 1
-              }));
-              console.log(`[ADS] Encontrou ${accounts.length} conta(s) via Business Manager`);
+              if (bizAccountsData.data && bizAccountsData.data.length > 0) {
+                accounts = bizAccountsData.data.map((a: any) => ({
+                  id: a.id,
+                  name: a.name,
+                  status: a.account_status ?? 1
+                }));
+                console.log(`[ADS] Encontrou ${accounts.length} conta(s) via Business Manager salvo`);
+              }
+            } catch (bizErr) {
+              console.warn('[ADS] Erro ao buscar via BM salvo:', bizErr);
+            }
+          }
+
+          // Tentativa 3: Descobrir TODOS os Business Managers do usuário e buscar contas em cada um
+          if (accounts.length === 0) {
+            console.log('[ADS] Tentativa 3 — Descobrindo Business Managers via /me/businesses');
+            try {
+              const bizListUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name&limit=50&access_token=${access_token}`;
+              const bizListResponse = await fetch(bizListUrl);
+              const bizListData = await bizListResponse.json();
+
+              if (bizListData.data && bizListData.data.length > 0) {
+                console.log(`[ADS] Encontrou ${bizListData.data.length} Business Manager(s)`);
+                for (const biz of bizListData.data) {
+                  if (accounts.length > 0) break; // Já encontrou, parar
+                  try {
+                    const bizAccUrl = `https://graph.facebook.com/v21.0/${biz.id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
+                    const bizAccResp = await fetch(bizAccUrl);
+                    const bizAccData = await bizAccResp.json();
+                    if (bizAccData.data && bizAccData.data.length > 0) {
+                      accounts = bizAccData.data.map((a: any) => ({
+                        id: a.id,
+                        name: a.name,
+                        status: a.account_status ?? 1
+                      }));
+                      console.log(`[ADS] Encontrou ${accounts.length} conta(s) no BM "${biz.name}" (${biz.id})`);
+                      // Salvar business_id para futuras chamadas
+                      await supabase
+                        .from('facebook_integrations')
+                        .update({ business_id: biz.id })
+                        .eq('id', integrationId);
+                    }
+                  } catch (accErr) {
+                    console.warn(`[ADS] Erro ao buscar contas no BM ${biz.id}:`, accErr);
+                  }
+                }
+              }
+            } catch (bizListErr) {
+              console.warn('[ADS] Erro ao listar Business Managers:', bizListErr);
             }
           }
 

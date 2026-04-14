@@ -216,8 +216,8 @@ Deno.serve(async (req) => {
     }
 
     const selectedPage = pagesData.data[0];
-    const businessId = selectedPage?.business?.id || null;
-    const businessName = selectedPage?.business?.name || null;
+    let businessId = selectedPage?.business?.id || null;
+    let businessName = selectedPage?.business?.name || null;
 
     // 3.5. Buscar contas de anúncios do usuário
     console.log('🔄 [FB-CALLBACK] Buscando contas de anúncios...');
@@ -246,9 +246,9 @@ Deno.serve(async (req) => {
       console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas de anúncios via /me/adaccounts:', adsError.message);
     }
 
-    // Fallback: tentar via Business Manager se não encontrou contas pessoais
+    // Fallback 2: tentar via Business Manager da página se não encontrou contas pessoais
     if (adAccounts.length === 0 && businessId) {
-      console.log(`🔄 [FB-CALLBACK] Tentando via Business Manager: ${businessId}`);
+      console.log(`🔄 [FB-CALLBACK] Tentativa 2 — Business Manager da página: ${businessId}`);
       try {
         const bizAccountsUrl = `https://graph.facebook.com/v21.0/${businessId}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`;
         const bizAccountsResponse = await fetch(bizAccountsUrl);
@@ -262,12 +262,51 @@ Deno.serve(async (req) => {
           }));
           const activeAccount = adAccounts.find((a: any) => a.status === 1);
           selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
-          console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) de anúncios encontrada(s) via Business Manager. Selecionada: ${selectedAdAccountId}`);
+          console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) via BM da página. Selecionada: ${selectedAdAccountId}`);
         } else {
-          console.log('⚠️ [FB-CALLBACK] Nenhuma conta de anúncios encontrada via Business Manager');
+          console.log('⚠️ [FB-CALLBACK] Nenhuma conta via BM da página');
         }
       } catch (bizError: any) {
-        console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas via Business Manager:', bizError.message);
+        console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas via BM da página:', bizError.message);
+      }
+    }
+
+    // Fallback 3: descobrir TODOS os Business Managers do usuário e buscar contas em cada um
+    if (adAccounts.length === 0) {
+      console.log('🔄 [FB-CALLBACK] Tentativa 3 — Descobrindo Business Managers via /me/businesses');
+      try {
+        const bizListUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name&limit=50&access_token=${accessToken}`;
+        const bizListResponse = await fetch(bizListUrl);
+        const bizListData = await bizListResponse.json();
+
+        if (bizListData.data && bizListData.data.length > 0) {
+          console.log(`📋 [FB-CALLBACK] Encontrou ${bizListData.data.length} Business Manager(s)`);
+          for (const biz of bizListData.data) {
+            if (adAccounts.length > 0) break;
+            try {
+              const bizAccUrl = `https://graph.facebook.com/v21.0/${biz.id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`;
+              const bizAccResp = await fetch(bizAccUrl);
+              const bizAccData = await bizAccResp.json();
+              if (bizAccData.data && bizAccData.data.length > 0) {
+                adAccounts = bizAccData.data.map((a: any) => ({
+                  id: a.id,
+                  name: a.name,
+                  status: a.account_status ?? 1
+                }));
+                const activeAccount = adAccounts.find((a: any) => a.status === 1);
+                selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
+                // Atualizar businessId/businessName para salvar no banco
+                businessId = biz.id;
+                businessName = biz.name;
+                console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) no BM "${biz.name}" (${biz.id}). Selecionada: ${selectedAdAccountId}`);
+              }
+            } catch (accErr: any) {
+              console.warn(`⚠️ [FB-CALLBACK] Erro ao buscar contas no BM ${biz.id}:`, accErr.message);
+            }
+          }
+        }
+      } catch (bizListErr: any) {
+        console.warn('⚠️ [FB-CALLBACK] Erro ao listar Business Managers:', bizListErr.message);
       }
     }
 
