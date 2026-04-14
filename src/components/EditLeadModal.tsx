@@ -1031,9 +1031,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden sm:max-h-[90vh] max-h-[95vh]">
         {/* Header */}
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
             <DialogTitle className="text-xl">
               {lead.nome_lead}
@@ -1047,9 +1047,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         {/* Content Body (2 Columns) */}
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
           {/* Main Content (Left Column) */}
-          <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden border-r bg-background">
+          <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden md:border-r bg-background">
             <ScrollArea className="flex-1">
-              <div className="p-6 space-y-6">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
                 {/* Dados do Formulário Facebook (se existir) */}
                 {((lead?.additional_data as any)?.source === 'facebook' ||
                   ((lead?.additional_data as any)?.fields?.length > 0) ||
