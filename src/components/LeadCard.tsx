@@ -255,17 +255,17 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       data-dragging={dragging}
       className={cn(
         "lead-card rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
-        dragging && "cursor-grabbing border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]",
+        dragging && "cursor-grabbing",
         dragging
           ? "transition-none"
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
-        !dragging && hasRedBorder
+        hasRedBorder && !dragging
           ? "border-border animate-glow-pulse"
-          : !dragging && isRedistributed
+          : isRedistributed && !dragging
           ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
-          : !dragging && isDuplicate
+          : isDuplicate && !dragging
           ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
-          : !dragging && "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
+          : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
       <div className="p-1.5">
@@ -583,11 +583,9 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
   const style: CSSProperties = {
     transform: DndCSS.Transform.toString(transform),
     transition: props.isDraggingActive ? "none" : transition,
-    opacity: isDragging ? 0.4 : 1,
+    opacity: isDragging ? 0.5 : 1,
     willChange: transform ? "transform" : undefined,
     cursor: isDragging ? "grabbing" : "grab",
-    outline: isDragging ? "2px solid rgb(239, 68, 68)" : undefined,
-    outlineOffset: "2px",
   };
 
   return (

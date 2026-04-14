@@ -1,9 +1,9 @@
 import { PipelineColumn } from "@/components/PipelineColumn";
+import { MobilePipelineView } from "@/components/MobilePipelineView";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
@@ -290,17 +290,11 @@ const Pipeline = () => {
     return () => clearTimeout(timer);
   }, [stages, leads, selectedFunnelId, updateScrollbarThumb]);
 
-  // Configurar sensores: PointerSensor para mouse, TouchSensor para celular
+  // Configurar sensores: apenas PointerSensor (desktop) - mobile usa MobilePipelineView
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: isMobile ? 40 : 8,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250,
-        tolerance: 10,
+        distance: 8,
       },
     })
   );
@@ -1442,6 +1436,68 @@ const Pipeline = () => {
     setEditingLead(lead);
   }, []);
 
+  // Mover lead via mobile (sem drag-and-drop)
+  const handleMobileLeadMove = useCallback(async (leadId: string, targetStageId: string) => {
+    const activeLead = leads.find(l => l.id === leadId);
+    if (!activeLead) return;
+
+    const currentStage = usingCustomFunnel
+      ? (activeLead.funnel_stage_id || stages[0]?.id)
+      : (activeLead.stage || 'NOVO_LEAD');
+
+    if (currentStage === targetStageId) return;
+
+    // Verificar permissão
+    const isLeadAssignedToUser = activeLead.responsavel_user_id === user?.id;
+    const isLeadFromTeamMember = permissions.canViewTeamLeads && teamMemberIds.includes(activeLead.responsavel_user_id || '');
+    if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline && !isLeadAssignedToUser && !isLeadFromTeamMember) {
+      toast.error("Você só pode mover leads atribuídos a você.");
+      return;
+    }
+
+    // Verificar se é etapa won
+    const targetStageData = stages.find(s => s.id === targetStageId);
+    if (targetStageData?.stageData?.stage_type === 'won') {
+      if (!activeLead.valor || activeLead.valor <= 0) {
+        toast.error('Este lead não possui valor definido. Adicione um valor antes de confirmar a venda.');
+        return;
+      }
+      const syntheticEvent = {
+        active: { id: leadId },
+        over: { id: targetStageId },
+      } as unknown as DragEndEvent;
+      setWonConfirmation({ show: true, lead: activeLead, targetStage: targetStageId, event: syntheticEvent });
+      return;
+    }
+
+    try {
+      const updateData: any = usingCustomFunnel
+        ? { funnel_stage_id: targetStageId }
+        : { stage: targetStageId };
+
+      setLeads(prev => prev.map(l =>
+        l.id === leadId
+          ? usingCustomFunnel
+            ? { ...l, funnel_stage_id: targetStageId }
+            : { ...l, stage: targetStageId }
+          : l
+      ));
+
+      const { error } = await supabase.from('leads').update(updateData).eq('id', leadId);
+      if (error) throw error;
+
+      if (targetStageData?.stageData) {
+        await executeStageActions(leadId, activeLead, targetStageData.stageData);
+      }
+
+      toast.success(`Lead movido para ${targetStageData?.title || 'próxima etapa'}!`);
+    } catch (err) {
+      console.error('Erro ao mover lead:', err);
+      toast.error('Erro ao mover lead');
+      loadLeads(undefined, false);
+    }
+  }, [leads, stages, usingCustomFunnel, user?.id, permissions, teamMemberIds]);
+
   // Executar ações automáticas baseadas no tipo da etapa
   const executeStageActions = async (leadId: string, lead: Lead, stage: any) => {
     if (!stage.stage_type || stage.stage_type === "custom") return;
@@ -1914,19 +1970,34 @@ const Pipeline = () => {
               )}
             </div>
           </div>
+        ) : isMobile ? (
+          /* Mobile Kanban View - sem drag-and-drop */
+          <MobilePipelineView
+            stages={stages}
+            leadsByStage={leadsByStage}
+            selectedFunnelId={selectedFunnelId}
+            allFunnels={allFunnels}
+            onTabChange={handleTabChange}
+            onEdit={handleEditLead}
+            onDelete={handleDeleteLead}
+            onLeadMove={handleMobileLeadMove}
+            leadTagsMap={leadTagsMap}
+            profilesMap={profilesMap}
+            duplicateLeadIds={duplicateLeadIds}
+            agendamentosMap={agendamentosMap}
+            redistributedMap={redistributedMap}
+            stagePagination={stagePagination}
+            onLoadMore={loadMoreForStage}
+          />
         ) : (
-          /* Kanban View */
+          /* Desktop Kanban View - com drag-and-drop */
           <DndContext
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             sensors={sensors}
-            modifiers={isMobile ? [restrictToVerticalAxis] : undefined}
           >
-            <div
-              data-dragging-active={isDraggingActive}
-              style={isMobile ? { touchAction: 'pan-y' } : undefined}
-            >
+            <div data-dragging-active={isDraggingActive}>
               {allFunnels.length > 0 ? (
                 <Tabs
                   value={selectedFunnelId || allFunnels[0]?.id || "default"}
@@ -2078,10 +2149,6 @@ const Pipeline = () => {
 
             <DragOverlay dropAnimation={null}>
               {activeLead ? (
-                <div className={cn(
-                  "rounded-[10px] overflow-hidden",
-                  isMobile && "border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
-                )}>
                 <LeadCard
                   id={activeLead.id}
                   name={activeLead.nome_lead}
@@ -2096,7 +2163,6 @@ const Pipeline = () => {
                   leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
                   leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
                 />
-                </div>
               ) : null}
             </DragOverlay>
           </DndContext>
