@@ -347,10 +347,9 @@ All colors MUST be HSL.
   -webkit-touch-callout: none !important;
   -webkit-user-select: none !important;
   user-select: none !important;
-  touch-action: none;
 }
 
-/* Allow scrolling on pipeline container even with touch-action:none on cards */
+/* Allow smooth scrolling on pipeline containers */
 .pipeline-content,
 .pipeline-column {
   touch-action: pan-x pan-y;

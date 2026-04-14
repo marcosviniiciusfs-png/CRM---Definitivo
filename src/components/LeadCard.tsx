@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check, CalendarDays, CalendarCheck } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check, CalendarDays, CalendarCheck, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
@@ -251,10 +251,10 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       data-dragging={dragging}
       className={cn(
-        "lead-card cursor-grab active:cursor-grabbing rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
+        "lead-card rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
+        dragging && "cursor-grabbing",
         dragging
           ? "transition-none"
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
@@ -267,6 +267,18 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
+      {/* Drag handle - visible on mobile */}
+      {listeners && (
+        <button
+          {...listeners}
+          className="absolute top-0 right-0 z-10 p-1.5 rounded-bl-lg bg-muted/50 hover:bg-muted text-muted-foreground active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+          title="Segurar para arrastar"
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
           <LazyAvatar

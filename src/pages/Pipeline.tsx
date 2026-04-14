@@ -298,8 +298,8 @@ const Pipeline = () => {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 5,
+        delay: 500,
+        tolerance: 8,
       },
     })
   );
