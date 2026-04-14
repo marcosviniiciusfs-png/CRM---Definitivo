@@ -719,7 +719,7 @@ const Pipeline = () => {
         if (stageCount === 0) {
           return { stageId, count: 0, leads: [] as Lead[] };
         }
-        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count').eq('organization_id', organizationId);
+        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data').eq('organization_id', organizationId);
         dataQ = applyBaseFilters(dataQ) as any;
         dataQ = applyStageFilter(dataQ, stageId) as any;
         const dataRes = await dataQ.order('position', { ascending: true }).order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1);
@@ -809,7 +809,7 @@ const Pipeline = () => {
 
       let query = supabase
         .from('leads')
-        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count')
+        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data')
         .eq('organization_id', organizationId);
 
       // Aplicar filtro de permissão
@@ -2195,7 +2195,7 @@ const Pipeline = () => {
             if (editingLead) {
               const { data } = await supabase
                 .from("leads")
-                .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count")
+                .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data")
                 .eq("id", editingLead.id)
                 .single();
               if (data) {
