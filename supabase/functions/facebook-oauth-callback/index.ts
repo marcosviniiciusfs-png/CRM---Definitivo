@@ -236,16 +236,39 @@ Deno.serve(async (req) => {
           name: a.name,
           status: a.account_status ?? 1
         }));
-        // Selecionar a primeira conta ativa como padrão
         const activeAccount = adAccounts.find((a: any) => a.status === 1);
         selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
-        console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) de anúncios encontrada(s). Selecionada: ${selectedAdAccountId}`);
+        console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) de anúncios encontrada(s) via /me/adaccounts. Selecionada: ${selectedAdAccountId}`);
       } else {
-        console.log('⚠️ [FB-CALLBACK] Nenhuma conta de anúncios encontrada');
+        console.log('⚠️ [FB-CALLBACK] Nenhuma conta de anúncios encontrada via /me/adaccounts');
       }
     } catch (adsError: any) {
-      console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas de anúncios:', adsError.message);
-      // Não falha o fluxo - apenas loga o aviso
+      console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas de anúncios via /me/adaccounts:', adsError.message);
+    }
+
+    // Fallback: tentar via Business Manager se não encontrou contas pessoais
+    if (adAccounts.length === 0 && businessId) {
+      console.log(`🔄 [FB-CALLBACK] Tentando via Business Manager: ${businessId}`);
+      try {
+        const bizAccountsUrl = `https://graph.facebook.com/v21.0/${businessId}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`;
+        const bizAccountsResponse = await fetch(bizAccountsUrl);
+        const bizAccountsData = await bizAccountsResponse.json();
+
+        if (bizAccountsData.data && bizAccountsData.data.length > 0) {
+          adAccounts = bizAccountsData.data.map((a: any) => ({
+            id: a.id,
+            name: a.name,
+            status: a.account_status ?? 1
+          }));
+          const activeAccount = adAccounts.find((a: any) => a.status === 1);
+          selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
+          console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) de anúncios encontrada(s) via Business Manager. Selecionada: ${selectedAdAccountId}`);
+        } else {
+          console.log('⚠️ [FB-CALLBACK] Nenhuma conta de anúncios encontrada via Business Manager');
+        }
+      } catch (bizError: any) {
+        console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas via Business Manager:', bizError.message);
+      }
     }
 
     console.log(`💾 [FB-CALLBACK] Salvando integração para página: ${selectedPage.name} (${selectedPage.id})`);

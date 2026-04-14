@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
     // Primeiro buscar a integração principal
     const { data: integration, error: integrationError } = await supabase
       .from('facebook_integrations')
-      .select('id, access_token, ad_account_id, ad_accounts')
+      .select('id, access_token, ad_account_id, ad_accounts, business_id')
       .eq('organization_id', organization_id)
       .single();
 
@@ -379,12 +379,13 @@ Deno.serve(async (req) => {
       } else {
         // Tentar buscar via API
         try {
-          const adAccountsUrl = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=10&access_token=${access_token}`;
+          // Tentativa 1: /me/adaccounts (contas pessoais)
+          const adAccountsUrl = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
           const adAccountsResponse = await fetch(adAccountsUrl);
           const adAccountsData = await adAccountsResponse.json();
 
           if (adAccountsData.error) {
-            console.error('[ADS] Erro na auto-descoberta:', adAccountsData.error.message);
+            console.error('[ADS] Erro na auto-descoberta /me/adaccounts:', adAccountsData.error.message);
             // Verificar se é erro de permissão
             if (adAccountsData.error.code === 200 || adAccountsData.error.message?.includes('permission')) {
               return new Response(
@@ -406,11 +407,28 @@ Deno.serve(async (req) => {
             );
           }
 
-          const accounts: AdAccount[] = (adAccountsData.data || []).map((a: any) => ({
+          let accounts: AdAccount[] = (adAccountsData.data || []).map((a: any) => ({
             id: a.id,
             name: a.name,
             status: a.account_status ?? 1
           }));
+
+          // Tentativa 2: Se não encontrou contas pessoais e tem business_id, buscar via Business Manager
+          if (accounts.length === 0 && integration.business_id) {
+            console.log(`[ADS] Tentando via Business Manager: ${integration.business_id}`);
+            const bizAccountsUrl = `https://graph.facebook.com/v21.0/${integration.business_id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
+            const bizAccountsResponse = await fetch(bizAccountsUrl);
+            const bizAccountsData = await bizAccountsResponse.json();
+
+            if (bizAccountsData.data && bizAccountsData.data.length > 0) {
+              accounts = bizAccountsData.data.map((a: any) => ({
+                id: a.id,
+                name: a.name,
+                status: a.account_status ?? 1
+              }));
+              console.log(`[ADS] Encontrou ${accounts.length} conta(s) via Business Manager`);
+            }
+          }
 
           if (accounts.length === 0) {
             return new Response(
