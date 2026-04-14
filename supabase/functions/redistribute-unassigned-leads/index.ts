@@ -154,14 +154,23 @@ serve(async (req) => {
       ? configs.find(c => c.id === config_id) || null
       : null;
 
+    // Fallback: primeira config "all" genérica, ou qualquer config com agentes disponíveis
+    const fallbackConfig = configs.find(c => c.source_type === 'all' && !c.funnel_id)
+      || configs.find(c => agentsByConfig.get(c.id)?.length > 0)
+      || null;
+
+    let skippedCount = 0;
+
     for (const lead of unassignedLeads) {
-      const config = effectiveConfig || findBestConfig(configs, lead);
+      const config = effectiveConfig || findBestConfig(configs, lead) || fallbackConfig;
       if (!config) {
+        skippedCount++;
         continue;
       }
 
       let agents = agentsByConfig.get(config.id);
       if (!agents || agents.length === 0) {
+        skippedCount++;
         continue;
       }
 
@@ -184,6 +193,10 @@ serve(async (req) => {
       const selectedAgent = group.agents[group.agentIndex];
       group.agentIndex = (group.agentIndex + 1) % group.agents.length;
       group.leads.push({ ...lead, agent: selectedAgent, config });
+    }
+
+    if (skippedCount > 0) {
+      console.log(`⚠️ ${skippedCount} leads não puderam ser matched a nenhuma roleta/agente`);
     }
 
     // 7. Batch update leads e inserir histórico
@@ -268,12 +281,12 @@ serve(async (req) => {
         .eq('id', batchId);
     }
 
-    // has_more: only true if we actually redistributed leads AND there are more to process
-    // If redistributedCount === 0 but there are unassigned leads, they can't be matched -> stop
+    // has_more: true se ainda existem leads sem dono
+    // Recalcular o total restante baseado no que foi processado
     const remaining = (totalCount || 0) - redistributedCount;
-    const hasMore = redistributedCount > 0 && remaining > 0;
+    const hasMore = remaining > 0 && redistributedCount > 0;
 
-    console.log(`✅ [redistribute] ${redistributedCount}/${totalCount} leads redistribuídos (remaining: ${remaining}, has_more: ${hasMore})`);
+    console.log(`✅ [redistribute] ${redistributedCount}/${totalCount} leads redistribuídos (remaining: ${remaining}, has_more: ${hasMore}, skipped: ${skippedCount})`);
 
     return new Response(
       JSON.stringify({
@@ -281,6 +294,7 @@ serve(async (req) => {
         redistributed_count: redistributedCount,
         total: totalCount || 0,
         processed: redistributedCount,
+        skipped: skippedCount,
         has_more: hasMore,
         batch_complete: true,
         errors: errors.length > 0 ? errors : undefined,
@@ -361,7 +375,7 @@ async function getAvailableAgentsFast(supabase: any, organization_id: string, el
 
   let { data: settings } = await settingsQuery;
 
-  // Fallback para organization_members
+  // Fallback para organization_members (sem limite de capacidade)
   if (!settings || settings.length === 0) {
     let membersQuery = supabase
       .from('organization_members')
@@ -384,6 +398,7 @@ async function getAvailableAgentsFast(supabase: any, organization_id: string, el
       is_paused: false,
       max_capacity: 999,
       priority_weight: 1,
+      capacity_enabled: false,
       pause_until: null,
       working_hours: null,
     }));
@@ -415,26 +430,43 @@ async function getAvailableAgentsFast(supabase: any, organization_id: string, el
       if (currentTime < start || currentTime > end) continue;
     }
 
-    // Verificar capacidade (filtrado por organização)
-    const { count } = await supabase
-      .from('leads')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', organization_id)
-      .eq('responsavel_user_id', agent.user_id);
+    // Só verificar capacidade se capacity_enabled estiver ativo
+    const capacityEnabled = agent.capacity_enabled === true;
 
-    if ((count || 0) >= agent.max_capacity) continue;
+    if (capacityEnabled) {
+      const { count } = await supabase
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organization_id)
+        .eq('responsavel_user_id', agent.user_id);
 
-    const profile = profilesMap.get(agent.user_id);
-    const member = membersMap.get(agent.user_id);
+      if ((count || 0) >= agent.max_capacity) continue;
 
-    available.push({
-      user_id: agent.user_id,
-      full_name: profile?.full_name,
-      email: member?.email,
-      priority_weight: agent.priority_weight,
-      current_load: count || 0,
-      max_capacity: agent.max_capacity,
-    });
+      available.push({
+        user_id: agent.user_id,
+        full_name: profilesMap.get(agent.user_id)?.full_name,
+        email: membersMap.get(agent.user_id)?.email,
+        priority_weight: agent.priority_weight,
+        current_load: count || 0,
+        max_capacity: agent.max_capacity,
+      });
+    } else {
+      // Sem limite de capacidade - contar carga para info apenas
+      const { count } = await supabase
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organization_id)
+        .eq('responsavel_user_id', agent.user_id);
+
+      available.push({
+        user_id: agent.user_id,
+        full_name: profilesMap.get(agent.user_id)?.full_name,
+        email: membersMap.get(agent.user_id)?.email,
+        priority_weight: agent.priority_weight,
+        current_load: count || 0,
+        max_capacity: agent.max_capacity,
+      });
+    }
   }
 
   return available;

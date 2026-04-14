@@ -23,6 +23,7 @@ interface AgentSettings {
   pause_reason?: string;
   pause_until?: string;
   max_capacity: number;
+  capacity_enabled: boolean;
   priority_weight: number;
   working_hours?: any;
 }
@@ -48,6 +49,7 @@ export function AgentDistributionSettings() {
     is_active: true,
     is_paused: false,
     max_capacity: 200,
+    capacity_enabled: false,
     priority_weight: 1,
   });
   const [currentLoad, setCurrentLoad] = useState(0);
@@ -184,6 +186,7 @@ export function AgentDistributionSettings() {
           is_active: true,
           is_paused: false,
           max_capacity: 200,
+          capacity_enabled: false,
           priority_weight: 1,
         });
       }
@@ -330,43 +333,74 @@ export function AgentDistributionSettings() {
                 <TrendingUp className="h-4 w-4" />
                 Carga Atual de Leads
               </Label>
-              <span className="text-2xl font-bold">{currentLoad}/{settings.max_capacity}</span>
+              <span className="text-2xl font-bold">{currentLoad}{settings.capacity_enabled ? `/${settings.max_capacity}` : ''}</span>
             </div>
-            <div className="w-full bg-muted rounded-full h-2.5">
-              <div
-                className="bg-primary h-2.5 rounded-full transition-all"
-                style={{ width: `${Math.min(utilizationPercentage, 100)}%` }}
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {utilizationPercentage.toFixed(0)}% de utilização
-            </p>
+            {settings.capacity_enabled && (
+              <>
+                <div className="w-full bg-muted rounded-full h-2.5">
+                  <div
+                    className="bg-primary h-2.5 rounded-full transition-all"
+                    style={{ width: `${Math.min(utilizationPercentage, 100)}%` }}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {utilizationPercentage.toFixed(0)}% de utilização
+                </p>
+              </>
+            )}
+            {!settings.capacity_enabled && (
+              <p className="text-sm text-muted-foreground">
+                Limite de capacidade desativado — o colaborador receberá leads sem restrição
+              </p>
+            )}
             </div>
           )}
 
           {!loadingSettings && <Separator />}
 
-          {/* Capacidade Máxima */}
+          {/* Limite de Capacidade */}
           {!loadingSettings && (
-            <div className="space-y-2">
-            <Label htmlFor="max_capacity">Capacidade Máxima</Label>
-            <Input
-              id="max_capacity"
-              type="number"
-              min="1"
-              max="1000"
-              value={settings.max_capacity}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                if (!isNaN(val) && val >= 1 && val <= 1000) {
-                  setSettings({ ...settings, max_capacity: val });
-                }
-              }}
-              disabled={isReadOnly}
-            />
-            <p className="text-sm text-muted-foreground">
-              Capacidade máxima: 1 a 1000 leads. Leads movidos para "Ganho" ou "Perda" liberam vaga automaticamente.
-            </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="capacity_enabled" className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Limitar Capacidade
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Ativar limite máximo de leads ativos por colaborador
+                  </p>
+                </div>
+                <Switch
+                  id="capacity_enabled"
+                  checked={settings.capacity_enabled}
+                  onCheckedChange={(checked) => setSettings({ ...settings, capacity_enabled: checked })}
+                  disabled={isReadOnly}
+                />
+              </div>
+
+              {settings.capacity_enabled && (
+                <div className="space-y-2 pl-6 border-l-2 border-muted">
+                  <Label htmlFor="max_capacity">Capacidade Máxima</Label>
+                  <Input
+                    id="max_capacity"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={settings.max_capacity}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1 && val <= 1000) {
+                        setSettings({ ...settings, max_capacity: val });
+                      }
+                    }}
+                    disabled={isReadOnly}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Leads movidos para "Ganho" ou "Perda" liberam vaga automaticamente.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

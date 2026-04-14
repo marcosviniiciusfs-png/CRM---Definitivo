@@ -283,6 +283,7 @@ export function LeadDistributionConfigModal({
               is_active: true,
               is_paused: false,
               max_capacity: 200,
+              capacity_enabled: false,
               priority_weight: 1,
             }, {
               onConflict: 'user_id,organization_id',

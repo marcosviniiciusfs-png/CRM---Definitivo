@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -119,7 +119,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
   });
 
   // Buscar contagem de leads sem responsavel
-  const { data: unassignedCount, refetch: refetchUnassigned } = useQuery({
+  const { data: unassignedCount } = useQuery({
     queryKey: ["unassigned-leads-count", organizationId],
     queryFn: async () => {
       if (!organizationId) return 0;
@@ -136,12 +136,49 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
     staleTime: 5 * 60 * 1000,
   });
 
-  // Verificar se alguma roleta tem TODOS os agentes no limite de capacidade
+  // Verificar capacidade - otimizado: apenas agentes com capacity_enabled=true
   const { data: capacityAlerts } = useQuery({
     queryKey: ["capacity-alerts", organizationId],
     queryFn: async () => {
       if (!organizationId || !permissions.canManageAgentSettings) return [] as CapacityAlert[];
 
+      // Buscar apenas agentes com limite de capacidade ativo
+      const { data: cappedAgents } = await supabase
+        .from("agent_distribution_settings")
+        .select("user_id, max_capacity")
+        .eq("organization_id", organizationId)
+        .eq("is_active", true)
+        .eq("is_paused", false)
+        .eq("capacity_enabled", true);
+
+      if (!cappedAgents || cappedAgents.length === 0) return [] as CapacityAlert[];
+
+      // Batch: contar leads por agente em uma unica query
+      const agentIds = cappedAgents.map(a => a.user_id);
+      const { data: leadCounts } = await supabase
+        .from("leads")
+        .select("responsavel_user_id")
+        .eq("organization_id", organizationId)
+        .in("responsavel_user_id", agentIds);
+
+      // Contar por agente
+      const countMap = new Map<string, number>();
+      for (const row of (leadCounts || [])) {
+        const uid = row.responsavel_user_id;
+        countMap.set(uid, (countMap.get(uid) || 0) + 1);
+      }
+
+      // Verificar quais agentes estao no limite
+      const atCapacitySet = new Set<string>();
+      for (const agent of cappedAgents) {
+        if ((countMap.get(agent.user_id) || 0) >= agent.max_capacity) {
+          atCapacitySet.add(agent.user_id);
+        }
+      }
+
+      if (atCapacitySet.size === 0) return [] as CapacityAlert[];
+
+      // Buscar configs ativas
       const { data: activeConfigs } = await supabase
         .from("lead_distribution_configs")
         .select("id, name, source_type, eligible_agents")
@@ -150,45 +187,34 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
 
       if (!activeConfigs || activeConfigs.length === 0) return [] as CapacityAlert[];
 
-      const { data: agentSettings } = await supabase
+      // Buscar TODOS os agentes ativos (para saber o total por config)
+      const { data: allActiveAgents } = await supabase
         .from("agent_distribution_settings")
-        .select("user_id, max_capacity, is_active, is_paused")
+        .select("user_id")
         .eq("organization_id", organizationId)
         .eq("is_active", true)
         .eq("is_paused", false);
 
-      if (!agentSettings || agentSettings.length === 0) return [] as CapacityAlert[];
-
+      const allActiveIds = new Set((allActiveAgents || []).map(a => a.user_id));
       const alerts: CapacityAlert[] = [];
 
       for (const config of activeConfigs) {
         const eligibleIds: string[] = config.eligible_agents?.length > 0
-          ? config.eligible_agents
-          : agentSettings.map(a => a.user_id);
+          ? config.eligible_agents.filter((id: string) => allActiveIds.has(id))
+          : [...allActiveIds];
 
-        const eligibleAgents = agentSettings.filter(a => eligibleIds.includes(a.user_id));
-        if (eligibleAgents.length === 0) continue;
+        if (eligibleIds.length === 0) continue;
 
-        let atCapacityCount = 0;
-        for (const agent of eligibleAgents) {
-          const { count } = await supabase
-            .from("leads")
-            .select("id", { count: "exact", head: true })
-            .eq("responsavel_user_id", agent.user_id)
-            .eq("organization_id", organizationId);
-
-          if ((count || 0) >= agent.max_capacity) {
-            atCapacityCount++;
-          }
-        }
-
-        if (atCapacityCount === eligibleAgents.length) {
+        const cappedInConfig = eligibleIds.filter(id => atCapacitySet.has(id));
+        // Só alertar se TODOS os agentes elegíveis com limite estão no limite
+        // e pelo menos metade dos agentes estão no limite
+        if (cappedInConfig.length > 0 && cappedInConfig.length === eligibleIds.filter(id => cappedAgents.some(a => a.user_id === id)).length) {
           alerts.push({
             configId: config.id,
             configName: config.name,
             sourceType: config.source_type,
-            totalAgents: eligibleAgents.length,
-            agentsAtCapacity: atCapacityCount,
+            totalAgents: eligibleIds.length,
+            agentsAtCapacity: cappedInConfig.length,
           });
         }
       }
@@ -338,6 +364,11 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
     setEditingConfig(null);
   };
 
+  // Progress bar percentage
+  const progressPercent = progress.total > 0
+    ? Math.min(Math.round((progress.processed / progress.total) * 100), 100)
+    : 0;
+
   if (isLoading) {
     return <LoadingAnimation text="Carregando roletas" />;
   }
@@ -357,9 +388,9 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
         </Button>
       </div>
 
-      {/* Secao de leads sem responsavel */}
-      {unassignedCount !== undefined && unassignedCount > 0 && (
-        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+      {/* Secao de leads sem responsavel + barra de progresso */}
+      {(unassignedCount !== undefined && unassignedCount > 0) || progress.isRunning ? (
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 overflow-hidden">
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -369,40 +400,75 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                 <div>
                   <p className="font-medium text-amber-800 dark:text-amber-200">
                     {progress.isRunning
-                      ? `Redistribuindo leads...`
+                      ? `Redistribuindo leads... ${progress.processed} de ${progress.total}`
                       : `${unassignedCount} lead${unassignedCount !== 1 ? "s" : ""} sem responsavel`
                     }
                   </p>
                   <p className="text-sm text-amber-600 dark:text-amber-400">
                     {progress.isRunning
-                      ? "Por favor, aguarde..."
+                      ? "Por favor, aguarde enquanto os leads sao distribuidos..."
                       : "Leads que entraram no CRM mas nao foram distribuidos"
                     }
                   </p>
                 </div>
               </div>
-              {progress.isRunning ? (
-                <div className="flex items-center gap-3">
-                  {/* Indicador de loading */}
-                  <RefreshCw className="h-5 w-5 text-amber-600 dark:text-amber-400 animate-spin" />
-                  <span className="text-sm text-amber-600 dark:text-amber-400">
-                    Processando...
-                  </span>
-                </div>
-              ) : (
+              {!progress.isRunning && (
                 <Button
                   onClick={() => setRouletteDialogOpen(true)}
                   disabled={redistributeMutation.isPending}
                   className="bg-amber-600 hover:bg-amber-700 text-white"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${redistributeMutation.isPending ? "animate-spin" : ""}`} />
-                  {redistributeMutation.isPending ? "Redistribuindo..." : "Redistribuir agora"}
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Redistribuir agora
                 </Button>
               )}
             </div>
+
+            {/* Barra de progresso animada */}
+            {progress.isRunning && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-amber-700 dark:text-amber-300 font-medium">
+                    {progressPercent}%
+                  </span>
+                  <span className="text-amber-600 dark:text-amber-400">
+                    {progress.processed} de {progress.total} leads redistribuidos
+                  </span>
+                </div>
+                <div className="w-full bg-amber-200 dark:bg-amber-900 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="bg-amber-500 h-3 rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                    style={{ width: `${progressPercent}%` }}
+                  >
+                    {/* Efeito de brilho animado */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+                      style={{
+                        animation: 'shimmer 1.5s infinite',
+                        transform: 'translateX(-100%)',
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 animate-spin" />
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    Processando em lotes de 200 leads...
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Resultado final */}
+            {!progress.isRunning && progress.processed > 0 && (
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-sm text-green-700 dark:text-green-400 font-medium">
+                  ✓ {progress.processed} leads redistribuidos com sucesso!
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       <div className="grid gap-4">
         {configs?.length === 0 ? (
@@ -529,7 +595,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
         onConfirm={handleRedistributeConfirm}
         isPending={redistributeMutation.isPending}
         showAutoOption={true}
-        title="Redistribuir Leads sem Responsável"
+        title="Redistribuir Leads sem Responsavel"
         description="Escolha qual roleta usar para redistribuir os leads."
       />
 
@@ -540,7 +606,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
         organizationId={organizationId}
       />
 
-      {/* Modal de alerta de capacidade - visível apenas para admin/owner */}
+      {/* Modal de alerta de capacidade - visivel apenas para admin/owner */}
       <Dialog open={capacityAlertOpen} onOpenChange={setCapacityAlertOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -549,8 +615,8 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
               Alerta de Capacidade
             </DialogTitle>
             <DialogDescription>
-              Todos os agentes de uma ou mais roletas estão na capacidade máxima.
-              Novos leads não estão sendo distribuídos.
+              Alguns agentes com limite ativo estao na capacidade maxima.
+              Novos leads podem nao ser distribuidos para eles.
             </DialogDescription>
           </DialogHeader>
 
@@ -562,7 +628,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                   Canal: {getSourceTypeLabel(alert.sourceType)}
                 </p>
                 <p className="text-sm text-destructive font-medium mt-1">
-                  {alert.agentsAtCapacity}/{alert.totalAgents} agentes na capacidade máxima
+                  {alert.agentsAtCapacity}/{alert.totalAgents} agentes na capacidade maxima
                 </p>
               </div>
             ))}
@@ -570,21 +636,21 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
             {unassignedCount !== undefined && unassignedCount > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3">
                 <p className="font-medium text-amber-800 dark:text-amber-200">
-                  {unassignedCount} leads sem responsável acumulados
+                  {unassignedCount} leads sem responsavel acumulados
                 </p>
                 <p className="text-sm text-amber-600 dark:text-amber-400">
-                  Estes leads não estão sendo distribuídos porque todos os agentes estão lotados.
+                  Estes leads nao estao sendo distribuidos porque os agentes com limite estao lotados.
                 </p>
               </div>
             )}
           </div>
 
           <div className="space-y-2 pt-2">
-            <p className="text-sm font-medium">Ações sugeridas:</p>
+            <p className="text-sm font-medium">Acoes sugeridas:</p>
             <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
-              <li>Aumentar a capacidade máxima dos agentes nas Configurações de Agente</li>
-              <li>Adicionar mais colaboradores à equipe</li>
-              <li>Mover leads já atendidos para "Ganho" ou "Perda" para liberar vagas</li>
+              <li>Aumentar a capacidade maxima ou desativar o limite nas Configuracoes de Agente</li>
+              <li>Adicionar mais colaboradores a equipe</li>
+              <li>Mover leads ja atendidos para "Ganho" ou "Perda" para liberar vagas</li>
             </ul>
           </div>
 
@@ -597,7 +663,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                 setCapacityAlertOpen(false);
                 onNavigateToAgentSettings();
               }}>
-                Configurações de Agente
+                Configuracoes de Agente
               </Button>
             )}
           </DialogFooter>

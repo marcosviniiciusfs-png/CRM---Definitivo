@@ -407,7 +407,7 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
       return [];
     }
 
-    // Criar settings virtuais com valores padrão
+    // Criar settings virtuais com valores padrão (sem limite de capacidade)
     settings = orgMembers.map((m: any) => ({
       user_id: m.user_id,
       organization_id,
@@ -415,6 +415,7 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
       is_paused: false,
       max_capacity: 999,
       priority_weight: 1,
+      capacity_enabled: false,
       pause_until: null,
       working_hours: null,
     }));
@@ -490,10 +491,13 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
 
     const currentLoad = (leadsByUuid?.length || 0) + leadsByNameCount;
     const agentName = profile?.full_name || member?.email;
-    console.log(`Agent ${agentName} (${agent.user_id}): ${currentLoad}/${agent.max_capacity} leads`);
 
-    if (currentLoad >= agent.max_capacity) {
-      console.log(`Agent at capacity, skipping`);
+    // Só verificar capacidade se capacity_enabled estiver ativo
+    const capacityEnabled = agent.capacity_enabled === true;
+    console.log(`Agent ${agentName} (${agent.user_id}): ${currentLoad}/${agent.max_capacity} leads (capacity_enabled: ${capacityEnabled})`);
+
+    if (capacityEnabled && currentLoad >= agent.max_capacity) {
+      console.log(`Agent at capacity (limit active), skipping`);
       continue;
     }
 

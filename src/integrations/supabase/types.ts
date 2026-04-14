@@ -64,6 +64,7 @@ export type Database = {
       }
       agent_distribution_settings: {
         Row: {
+          capacity_enabled: boolean | null
           created_at: string
           id: string
           is_active: boolean
@@ -78,6 +79,7 @@ export type Database = {
           working_hours: Json | null
         }
         Insert: {
+          capacity_enabled?: boolean | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -92,6 +94,7 @@ export type Database = {
           working_hours?: Json | null
         }
         Update: {
+          capacity_enabled?: boolean | null
           created_at?: string
           id?: string
           is_active?: boolean

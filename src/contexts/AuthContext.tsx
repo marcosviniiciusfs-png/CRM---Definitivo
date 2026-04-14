@@ -364,16 +364,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted) return;
 
         logger.log('[AUTH] Auth state change:', event, 'user:', session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
 
         // TOKEN_REFRESHED: keep existing data, don't reset anything
         if (event === 'TOKEN_REFRESHED') {
-          logger.log('[AUTH] Token refreshed, keeping existing state');
+          setSession(session);
+          setUser(session?.user ?? null);
           return;
         }
 
-        if (event === 'SIGNED_IN' && session?.user && session?.access_token) {
+        // INITIAL_SESSION: fires on tab open/focus. Skip if same user already loaded.
+        if (event === 'INITIAL_SESSION') {
+          if (session?.user && user?.id === session.user.id && subscriptionFetchedRef.current) {
+            // Same session already loaded - just update tokens, no data reload
+            setSession(session);
+            setUser(session.user);
+            return;
+          }
+          // First load or different user - proceed normally
+          setSession(session);
+          setUser(session?.user ?? null);
+          if (!session?.user) {
+            setLoading(false);
+          }
+          // Fall through to SIGNED_IN handling below
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
+
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && session?.access_token) {
           checkSuperAdmin(session.user.id);
           setTimeout(() => logUserSession(session.user.id, true), 0);
 
