@@ -251,33 +251,23 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       ref={setNodeRef}
       style={style}
       {...attributes}
+      {...listeners}
       data-dragging={dragging}
       className={cn(
         "lead-card rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
-        dragging && "cursor-grabbing",
+        dragging && "cursor-grabbing border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]",
         dragging
           ? "transition-none"
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
-        hasRedBorder && !dragging
+        !dragging && hasRedBorder
           ? "border-border animate-glow-pulse"
-          : isRedistributed && !dragging
+          : !dragging && isRedistributed
           ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
-          : isDuplicate && !dragging
+          : !dragging && isDuplicate
           ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
-          : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
+          : !dragging && "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
       )}
     >
-      {/* Drag handle - visible on mobile */}
-      {listeners && (
-        <button
-          {...listeners}
-          style={{ touchAction: 'none' }}
-          className="absolute top-0 right-0 z-10 p-2 sm:p-1.5 rounded-bl-lg bg-muted/60 hover:bg-muted text-muted-foreground active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-          title="Segurar para arrastar"
-        >
-          <GripVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-        </button>
-      )}
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
           <LazyAvatar
@@ -593,9 +583,11 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
   const style: CSSProperties = {
     transform: DndCSS.Transform.toString(transform),
     transition: props.isDraggingActive ? "none" : transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
     willChange: transform ? "transform" : undefined,
     cursor: isDragging ? "grabbing" : "grab",
+    outline: isDragging ? "2px solid rgb(239, 68, 68)" : undefined,
+    outlineOffset: "2px",
   };
 
   return (

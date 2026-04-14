@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
@@ -293,13 +294,13 @@ const Pipeline = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: isMobile ? 40 : 8,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 250,
-        tolerance: 8,
+        tolerance: 10,
       },
     })
   );
@@ -1920,9 +1921,11 @@ const Pipeline = () => {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             sensors={sensors}
+            modifiers={isMobile ? [restrictToVerticalAxis] : undefined}
           >
             <div
               data-dragging-active={isDraggingActive}
+              style={isMobile ? { touchAction: 'pan-y' } : undefined}
             >
               {allFunnels.length > 0 ? (
                 <Tabs
@@ -1986,7 +1989,7 @@ const Pipeline = () => {
                       onScroll={handleScrollContainerScroll}
                       className={cn(
                         "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                        isMobile && "!flex-col !overflow-x-visible gap-4",
+                        isMobile && "!flex-col !overflow-x-hidden !overflow-y-auto gap-4",
                         isTabTransitioning && "transitioning"
                       )}
                       data-dragging-active={isDraggingActive}
@@ -2026,7 +2029,7 @@ const Pipeline = () => {
                   onScroll={handleScrollContainerScroll}
                   className={cn(
                     "flex gap-3 overflow-x-auto pb-4 scrollbar-hide pipeline-content",
-                    isMobile && "!flex-col !overflow-x-visible gap-4",
+                    isMobile && "!flex-col !overflow-x-hidden !overflow-y-auto gap-4",
                     isTabTransitioning && "transitioning"
                   )}
                   data-dragging-active={isDraggingActive}
@@ -2063,6 +2066,10 @@ const Pipeline = () => {
 
             <DragOverlay dropAnimation={null}>
               {activeLead ? (
+                <div className={cn(
+                  "rounded-[10px] overflow-hidden",
+                  isMobile && "border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
+                )}>
                 <LeadCard
                   id={activeLead.id}
                   name={activeLead.nome_lead}
@@ -2077,6 +2084,7 @@ const Pipeline = () => {
                   leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
                   leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
                 />
+                </div>
               ) : null}
             </DragOverlay>
           </DndContext>
