@@ -54,10 +54,10 @@ export function MobilePipelineView({
   };
 
   return (
-    <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 180px)' }}>
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)', overflow: 'hidden' }}>
       {/* Tabs de funil */}
       {allFunnels.length > 1 && (
-        <div className="flex overflow-x-auto scrollbar-hide border-b border-border">
+        <div className="flex overflow-x-auto scrollbar-hide border-b border-border flex-shrink-0">
           {allFunnels.map(f => (
             <button
               key={f.id}
@@ -78,8 +78,7 @@ export function MobilePipelineView({
       {/* Pills de etapas - scroll horizontal apenas aqui */}
       <div
         ref={tabsRef}
-        className="flex overflow-x-auto scrollbar-hide gap-2 px-4 py-3 border-b border-border"
-        style={{ touchAction: 'pan-x' }}
+        className="flex overflow-x-auto scrollbar-hide gap-2 px-4 py-3 border-b border-border flex-shrink-0"
       >
         {stages.map(stage => {
           const count = leadsByStage.get(stage.id)?.length || 0;
@@ -117,10 +116,13 @@ export function MobilePipelineView({
         })}
       </div>
 
-      {/* Lista de leads da etapa ativa */}
+      {/* Lista de leads da etapa ativa - scroll vertical */}
       <div
         className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
-        style={{ touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehaviorY: 'contain',
+        }}
       >
         {activeLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
