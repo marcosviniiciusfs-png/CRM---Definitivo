@@ -63,7 +63,7 @@ export const PipelineColumn = memo(({
   const isHexColor = (color: string) => color?.startsWith('#');
 
   return (
-    <div className="flex flex-col w-full sm:w-[260px] md:w-[300px] lg:w-[320px] flex-shrink-0 sm:flex-shrink min-h-[200px] sm:min-h-[400px] md:min-h-[500px]" style={{ contain: "content" }}>
+    <div className="flex flex-col w-full sm:w-[260px] md:w-[300px] lg:w-[320px] flex-shrink-0 sm:flex-shrink min-h-[120px] sm:min-h-[400px] md:min-h-[500px]" style={{ contain: "content" }}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge
@@ -87,7 +87,7 @@ export const PipelineColumn = memo(({
         <div
           ref={setNodeRef}
           className={cn(
-            "pipeline-column space-y-2 min-h-[100px] sm:min-h-[200px] max-h-[300px] sm:max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg scrollbar-hide",
+            "pipeline-column space-y-2 min-h-[60px] sm:min-h-[200px] max-h-[50vh] sm:max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg scrollbar-hide",
             !isDraggingActive && "transition-colors duration-200",
             isOver && "bg-muted/50 ring-2 ring-primary/20"
           )}

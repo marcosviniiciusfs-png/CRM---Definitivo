@@ -271,12 +271,11 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
       {listeners && (
         <button
           {...listeners}
-          className="absolute top-0 right-0 z-10 p-1.5 rounded-bl-lg bg-muted/50 hover:bg-muted text-muted-foreground active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+          style={{ touchAction: 'none' }}
+          className="absolute top-0 right-0 z-10 p-2 sm:p-1.5 rounded-bl-lg bg-muted/60 hover:bg-muted text-muted-foreground active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
           title="Segurar para arrastar"
-          onPointerDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-5 w-5 sm:h-4 sm:w-4" />
         </button>
       )}
       <div className="p-1.5">

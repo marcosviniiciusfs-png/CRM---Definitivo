@@ -298,7 +298,7 @@ const Pipeline = () => {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 500,
+        delay: 250,
         tolerance: 8,
       },
     })
@@ -1922,7 +1922,6 @@ const Pipeline = () => {
             sensors={sensors}
           >
             <div
-              style={{ touchAction: 'none' }}
               data-dragging-active={isDraggingActive}
             >
               {allFunnels.length > 0 ? (
