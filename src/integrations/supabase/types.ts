@@ -1248,6 +1248,7 @@ export type Database = {
           description: string | null
           distribution_method: string
           eligible_agents: string[] | null
+          filter_rules: Json | null
           funnel_id: string | null
           funnel_stage_id: string | null
           id: string
@@ -1255,6 +1256,7 @@ export type Database = {
           name: string
           organization_id: string
           redistribution_timeout_minutes: number | null
+          smart_rules: Json | null
           source_identifiers: Json | null
           source_type: string
           team_id: string | null
@@ -1267,6 +1269,7 @@ export type Database = {
           description?: string | null
           distribution_method?: string
           eligible_agents?: string[] | null
+          filter_rules?: Json | null
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string
@@ -1274,6 +1277,7 @@ export type Database = {
           name?: string
           organization_id: string
           redistribution_timeout_minutes?: number | null
+          smart_rules?: Json | null
           source_identifiers?: Json | null
           source_type?: string
           team_id?: string | null
@@ -1286,6 +1290,7 @@ export type Database = {
           description?: string | null
           distribution_method?: string
           eligible_agents?: string[] | null
+          filter_rules?: Json | null
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string
@@ -1293,6 +1298,7 @@ export type Database = {
           name?: string
           organization_id?: string
           redistribution_timeout_minutes?: number | null
+          smart_rules?: Json | null
           source_identifiers?: Json | null
           source_type?: string
           team_id?: string | null
@@ -1525,6 +1531,7 @@ export type Database = {
           last_duplicate_attempt_at: string | null
           last_message_at: string | null
           last_seen: string | null
+          lead_score: number
           nome_lead: string
           organization_id: string | null
           position: number | null
@@ -1558,6 +1565,7 @@ export type Database = {
           last_duplicate_attempt_at?: string | null
           last_message_at?: string | null
           last_seen?: string | null
+          lead_score?: number
           nome_lead: string
           organization_id?: string | null
           position?: number | null
@@ -1591,6 +1599,7 @@ export type Database = {
           last_duplicate_attempt_at?: string | null
           last_message_at?: string | null
           last_seen?: string | null
+          lead_score?: number
           nome_lead?: string
           organization_id?: string | null
           position?: number | null

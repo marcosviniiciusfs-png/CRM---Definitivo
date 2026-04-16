@@ -34,7 +34,7 @@ serve(async (req) => {
     // 1. Buscar lead para identificar o source e o funil atual
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('source, funnel_id')
+      .select('source, funnel_id, telefone_lead, email, nome_lead, lead_score')
       .eq('id', lead_id)
       .single();
 
@@ -44,6 +44,18 @@ serve(async (req) => {
         JSON.stringify({ success: false, message: 'Lead not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       );
+    }
+
+    // Calculate lead score if not already set
+    if (!lead.lead_score || lead.lead_score === 0) {
+      const score = calculateLeadScore({
+        telefone_lead: lead.telefone_lead,
+        email: lead.email,
+        source: lead.source,
+        nome_lead: lead.nome_lead,
+      });
+      await supabase.from('leads').update({ lead_score: score }).eq('id', lead_id);
+      console.log(`Calculated lead_score: ${score}`);
     }
 
     // 2. Buscar configuração da roleta usando hierarquia de especificidade:
@@ -187,6 +199,20 @@ serve(async (req) => {
         JSON.stringify({ success: false, message: 'Distribution not configured or not active' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // 2.5. Evaluate filter_rules against lead
+    const filterRules = config.filter_rules as any;
+    if (filterRules?.conditions?.length > 0) {
+      const passesFilter = evaluateFilterRules(filterRules, lead);
+      if (!passesFilter) {
+        console.log(`Lead does not pass filter rules for config "${config.name}", skipping`);
+        return new Response(
+          JSON.stringify({ success: false, message: 'Lead filtered out by distribution rules' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log(`Lead passes filter rules for config "${config.name}"`);
     }
 
     // 3. Mapear trigger_source para tipo de trigger correto
@@ -615,4 +641,45 @@ function selectLoadBased(agents: any[]) {
 
 function selectRandom(agents: any[]) {
   return agents[Math.floor(Math.random() * agents.length)];
+}
+
+function calculateLeadScore(input: { telefone_lead?: string; email?: string; source?: string; nome_lead?: string }): number {
+  let score = 0;
+  if (input.telefone_lead && input.telefone_lead.replace(/\D/g, '').length >= 10) score += 30;
+  if (input.email && input.email.includes('@')) score += 20;
+  if (input.source === 'facebook') score += 20;
+  if (input.source === 'formulario' || input.source === 'site') score += 15;
+  if (input.nome_lead && input.nome_lead.trim().split(/\s+/).length >= 2) score += 15;
+  return Math.min(score, 100);
+}
+
+function evaluateFilterRules(rules: any, lead: any): boolean {
+  const { logic, conditions } = rules;
+  if (!conditions?.length) return true;
+
+  const results = conditions.map((cond: any) => {
+    const { field, operator, value } = cond;
+    const leadValue = getLeadFieldValue(field, lead);
+
+    switch (operator) {
+      case 'equals': return String(leadValue) === String(value);
+      case 'not_equals': return String(leadValue) !== String(value);
+      case 'gte': return Number(leadValue) >= Number(value);
+      case 'lte': return Number(leadValue) <= Number(value);
+      case 'exists': return leadValue !== null && leadValue !== undefined && leadValue !== '';
+      default: return true;
+    }
+  });
+
+  return logic === 'OR' ? results.some(Boolean) : results.every(Boolean);
+}
+
+function getLeadFieldValue(field: string, lead: any): any {
+  switch (field) {
+    case 'source_type': return lead.source || '';
+    case 'lead_score': return lead.lead_score || 0;
+    case 'telefone_lead': return lead.telefone_lead || '';
+    case 'email_lead': return lead.email || '';
+    default: return null;
+  }
 }

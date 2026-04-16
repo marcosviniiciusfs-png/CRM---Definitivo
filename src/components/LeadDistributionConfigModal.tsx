@@ -14,6 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle } from "lucide-react";
 import { toast } from "sonner";
+import { FilterRuleBuilder } from "./distribution/FilterRuleBuilder";
+import type { FilterRules } from "./distribution/FilterRuleChips";
 
 interface DistributionConfig {
   id: string;
@@ -98,6 +100,7 @@ export function LeadDistributionConfigModal({
     team_id: "" as string,
     funnel_id: "" as string,
     funnel_stage_id: "" as string,
+    filter_rules: { logic: 'AND' as const, conditions: [] } as FilterRules,
   });
 
   // Buscar equipes da organização
@@ -227,6 +230,9 @@ export function LeadDistributionConfigModal({
         team_id: config.team_id || "",
         funnel_id: config.funnel_id || "",
         funnel_stage_id: config.funnel_stage_id || "",
+        filter_rules: (config as any).filter_rules && typeof (config as any).filter_rules === 'object'
+          ? (config as any).filter_rules
+          : { logic: 'AND', conditions: [] } as FilterRules,
       });
     } else {
       setFormData({
@@ -254,6 +260,7 @@ export function LeadDistributionConfigModal({
       const payload = {
         ...formData,
         organization_id: organizationId,
+        filter_rules: formData.filter_rules,
         team_id: formData.team_id === "" ? null : formData.team_id,
         funnel_id: formData.funnel_id === "" ? null : formData.funnel_id,
         funnel_stage_id: formData.funnel_stage_id === "" ? null : formData.funnel_stage_id,
@@ -617,6 +624,14 @@ export function LeadDistributionConfigModal({
                 />
               </div>
             )}
+
+            <Separator />
+
+            {/* Filter Rules */}
+            <FilterRuleBuilder
+              value={formData.filter_rules}
+              onChange={(rules) => setFormData({ ...formData, filter_rules: rules })}
+            />
 
             <Separator />
 

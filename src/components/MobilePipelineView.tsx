@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { Lead } from '@/types/chat';
 import { MobileLeadCard } from './MobileLeadCard';
 import { MoveStageSheet } from './MoveStageSheet';
@@ -32,6 +32,46 @@ export function MobilePipelineView({
   const [moveSheetLead, setMoveSheetLead] = useState<Lead | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState<number>(400);
+
+  // Medir dinamicamente a altura disponível baseado na posição real do elemento
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const bottomMargin = 0;
+        const vh = window.visualViewport?.height || window.innerHeight;
+        const available = vh - rect.top - bottomMargin;
+        setContainerHeight(Math.max(available, 200));
+      }
+    };
+
+    measure();
+
+    window.addEventListener('resize', measure);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', measure);
+    }
+
+    // Multiple re-measure passes to capture late layout changes on mobile
+    const timers = [setTimeout(measure, 100), setTimeout(measure, 300), setTimeout(measure, 600)];
+
+    return () => {
+      window.removeEventListener('resize', measure);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', measure);
+      }
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  // Resetar stage ativa quando stages mudam (troca de funil)
+  useEffect(() => {
+    if (stages.length > 0 && !stages.find(s => s.id === activeStageId)) {
+      setActiveStageId(stages[0].id);
+    }
+  }, [stages]);
 
   const activeLeads = leadsByStage.get(activeStageId) || [];
   const isHexColor = (c: string) => c?.startsWith('#');
@@ -53,8 +93,18 @@ export function MobilePipelineView({
     tabEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   };
 
+  const pagination = stagePagination[activeStageId];
+  // Fallback robusto: se pagination existe, usar hasMore. Se não, checar se temos >= PAGE_SIZE leads
+  const hasMore = pagination != null
+    ? pagination.hasMore
+    : activeLeads.length >= 20;
+
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)', overflow: 'hidden' }}>
+    <div
+      ref={containerRef}
+      className="flex flex-col"
+      style={{ height: containerHeight, overflow: 'hidden' }}
+    >
       {/* Tabs de funil */}
       {allFunnels.length > 1 && (
         <div className="flex overflow-x-auto scrollbar-hide border-b border-border flex-shrink-0">
@@ -118,10 +168,12 @@ export function MobilePipelineView({
 
       {/* Lista de leads da etapa ativa - scroll vertical */}
       <div
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+        className="flex-1 overflow-y-auto px-4 pt-3 space-y-3"
         style={{
           WebkitOverflowScrolling: 'touch',
           overscrollBehaviorY: 'contain',
+          minHeight: 0,
+          paddingBottom: 'max(80px, env(safe-area-inset-bottom, 0px))',
         }}
       >
         {activeLeads.length === 0 ? (
@@ -131,40 +183,52 @@ export function MobilePipelineView({
             <p className="text-sm mt-1">Adicione um lead ou mova um existente para cá</p>
           </div>
         ) : (
-          activeLeads.map(lead => {
-            const profile = lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id] : undefined;
-            return (
-              <MobileLeadCard
-                key={lead.id}
-                lead={lead}
-                stages={stages}
-                currentStageId={activeStageId}
-                onEdit={() => onEdit(lead)}
-                onDelete={() => onDelete(lead)}
-                onMoveRequest={() => setMoveSheetLead(lead)}
-                responsavelName={profile?.full_name || (lead as any).responsavel}
-                responsavelAvatarUrl={profile?.avatar_url}
-                tags={leadTagsMap[lead.id] || []}
-                isDuplicate={duplicateLeadIds.has(lead.id)}
-                agendamentos={agendamentosMap[lead.id]}
-                isRedistributed={!!redistributedMap[lead.id]}
-                redistributedFromName={redistributedMap[lead.id]?.fromName}
-              />
-            );
-          })
-        )}
+          <>
+            {activeLeads.map(lead => {
+              const profile = lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id] : undefined;
+              return (
+                <MobileLeadCard
+                  key={lead.id}
+                  lead={lead}
+                  stages={stages}
+                  currentStageId={activeStageId}
+                  onEdit={() => onEdit(lead)}
+                  onDelete={() => onDelete(lead)}
+                  onMoveRequest={() => setMoveSheetLead(lead)}
+                  responsavelName={profile?.full_name || (lead as any).responsavel}
+                  responsavelAvatarUrl={profile?.avatar_url}
+                  tags={leadTagsMap[lead.id] || []}
+                  isDuplicate={duplicateLeadIds.has(lead.id)}
+                  agendamentos={agendamentosMap[lead.id]}
+                  isRedistributed={!!redistributedMap[lead.id]}
+                  redistributedFromName={redistributedMap[lead.id]?.fromName}
+                />
+              );
+            })}
 
-        {/* Botão carregar mais */}
-        {stagePagination[activeStageId]?.hasMore && (
-          <button
-            onClick={() => onLoadMore(activeStageId)}
-            disabled={stagePagination[activeStageId]?.isLoading}
-            className="w-full py-3 text-sm text-muted-foreground border border-dashed border-muted-foreground/30 rounded-lg hover:border-primary/50 hover:text-primary transition-colors disabled:opacity-50"
-          >
-            {stagePagination[activeStageId]?.isLoading
-              ? 'Carregando...'
-              : `Ver mais leads (${stagePagination[activeStageId].totalCount - stagePagination[activeStageId].loadedCount} restantes)`}
-          </button>
+            {/* Botão carregar mais ou indicador de fim da lista */}
+            <div className="flex-shrink-0 pb-2">
+              {hasMore ? (
+                <button
+                  onClick={() => onLoadMore(activeStageId)}
+                  disabled={pagination?.isLoading}
+                  className="w-full py-3 px-4 mt-2 text-sm text-muted-foreground border border-dashed border-muted-foreground/30 rounded-lg hover:border-primary/50 hover:text-primary transition-colors disabled:opacity-50 active:scale-[0.98]"
+                >
+                  {pagination?.isLoading
+                    ? 'Carregando...'
+                    : pagination && pagination.totalCount > pagination.loadedCount
+                      ? `Ver mais leads (${pagination.totalCount - pagination.loadedCount} restantes)`
+                      : 'Ver mais leads'}
+                </button>
+              ) : activeLeads.length > 0 ? (
+                <p className="text-center text-xs text-muted-foreground/50 pt-2 pb-1">
+                  {pagination?.totalCount
+                    ? `${pagination.totalCount} lead${pagination.totalCount !== 1 ? 's' : ''} nesta etapa`
+                    : `${activeLeads.length} lead${activeLeads.length !== 1 ? 's' : ''} nesta etapa`}
+                </p>
+              ) : null}
+            </div>
+          </>
         )}
       </div>
 

@@ -9,6 +9,7 @@ import { FunnelConfigDialog } from "@/components/FunnelConfigDialog";
 import { Badge } from "@/components/ui/badge";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,21 +33,19 @@ interface Funnel {
 
 const FunnelBuilder = () => {
   const navigate = useNavigate();
-  // organizationId já disponível via contexto — sem precisar de query extra
   const { organizationId, isReady } = useOrganizationReady();
+  const queryClient = useQueryClient();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingFunnel, setEditingFunnel] = useState<Funnel | null>(null);
   const [deletingFunnel, setDeletingFunnel] = useState<Funnel | null>(null);
   const [duplicatingFunnelId, setDuplicatingFunnelId] = useState<string | null>(null);
 
-  // Usa useCallback para poder referenciar de fora do useEffect sem problemas
-  const loadFunnels = useCallback(async () => {
-    if (!organizationId) return;
-    setLoading(true);
-    try {
-      // Uma única query — organizationId já disponível, sem waterfall
+  // Cache de funis com React Query (5 min)
+  const { isLoading } = useQuery({
+    queryKey: ['funnel-builder', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
       const { data, error } = await supabase
         .from("sales_funnels")
         .select(`
@@ -56,22 +55,23 @@ const FunnelBuilder = () => {
         .eq("organization_id", organizationId)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
-
       if (error) throw error;
-      setFunnels(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar funis:", error);
-      toast.error("Erro ao carregar funis");
-    } finally {
-      setLoading(false);
-    }
-  }, [organizationId]);
+      return data || [];
+    },
+    enabled: !!organizationId && isReady,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+  });
 
-  // Só carrega quando auth + org estiverem prontos
+  // Sincronizar cache com estado local
   useEffect(() => {
-    if (!isReady || !organizationId) return;
-    loadFunnels();
-  }, [isReady, organizationId, loadFunnels]);
+    const cached = queryClient.getQueryData<Funnel[]>(['funnel-builder', organizationId]);
+    if (cached) setFunnels(cached);
+  }, [isLoading, organizationId, queryClient]);
+
+  const refreshFunnels = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['funnel-builder', organizationId] });
+  }, [organizationId, queryClient]);
 
   const handleDelete = async () => {
     if (!deletingFunnel) return;
@@ -104,7 +104,7 @@ const FunnelBuilder = () => {
       if (error) throw error;
 
       toast.success("Funil excluído com sucesso!");
-      loadFunnels();
+      refreshFunnels();
     } catch (error) {
       console.error("Erro ao excluir funil:", error);
       toast.error("Erro ao excluir funil");
@@ -164,7 +164,7 @@ const FunnelBuilder = () => {
       }
 
       toast.success(`Funil "${funnel.name}" duplicado com sucesso!`);
-      loadFunnels();
+      refreshFunnels();
     } catch (error) {
       console.error("Erro ao duplicar funil:", error);
       toast.error("Erro ao duplicar funil");
@@ -183,7 +183,7 @@ const FunnelBuilder = () => {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 min-w-0 overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3 sm:gap-4">
           <Button
@@ -209,7 +209,7 @@ const FunnelBuilder = () => {
         </Button>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
@@ -301,7 +301,7 @@ const FunnelBuilder = () => {
         }}
         funnel={editingFunnel}
         onSuccess={() => {
-          loadFunnels();
+          refreshFunnels();
           setShowDialog(false);
           setEditingFunnel(null);
         }}

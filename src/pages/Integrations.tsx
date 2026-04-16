@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { WebhookIntegrationsTab } from "@/components/WebhookIntegrationsTab";
@@ -551,98 +552,88 @@ const Integrations = () => {
   const [fbKey, setFbKey] = useState(0); // force remount on dialog open
   const [metaPixelActive, setMetaPixelActive] = useState(false);
 
-  // ── Dados carregados em paralelo uma única vez ──
+  // ── Dados carregados via React Query com cache (5 min) ──
   const [dataLoading, setDataLoading] = useState(true);
   const [fbIntegration, setFbIntegration] = useState<any>(null);
   const [fbConfiguredForms, setFbConfiguredForms] = useState(0);
   const [waInstanceCount, setWaInstanceCount] = useState(0);
   const [waConnectedCount, setWaConnectedCount] = useState(0);
   const [waFunnelName, setWaFunnelName] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const loadAllData = useCallback(async () => {
-    if (!organizationId) return;
-    setDataLoading(true);
-    try {
+  const { isLoading: isIntegrationLoading } = useQuery({
+    queryKey: ['integrations', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
       // Carregar WhatsApp e Facebook em PARALELO (sem waterfall)
       const [waResult, fbResult] = await Promise.all([
-        // WhatsApp instances para esta org
-        supabase
-          .from("whatsapp_instances")
-          .select("status")
-          .eq("organization_id", organizationId),
-
-        // Facebook integration direta (sem RPC para o card de status)
-        supabase
-          .from("facebook_integrations")
-          .select("id, page_id, page_name, webhook_verified")
-          .eq("organization_id", organizationId)
-          .maybeSingle(),
+        supabase.from("whatsapp_instances").select("status").eq("organization_id", organizationId),
+        supabase.from("facebook_integrations").select("id, page_id, page_name, webhook_verified").eq("organization_id", organizationId).maybeSingle(),
       ]);
 
-      // WhatsApp — statuses can be "CONNECTED" (uppercase) or "open" (from Evolution API)
+      let instanceCount = 0, connectedCount = 0;
       if (waResult.data) {
-        setWaInstanceCount(waResult.data.length);
-        const connected = waResult.data.filter((i: any) => {
+        instanceCount = waResult.data.length;
+        connectedCount = waResult.data.filter((i: any) => {
           const s = (i.status || "").toLowerCase();
           return s === "connected" || s === "open";
-        });
-        setWaConnectedCount(connected.length);
+        }).length;
       }
 
-      // WhatsApp funnel mapping
       const { data: waMappingData } = await supabase
-        .from("funnel_source_mappings")
-        .select("funnel_id, sales_funnels(name)")
-        .eq("source_type", "whatsapp")
-        .maybeSingle();
-      if (waMappingData) {
-        const fName = (waMappingData as any)?.sales_funnels?.name;
-        setWaFunnelName(fName || null);
-      } else {
-        setWaFunnelName(null);
-      }
+        .from("funnel_source_mappings").select("funnel_id, sales_funnels(name)").eq("source_type", "whatsapp").maybeSingle();
 
-      // Facebook
       const fbData = fbResult.data;
-      setFbIntegration(fbData || null);
 
-      // Verificar se há pixel Meta configurado
       const { data: pixelData } = await supabase
-        .from("meta_pixel_integrations")
-        .select("id, is_active")
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-      setMetaPixelActive(!!(pixelData?.is_active));
+        .from("meta_pixel_integrations").select("id, is_active").eq("organization_id", organizationId).maybeSingle();
 
-      // Contar formulários configurados (somente se conectado)
+      let configuredForms = 0;
       if (fbData?.page_id) {
-        const { data: funnels } = await supabase
-          .from("sales_funnels")
-          .select("id")
-          .eq("organization_id", organizationId);
-
+        const { data: funnels } = await supabase.from("sales_funnels").select("id").eq("organization_id", organizationId);
         if (funnels && funnels.length > 0) {
           const funnelIds = funnels.map((f: any) => f.id);
-          // Filtrar apenas mapeamentos com source_identifier (form_id real do Facebook)
           const { count } = await supabase
-            .from("funnel_source_mappings")
-            .select("*", { count: "exact", head: true })
-            .eq("source_type", "facebook")
-            .not("source_identifier", "is", null)
-            .in("funnel_id", funnelIds);
-          setFbConfiguredForms(count || 0);
+            .from("funnel_source_mappings").select("*", { count: "exact", head: true })
+            .eq("source_type", "facebook").not("source_identifier", "is", null).in("funnel_id", funnelIds);
+          configuredForms = count || 0;
         }
       }
-    } catch (e) {
-      console.error("Erro ao carregar dados de integrações:", e);
-    } finally {
-      setDataLoading(false);
+
+      return {
+        waInstanceCount: instanceCount,
+        waConnectedCount: connectedCount,
+        waFunnelName: waMappingData ? (waMappingData as any)?.sales_funnels?.name || null : null,
+        fbIntegration: fbData || null,
+        fbConfiguredForms: configuredForms,
+        metaPixelActive: !!(pixelData?.is_active),
+      };
+    },
+    enabled: !!organizationId && isReady,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+  });
+
+  // Sincronizar cache com estados locais
+  useEffect(() => {
+    const cached = queryClient.getQueryData<any>(['integrations', organizationId]);
+    if (cached) {
+      setWaInstanceCount(cached.waInstanceCount);
+      setWaConnectedCount(cached.waConnectedCount);
+      setWaFunnelName(cached.waFunnelName);
+      setFbIntegration(cached.fbIntegration);
+      setFbConfiguredForms(cached.fbConfiguredForms);
+      setMetaPixelActive(cached.metaPixelActive);
     }
-  }, [organizationId]);
+    setDataLoading(isIntegrationLoading);
+  }, [isIntegrationLoading, organizationId, queryClient]);
+
+  const refreshIntegrations = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['integrations', organizationId] });
+  }, [organizationId, queryClient]);
 
   useEffect(() => {
     if (!isReady || !organizationId) return;
-    loadAllData();
 
     // Realtime: atualizar card WhatsApp quando status mudar
     const channel = supabase
@@ -650,12 +641,12 @@ const Integrations = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "whatsapp_instances", filter: `organization_id=eq.${organizationId}` },
-        () => { loadAllData(); }
+        () => { refreshIntegrations(); }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isReady, organizationId, loadAllData]);
+  }, [isReady, organizationId, refreshIntegrations]);
 
   // Popup detection - close OAuth popup immediately without rendering the full page
   if (typeof window !== 'undefined' && window.opener && (
@@ -728,6 +719,8 @@ const Integrations = () => {
           color: "#E8E8F0",
           fontFamily: "'DM Sans',system-ui,sans-serif",
           borderRadius: 8,
+          overflowX: "hidden",
+          minWidth: 0,
         }}
         className="p-4 sm:p-6 md:p-7"
       >
@@ -861,7 +854,7 @@ const Integrations = () => {
       {/* ── WhatsApp Management Dialog ── */}
       <Dialog open={showWhatsApp} onOpenChange={(open) => {
         setShowWhatsApp(open);
-        if (!open) loadAllData();
+        if (!open) refreshIntegrations();
       }}>
         <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <WhatsAppConnection />
@@ -871,7 +864,7 @@ const Integrations = () => {
       {/* ── Facebook Management Dialog ── */}
       <Dialog open={showFacebook} onOpenChange={(open) => {
         setShowFacebook(open);
-        if (!open) loadAllData();
+        if (!open) refreshIntegrations();
       }}>
         <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <FacebookLeadsConnection
@@ -884,7 +877,7 @@ const Integrations = () => {
       {/* ── Meta Conversions API Dialog ── */}
       <Dialog open={showMetaPixel} onOpenChange={(open) => {
         setShowMetaPixel(open);
-        if (!open) loadAllData();
+        if (!open) refreshIntegrations();
       }}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <MetaPixelConnection onBack={() => setShowMetaPixel(false)} />

@@ -296,7 +296,7 @@ export default function Ranking() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-w-0 w-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 border-b border-border">
         <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-400" />

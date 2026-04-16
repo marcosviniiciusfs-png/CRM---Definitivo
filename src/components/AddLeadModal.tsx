@@ -8,6 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { calculateLeadScore } from "@/lib/leadScoring";
 import {
   Select,
   SelectContent,
@@ -258,6 +259,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         empresa: empresa.trim() || null,
         idade: idade.trim() ? parseInt(idade) : null,
         source: finalSource,
+        lead_score: calculateLeadScore({ telefone_lead: telefone.trim(), email: email.trim(), source: finalSource, nome_lead: nome.trim() }),
         funnel_id: selectedFunnelId,
         funnel_stage_id: selectedStageId,
         stage: "NOVO",

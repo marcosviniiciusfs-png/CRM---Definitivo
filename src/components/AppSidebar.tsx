@@ -1,6 +1,7 @@
 import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -82,7 +83,7 @@ const bottomItems = [
 const SIDEBAR_LOCK_KEY = "sidebar-locked";
 
 function AppSidebarComponent() {
-  const { open, setOpen, isMobile } = useSidebar();
+  const { open, setOpen, isMobile, openMobile, setOpenMobile } = useSidebar();
 
   // On mobile (Sheet overlay), always treat sidebar as expanded for rendering
   const isOpen = isMobile ? true : open;
@@ -158,6 +159,17 @@ function AppSidebarComponent() {
     return saved === 'true';
   });
   const [administrativoOpen, setAdministrativoOpen] = useState(false);
+
+  // Fechar sidebar mobile ao navegar
+  const location = useLocation();
+  useEffect(() => {
+    if (isMobile && openMobile) {
+      // Delay suficiente para a navegação completar e não conflitar com animação
+      const timer = setTimeout(() => setOpenMobile(false), 250);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname, isMobile, setOpenMobile]);
+
   // Persistir estado de bloqueio no localStorage
   useEffect(() => {
     localStorage.setItem(SIDEBAR_LOCK_KEY, String(isLocked));

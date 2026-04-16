@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
     // Primeiro buscar a integração principal
     const { data: integration, error: integrationError } = await supabase
       .from('facebook_integrations')
-      .select('id, access_token, ad_account_id, ad_accounts, business_id')
+      .select('id, ad_account_id, ad_accounts, business_id')
       .eq('organization_id', organization_id)
       .single();
 
@@ -347,13 +347,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fallback 2: token legado na tabela principal
-    if (!access_token && integration.access_token &&
-      integration.access_token !== 'ENCRYPTED_IN_TOKENS_TABLE') {
-      access_token = integration.access_token;
-      console.log('Using legacy token from facebook_integrations');
-    }
-
     if (!access_token) {
       console.log('No valid access token found - reconnection required');
       return new Response(
@@ -377,45 +370,13 @@ Deno.serve(async (req) => {
         }
         console.log(`[ADS] Usando conta salva no banco: ${selectedAccountId}`);
       } else {
-        // Tentar buscar via API
+        // Tentar buscar via API — PRIORIZAR BM conectada
         try {
-          // Tentativa 1: /me/adaccounts (contas pessoais)
-          const adAccountsUrl = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
-          const adAccountsResponse = await fetch(adAccountsUrl);
-          const adAccountsData = await adAccountsResponse.json();
+          let accounts: AdAccount[] = [];
 
-          if (adAccountsData.error) {
-            console.error('[ADS] Erro na auto-descoberta /me/adaccounts:', adAccountsData.error.message);
-            // Verificar se é erro de permissão
-            if (adAccountsData.error.code === 200 || adAccountsData.error.message?.includes('permission')) {
-              return new Response(
-                JSON.stringify({
-                  error: 'Sua conta do Facebook não tem permissão para acessar contas de anúncios. Reconecte sua conta autorizando o acesso a anúncios.',
-                  data: null,
-                  needsReconnect: true
-                }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-              );
-            }
-            return new Response(
-              JSON.stringify({
-                error: `Erro ao buscar contas de anúncio: ${adAccountsData.error.message}`,
-                data: null,
-                needsReconnect: true
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-            );
-          }
-
-          let accounts: AdAccount[] = (adAccountsData.data || []).map((a: any) => ({
-            id: a.id,
-            name: a.name,
-            status: a.account_status ?? 1
-          }));
-
-          // Tentativa 2: Se não encontrou contas pessoais e tem business_id, buscar via Business Manager salvo
-          if (accounts.length === 0 && integration.business_id) {
-            console.log(`[ADS] Tentativa 2 — Business Manager salvo: ${integration.business_id}`);
+          // Tentativa 1: Business Manager salvo na integração (prioridade — contas da BM conectada)
+          if (integration.business_id) {
+            console.log(`[ADS] Tentativa 1 — Business Manager conectado: ${integration.business_id}`);
             try {
               const bizAccountsUrl = `https://graph.facebook.com/v21.0/${integration.business_id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
               const bizAccountsResponse = await fetch(bizAccountsUrl);
@@ -427,11 +388,49 @@ Deno.serve(async (req) => {
                   name: a.name,
                   status: a.account_status ?? 1
                 }));
-                console.log(`[ADS] Encontrou ${accounts.length} conta(s) via Business Manager salvo`);
+                console.log(`[ADS] Encontrou ${accounts.length} conta(s) via BM conectado`);
+              } else if (bizAccountsData.error) {
+                console.warn('[ADS] Erro ao buscar via BM conectado:', bizAccountsData.error.message);
               }
             } catch (bizErr) {
-              console.warn('[ADS] Erro ao buscar via BM salvo:', bizErr);
+              console.warn('[ADS] Erro ao buscar via BM conectado:', bizErr);
             }
+          }
+
+          // Tentativa 2: /me/adaccounts (contas pessoais do usuário)
+          if (accounts.length === 0) {
+            console.log('[ADS] Tentativa 2 — /me/adaccounts');
+            const adAccountsUrl = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
+            const adAccountsResponse = await fetch(adAccountsUrl);
+            const adAccountsData = await adAccountsResponse.json();
+
+            if (adAccountsData.error) {
+              console.error('[ADS] Erro na auto-descoberta /me/adaccounts:', adAccountsData.error.message);
+              if (adAccountsData.error.code === 200 || adAccountsData.error.message?.includes('permission')) {
+                return new Response(
+                  JSON.stringify({
+                    error: 'Sua conta do Facebook não tem permissão para acessar contas de anúncios. Reconecte sua conta autorizando o acesso a anúncios.',
+                    data: null,
+                    needsReconnect: true
+                  }),
+                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+                );
+              }
+              return new Response(
+                JSON.stringify({
+                  error: `Erro ao buscar contas de anúncio: ${adAccountsData.error.message}`,
+                  data: null,
+                  needsReconnect: true
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+              );
+            }
+
+            accounts = (adAccountsData.data || []).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              status: a.account_status ?? 1
+            }));
           }
 
           // Tentativa 3: Descobrir TODOS os Business Managers do usuário e buscar contas em cada um
@@ -445,7 +444,7 @@ Deno.serve(async (req) => {
               if (bizListData.data && bizListData.data.length > 0) {
                 console.log(`[ADS] Encontrou ${bizListData.data.length} Business Manager(s)`);
                 for (const biz of bizListData.data) {
-                  if (accounts.length > 0) break; // Já encontrou, parar
+                  if (accounts.length > 0) break;
                   try {
                     const bizAccUrl = `https://graph.facebook.com/v21.0/${biz.id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
                     const bizAccResp = await fetch(bizAccUrl);
@@ -457,7 +456,6 @@ Deno.serve(async (req) => {
                         status: a.account_status ?? 1
                       }));
                       console.log(`[ADS] Encontrou ${accounts.length} conta(s) no BM "${biz.name}" (${biz.id})`);
-                      // Salvar business_id para futuras chamadas
                       await supabase
                         .from('facebook_integrations')
                         .update({ business_id: biz.id })
@@ -510,6 +508,26 @@ Deno.serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
           );
         }
+      }
+    }
+
+    // Filtrar availableAccounts para conter apenas contas da BM conectada
+    if (integration.business_id && availableAccounts.length > 0) {
+      try {
+        const bmAccountsUrl = `https://graph.facebook.com/v21.0/${integration.business_id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
+        const bmAccountsResp = await fetch(bmAccountsUrl);
+        const bmAccountsData = await bmAccountsResp.json();
+
+        if (bmAccountsData.data && bmAccountsData.data.length > 0) {
+          const bmAccountIds = new Set(bmAccountsData.data.map((a: any) => a.id));
+          const filtered = availableAccounts.filter(acc => bmAccountIds.has(acc.id));
+          if (filtered.length > 0) {
+            availableAccounts = filtered;
+            console.log(`[ADS] Filtrado para BM ${integration.business_id}: ${availableAccounts.length} conta(s)`);
+          }
+        }
+      } catch (filterErr) {
+        console.warn('[ADS] Erro ao filtrar contas por BM, usando lista completa:', filterErr);
       }
     }
 

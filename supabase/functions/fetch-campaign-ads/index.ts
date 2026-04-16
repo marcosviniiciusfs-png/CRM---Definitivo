@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
     // Buscar integração principal
     const { data: integration } = await supabase
       .from('facebook_integrations')
-      .select('id, access_token, ad_account_id')
+      .select('id, ad_account_id')
       .eq('organization_id', organization_id)
       .maybeSingle();
 
@@ -145,13 +145,6 @@ Deno.serve(async (req) => {
     if (secureToken?.encrypted_access_token) {
       access_token = await decryptToken(secureToken.encrypted_access_token, ENCRYPTION_KEY);
       console.log('Using secure token');
-    }
-
-    // Fallback: token legado
-    if (!access_token && integration.access_token &&
-      integration.access_token !== 'ENCRYPTED_IN_TOKENS_TABLE') {
-      access_token = integration.access_token;
-      console.log('Using legacy token');
     }
 
     if (ad_account_id && !ad_account_id.startsWith('act_')) {

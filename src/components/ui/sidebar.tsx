@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -28,6 +28,7 @@ type SidebarContext = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  mobileOpenTimeRef: React.MutableRefObject<number>;
 };
 
 const SidebarContext = React.createContext<SidebarContext | null>(null);
@@ -51,6 +52,9 @@ const SidebarProvider = React.forwardRef<
 >(({ defaultOpen = true, open: openProp, onOpenChange: setOpenProp, className, style, children, ...props }, ref) => {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+
+  // Ref global para rastrear quando o Sheet mobile foi aberto
+  const mobileOpenTimeRef = React.useRef(0);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -76,22 +80,30 @@ const SidebarProvider = React.forwardRef<
     return localStorage.getItem(SIDEBAR_LOCK_KEY) === 'true';
   }, []);
 
-  // Helper to toggle the sidebar - respects lock state
+  // Helper to toggle the sidebar - respects lock state (desktop only)
   const toggleSidebar = React.useCallback(() => {
-    // Se está bloqueado, não permite fechar
-    if (isLocked() && open) {
+    // Lock só afeta desktop - no mobile o Sheet sempre deve ser toggleable
+    if (!isMobile && isLocked() && open) {
       return;
     }
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
+    if (isMobile) {
+      setOpenMobile((prev) => {
+        const next = !prev;
+        if (next) mobileOpenTimeRef.current = Date.now();
+        return next;
+      });
+    } else {
+      setOpen((prev) => !prev);
+    }
   }, [isMobile, setOpen, setOpenMobile, isLocked, open]);
 
-  // Adds a keyboard shortcut to toggle the sidebar - respects lock state
+  // Adds a keyboard shortcut to toggle the sidebar - respects lock state (desktop only)
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
-        // Se está bloqueado e aberto, não fecha
-        if (isLocked() && open) {
+        // Lock só afeta desktop
+        if (!isMobile && isLocked() && open) {
           return;
         }
         toggleSidebar();
@@ -115,6 +127,7 @@ const SidebarProvider = React.forwardRef<
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      mobileOpenTimeRef,
     }),
     [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
   );
@@ -150,7 +163,7 @@ const Sidebar = React.forwardRef<
     collapsible?: "offcanvas" | "icon" | "none";
   }
 >(({ side = "left", variant = "sidebar", collapsible = "offcanvas", className, children, ...props }, ref) => {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, openMobile, setOpenMobile, mobileOpenTimeRef } = useSidebar();
 
   if (collapsible === "none") {
     return (
@@ -166,7 +179,15 @@ const Sidebar = React.forwardRef<
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet
+        open={openMobile}
+        onOpenChange={(open) => {
+          if (open) {
+            mobileOpenTimeRef.current = Date.now();
+          }
+          setOpenMobile(open);
+        }}
+      >
         <SheetContent
           data-sidebar="sidebar"
           data-mobile="true"
@@ -177,8 +198,22 @@ const Sidebar = React.forwardRef<
             } as React.CSSProperties
           }
           side={side}
+          // Proteção contra fechamento imediato: o mesmo toque que abriu o Sheet
+          // pode disparar onInteractOutside no overlay. Ignoramos por 500ms.
+          onInteractOutside={(e) => {
+            if (Date.now() - mobileOpenTimeRef.current < 500) {
+              e.preventDefault();
+            }
+          }}
+          onPointerDownOutside={(e) => {
+            if (Date.now() - mobileOpenTimeRef.current < 500) {
+              e.preventDefault();
+            }
+          }}
         >
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+          <SheetDescription className="sr-only">Navegue entre as seções do CRM</SheetDescription>
+          <div className="flex h-full w-full flex-col overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>{children}</div>
         </SheetContent>
       </Sheet>
     );
@@ -242,7 +277,7 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         data-sidebar="trigger"
         variant="ghostIcon"
         size="icon"
-        className={cn("h-7 w-7", className)}
+        className={cn("h-9 w-9 sm:h-7 sm:w-7", className)}
         onClick={(event) => {
           onClick?.(event);
           toggleSidebar();

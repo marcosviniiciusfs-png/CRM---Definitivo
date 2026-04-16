@@ -87,7 +87,7 @@ export const PipelineColumn = memo(({
         <div
           ref={setNodeRef}
           className={cn(
-            "pipeline-column space-y-2 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto p-2 rounded-lg scrollbar-hide",
+            "pipeline-column space-y-2 min-h-[200px] max-h-[calc(100vh-200px)] overflow-y-auto p-2 pb-4 rounded-lg scrollbar-hide",
             !isDraggingActive && "transition-colors duration-200",
             isOver && "bg-muted/50 ring-2 ring-primary/20"
           )}
@@ -143,10 +143,11 @@ export const PipelineColumn = memo(({
               onClick={onLoadMore}
               disabled={pagination.isLoading}
               className={cn(
-                "w-full py-2 px-3 text-xs font-medium rounded-md transition-colors",
+                "w-full py-2.5 px-3 text-xs font-medium rounded-md transition-colors flex-shrink-0",
                 "border border-dashed border-muted-foreground/30",
                 "hover:border-primary/50 hover:bg-muted/50",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+                "mt-2 mb-1"
               )}
             >
               {pagination.isLoading ? (
@@ -158,7 +159,7 @@ export const PipelineColumn = memo(({
                   Carregando...
                 </span>
               ) : (
-                `Carregar mais (${Math.min(10, pagination.totalCount - pagination.loadedCount)})`
+                `Carregar mais (${Math.min(20, pagination.totalCount - pagination.loadedCount)})`
               )}
             </button>
           )}

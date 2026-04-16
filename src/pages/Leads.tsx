@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +71,6 @@ const Leads = () => {
   const permissions = usePermissions();
   const queryClient = useQueryClient();
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
@@ -187,28 +186,55 @@ const Leads = () => {
     loadStages();
   }, [funnelFilter]);
 
-  // Load all leads from Supabase - with debounce realtime
+  // Cache de leads com React Query (2 min)
+  const { isLoading } = useQuery({
+    queryKey: ['leads-list', user?.id, permissions.canViewAllLeads],
+    queryFn: async () => {
+      let query = supabase
+        .from("leads")
+        .select("id, nome_lead, email, telefone_lead, responsavel, responsavel_user_id, stage, source, valor, updated_at, created_at, funnel_id, funnel_stage_id");
+
+      if (!permissions.canViewAllLeads && user?.id) {
+        query = query.eq("responsavel_user_id", user.id);
+      }
+
+      const { data, error } = await query.order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as Lead[];
+    },
+    enabled: !permissions.loading && (permissions.canViewAllLeads || !!userProfile?.full_name),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+
+  // Sincronizar cache com estado local
+  useEffect(() => {
+    const cached = queryClient.getQueryData<Lead[]>(['leads-list', user?.id, permissions.canViewAllLeads]);
+    if (cached) {
+      setLeads(cached);
+      setSelectedLeads(prev => {
+        if (prev.length === 0) return prev;
+        const newIds = new Set(cached.map(l => l.id));
+        return prev.filter(id => newIds.has(id));
+      });
+    }
+  }, [isLoading, user?.id, permissions.canViewAllLeads, queryClient]);
+
+  // Realtime com debounce — invalida cache em vez de fetch direto
   useEffect(() => {
     if (permissions.loading) return;
     if (!permissions.canViewAllLeads && !userProfile?.full_name) return;
 
-    loadAllLeads();
-
-    // Realtime with debounce
     let reloadTimeout: NodeJS.Timeout;
     const channel = supabase
       .channel('leads-changes-list')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'leads'
-        },
+        { event: '*', schema: 'public', table: 'leads' },
         () => {
           clearTimeout(reloadTimeout);
           reloadTimeout = setTimeout(() => {
-            loadAllLeads();
+            queryClient.invalidateQueries({ queryKey: ['leads-list', user?.id, permissions.canViewAllLeads] });
           }, 500);
         }
       )
@@ -218,43 +244,7 @@ const Leads = () => {
       clearTimeout(reloadTimeout);
       supabase.removeChannel(channel);
     };
-  }, [permissions.loading, permissions.canViewAllLeads, userProfile?.full_name]);
-
-  const loadAllLeads = async () => {
-    setLoading(true);
-    try {
-      let query = supabase
-        .from("leads")
-        .select("id, nome_lead, email, telefone_lead, responsavel, responsavel_user_id, stage, source, valor, updated_at, created_at, funnel_id, funnel_stage_id");
-
-      // SECURITY: Members only see leads assigned to them
-      if (!permissions.canViewAllLeads && user?.id) {
-        query = query.eq("responsavel_user_id", user.id);
-      }
-
-      const { data, error } = await query
-        .order("updated_at", { ascending: false });
-
-      if (error) throw error;
-
-      setLeads(data || []);
-      // Filter selections to keep only leads that still exist
-      setSelectedLeads(prev => {
-        if (prev.length === 0) return prev;
-        const newIds = new Set((data || []).map(l => l.id));
-        return prev.filter(id => newIds.has(id));
-      });
-    } catch (error) {
-      console.error("Erro ao carregar leads:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os leads",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [permissions.loading, permissions.canViewAllLeads, userProfile?.full_name, user?.id, queryClient]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -552,9 +542,9 @@ const Leads = () => {
   };
 
   return (
-    <div className="space-y-4 p-1">
+    <div className="space-y-4 p-1 min-w-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Leads
@@ -563,7 +553,7 @@ const Leads = () => {
             Gerencie todos os seus leads em um só lugar
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Button
             variant="outline"
             size="sm"
@@ -571,7 +561,7 @@ const Leads = () => {
             onClick={handleExportCSV}
           >
             <Download className="h-4 w-4" />
-            Exportar
+            <span className="hidden sm:inline">Exportar</span>
           </Button>
           {permissions.canViewAllLeads && (
             <Button
@@ -581,7 +571,7 @@ const Leads = () => {
               onClick={() => setShowImportModal(true)}
             >
               <Upload className="h-4 w-4" />
-              Importar
+              <span className="hidden sm:inline">Importar</span>
             </Button>
           )}
           {permissions.canCreateLeads && (
@@ -591,7 +581,7 @@ const Leads = () => {
               onClick={() => setShowAddModal(true)}
             >
               <Plus className="h-4 w-4" />
-              Novo Lead
+              <span className="hidden sm:inline">Novo Lead</span>
             </Button>
           )}
         </div>
@@ -952,7 +942,7 @@ const Leads = () => {
       )}
 
       {/* Leads Table */}
-      {loading ? (
+      {isLoading ? (
         <LoadingAnimation text="Carregando leads..." />
       ) : (
         <div className="rounded-lg border bg-card overflow-hidden">

@@ -468,7 +468,7 @@ const Colaboradores = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 min-w-0 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between mb-3 sm:mb-4 md:mb-6 gap-3">
         <div className="flex items-center gap-3">

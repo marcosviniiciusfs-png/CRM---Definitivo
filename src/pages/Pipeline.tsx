@@ -9,10 +9,11 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
 import { EditLeadModal } from "@/components/EditLeadModal";
+import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil } from "lucide-react";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
@@ -113,6 +114,9 @@ const Pipeline = () => {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  // Estado para o dialog de detalhes no list view
+  const [detailsLeadId, setDetailsLeadId] = useState<string | null>(null);
+  const [detailsLeadName, setDetailsLeadName] = useState<string>('');
   const leadIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Refs para evitar stale closure na subscrição Realtime (sem recriar o canal ao mudar funil)
@@ -705,11 +709,15 @@ const Pipeline = () => {
           rpcParams.p_responsavel_user_id = user.id;
         }
       }
-      const { data: countData } = await supabase.rpc('get_pipeline_stage_counts', rpcParams);
+      const { data: countData, error: rpcError } = await supabase.rpc('get_pipeline_stage_counts', rpcParams);
       const countMap: Record<string, number> = {};
-      (countData || []).forEach((row: any) => {
-        countMap[row.stage_id] = row.lead_count;
-      });
+      if (!rpcError && countData && Array.isArray(countData)) {
+        (countData || []).forEach((row: any) => {
+          countMap[row.stage_id] = row.lead_count;
+        });
+      } else if (rpcError) {
+        console.warn('[Pipeline] RPC get_pipeline_stage_counts failed, falling back to per-stage counts:', rpcError);
+      }
       // Para stages que não têm leads, inicializar com 0
       stageIds.forEach(sid => { if (!countMap[sid]) countMap[sid] = 0; });
 
@@ -727,8 +735,18 @@ const Pipeline = () => {
       }));
       const allLeads: Lead[] = perStage.flatMap(r => r.leads);
       const paginationInit: Record<string, StagePaginationState> = {};
+      const rpcFailed = !!rpcError || !countData;
       perStage.forEach(r => {
-        paginationInit[r.stageId] = { loadedCount: r.leads.length, totalCount: r.count, isLoading: false, hasMore: r.leads.length < r.count };
+        // Se a RPC falhou e temos exatamente PAGE_SIZE leads, assumir que há mais
+        const safeHasMore = rpcFailed
+          ? r.leads.length >= PAGE_SIZE
+          : r.leads.length < r.count;
+        paginationInit[r.stageId] = {
+          loadedCount: r.leads.length,
+          totalCount: rpcFailed ? r.leads.length : r.count,
+          isLoading: false,
+          hasMore: safeHasMore,
+        };
       });
       return { allLeads, paginationInit };
     },
@@ -854,15 +872,26 @@ const Pipeline = () => {
         data.forEach(l => leadIdsRef.current.add(l.id));
 
         // Atualizar paginação
-        setStagePagination(prev => ({
-          ...prev,
-          [stageId]: {
-            ...prev[stageId],
-            loadedCount: prev[stageId].loadedCount + data.length,
-            hasMore: prev[stageId].loadedCount + data.length < prev[stageId].totalCount,
-            isLoading: false,
-          }
-        }));
+        setStagePagination(prev => {
+          const newLoadedCount = prev[stageId].loadedCount + data.length;
+          const totalCount = prev[stageId].totalCount;
+          // Se totalCount é confiável (RPC funcionou), usar comparação exata
+          // Se RPC falhou (totalCount === loadedCount antigo), usar heurística de PAGE_SIZE
+          const rpcFailed = totalCount === prev[stageId].loadedCount;
+          const newHasMore = rpcFailed
+            ? data.length >= PAGE_SIZE
+            : newLoadedCount < totalCount;
+          return {
+            ...prev,
+            [stageId]: {
+              ...prev[stageId],
+              loadedCount: newLoadedCount,
+              totalCount: rpcFailed ? newLoadedCount : totalCount,
+              hasMore: newHasMore,
+              isLoading: false,
+            }
+          };
+        });
 
         // Carregar apenas profiles (leve) - dados pesados sob demanda
         const newResponsavelIds = data.map(l => l.responsavel_user_id).filter(Boolean) as string[];
@@ -1909,7 +1938,10 @@ const Pipeline = () => {
                         "flex items-center px-3 py-2.5 text-sm border-b border-border/50 dark:border-border/30 hover:bg-muted/30 dark:hover:bg-muted/20 transition-colors cursor-pointer bg-card dark:bg-card",
                         isSelected && "bg-primary/10 dark:bg-primary/20"
                       )}
-                      onClick={() => setEditingLead(lead)}
+                      onClick={() => {
+                        setDetailsLeadId(lead.id);
+                        setDetailsLeadName(lead.nome_lead || 'Sem nome');
+                      }}
                     >
                       <Checkbox
                         checked={isSelected}
@@ -1951,7 +1983,18 @@ const Pipeline = () => {
                       <span className="flex-1 text-muted-foreground dark:text-muted-foreground">
                         {new Date(lead.created_at).toLocaleDateString('pt-BR')}
                       </span>
-                      <span className="w-[60px] flex justify-end">
+                      <span className="w-[90px] flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingLead(lead);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -2211,6 +2254,19 @@ const Pipeline = () => {
           }}
         />
       )}
+
+      {/* Dialog de Detalhes do Lead (list view) */}
+      <LeadDetailsDialog
+        leadId={detailsLeadId || ''}
+        leadName={detailsLeadName}
+        open={!!detailsLeadId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailsLeadId(null);
+            setDetailsLeadName('');
+          }
+        }}
+      />
 
       {/* Dialog de Confirmação de Exclusão de Lead */}
       <AlertDialog open={!!leadToDelete} onOpenChange={(open) => !open && setLeadToDelete(null)}>

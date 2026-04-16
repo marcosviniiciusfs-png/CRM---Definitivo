@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,17 +33,38 @@ export interface Item {
 
 export default function Producao() {
   const { organizationId } = useOrgReady();
+  const queryClient = useQueryClient();
   const [items, setItems] = useState<Item[]>([]);
   const [filteredItems, setFilteredItems] = useState<Item[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Cache de items com React Query (5 min)
+  const { isLoading } = useQuery({
+    queryKey: ['production-items'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as Item[];
+    },
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+  });
+
+  // Sincronizar dados do cache com estado local
   useEffect(() => {
-    loadItems();
-  }, []);
+    const cached = queryClient.getQueryData<Item[]>(['production-items']);
+    if (cached) setItems(cached);
+  }, [isLoading, queryClient]);
+
+  const refreshItems = () => {
+    queryClient.invalidateQueries({ queryKey: ['production-items'] });
+  };
 
   useEffect(() => {
     if (searchTerm) {
@@ -56,27 +78,6 @@ export default function Producao() {
       setFilteredItems(items);
     }
   }, [searchTerm, items]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("items")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setItems((data || []) as Item[]);
-    } catch (error: any) {
-      toast({
-        title: "Erro ao carregar itens",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddItem = () => {
     setEditingItem(null);
@@ -101,7 +102,7 @@ export default function Producao() {
         title: "Item excluído com sucesso",
       });
 
-      await loadItems();
+      await refreshItems();
     } catch (error: any) {
       toast({
         title: "Erro ao excluir item",
@@ -114,11 +115,11 @@ export default function Producao() {
   const handleModalClose = () => {
     setIsModalOpen(false);
     setEditingItem(null);
-    loadItems();
+    refreshItems();
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 min-w-0 overflow-hidden">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Produção</h1>
           <p className="text-muted-foreground">
@@ -164,7 +165,7 @@ export default function Producao() {
                 </Button>
               </div>
 
-              {loading ? (
+              {isLoading ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">Carregando itens...</p>
                 </div>

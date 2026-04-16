@@ -64,10 +64,10 @@ const formatCurrency = (value: number) => {
 // ANIMATED GOLD FRAME - 1st Place with GIF
 // ============================================
 const AnimatedGoldFrame = ({ children }: { children: React.ReactNode }) => (
-  <div className="relative" style={{ width: 140, height: 140 }}>
-    <div 
+  <div className="relative w-24 h-24 sm:w-[140px] sm:h-[140px]">
+    <div
       className="absolute z-[1] flex items-center justify-center"
-      style={{ 
+      style={{
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
@@ -75,7 +75,7 @@ const AnimatedGoldFrame = ({ children }: { children: React.ReactNode }) => (
     >
       {children}
     </div>
-    <img 
+    <img
       src={profileFrameGold}
       alt="Gold Frame"
       className="absolute inset-0 w-full h-full z-[10] pointer-events-none"
@@ -119,19 +119,19 @@ const Top3Section = ({ top3, type }: { top3: LeaderboardData[]; type: "sales" | 
 
   const positionConfig = {
     1: {
-      size: 81,
+      size: typeof window !== 'undefined' && window.innerWidth < 640 ? 60 : 81,
       gradientBg: "from-yellow-400 to-yellow-600",
       icon: Trophy,
       iconColor: "text-yellow-400",
     },
     2: {
-      size: 80,
+      size: typeof window !== 'undefined' && window.innerWidth < 640 ? 56 : 80,
       gradientBg: "from-gray-300 to-gray-500",
       icon: Medal,
       iconColor: "text-gray-300",
     },
     3: {
-      size: 80,
+      size: typeof window !== 'undefined' && window.innerWidth < 640 ? 56 : 80,
       gradientBg: "from-orange-400 to-orange-600",
       icon: Award,
       iconColor: "text-orange-400",
@@ -181,7 +181,7 @@ const Top3Section = ({ top3, type }: { top3: LeaderboardData[]; type: "sales" | 
   };
 
   return (
-    <div className="flex items-end justify-center gap-8 py-6">
+    <div className="flex items-end justify-center gap-3 sm:gap-8 py-4 sm:py-6">
       {orderedPositions.map(({ rep, position }) => {
         if (!rep) return <div key={position} className="w-24" />;
         
@@ -254,7 +254,7 @@ const RankingCard = ({
 
   return (
     <div 
-      className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:border-primary/40 transition-all max-w-lg"
+      className="flex items-center gap-2 sm:gap-3 p-2 rounded-lg bg-card border border-border hover:border-primary/40 transition-all w-full overflow-hidden"
     >
       {/* Position Badge */}
       <div 
@@ -299,7 +299,7 @@ const RankingCard = ({
 
       {/* Teams Badges */}
       {rep.teams && rep.teams.length > 0 && (
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
           {rep.teams.slice(0, 3).map(team => (
             <div 
               key={team.id}
@@ -430,10 +430,20 @@ export function TaskLeaderboard({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[auto_auto_1fr] gap-6 items-start">
+    <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-[auto_auto_1fr] lg:gap-6 items-start">
       {/* Left - Podium */}
       <div className="flex items-center justify-center">
         <Top3Section top3={top3} type={type} />
+      </div>
+
+      {/* Right - Side Panel with Stats & Highlights (shows before list on mobile) */}
+      <div className="lg:hidden">
+        <RankingSidePanel
+          data={data}
+          sortBy={sortBy}
+          type={type}
+          period={period}
+        />
       </div>
 
       {/* Center - Complete Collaborators List */}
@@ -464,13 +474,15 @@ export function TaskLeaderboard({
         </div>
       </div>
 
-      {/* Right - Side Panel with Stats & Highlights */}
-      <RankingSidePanel 
-        data={data} 
-        sortBy={sortBy} 
-        type={type} 
-        period={period} 
-      />
+      {/* Right - Side Panel with Stats & Highlights (desktop only - mobile version is above list) */}
+      <div className="hidden lg:block">
+        <RankingSidePanel
+          data={data}
+          sortBy={sortBy}
+          type={type}
+          period={period}
+        />
+      </div>
     </div>
   );
 }

@@ -1031,7 +1031,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden sm:max-h-[90vh] max-h-[95vh]">
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] sm:h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Header */}
         <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">

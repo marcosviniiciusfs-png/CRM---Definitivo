@@ -282,7 +282,7 @@ const Equipes = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
+      <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 min-w-0 overflow-hidden">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4 sm:mb-6 md:mb-8">
           <div>

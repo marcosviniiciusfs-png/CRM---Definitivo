@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Line } from "recharts";
-import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp, Search, Filter, Check, UserPlus, FileSpreadsheet } from "lucide-react";
+import { TrendingUp, Users, Facebook, MessageCircle, Target, Trash2, Clock, CalendarIcon, DollarSign, Eye, MousePointer, Megaphone, Building2, Image, ExternalLink, ChevronDown, ChevronUp, Search, UserPlus, FileSpreadsheet } from "lucide-react";
 import { AdCard } from "@/components/AdCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+
 
 interface ChartDataPoint {
   date: string;
@@ -208,8 +208,8 @@ const LeadMetrics = () => {
   // Campaign filter states
   const [campaignSearchQuery, setCampaignSearchQuery] = useState("");
   const [selectedLeadTypeFilter, setSelectedLeadTypeFilter] = useState<string>("all");
-  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
-  const [campaignSelectorOpen, setCampaignSelectorOpen] = useState(false);
+
+
 
   // Get unique lead types for filter dropdown
   const availableLeadTypes = useMemo(() => {
@@ -221,18 +221,17 @@ const LeadMetrics = () => {
     return Array.from(types);
   }, [adsMetrics?.campaignBreakdown]);
 
-  // Filter campaigns based on search, lead type, and selection
+  // Filter campaigns based on search and lead type
   const filteredCampaigns = useMemo(() => {
     if (!adsMetrics?.campaignBreakdown) return [];
 
     return adsMetrics.campaignBreakdown.filter(campaign => {
       const matchesSearch = campaign.name.toLowerCase().includes(campaignSearchQuery.toLowerCase());
       const matchesLeadType = selectedLeadTypeFilter === "all" || campaign.leadTypeName === selectedLeadTypeFilter;
-      const matchesSelection = selectedCampaignIds.length === 0 || selectedCampaignIds.includes(campaign.id);
 
-      return matchesSearch && matchesLeadType && matchesSelection;
+      return matchesSearch && matchesLeadType;
     });
-  }, [adsMetrics?.campaignBreakdown, campaignSearchQuery, selectedLeadTypeFilter, selectedCampaignIds]);
+  }, [adsMetrics?.campaignBreakdown, campaignSearchQuery, selectedLeadTypeFilter]);
 
   // Calculate totals for filtered campaigns
   const filteredTotals = useMemo(() => {
@@ -253,22 +252,6 @@ const LeadMetrics = () => {
     };
   }, [filteredCampaigns]);
 
-  const toggleCampaignSelection = (campaignId: string) => {
-    setSelectedCampaignIds(prev =>
-      prev.includes(campaignId)
-        ? prev.filter(id => id !== campaignId)
-        : [...prev, campaignId]
-    );
-  };
-
-  const toggleAllCampaigns = () => {
-    if (!adsMetrics?.campaignBreakdown) return;
-    if (selectedCampaignIds.length === adsMetrics.campaignBreakdown.length) {
-      setSelectedCampaignIds([]);
-    } else {
-      setSelectedCampaignIds(adsMetrics.campaignBreakdown.map(c => c.id));
-    }
-  };
 
   useEffect(() => {
     if (organizationId && dateRange?.from && dateRange?.to) {
@@ -858,7 +841,7 @@ const LeadMetrics = () => {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 min-w-0 overflow-hidden">
       <div>
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Dashboard de Leads</h1>
         <p className="text-muted-foreground mt-2">
@@ -1503,15 +1486,16 @@ const LeadMetrics = () => {
         {/* Campaigns Tab */}
         <TabsContent value="campaigns" className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* Ad Account Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-xl border border-border/50">
             <div className="flex items-center gap-3">
-              <Building2 className="h-5 w-5 text-primary" />
+              <div className="p-2 bg-[#1877F2]/10 rounded-lg">
+                <Facebook className="h-4 w-4 text-[#1877F2]" />
+              </div>
               <div>
-                <p className="text-sm text-muted-foreground">Conta de Anúncios</p>
-                <p className="font-medium">{selectedAdAccountName || 'Não configurada'}</p>
+                <p className="font-medium text-sm">{selectedAdAccountName || 'Não configurada'}</p>
                 {availableAdAccounts.length > 0 && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {availableAdAccounts.length} conta{availableAdAccounts.length !== 1 ? 's' : ''} disponível{availableAdAccounts.length !== 1 ? 'is' : ''}
+                    ID: {selectedAdAccountId?.slice(0,8)}... · {availableAdAccounts.length} conta{availableAdAccounts.length !== 1 ? 's' : ''} disponível{availableAdAccounts.length !== 1 ? 'is' : ''}
                   </p>
                 )}
               </div>
@@ -1575,319 +1559,180 @@ const LeadMetrics = () => {
             </Card>
           ) : adsMetrics ? (
             <>
-              <TooltipProvider>
-                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 transition-all duration-500">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <MetricCard
-                          title="Investido"
-                          value={formatCurrency(adsMetrics.totalSpend)}
-                          icon={DollarSign}
-                          iconColor="text-green-500"
-                          compact
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">Soma total do valor gasto em todas as campanhas ativas no período.</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <MetricCard
-                          title="Custo por Lead"
-                          value={formatCurrency(adsMetrics.avgCPL)}
-                          icon={Target}
-                          iconColor="text-blue-500"
-                          compact
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">Custo por Lead: Valor investido ÷ Leads gerados.</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <MetricCard
-                          title="Leads"
-                          value={adsMetrics.totalLeads}
-                          icon={Users}
-                          iconColor="text-purple-500"
-                          compact
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">Total de conversões do tipo "lead" no período.</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <MetricCard
-                          title="Alcance"
-                          value={adsMetrics.totalReach.toLocaleString('pt-BR')}
-                          icon={Eye}
-                          iconColor="text-orange-500"
-                          compact
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">Pessoas únicas que viram seus anúncios.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-
-                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 transition-all duration-500">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <MetricCard
-                          title="Impressões"
-                          value={adsMetrics.totalImpressions.toLocaleString('pt-BR')}
-                          icon={Eye}
-                          iconColor="text-cyan-500"
-                          compact
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">Total de vezes que seus anúncios foram exibidos.</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <MetricCard
-                          title="Cliques"
-                          value={adsMetrics.totalClicks.toLocaleString('pt-BR')}
-                          subtitle={`CTR: ${adsMetrics.avgCTR.toFixed(2)}%`}
-                          icon={MousePointer}
-                          iconColor="text-indigo-500"
-                          compact
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">Cliques nos anúncios. CTR = Cliques ÷ Impressões.</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <MetricCard
-                          title="CPC"
-                          value={formatCurrency(adsMetrics.avgCPC)}
-                          icon={DollarSign}
-                          iconColor="text-amber-500"
-                          compact
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">Custo por Clique: Valor investido ÷ Cliques.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
-
-              {/* Métricas de Engajamento + Breakdown por Plataforma */}
-              <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
-                {/* Card de Métricas de Engajamento - Compacto */}
+              {/* Gráfico + Métricas */}
+              <div className="grid grid-cols-1 md:grid-cols-[3fr_1fr] gap-4">
+                {/* Gráfico Investimento vs Leads */}
                 <Card>
-                  <CardHeader className="pb-1 pt-3 px-3">
-                    <CardTitle className="text-xs flex items-center gap-2 text-muted-foreground">
-                      <Eye className="h-3.5 w-3.5" />
-                      Engajamento
-                    </CardTitle>
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-sm">Investimento vs Leads</CardTitle>
                   </CardHeader>
-                  <CardContent className="px-3 pb-3 pt-1 space-y-2">
-                    <TooltipProvider>
-                      {/* Frequência Média */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 bg-violet-100 dark:bg-violet-900/30 rounded">
-                                <Eye className="h-3.5 w-3.5 text-violet-600" />
-                              </div>
-                              <span className="text-xs text-muted-foreground">Frequência Média</span>
-                            </div>
-                            <span className="text-sm font-semibold">
-                              {adsMetrics.avgFrequency?.toFixed(2) || '0'}x
-                            </span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-[280px]">
-                          <p>Número médio de vezes que cada pessoa viu seus anúncios. Frequência alta (acima de 3x) pode indicar fadiga de anúncio e reduzir performance.</p>
-                        </TooltipContent>
-                      </Tooltip>
-
-                      {/* Cliques de Saída */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-help hover:bg-muted/70 transition-colors">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 rounded">
-                                <MousePointer className="h-3.5 w-3.5 text-sky-600" />
-                              </div>
-                              <span className="text-xs text-muted-foreground">Cliques de Saída</span>
-                            </div>
-                            <span className="text-sm font-semibold">
-                              {adsMetrics.totalOutboundClicks?.toLocaleString('pt-BR') || '0'}
-                            </span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-[280px]">
-                          <p>Total de cliques que direcionaram pessoas para fora do Facebook/Instagram (ex: para seu site, landing page ou WhatsApp). Indica interesse real no seu produto/serviço.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  <CardContent className="pt-0 px-4 pb-4">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <ComposedChart data={adsMetrics.chartData}>
+                        <defs>
+                          <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                        />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                        />
+                        <RechartsTooltip content={<AdsTooltip />} />
+                        <Area
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="spend"
+                          name="Investimento (R$)"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          fill="url(#spendGradient)"
+                          animationDuration={800}
+                        />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="leads"
+                          name="Leads"
+                          stroke="#8b5cf6"
+                          strokeWidth={2}
+                          dot={{ fill: '#8b5cf6', r: 3 }}
+                          animationDuration={800}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
-                {/* Card de Breakdown por Plataforma - Com expansão */}
-                {adsMetrics.platformBreakdown && adsMetrics.platformBreakdown.length > 0 && (
-                  <Card>
-                    <CardHeader className="pb-1 pt-3 px-3">
-                      <CardTitle className="text-xs flex items-center gap-2 text-muted-foreground">
-                        <Building2 className="h-3.5 w-3.5" />
-                        Desempenho por Plataforma
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3 pt-1">
-                      <TooltipProvider>
-                        <div className="space-y-1.5">
-                          {(platformExpanded ? adsMetrics.platformBreakdown : adsMetrics.platformBreakdown.slice(0, 2)).map(p => {
-                            const platformExplanations: Record<string, string> = {
-                              'Facebook': 'Anúncios no Feed, Stories, Marketplace e Vídeos do Facebook.',
-                              'Instagram': 'Anúncios no Feed, Stories, Reels e Explore do Instagram.',
-                              'Audience Network': 'Anúncios em sites e apps parceiros da Meta.',
-                              'Messenger': 'Anúncios na caixa de entrada e Stories do Messenger.'
+                {/* Métricas consolidadas */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-3 space-y-2">
+                    <TooltipProvider>
+                      {/* Plataformas */}
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Plataformas</p>
+                      {adsMetrics.platformBreakdown && adsMetrics.platformBreakdown.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {(platformExpanded ? adsMetrics.platformBreakdown : adsMetrics.platformBreakdown.slice(0, 3)).map(p => {
+                            const dotColor: Record<string, string> = {
+                              'Facebook': '#1877F2', 'Instagram': '#E1306C',
+                              'Audience Network': '#8b8b8b', 'Messenger': '#0084FF'
                             };
                             return (
                               <Tooltip key={p.platform}>
                                 <TooltipTrigger asChild>
-                                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded text-xs cursor-help hover:bg-muted/70 transition-colors">
-                                    <span className="font-medium">{p.platform}</span>
-                                    <div className="flex gap-3 text-muted-foreground">
-                                      <span>{p.leads} leads</span>
+                                  <div className="flex items-center justify-between py-1 px-1.5 rounded text-[11px] cursor-help hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor[p.platform] || '#6b7280' }} />
+                                      <span className="font-medium">{p.platform}</span>
+                                    </div>
+                                    <div className="flex gap-2 text-muted-foreground">
+                                      <span>{p.leads}L</span>
                                       <span>{formatCurrency(p.cpl)}</span>
                                     </div>
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p className="max-w-[220px]">{platformExplanations[p.platform] || 'Plataforma de veiculação da Meta.'}</p>
+                                  <p className="text-xs">{p.platform}: {p.leads} leads · CPL {formatCurrency(p.cpl)} · Alcance {p.reach.toLocaleString('pt-BR')}</p>
                                 </TooltipContent>
                               </Tooltip>
                             );
                           })}
+                          {adsMetrics.platformBreakdown.length > 3 && (
+                            <button
+                              onClick={() => setPlatformExpanded(!platformExpanded)}
+                              className="w-full flex items-center justify-center gap-1 text-[11px] text-primary hover:text-primary/80 py-0.5"
+                            >
+                              {platformExpanded ? <><ChevronUp className="h-3 w-3" />Menos</> : <><ChevronDown className="h-3 w-3" />+{adsMetrics.platformBreakdown.length - 3}</>}
+                            </button>
+                          )}
                         </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground py-1">Sem dados</p>
+                      )}
 
-                        {adsMetrics.platformBreakdown.length > 2 && (
-                          <button
-                            onClick={() => setPlatformExpanded(!platformExpanded)}
-                            className="w-full mt-2 flex items-center justify-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors py-1 hover:bg-muted/30 rounded"
-                          >
-                            {platformExpanded ? (
-                              <>
-                                <ChevronUp className="h-3 w-3" />
-                                Ver menos
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="h-3 w-3" />
-                                Ver mais ({adsMetrics.platformBreakdown.length - 2})
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </TooltipProvider>
-                    </CardContent>
-                  </Card>
-                )}
+                      {/* Engajamento */}
+                      <div className="border-t pt-1.5 space-y-1">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Engajamento</p>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center justify-between text-[11px] cursor-help hover:bg-muted/50 rounded px-1.5 py-0.5 transition-colors">
+                              <span className="text-muted-foreground">Frequência média</span>
+                              <span className="font-medium">{adsMetrics.avgFrequency?.toFixed(2) || '0'}x</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[250px]">
+                            <p className="text-xs">Número médio de vezes que cada pessoa viu seus anúncios. Acima de 3x pode indicar fadiga.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center justify-between text-[11px] cursor-help hover:bg-muted/50 rounded px-1.5 py-0.5 transition-colors">
+                              <span className="text-muted-foreground">Cliques de saída</span>
+                              <span className="font-medium">{adsMetrics.totalOutboundClicks?.toLocaleString('pt-BR') || '0'}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[250px]">
+                            <p className="text-xs">Cliques que direcionaram para fora do Meta (site, LP, WhatsApp). Indica interesse real.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+
+                      {/* KPIs Gerais */}
+                      <div className="border-t pt-1.5 space-y-1">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Métricas Gerais</p>
+                        {[
+                          { label: 'Investido', value: formatCurrency(adsMetrics.totalSpend), tip: 'Soma total do valor gasto em todas as campanhas ativas no período.' },
+                          { label: 'CPL', value: formatCurrency(adsMetrics.avgCPL), tip: 'Custo por Lead: Valor investido ÷ Leads gerados.' },
+                          { label: 'Leads', value: adsMetrics.totalLeads.toLocaleString('pt-BR'), tip: 'Total de conversões do tipo "lead" no período.' },
+                          { label: 'Alcance', value: adsMetrics.totalReach.toLocaleString('pt-BR'), tip: 'Pessoas únicas que viram seus anúncios.' },
+                          { label: 'Impressões', value: adsMetrics.totalImpressions.toLocaleString('pt-BR'), tip: 'Total de vezes que seus anúncios foram exibidos.' },
+                          { label: 'Cliques', value: adsMetrics.totalClicks.toLocaleString('pt-BR'), tip: 'Total de cliques nos anúncios.' },
+                          { label: 'CTR', value: `${adsMetrics.avgCTR.toFixed(2)}%`, tip: 'Taxa de cliques: Cliques ÷ Impressões × 100.' },
+                          { label: 'CPC Médio', value: formatCurrency(adsMetrics.avgCPC), tip: 'Custo por Clique: Valor investido ÷ Cliques.' },
+                        ].map(kpi => (
+                          <Tooltip key={kpi.label}>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-between text-[11px] cursor-help hover:bg-muted/50 rounded px-1.5 py-0.5 transition-colors">
+                                <span className="text-muted-foreground">{kpi.label}</span>
+                                <span className="font-medium">{kpi.value}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[250px]">
+                              <p className="text-xs">{kpi.tip}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </TooltipProvider>
+                  </CardContent>
+                </Card>
               </div>
-
-              {/* Investment vs Leads Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Investimento vs Leads ao Longo do Tempo</CardTitle>
-                </CardHeader>
-                <CardContent className="transition-all duration-500">
-                  <ResponsiveContainer width="100%" height={400}>
-                    <ComposedChart data={adsMetrics.chartData}>
-                      <defs>
-                        <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                      />
-                      <YAxis
-                        yAxisId="left"
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                      />
-                      <RechartsTooltip content={<AdsTooltip />} />
-                      <Area
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="spend"
-                        name="Investimento (R$)"
-                        stroke="#10b981"
-                        strokeWidth={2}
-                        fill="url(#spendGradient)"
-                        animationDuration={800}
-                      />
-                      <Line
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey="leads"
-                        name="Leads"
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        dot={{ fill: '#8b5cf6', r: 4 }}
-                        animationDuration={800}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
 
               {/* Campaign Performance Table */}
               {adsMetrics.campaignBreakdown.length > 0 && (
                 <Card>
                   <CardHeader className="pb-4">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
-                      <CardTitle className="flex items-center gap-2">
-                        Performance por Campanha
-                        <span className="text-sm font-normal text-muted-foreground">(clique para ver anúncios)</span>
-                      </CardTitle>
+                      <div>
+                        <CardTitle>Performance por campanha</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-0.5">Clique em uma linha para ver os anúncios</p>
+                      </div>
 
-                      {/* Filters - Right side, minimalist */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        {/* Search by name */}
                         <div className="relative">
                           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <Input
@@ -1898,82 +1743,35 @@ const LeadMetrics = () => {
                           />
                         </div>
 
-                        {/* Filter by lead source */}
                         {availableLeadTypes.length > 0 && (
-                          <Select value={selectedLeadTypeFilter} onValueChange={setSelectedLeadTypeFilter}>
-                            <SelectTrigger className="h-8 w-[100px] sm:w-[140px] text-sm bg-muted/30 border-muted">
-                              <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                              <SelectValue placeholder="Fonte" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Todas fontes</SelectItem>
-                              {availableLeadTypes.map(type => (
-                                <SelectItem key={type} value={type}>{type}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-
-                        {/* Campaign selector */}
-                        <Popover open={campaignSelectorOpen} onOpenChange={setCampaignSelectorOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-sm bg-muted/30 border-muted hover:bg-muted/50"
-                            >
-                              <Check className="h-3.5 w-3.5 mr-1.5" />
-                              {selectedCampaignIds.length > 0
-                                ? `${selectedCampaignIds.length} selecionadas`
-                                : "Campanhas"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 p-2" align="end">
-                            <div className="space-y-2">
-                              <div
-                                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer border-b pb-2"
-                                onClick={toggleAllCampaigns}
-                              >
-                                <Checkbox
-                                  checked={selectedCampaignIds.length === adsMetrics.campaignBreakdown.length}
-                                  className="h-3.5 w-3.5"
-                                />
-                                <span className="text-sm font-medium">
-                                  {selectedCampaignIds.length === adsMetrics.campaignBreakdown.length
-                                    ? "Desmarcar todas"
-                                    : "Selecionar todas"}
-                                </span>
-                              </div>
-                              <div className="max-h-48 overflow-y-auto space-y-1">
-                                {adsMetrics.campaignBreakdown.map(campaign => (
-                                  <div
-                                    key={campaign.id}
-                                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer"
-                                    onClick={() => toggleCampaignSelection(campaign.id)}
-                                  >
-                                    <Checkbox
-                                      checked={selectedCampaignIds.includes(campaign.id)}
-                                      className="h-3.5 w-3.5"
-                                    />
-                                    <span className="text-xs truncate" title={campaign.name}>
-                                      {campaign.name}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                              {selectedCampaignIds.length > 0 && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full h-7 text-xs"
-                                  onClick={() => setSelectedCampaignIds([])}
-                                >
-                                  Limpar seleção
-                                </Button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedLeadTypeFilter("all")}
+                              className={cn(
+                                "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                                selectedLeadTypeFilter === "all"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
                               )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                            >
+                              Todas
+                            </button>
+                            {availableLeadTypes.map(type => (
+                              <button
+                                key={type}
+                                onClick={() => setSelectedLeadTypeFilter(type)}
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                                  selectedLeadTypeFilter === type
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                )}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -1984,12 +1782,10 @@ const LeadMetrics = () => {
                         <TableHeader>
                           <TableRow>
                             <TableHead>Campanha</TableHead>
-                            <TableHead className="text-right">Investimento</TableHead>
+                            <TableHead className="text-right">Investido</TableHead>
                             <TableHead className="text-right">Leads</TableHead>
                             <TableHead className="text-right">CPL</TableHead>
                             <TableHead className="text-right">Alcance</TableHead>
-                            <TableHead className="text-right">Impressões</TableHead>
-                            <TableHead className="text-right">Cliques</TableHead>
                             <TableHead className="text-right">CTR</TableHead>
                             <TableHead className="text-right w-10"></TableHead>
                           </TableRow>
@@ -2002,41 +1798,31 @@ const LeadMetrics = () => {
                                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                                   onClick={() => handleCampaignClick(campaign)}
                                 >
-                                  <TableCell className="font-medium max-w-[140px] sm:max-w-[200px]">
-                                    <div className="truncate">{campaign.name}</div>
-                                    {/* MELHORIA 6: Badge de Objetivo */}
-                                    {campaign.objectiveName && (
-                                      <Badge variant="outline" className="text-[9px] mt-1 font-normal">
-                                        {campaign.objectiveName}
-                                      </Badge>
+                                  <TableCell className="max-w-[160px] sm:max-w-[220px]">
+                                    <div className="font-medium truncate">{campaign.name}</div>
+                                    {campaign.leadTypeName && (
+                                      <span className="text-[10px] text-muted-foreground">{campaign.leadTypeName}</span>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell className="text-right tabular-nums">
                                     {formatCurrency(campaign.spend)}
                                   </TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      {campaign.leadTypeName && (
-                                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                          {campaign.leadTypeName}
-                                        </span>
-                                      )}
-                                      <span className="min-w-[40px] text-right tabular-nums">{campaign.leads}</span>
-                                    </div>
+                                  <TableCell className="text-right tabular-nums">
+                                    {campaign.leads}
                                   </TableCell>
                                   <TableCell className="text-right">
-                                    {formatCurrency(campaign.cpl)}
+                                    <span className={cn(
+                                      "tabular-nums",
+                                      (filteredTotals?.cpl || 0) > 0 && campaign.cpl <= (filteredTotals?.cpl || 0) && "text-green-600 dark:text-green-400",
+                                      (filteredTotals?.cpl || 0) > 0 && campaign.cpl >= (filteredTotals?.cpl || 0) * 1.2 && "text-red-600 dark:text-red-400"
+                                    )}>
+                                      {formatCurrency(campaign.cpl)}
+                                    </span>
                                   </TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell className="text-right tabular-nums">
                                     {campaign.reach.toLocaleString('pt-BR')}
                                   </TableCell>
-                                  <TableCell className="text-right">
-                                    {(campaign.impressions || 0).toLocaleString('pt-BR')}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {campaign.clicks.toLocaleString('pt-BR')}
-                                  </TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell className="text-right tabular-nums">
                                     {campaign.ctr.toFixed(2)}%
                                   </TableCell>
                                   <TableCell className="text-right">
@@ -2078,30 +1864,21 @@ const LeadMetrics = () => {
                           {filteredCampaigns.length > 0 && filteredTotals && (
                             <TableRow className="bg-muted/50 font-semibold border-t-2 border-primary/20">
                               <TableCell>
-                                <span className="text-primary">TOTAL / MÉDIA</span>
-                                <span className="text-xs text-muted-foreground ml-2">
-                                  ({filteredCampaigns.length} campanha{filteredCampaigns.length !== 1 ? 's' : ''})
-                                </span>
+                                <span className="text-muted-foreground">TOTAL · {filteredCampaigns.length} campanha{filteredCampaigns.length !== 1 ? 's' : ''}</span>
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right tabular-nums">
                                 {formatCurrency(filteredTotals.spend)}
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right tabular-nums">
                                 {filteredTotals.leads}
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right tabular-nums">
                                 {formatCurrency(filteredTotals.cpl)}
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right tabular-nums">
                                 {filteredTotals.reach.toLocaleString('pt-BR')}
                               </TableCell>
-                              <TableCell className="text-right">
-                                {filteredTotals.impressions.toLocaleString('pt-BR')}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {filteredTotals.clicks.toLocaleString('pt-BR')}
-                              </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right tabular-nums">
                                 {filteredTotals.ctr.toFixed(2)}%
                               </TableCell>
                               <TableCell></TableCell>
@@ -2141,48 +1918,54 @@ const LeadMetrics = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Campaign Ads Preview Modal - Enhanced with Video Support */}
+      {/* Campaign Ads Preview Modal */}
       <Dialog open={!!selectedCampaign} onOpenChange={() => setSelectedCampaign(null)}>
-        <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-primary" />
-              <span>Anúncios da Campanha</span>
-              <Badge variant="secondary" className="ml-2">
-                {campaignAds.length} {campaignAds.length === 1 ? 'anúncio' : 'anúncios'}
-              </Badge>
-            </DialogTitle>
-            {selectedCampaign && (
-              <p className="text-sm text-muted-foreground truncate">{selectedCampaign.name}</p>
-            )}
+        <DialogContent className="max-w-[min(720px,95vw)] p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          <DialogHeader className="px-5 py-4 border-b flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <Megaphone className="h-4 w-4 text-primary" />
+                  Anúncios da campanha
+                  <Badge variant="secondary">{campaignAds.length}</Badge>
+                </DialogTitle>
+                {selectedCampaign && (
+                  <p className="text-xs text-muted-foreground mt-1 truncate max-w-[480px]">
+                    {selectedCampaign.name}
+                  </p>
+                )}
+              </div>
+            </div>
           </DialogHeader>
 
-          {loadingAds ? (
-            <div className="flex items-center justify-center py-16">
-              <LoadingAnimation text="Carregando anúncios..." />
-            </div>
-          ) : campaignAds.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-              {campaignAds.map(ad => (
-                <AdCard
-                  key={ad.id}
-                  ad={ad}
-                  getStatusBadgeVariant={getStatusBadgeVariant}
-                  getStatusLabel={getStatusLabel}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 text-muted-foreground">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Image className="h-8 w-8 opacity-50" />
+          <div className="overflow-y-auto flex-1 p-5">
+            {loadingAds ? (
+              <div className="flex items-center justify-center py-16">
+                <LoadingAnimation text="Carregando anúncios..." />
               </div>
-              <p className="text-lg font-medium mb-2">Nenhum anúncio encontrado</p>
-              <p className="text-sm max-w-md mx-auto">
-                Esta campanha não possui anúncios ativos ou os dados não estão disponíveis na API do Meta.
-              </p>
-            </div>
-          )}
+            ) : campaignAds.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {campaignAds.map(ad => (
+                  <AdCard
+                    key={ad.id}
+                    ad={ad}
+                    getStatusBadgeVariant={getStatusBadgeVariant}
+                    getStatusLabel={getStatusLabel}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 text-muted-foreground">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                  <Image className="h-8 w-8 opacity-50" />
+                </div>
+                <p className="text-lg font-medium mb-2">Nenhum anúncio encontrado</p>
+                <p className="text-sm max-w-md mx-auto">
+                  Esta campanha não possui anúncios ativos ou os dados não estão disponíveis na API do Meta.
+                </p>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

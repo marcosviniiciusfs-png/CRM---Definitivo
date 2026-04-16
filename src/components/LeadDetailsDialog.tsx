@@ -267,7 +267,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl">{leadName}</DialogTitle>

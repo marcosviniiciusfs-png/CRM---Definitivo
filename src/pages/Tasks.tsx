@@ -40,7 +40,7 @@ const Tasks = () => {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 min-w-0 overflow-hidden">
       <div>
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Tarefas</h1>
         <p className="text-muted-foreground hidden sm:block">Gerencie suas atividades com o quadro Kanban</p>

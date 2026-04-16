@@ -302,9 +302,10 @@ export function RankingSidePanel({ data, sortBy, type, period }: RankingSidePane
   }
 
   return (
-    <div className="flex gap-4 w-full">
+    <div className="flex gap-4 w-full overflow-x-auto pb-2 snap-x snap-mandatory"
+      style={{ WebkitOverflowScrolling: 'touch', scrollSnapType: 'x mandatory' }}>
       {/* Statistics Card */}
-      <Card className="p-4 flex-1">
+      <Card className="p-4 min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-1 snap-start">
         <h4 className="text-sm font-medium flex items-center gap-2 mb-3 text-foreground">
           <BarChart3 className="h-4 w-4 text-primary" />
           Resumo - {getPeriodLabel(period)}
@@ -318,7 +319,7 @@ export function RankingSidePanel({ data, sortBy, type, period }: RankingSidePane
 
       {/* Highlights Card */}
       {highlights.length > 0 && (
-        <Card className="p-4 flex-1">
+        <Card className="p-4 min-w-[280px] sm:min-w-0 flex-shrink-0 sm:flex-1 snap-start">
           <h4 className="text-sm font-medium flex items-center gap-2 mb-3 text-foreground">
             <Trophy className="h-4 w-4 text-yellow-500" />
             Destaques

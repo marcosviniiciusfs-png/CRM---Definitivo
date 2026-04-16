@@ -219,36 +219,14 @@ Deno.serve(async (req) => {
     let businessId = selectedPage?.business?.id || null;
     let businessName = selectedPage?.business?.name || null;
 
-    // 3.5. Buscar contas de anúncios do usuário
+    // 3.5. Buscar contas de anúncios do usuário — PRIORIZAR BM conectada
     console.log('🔄 [FB-CALLBACK] Buscando contas de anúncios...');
     let adAccounts: { id: string; name: string; status: number }[] = [];
     let selectedAdAccountId: string | null = null;
 
-    try {
-      const adAccountsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`
-      );
-      const adAccountsData = await adAccountsResponse.json();
-
-      if (adAccountsData.data && adAccountsData.data.length > 0) {
-        adAccounts = adAccountsData.data.map((a: any) => ({
-          id: a.id,
-          name: a.name,
-          status: a.account_status ?? 1
-        }));
-        const activeAccount = adAccounts.find((a: any) => a.status === 1);
-        selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
-        console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) de anúncios encontrada(s) via /me/adaccounts. Selecionada: ${selectedAdAccountId}`);
-      } else {
-        console.log('⚠️ [FB-CALLBACK] Nenhuma conta de anúncios encontrada via /me/adaccounts');
-      }
-    } catch (adsError: any) {
-      console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas de anúncios via /me/adaccounts:', adsError.message);
-    }
-
-    // Fallback 2: tentar via Business Manager da página se não encontrou contas pessoais
-    if (adAccounts.length === 0 && businessId) {
-      console.log(`🔄 [FB-CALLBACK] Tentativa 2 — Business Manager da página: ${businessId}`);
+    // Tentativa 1: Contas do Business Manager da página (prioridade — filtra apenas contas da BM conectada)
+    if (businessId) {
+      console.log(`🔄 [FB-CALLBACK] Tentativa 1 — Business Manager da página: ${businessId} (${businessName})`);
       try {
         const bizAccountsUrl = `https://graph.facebook.com/v21.0/${businessId}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`;
         const bizAccountsResponse = await fetch(bizAccountsUrl);
@@ -271,7 +249,33 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fallback 3: descobrir TODOS os Business Managers do usuário e buscar contas em cada um
+    // Tentativa 2: Contas pessoais do usuário (/me/adaccounts)
+    if (adAccounts.length === 0) {
+      console.log('🔄 [FB-CALLBACK] Tentativa 2 — /me/adaccounts');
+      try {
+        const adAccountsResponse = await fetch(
+          `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`
+        );
+        const adAccountsData = await adAccountsResponse.json();
+
+        if (adAccountsData.data && adAccountsData.data.length > 0) {
+          adAccounts = adAccountsData.data.map((a: any) => ({
+            id: a.id,
+            name: a.name,
+            status: a.account_status ?? 1
+          }));
+          const activeAccount = adAccounts.find((a: any) => a.status === 1);
+          selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
+          console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) via /me/adaccounts. Selecionada: ${selectedAdAccountId}`);
+        } else {
+          console.log('⚠️ [FB-CALLBACK] Nenhuma conta via /me/adaccounts');
+        }
+      } catch (adsError: any) {
+        console.warn('⚠️ [FB-CALLBACK] Erro ao buscar contas via /me/adaccounts:', adsError.message);
+      }
+    }
+
+    // Tentativa 3: Descobrir TODOS os Business Managers do usuário
     if (adAccounts.length === 0) {
       console.log('🔄 [FB-CALLBACK] Tentativa 3 — Descobrindo Business Managers via /me/businesses');
       try {
@@ -295,7 +299,6 @@ Deno.serve(async (req) => {
                 }));
                 const activeAccount = adAccounts.find((a: any) => a.status === 1);
                 selectedAdAccountId = activeAccount?.id || adAccounts[0]?.id || null;
-                // Atualizar businessId/businessName para salvar no banco
                 businessId = biz.id;
                 businessName = biz.name;
                 console.log(`✅ [FB-CALLBACK] ${adAccounts.length} conta(s) no BM "${biz.name}" (${biz.id}). Selecionada: ${selectedAdAccountId}`);

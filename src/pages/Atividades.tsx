@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
@@ -50,24 +51,44 @@ interface SystemActivity {
 }
 
 export default function Atividades() {
+  const queryClient = useQueryClient();
   const [messageActivities, setMessageActivities] = useState<MessageActivity[]>([]);
   const [userSessions, setUserSessions] = useState<UserSession[]>([]);
   const [systemActivities, setSystemActivities] = useState<SystemActivity[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterColaborador, setFilterColaborador] = useState<string>("todos");
   const [colaboradores, setColaboradores] = useState<Array<{ id: string; name: string; email: string }>>([]);
 
+  // Cache de atividades com React Query (2 min)
+  const { isLoading } = useQuery({
+    queryKey: ['atividades'],
+    queryFn: async () => {
+      const [messagesResult, sessionsResult, systemResult, colabResult] = await Promise.all([
+        loadMessageActivities(),
+        loadUserSessions(),
+        loadSystemActivities(),
+        loadColaboradoresData(),
+      ]);
+      return { messages: messagesResult, sessions: sessionsResult, system: systemResult, colab: colabResult };
+    },
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+
+  // Sincronizar cache com estados locais
   useEffect(() => {
-    loadAllActivities();
-    loadColaboradores();
-  }, []);
+    const cached = queryClient.getQueryData<{ messages: MessageActivity[]; sessions: UserSession[]; system: SystemActivity[]; colab: any[] }>(['atividades']);
+    if (cached) {
+      setMessageActivities(cached.messages);
+      setUserSessions(cached.sessions);
+      setSystemActivities(cached.system);
+      setColaboradores(cached.colab);
+    }
+  }, [isLoading, queryClient]);
 
-  const loadColaboradores = async () => {
+  const loadColaboradoresData = async () => {
     try {
-      // Usar a função que já lida com o fallback
       const members = await fetchOrganizationMembersSafe();
-
       const userIds = members?.filter((m: any) => m.user_id).map((m: any) => m.user_id) || [];
       let profilesMap: { [key: string]: string } = {};
 
@@ -87,30 +108,14 @@ export default function Atividades() {
         }
       }
 
-      setColaboradores(
-        members?.filter((m: any) => m.user_id).map((m: any) => ({
-          id: m.user_id || '',
-          name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id] : 'Usuário',
-          email: '' // Não expor email
-        })) || []
-      );
+      return members?.filter((m: any) => m.user_id).map((m: any) => ({
+        id: m.user_id || '',
+        name: m.user_id && profilesMap[m.user_id] ? profilesMap[m.user_id] : 'Usuário',
+        email: ''
+      })) || [];
     } catch (error) {
       console.error('Erro ao carregar colaboradores:', error);
-    }
-  };
-
-  const loadAllActivities = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        loadMessageActivities(),
-        loadUserSessions(),
-        loadSystemActivities()
-      ]);
-    } catch (error) {
-      console.error('Erro ao carregar atividades:', error);
-    } finally {
-      setLoading(false);
+      return [];
     }
   };
 
@@ -144,7 +149,7 @@ export default function Atividades() {
       data_hora: msg.data_hora,
     }));
 
-    setMessageActivities(activities);
+    return activities;
   };
 
   const loadUserSessions = async () => {
@@ -194,7 +199,7 @@ export default function Atividades() {
       duration_minutes: session.duration_minutes
     }));
 
-    setUserSessions(sessionsWithUsers);
+    return sessionsWithUsers;
   };
 
   const loadSystemActivities = async () => {
@@ -246,7 +251,7 @@ export default function Atividades() {
       created_at: activity.created_at
     }));
 
-    setSystemActivities(activitiesWithUsers);
+    return activitiesWithUsers;
   };
 
   const getInitials = (name: string) => {
@@ -320,7 +325,7 @@ export default function Atividades() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-8 min-w-0 overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de Atividades</h1>
@@ -331,18 +336,19 @@ export default function Atividades() {
       </div>
 
       <Tabs defaultValue="messages" className="space-y-6">
-        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-          <TabsTrigger value="messages" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent overflow-x-auto">
+          <TabsTrigger value="messages" className="flex items-center gap-1.5 sm:gap-2 rounded-none px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <MessageSquare className="h-4 w-4" />
             Mensagens
           </TabsTrigger>
-          <TabsTrigger value="sessions" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+          <TabsTrigger value="sessions" className="flex items-center gap-1.5 sm:gap-2 rounded-none px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <LogIn className="h-4 w-4" />
             Conexões
           </TabsTrigger>
-          <TabsTrigger value="system" className="flex items-center gap-2 rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+          <TabsTrigger value="system" className="flex items-center gap-1.5 sm:gap-2 rounded-none px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <Activity className="h-4 w-4" />
-            Outras Atividades
+            <span className="hidden sm:inline">Outras Atividades</span>
+            <span className="sm:hidden">Outras</span>
           </TabsTrigger>
         </TabsList>
 
@@ -379,7 +385,7 @@ export default function Atividades() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
-                {loading ? (
+                {isLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="flex gap-4">
@@ -448,7 +454,7 @@ export default function Atividades() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
-                {loading ? (
+                {isLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="flex gap-4">
@@ -541,7 +547,7 @@ export default function Atividades() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
-                {loading ? (
+                {isLoading ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="flex gap-4">

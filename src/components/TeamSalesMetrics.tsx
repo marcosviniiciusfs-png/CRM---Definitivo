@@ -158,7 +158,7 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUs
   };
 
   return (
-    <div className="space-y-6 mb-8">
+    <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-8 min-w-0 overflow-hidden">
       {/* Ranking Header */}
       <Card>
         <CardHeader className="pb-3">
