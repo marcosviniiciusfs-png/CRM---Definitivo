@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertCircle, X } from "lucide-react";
+import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertCircle, X, RefreshCw, Ban, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -17,10 +17,10 @@ import { useOrganization } from "@/contexts/OrganizationContext";
 const detectDelimiter = (text: string): string => {
   const firstLine = text.split(/\r?\n/)[0] || "";
   const delimiters = ['\t', ';', ','];
-  
+
   let maxCount = 0;
   let detectedDelimiter = ',';
-  
+
   for (const delimiter of delimiters) {
     const regex = delimiter === '\t' ? /\t/g : new RegExp(delimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
     const count = (firstLine.match(regex) || []).length;
@@ -29,7 +29,7 @@ const detectDelimiter = (text: string): string => {
       detectedDelimiter = delimiter;
     }
   }
-  
+
   console.log('[CSV Parser] Detected delimiter:', detectedDelimiter === '\t' ? 'TAB' : detectedDelimiter, 'Count:', maxCount);
   return detectedDelimiter;
 };
@@ -38,17 +38,17 @@ const detectDelimiter = (text: string): string => {
 const parseCSV = (text: string): any[] => {
   const lines = text.split(/\r?\n/).filter(line => line.trim());
   if (lines.length < 2) return [];
-  
+
   const delimiter = detectDelimiter(text);
   console.log('[CSV Parser] Total lines:', lines.length);
   console.log('[CSV Parser] First line preview:', lines[0].substring(0, 200));
-  
+
   // Parse row handling quoted fields
   const parseRow = (row: string): string[] => {
     const result: string[] = [];
     let current = "";
     let inQuotes = false;
-    
+
     for (let i = 0; i < row.length; i++) {
       const char = row[i];
       if (char === '"') {
@@ -63,12 +63,12 @@ const parseCSV = (text: string): any[] => {
     result.push(current.trim().replace(/^"|"$/g, ''));
     return result;
   };
-  
+
   const headers = parseRow(lines[0]);
   console.log('[CSV Parser] Detected columns:', headers);
-  
+
   const data: any[] = [];
-  
+
   for (let i = 1; i < lines.length; i++) {
     const values = parseRow(lines[i]);
     if (values.length >= 1) {
@@ -81,7 +81,7 @@ const parseCSV = (text: string): any[] => {
       data.push(row);
     }
   }
-  
+
   console.log('[CSV Parser] Parsed rows:', data.length);
   return data;
 };
@@ -98,28 +98,45 @@ interface FieldMapping {
   preview: string[];
 }
 
+// Duplicate lead tracking
+interface DuplicateLead {
+  newData: Record<string, any>;
+  existingData: {
+    id: string;
+    nome_lead: string;
+    telefone_lead: string;
+    email: string | null;
+    empresa: string | null;
+    valor: number | null;
+    source: string | null;
+    descricao_negocio: string | null;
+  };
+  action: "pending" | "update" | "ignore";
+  updating?: boolean;
+}
+
 // Flexible value getter - handles key mismatches from encoding/whitespace
 const getValue = (row: any, columnName: string, columnIndex: number): string => {
   // Try direct access first
   if (row[columnName] !== undefined && row[columnName] !== null) {
     return String(row[columnName]);
   }
-  
+
   // Try case-insensitive, trimmed search
   const normalizedSearch = columnName.toLowerCase().trim();
   const keys = Object.keys(row);
-  
+
   for (const key of keys) {
     if (key.toLowerCase().trim() === normalizedSearch) {
       return String(row[key] || "");
     }
   }
-  
+
   // Fallback: try by index position
   if (columnIndex >= 0 && columnIndex < keys.length) {
     return String(row[keys[columnIndex]] || "");
   }
-  
+
   return "";
 };
 
@@ -136,6 +153,9 @@ const CRM_FIELDS = [
   { value: "additional_data", label: "→ Dados Adicionais" },
 ];
 
+// Fields that can be overwritten when updating a duplicate
+const UPDATABLE_FIELDS = ["nome_lead", "email", "empresa", "valor", "source", "descricao_negocio"] as const;
+
 export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) {
   const { toast } = useToast();
   const { organizationId } = useOrganization();
@@ -150,11 +170,17 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
   const [selectedStage, setSelectedStage] = useState<string>("");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; errors: number; errorDetails: string[] }>({
+  const [importResults, setImportResults] = useState<{
+    success: number;
+    errors: number;
+    errorDetails: string[];
+  }>({
     success: 0,
     errors: 0,
     errorDetails: [],
   });
+  const [duplicateLeads, setDuplicateLeads] = useState<DuplicateLead[]>([]);
+  const [duplicatesExpanded, setDuplicatesExpanded] = useState(true);
 
   const resetState = () => {
     setStep(1);
@@ -167,6 +193,8 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     setImporting(false);
     setImportProgress(0);
     setImportResults({ success: 0, errors: 0, errorDetails: [] });
+    setDuplicateLeads([]);
+    setDuplicatesExpanded(true);
   };
 
   const handleClose = () => {
@@ -176,12 +204,12 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
   const handleFileUpload = useCallback(async (uploadedFile: File) => {
     setFile(uploadedFile);
-    
+
     try {
       let jsonData: any[] = [];
       const fileName = uploadedFile.name.toLowerCase();
       const isCSV = fileName.endsWith('.csv');
-      
+
       if (isCSV) {
         // Use manual CSV parser
         const text = await uploadedFile.text();
@@ -195,7 +223,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         const worksheet = workbook.Sheets[sheetName];
         jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
       }
-      
+
       if (jsonData.length === 0) {
         toast({
           title: "Arquivo vazio",
@@ -214,16 +242,16 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         });
         return;
       }
-      
+
       const cols = Object.keys(jsonData[0] as object);
       setColumns(cols);
       setParsedData(jsonData);
-      
+
       // Auto-map common fields
       const autoMappings: FieldMapping[] = cols.map((col, index) => {
         const colLower = col.toLowerCase().trim();
         let crmField = "additional_data";
-        
+
         // Auto-detect common column names
         if (colLower.includes("nome") || colLower.includes("name")) {
           crmField = "nome_lead";
@@ -242,10 +270,10 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         } else if (colLower.includes("descricao") || colLower.includes("descrição") || colLower.includes("description")) {
           crmField = "descricao_negocio";
         }
-        
+
         // Preview first 3 values
         const preview = jsonData.slice(0, 3).map((row: any) => String(row[col] || ""));
-        
+
         return {
           excelColumn: col,
           columnIndex: index,
@@ -253,9 +281,9 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
           preview,
         };
       });
-      
+
       setMappings(autoMappings);
-      
+
       // Load funnels for step 3 — filter by organization to avoid cross-org contamination
       const funnelQuery = supabase
         .from("sales_funnels")
@@ -270,12 +298,12 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       }
 
       const { data: funnelData } = await funnelQuery;
-      
+
       setFunnels(funnelData || []);
       if (funnelData && funnelData.length > 0) {
         const defaultFunnel = funnelData.find(f => f.is_default) || funnelData[0];
         setSelectedFunnel(defaultFunnel.id);
-        
+
         // Load stages for default funnel
         const { data: stageData } = await supabase
           .from("funnel_stages")
@@ -283,13 +311,13 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
           .eq("funnel_id", defaultFunnel.id)
           .eq("is_final", false)
           .order("position");
-        
+
         setStages(stageData || []);
         if (stageData && stageData.length > 0) {
           setSelectedStage(stageData[0].id);
         }
       }
-      
+
       setStep(2);
     } catch (error) {
       console.error("Erro ao processar arquivo:", error);
@@ -317,14 +345,14 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
   const handleFunnelChange = async (funnelId: string) => {
     setSelectedFunnel(funnelId);
-    
+
     const { data: stageData } = await supabase
       .from("funnel_stages")
       .select("id, name, position")
       .eq("funnel_id", funnelId)
       .eq("is_final", false)
       .order("position");
-    
+
     setStages(stageData || []);
     if (stageData && stageData.length > 0) {
       setSelectedStage(stageData[0].id);
@@ -334,7 +362,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
   const validateMappings = () => {
     const hasTelefone = mappings.some((m) => m.crmField === "telefone_lead");
     const hasNome = mappings.some((m) => m.crmField === "nome_lead");
-    
+
     if (!hasTelefone) {
       toast({
         title: "Mapeamento obrigatório",
@@ -343,7 +371,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       });
       return false;
     }
-    
+
     if (!hasNome) {
       toast({
         title: "Mapeamento obrigatório",
@@ -352,19 +380,19 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       });
       return false;
     }
-    
+
     return true;
   };
 
   const processLeads = () => {
     console.log('[processLeads] Starting with', parsedData.length, 'rows');
     console.log('[processLeads] Mappings:', mappings.map(m => ({ col: m.excelColumn, idx: m.columnIndex, field: m.crmField })));
-    
+
     if (parsedData.length > 0) {
       console.log('[processLeads] First row keys:', Object.keys(parsedData[0]));
       console.log('[processLeads] First row data:', parsedData[0]);
     }
-    
+
     return parsedData.map((row, rowIndex) => {
       const lead: Record<string, any> = {
         source: "Importação",
@@ -373,18 +401,18 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         organization_id: organizationId || null,
       };
       const additionalData: Record<string, any> = {};
-      
+
       mappings.forEach((mapping) => {
         const value = getValue(row, mapping.excelColumn, mapping.columnIndex);
-        
+
         if (rowIndex === 0) {
           console.log(`[processLeads] Row 0 - Column "${mapping.excelColumn}" (idx ${mapping.columnIndex}) -> "${value}"`);
         }
-        
+
         if (mapping.crmField === "ignore" || !value) {
           return;
         }
-        
+
         if (mapping.crmField === "additional_data") {
           additionalData[mapping.excelColumn] = value;
         } else if (mapping.crmField === "valor") {
@@ -395,21 +423,21 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
             .replace(",", ".");
           lead.valor = parseFloat(cleanValue) || 0;
         } else if (mapping.crmField === "telefone_lead") {
-          // Clean phone number
+          // Clean phone number — normalize by removing all non-digits
           lead.telefone_lead = String(value).replace(/\D/g, "");
         } else {
           lead[mapping.crmField] = String(value).trim();
         }
       });
-      
+
       if (Object.keys(additionalData).length > 0) {
         lead.additional_data = additionalData;
       }
-      
+
       if (rowIndex === 0) {
         console.log('[processLeads] First processed lead:', lead);
       }
-      
+
       return lead;
     });
   };
@@ -442,104 +470,254 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       });
       return;
     }
-    
+
     setImporting(true);
     setImportProgress(0);
-    
+    setStep(4);
+
     const leads = processLeads();
     const validLeads = leads.filter((lead) => lead.nome_lead && lead.telefone_lead) as {
       nome_lead: string;
       telefone_lead: string;
       [key: string]: any;
     }[];
-    
+
+    const invalidLeads = leads.filter((lead) => !lead.nome_lead || !lead.telefone_lead);
+
     if (validLeads.length === 0) {
       toast({
         title: "Nenhum lead válido",
         description: "Todos os registros estão faltando nome ou telefone",
         variant: "destructive",
       });
+      setImportResults({
+        success: 0,
+        errors: invalidLeads.length,
+        errorDetails: invalidLeads.map((_, i) => `Registro ${i + 1}: faltando nome ou telefone`),
+      });
       setImporting(false);
       return;
     }
-    
-    // Verificar leads duplicados (mesmo email ou telefone na mesma organização)
-    // e registrar a tentativa no lead existente (sem bloquear a importação)
-    const checkAndRegisterDuplicates = async (leadsToCheck: typeof validLeads) => {
-      for (const lead of leadsToCheck) {
-        const conditions: string[] = [];
-        if (lead.telefone_lead) conditions.push(`telefone_lead.eq.${lead.telefone_lead}`);
-        if (lead.email) conditions.push(`email.eq.${lead.email}`);
-        if (conditions.length === 0) continue;
 
-        const { data: existing } = await supabase
-          .from("leads")
-          .select("id, duplicate_attempts_count, duplicate_attempts_history")
-          .eq("organization_id", organizationId)
-          .or(conditions.join(","))
-          .limit(1)
-          .maybeSingle();
+    // ========== PHASE 1: Pre-check for duplicates ==========
+    console.log('[handleImport] Phase 1: Pre-checking duplicates for', validLeads.length, 'leads');
 
-        if (existing) {
-          const currentCount = (existing.duplicate_attempts_count as number) || 0;
-          const currentHistory = Array.isArray(existing.duplicate_attempts_history) ? existing.duplicate_attempts_history : [];
-          await supabase
-            .from("leads")
-            .update({
-              duplicate_attempts_count: currentCount + 1,
-              last_duplicate_attempt_at: new Date().toISOString(),
-              duplicate_attempts_history: [
-                ...currentHistory,
-                { source: "Importação", attempted_at: new Date().toISOString() },
-              ],
-            })
-            .eq("id", existing.id);
-        }
+    const phones = validLeads.map(l => l.telefone_lead).filter(Boolean);
+
+    // Query existing leads with matching phones in this organization
+    const { data: existingLeads, error: preCheckError } = await supabase
+      .from("leads")
+      .select("id, nome_lead, telefone_lead, email, empresa, valor, source, descricao_negocio")
+      .eq("organization_id", organizationId)
+      .in("telefone_lead", phones);
+
+    if (preCheckError) {
+      console.error('[handleImport] Pre-check query error:', preCheckError);
+      // If pre-check fails, fall back to inserting all and handling errors
+    }
+
+    // Build a set of existing phones for fast lookup
+    const existingPhoneMap = new Map<string, DuplicateLead["existingData"]>();
+    if (existingLeads) {
+      for (const existing of existingLeads) {
+        existingPhoneMap.set(existing.telefone_lead, existing);
       }
-    };
+    }
 
-    // Inserção em lote: divide em chunks de 25 para não sobrecarregar a API
-    const CHUNK_SIZE = 25;
-    let successCount = 0;
-    let errorCount = 0;
+    // Separate into new leads and duplicates
+    const newLeads: typeof validLeads = [];
+    const duplicates: DuplicateLead[] = [];
     const errorDetails: string[] = [];
 
-    for (let i = 0; i < validLeads.length; i += CHUNK_SIZE) {
-      const chunk = validLeads.slice(i, i + CHUNK_SIZE);
+    // Track invalid rows
+    invalidLeads.forEach((lead, i) => {
+      errorDetails.push(`Registro ${i + 1}: faltando ${!lead.nome_lead ? 'nome' : 'telefone'}`);
+    });
 
-      try {
-        const { data, error } = await supabase.from("leads").insert(chunk).select();
+    for (const lead of validLeads) {
+      const existingData = existingPhoneMap.get(lead.telefone_lead);
+      if (existingData) {
+        duplicates.push({
+          newData: lead,
+          existingData,
+          action: "pending",
+        });
+      } else {
+        newLeads.push(lead);
+      }
+    }
 
-        if (error) {
+    console.log(`[handleImport] Pre-check result: ${newLeads.length} new, ${duplicates.length} duplicates, ${invalidLeads.length} invalid`);
+
+    // ========== PHASE 2: Bulk insert only new leads ==========
+    let successCount = 0;
+    let errorCount = invalidLeads.length;
+    const CHUNK_SIZE = 25;
+
+    if (newLeads.length > 0) {
+      for (let i = 0; i < newLeads.length; i += CHUNK_SIZE) {
+        const chunk = newLeads.slice(i, i + CHUNK_SIZE);
+
+        try {
+          const { data, error } = await supabase.from("leads").insert(chunk).select();
+
+          if (error) {
+            console.error('[handleImport] Insert chunk error:', error);
+            errorCount += chunk.length;
+            chunk.forEach((lead, idx) => {
+              errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${error.message}`);
+            });
+          } else {
+            successCount += data?.length || 0;
+          }
+        } catch (err: any) {
+          console.error('[handleImport] Insert chunk exception:', err);
           errorCount += chunk.length;
           chunk.forEach((lead, idx) => {
-            errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${error.message}`);
+            errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${err.message}`);
           });
-        } else {
-          successCount += data?.length || 0;
-          // Verificar e registrar duplicatas em background (sem bloquear)
-          checkAndRegisterDuplicates(chunk).catch(console.error);
         }
-      } catch (err: any) {
-        errorCount += chunk.length;
-        chunk.forEach((lead, idx) => {
-          errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${err.message}`);
-        });
-      }
 
-      setImportProgress(Math.round((Math.min(i + CHUNK_SIZE, validLeads.length) / validLeads.length) * 100));
+        // Update progress: first 80% for inserts, last 20% for duplicates
+        const insertProgress = newLeads.length > 0
+          ? Math.round((Math.min(i + CHUNK_SIZE, newLeads.length) / newLeads.length) * 80)
+          : 80;
+        setImportProgress(insertProgress);
+      }
     }
-    
+
+    setImportProgress(80);
+
+    // ========== PHASE 3: Store duplicates for user decision ==========
+    setDuplicateLeads(duplicates);
     setImportResults({ success: successCount, errors: errorCount, errorDetails });
+    setImportProgress(100);
     setImporting(false);
-    setStep(4);
-    
-    if (successCount > 0) {
+
+    if (successCount > 0 || duplicates.length > 0) {
+      const parts: string[] = [];
+      if (successCount > 0) parts.push(`${successCount} novos importados`);
+      if (duplicates.length > 0) parts.push(`${duplicates.length} duplicados encontrados`);
       toast({
         title: "Importação concluída",
-        description: `${successCount} leads importados com sucesso`,
+        description: parts.join(" • "),
       });
     }
+  };
+
+  // Update a single duplicate lead
+  const handleUpdateDuplicate = async (index: number) => {
+    const dup = duplicateLeads[index];
+    if (!dup || dup.action !== "pending") return;
+
+    // Mark as updating
+    setDuplicateLeads(prev => prev.map((d, i) => i === index ? { ...d, updating: true } : d));
+
+    const updateData: Record<string, any> = {};
+    for (const field of UPDATABLE_FIELDS) {
+      if (dup.newData[field] !== undefined && dup.newData[field] !== null && dup.newData[field] !== "") {
+        updateData[field] = dup.newData[field];
+      }
+    }
+
+    const { error } = await supabase
+      .from("leads")
+      .update(updateData)
+      .eq("id", dup.existingData.id);
+
+    if (error) {
+      console.error('[handleUpdateDuplicate] Error:', error);
+      toast({
+        title: "Erro ao atualizar",
+        description: `Não foi possível atualizar o lead ${dup.newData.nome_lead}: ${error.message}`,
+        variant: "destructive",
+      });
+      setDuplicateLeads(prev => prev.map((d, i) => i === index ? { ...d, updating: false } : d));
+      return;
+    }
+
+    setDuplicateLeads(prev => prev.map((d, i) => i === index ? { ...d, action: "update" as const, updating: false } : d));
+    toast({
+      title: "Lead atualizado",
+      description: `${dup.newData.nome_lead} foi atualizado com os novos dados`,
+    });
+  };
+
+  // Ignore a single duplicate lead
+  const handleIgnoreDuplicate = (index: number) => {
+    setDuplicateLeads(prev => prev.map((d, i) => i === index ? { ...d, action: "ignore" as const } : d));
+  };
+
+  // Update all pending duplicates
+  const handleUpdateAll = async () => {
+    const pendingIndexes = duplicateLeads
+      .map((d, i) => d.action === "pending" ? i : -1)
+      .filter(i => i >= 0);
+
+    if (pendingIndexes.length === 0) return;
+
+    // Mark all as updating
+    setDuplicateLeads(prev => prev.map(d => d.action === "pending" ? { ...d, updating: true } : d));
+
+    let updated = 0;
+    let failed = 0;
+
+    for (const index of pendingIndexes) {
+      const dup = duplicateLeads[index];
+      const updateData: Record<string, any> = {};
+      for (const field of UPDATABLE_FIELDS) {
+        if (dup.newData[field] !== undefined && dup.newData[field] !== null && dup.newData[field] !== "") {
+          updateData[field] = dup.newData[field];
+        }
+      }
+
+      const { error } = await supabase
+        .from("leads")
+        .update(updateData)
+        .eq("id", dup.existingData.id);
+
+      if (error) {
+        failed++;
+        console.error(`[handleUpdateAll] Error updating lead ${dup.existingData.id}:`, error);
+      } else {
+        updated++;
+      }
+
+      // Progress
+      setImportProgress(Math.round(((updated + failed) / pendingIndexes.length) * 100));
+    }
+
+    // Update state for all
+    setDuplicateLeads(prev => prev.map(d => {
+      if (d.action === "pending") {
+        return { ...d, action: "update" as const, updating: false };
+      }
+      return d;
+    }));
+
+    setImportProgress(100);
+
+    if (failed > 0) {
+      toast({
+        title: "Atualização parcial",
+        description: `${updated} leads atualizados, ${failed} falharam`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Todos atualizados",
+        description: `${updated} leads duplicados foram atualizados com sucesso`,
+      });
+    }
+  };
+
+  // Ignore all pending duplicates
+  const handleIgnoreAll = () => {
+    setDuplicateLeads(prev => prev.map(d => d.action === "pending" ? { ...d, action: "ignore" as const } : d));
+    toast({
+      title: "Duplicados ignorados",
+      description: "Todos os leads duplicados foram ignorados",
+    });
   };
 
   const getStepTitle = () => {
@@ -559,6 +737,10 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
   const getAdditionalFieldsCount = () => {
     return mappings.filter((m) => m.crmField === "additional_data").length;
   };
+
+  const updatedCount = duplicateLeads.filter(d => d.action === "update").length;
+  const ignoredCount = duplicateLeads.filter(d => d.action === "ignore").length;
+  const pendingCount = duplicateLeads.filter(d => d.action === "pending").length;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -641,7 +823,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                     <Badge variant="outline">{getAdditionalFieldsCount()} dados adicionais</Badge>
                   </div>
                 </div>
-                
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -745,7 +927,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                 <span>
-                  Os leads serão inseridos em lote. Aguarde a conclusão sem fechar esta janela.
+                  Leads duplicados (mesmo telefone) serão detectados automaticamente. Você poderá escolher o que fazer com cada um.
                 </span>
               </div>
             </div>
@@ -765,19 +947,41 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-center gap-8">
-                    <div className="text-center">
+                  {/* Summary Cards */}
+                  <div className="flex items-center justify-center gap-6 flex-wrap">
+                    {/* Success Card */}
+                    <div className="text-center min-w-[120px]">
                       <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-2">
                         <Check className="h-8 w-8 text-green-600" />
                       </div>
                       <p className="text-2xl font-bold text-green-600">{importResults.success}</p>
                       <p className="text-sm text-muted-foreground">Importados</p>
                     </div>
-                    
+
+                    {/* Duplicates Card */}
+                    {duplicateLeads.length > 0 && (
+                      <div className="text-center min-w-[120px]">
+                        <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-2">
+                          <AlertCircle className="h-8 w-8 text-amber-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-amber-600">{duplicateLeads.length}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Duplicados
+                          {updatedCount > 0 && (
+                            <span className="text-green-600 ml-1">({updatedCount} atualizados)</span>
+                          )}
+                          {ignoredCount > 0 && (
+                            <span className="text-muted-foreground ml-1">({ignoredCount} ignorados)</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Errors Card */}
                     {importResults.errors > 0 && (
-                      <div className="text-center">
+                      <div className="text-center min-w-[120px]">
                         <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-2">
-                          <AlertCircle className="h-8 w-8 text-red-600" />
+                          <X className="h-8 w-8 text-red-600" />
                         </div>
                         <p className="text-2xl font-bold text-red-600">{importResults.errors}</p>
                         <p className="text-sm text-muted-foreground">Erros</p>
@@ -785,14 +989,162 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                     )}
                   </div>
 
+                  {/* Error Details */}
                   {importResults.errorDetails.length > 0 && (
                     <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
                       <p className="font-medium text-red-800 dark:text-red-200 mb-2">Detalhes dos erros:</p>
-                      <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-                        {importResults.errorDetails.map((error, i) => (
-                          <li key={i}>• {error}</li>
-                        ))}
-                      </ul>
+                      <ScrollArea className="max-h-[150px]">
+                        <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                          {importResults.errorDetails.map((error, i) => (
+                            <li key={i}>• {error}</li>
+                          ))}
+                        </ul>
+                      </ScrollArea>
+                    </div>
+                  )}
+
+                  {/* Duplicates Section */}
+                  {duplicateLeads.length > 0 && (
+                    <div className="border rounded-lg overflow-hidden">
+                      {/* Header with mass actions */}
+                      <div
+                        className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/30 cursor-pointer"
+                        onClick={() => setDuplicatesExpanded(!duplicatesExpanded)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {duplicatesExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-amber-600" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-amber-600" />
+                          )}
+                          <span className="font-medium text-amber-800 dark:text-amber-200">
+                            Leads Duplicados ({duplicateLeads.length})
+                          </span>
+                          {pendingCount > 0 && (
+                            <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                              {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {pendingCount > 0 && (
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950"
+                              onClick={handleUpdateAll}
+                              disabled={importing}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                              Atualizar Todos
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-muted-foreground"
+                              onClick={handleIgnoreAll}
+                            >
+                              <Ban className="h-3.5 w-3.5 mr-1" />
+                              Ignorar Todos
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Duplicates List */}
+                      {duplicatesExpanded && (
+                        <ScrollArea className="max-h-[300px]">
+                          <div className="divide-y">
+                            {duplicateLeads.map((dup, index) => (
+                              <div
+                                key={dup.existingData.id}
+                                className={`p-3 flex items-center gap-4 ${
+                                  dup.action === "update"
+                                    ? "bg-green-50/50 dark:bg-green-900/10"
+                                    : dup.action === "ignore"
+                                    ? "bg-muted/30"
+                                    : ""
+                                }`}
+                              >
+                                {/* Lead Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm truncate">
+                                      {dup.newData.nome_lead}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {dup.newData.telefone_lead}
+                                    </span>
+                                  </div>
+                                  {/* Show what changed */}
+                                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                    {UPDATABLE_FIELDS.map(field => {
+                                      const newVal = String(dup.newData[field] ?? "");
+                                      const oldVal = String(dup.existingData[field as keyof typeof dup.existingData] ?? "");
+                                      if (newVal && newVal !== oldVal) {
+                                        return (
+                                          <div key={field} className="flex items-center gap-1">
+                                            <span className="text-muted-foreground/60">{field}:</span>
+                                            <span className="line-through text-red-400/70">{oldVal || "—"}</span>
+                                            <span className="text-green-600">{newVal}</span>
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })}
+                                    {UPDATABLE_FIELDS.every(f => !dup.newData[f] || String(dup.newData[f]) === String(dup.existingData[f as keyof typeof dup.existingData] ?? "")) && (
+                                      <span className="text-muted-foreground/50 italic">Nenhuma alteração nos dados</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Action Status / Buttons */}
+                                <div className="flex-shrink-0">
+                                  {dup.action === "update" ? (
+                                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border-green-200 dark:border-green-800">
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Atualizado
+                                    </Badge>
+                                  ) : dup.action === "ignore" ? (
+                                    <Badge variant="secondary" className="text-muted-foreground">
+                                      <Ban className="h-3 w-3 mr-1" />
+                                      Ignorado
+                                    </Badge>
+                                  ) : (
+                                    <div className="flex gap-1.5">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950"
+                                        onClick={() => handleUpdateDuplicate(index)}
+                                        disabled={dup.updating}
+                                      >
+                                        {dup.updating ? (
+                                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                        ) : (
+                                          <RefreshCw className="h-3 w-3 mr-1" />
+                                        )}
+                                        Atualizar
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs text-muted-foreground"
+                                        onClick={() => handleIgnoreDuplicate(index)}
+                                        disabled={dup.updating}
+                                      >
+                                        <Ban className="h-3 w-3 mr-1" />
+                                        Ignorar
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      )}
                     </div>
                   )}
                 </div>
