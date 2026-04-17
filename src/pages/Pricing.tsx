@@ -11,32 +11,24 @@ export default function Pricing() {
   const { isReady, organizationId } = useOrganizationReady();
   const location = useLocation();
   const { signOut } = useAuth();
+  const navigate = useNavigate();
   const [isCreating, setIsCreating] = React.useState(false);
 
-  // Polling/Sync check: Se o usuário estiver pronto, o contexto já inicializou e encontrou uma org.
-  // Mandamos ele para o dashboard ou o destino original.
+  // Se organização foi detectada, redirecionar para dashboard (sem reload)
   React.useEffect(() => {
-    // Para simplificar, verificamos se temos organizationId ou se isReady é true
     if ((isReady && organizationId) || organizationId) {
-      console.log("[Pricing] Organization detected! Redirecting...");
       const stateFrom = (location.state as any)?.from;
-
       const fromPath = stateFrom?.pathname || (typeof stateFrom === 'string' ? stateFrom : "/dashboard");
       const fromSearch = stateFrom?.search || "";
 
-      // Pequeno delay para garantir que o cache local/RLS está sincronizado
-      setTimeout(() => {
-        window.location.href = fromPath + fromSearch;
-      }, 500);
-      return;
+      navigate(fromPath + fromSearch, { replace: true });
     }
-  }, [isReady, organizationId, location.state]);
+  }, [isReady, organizationId, location.state, navigate]);
 
   const handleCreateOrg = async () => {
     if (isCreating) return;
     setIsCreating(true);
     try {
-      console.log("[Pricing] Manually triggering ensure_user_organization");
       const { data, error } = await (supabase.rpc as any)('ensure_user_organization');
 
       if (error) {
@@ -47,16 +39,10 @@ export default function Pricing() {
       }
 
       if (data?.success) {
-        console.log("[Pricing] Org created successfully, triggering final redirect...");
-        // Em vez de window.location.href manual, deixamos o useEffect acima agir 
-        // ou forçamos se necessário após um tempo
-        setTimeout(() => {
-          const fromPath = (location.state as any)?.from?.pathname || "/dashboard";
-          const fromSearch = (location.state as any)?.from?.search || "";
-          window.location.href = fromPath + fromSearch;
-        }, 1000);
+        const fromPath = (location.state as any)?.from?.pathname || "/dashboard";
+        const fromSearch = (location.state as any)?.from?.search || "";
+        navigate(fromPath + fromSearch, { replace: true });
       } else {
-        console.error("[Pricing] App Error:", data?.error);
         alert("Não foi possível criar seu workspace: " + (data?.error || "Erro desconhecido"));
         setIsCreating(false);
       }
@@ -69,7 +55,7 @@ export default function Pricing() {
 
   const handleLogout = async () => {
     await signOut();
-    window.location.href = "/auth";
+    navigate("/auth", { replace: true });
   };
 
   return (

@@ -1,24 +1,36 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();
-  const { refreshSubscription } = useAuth();
+  const { refreshSubscription, user, loading } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(true);
 
   useEffect(() => {
-    // Refresh subscription data after payment
-    const refresh = async () => {
-      await refreshSubscription();
-      toast.success("Assinatura ativada com sucesso!");
-    };
-    
-    refresh();
-  }, [refreshSubscription]);
+    if (!loading && !user) {
+      navigate("/auth", { replace: true });
+      return;
+    }
+    if (user) {
+      refreshSubscription()
+        .then(() => toast.success("Assinatura ativada com sucesso!"))
+        .finally(() => setIsRefreshing(false));
+    }
+  }, [user, loading, refreshSubscription, navigate]);
+
+  if (isRefreshing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <LoadingAnimation text="Atualizando assinatura..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

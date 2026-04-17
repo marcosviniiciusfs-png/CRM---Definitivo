@@ -91,6 +91,14 @@ const setSubscriptionCache = (data: SubscriptionData, userId: string, organizati
 const clearSubscriptionCache = () => {
   try {
     sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
+    // Remover todas as variantes por organização
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith(SUBSCRIPTION_CACHE_KEY + '_')) {
+        sessionStorage.removeItem(key);
+        i--;
+      }
+    }
   } catch {
     // Ignore storage errors
   }
@@ -657,8 +665,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await logUserSession(user.id, false);
     }
     clearSubscriptionCache();
+    clearSectionAccessCache();
     await supabase.auth.signOut();
-    navigate("/auth");
+    // Limpar cache de organização
+    try {
+      localStorage.removeItem('kairoz_org_cache');
+    } catch {}
+    navigate("/auth", { replace: true });
   };
 
   const resetPassword = async (email: string) => {
