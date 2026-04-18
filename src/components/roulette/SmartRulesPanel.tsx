@@ -131,11 +131,15 @@ export function SmartRulesPanel() {
         toast.error("Crie pelo menos uma roleta antes de configurar regras");
         return;
       }
-      // Update all configs with the same smart_rules (org-level)
+      // Update all configs with the same smart_rules + sync timeout/auto_redistribute
       for (const config of configs) {
         await supabase
           .from("lead_distribution_configs")
-          .update({ smart_rules: updated as any })
+          .update({
+            smart_rules: updated as any,
+            redistribution_timeout_minutes: updated.system.auto_redistribute_timeout,
+            auto_redistribute: true,
+          })
           .eq("id", config.id);
       }
     },
