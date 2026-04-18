@@ -694,6 +694,57 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
   return available;
 }
 
+async function selectConversionPriority(supabase: any, agents: any[], organization_id: string): Promise<any> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Count won leads per agent in last 30 days
+  const { data: wonLeads } = await supabase
+    .from('leads')
+    .select('responsavel_user_id, funnel_stages!inner(stage_type)')
+    .eq('organization_id', organization_id)
+    .not('responsavel_user_id', 'is', null)
+    .gte('updated_at', thirtyDaysAgo);
+
+  // Filter only won leads from the join
+  const wonCount = new Map<string, number>();
+  for (const lead of wonLeads || []) {
+    const stage = (lead as any).funnel_stages;
+    if (stage?.stage_type === 'won') {
+      wonCount.set(lead.responsavel_user_id, (wonCount.get(lead.responsavel_user_id) || 0) + 1);
+    }
+  }
+
+  // Count total assigned per agent in last 30 days
+  const { data: history } = await supabase
+    .from('lead_distribution_history')
+    .select('to_user_id')
+    .eq('organization_id', organization_id)
+    .gte('created_at', thirtyDaysAgo);
+
+  const assignedCount = new Map<string, number>();
+  for (const row of history || []) {
+    assignedCount.set(row.to_user_id, (assignedCount.get(row.to_user_id) || 0) + 1);
+  }
+
+  // Select agent with highest conversion rate (minimum 3 assignments to qualify)
+  let bestAgent = agents[0];
+  let bestRate = -1;
+
+  for (const agent of agents) {
+    const assigned = assignedCount.get(agent.user_id) || 0;
+    const won = wonCount.get(agent.user_id) || 0;
+    const rate = assigned >= 3 ? won / assigned : 0;
+    console.log(`[SmartAI] Agent ${agent.full_name || agent.email}: ${won}/${assigned} conversions (rate: ${(rate * 100).toFixed(1)}%)`);
+    if (rate > bestRate) {
+      bestRate = rate;
+      bestAgent = agent;
+    }
+  }
+
+  console.log(`[SmartAI] Selected: ${bestAgent.full_name || bestAgent.email} (rate: ${(bestRate * 100).toFixed(1)}%)`);
+  return bestAgent;
+}
+
 async function selectAgent(
   supabase: any,
   agents: any[],
@@ -713,6 +764,9 @@ async function selectAgent(
 
     case 'random':
       return selectRandom(agents);
+
+    case 'conversion_priority':
+      return selectConversionPriority(supabase, agents, organization_id);
 
     default:
       return selectRoundRobin(supabase, agents, organization_id, config_id);
