@@ -87,16 +87,16 @@ export function MobileLeadCard({
   return (
     <Card
       className={cn(
-        'p-3.5 active:scale-[0.99] transition-transform cursor-pointer select-none',
+        'p-3 active:scale-[0.99] transition-transform cursor-pointer select-none',
         isDuplicate && 'border-amber-300'
       )}
       onClick={handleCardClick}
       style={{ pointerEvents: showDetailsDialog ? 'none' : undefined }}
     >
       {/* Linha 1: avatar iniciais + nome + valor */}
-      <div className="flex items-center gap-2.5 mb-2">
+      <div className="flex items-center gap-2 mb-1.5">
         <div className={cn(
-          'w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-semibold',
+          'w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold',
           getAvatarColor(lead.nome_lead)
         )}>
           {getInitials(lead.nome_lead)}
@@ -110,7 +110,7 @@ export function MobileLeadCard({
             {copiedInfo ? <span className="text-green-500">Copiado!</span> : (lead.nome_lead || 'Sem nome')}
           </button>
           {responsavelName && (
-            <p className="text-xs text-muted-foreground truncate">{responsavelName}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{responsavelName}</p>
           )}
         </div>
         {formatValue(lead.valor) && (
@@ -122,11 +122,11 @@ export function MobileLeadCard({
 
       {/* Linha 2: telefone + origem */}
       {(lead.telefone_lead || lead.source) && (
-        <div className="flex items-center gap-2 mb-2.5">
+        <div className="flex items-center gap-2 mb-2">
           {lead.telefone_lead && (
             <button
               onClick={handleCopyPhone}
-              className="flex items-center gap-1 text-xs text-muted-foreground active:text-foreground"
+              className="flex items-center gap-1 text-xs text-muted-foreground active:text-foreground min-h-[28px]"
             >
               {copied ? <Check className="h-3 w-3 text-green-500" /> : <Phone className="h-3 w-3" />}
               <span>{lead.telefone_lead}</span>
@@ -134,7 +134,7 @@ export function MobileLeadCard({
           )}
           <div className="flex-1" />
           {lead.source && (
-            <span className="text-[10px] px-2 py-0.5 bg-muted text-muted-foreground rounded-full border border-border">
+            <span className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded-full border border-border">
               {lead.source}
             </span>
           )}
@@ -143,33 +143,33 @@ export function MobileLeadCard({
 
       {/* Tags */}
       {tags.length > 0 && (
-        <div className="flex gap-1 mb-2.5 flex-wrap">
+        <div className="flex gap-1 mb-2 flex-wrap">
           {tags.slice(0, 3).map(tag => (
             <span
               key={tag.id}
-              className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+              className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
               style={{ backgroundColor: tag.color + '25', color: tag.color, border: `0.5px solid ${tag.color}55` }}
             >
               {tag.name}
             </span>
           ))}
           {tags.length > 3 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">+{tags.length - 3}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">+{tags.length - 3}</span>
           )}
         </div>
       )}
 
       {/* Badges de status */}
       {(isDuplicate || agendStatus || isRedistributed) && (
-        <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
           {isDuplicate && (
-            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+            <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
               <AlertCircle className="h-2.5 w-2.5" />Duplicado
             </span>
           )}
           {agendStatus && (
             <span className={cn(
-              'flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border',
+              'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border',
               agendStatus.color === 'destructive' ? 'bg-red-50 text-red-700 border-red-200' :
               agendStatus.color === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
               'bg-blue-50 text-blue-700 border-blue-200'
@@ -178,7 +178,7 @@ export function MobileLeadCard({
             </span>
           )}
           {isRedistributed && redistributedFromName && (
-            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-full">
+            <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-full">
               <RefreshCw className="h-2.5 w-2.5" />Redistribuído
             </span>
           )}
@@ -186,10 +186,10 @@ export function MobileLeadCard({
       )}
 
       {/* Linha de ações */}
-      <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+      <div className="flex items-center gap-2 pt-1.5 border-t border-border/50">
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-            <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground px-2">
+            <Button variant="ghost" size="sm" className="h-9 min-w-[36px] text-xs text-muted-foreground px-2">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -209,10 +209,10 @@ export function MobileLeadCard({
         <div className="flex-1" />
         <Button
           size="sm"
-          className="h-8 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white border-0 active:scale-95 transition-transform"
+          className="h-9 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white border-0 active:scale-95 transition-transform"
           onClick={(e) => { e.stopPropagation(); onMoveRequest(); }}
         >
-          Mover etapa
+          Mover
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>

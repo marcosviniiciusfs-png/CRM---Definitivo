@@ -13,7 +13,8 @@ import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
 import saleConfirmationIcon from "@/assets/sale-confirmation-icon.gif";
@@ -98,6 +99,7 @@ const Pipeline = () => {
   // States for features migrated from Leads page
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [responsibleFilter, setResponsibleFilter] = useState<string>("all");
@@ -1727,27 +1729,27 @@ const Pipeline = () => {
     <>
       {/* Header Section - Always Visible */}
       <div className="space-y-4 md:space-y-6">
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {/* Linha 1: Título + Ações */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground truncate">
                 Funil de Vendas
               </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-1 hidden sm:block">
+              <p className="text-[11px] sm:text-sm text-muted-foreground mt-0.5 hidden sm:block">
                 {viewMode === 'kanban'
                   ? "Arraste e solte os cards para mover leads entre as etapas"
                   : "Visualize e gerencie seus leads em formato de lista"}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               {/* View Mode Toggle */}
               <div className="flex items-center border rounded-md overflow-hidden">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-8 px-2 sm:px-3",
+                    "rounded-none h-9 px-2 sm:px-3",
                     viewMode === 'kanban' && "bg-primary/10 text-primary"
                   )}
                   onClick={() => setViewMode('kanban')}
@@ -1759,7 +1761,7 @@ const Pipeline = () => {
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-8 px-2 sm:px-3 border-l",
+                    "rounded-none h-9 px-2 sm:px-3 border-l",
                     viewMode === 'list' && "bg-primary/10 text-primary"
                   )}
                   onClick={() => setViewMode('list')}
@@ -1768,121 +1770,301 @@ const Pipeline = () => {
                   <span className="hidden sm:inline">Lista</span>
                 </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
-                <Settings2 className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Gerenciar Funis</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                <Download className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Exportar</span>
-              </Button>
-              {permissions.canViewAllLeads && (
-                <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                  <Upload className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Importar</span>
-                </Button>
-              )}
-              {permissions.canCreateLeads && (
-                <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
-                  <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Adicionar Lead</span>
-                </Button>
+
+              {isMobile ? (
+                <>
+                  {/* Mobile: Menu overflow para ações secundárias */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 w-9 p-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleExportCSV}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Exportar
+                      </DropdownMenuItem>
+                      {permissions.canViewAllLeads && (
+                        <DropdownMenuItem onClick={() => setShowImportModal(true)}>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Importar
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => navigate("/funnel-builder")}>
+                        <Settings2 className="h-4 w-4 mr-2" />
+                        Gerenciar Funis
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {permissions.canCreateLeads && (
+                    <Button size="sm" className="h-9 w-9 p-0 bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
+                    <Settings2 className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Gerenciar Funis</span>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                    <Download className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Exportar</span>
+                  </Button>
+                  {permissions.canViewAllLeads && (
+                    <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                      <Upload className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Importar</span>
+                    </Button>
+                  )}
+                  {permissions.canCreateLeads && (
+                    <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
+                      <Plus className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Adicionar Lead</span>
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>
+
           {/* Linha 2: Busca + Filtros */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[140px] sm:min-w-[180px] max-w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="NOVO">Novo</SelectItem>
-                <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                <SelectItem value="FECHADO">Fechado</SelectItem>
-                <SelectItem value="PERDIDO">Perdido</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
-                <SelectValue placeholder="Origem" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas Origens</SelectItem>
-                <SelectItem value="Facebook Leads">Meta Ads</SelectItem>
-                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                <SelectItem value="Webhook">Webhook</SelectItem>
-                <SelectItem value="Manual">Manual</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-              <SelectTrigger className="h-9 w-[120px] sm:w-[155px] bg-background">
-                <SelectValue placeholder="Responsável" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos Responsáveis</SelectItem>
-                {colaboradores.map(c => (
-                  <SelectItem key={c.user_id} value={c.user_id}>
-                    {c.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
-                >
-                  <CalendarIcon className="h-4 w-4 mr-2" />
-                  {dateRange.from && dateRange.to
-                    ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
-                    : "Período"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="flex flex-col gap-1 p-2 border-b">
-                  <Button variant="ghost" size="sm" className="justify-start text-xs"
-                    onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
-                    Últimos 7 dias
-                  </Button>
-                  <Button variant="ghost" size="sm" className="justify-start text-xs"
-                    onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
-                    Últimos 30 dias
-                  </Button>
-                  <Button variant="ghost" size="sm" className="justify-start text-xs"
-                    onClick={() => setDateRange({ from: undefined, to: undefined })}>
-                    Limpar filtro
-                  </Button>
-                </div>
-                <Calendar
-                  mode="range"
-                  selected={{ from: dateRange.from, to: dateRange.to }}
-                  onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
-                  numberOfMonths={1}
-                  locale={ptBR}
+          {isMobile ? (
+            /* Mobile: busca + botão filtros */
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar leads..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-9 pr-8 text-sm"
                 />
-              </PopoverContent>
-            </Popover>
-          </div>
+                {searchTerm && (
+                  <button
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full bg-muted text-muted-foreground active:bg-muted/80"
+                    onClick={() => setSearchTerm('')}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn("h-9 px-2.5 flex-shrink-0", (statusFilter !== 'all' || sourceFilter !== 'all' || responsibleFilter !== 'all' || dateRange.from || dateRange.to) && "border-primary text-primary")}
+                onClick={() => setShowFilterSheet(true)}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:ml-1">Filtros</span>
+                {(statusFilter !== 'all' || sourceFilter !== 'all' || responsibleFilter !== 'all' || dateRange.from || dateRange.to) && (
+                  <span className="ml-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
+                    {[statusFilter !== 'all', sourceFilter !== 'all', responsibleFilter !== 'all', !!dateRange.from, !!dateRange.to].filter(Boolean).length}
+                  </span>
+                )}
+              </Button>
+            </div>
+          ) : (
+            /* Desktop: busca + filtros inline */
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[140px] sm:min-w-[180px] max-w-full sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="NOVO">Novo</SelectItem>
+                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                  <SelectItem value="FECHADO">Fechado</SelectItem>
+                  <SelectItem value="PERDIDO">Perdido</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
+                  <SelectValue placeholder="Origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas Origens</SelectItem>
+                  <SelectItem value="Facebook Leads">Meta Ads</SelectItem>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Webhook">Webhook</SelectItem>
+                  <SelectItem value="Manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                <SelectTrigger className="h-9 w-[120px] sm:w-[155px] bg-background">
+                  <SelectValue placeholder="Responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  {colaboradores.map(c => (
+                    <SelectItem key={c.user_id} value={c.user_id}>
+                      {c.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
+                  >
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {dateRange.from && dateRange.to
+                      ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
+                      : "Período"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="flex flex-col gap-1 p-2 border-b">
+                    <Button variant="ghost" size="sm" className="justify-start text-xs"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                      Últimos 7 dias
+                    </Button>
+                    <Button variant="ghost" size="sm" className="justify-start text-xs"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                      Últimos 30 dias
+                    </Button>
+                    <Button variant="ghost" size="sm" className="justify-start text-xs"
+                      onClick={() => setDateRange({ from: undefined, to: undefined })}>
+                      Limpar filtro
+                    </Button>
+                  </div>
+                  <Calendar
+                    mode="range"
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                    numberOfMonths={1}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </div>
 
         {/* View Mode Content */}
         {viewMode === 'list' ? (
-          /* List View */
+          isMobile ? (
+            /* Mobile List View - cards verticais */
+            <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: 'calc(100dvh - 200px)', WebkitOverflowScrolling: 'touch' }}>
+              {selectedLeadIds.size > 0 && (
+                <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-3 flex items-center gap-3">
+                  <span className="text-sm font-medium text-primary">
+                    {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                  </span>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
+                      Limpar
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {filteredLeads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Nenhum lead encontrado</p>
+                  <p className="text-sm">Tente ajustar os filtros ou adicione um novo lead</p>
+                </div>
+              ) : (
+                filteredLeads.map((lead) => {
+                  const isSelected = selectedLeadIds.has(lead.id);
+                  const stage = stages.find(s => s.id === (lead.funnel_stage_id || lead.stage));
+                  const responsible = lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id] : null;
+                  return (
+                    <div
+                      key={lead.id}
+                      className={cn(
+                        "flex items-center gap-2.5 p-2.5 border rounded-lg bg-card cursor-pointer active:scale-[0.99] transition-transform",
+                        isSelected && "border-primary bg-primary/5"
+                      )}
+                      onClick={() => {
+                        setDetailsLeadId(lead.id);
+                        setDetailsLeadName(lead.nome_lead || 'Sem nome');
+                      }}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedLeadIds(prev => {
+                            const next = new Set(prev);
+                            if (checked) next.add(lead.id);
+                            else next.delete(lead.id);
+                            return next;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-medium text-sm truncate">{lead.nome_lead || 'Sem nome'}</span>
+                          {lead.valor && (
+                            <span className="text-xs font-medium text-green-600 dark:text-green-400 flex-shrink-0">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {lead.telefone_lead && (
+                            <span className="text-[11px] text-muted-foreground truncate">{lead.telefone_lead}</span>
+                          )}
+                          {stage && (
+                            <span className="text-[10px] px-1.5 py-px rounded-full bg-muted text-muted-foreground">
+                              {stage.title}
+                            </span>
+                          )}
+                          {lead.source && (
+                            <span className="text-[10px] px-1.5 py-px rounded-full bg-muted text-muted-foreground">
+                              {lead.source}
+                            </span>
+                          )}
+                          {(responsible?.full_name || lead.responsavel) && (
+                            <span className="text-[10px] text-muted-foreground truncate">
+                              {responsible?.full_name || lead.responsavel}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                          onClick={(e) => { e.stopPropagation(); setEditingLead(lead); }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead); }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          ) : (
+          /* Desktop List View */
           <div className="border rounded-lg overflow-x-auto bg-card dark:bg-card">
-            {/* Bulk Actions Bar */}
             {selectedLeadIds.size > 0 && (
               <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3">
                 <span className="text-sm font-medium text-primary">
@@ -1895,16 +2077,12 @@ const Pipeline = () => {
                 </div>
               </div>
             )}
-            {/* Table Header */}
             <div className="bg-muted/50 dark:bg-muted/20 flex items-center px-3 py-2.5 text-xs font-medium text-muted-foreground border-b border-border dark:border-border">
               <Checkbox
                 checked={selectedLeadIds.size === filteredLeads.length && filteredLeads.length > 0}
                 onCheckedChange={(checked) => {
-                  if (checked) {
-                    setSelectedLeadIds(new Set(filteredLeads.map(l => l.id)));
-                  } else {
-                    setSelectedLeadIds(new Set());
-                  }
+                  if (checked) setSelectedLeadIds(new Set(filteredLeads.map(l => l.id)));
+                  else setSelectedLeadIds(new Set());
                 }}
                 className="mr-3"
               />
@@ -1915,9 +2093,8 @@ const Pipeline = () => {
               <span className="w-[100px]">Origem</span>
               <span className="w-[120px]">Responsável</span>
               <span className="flex-1">Data</span>
-              <span className="w-[60px]"></span>
+              <span className="w-[90px]"></span>
             </div>
-            {/* Table Rows */}
             <div className="max-h-[calc(100vh-350px)] overflow-y-auto bg-card dark:bg-card">
               {filteredLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -1930,7 +2107,6 @@ const Pipeline = () => {
                   const isSelected = selectedLeadIds.has(lead.id);
                   const stage = stages.find(s => s.id === (lead.funnel_stage_id || lead.stage));
                   const responsible = lead.responsavel_user_id ? profilesMap[lead.responsavel_user_id] : null;
-
                   return (
                     <div
                       key={lead.id}
@@ -1948,62 +2124,45 @@ const Pipeline = () => {
                         onCheckedChange={(checked) => {
                           setSelectedLeadIds(prev => {
                             const next = new Set(prev);
-                            if (checked) {
-                              next.add(lead.id);
-                            } else {
-                              next.delete(lead.id);
-                            }
+                            if (checked) next.add(lead.id);
+                            else next.delete(lead.id);
                             return next;
                           });
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="mr-3"
                       />
-                      <span className="w-[200px] font-medium truncate text-foreground dark:text-foreground">{lead.nome_lead || "Sem nome"}</span>
-                      <span className="w-[120px] truncate text-muted-foreground dark:text-muted-foreground">{lead.telefone_lead || "-"}</span>
+                      <span className="w-[200px] font-medium truncate text-foreground">{lead.nome_lead || "Sem nome"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground">{lead.telefone_lead || "-"}</span>
                       <span className="w-[150px]">
                         <span className={cn(
                           "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
                           stage?.color
-                            ? `${stage.color}/20 dark:${stage.color}/30 text-${stage.color.replace('bg-', '').replace('-500', '-700')} dark:text-${stage.color.replace('bg-', '').replace('-500', '-300')}`
-                            : "bg-muted dark:bg-muted/50 text-muted-foreground dark:text-muted-foreground"
+                            ? `${stage.color}/20 text-${stage.color.replace('bg-', '').replace('-500', '-700')}`
+                            : "bg-muted text-muted-foreground"
                         )}>
                           {stage?.title || lead.stage || "-"}
                         </span>
                       </span>
-                      <span className="w-[100px] font-medium text-foreground dark:text-foreground">
+                      <span className="w-[100px] font-medium text-foreground">
                         {lead.valor
                           ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor)
                           : "-"}
                       </span>
-                      <span className="w-[100px] truncate text-muted-foreground dark:text-muted-foreground">{lead.source || "-"}</span>
-                      <span className="w-[120px] truncate text-muted-foreground dark:text-muted-foreground">
+                      <span className="w-[100px] truncate text-muted-foreground">{lead.source || "-"}</span>
+                      <span className="w-[120px] truncate text-muted-foreground">
                         {responsible?.full_name || lead.responsavel || "-"}
                       </span>
-                      <span className="flex-1 text-muted-foreground dark:text-muted-foreground">
+                      <span className="flex-1 text-muted-foreground">
                         {new Date(lead.created_at).toLocaleDateString('pt-BR')}
                       </span>
                       <span className="w-[90px] flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingLead(lead);
-                          }}
-                        >
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                          onClick={(e) => { e.stopPropagation(); setEditingLead(lead); }}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-muted-foreground dark:text-muted-foreground hover:text-destructive dark:hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteLead(lead);
-                          }}
-                        >
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead); }}>
                           ×
                         </Button>
                       </span>
@@ -2013,6 +2172,8 @@ const Pipeline = () => {
               )}
             </div>
           </div>
+          )
+
         ) : isMobile ? (
           /* Mobile Kanban View - sem drag-and-drop */
           <MobilePipelineView
@@ -2254,6 +2415,111 @@ const Pipeline = () => {
           }}
         />
       )}
+
+      {/* Mobile: Sheet de Filtros */}
+      <Sheet open={showFilterSheet} onOpenChange={setShowFilterSheet}>
+        <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-xl p-0">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-base">Filtros</SheetTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowFilterSheet(false)} className="h-8">
+                Fechar
+              </Button>
+            </div>
+            <SheetDescription className="sr-only">Filtros para buscar leads</SheetDescription>
+          </SheetHeader>
+          <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 60px)', WebkitOverflowScrolling: 'touch' }}>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Status</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-10 bg-background">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="NOVO">Novo</SelectItem>
+                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                  <SelectItem value="FECHADO">Fechado</SelectItem>
+                  <SelectItem value="PERDIDO">Perdido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Origem</label>
+              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                <SelectTrigger className="h-10 bg-background">
+                  <SelectValue placeholder="Origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas Origens</SelectItem>
+                  <SelectItem value="Facebook Leads">Meta Ads</SelectItem>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Webhook">Webhook</SelectItem>
+                  <SelectItem value="Manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Responsável</label>
+              <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                <SelectTrigger className="h-10 bg-background">
+                  <SelectValue placeholder="Responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  {colaboradores.map(c => (
+                    <SelectItem key={c.user_id} value={c.user_id}>
+                      {c.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Período</label>
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" size="sm" className="text-xs h-9"
+                  onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                  7 dias
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-9"
+                  onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                  30 dias
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-9"
+                  onClick={() => setDateRange({ from: undefined, to: undefined })}>
+                  Limpar
+                </Button>
+              </div>
+              {(dateRange.from || dateRange.to) && (
+                <p className="text-xs text-muted-foreground">
+                  {dateRange.from ? format(dateRange.from, "dd/MM/yy", { locale: ptBR }) : '...'} — {dateRange.to ? format(dateRange.to, "dd/MM/yy", { locale: ptBR }) : '...'}
+                </p>
+              )}
+              <Calendar
+                mode="range"
+                selected={{ from: dateRange.from, to: dateRange.to }}
+                onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                numberOfMonths={1}
+                locale={ptBR}
+                className="rounded-md border mx-auto"
+              />
+            </div>
+            <Button
+              variant="outline"
+              className="w-full h-10"
+              onClick={() => {
+                setStatusFilter('all');
+                setSourceFilter('all');
+                setResponsibleFilter('all');
+                setDateRange({ from: undefined, to: undefined });
+              }}
+            >
+              Limpar todos os filtros
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Dialog de Detalhes do Lead (list view) */}
       <LeadDetailsDialog

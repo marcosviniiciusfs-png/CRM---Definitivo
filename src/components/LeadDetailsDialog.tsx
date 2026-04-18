@@ -267,10 +267,10 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[92vh] sm:max-h-[80vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl">{leadName}</DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-base sm:text-xl truncate">{leadName}</DialogTitle>
             {isSuperAdmin && (
               <Button
                 variant="outline"
@@ -290,7 +290,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Badge de Lead Duplicado */}
             {isDuplicate && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-700">
@@ -307,7 +307,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                 <DollarSign className="h-4 w-4" />
                 <h3 className="font-semibold text-sm">Valor do Negócio</h3>
               </div>
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-xl sm:text-2xl font-bold text-primary">
                 {formatCurrency(details?.valor || 0)}
               </p>
             </div>
@@ -412,7 +412,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
                 <h3 className="font-semibold text-sm">Dados do Negócio</h3>
               </div>
 
-              <div className="space-y-2 text-sm">
+              <div className="space-y-1.5 sm:space-y-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Responsável:</span>
                   <p className="font-medium">{details?.responsavel || "Não atribuído"}</p>

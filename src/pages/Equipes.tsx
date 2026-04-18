@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Users, User, UserX, Crown, Search, MoreVertical, Edit2, Trash2, Target } from "lucide-react";
+import { UserX, Crown, Search, MoreVertical, Edit2, Trash2, Target, Plus, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CreateTeamModal } from "@/components/CreateTeamModal";
@@ -20,6 +20,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { cn } from "@/lib/utils";
+import { getInitials } from "@/components/roulette/utils";
+import { subDays } from "date-fns";
 
 interface Team {
   id: string;
@@ -70,21 +73,17 @@ function DraggableMember({ member, teamId, isLeader, organizationId }: Draggable
       style={style}
       {...attributes}
       {...listeners}
-      className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-grab active:cursor-grabbing"
+      className="flex items-center gap-2 px-2 py-1.5 bg-card border-2 border-primary/20 hover:border-primary/50 cursor-grab active:cursor-grabbing transition-colors"
     >
-      <div className="flex items-center gap-3">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={member.avatar_url} />
-          <AvatarFallback className="bg-gradient-to-br from-primary/60 to-primary text-primary-foreground text-xs">
-            {(member.full_name || member.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <span className="text-sm font-medium text-foreground">{member.full_name || member.email}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <MemberTaskBadge userId={member.user_id} organizationId={organizationId} />
-        {isLeader && <Crown className="h-4 w-4 text-yellow-500" />}
-      </div>
+      <Avatar className="h-6 w-6 flex-shrink-0">
+        <AvatarImage src={member.avatar_url} />
+        <AvatarFallback className="text-[8px] arcade-font bg-gradient-to-br from-primary/60 to-primary text-white">
+          {getInitials(member.full_name || member.email)}
+        </AvatarFallback>
+      </Avatar>
+      <span className="text-[10px] arcade-font flex-1 truncate">{member.full_name || member.email}</span>
+      <MemberTaskBadge userId={member.user_id} organizationId={organizationId} />
+      {isLeader && <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />}
     </div>
   );
 }
@@ -100,6 +99,7 @@ const Equipes = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
+  const [teamFilter, setTeamFilter] = useState('Todas');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -186,6 +186,72 @@ const Equipes = () => {
   const currentUserRole = equipesData?.currentUserRole ?? null;
   const isOwner = currentUserRole === 'owner';
 
+  const { data: allTeamGoals = [] } = useQuery({
+    queryKey: ['team-goals-all', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data, error } = await supabase
+        .from('team_goals')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const teamGoalMap = allTeamGoals.reduce((acc: Record<string, { id: string; goal_type: string; target_value: number; current_value: number }>, goal) => {
+    if ((goal.goal_type === 'sales_count' || goal.goal_type === 'leads_converted') && !acc[goal.team_id]) {
+      acc[goal.team_id] = {
+        id: goal.id,
+        goal_type: goal.goal_type,
+        target_value: goal.target_value,
+        current_value: goal.current_value,
+      };
+    }
+    return acc;
+  }, {});
+
+  const { data: weeklyLeadsData } = useQuery({
+    queryKey: ['weekly-leads-count', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return { count: 0, total: 0, converted: 0 };
+      const weekAgo = subDays(new Date(), 7).toISOString();
+
+      const { count, error: countError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .gte('created_at', weekAgo);
+      if (countError) throw countError;
+
+      const { count: total, error: totalError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId);
+      if (totalError) throw totalError;
+
+      const { count: converted, error: convError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .neq('stage', 'NOVO_LEAD');
+      if (convError) throw convError;
+
+      return { count: count || 0, total: total || 0, converted: converted || 0 };
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const weeklyLeads = weeklyLeadsData?.count ?? 0;
+  const conversionRate = weeklyLeadsData && weeklyLeadsData.total > 0
+    ? Math.round((weeklyLeadsData.converted / weeklyLeadsData.total) * 100)
+    : 0;
+  const weeklyDelta = weeklyLeads > 0 ? `+${weeklyLeads} novos` : 'nenhum novo';
+
   const invalidateData = () => {
     queryClient.invalidateQueries({ queryKey: ['equipes-data'] });
   };
@@ -263,18 +329,25 @@ const Equipes = () => {
     }
   };
 
-  const filteredTeams = teams.filter(t =>
-    t.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTeams = teams.filter(t => {
+    const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
 
+    if (teamFilter === 'Com líder') return !!t.leader_id;
+    if (teamFilter === 'Sem líder') return !t.leader_id;
+    if (teamFilter === 'Meta em risco') {
+      const goal = teamGoalMap[t.id];
+      if (!goal || goal.target_value === 0) return false;
+      const pct = (goal.current_value / goal.target_value) * 100;
+      return pct < 30;
+    }
+    return true;
+  });
+
+  const membersInTeams = new Set(teamMembers.map(tm => tm.user_id)).size;
   const membersWithoutTeam = getMembersWithoutTeam().filter(m =>
     (m.full_name || m.email).toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const totalTeams = teams.length;
-  const totalMembersInTeams = new Set(teamMembers.map(tm => tm.user_id)).size;
-  const totalWithoutTeam = getMembersWithoutTeam().length;
-  const totalLeaders = teamMembers.filter(tm => tm.role === 'leader').length;
 
   if (!isReady || loading) {
     return <LoadingAnimation text="Carregando equipes..." />;
@@ -282,88 +355,68 @@ const Equipes = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 min-w-0 overflow-hidden">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4 sm:mb-6 md:mb-8">
+      <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 min-w-0 overflow-hidden arcade-scanline">
+        {/* ARCADE HEADER */}
+        <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Gerenciamento de Equipes</h1>
-            <p className="text-muted-foreground mt-1 hidden sm:block">Organize e gerencie suas equipes de vendas</p>
+            <h1 className="arcade-font text-lg sm:text-xl text-primary arcade-glow tracking-wider">
+              EQUIPES
+            </h1>
+            <p className="arcade-font text-[8px] text-muted-foreground mt-2 tracking-wide">
+              ORGANIZE SEUS AGENTES &gt;&gt;&gt;
+            </p>
           </div>
-          <Button onClick={() => setCreateModalOpen(true)} className="w-full sm:w-auto">
-            + <span className="sm:inline">Nova Equipe</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <button className="arcade-btn-outline" onClick={() => setShowGoals('global')}>
+              <Clock className="h-3 w-3 mr-1.5 inline" /> METAS
+            </button>
+            {isOwner && (
+              <button className="arcade-btn" onClick={() => setCreateModalOpen(true)}>
+                <Plus className="h-3 w-3 mr-1.5 inline" /> NOVA
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
-          <Card className="shadow-sm">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total de Equipes</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalTeams}</p>
-                </div>
-                <div className="bg-blue-500 p-3 rounded-lg">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total de Membros</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalMembersInTeams}</p>
-                </div>
-                <div className="bg-green-500 p-3 rounded-lg">
-                  <User className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Sem Equipe</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalWithoutTeam}</p>
-                </div>
-                <div className="bg-orange-500 p-3 rounded-lg">
-                  <UserX className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Líderes</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{totalLeaders}</p>
-                </div>
-                <div className="bg-purple-500 p-3 rounded-lg">
-                  <Crown className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* ARCADE STATS */}
+        <div className="grid grid-cols-4 gap-2 mb-5">
+          {[
+            { label: 'TEAMS', value: teams.length, sub: 'ATIVAS', icon: '■' },
+            { label: 'MEMBROS', value: membersInTeams, sub: `${membersWithoutTeam.length} LIVRES`, icon: '♦' },
+            { label: 'LEADS/SEM', value: weeklyLeads, sub: weeklyDelta.toUpperCase(), icon: '▲' },
+            { label: 'CONV.%', value: `${conversionRate}%`, sub: 'PIPELINE', icon: '●' },
+          ].map(stat => (
+            <div key={stat.label} className="arcade-stat p-2 flex flex-col items-center gap-0.5">
+              <span className="arcade-font text-[6px] text-primary/70 tracking-wider">{stat.label}</span>
+              <span className="arcade-font text-sm text-foreground arcade-glow leading-none">{stat.icon} {stat.value}</span>
+              <span className="arcade-font text-[5px] text-muted-foreground tracking-wide">{stat.sub}</span>
+            </div>
+          ))}
         </div>
 
-        {/* Search */}
-        <div className="mb-4 sm:mb-6">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* ARCADE SEARCH + FILTERS */}
+        <div className="flex items-center gap-2 flex-wrap mb-5">
+          <div className="relative flex-1 min-w-[140px] max-w-[200px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-primary/60" />
             <Input
-              placeholder="Buscar equipes ou membros..."
+              placeholder="BUSCAR..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              onChange={e => setSearchTerm(e.target.value)}
+              className="pl-8 h-8 arcade-font text-[7px] border-2 border-primary/30 focus:border-primary bg-card placeholder:text-primary/40"
             />
           </div>
+          {(['Todas', 'Com líder', 'Sem líder', 'Meta em risco'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setTeamFilter(f)}
+              className={cn(
+                'arcade-pill',
+                teamFilter === f ? 'arcade-pill-active' : 'text-muted-foreground'
+              )}
+            >
+              {f.toUpperCase()}
+            </button>
+          ))}
         </div>
 
 
@@ -374,77 +427,87 @@ const Equipes = () => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-            {/* Team Columns */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-5xl mx-auto">
             {filteredTeams.map((team) => {
               const teamMembersList = getMembersInTeam(team.id);
               const leader = allMembers.find(m => m.user_id === team.leader_id);
+              const teamGoal = teamGoalMap[team.id];
+              const goalPct = teamGoal && teamGoal.target_value > 0
+                ? Math.round((teamGoal.current_value / teamGoal.target_value) * 100)
+                : 0;
 
               return (
-                <Card key={team.id} className="shadow-sm border-t-4" style={{ borderTopColor: team.color }}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={team.avatar_url} />
-                          <AvatarFallback style={{ backgroundColor: team.color }} className="text-white">
-                            <Users className="h-5 w-5" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <h3 className="text-lg font-semibold" style={{ color: team.color }}>{team.name}</h3>
+                <Card
+                  key={team.id}
+                  className="flex flex-col overflow-hidden bg-card/80"
+                  style={{
+                    border: '3px solid transparent',
+                    borderImage: `linear-gradient(135deg, ${team.color}, ${team.color}88) 1`,
+                  }}
+                >
+                  <CardContent className="pt-3 pb-2 px-3">
+                    {/* HEADER: avatar + name + menu */}
+                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div
+                          className="w-7 h-7 flex-shrink-0 flex items-center justify-center arcade-font text-[7px] text-white"
+                          style={{ background: `linear-gradient(135deg, ${team.color}, ${team.color}bb)` }}
+                        >
+                          {team.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="arcade-font text-[8px] truncate arcade-glow leading-tight" style={{ color: team.color }}>
+                            {team.name}
+                          </h3>
+                          <p className="arcade-font text-[5px] text-muted-foreground">
+                            {teamMembersList.length} MEMBRO{teamMembersList.length !== 1 ? 'S' : ''}
+                          </p>
+                        </div>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-5 w-5 flex-shrink-0 hover:bg-primary/20">
+                            <MoreVertical className="h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedTeam(team);
-                            setEditModalOpen(true);
-                          }}>
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Editar
+                          <DropdownMenuItem onClick={() => { setSelectedTeam(team); setEditModalOpen(true); }}>
+                            <Edit2 className="h-4 w-4 mr-2" /> Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setShowGoals(showGoals === team.id ? null : team.id)}>
-                            <Target className="h-4 w-4 mr-2" />
-                            Metas
+                            <Target className="h-4 w-4 mr-2" /> Metas
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
-                            onClick={() => {
-                              setTeamToDelete(team);
-                              setDeleteDialogOpen(true);
-                            }}
+                            onClick={() => { setTeamToDelete(team); setDeleteDialogOpen(true); }}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
+                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
-                    {/* Leader */}
+                    {/* LEADER — inline compact */}
                     {leader && (
-                      <div className="mb-4 p-3 rounded-lg border" style={{ backgroundColor: `${team.color}10`, borderColor: `${team.color}40` }}>
-                        <div className="flex items-center gap-3">
-                          <Crown className="h-4 w-4 text-yellow-500" />
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={leader.avatar_url} />
-                            <AvatarFallback style={{ backgroundColor: team.color }} className="text-white text-xs">
-                              {(leader.full_name || leader.email).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium text-foreground">{leader.full_name || leader.email}</span>
-                        </div>
+                      <div
+                        className="flex items-center gap-1.5 px-1.5 py-0.5 mb-1.5 border"
+                        style={{ background: `${team.color}10`, borderColor: `${team.color}30` }}
+                      >
+                        <Avatar className="h-4 w-4">
+                          <AvatarImage src={leader.avatar_url} />
+                          <AvatarFallback className="text-[6px] arcade-font text-white" style={{ background: team.color }}>
+                            {getInitials(leader.full_name || leader.email)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="arcade-font text-[6px] truncate flex-1">{leader.full_name || leader.email}</span>
+                        <Crown className="h-2.5 w-2.5 text-yellow-500 flex-shrink-0" />
                       </div>
                     )}
 
-                    {/* Goals */}
+                    {/* GOALS */}
                     {showGoals === team.id && organizationId && (
-                      <div className="mb-4">
+                      <div className="mb-1.5">
                         <TeamGoalsCard
                           teamId={team.id}
                           teamName={team.name}
@@ -456,21 +519,18 @@ const Equipes = () => {
                       </div>
                     )}
 
-                    {/* Team Members */}
+                    {/* MEMBERS */}
                     <SortableContext
                       items={teamMembersList.map(m => `${team.id}-${m.user_id}`)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div
-                        id={`team-${team.id}`}
-                        className="space-y-2 min-h-[60px]"
-                      >
+                      <div id={`team-${team.id}`} className="space-y-0.5 min-h-[32px]">
                         {teamMembersList.length === 0 ? (
-                          <div className="flex items-center justify-center py-6 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
-                            Arraste membros aqui
+                          <div className="arcade-font text-[6px] text-center py-2 text-primary/40 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-colors">
+                            + ARRASTE AQUI
                           </div>
                         ) : (
-                          teamMembersList.map((member) => (
+                          teamMembersList.map(member => (
                             <DraggableMember
                               key={member.user_id}
                               member={member}
@@ -483,71 +543,90 @@ const Equipes = () => {
                       </div>
                     </SortableContext>
 
-                    <div className="mt-3 pt-3 border-t border-border">
-                      <span className="text-xs text-muted-foreground">
-                        {teamMembersList.length} membro{teamMembersList.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
+                    {/* GOAL BAR — single row */}
+                    {teamGoal && (
+                      <div className="mt-1.5">
+                        <div className="arcade-progress">
+                          <div
+                            className="arcade-progress-bar"
+                            style={{
+                              width: `${Math.min(100, goalPct)}%`,
+                              background: goalPct < 30
+                                ? 'repeating-linear-gradient(90deg, hsl(var(--destructive)) 0px, hsl(var(--destructive)) 4px, hsl(var(--destructive)/0.6) 4px, hsl(var(--destructive)/0.6) 8px)'
+                                : `repeating-linear-gradient(90deg, ${team.color} 0px, ${team.color} 4px, ${team.color}99 4px, ${team.color}99 8px)`
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-0.5">
+                          <span className="arcade-font text-[5px] text-muted-foreground">META</span>
+                          <span className={cn("arcade-font text-[5px]", goalPct < 30 ? "text-destructive arcade-blink" : "text-foreground")}>
+                            {teamGoal.current_value}/{teamGoal.target_value}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
+
+                  {/* FOOTER — single thin row */}
+                  <div className="flex items-center justify-center px-2 py-1 border-t-2" style={{ borderColor: `${team.color}25` }}>
+                    <button
+                      className="arcade-font text-[6px] text-muted-foreground hover:text-primary px-2 py-0.5 border border-primary/15 hover:border-primary/40 transition-colors"
+                      onClick={() => setShowGoals(showGoals === team.id ? null : team.id)}
+                    >
+                      <Target className="h-2 w-2 mr-0.5 inline" />
+                      {showGoals === team.id ? 'OCULTAR' : 'METAS'}
+                    </button>
+                  </div>
                 </Card>
               );
             })}
 
-            {/* Without Team Column */}
-            <Card className="shadow-sm border-t-4 border-t-gray-300">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-gray-200 text-gray-600">
-                      <UserX className="h-5 w-5" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <h3 className="text-lg font-semibold text-muted-foreground">Sem Equipe</h3>
+            <Card className="arcade-border-dashed col-span-full max-w-5xl mx-auto">
+              <CardContent className="pt-3 pb-3 px-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 bg-muted border-2 border-primary/20 flex items-center justify-center">
+                    <UserX className="h-3 w-3 text-primary/60" />
+                  </div>
+                  <div>
+                    <h3 className="arcade-font text-[7px] text-muted-foreground">SEM EQUIPE</h3>
+                    <p className="arcade-font text-[5px] text-muted-foreground/60">
+                      {membersWithoutTeam.length} MEMBRO{membersWithoutTeam.length !== 1 ? 'S' : ''} &gt;&gt;&gt; ARRASTE
+                    </p>
+                  </div>
                 </div>
-
                 <SortableContext
                   items={membersWithoutTeam.map(m => `no-team-${m.user_id}`)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div
-                    id="no-team-zone"
-                    className="space-y-2 min-h-[60px]"
-                  >
-                    {membersWithoutTeam.length === 0 ? (
-                      <div className="flex items-center justify-center py-6 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
-                        Nenhum membro sem equipe
+                  <div id="no-team-zone" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 min-h-[32px]">
+                    {membersWithoutTeam.map(member => (
+                      <DraggableMember
+                        key={member.user_id}
+                        member={member}
+                        organizationId={organizationId!}
+                      />
+                    ))}
+                    {membersWithoutTeam.length === 0 && (
+                      <div className="col-span-full arcade-font text-[6px] text-center py-2 text-primary/40 border-2 border-dashed border-primary/20">
+                        NENHUM MEMBRO SEM EQUIPE
                       </div>
-                    ) : (
-                      membersWithoutTeam.map((member) => (
-                        <DraggableMember
-                          key={member.user_id}
-                          member={member}
-                          organizationId={organizationId!}
-                        />
-                      ))
                     )}
                   </div>
                 </SortableContext>
-
-                <div className="mt-3 pt-3 border-t border-border">
-                  <span className="text-xs text-muted-foreground">
-                    {membersWithoutTeam.length} membro{membersWithoutTeam.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
               </CardContent>
             </Card>
           </div>
 
           <DragOverlay>
             {getActiveItem() ? (
-              <div className="flex items-center gap-3 p-3 bg-card rounded-lg shadow-lg border">
-                <Avatar className="h-8 w-8">
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-card border-2 border-primary shadow-lg" style={{ boxShadow: '0 0 15px hsl(var(--primary) / 0.3)' }}>
+                <Avatar className="h-6 w-6 flex-shrink-0">
                   <AvatarImage src={getActiveItem()?.avatar_url} />
-                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                    {(getActiveItem()?.full_name || getActiveItem()?.email || '??').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  <AvatarFallback className="text-[7px] arcade-font bg-gradient-to-br from-primary/60 to-primary text-white">
+                    {getInitials(getActiveItem()?.full_name || getActiveItem()?.email || '??')}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium">{getActiveItem()?.full_name || getActiveItem()?.email}</span>
+                <span className="arcade-font text-[8px]">{getActiveItem()?.full_name || getActiveItem()?.email}</span>
               </div>
             ) : null}
           </DragOverlay>

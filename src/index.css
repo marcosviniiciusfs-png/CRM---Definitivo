@@ -8,6 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
   :root {
     --background: 0 0% 100%;
@@ -190,6 +191,169 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+
+  /* === ARCADE 8-BIT THEME === */
+  .arcade-font {
+    font-family: 'Press Start 2P', monospace;
+  }
+
+  .arcade-border {
+    border: 3px solid;
+    border-image: linear-gradient(135deg, #921009, #e97555) 1;
+    image-rendering: pixelated;
+  }
+
+  .arcade-border-dashed {
+    border: 3px dashed;
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  .arcade-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    border: 2px solid;
+    border-image: linear-gradient(135deg, #921009, #e97555) 1;
+    background: linear-gradient(135deg, #921009, #e97555);
+    color: white;
+    padding: 6px 14px;
+    text-transform: uppercase;
+    position: relative;
+    transition: all 0.1s;
+    image-rendering: pixelated;
+  }
+
+  .arcade-btn:hover {
+    filter: brightness(1.2);
+    transform: translateY(-1px);
+  }
+
+  .arcade-btn:active {
+    transform: translateY(1px);
+    filter: brightness(0.9);
+  }
+
+  .arcade-btn-outline {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    border: 2px solid hsl(var(--primary));
+    background: transparent;
+    color: hsl(var(--primary));
+    padding: 6px 14px;
+    text-transform: uppercase;
+    transition: all 0.1s;
+  }
+
+  .arcade-btn-outline:hover {
+    background: hsl(var(--primary) / 0.15);
+  }
+
+  .arcade-card {
+    border: 3px solid hsl(var(--primary) / 0.3);
+    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--primary) / 0.03) 100%);
+    position: relative;
+    image-rendering: pixelated;
+  }
+
+  .arcade-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #921009, #e97555, #921009);
+    background-size: 200% 100%;
+    animation: arcade-stripe 3s linear infinite;
+  }
+
+  .arcade-stat {
+    background: linear-gradient(135deg, #92100920, #e9755520);
+    border: 2px solid hsl(var(--primary) / 0.25);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arcade-stat::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      hsl(var(--primary) / 0.03) 2px,
+      hsl(var(--primary) / 0.03) 4px
+    );
+    pointer-events: none;
+  }
+
+  .arcade-pill {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    border: 2px solid hsl(var(--border));
+    padding: 4px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.1s;
+  }
+
+  .arcade-pill-active {
+    background: linear-gradient(135deg, #921009, #e97555);
+    border-color: #921009;
+    color: white;
+  }
+
+  .arcade-pill:hover:not(.arcade-pill-active) {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.1);
+  }
+
+  .arcade-progress {
+    height: 8px;
+    background: hsl(var(--muted));
+    border: 1px solid hsl(var(--border));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arcade-progress-bar {
+    height: 100%;
+    transition: width 0.5s steps(10);
+    image-rendering: pixelated;
+  }
+
+  .arcade-glow {
+    text-shadow: 0 0 10px hsl(var(--primary) / 0.5), 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  @keyframes arcade-stripe {
+    0% { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes arcade-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .arcade-blink {
+    animation: arcade-blink 1.5s step-end infinite;
+  }
+
+  .arcade-scanline {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1px,
+      hsl(var(--primary) / 0.015) 1px,
+      hsl(var(--primary) / 0.015) 2px
+    );
+  }
 
   /* Ocultar scrollbar mantendo funcionalidade de scroll */
   .scrollbar-hide {

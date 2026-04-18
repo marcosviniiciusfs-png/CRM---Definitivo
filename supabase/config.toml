@@ -128,3 +128,12 @@ verify_jwt = false
 
 [functions.get-signed-media-url]
 verify_jwt = false
+
+[functions.redistribute-batch]
+verify_jwt = false
+
+[functions.redistribute-collaborator-leads]
+verify_jwt = false
+
+[functions.redistribute-unassigned-leads]
+verify_jwt = false
