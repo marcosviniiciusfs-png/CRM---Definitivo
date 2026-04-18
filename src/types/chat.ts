@@ -69,3 +69,31 @@ export interface Message {
     media_type?: string | null;
   } | null;
 }
+
+export interface Broadcast {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  name: string;
+  message_text: string;
+  status: 'draft' | 'sending' | 'completed' | 'cancelled';
+  total_contacts: number;
+  sent_count: number;
+  error_count: number;
+  delay_seconds: number;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+}
+
+export interface BroadcastContact {
+  id: string;
+  broadcast_id: string;
+  lead_id: string;
+  phone: string;
+  name: string;
+  status: 'pending' | 'sent' | 'error' | 'skipped';
+  error_message?: string | null;
+  sent_at?: string | null;
+  created_at: string;
+}
