@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Lead } from '@/types/chat';
 import { MobileLeadCard } from './MobileLeadCard';
 import { MoveStageSheet } from './MoveStageSheet';
@@ -32,39 +32,6 @@ export function MobilePipelineView({
   const [moveSheetLead, setMoveSheetLead] = useState<Lead | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState<number>(400);
-
-  // Medir dinamicamente a altura disponível baseado na posição real do elemento
-  useLayoutEffect(() => {
-    const measure = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const bottomMargin = 0;
-        const vh = window.visualViewport?.height || window.innerHeight;
-        const available = vh - rect.top - bottomMargin;
-        setContainerHeight(Math.max(available, 200));
-      }
-    };
-
-    measure();
-
-    window.addEventListener('resize', measure);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', measure);
-    }
-
-    // Multiple re-measure passes to capture late layout changes on mobile
-    const timers = [setTimeout(measure, 100), setTimeout(measure, 300), setTimeout(measure, 600)];
-
-    return () => {
-      window.removeEventListener('resize', measure);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', measure);
-      }
-      timers.forEach(clearTimeout);
-    };
-  }, []);
 
   // Resetar stage ativa quando stages mudam (troca de funil)
   useEffect(() => {
@@ -101,9 +68,11 @@ export function MobilePipelineView({
 
   return (
     <div
-      ref={containerRef}
-      className="flex flex-col"
-      style={{ height: containerHeight, overflow: 'hidden' }}
+      className="flex flex-col overflow-hidden"
+      style={{
+        height: 'calc(100dvh - var(--pipeline-offset, 120px) - env(safe-area-inset-bottom, 0px))',
+        minHeight: '280px',
+      }}
     >
       {/* Tabs de funil */}
       {allFunnels.length > 1 && (
