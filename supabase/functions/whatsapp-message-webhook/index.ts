@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import {
+  getEvolutionApiUrl,
+  getEvolutionApiKey,
+  mapEvolutionState,
+  isConnectedState,
+  extractPhoneNumber,
+  createSupabaseAdmin,
+} from "../_shared/evolution-config.ts";
 
 // Função auxiliar para baixar mídia usando Evolution API e fazer upload para Supabase Storage
 async function downloadAndUploadMedia(
@@ -90,10 +92,7 @@ async function downloadAndUploadMedia(
     console.log(`📤 Fazendo upload para Storage: ${fileName}, tamanho: ${binaryData.length} bytes, tipo: ${mimetype}`);
     
     // Criar cliente Supabase admin
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseAdmin = createSupabaseAdmin();
     
     // Fazer upload para o bucket 'chat-media'
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
@@ -157,18 +156,22 @@ serve(async (req) => {
     const event = payload.event;
     const instance = payload.instance;
     const data = payload.data;
-    // CORREÇÃO CRÍTICA: Usar URL do secret em vez do payload (que pode estar incorreto)
-    let serverUrl = Deno.env.get('EVOLUTION_API_URL') || payload.server_url;
-    const apiKey = payload.apikey;
-    
-    // Validar e corrigir URL da Evolution API
-    if (!serverUrl || !/^https?:\/\//.test(serverUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      serverUrl = 'http://161.97.148.99:8080';
+    let serverUrl: string;
+    let apiKey: string;
+    try {
+      serverUrl = getEvolutionApiUrl();
+      apiKey = getEvolutionApiKey();
+    } catch (configError: any) {
+      console.error('❌ Erro de configuração:', configError.message);
+      return new Response(
+        JSON.stringify({ success: false, error: configError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
-    
+
+    const supabase = createSupabaseAdmin();
+
     console.log('🔧 URL do servidor Evolution:', serverUrl);
-    console.log('🔧 URL do payload (ignorada):', payload.server_url);
 
     // Log para debug
     console.log('Event:', event);
@@ -186,11 +189,7 @@ serve(async (req) => {
     // ==================== EVENTO: QRCODE.UPDATED ====================
     if (event === 'qrcode.updated' || event === 'QRCODE_UPDATED') {
       console.log(`🔄 Processando QR Code para instância: ${instance}`);
-      
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
+
       let rawBase64 = '';
       
       if (data?.qrcode?.base64 && typeof data.qrcode.base64 === 'string') {
@@ -255,45 +254,207 @@ serve(async (req) => {
     // ==================== EVENTO: CONNECTION_UPDATE ====================
     if (event === 'connection.update' || event === 'CONNECTION_UPDATE') {
       console.log(`🔄 Processando atualização de conexão para instância: ${instance}`);
-      
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
+
       const state = data?.state || data?.status || data?.connection;
-      console.log('📊 Estado da conexão:', state);
-      
-      let newStatus = 'DISCONNECTED';
-      if (state === 'open' || state === 'connected') {
-        newStatus = 'CONNECTED';
-      } else if (state === 'close' || state === 'disconnected') {
-        newStatus = 'DISCONNECTED';
-      } else if (state === 'connecting') {
-        newStatus = 'CREATING';
+      console.log('📊 Estado da conexão recebido:', state);
+
+      // PROTEÇÃO: Ignorar estados nulos/vazios/undefined — manter status atual
+      if (!state || typeof state !== 'string' || state.trim() === '') {
+        console.log('⏭️ Estado vazio ou nulo — ignorando update (mantendo status atual)');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Estado vazio ignorado' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
       }
-      
+
+      const normalizedState = state.toLowerCase().trim();
+
+      // PROTEÇÃO: Estado transitório "connecting" — NÃO sobrescrever status existente
+      if (normalizedState === 'connecting') {
+        console.log('⏭️ Estado transitório "connecting" — ignorando para proteger status atual');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Estado transitório ignorado' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      let newStatus: string;
+
+      newStatus = mapEvolutionState(normalizedState);
+
+      if (newStatus === 'CONNECTED') {
+        // Conectado — atualizar normalmente
+      } else if (normalizedState === 'close' || normalizedState === 'disconnected') {
+        // DOUBLE-CHECK: Confirmar desconexão com Evolution API antes de marcar
+        console.log('🔍 Estado "close/disconnected" recebido — fazendo double-check na Evolution API...');
+
+        let evolutionApiUrl: string;
+        let evolutionApiKey: string;
+        try {
+          evolutionApiUrl = getEvolutionApiUrl();
+          evolutionApiKey = getEvolutionApiKey();
+        } catch {
+          // Se não conseguir obter config, a auto-reconexão falhará silenciosamente
+          return;
+        }
+
+        let confirmedDisconnected = true;
+
+        try {
+          const checkResponse = await fetch(`${evolutionApiUrl}/instance/connectionState/${instance}`, {
+            method: 'GET',
+            headers: {
+              'apikey': evolutionApiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (checkResponse.ok) {
+            const checkData = await checkResponse.json();
+            const realState = checkData.instance?.state || checkData.state || '';
+            console.log('📊 Double-check: estado real na Evolution API:', realState);
+
+            if (isConnectedState(realState)) {
+              console.log('✅ Double-check: instância AINDA ESTÁ CONECTADA! Ignorando webhook de desconexão (falso positivo).');
+              confirmedDisconnected = false;
+            } else {
+              console.log('❌ Double-check: desconexão confirmada. Estado real:', realState);
+            }
+          } else {
+            console.warn('⚠️ Double-check: Evolution API retornou erro', checkResponse.status, '— assumindo desconectado');
+          }
+        } catch (checkError) {
+          console.warn('⚠️ Double-check: erro ao contactar Evolution API:', checkError, '— assumindo desconectado');
+        }
+
+        if (!confirmedDisconnected) {
+          return new Response(
+            JSON.stringify({ success: true, message: 'Falso positivo — conexão ainda ativa' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+
+        // Desconexão confirmada — tentar auto-reconexão em background
+        console.log('🔄 Disconexão confirmada — tentando auto-reconexão em background...');
+
+        const reconnectAttempt = async () => {
+          try {
+            const evolutionApiKey = getEvolutionApiKey();
+            let evoUrl: string;
+            try { evoUrl = getEvolutionApiUrl(); } catch { return; }
+
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              console.log(`🔄 Auto-reconexão tentativa ${attempt}/3 para ${instance}...`);
+
+              const restartResponse = await fetch(`${evoUrl}/instance/restart/${instance}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': evolutionApiKey,
+                },
+              });
+
+              if (restartResponse.ok) {
+                // Esperar 5 segundos antes de verificar
+                await new Promise(resolve => setTimeout(resolve, 5000));
+
+                const stateResponse = await fetch(`${evoUrl}/instance/connectionState/${instance}`, {
+                  method: 'GET',
+                  headers: {
+                    'apikey': evolutionApiKey,
+                    'Content-Type': 'application/json',
+                  },
+                });
+
+                if (stateResponse.ok) {
+                  const stateData = await stateResponse.json();
+                  const currentState = stateData.instance?.state || stateData.state || '';
+
+                  if (isConnectedState(currentState)) {
+                    console.log(`✅ Auto-reconexão bem-sucedida na tentativa ${attempt}!`);
+                    await supabase
+                      .from('whatsapp_instances')
+                      .update({ status: 'CONNECTED', updated_at: new Date().toISOString() })
+                      .eq('instance_name', instance);
+                    return;
+                  }
+                }
+              }
+
+              if (attempt < 3) {
+                console.log(`⏳ Tentativa ${attempt} falhou — aguardando 10s antes da próxima...`);
+                await new Promise(resolve => setTimeout(resolve, 10000));
+              }
+            }
+
+            console.log('❌ Auto-reconexão falhou após 3 tentativas — marcando como DISCONNECTED');
+            await supabase
+              .from('whatsapp_instances')
+              .update({ status: 'DISCONNECTED', updated_at: new Date().toISOString() })
+              .eq('instance_name', instance);
+          } catch (err) {
+            console.error('❌ Erro na auto-reconexão:', err);
+            await supabase
+              .from('whatsapp_instances')
+              .update({ status: 'DISCONNECTED', updated_at: new Date().toISOString() })
+              .eq('instance_name', instance);
+          }
+        };
+
+        // Executar auto-reconexão em background (não bloqueia resposta)
+        reconnectAttempt().catch(err => console.error('❌ Falha na auto-reconexão background:', err));
+
+        // Retornar imediatamente — a auto-reconexão acontece em background
+        return new Response(
+          JSON.stringify({ success: true, message: 'Auto-reconexão iniciada em background' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      } else {
+        // Estado não reconhecido — NÃO assumir desconexão
+        console.log(`⏭️ Estado não reconhecido "${normalizedState}" — ignorando para proteger status atual`);
+        return new Response(
+          JSON.stringify({ success: true, message: `Estado não reconhecido ignorado: ${normalizedState}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
       const updatePayload: any = {
         status: newStatus,
         updated_at: new Date().toISOString()
       };
-      
+
       // Limpar QR code se conectou
       if (newStatus === 'CONNECTED') {
         updatePayload.qr_code = null;
         updatePayload.connected_at = new Date().toISOString();
       }
-      
-      const { error: updateError } = await supabase
-        .from('whatsapp_instances')
-        .update(updatePayload)
-        .eq('instance_name', instance);
-      
-      if (updateError) {
-        console.error('❌ Erro ao atualizar status:', updateError);
+
+      // PROTEÇÃO: Se atualizando para qualquer status não-CONNECTED, não sobrescrever CONNECTED
+      if (newStatus !== 'CONNECTED') {
+        const { error: updateError } = await supabase
+          .from('whatsapp_instances')
+          .update(updatePayload)
+          .eq('instance_name', instance)
+          .neq('status', 'CONNECTED');
+
+        if (updateError) {
+          console.error('❌ Erro ao atualizar status:', updateError);
+        } else {
+          console.log(`✅ Status atualizado para ${newStatus}: ${instance} (com proteção CONNECTED)`);
+        }
       } else {
-        console.log(`✅ Status atualizado para ${newStatus}: ${instance}`);
+        const { error: updateError } = await supabase
+          .from('whatsapp_instances')
+          .update(updatePayload)
+          .eq('instance_name', instance);
+
+        if (updateError) {
+          console.error('❌ Erro ao atualizar status:', updateError);
+        } else {
+          console.log(`✅ Status atualizado para ${newStatus}: ${instance}`);
+        }
       }
-      
+
       return new Response(
         JSON.stringify({ success: true, message: `Status atualizado: ${newStatus}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -318,10 +479,6 @@ serve(async (req) => {
     }
 
     console.log('✅ Processando mensagem recebida...');
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Buscar a instância do WhatsApp no banco para obter o user_id e organization_id
     const { data: instanceData, error: instanceError } = await supabase
@@ -454,7 +611,7 @@ serve(async (req) => {
     
     // Extrair número do contato limpo
     // Remove TODOS os sufixos: @s.whatsapp.net, @lid, @g.us, @c.us
-    const phoneNumber = senderPhone.replace(/@s\.whatsapp\.net|@lid|@g\.us|@c\.us/g, '').trim();
+    const phoneNumber = extractPhoneNumber(senderPhone);
     
     // Validar que temos um número válido
     if (!phoneNumber || phoneNumber.length < 8) {
@@ -968,10 +1125,7 @@ serve(async (req) => {
       const event = payload?.event || 'unknown';
       
       // Buscar organization_id se possível
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+      const supabase = createSupabaseAdmin();
       
       const { data: instanceData } = await supabase
         .from('whatsapp_instances')
