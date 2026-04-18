@@ -2176,23 +2176,25 @@ const Pipeline = () => {
 
         ) : isMobile ? (
           /* Mobile Kanban View - sem drag-and-drop */
-          <MobilePipelineView
-            stages={stages}
-            leadsByStage={leadsByStage}
-            selectedFunnelId={selectedFunnelId}
-            allFunnels={allFunnels}
-            onTabChange={handleTabChange}
-            onEdit={handleEditLead}
-            onDelete={handleDeleteLead}
-            onLeadMove={handleMobileLeadMove}
-            leadTagsMap={leadTagsMap}
-            profilesMap={profilesMap}
-            duplicateLeadIds={duplicateLeadIds}
-            agendamentosMap={agendamentosMap}
-            redistributedMap={redistributedMap}
-            stagePagination={stagePagination}
-            onLoadMore={loadMoreForStage}
-          />
+          <div className="flex flex-col flex-1 min-h-0">
+            <MobilePipelineView
+              stages={stages}
+              leadsByStage={leadsByStage}
+              selectedFunnelId={selectedFunnelId}
+              allFunnels={allFunnels}
+              onTabChange={handleTabChange}
+              onEdit={handleEditLead}
+              onDelete={handleDeleteLead}
+              onLeadMove={handleMobileLeadMove}
+              leadTagsMap={leadTagsMap}
+              profilesMap={profilesMap}
+              duplicateLeadIds={duplicateLeadIds}
+              agendamentosMap={agendamentosMap}
+              redistributedMap={redistributedMap}
+              stagePagination={stagePagination}
+              onLoadMore={loadMoreForStage}
+            />
+          </div>
         ) : (
           /* Desktop Kanban View - com drag-and-drop */
           <DndContext
