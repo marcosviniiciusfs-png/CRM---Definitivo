@@ -486,7 +486,7 @@ const WhatsAppConnection = () => {
 
       console.log('🔄 Polling periódico: verificando status de todas as instâncias...');
       checkAllInstancesStatus(true); // true = incluir instâncias CONNECTED
-    }, 30000); // A cada 30 segundos
+    }, 60000); // A cada 60 segundos
 
     return () => clearInterval(pollInterval);
   }, []); // CRÍTICO: Array vazio - interval é criado apenas uma vez
@@ -698,7 +698,7 @@ const WhatsAppConnection = () => {
       } catch (error) {
         console.error('❌ Erro ao verificar status no polling:', error);
       }
-    }, 10000); // Verificar a cada 10 segundos para reduzir consumo de Edge Functions
+    }, 15000); // A cada 15 segundos — Realtime + polling como backup
 
     // Limpar interval quando o modal fechar ou a instância mudar
     return () => {
