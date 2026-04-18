@@ -1,1 +1,12 @@
 /* App styles - cleaned up from Vite boilerplate */
+
+/* Pipeline mobile offset — header + title/filters height */
+:root {
+  --pipeline-offset: 110px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --pipeline-offset: 124px;
+  }
+}
