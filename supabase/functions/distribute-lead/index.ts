@@ -16,6 +16,76 @@ interface DistributeLeadRequest {
   webhook_token?: string;
 }
 
+// ── Smart Rules Types & Helpers ────────────────────────────────
+
+interface SystemRules {
+  reroute_same_agent: boolean;
+  work_hours_enabled: boolean;
+  work_hours_start: string;
+  work_hours_end: string;
+  hot_lead_enabled: boolean;
+  hot_lead_score: number;
+  auto_redistribute_timeout: number;
+}
+
+interface CustomRule {
+  id: string;
+  name: string;
+  condition_field: "source" | "score_min" | "score_max" | "funnel";
+  condition_operator: "equals" | "not_equals" | "greater" | "less";
+  condition_value: string;
+  action: "assign_to" | "skip";
+  agent_id: string;
+  enabled: boolean;
+}
+
+interface SmartRulesData {
+  system: SystemRules;
+  custom: CustomRule[];
+}
+
+function parseSmartRules(raw: any): SmartRulesData {
+  const DEFAULT_SYSTEM: SystemRules = {
+    reroute_same_agent: false,
+    work_hours_enabled: false,
+    work_hours_start: "08:00",
+    work_hours_end: "18:00",
+    hot_lead_enabled: false,
+    hot_lead_score: 70,
+    auto_redistribute_timeout: 60,
+  };
+
+  if (!raw) return { system: DEFAULT_SYSTEM, custom: [] };
+  const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (!parsed || typeof parsed !== "object") return { system: DEFAULT_SYSTEM, custom: [] };
+
+  return {
+    system: { ...DEFAULT_SYSTEM, ...(parsed.system || {}) },
+    custom: Array.isArray(parsed.custom) ? parsed.custom : [],
+  };
+}
+
+function getCustomRuleFieldValue(field: string, lead: any): any {
+  switch (field) {
+    case "source": return lead.source || "";
+    case "score_min": return lead.lead_score || 0;
+    case "score_max": return lead.lead_score || 0;
+    case "funnel": return lead.funnel_id || "";
+    default: return "";
+  }
+}
+
+function evaluateCustomCondition(value: any, operator: string, conditionValue: string): boolean {
+  const strVal = String(value);
+  switch (operator) {
+    case "equals": return strVal === conditionValue;
+    case "not_equals": return strVal !== conditionValue;
+    case "greater": return Number(value) > Number(conditionValue);
+    case "less": return Number(value) < Number(conditionValue);
+    default: return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
