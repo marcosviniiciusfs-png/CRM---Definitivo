@@ -210,13 +210,13 @@ All colors MUST be HSL.
 
   .arcade-btn {
     font-family: 'Press Start 2P', monospace;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.5px;
     border: 2px solid;
     border-image: linear-gradient(135deg, #921009, #e97555) 1;
     background: linear-gradient(135deg, #921009, #e97555);
     color: white;
-    padding: 6px 14px;
+    padding: 8px 18px;
     text-transform: uppercase;
     position: relative;
     transition: all 0.1s;
@@ -235,12 +235,12 @@ All colors MUST be HSL.
 
   .arcade-btn-outline {
     font-family: 'Press Start 2P', monospace;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.5px;
     border: 2px solid hsl(var(--primary));
     background: transparent;
     color: hsl(var(--primary));
-    padding: 6px 14px;
+    padding: 8px 18px;
     text-transform: uppercase;
     transition: all 0.1s;
   }
@@ -294,9 +294,9 @@ All colors MUST be HSL.
 
   .arcade-pill {
     font-family: 'Press Start 2P', monospace;
-    font-size: 7px;
+    font-size: 9px;
     border: 2px solid hsl(var(--border));
-    padding: 4px 10px;
+    padding: 6px 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     transition: all 0.1s;

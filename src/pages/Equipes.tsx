@@ -73,9 +73,9 @@ function DraggableMember({ member, teamId, isLeader, organizationId }: Draggable
       style={style}
       {...attributes}
       {...listeners}
-      className="flex items-center gap-2 px-2 py-1.5 bg-card border-2 border-primary/20 hover:border-primary/50 cursor-grab active:cursor-grabbing transition-colors"
+      className="flex items-center gap-2.5 px-3 py-2 bg-card border-2 border-primary/20 hover:border-primary/50 cursor-grab active:cursor-grabbing transition-colors"
     >
-      <Avatar className="h-6 w-6 flex-shrink-0">
+      <Avatar className="h-7 w-7 flex-shrink-0">
         <AvatarImage src={member.avatar_url} />
         <AvatarFallback className="text-[8px] arcade-font bg-gradient-to-br from-primary/60 to-primary text-white">
           {getInitials(member.full_name || member.email)}
@@ -83,7 +83,7 @@ function DraggableMember({ member, teamId, isLeader, organizationId }: Draggable
       </Avatar>
       <span className="text-[10px] arcade-font flex-1 truncate">{member.full_name || member.email}</span>
       <MemberTaskBadge userId={member.user_id} organizationId={organizationId} />
-      {isLeader && <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />}
+      {isLeader && <Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />}
     </div>
   );
 }
@@ -368,11 +368,11 @@ const Equipes = () => {
           </div>
           <div className="flex items-center gap-2">
             <button className="arcade-btn-outline" onClick={() => setShowGoals('global')}>
-              <Clock className="h-3 w-3 mr-1.5 inline" /> METAS
+              <Clock className="h-4 w-4 mr-2 inline" /> METAS
             </button>
             {isOwner && (
               <button className="arcade-btn" onClick={() => setCreateModalOpen(true)}>
-                <Plus className="h-3 w-3 mr-1.5 inline" /> NOVA
+                <Plus className="h-4 w-4 mr-2 inline" /> NOVA
               </button>
             )}
           </div>
@@ -386,23 +386,23 @@ const Equipes = () => {
             { label: 'LEADS/SEM', value: weeklyLeads, sub: weeklyDelta.toUpperCase(), icon: '▲' },
             { label: 'CONV.%', value: `${conversionRate}%`, sub: 'PIPELINE', icon: '●' },
           ].map(stat => (
-            <div key={stat.label} className="arcade-stat w-[90px] p-1.5 flex flex-col items-center gap-0.5">
-              <span className="arcade-font text-[7px] text-primary/40 tracking-wider">{stat.label}</span>
-              <span className="arcade-font text-[11px] text-foreground/70 arcade-glow leading-none">{stat.icon} {stat.value}</span>
-              <span className="arcade-font text-[5px] text-muted-foreground/50 tracking-wide">{stat.sub}</span>
+            <div key={stat.label} className="arcade-stat w-[120px] p-2 flex flex-col items-center gap-1">
+              <span className="arcade-font text-[9px] text-primary/40 tracking-wider">{stat.label}</span>
+              <span className="arcade-font text-[15px] text-foreground/70 arcade-glow leading-none">{stat.icon} {stat.value}</span>
+              <span className="arcade-font text-[7px] text-muted-foreground/50 tracking-wide">{stat.sub}</span>
             </div>
           ))}
         </div>
 
         {/* ARCADE SEARCH + FILTERS */}
-        <div className="flex items-center gap-2 flex-wrap mb-5">
-          <div className="relative flex-1 min-w-[140px] max-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-primary/60" />
+        <div className="flex items-center gap-3 flex-wrap mb-5">
+          <div className="relative flex-1 min-w-[160px] max-w-[240px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/60" />
             <Input
               placeholder="BUSCAR..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-8 h-8 arcade-font text-[7px] border-2 border-primary/30 focus:border-primary bg-card placeholder:text-primary/40"
+              className="pl-9 h-9 arcade-font text-[9px] border-2 border-primary/30 focus:border-primary bg-card placeholder:text-primary/40"
             />
           </div>
           {(['Todas', 'Com líder', 'Sem líder', 'Meta em risco'] as const).map(f => (
@@ -442,29 +442,29 @@ const Equipes = () => {
                   className="flex flex-col overflow-hidden bg-card/80 arcade-team-card"
                   style={{ '--team-color': team.color } as React.CSSProperties}
                 >
-                  <CardContent className="pt-3 pb-2 px-3">
+                  <CardContent className="pt-4 pb-2 px-4">
                     {/* HEADER */}
-                    <div className="flex items-center justify-between gap-1.5 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="w-8 h-8 flex-shrink-0 flex items-center justify-center arcade-font text-[8px] text-white"
+                          className="w-11 h-11 flex-shrink-0 flex items-center justify-center arcade-font text-[11px] text-white"
                           style={{ background: `linear-gradient(135deg, ${team.color}, ${team.color}bb)` }}
                         >
                           {team.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="arcade-font text-[10px] truncate arcade-glow leading-tight" style={{ color: team.color }}>
+                          <h3 className="arcade-font text-[13px] truncate arcade-glow leading-tight" style={{ color: team.color }}>
                             {team.name}
                           </h3>
-                          <p className="arcade-font text-[7px] text-muted-foreground mt-0.5">
+                          <p className="arcade-font text-[9px] text-muted-foreground mt-1">
                             {teamMembersList.length} MEMBRO{teamMembersList.length !== 1 ? 'S' : ''}
                           </p>
                         </div>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 flex-shrink-0 hover:bg-primary/20">
-                            <MoreVertical className="h-3 w-3" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 hover:bg-primary/20">
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -488,17 +488,17 @@ const Equipes = () => {
                     {/* LEADER — inline compact */}
                     {leader && (
                       <div
-                        className="flex items-center gap-1.5 px-1.5 py-0.5 mb-1.5 border"
+                        className="flex items-center gap-2 px-2 py-1 mb-2 border"
                         style={{ background: `${team.color}10`, borderColor: `${team.color}30` }}
                       >
-                        <Avatar className="h-4 w-4">
+                        <Avatar className="h-6 w-6">
                           <AvatarImage src={leader.avatar_url} />
-                          <AvatarFallback className="text-[6px] arcade-font text-white" style={{ background: team.color }}>
+                          <AvatarFallback className="text-[7px] arcade-font text-white" style={{ background: team.color }}>
                             {getInitials(leader.full_name || leader.email)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="arcade-font text-[6px] truncate flex-1">{leader.full_name || leader.email}</span>
-                        <Crown className="h-2.5 w-2.5 text-yellow-500 flex-shrink-0" />
+                        <span className="arcade-font text-[9px] truncate flex-1">{leader.full_name || leader.email}</span>
+                        <Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />
                       </div>
                     )}
 
@@ -521,9 +521,9 @@ const Equipes = () => {
                       items={teamMembersList.map(m => `${team.id}-${m.user_id}`)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div id={`team-${team.id}`} className="space-y-0.5 min-h-[32px]">
+                      <div id={`team-${team.id}`} className="space-y-1 min-h-[40px]">
                         {teamMembersList.length === 0 ? (
-                          <div className="arcade-font text-[6px] text-center py-2 text-primary/40 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-colors">
+                          <div className="arcade-font text-[9px] text-center py-3 text-primary/40 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-colors">
                             + ARRASTE AQUI
                           </div>
                         ) : (
@@ -554,9 +554,9 @@ const Equipes = () => {
                             }}
                           />
                         </div>
-                        <div className="flex justify-between mt-0.5">
-                          <span className="arcade-font text-[5px] text-muted-foreground">META</span>
-                          <span className={cn("arcade-font text-[5px]", goalPct < 30 ? "text-destructive arcade-blink" : "text-foreground")}>
+                        <div className="flex justify-between mt-1">
+                          <span className="arcade-font text-[7px] text-muted-foreground">META</span>
+                          <span className={cn("arcade-font text-[7px]", goalPct < 30 ? "text-destructive arcade-blink" : "text-foreground")}>
                             {teamGoal.current_value}/{teamGoal.target_value}
                           </span>
                         </div>
@@ -565,12 +565,12 @@ const Equipes = () => {
                   </CardContent>
 
                   {/* FOOTER — single thin row */}
-                  <div className="flex items-center justify-center px-2 py-1 border-t-2" style={{ borderColor: `${team.color}25` }}>
+                  <div className="flex items-center justify-center px-3 py-1.5 border-t-2" style={{ borderColor: `${team.color}25` }}>
                     <button
-                      className="arcade-font text-[6px] text-muted-foreground hover:text-primary px-2 py-0.5 border border-primary/15 hover:border-primary/40 transition-colors"
+                      className="arcade-font text-[8px] text-muted-foreground hover:text-primary px-3 py-1 border border-primary/15 hover:border-primary/40 transition-colors"
                       onClick={() => setShowGoals(showGoals === team.id ? null : team.id)}
                     >
-                      <Target className="h-2 w-2 mr-0.5 inline" />
+                      <Target className="h-3 w-3 mr-1 inline" />
                       {showGoals === team.id ? 'OCULTAR' : 'METAS'}
                     </button>
                   </div>
@@ -579,13 +579,13 @@ const Equipes = () => {
             })}
 
             <Card className="arcade-border-dashed col-span-full max-w-4xl mx-auto mt-2">
-              <CardContent className="pt-3 pb-3 px-4">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <div className="w-6 h-6 bg-muted border-2 border-primary/20 flex items-center justify-center">
-                    <UserX className="h-3 w-3 text-primary/60" />
+              <CardContent className="pt-4 pb-4 px-4">
+                <div className="flex items-center justify-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-muted border-2 border-primary/20 flex items-center justify-center">
+                    <UserX className="h-4 w-4 text-primary/60" />
                   </div>
-                  <h3 className="arcade-font text-[8px] text-muted-foreground">SEM EQUIPE</h3>
-                  <span className="arcade-font text-[5px] text-muted-foreground/50">
+                  <h3 className="arcade-font text-[11px] text-muted-foreground">SEM EQUIPE</h3>
+                  <span className="arcade-font text-[8px] text-muted-foreground/50">
                     {membersWithoutTeam.length} MEMBRO{membersWithoutTeam.length !== 1 ? 'S' : ''}
                   </span>
                 </div>
@@ -602,7 +602,7 @@ const Equipes = () => {
                       />
                     ))}
                     {membersWithoutTeam.length === 0 && (
-                      <div className="col-span-full arcade-font text-[6px] text-center py-2 text-primary/40 border-2 border-dashed border-primary/20">
+                      <div className="col-span-full arcade-font text-[9px] text-center py-3 text-primary/40 border-2 border-dashed border-primary/20">
                         NENHUM MEMBRO SEM EQUIPE
                       </div>
                     )}
@@ -614,14 +614,14 @@ const Equipes = () => {
 
           <DragOverlay>
             {getActiveItem() ? (
-              <div className="flex items-center gap-2 px-2 py-1.5 bg-card border-2 border-primary shadow-lg" style={{ boxShadow: '0 0 15px hsl(var(--primary) / 0.3)' }}>
-                <Avatar className="h-6 w-6 flex-shrink-0">
+              <div className="flex items-center gap-2.5 px-3 py-2 bg-card border-2 border-primary shadow-lg" style={{ boxShadow: '0 0 15px hsl(var(--primary) / 0.3)' }}>
+                <Avatar className="h-8 w-8 flex-shrink-0">
                   <AvatarImage src={getActiveItem()?.avatar_url} />
-                  <AvatarFallback className="text-[7px] arcade-font bg-gradient-to-br from-primary/60 to-primary text-white">
+                  <AvatarFallback className="text-[9px] arcade-font bg-gradient-to-br from-primary/60 to-primary text-white">
                     {getInitials(getActiveItem()?.full_name || getActiveItem()?.email || '??')}
                   </AvatarFallback>
                 </Avatar>
-                <span className="arcade-font text-[8px]">{getActiveItem()?.full_name || getActiveItem()?.email}</span>
+                <span className="arcade-font text-[10px]">{getActiveItem()?.full_name || getActiveItem()?.email}</span>
               </div>
             ) : null}
           </DragOverlay>
