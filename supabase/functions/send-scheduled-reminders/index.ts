@@ -1,11 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,9 +8,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     const now = new Date().toISOString();
     console.log(`🔔 [send-scheduled-reminders] Verificando lembretes pendentes em: ${now}`);
@@ -95,9 +88,8 @@ serve(async (req) => {
         if (leadData?.nome_lead) msg += `\n👤 Lead: ${leadData.nome_lead}`;
 
         // Enviar mensagem via Evolution API
-        let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'http://161.97.148.99:8080';
-        evolutionApiUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
-        const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
+        const evolutionApiUrl = getEvolutionApiUrl();
+        const evolutionApiKey = getEvolutionApiKey();
 
         const cleanNumber = telefone.replace(/\D/g, '');
         const remoteJid = `${cleanNumber}@s.whatsapp.net`;

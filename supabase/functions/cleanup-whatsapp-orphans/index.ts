@@ -1,11 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 interface CleanupResult {
   deletedFromApi: string[];
@@ -35,9 +30,7 @@ serve(async (req) => {
 
     // If called manually (not by cron), verify auth
     if (authHeader) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const supabase = createSupabaseAdmin();
 
       const token = authHeader.replace('Bearer ', '');
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -55,23 +48,11 @@ serve(async (req) => {
       throw new Error('Authorization required');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     // Get Evolution API credentials
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
-
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-    }
-
-    if (!evolutionApiKey) {
-      throw new Error('Evolution API credentials not configured');
-    }
-
-    const baseUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
+    const baseUrl = getEvolutionApiUrl();
+    const evolutionApiKey = getEvolutionApiKey();
 
     // ========================================
     // STEP 1: Fetch all instances from Evolution API

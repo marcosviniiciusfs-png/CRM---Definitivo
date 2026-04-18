@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,9 +15,7 @@ serve(async (req) => {
       throw new Error('Missing authorization header');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     // Verify JWT and get user
     const token = authHeader.replace('Bearer ', '');
@@ -58,27 +52,11 @@ serve(async (req) => {
     console.log(`📋 Encontradas ${dbInstances.length} instâncias no banco`);
 
     // Ler URL e API key da Evolution API
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
-
-    // Correção crítica: garantir que evolutionApiUrl seja uma URL válida
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida ou ausente. Valor atual:', evolutionApiUrl);
-      // Fallback seguro para a URL informada pelo usuário
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-      console.log('🔧 Usando URL padrão da Evolution API:', evolutionApiUrl);
-    }
-
-    // Limpar URL base
-    let cleanEvolutionUrl = evolutionApiUrl
-      .replace(/\/+$/, '')
-      .replace(/\/manager\/?$/g, '')
-      .replace(/\/\//g, '/');
-    
-    cleanEvolutionUrl = cleanEvolutionUrl.replace(/:\/$/, '://');
+    const evolutionApiUrl = getEvolutionApiUrl();
+    const evolutionApiKey = getEvolutionApiKey();
 
     // Buscar todas as instâncias na Evolution API
-    const fetchResponse = await fetch(`${cleanEvolutionUrl}/instance/fetchInstances`, {
+    const fetchResponse = await fetch(`${evolutionApiUrl}/instance/fetchInstances`, {
       method: 'GET',
       headers: {
         'apikey': evolutionApiKey,

@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 interface ProcessAutomationRequest {
   trigger_type: string;
@@ -23,9 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     const { trigger_type, trigger_data } = await req.json() as ProcessAutomationRequest;
 
@@ -247,17 +241,14 @@ async function executeAction(
         return { skipped: true, reason: 'No connected instance' };
       }
 
-      let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-      const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
-
-      if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-        console.warn('EVOLUTION_API_URL inválida. Usando URL padrão.');
-        evolutionApiUrl = 'http://161.97.148.99:8080';
-      }
-
-      if (!evolutionApiKey) {
-        console.warn('EVOLUTION_API_KEY não configurada');
-        return { skipped: true, reason: 'No API key' };
+      let evolutionApiUrl: string;
+      let evolutionApiKey: string;
+      try {
+        evolutionApiUrl = getEvolutionApiUrl();
+        evolutionApiKey = getEvolutionApiKey();
+      } catch {
+        console.warn('EVOLUTION_API_URL ou EVOLUTION_API_KEY não configurada');
+        return { skipped: true, reason: 'No API key or URL configured' };
       }
 
       const sanitizedNumber = lead.telefone_lead.replace(/\D/g, '');

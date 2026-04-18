@@ -1,10 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 interface FetchPresenceRequest {
   instance_name: string;
@@ -28,17 +23,8 @@ Deno.serve(async (req) => {
     }
 
     // Obter configurações
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
-
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-    }
-
-    if (!evolutionApiKey) {
-      throw new Error('EVOLUTION_API_KEY não configurada');
-    }
+    const evolutionApiUrl = getEvolutionApiUrl();
+    const evolutionApiKey = getEvolutionApiKey();
 
     // Formatar número no formato esperado pela Evolution API (com @s.whatsapp.net)
     const formattedNumber = phone_number.includes('@')
@@ -51,9 +37,7 @@ Deno.serve(async (req) => {
     // calculamos o status de presença localmente usando os dados do lead
     console.log('⚙️ Calculando presença localmente a partir de last_message_at/updated_at');
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     const { data: lead, error: leadError } = await supabase
       .from('leads')

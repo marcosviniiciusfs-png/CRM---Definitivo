@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,9 +15,7 @@ serve(async (req) => {
       throw new Error('Missing authorization header');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     // Verify JWT and get user
     const token = authHeader.replace('Bearer ', '');
@@ -45,27 +39,12 @@ serve(async (req) => {
 
     console.log('✅ Instância encontrada:', instance.instance_name);
 
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
+    const evolutionApiUrl = getEvolutionApiUrl();
+    const evolutionApiKey = getEvolutionApiKey();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
 
-    // Validar e corrigir URL da Evolution API
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-    }
-
-    // Limpar URL base de forma consistente com outras functions
-    let cleanEvolutionUrl = evolutionApiUrl
-      .replace(/\/+$/, '')           // Remove barras finais
-      .replace(/\/manager\/?$/g, '') // Remove /manager/ do final
-      .replace(/\/\//g, '/');        // Remove barras duplas
-    
-    // Se a URL terminar com protocolo:/, adiciona a segunda barra
-    cleanEvolutionUrl = cleanEvolutionUrl.replace(/:\/$/, '://');
-    
-    console.log('🔧 Evolution API URL original:', evolutionApiUrl);
-    console.log('🔧 Evolution API URL limpa:', cleanEvolutionUrl);
+    console.log('🔧 Evolution API URL:', evolutionApiUrl);
 
     // Reconfigurar webhook com eventos habilitados
     console.log('🔄 Reconfigurando webhook...');
@@ -98,7 +77,7 @@ serve(async (req) => {
       }
     };
 
-    const webhookUrl = `${cleanEvolutionUrl}/webhook/set/${instance.instance_name}`;
+    const webhookUrl = `${evolutionApiUrl}/webhook/set/${instance.instance_name}`;
     console.log('🔗 URL completa do webhook:', webhookUrl);
     console.log('📦 Config do webhook:', JSON.stringify(webhookConfig, null, 2));
 
