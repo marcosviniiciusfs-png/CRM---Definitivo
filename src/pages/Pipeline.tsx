@@ -37,6 +37,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { AddLeadModal } from "@/components/AddLeadModal";
 import { ImportLeadsModal } from "@/components/ImportLeadsModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
