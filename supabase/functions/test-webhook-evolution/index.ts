@@ -1,9 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey } from "../_shared/evolution-config.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,21 +10,15 @@ serve(async (req) => {
   try {
     console.log('🧪 TESTANDO WEBHOOK - Simulando mensagem da Evolution API');
 
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY')!;
+    const baseUrl = getEvolutionApiUrl();
+    const evolutionApiKey = getEvolutionApiKey();
     const instanceName = 'crm-9b51c26d-1763172430960';
-
-    // Validar e corrigir URL da Evolution API
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-    }
 
     // Primeiro, verificar se o webhook está registrado na Evolution API
     console.log('📡 Verificando configuração do webhook na Evolution API...');
-    
+
     const webhookCheckResponse = await fetch(
-      `${evolutionApiUrl}/webhook/find/${instanceName}`,
+      `${baseUrl}/webhook/find/${instanceName}`,
       {
         method: 'GET',
         headers: {
@@ -42,9 +33,9 @@ serve(async (req) => {
 
     // Configurar/atualizar o webhook para receber eventos de mensagem
     console.log('🔄 Configurando webhook para eventos de mensagem...');
-    
+
     const webhookSetResponse = await fetch(
-      `${evolutionApiUrl}/webhook/set/${instanceName}`,
+      `${baseUrl}/webhook/set/${instanceName}`,
       {
         method: 'POST',
         headers: {

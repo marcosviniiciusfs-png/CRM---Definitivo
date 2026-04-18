@@ -1,16 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin, formatPhoneToJid } from "../_shared/evolution-config.ts";
 
 interface ReactionRequest {
   message_id: string;
@@ -25,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createSupabaseAdmin();
 
     // Verificar autenticação do usuário
     const authHeader = req.headers.get("Authorization");
@@ -107,14 +97,11 @@ serve(async (req) => {
 
     // Normalizar número de telefone para JID do WhatsApp
     const cleanNumber = String(lead.telefone_lead).replace(/\D/g, "");
-    const remoteJid = `${cleanNumber}@s.whatsapp.net`;
+    const remoteJid = formatPhoneToJid(cleanNumber);
 
     // Preparar URL da Evolution API
-    let evolutionApiUrl = EVOLUTION_API_URL || "";
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log("⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.");
-      evolutionApiUrl = "http://161.97.148.99:8080";
-    }
+    const baseUrl = getEvolutionApiUrl();
+    const evolutionApiKey = getEvolutionApiKey();
 
     // Normalizar emoji - permitir apenas os emojis suportados
     const rawEmoji = (emoji || "").trim();
@@ -151,12 +138,12 @@ serve(async (req) => {
     });
 
     const evolutionResponse = await fetch(
-      `${evolutionApiUrl.replace(/\/+$/, "")}/message/sendReaction/${instance.instance_name}`,
+      `${baseUrl}/message/sendReaction/${instance.instance_name}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: EVOLUTION_API_KEY || "",
+          apikey: evolutionApiKey,
         },
         body: JSON.stringify(reactionPayload),
       },

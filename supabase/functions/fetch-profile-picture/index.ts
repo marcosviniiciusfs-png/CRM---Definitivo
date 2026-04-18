@@ -1,9 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin, formatPhoneToJid } from "../_shared/evolution-config.ts";
 
 interface FetchProfilePictureRequest {
   instance_name: string;
@@ -27,27 +23,16 @@ Deno.serve(async (req) => {
     }
 
     // Obter configurações
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
-
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-    }
-
-    if (!evolutionApiKey) {
-      throw new Error('EVOLUTION_API_KEY não configurada');
-    }
+    const baseUrl = getEvolutionApiUrl();
+    const evolutionApiKey = getEvolutionApiKey();
 
     // Formatar número no formato correto (com @s.whatsapp.net)
-    const formattedNumber = phone_number.includes('@') 
-      ? phone_number 
-      : `${phone_number.replace(/\D/g, '')}@s.whatsapp.net`;
+    const formattedNumber = phone_number.includes('@') ? phone_number : formatPhoneToJid(phone_number);
 
     console.log('📞 Número formatado:', formattedNumber);
 
     // Chamar Evolution API para buscar foto de perfil (fetchProfile)
-    const profileUrl = `${evolutionApiUrl}/chat/fetchProfile/${instance_name}`;
+    const profileUrl = `${baseUrl}/chat/fetchProfile/${instance_name}`;
     console.log('🔗 URL da Evolution API (fetchProfile):', profileUrl);
 
     const response = await fetch(profileUrl, {
@@ -84,8 +69,8 @@ Deno.serve(async (req) => {
     if (!profilePictureUrl) {
       console.log('⚠️ Lead não possui foto de perfil pública ou Evolution não retornou URL de foto', profileData);
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           hasProfilePicture: false,
           message: 'Lead não possui foto de perfil pública ou Evolution não retornou URL de foto'
         }),
@@ -94,9 +79,7 @@ Deno.serve(async (req) => {
     }
 
     // Atualizar avatar_url no banco de dados
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     const { error: updateError } = await supabase
       .from('leads')
@@ -127,9 +110,9 @@ Deno.serve(async (req) => {
         success: false,
         error: error.message,
       }),
-      { 
+      {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

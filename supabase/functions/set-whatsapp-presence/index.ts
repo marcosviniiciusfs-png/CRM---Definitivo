@@ -1,11 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { getEvolutionApiUrl, getEvolutionApiKey, normalizeUrl, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 interface SetPresenceRequest {
   instance_name: string;
@@ -25,9 +20,7 @@ serve(async (req) => {
       throw new Error('Missing authorization header');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     // Verify JWT and get user
     const token = authHeader.replace('Bearer ', '');
@@ -38,7 +31,7 @@ serve(async (req) => {
     }
 
     const { instance_name, presence } = await req.json() as SetPresenceRequest;
-    
+
     if (!instance_name || !presence) {
       throw new Error('Missing instance_name or presence');
     }
@@ -50,19 +43,16 @@ serve(async (req) => {
     console.log(`👻 Setting presence for ${instance_name} to ${presence}`);
 
     // Get Evolution API credentials
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    let evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+    let evolutionApiUrl = '';
+    let evolutionApiKey = '';
 
-    // Validar e corrigir URL da Evolution API
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-    }
-
-    // FALLBACK: If env vars not available, try database config table
-    if (!evolutionApiUrl || !evolutionApiKey) {
+    try {
+      evolutionApiUrl = getEvolutionApiUrl();
+      evolutionApiKey = getEvolutionApiKey();
+    } catch {
+      // FALLBACK: If env vars not available, try database config table
       console.log('⚠️ Evolution API credentials not in env vars, checking database...');
-      
+
       const { data: config, error: configError } = await supabase
         .from('app_config')
         .select('config_key, config_value')
@@ -87,8 +77,7 @@ serve(async (req) => {
       throw new Error('Evolution API credentials not configured');
     }
 
-    // Remove trailing slash and /manager from URL if present
-    const baseUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/$/, '');
+    const baseUrl = normalizeUrl(evolutionApiUrl);
 
     // First check if the instance is connected
     const statusResponse = await fetch(`${baseUrl}/instance/connectionState/${instance_name}`, {
@@ -115,7 +104,7 @@ serve(async (req) => {
 
     const statusData = await statusResponse.json();
     const connectionState = statusData?.instance?.state || statusData?.state;
-    
+
     console.log(`📡 Instance ${instance_name} connection state: ${connectionState}`);
 
     // Only set presence if instance is connected
@@ -148,7 +137,7 @@ serve(async (req) => {
     if (!presenceResponse.ok) {
       const errorText = await presenceResponse.text();
       console.error('❌ Evolution API error:', errorText);
-      
+
       // Check if it's a connection closed error - handle gracefully
       if (errorText.includes('Connection Closed') || errorText.includes('connection')) {
         console.log(`⚠️ Connection closed for ${instance_name}, presence not set`);
@@ -164,7 +153,7 @@ serve(async (req) => {
           },
         );
       }
-      
+
       throw new Error(`Evolution API error: ${presenceResponse.status} - ${errorText}`);
     }
 
