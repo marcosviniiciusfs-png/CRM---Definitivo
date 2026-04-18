@@ -1,0 +1,1381 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: Menu
+                  - generic:
+                    - list:
+                      - listitem:
+                        - link:
+                          - /url: /dashboard
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /pipeline
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-metrics
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-distribution
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /chat
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /ranking
+                          - img
+                      - generic:
+                        - listitem:
+                          - button:
+                            - img
+                            - generic: Administrativo
+                            - img
+                      - listitem:
+                        - link:
+                          - /url: /tasks
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /integrations
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /settings
+                          - img
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                  - button:
+                    - img
+        - main:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+              - button:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=1]: Funil de Vendas
+                      - paragraph: Arraste e solte os cards para mover leads entre as etapas
+                    - generic:
+                      - generic:
+                        - button:
+                          - img
+                          - generic: Funil
+                        - button:
+                          - img
+                          - generic: Lista
+                      - button:
+                        - img
+                        - generic: Gerenciar Funis
+                      - button:
+                        - img
+                        - generic: Exportar
+                      - button:
+                        - img
+                        - generic: Importar
+                      - button:
+                        - img
+                        - generic: Adicionar Lead
+                  - generic:
+                    - generic:
+                      - img
+                      - textbox:
+                        - /placeholder: Buscar por nome, email...
+                    - combobox:
+                      - generic: Todos os Status
+                      - img
+                    - combobox:
+                      - generic: Todas Origens
+                      - img
+                    - combobox:
+                      - generic: Todos Responsáveis
+                      - img
+                    - button:
+                      - img
+                      - text: Período
+                - generic:
+                  - generic:
+                    - tablist:
+                      - generic:
+                        - tab [selected]:
+                          - generic:
+                            - generic: Funil Padrão
+                            - generic: (Padrão)
+                        - button:
+                          - img
+                      - generic:
+                        - tab:
+                          - generic:
+                            - generic: Funil Odontologia
+                        - button:
+                          - img
+                      - generic:
+                        - tab:
+                          - generic:
+                            - generic: 🛒
+                            - generic: Teste 03
+                        - button:
+                          - img
+                    - tabpanel:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Novo Lead
+                            - generic: 20/115
+                          - generic:
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Diego
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594988170274"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 23:32:54
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Rubens
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594991794310"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 21:30:17
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Elza
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594991180660"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 20:30:41
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: João Silva
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: André
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594992504172"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 06/03/2026, 16:46:54
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: João Silva
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Giilmara
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+559492545991"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 06/03/2026, 07:37:19
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: testehurtz…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Mateus Santos teste
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: +55 53 23131-3131
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 25/03/2026, 17:05:22
+                                    - generic:
+                                      - generic: Mateus tes…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Mateus Santos Brito
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Duplicado
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: +55 35 43535-3555
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 26/03/2026, 11:53:41
+                                    - generic:
+                                      - generic: Mateus tes…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Maria
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594991848959"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 23:32:14
+                                    - generic:
+                                      - generic: Mateus tes…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Vinicius
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: WhatsApp
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "559499086403"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 21/03/2026, 19:06:28
+                                    - generic:
+                                      - generic: testehurtz…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Mateus Brito
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: WhatsApp
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "559491031837"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 19/03/2026, 11:18:08
+                                    - generic:
+                                      - generic: testehurtz…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Gabriela
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: WhatsApp
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "559492256660"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 18/03/2026, 07:29:20
+                                    - generic:
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Brayan Felipe
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5541997172300"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 19:11:30
+                                    - generic:
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Andre Silva
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5513996180143"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 18:48:14
+                                    - generic:
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Aline da Silva Barros
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "41988326217"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 18:40:45
+                                    - generic:
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Marcelo filipini
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5541984668243"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 18:20:11
+                                    - generic:
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: 𝓙é𝓼𝓼𝓲𝓬𝓪 𝓨𝓾𝓻𝓴𝓮𝓿𝓲𝓽𝓬𝓱
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5541997220758"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 17:33:36
+                                    - generic:
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Ste_reimao
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5541995300144"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 17:24:19
+                                    - generic:
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: neide silva
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5541997189100"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 17:17:55
+                                    - generic:
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Fábio Leonel
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5541997246774"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 16:29:41
+                                    - generic:
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Flaviaa Tratcz
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5541995190478"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 17/03/2026, 16:03:28
+                                    - generic:
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button: Carregar mais (20)
+                            - paragraph: Exibindo 20 de 115 leads
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Qualificação / Aquecido
+                            - generic: 7/7
+                          - generic:
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Teste
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Duplicado
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: +55 34 34343-4343
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 25/03/2026, 17:04:36
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Natanael
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594991596162"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 21:43:03
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: mateustest…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Marcus
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+557187963895"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 22:35:17
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Claiton
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594991842906"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 18:21:28
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Renan
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5521998708069"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 20:06:39
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: neg brito
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: WhatsApp
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "559484348799"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 21/03/2026, 23:19:13
+                                    - generic:
+                                      - generic: Mateus tes…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Francisco
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594991979653"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 06/03/2026, 06:40:22
+                                    - generic:
+                                      - generic: testehurtz…
+                              - generic:
+                                - img
+                            - paragraph: Exibindo 7 de 7 leads
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Agendamento Realizado
+                            - generic: 2/2
+                          - generic:
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Eduarda
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5598981669753"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 06/03/2026, 08:33:37
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Mateus tes…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Teste brito
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: +55 34 34342-2252
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 25/03/2026, 17:19:07
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Mateus tes…
+                              - generic:
+                                - img
+                            - paragraph: Exibindo 2 de 2 leads
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Reunião Feita
+                            - generic: 1/1
+                          - generic:
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Carlos
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594992482495"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 18:14:47
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - paragraph: Exibindo 1 de 1 leads
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Proposta / Negociação
+                            - generic: 0/0
+                          - generic:
+                            - paragraph: Nenhum lead nesta etapa
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Aprovação / Análise
+                            - generic: 0/0
+                          - generic:
+                            - paragraph: Nenhum lead nesta etapa
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Venda Realizada
+                            - generic: 5/5
+                          - generic:
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Kassia
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594992875065"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 18:07:16
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Luciwania
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5594992723989"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 23:54:01
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: mateustest…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: t4hia5
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5511992678989"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 23:53:27
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Mateus tes…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: t4hia5
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Meta Ads
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: "+5511992136753"
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 05/03/2026, 19:46:33
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Mateus Bri…
+                              - generic:
+                                - img
+                            - button:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - heading [level=3]: Quero quero
+                                        - generic:
+                                          - generic:
+                                            - img
+                                            - text: Duplicado
+                                      - generic:
+                                        - button:
+                                          - img
+                                        - button:
+                                          - img
+                                - generic:
+                                  - generic:
+                                    - img
+                                    - generic: +55 94 34354-5655
+                                    - button:
+                                      - img
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: 08/04/2026, 17:31:50
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - img
+                                      - generic: Teste 02
+                              - generic:
+                                - img
+                            - paragraph: Exibindo 5 de 5 leads
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Pós-venda / Ativação
+                            - generic: 0/0
+                          - generic:
+                            - paragraph: Nenhum lead nesta etapa
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Perdido
+                            - generic: 0/0
+                          - generic:
+                            - paragraph: Nenhum lead nesta etapa
+                - status
+  - dialog "Importar Leads - Upload do Arquivo" [ref=e1963]:
+    - heading "Importar Leads - Upload do Arquivo" [level=2] [ref=e1965]:
+      - img [ref=e1966]
+      - text: Importar Leads - Upload do Arquivo
+    - generic [ref=e1969]:
+      - generic [ref=e1971]: "1"
+      - generic [ref=e1974]: "2"
+      - generic [ref=e1977]: "3"
+      - generic [ref=e1980]: "4"
+    - generic [ref=e1983] [cursor=pointer]:
+      - img [ref=e1984]
+      - paragraph [ref=e1987]: Arraste sua planilha aqui
+      - paragraph [ref=e1988]: ou clique para selecionar
+      - paragraph [ref=e1989]: "Formatos aceitos: .xlsx, .xls, .csv"
+      - paragraph [ref=e1990]: "Máximo: 100 leads por importação"
+    - generic [ref=e1991]:
+      - button "Fechar" [active] [ref=e1992] [cursor=pointer]:
+        - img
+        - text: Fechar
+      - button "Próximo" [disabled]:
+        - text: Próximo
+        - img
+    - button "Close" [ref=e1993] [cursor=pointer]:
+      - img [ref=e1994]
+      - generic [ref=e1997]: Close

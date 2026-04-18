@@ -1,0 +1,198 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: Menu
+                  - generic:
+                    - list:
+                      - listitem:
+                        - link:
+                          - /url: /dashboard
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /pipeline
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-metrics
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-distribution
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /chat
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /ranking
+                          - img
+                      - generic:
+                        - listitem:
+                          - button:
+                            - img
+                            - generic: Administrativo
+                            - img
+                      - listitem:
+                        - link:
+                          - /url: /tasks
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /integrations
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /settings
+                          - img
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                  - button:
+                    - img
+        - main:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+              - button:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=1]: Roleta de Leads
+                    - paragraph: Distribuicao inteligente e automatica entre sua equipe
+                  - generic:
+                    - button:
+                      - img
+                      - text: Simular
+                    - button:
+                      - img
+                      - text: Nova roleta
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: Leads distribuidos hoje
+                    - generic: "0"
+                  - generic:
+                    - generic:
+                      - generic: Taxa de resposta (24h)
+                      - generic:
+                        - img
+                        - text: "-3%"
+                    - generic: 78%
+                    - generic:
+                      - generic: Respondidos
+                      - generic: Sem resposta
+                - generic:
+                  - button:
+                    - generic:
+                      - img
+                      - generic: Simulador de distribuicao
+                    - img
+                - generic:
+                  - tablist:
+                    - tab [selected]:
+                      - img
+                      - text: Roletas
+                    - tab:
+                      - img
+                      - text: Agentes
+                    - tab:
+                      - img
+                      - text: Regras
+                    - tab:
+                      - img
+                      - text: Historico
+                  - tabpanel:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - img
+                            - heading [level=3]: Teste 02
+                            - generic: Ativa
+                            - generic: facebook
+                            - generic: Rodizio
+                            - generic:
+                              - img
+                              - text: Funil Padrão
+                          - generic:
+                            - button:
+                              - img
+                            - button:
+                              - img
+                            - button:
+                              - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: T0
+                              - generic: Teste
+                            - generic:
+                              - generic: MB
+                              - generic: Mateus
+                        - generic:
+                          - generic:
+                            - generic: Hoje
+                            - generic: "0"
+                          - generic:
+                            - generic: Semana
+                            - generic: "2"
+                          - generic:
+                            - generic: Proximo
+                            - generic: —
+                          - generic:
+                            - generic: Ultima
+                            - generic: —
+  - dialog "Nova Roleta" [ref=e803]:
+    - generic [ref=e804]:
+      - heading "Nova Roleta" [level=2] [ref=e805]
+      - paragraph [ref=e806]: Configure sua roleta de distribuicao em 3 passos
+    - generic [ref=e807]:
+      - img [ref=e838]
+      - img [ref=e874]
+      - generic [ref=e815]: "3"
+    - generic [ref=e876]:
+      - text: Agentes elegiveis
+      - paragraph [ref=e877]: Selecione quais colaboradores receberao leads desta roleta.
+      - generic [ref=e878]:
+        - generic [ref=e879] [cursor=pointer]:
+          - checkbox "Mateus Brito" [ref=e880]
+          - generic [ref=e881]: Mateus Brito
+        - generic [ref=e882] [cursor=pointer]:
+          - checkbox "João Silva" [ref=e883]
+          - generic [ref=e884]: João Silva
+        - generic [ref=e885] [cursor=pointer]:
+          - checkbox "Teste 02" [ref=e886]
+          - generic [ref=e887]: Teste 02
+        - generic [ref=e888] [cursor=pointer]:
+          - checkbox "Teste Colaborador" [ref=e889]
+          - generic [ref=e890]: Teste Colaborador
+      - paragraph [ref=e891]: Se nenhum for selecionado, todos os agentes ativos serao elegiveis.
+    - generic [ref=e830]:
+      - button "Voltar" [ref=e873] [cursor=pointer]:
+        - img
+        - text: Voltar
+      - button "Criar roleta" [active] [ref=e892] [cursor=pointer]
+    - button "Close" [ref=e832] [cursor=pointer]:
+      - img [ref=e833]
+      - generic [ref=e836]: Close

@@ -1,0 +1,19 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e246]:
+    - img "KairoZ" [ref=e248]
+    - generic [ref=e249]:
+      - generic [ref=e250]:
+        - textbox "Email" [ref=e251]
+        - generic [ref=e252]:
+          - textbox "Senha" [ref=e253]
+          - button [ref=e254] [cursor=pointer]:
+            - img [ref=e255]
+        - button "Esqueceu a senha?" [ref=e258] [cursor=pointer]
+      - generic [ref=e259]:
+        - button "Entrar" [ref=e260] [cursor=pointer]
+        - button "Entrar com Google" [ref=e261] [cursor=pointer]:
+          - img
+          - text: Entrar com Google

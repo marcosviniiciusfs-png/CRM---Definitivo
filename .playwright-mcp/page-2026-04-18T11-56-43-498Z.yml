@@ -1,0 +1,457 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: Menu
+                  - generic:
+                    - list:
+                      - listitem:
+                        - link:
+                          - /url: /dashboard
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /pipeline
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-metrics
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /lead-distribution
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /chat
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /ranking
+                          - img
+                      - generic:
+                        - listitem:
+                          - button:
+                            - img
+                            - generic: Administrativo
+                            - img
+                      - listitem:
+                        - link:
+                          - /url: /tasks
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /integrations
+                          - img
+                      - listitem:
+                        - link:
+                          - /url: /settings
+                          - img
+              - generic:
+                - generic:
+                  - button:
+                    - img
+                  - button:
+                    - img
+        - main:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+              - button:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=1]: Dashboard de Leads
+                  - paragraph: Acompanhe o volume de entrada de leads por canal
+                - generic:
+                  - generic:
+                    - tablist:
+                      - tab:
+                        - img
+                        - generic: Meta Ads
+                      - tab:
+                        - img
+                        - text: WhatsApp
+                      - tab:
+                        - img
+                        - generic: Cadastro Manual
+                      - tab [selected]:
+                        - img
+                        - text: Campanhas
+                    - generic:
+                      - button:
+                        - img
+                        - text: 19 de mar - 18 de abr de 2026
+                  - tabpanel:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - paragraph: CA - Consórcio Certicon
+                          - paragraph: "ID: act_4789... · 4 contas disponívelis"
+                      - generic:
+                        - combobox [expanded]:
+                          - generic: CA - Consórcio Certicon
+                          - img
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading [level=3]: Investimento vs Leads
+                        - generic:
+                          - generic:
+                            - generic:
+                              - img:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic: 2026-03-20
+                                    - generic:
+                                      - generic: 2026-03-22
+                                    - generic:
+                                      - generic: 2026-03-24
+                                    - generic:
+                                      - generic: 2026-03-26
+                                    - generic:
+                                      - generic: 2026-03-28
+                                    - generic:
+                                      - generic: 2026-03-30
+                                    - generic:
+                                      - generic: 2026-04-01
+                                    - generic:
+                                      - generic: 2026-04-03
+                                    - generic:
+                                      - generic: 2026-04-05
+                                    - generic:
+                                      - generic: 2026-04-08
+                                    - generic:
+                                      - generic: 2026-04-10
+                                    - generic:
+                                      - generic: 2026-04-12
+                                    - generic:
+                                      - generic: 2026-04-14
+                                    - generic:
+                                      - generic: 2026-04-16
+                                    - generic:
+                                      - generic: 2026-04-18
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic: "0"
+                                    - generic:
+                                      - generic: "30"
+                                    - generic:
+                                      - generic: "60"
+                                    - generic:
+                                      - generic: "90"
+                                    - generic:
+                                      - generic: "120"
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic: "0"
+                                    - generic:
+                                      - generic: "7"
+                                    - generic:
+                                      - generic: "14"
+                                    - generic:
+                                      - generic: "21"
+                                    - generic:
+                                      - generic: "28"
+                      - generic:
+                        - generic:
+                          - paragraph: Plataformas
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: Facebook
+                              - generic:
+                                - generic: 117L
+                                - generic: R$ NaN
+                            - generic:
+                              - generic:
+                                - generic: Instagram
+                              - generic:
+                                - generic: 233L
+                                - generic: R$ NaN
+                            - generic:
+                              - generic:
+                                - generic: threads
+                              - generic:
+                                - generic: 0L
+                                - generic: R$ NaN
+                            - button:
+                              - img
+                              - text: "+1"
+                          - generic:
+                            - paragraph: Engajamento
+                            - generic:
+                              - generic: Frequência média
+                              - generic: 1.70x
+                            - generic:
+                              - generic: Cliques de saída
+                              - generic: "558"
+                          - generic:
+                            - paragraph: Métricas Gerais
+                            - generic:
+                              - generic: Investido
+                              - generic: R$ 1.179,64
+                            - generic:
+                              - generic: CPL
+                              - generic: R$ 3,08
+                            - generic:
+                              - generic: Leads
+                              - generic: "383"
+                            - generic:
+                              - generic: Alcance
+                              - generic: "91.760"
+                            - generic:
+                              - generic: Impressões
+                              - generic: "155.891"
+                            - generic:
+                              - generic: Cliques
+                              - generic: "3.793"
+                            - generic:
+                              - generic: CTR
+                              - generic: 2.43%
+                            - generic:
+                              - generic: CPC Médio
+                              - generic: R$ 0,31
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Performance por campanha
+                            - paragraph: Clique em uma linha para ver os anúncios
+                          - generic:
+                            - generic:
+                              - img
+                              - textbox:
+                                - /placeholder: Buscar...
+                            - generic:
+                              - button: Todas
+                              - button: Formulário
+                              - button: Mensagem
+                      - generic:
+                        - generic:
+                          - generic:
+                            - table:
+                              - rowgroup:
+                                - row:
+                                  - columnheader: Campanha
+                                  - columnheader: Investido
+                                  - columnheader: Leads
+                                  - columnheader: CPL
+                                  - columnheader: Alcance
+                                  - columnheader: CTR
+                                  - columnheader
+                              - rowgroup:
+                                - row:
+                                  - cell:
+                                    - generic: 01 - VEÍCULO - SIMULADOR [Strada] - 19/02
+                                    - text: Formulário
+                                  - cell: R$ 212,89
+                                  - cell: "66"
+                                  - cell: R$ 3,23
+                                  - cell: "14.136"
+                                  - cell: 2.34%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 01/03 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                                    - text: Formulário
+                                  - cell: R$ 207,05
+                                  - cell: "75"
+                                  - cell: R$ 2,76
+                                  - cell: "14.146"
+                                  - cell: 2.61%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                                    - text: Formulário
+                                  - cell: R$ 181,41
+                                  - cell: "97"
+                                  - cell: R$ 1,87
+                                  - cell: "15.602"
+                                  - cell: 2.29%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 01/02 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                                    - text: Formulário
+                                  - cell: R$ 146,75
+                                  - cell: "52"
+                                  - cell: R$ 2,82
+                                  - cell: "13.327"
+                                  - cell: 2.65%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                                    - text: Formulário
+                                  - cell: R$ 106,10
+                                  - cell: "33"
+                                  - cell: R$ 3,22
+                                  - cell: "10.280"
+                                  - cell: 2.55%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 02 - IMOVEL - 0514 - [IMAGEM] - 09/12/25 — Cópia — Cópia
+                                    - text: Mensagem
+                                  - cell: R$ 54,53
+                                  - cell: "24"
+                                  - cell: R$ 2,27
+                                  - cell: "1.959"
+                                  - cell: 3.15%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 2/0 - CAMINHÃO - SIMULADOR - 06/03
+                                    - text: Formulário
+                                  - cell: R$ 52,73
+                                  - cell: "2"
+                                  - cell: R$ 26,37
+                                  - cell: "3.272"
+                                  - cell: 1.54%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 05 - IMOVEL - MENSAGEM - FORMULARIO
+                                    - text: Formulário
+                                  - cell: R$ 36,63
+                                  - cell: "7"
+                                  - cell: R$ 5,23
+                                  - cell: "4.153"
+                                  - cell: 2.15%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: IMOVEL - MENSAGEM - WHATSAPP - 0514 - 17/12
+                                    - text: Mensagem
+                                  - cell: R$ 33,33
+                                  - cell: "9"
+                                  - cell: R$ 3,70
+                                  - cell: "1.664"
+                                  - cell: 2.50%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 1/1 - CAMINHÃO - FORMULARIO - 31/01
+                                    - text: Formulário
+                                  - cell: R$ 29,46
+                                  - cell: "1"
+                                  - cell: R$ 29,46
+                                  - cell: "1.695"
+                                  - cell: 1.46%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 1/0 - CAMINHÃO - FORMULÁRIO - 09/03
+                                    - text: Formulário
+                                  - cell: R$ 27,54
+                                  - cell: "1"
+                                  - cell: R$ 27,54
+                                  - cell: "992"
+                                  - cell: 0.77%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 1/3 - IMÓVEL - SIMULADOR - 02/02
+                                    - text: Formulário
+                                  - cell: R$ 26,81
+                                  - cell: "8"
+                                  - cell: R$ 3,35
+                                  - cell: "3.228"
+                                  - cell: 3.00%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 1/3 - IMÓVEL - SIMULADOR - 19/02
+                                    - text: Formulário
+                                  - cell: R$ 25,68
+                                  - cell: "4"
+                                  - cell: R$ 6,42
+                                  - cell: "3.447"
+                                  - cell: 2.78%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 01 - VEÍCULO - SIMULADOR [Strada] - 27/02
+                                  - cell: R$ 21,51
+                                  - cell: "0"
+                                  - cell: R$ 0,00
+                                  - cell: "1.169"
+                                  - cell: 0.27%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 01/0 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                                    - text: Formulário
+                                  - cell: R$ 14,40
+                                  - cell: "4"
+                                  - cell: R$ 3,60
+                                  - cell: "2.242"
+                                  - cell: 3.34%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: 1/05 - IMOVEL - MENSAGEM - FORMULARIO
+                                  - cell: R$ 2,82
+                                  - cell: "0"
+                                  - cell: R$ 0,00
+                                  - cell: "448"
+                                  - cell: 1.09%
+                                  - cell:
+                                    - img
+                                - row:
+                                  - cell:
+                                    - generic: TOTAL · 16 campanhas
+                                  - cell: R$ 1.179,64
+                                  - cell: "383"
+                                  - cell: R$ 3,08
+                                  - cell: "91.760"
+                                  - cell: 2.43%
+                                  - cell
+  - generic: "7"
+  - listbox [ref=e605]:
+    - option "CA - Consórcio Certicon" [active] [selected] [ref=e606]:
+      - img [ref=e609]
+      - generic [ref=e611]: CA - Consórcio Certicon
+    - option "CA - 02 - Consórcio Certicon" [ref=e612]:
+      - generic [ref=e614]: CA - 02 - Consórcio Certicon
+    - option "CA - 04 Certicon - 0044" [ref=e615]:
+      - generic [ref=e617]: CA - 04 Certicon - 0044
+    - option "CA - 03 - Certicon" [ref=e618]:
+      - generic [ref=e620]: CA - 03 - Certicon

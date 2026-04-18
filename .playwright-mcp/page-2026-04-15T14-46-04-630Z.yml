@@ -1,0 +1,31 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "Kairoz" [ref=e7]
+        - generic [ref=e8]:
+          - img [ref=e9]
+          - generic [ref=e11]: Painel Administrativo
+        - generic [ref=e12]:
+          - heading "Acesso Restrito" [level=1] [ref=e13]
+          - paragraph [ref=e14]: Use as credenciais de administrador para continuar
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - text: Email do Administrador
+          - textbox "Email do Administrador" [ref=e17]:
+            - /placeholder: admin@exemplo.com
+        - generic [ref=e18]:
+          - text: Senha do Administrador
+          - generic [ref=e19]:
+            - textbox "Senha do Administrador" [ref=e20]:
+              - /placeholder: Senha exclusiva do painel admin
+            - button [ref=e21] [cursor=pointer]:
+              - img [ref=e22]
+        - button "Entrar no Painel Admin" [ref=e25] [cursor=pointer]:
+          - img [ref=e26]
+          - text: Entrar no Painel Admin
+      - paragraph [ref=e28]: Este acesso é separado do login do CRM. Use somente as credenciais fornecidas pelo administrador do sistema.
+    - button "← Voltar para o CRM" [ref=e30] [cursor=pointer]

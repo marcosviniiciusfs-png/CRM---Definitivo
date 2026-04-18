@@ -1,0 +1,207 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e8]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - img "KairoZ" [ref=e15]
+        - generic [ref=e16]:
+          - generic [ref=e17]: Menu
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - link "Início" [ref=e21] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e22]
+                - generic [ref=e25]: Início
+            - listitem [ref=e26]:
+              - link "Funil de Vendas" [ref=e27] [cursor=pointer]:
+                - /url: /pipeline
+                - img [ref=e28]
+                - generic [ref=e30]: Funil de Vendas
+            - listitem [ref=e31]:
+              - link "Métricas" [ref=e32] [cursor=pointer]:
+                - /url: /lead-metrics
+                - img [ref=e33]
+                - generic [ref=e34]: Métricas
+            - listitem [ref=e35]:
+              - link "Roleta de Leads" [ref=e36] [cursor=pointer]:
+                - /url: /lead-distribution
+                - img [ref=e37]
+                - generic [ref=e43]: Roleta de Leads
+            - listitem [ref=e44]:
+              - link "Chat" [ref=e45] [cursor=pointer]:
+                - /url: /chat
+                - img [ref=e46]
+                - generic [ref=e48]: Chat
+            - listitem [ref=e49]:
+              - link "Ranking" [ref=e50] [cursor=pointer]:
+                - /url: /ranking
+                - img [ref=e51]
+                - generic [ref=e57]: Ranking
+            - listitem [ref=e59]:
+              - button "Administrativo" [ref=e60] [cursor=pointer]:
+                - img [ref=e61]
+                - generic [ref=e65]: Administrativo
+                - img [ref=e66]
+            - listitem [ref=e68]:
+              - link "Tarefas" [ref=e69] [cursor=pointer]:
+                - /url: /tasks
+                - img [ref=e70]
+                - generic [ref=e73]: Tarefas
+            - listitem [ref=e74]:
+              - link "Integrações" [ref=e75] [cursor=pointer]:
+                - /url: /integrations
+                - img [ref=e76]
+                - generic [ref=e78]: Integrações
+            - listitem [ref=e79]:
+              - link "Configurações" [ref=e80] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e81]
+                - generic [ref=e84]: Configurações
+      - generic [ref=e86]:
+        - button "Bloquear Menu" [ref=e87] [cursor=pointer]:
+          - img [ref=e90]
+          - generic [ref=e93]: Bloquear Menu
+        - paragraph [ref=e94]: mateusabcck@gmail.com
+        - button "Sair" [ref=e95] [cursor=pointer]:
+          - img
+          - text: Sair
+    - main [ref=e96]:
+      - generic [ref=e98]:
+        - button "Google Calendar" [ref=e99] [cursor=pointer]:
+          - img "Google Calendar" [ref=e100]
+        - button [ref=e101] [cursor=pointer]:
+          - img
+        - button "Mateus Brito" [ref=e102] [cursor=pointer]:
+          - img "Mateus Brito" [ref=e104]
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - heading "Roleta de Leads" [level=1] [ref=e108]
+          - paragraph [ref=e109]: Distribuição automática de leads entre sua equipe
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - img [ref=e113]
+            - generic [ref=e119]:
+              - generic [ref=e120]: "1"
+              - generic [ref=e121]: Roletas Ativas
+          - generic [ref=e122]:
+            - img [ref=e124]
+            - generic [ref=e126]:
+              - generic [ref=e127]: "0"
+              - generic [ref=e128]: Distribuições Hoje
+          - generic [ref=e129]:
+            - img [ref=e131]
+            - generic [ref=e133]:
+              - generic [ref=e134]: "2"
+              - generic [ref=e135]: Leads Sem Dono
+          - generic [ref=e136]:
+            - img [ref=e138]
+            - generic [ref=e143]:
+              - generic [ref=e144]: "7"
+              - generic [ref=e145]: Agentes Ativos
+        - generic [ref=e146]:
+          - button "Roletas" [ref=e147] [cursor=pointer]:
+            - img [ref=e148]
+            - text: Roletas
+          - button "Agentes" [ref=e154] [cursor=pointer]:
+            - img [ref=e155]
+            - text: Agentes
+          - button "Histórico" [ref=e158] [cursor=pointer]:
+            - img [ref=e159]
+            - text: Histórico
+          - button "Redistribuições" [ref=e163] [cursor=pointer]:
+            - img [ref=e164]
+            - text: Redistribuições
+        - generic [ref=e169]:
+          - generic [ref=e171]:
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - heading "Roletas de Distribuicao" [level=2] [ref=e174]
+                - paragraph [ref=e175]: Leads sao roteados para a roleta mais especifica
+              - button "Nova Roleta" [ref=e176] [cursor=pointer]:
+                - img [ref=e177]
+                - text: Nova Roleta
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - img [ref=e182]
+                - generic [ref=e184]:
+                  - paragraph [ref=e185]: 2 leads sem responsavel
+                  - paragraph [ref=e186]: Leads que nao foram distribuidos automaticamente
+              - button "Redistribuir" [ref=e187] [cursor=pointer]:
+                - img [ref=e188]
+                - text: Redistribuir
+            - generic [ref=e194]:
+              - generic [ref=e195]:
+                - generic [ref=e197]:
+                  - heading "Teste 02" [level=3] [ref=e198]
+                  - generic [ref=e199]: ATIVA
+                  - generic [ref=e200]: Facebook
+                  - generic [ref=e201]: Rodizio
+                  - generic [ref=e202]:
+                    - img [ref=e203]
+                    - text: Funil Padrão
+                - generic [ref=e208]:
+                  - button "Pausar" [ref=e209] [cursor=pointer]:
+                    - img [ref=e210]
+                  - button "Editar" [ref=e214] [cursor=pointer]:
+                    - img [ref=e215]
+                  - button "Excluir" [ref=e218] [cursor=pointer]:
+                    - img [ref=e219]
+              - generic [ref=e222]:
+                - generic [ref=e223]:
+                  - img [ref=e224]
+                  - generic [ref=e229]: 2 agentes
+                - generic [ref=e230]: 1 gatilhos
+              - generic [ref=e231]:
+                - generic [ref=e232]: 7d conversao
+                - generic [ref=e233]:
+                  - generic "0% conversão" [ref=e234]
+                  - generic "0% conversão" [ref=e235]
+                  - generic "0% conversão" [ref=e236]
+                  - generic "0% conversão" [ref=e237]
+                  - generic "0% conversão" [ref=e238]
+                  - generic "0% conversão" [ref=e239]
+                  - generic "0% conversão" [ref=e240]
+          - generic [ref=e241]:
+            - generic [ref=e242]:
+              - heading "Feed ao Vivo" [level=3] [ref=e245]
+              - paragraph [ref=e247]: Nenhuma distribuição recente
+            - generic [ref=e248]:
+              - heading "Capacidade dos Agentes" [level=3] [ref=e249]
+              - generic [ref=e250]:
+                - generic [ref=e251]:
+                  - generic [ref=e252]: T0
+                  - generic [ref=e254]:
+                    - generic [ref=e255]: Teste 02
+                    - generic [ref=e256]: "55"
+                - generic [ref=e258]:
+                  - generic [ref=e259]: A
+                  - generic [ref=e261]:
+                    - generic [ref=e262]: Agente
+                    - generic [ref=e263]: "1"
+                - generic [ref=e265]:
+                  - generic [ref=e266]: A
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: Agente
+                    - generic [ref=e270]: "11"
+                - generic [ref=e272]:
+                  - generic [ref=e273]: JS
+                  - generic [ref=e275]:
+                    - generic [ref=e276]: João Silva
+                    - generic [ref=e277]: "3"
+                - generic [ref=e279]:
+                  - generic [ref=e280]: MB
+                  - generic [ref=e282]:
+                    - generic [ref=e283]: Mateus Brito
+                    - generic [ref=e284]: "53"
+                - generic [ref=e286]:
+                  - generic [ref=e287]: A
+                  - generic [ref=e289]:
+                    - generic [ref=e290]: Agente
+                    - generic [ref=e291]: "5"
+                - generic [ref=e293]:
+                  - generic [ref=e294]: TC
+                  - generic [ref=e296]:
+                    - generic [ref=e297]: Teste Colaborador
+                    - generic [ref=e298]: "0"

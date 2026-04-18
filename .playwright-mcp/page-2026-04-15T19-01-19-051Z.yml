@@ -1,0 +1,63 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e8]:
+    - banner [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - img "Kairoz" [ref=e12]
+          - generic [ref=e13]: Admin
+        - generic [ref=e14]:
+          - generic [ref=e15]: mateusabcck@gmail.com
+          - button "Sair" [ref=e16] [cursor=pointer]:
+            - img
+    - generic [ref=e18]:
+      - tablist [ref=e19]:
+        - tab "Dashboard" [ref=e20] [cursor=pointer]
+        - tab "Pedidos" [ref=e21] [cursor=pointer]
+        - tab "Clientes" [ref=e22] [cursor=pointer]
+        - tab "Usuários Admin" [selected] [ref=e23] [cursor=pointer]
+        - tab "Criar Conta" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Criar Conta
+      - tabpanel "Usuários Admin" [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - heading "Criar Novo Administrador" [level=3] [ref=e32]
+            - generic [ref=e33]:
+              - generic [ref=e34]:
+                - text: Email
+                - textbox "Email" [ref=e35]:
+                  - /placeholder: email@exemplo.com
+              - generic [ref=e36]:
+                - text: Senha
+                - textbox "Senha" [ref=e37]:
+                  - /placeholder: Mínimo 8 caracteres
+              - button "Criar Administrador" [ref=e38] [cursor=pointer]
+          - generic [ref=e39]:
+            - heading "Administradores Ativos" [level=3] [ref=e41]
+            - generic [ref=e43]:
+              - generic [ref=e68]:
+                - generic [ref=e69]:
+                  - generic [ref=e71]: TE
+                  - generic [ref=e72]:
+                    - paragraph [ref=e74]: teste.admin@kairoz.com
+                    - paragraph [ref=e75]: Adicionado em 15/04/2026
+                - button [ref=e76] [cursor=pointer]:
+                  - img
+              - generic [ref=e77]:
+                - generic [ref=e78]:
+                  - generic [ref=e80]: MA
+                  - generic [ref=e81]:
+                    - paragraph [ref=e83]: marcosviniicius.fs@gmail.com
+                    - paragraph [ref=e84]: Adicionado em 15/04/2026
+                - button [ref=e85] [cursor=pointer]:
+                  - img
+              - generic [ref=e87]:
+                - generic [ref=e89]: MA
+                - generic [ref=e90]:
+                  - generic [ref=e91]:
+                    - paragraph [ref=e92]: mateusabcck@gmail.com
+                    - generic [ref=e93]: Você
+                  - paragraph [ref=e94]: Adicionado em 04/03/2026

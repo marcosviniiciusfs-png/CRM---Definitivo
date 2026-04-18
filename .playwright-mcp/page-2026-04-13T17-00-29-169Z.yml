@@ -1,0 +1,255 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications alt+T":
+      - list:
+        - listitem [ref=e286]:
+          - img [ref=e288]
+          - generic [ref=e291]: Edge Function returned a non-2xx status code
+    - generic [ref=e8]:
+      - banner [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - img "Kairoz" [ref=e12]
+            - generic [ref=e13]: Admin
+          - generic [ref=e14]:
+            - generic [ref=e15]: mateusabcck@gmail.com
+            - button "Sair" [ref=e16] [cursor=pointer]:
+              - img
+      - generic [ref=e18]:
+        - tablist [ref=e19]:
+          - tab "Dashboard" [ref=e20] [cursor=pointer]
+          - tab "Pedidos" [ref=e21] [cursor=pointer]
+          - tab "Clientes" [selected] [ref=e22] [cursor=pointer]
+          - tab "Usuários Admin" [ref=e23] [cursor=pointer]
+          - tab "Criar Conta" [ref=e24] [cursor=pointer]:
+            - img [ref=e25]
+            - text: Criar Conta
+        - tabpanel "Clientes" [ref=e28]:
+          - generic [ref=e29]:
+            - generic [ref=e32]:
+              - generic [ref=e33]:
+                - paragraph [ref=e34]: Total de Clientes
+                - paragraph [ref=e35]: "44"
+              - img [ref=e37]
+            - generic [ref=e44]:
+              - generic [ref=e45]:
+                - paragraph [ref=e46]: Clientes Pagantes
+                - paragraph [ref=e47]: "97"
+              - img [ref=e49]
+            - generic [ref=e54]:
+              - generic [ref=e55]:
+                - paragraph [ref=e56]: Em Gratuito
+                - paragraph [ref=e57]: "-53"
+              - img [ref=e59]
+            - generic [ref=e66]:
+              - generic [ref=e67]:
+                - paragraph [ref=e68]: Novos este Mês
+                - paragraph [ref=e69]: "6"
+              - img [ref=e71]
+          - generic [ref=e74]:
+            - heading "Crescimento de Clientes - Últimos Meses" [level=3] [ref=e76]
+            - generic [ref=e79]:
+              - img [ref=e80]:
+                - generic [ref=e85]:
+                  - generic [ref=e87]: Apr/26
+                  - generic [ref=e89]: Jan/26
+                  - generic [ref=e91]: Mar/26
+                - generic [ref=e93]:
+                  - generic [ref=e95]: "0"
+                  - generic [ref=e97]: "20"
+                  - generic [ref=e99]: "40"
+                  - generic [ref=e101]: "60"
+                  - generic [ref=e103]: "80"
+              - list [ref=e115]:
+                - listitem [ref=e116]:
+                  - img [ref=e117]
+                  - text: Pro
+                - listitem [ref=e119]:
+                  - img [ref=e120]
+                  - text: Gratuitos
+          - generic [ref=e122]:
+            - generic [ref=e123]:
+              - img [ref=e124]
+              - textbox "Buscar cliente..." [ref=e127]
+            - combobox [ref=e128] [cursor=pointer]:
+              - generic: Todos os planos
+              - img [ref=e129]
+            - button "Exportar CSV" [ref=e131] [cursor=pointer]:
+              - img
+              - text: Exportar CSV
+          - table [ref=e135]:
+            - rowgroup [ref=e136]:
+              - row "EMAIL ORGANIZAÇÃO DATA DE CADASTRO PLANO STATUS TEMPO ASSINANTE AÇÕES" [ref=e137]:
+                - columnheader "EMAIL" [ref=e138]
+                - columnheader "ORGANIZAÇÃO" [ref=e139]
+                - columnheader "DATA DE CADASTRO" [ref=e140]
+                - columnheader "PLANO" [ref=e141]
+                - columnheader "STATUS" [ref=e142]
+                - columnheader "TEMPO ASSINANTE" [ref=e143]
+                - columnheader "AÇÕES" [ref=e144]
+            - rowgroup [ref=e145]:
+              - row "henrique.barbosa8476@gmail.com Luiz Henrique Barbosa Trindade's Organization 08/04/2026 Free Ativo 5 dias Desativar Ver Plano" [ref=e146] [cursor=pointer]:
+                - cell "henrique.barbosa8476@gmail.com" [ref=e147]
+                - cell "Luiz Henrique Barbosa Trindade's Organization" [ref=e148]
+                - cell "08/04/2026" [ref=e149]
+                - cell "Free" [ref=e150]:
+                  - generic [ref=e151]: Free
+                - cell "Ativo" [ref=e152]:
+                  - generic [ref=e153]: Ativo
+                - cell "5 dias" [ref=e154]
+                - cell "Desativar Ver Plano" [ref=e155]:
+                  - generic [ref=e156]:
+                    - button "Desativar" [ref=e157]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e158]
+              - row "gruponortecon@gmail.com Nortecon's Organization 08/04/2026 Free Ativo 5 dias Desativar Ver Plano" [ref=e159] [cursor=pointer]:
+                - cell "gruponortecon@gmail.com" [ref=e160]
+                - cell "Nortecon's Organization" [ref=e161]
+                - cell "08/04/2026" [ref=e162]
+                - cell "Free" [ref=e163]:
+                  - generic [ref=e164]: Free
+                - cell "Ativo" [ref=e165]:
+                  - generic [ref=e166]: Ativo
+                - cell "5 dias" [ref=e167]
+                - cell "Desativar Ver Plano" [ref=e168]:
+                  - generic [ref=e169]:
+                    - button "Desativar" [ref=e170]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e171]
+              - row "leticiasilvademesquita6@gmail.com Confi Bank's Organization 08/04/2026 Free Ativo 5 dias Desativar Ver Plano" [ref=e172] [cursor=pointer]:
+                - cell "leticiasilvademesquita6@gmail.com" [ref=e173]
+                - cell "Confi Bank's Organization" [ref=e174]
+                - cell "08/04/2026" [ref=e175]
+                - cell "Free" [ref=e176]:
+                  - generic [ref=e177]: Free
+                - cell "Ativo" [ref=e178]:
+                  - generic [ref=e179]: Ativo
+                - cell "5 dias" [ref=e180]
+                - cell "Desativar Ver Plano" [ref=e181]:
+                  - generic [ref=e182]:
+                    - button "Desativar" [ref=e183]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e184]
+              - row "i8investimentosnovo@gmail.com i8 investimentos Org 07/04/2026 Free Inativo 6 dias Desativar Ver Plano" [ref=e185] [cursor=pointer]:
+                - cell "i8investimentosnovo@gmail.com" [ref=e186]
+                - cell "i8 investimentos Org" [ref=e187]
+                - cell "07/04/2026" [ref=e188]
+                - cell "Free" [ref=e189]:
+                  - generic [ref=e190]: Free
+                - cell "Inativo" [ref=e191]:
+                  - generic [ref=e192]: Inativo
+                - cell "6 dias" [ref=e193]
+                - cell "Desativar Ver Plano" [ref=e194]:
+                  - generic [ref=e195]:
+                    - button "Desativar" [ref=e196]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e197]
+              - row "william.official@gmail.com Consult Cred's Organization 06/04/2026 Free Ativo 7 dias Desativar Ver Plano" [ref=e198] [cursor=pointer]:
+                - cell "william.official@gmail.com" [ref=e199]
+                - cell "Consult Cred's Organization" [ref=e200]
+                - cell "06/04/2026" [ref=e201]
+                - cell "Free" [ref=e202]:
+                  - generic [ref=e203]: Free
+                - cell "Ativo" [ref=e204]:
+                  - generic [ref=e205]: Ativo
+                - cell "7 dias" [ref=e206]
+                - cell "Desativar Ver Plano" [ref=e207]:
+                  - generic [ref=e208]:
+                    - button "Desativar" [ref=e209]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e210]
+              - row "masterpeixotoltda@gmail.com Marter's Organization 01/04/2026 Free Ativo 12 dias Desativar Ver Plano" [ref=e211] [cursor=pointer]:
+                - cell "masterpeixotoltda@gmail.com" [ref=e212]
+                - cell "Marter's Organization" [ref=e213]
+                - cell "01/04/2026" [ref=e214]
+                - cell "Free" [ref=e215]:
+                  - generic [ref=e216]: Free
+                - cell "Ativo" [ref=e217]:
+                  - generic [ref=e218]: Ativo
+                - cell "12 dias" [ref=e219]
+                - cell "Desativar Ver Plano" [ref=e220]:
+                  - generic [ref=e221]:
+                    - button "Desativar" [ref=e222]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e223]
+              - row "guilhermeadmvendas@gmail.com Topázio Capital's Organization 31/03/2026 Free Ativo 13 dias Desativar Ver Plano" [ref=e224] [cursor=pointer]:
+                - cell "guilhermeadmvendas@gmail.com" [ref=e225]
+                - cell "Topázio Capital's Organization" [ref=e226]
+                - cell "31/03/2026" [ref=e227]
+                - cell "Free" [ref=e228]:
+                  - generic [ref=e229]: Free
+                - cell "Ativo" [ref=e230]:
+                  - generic [ref=e231]: Ativo
+                - cell "13 dias" [ref=e232]
+                - cell "Desativar Ver Plano" [ref=e233]:
+                  - generic [ref=e234]:
+                    - button "Desativar" [ref=e235]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e236]
+              - row "admmcpromotora446@gmail.com MC Promotora's Organization 27/03/2026 Free Ativo 17 dias Desativar Ver Plano" [ref=e237] [cursor=pointer]:
+                - cell "admmcpromotora446@gmail.com" [ref=e238]
+                - cell "MC Promotora's Organization" [ref=e239]
+                - cell "27/03/2026" [ref=e240]
+                - cell "Free" [ref=e241]:
+                  - generic [ref=e242]: Free
+                - cell "Ativo" [ref=e243]:
+                  - generic [ref=e244]: Ativo
+                - cell "17 dias" [ref=e245]
+                - cell "Desativar Ver Plano" [ref=e246]:
+                  - generic [ref=e247]:
+                    - button "Desativar" [ref=e248]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e249]
+              - row "irlonrodriguessantos12345@gmail.com Irlon's Organization 27/03/2026 Free Ativo 17 dias Desativar Ver Plano" [ref=e250] [cursor=pointer]:
+                - cell "irlonrodriguessantos12345@gmail.com" [ref=e251]
+                - cell "Irlon's Organization" [ref=e252]
+                - cell "27/03/2026" [ref=e253]
+                - cell "Free" [ref=e254]:
+                  - generic [ref=e255]: Free
+                - cell "Ativo" [ref=e256]:
+                  - generic [ref=e257]: Ativo
+                - cell "17 dias" [ref=e258]
+                - cell "Desativar Ver Plano" [ref=e259]:
+                  - generic [ref=e260]:
+                    - button "Desativar" [ref=e261]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e262]
+              - row "alanandradefaria@gmail.com Dr. Alan Andrade's Organization 25/03/2026 Free Ativo 19 dias Desativar Ver Plano" [ref=e263] [cursor=pointer]:
+                - cell "alanandradefaria@gmail.com" [ref=e264]
+                - cell "Dr. Alan Andrade's Organization" [ref=e265]
+                - cell "25/03/2026" [ref=e266]
+                - cell "Free" [ref=e267]:
+                  - generic [ref=e268]: Free
+                - cell "Ativo" [ref=e269]:
+                  - generic [ref=e270]: Ativo
+                - cell "19 dias" [ref=e271]
+                - cell "Desativar Ver Plano" [ref=e272]:
+                  - generic [ref=e273]:
+                    - button "Desativar" [ref=e274]:
+                      - img
+                      - text: Desativar
+                    - button "Ver Plano" [ref=e275]
+          - generic [ref=e295]:
+            - generic [ref=e296]: Página 1 de 5
+            - generic [ref=e297]:
+              - button [disabled]:
+                - img
+              - button "1" [ref=e298] [cursor=pointer]
+              - button "2" [ref=e299] [cursor=pointer]
+              - button "3" [ref=e300] [cursor=pointer]
+              - button "4" [ref=e301] [cursor=pointer]
+              - button "5" [ref=e302] [cursor=pointer]
+              - button [ref=e303] [cursor=pointer]:
+                - img
+  - generic [ref=e285]: "0"

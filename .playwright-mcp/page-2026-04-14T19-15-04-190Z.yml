@@ -1,0 +1,180 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications alt+T"
+    - generic [ref=e8]:
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - img "K" [ref=e15]
+          - generic [ref=e16]:
+            - generic [ref=e17]: Menu
+            - list [ref=e19]:
+              - listitem [ref=e20]:
+                - link "Início" [ref=e21] [cursor=pointer]:
+                  - /url: /dashboard
+                  - img [ref=e22]
+                  - generic: Início
+              - listitem [ref=e25]:
+                - link "Funil de Vendas" [ref=e26] [cursor=pointer]:
+                  - /url: /pipeline
+                  - img [ref=e27]
+                  - generic: Funil de Vendas
+              - listitem [ref=e29]:
+                - link "Métricas" [ref=e30] [cursor=pointer]:
+                  - /url: /lead-metrics
+                  - img [ref=e31]
+                  - generic: Métricas
+              - listitem [ref=e32]:
+                - link "Roleta de Leads" [ref=e33] [cursor=pointer]:
+                  - /url: /lead-distribution
+                  - img [ref=e34]
+                  - generic: Roleta de Leads
+              - listitem [ref=e40]:
+                - link "Chat" [ref=e41] [cursor=pointer]:
+                  - /url: /chat
+                  - img [ref=e42]
+                  - generic: Chat
+              - listitem [ref=e44]:
+                - link "Ranking" [ref=e45] [cursor=pointer]:
+                  - /url: /ranking
+                  - img [ref=e46]
+                  - generic: Ranking
+              - listitem [ref=e53]:
+                - button "Administrativo" [ref=e54] [cursor=pointer]:
+                  - img [ref=e55]
+                  - generic [ref=e59]: Administrativo
+                  - img [ref=e60]
+              - listitem [ref=e62]:
+                - link "Tarefas" [ref=e63] [cursor=pointer]:
+                  - /url: /tasks
+                  - img [ref=e64]
+                  - generic: Tarefas
+              - listitem [ref=e67]:
+                - link "Integrações" [ref=e68] [cursor=pointer]:
+                  - /url: /integrations
+                  - img [ref=e69]
+                  - generic: Integrações
+              - listitem [ref=e71]:
+                - link "Configurações" [ref=e72] [cursor=pointer]:
+                  - /url: /settings
+                  - img [ref=e73]
+                  - generic: Configurações
+        - generic [ref=e77]:
+          - button [ref=e78] [cursor=pointer]:
+            - img
+          - button [ref=e79] [cursor=pointer]:
+            - img
+      - main [ref=e80]:
+        - generic [ref=e82]:
+          - button "Google Calendar" [ref=e83] [cursor=pointer]:
+            - img "Google Calendar" [ref=e84]
+          - button [ref=e85] [cursor=pointer]:
+            - img
+          - button "Mateus Brito" [ref=e86] [cursor=pointer]:
+            - img "Mateus Brito" [ref=e88]
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - heading "Dashboard de Leads" [level=1] [ref=e92]
+            - paragraph [ref=e93]: Acompanhe o volume de entrada de leads por canal
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - tablist [ref=e96]:
+                - tab "Meta Ads" [selected] [ref=e97] [cursor=pointer]:
+                  - img [ref=e98]
+                  - generic [ref=e100]: Meta Ads
+                - tab "WhatsApp" [ref=e101] [cursor=pointer]:
+                  - img [ref=e102]
+                  - text: WhatsApp
+                - tab "Cadastro Manual" [ref=e104] [cursor=pointer]:
+                  - img [ref=e105]
+                  - generic [ref=e108]: Cadastro Manual
+                - tab "Campanhas" [ref=e109] [cursor=pointer]:
+                  - img [ref=e110]
+                  - text: Campanhas
+              - button "15 de mar - 14 de abr de 2026" [ref=e114] [cursor=pointer]:
+                - img
+                - text: 15 de mar - 14 de abr de 2026
+            - tabpanel "Meta Ads" [ref=e115]:
+              - generic [ref=e116]:
+                - generic [ref=e118]:
+                  - generic [ref=e119]:
+                    - heading "Total de Leads (31 dias)" [level=3] [ref=e120]:
+                      - generic [ref=e121]: Total de Leads (31 dias)
+                    - img [ref=e122]
+                  - generic [ref=e129]: "57"
+                - generic [ref=e131]:
+                  - generic [ref=e132]:
+                    - heading "Segunda Metade do Período" [level=3] [ref=e133]:
+                      - generic [ref=e134]: Segunda Metade do Período
+                    - img [ref=e135]
+                  - generic [ref=e139]:
+                    - generic [ref=e140]: "0"
+                    - generic [ref=e141]:
+                      - img [ref=e142]
+                      - generic [ref=e144]: "-100.0%"
+                - generic [ref=e146]:
+                  - generic [ref=e147]:
+                    - heading "Primeira Metade do Período" [level=3] [ref=e148]:
+                      - generic [ref=e149]: Primeira Metade do Período
+                    - img [ref=e150]
+                  - generic [ref=e154]: "57"
+              - generic [ref=e155]:
+                - generic [ref=e157]:
+                  - generic [ref=e158]:
+                    - heading "Taxa de Conversão MQL" [level=3] [ref=e159]:
+                      - generic [ref=e160]: Taxa de Conversão MQL
+                    - img [ref=e161]
+                  - generic [ref=e166]:
+                    - generic [ref=e167]: 0%
+                    - generic [ref=e168]: Porcentagem de leads que passaram para o primeiro estágio de qualificação
+                - generic [ref=e170]:
+                  - generic [ref=e171]:
+                    - heading "Taxa de Descarte" [level=3] [ref=e172]:
+                      - generic [ref=e173]: Taxa de Descarte
+                    - img [ref=e174]
+                  - generic [ref=e178]:
+                    - generic [ref=e179]: 0%
+                    - generic [ref=e180]: Leads descartados/perdidos
+              - generic [ref=e181]:
+                - heading "Tendência de Leads - Meta Ads" [level=3] [ref=e183]
+                - img [ref=e187]:
+                  - generic [ref=e192]:
+                    - generic [ref=e194]: 15/mar
+                    - generic [ref=e196]: 16/mar
+                    - generic [ref=e198]: 17/mar
+                    - generic [ref=e200]: 18/mar
+                    - generic [ref=e202]: 19/mar
+                    - generic [ref=e204]: 20/mar
+                    - generic [ref=e206]: 21/mar
+                    - generic [ref=e208]: 22/mar
+                    - generic [ref=e210]: 23/mar
+                    - generic [ref=e212]: 24/mar
+                    - generic [ref=e214]: 25/mar
+                    - generic [ref=e216]: 26/mar
+                    - generic [ref=e218]: 27/mar
+                    - generic [ref=e220]: 28/mar
+                    - generic [ref=e222]: 29/mar
+                    - generic [ref=e224]: 30/mar
+                    - generic [ref=e226]: 31/mar
+                    - generic [ref=e228]: 01/abr
+                    - generic [ref=e230]: 02/abr
+                    - generic [ref=e232]: 03/abr
+                    - generic [ref=e234]: 04/abr
+                    - generic [ref=e236]: 05/abr
+                    - generic [ref=e238]: 06/abr
+                    - generic [ref=e240]: 07/abr
+                    - generic [ref=e242]: 08/abr
+                    - generic [ref=e244]: 09/abr
+                    - generic [ref=e246]: 10/abr
+                    - generic [ref=e248]: 11/abr
+                    - generic [ref=e250]: 12/abr
+                    - generic [ref=e252]: 13/abr
+                    - generic [ref=e254]: 14/abr
+                  - generic [ref=e256]:
+                    - generic [ref=e258]: "0"
+                    - generic [ref=e260]: "10"
+                    - generic [ref=e262]: "20"
+                    - generic [ref=e264]: "30"
+                    - generic [ref=e266]: "40"
+  - generic [ref=e273]: "0"

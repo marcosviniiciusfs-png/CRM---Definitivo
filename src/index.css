@@ -345,6 +345,43 @@ All colors MUST be HSL.
     animation: arcade-blink 1.5s step-end infinite;
   }
 
+  .arcade-team-card {
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+
+  .arcade-team-card::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    z-index: -1;
+    background: linear-gradient(
+      var(--arcade-angle, 0deg),
+      var(--team-color, #e97555),
+      var(--team-color, #e97555) 33%,
+      transparent 33%,
+      transparent 66%,
+      var(--team-color, #e97555) 66%
+    );
+    background-size: 300% 300%;
+    animation: arcade-border-spin 4s linear infinite;
+  }
+
+  .arcade-team-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--card));
+    z-index: -1;
+  }
+
+  @keyframes arcade-border-spin {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
   .arcade-scanline {
     background: repeating-linear-gradient(
       0deg,

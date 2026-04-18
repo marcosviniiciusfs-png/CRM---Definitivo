@@ -1,0 +1,402 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications alt+T"
+    - generic [ref=e8]:
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - img "K" [ref=e15]
+          - generic [ref=e16]:
+            - generic [ref=e17]: Menu
+            - list [ref=e19]:
+              - listitem [ref=e20]:
+                - link "Início" [ref=e21] [cursor=pointer]:
+                  - /url: /dashboard
+                  - img [ref=e22]
+                  - generic: Início
+              - listitem [ref=e25]:
+                - link "Funil de Vendas" [ref=e26] [cursor=pointer]:
+                  - /url: /pipeline
+                  - img [ref=e27]
+                  - generic: Funil de Vendas
+              - listitem [ref=e29]:
+                - link "Métricas" [ref=e30] [cursor=pointer]:
+                  - /url: /lead-metrics
+                  - img [ref=e31]
+                  - generic: Métricas
+              - listitem [ref=e32]:
+                - link "Roleta de Leads" [ref=e33] [cursor=pointer]:
+                  - /url: /lead-distribution
+                  - img [ref=e34]
+                  - generic: Roleta de Leads
+              - listitem [ref=e40]:
+                - link "Chat" [ref=e41] [cursor=pointer]:
+                  - /url: /chat
+                  - img [ref=e42]
+                  - generic: Chat
+              - listitem [ref=e44]:
+                - link "Ranking" [ref=e45] [cursor=pointer]:
+                  - /url: /ranking
+                  - img [ref=e46]
+                  - generic: Ranking
+              - listitem [ref=e53]:
+                - button "Administrativo" [ref=e54] [cursor=pointer]:
+                  - img [ref=e55]
+                  - generic [ref=e59]: Administrativo
+                  - img [ref=e60]
+              - listitem [ref=e62]:
+                - link "Tarefas" [ref=e63] [cursor=pointer]:
+                  - /url: /tasks
+                  - img [ref=e64]
+                  - generic: Tarefas
+              - listitem [ref=e67]:
+                - link "Integrações" [ref=e68] [cursor=pointer]:
+                  - /url: /integrations
+                  - img [ref=e69]
+                  - generic: Integrações
+              - listitem [ref=e71]:
+                - link "Configurações" [ref=e72] [cursor=pointer]:
+                  - /url: /settings
+                  - img [ref=e73]
+                  - generic: Configurações
+        - generic [ref=e77]:
+          - button [ref=e78] [cursor=pointer]:
+            - img
+          - button [ref=e79] [cursor=pointer]:
+            - img
+      - main [ref=e80]:
+        - generic [ref=e82]:
+          - button "Google Calendar" [ref=e83] [cursor=pointer]:
+            - img "Google Calendar" [ref=e84]
+          - button [ref=e85] [cursor=pointer]:
+            - img
+          - button "Mateus Brito" [ref=e86] [cursor=pointer]:
+            - img "Mateus Brito" [ref=e88]
+        - generic [ref=e91]:
+          - generic [ref=e92]:
+            - heading "Dashboard de Leads" [level=1] [ref=e93]
+            - paragraph [ref=e94]: Acompanhe o volume de entrada de leads por canal
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - tablist [ref=e97]:
+                - tab "Meta Ads" [ref=e98] [cursor=pointer]:
+                  - img [ref=e99]
+                  - generic [ref=e101]: Meta Ads
+                - tab "WhatsApp" [ref=e102] [cursor=pointer]:
+                  - img [ref=e103]
+                  - text: WhatsApp
+                - tab "Cadastro Manual" [ref=e105] [cursor=pointer]:
+                  - img [ref=e106]
+                  - generic [ref=e109]: Cadastro Manual
+                - tab "Campanhas" [active] [selected] [ref=e110] [cursor=pointer]:
+                  - img [ref=e111]
+                  - text: Campanhas
+              - button "19 de mar - 18 de abr de 2026" [ref=e115] [cursor=pointer]:
+                - img
+                - text: 19 de mar - 18 de abr de 2026
+            - tabpanel "Campanhas" [ref=e192]:
+              - generic [ref=e193]:
+                - generic [ref=e194]:
+                  - img [ref=e196]
+                  - generic [ref=e198]:
+                    - paragraph [ref=e199]: CA - Consórcio Certicon
+                    - paragraph [ref=e200]: "ID: act_4789... · 4 contas disponívelis"
+                - combobox [ref=e202] [cursor=pointer]:
+                  - generic: CA - Consórcio Certicon
+                  - img [ref=e203]
+              - generic [ref=e205]:
+                - generic [ref=e206]:
+                  - heading "Investimento vs Leads" [level=3] [ref=e208]
+                  - img [ref=e212]:
+                    - generic [ref=e217]:
+                      - generic [ref=e219]: 2026-03-20
+                      - generic [ref=e221]: 2026-03-22
+                      - generic [ref=e223]: 2026-03-24
+                      - generic [ref=e225]: 2026-03-26
+                      - generic [ref=e227]: 2026-03-28
+                      - generic [ref=e229]: 2026-03-30
+                      - generic [ref=e231]: 2026-04-01
+                      - generic [ref=e233]: 2026-04-03
+                      - generic [ref=e235]: 2026-04-05
+                      - generic [ref=e237]: 2026-04-08
+                      - generic [ref=e239]: 2026-04-10
+                      - generic [ref=e241]: 2026-04-12
+                      - generic [ref=e243]: 2026-04-14
+                      - generic [ref=e245]: 2026-04-16
+                      - generic [ref=e247]: 2026-04-18
+                    - generic [ref=e249]:
+                      - generic [ref=e251]: "0"
+                      - generic [ref=e253]: "30"
+                      - generic [ref=e255]: "60"
+                      - generic [ref=e257]: "90"
+                      - generic [ref=e259]: "120"
+                    - generic [ref=e261]:
+                      - generic [ref=e263]: "0"
+                      - generic [ref=e265]: "7"
+                      - generic [ref=e267]: "14"
+                      - generic [ref=e269]: "21"
+                      - generic [ref=e271]: "28"
+                - generic [ref=e312]:
+                  - paragraph [ref=e313]: Plataformas
+                  - generic [ref=e314]:
+                    - generic [ref=e315]:
+                      - generic [ref=e318]: Facebook
+                      - generic [ref=e319]:
+                        - generic [ref=e320]: 117L
+                        - generic [ref=e321]: R$ NaN
+                    - generic [ref=e322]:
+                      - generic [ref=e325]: Instagram
+                      - generic [ref=e326]:
+                        - generic [ref=e327]: 233L
+                        - generic [ref=e328]: R$ NaN
+                    - generic [ref=e329]:
+                      - generic [ref=e332]: threads
+                      - generic [ref=e333]:
+                        - generic [ref=e334]: 0L
+                        - generic [ref=e335]: R$ NaN
+                    - button "+1" [ref=e336] [cursor=pointer]:
+                      - img [ref=e337]
+                      - text: "+1"
+                  - generic [ref=e339]:
+                    - paragraph [ref=e340]: Engajamento
+                    - generic [ref=e341]:
+                      - generic [ref=e342]: Frequência média
+                      - generic [ref=e343]: 1.70x
+                    - generic [ref=e344]:
+                      - generic [ref=e345]: Cliques de saída
+                      - generic [ref=e346]: "558"
+                  - generic [ref=e347]:
+                    - paragraph [ref=e348]: Métricas Gerais
+                    - generic [ref=e349]:
+                      - generic [ref=e350]: Investido
+                      - generic [ref=e351]: R$ 1.179,64
+                    - generic [ref=e352]:
+                      - generic [ref=e353]: CPL
+                      - generic [ref=e354]: R$ 3,08
+                    - generic [ref=e355]:
+                      - generic [ref=e356]: Leads
+                      - generic [ref=e357]: "383"
+                    - generic [ref=e358]:
+                      - generic [ref=e359]: Alcance
+                      - generic [ref=e360]: "91.760"
+                    - generic [ref=e361]:
+                      - generic [ref=e362]: Impressões
+                      - generic [ref=e363]: "155.891"
+                    - generic [ref=e364]:
+                      - generic [ref=e365]: Cliques
+                      - generic [ref=e366]: "3.793"
+                    - generic [ref=e367]:
+                      - generic [ref=e368]: CTR
+                      - generic [ref=e369]: 2.43%
+                    - generic [ref=e370]:
+                      - generic [ref=e371]: CPC Médio
+                      - generic [ref=e372]: R$ 0,31
+              - generic [ref=e373]:
+                - generic [ref=e375]:
+                  - generic [ref=e376]:
+                    - heading "Performance por campanha" [level=3] [ref=e377]
+                    - paragraph [ref=e378]: Clique em uma linha para ver os anúncios
+                  - generic [ref=e379]:
+                    - generic [ref=e380]:
+                      - img [ref=e381]
+                      - textbox "Buscar..." [ref=e384]
+                    - generic [ref=e385]:
+                      - button "Todas" [ref=e386] [cursor=pointer]
+                      - button "Formulário" [ref=e387] [cursor=pointer]
+                      - button "Mensagem" [ref=e388] [cursor=pointer]
+                - table [ref=e392]:
+                  - rowgroup [ref=e393]:
+                    - row "Campanha Investido Leads CPL Alcance CTR" [ref=e394]:
+                      - columnheader "Campanha" [ref=e395]
+                      - columnheader "Investido" [ref=e396]
+                      - columnheader "Leads" [ref=e397]
+                      - columnheader "CPL" [ref=e398]
+                      - columnheader "Alcance" [ref=e399]
+                      - columnheader "CTR" [ref=e400]
+                      - columnheader [ref=e401]
+                  - rowgroup [ref=e402]:
+                    - row "01 - VEÍCULO - SIMULADOR [Strada] - 19/02 Formulário R$ 212,89 66 R$ 3,23 14.136 2.34%" [ref=e403] [cursor=pointer]:
+                      - cell "01 - VEÍCULO - SIMULADOR [Strada] - 19/02 Formulário" [ref=e404]:
+                        - generic [ref=e405]: 01 - VEÍCULO - SIMULADOR [Strada] - 19/02
+                        - text: Formulário
+                      - cell "R$ 212,89" [ref=e406]
+                      - cell "66" [ref=e407]
+                      - cell "R$ 3,23" [ref=e408]
+                      - cell "14.136" [ref=e409]
+                      - cell "2.34%" [ref=e410]
+                      - cell [ref=e411]:
+                        - img [ref=e412]
+                    - row "01/03 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário R$ 207,05 75 R$ 2,76 14.146 2.61%" [ref=e415] [cursor=pointer]:
+                      - cell "01/03 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário" [ref=e416]:
+                        - generic [ref=e417]: 01/03 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                        - text: Formulário
+                      - cell "R$ 207,05" [ref=e418]
+                      - cell "75" [ref=e419]
+                      - cell "R$ 2,76" [ref=e420]
+                      - cell "14.146" [ref=e421]
+                      - cell "2.61%" [ref=e422]
+                      - cell [ref=e423]:
+                        - img [ref=e424]
+                    - row "01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário R$ 181,41 97 R$ 1,87 15.602 2.29%" [ref=e427] [cursor=pointer]:
+                      - cell "01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário" [ref=e428]:
+                        - generic [ref=e429]: 01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                        - text: Formulário
+                      - cell "R$ 181,41" [ref=e430]
+                      - cell "97" [ref=e431]
+                      - cell "R$ 1,87" [ref=e432]
+                      - cell "15.602" [ref=e433]
+                      - cell "2.29%" [ref=e434]
+                      - cell [ref=e435]:
+                        - img [ref=e436]
+                    - row "01/02 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário R$ 146,75 52 R$ 2,82 13.327 2.65%" [ref=e439] [cursor=pointer]:
+                      - cell "01/02 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário" [ref=e440]:
+                        - generic [ref=e441]: 01/02 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                        - text: Formulário
+                      - cell "R$ 146,75" [ref=e442]
+                      - cell "52" [ref=e443]
+                      - cell "R$ 2,82" [ref=e444]
+                      - cell "13.327" [ref=e445]
+                      - cell "2.65%" [ref=e446]
+                      - cell [ref=e447]:
+                        - img [ref=e448]
+                    - row "01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário R$ 106,10 33 R$ 3,22 10.280 2.55%" [ref=e451] [cursor=pointer]:
+                      - cell "01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário" [ref=e452]:
+                        - generic [ref=e453]: 01/1 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                        - text: Formulário
+                      - cell "R$ 106,10" [ref=e454]
+                      - cell "33" [ref=e455]
+                      - cell "R$ 3,22" [ref=e456]
+                      - cell "10.280" [ref=e457]
+                      - cell "2.55%" [ref=e458]
+                      - cell [ref=e459]:
+                        - img [ref=e460]
+                    - row "02 - IMOVEL - 0514 - [IMAGEM] - 09/12/25 — Cópia — Cópia Mensagem R$ 54,53 24 R$ 2,27 1.959 3.15%" [ref=e463] [cursor=pointer]:
+                      - cell "02 - IMOVEL - 0514 - [IMAGEM] - 09/12/25 — Cópia — Cópia Mensagem" [ref=e464]:
+                        - generic [ref=e465]: 02 - IMOVEL - 0514 - [IMAGEM] - 09/12/25 — Cópia — Cópia
+                        - text: Mensagem
+                      - cell "R$ 54,53" [ref=e466]
+                      - cell "24" [ref=e467]
+                      - cell "R$ 2,27" [ref=e468]
+                      - cell "1.959" [ref=e469]
+                      - cell "3.15%" [ref=e470]
+                      - cell [ref=e471]:
+                        - img [ref=e472]
+                    - row "2/0 - CAMINHÃO - SIMULADOR - 06/03 Formulário R$ 52,73 2 R$ 26,37 3.272 1.54%" [ref=e475] [cursor=pointer]:
+                      - cell "2/0 - CAMINHÃO - SIMULADOR - 06/03 Formulário" [ref=e476]:
+                        - generic [ref=e477]: 2/0 - CAMINHÃO - SIMULADOR - 06/03
+                        - text: Formulário
+                      - cell "R$ 52,73" [ref=e478]
+                      - cell "2" [ref=e479]
+                      - cell "R$ 26,37" [ref=e480]
+                      - cell "3.272" [ref=e481]
+                      - cell "1.54%" [ref=e482]
+                      - cell [ref=e483]:
+                        - img [ref=e484]
+                    - row "05 - IMOVEL - MENSAGEM - FORMULARIO Formulário R$ 36,63 7 R$ 5,23 4.153 2.15%" [ref=e487] [cursor=pointer]:
+                      - cell "05 - IMOVEL - MENSAGEM - FORMULARIO Formulário" [ref=e488]:
+                        - generic [ref=e489]: 05 - IMOVEL - MENSAGEM - FORMULARIO
+                        - text: Formulário
+                      - cell "R$ 36,63" [ref=e490]
+                      - cell "7" [ref=e491]
+                      - cell "R$ 5,23" [ref=e492]
+                      - cell "4.153" [ref=e493]
+                      - cell "2.15%" [ref=e494]
+                      - cell [ref=e495]:
+                        - img [ref=e496]
+                    - row "IMOVEL - MENSAGEM - WHATSAPP - 0514 - 17/12 Mensagem R$ 33,33 9 R$ 3,70 1.664 2.50%" [ref=e499] [cursor=pointer]:
+                      - cell "IMOVEL - MENSAGEM - WHATSAPP - 0514 - 17/12 Mensagem" [ref=e500]:
+                        - generic [ref=e501]: IMOVEL - MENSAGEM - WHATSAPP - 0514 - 17/12
+                        - text: Mensagem
+                      - cell "R$ 33,33" [ref=e502]
+                      - cell "9" [ref=e503]
+                      - cell "R$ 3,70" [ref=e504]
+                      - cell "1.664" [ref=e505]
+                      - cell "2.50%" [ref=e506]
+                      - cell [ref=e507]:
+                        - img [ref=e508]
+                    - row "1/1 - CAMINHÃO - FORMULARIO - 31/01 Formulário R$ 29,46 1 R$ 29,46 1.695 1.46%" [ref=e511] [cursor=pointer]:
+                      - cell "1/1 - CAMINHÃO - FORMULARIO - 31/01 Formulário" [ref=e512]:
+                        - generic [ref=e513]: 1/1 - CAMINHÃO - FORMULARIO - 31/01
+                        - text: Formulário
+                      - cell "R$ 29,46" [ref=e514]
+                      - cell "1" [ref=e515]
+                      - cell "R$ 29,46" [ref=e516]
+                      - cell "1.695" [ref=e517]
+                      - cell "1.46%" [ref=e518]
+                      - cell [ref=e519]:
+                        - img [ref=e520]
+                    - row "1/0 - CAMINHÃO - FORMULÁRIO - 09/03 Formulário R$ 27,54 1 R$ 27,54 992 0.77%" [ref=e523] [cursor=pointer]:
+                      - cell "1/0 - CAMINHÃO - FORMULÁRIO - 09/03 Formulário" [ref=e524]:
+                        - generic [ref=e525]: 1/0 - CAMINHÃO - FORMULÁRIO - 09/03
+                        - text: Formulário
+                      - cell "R$ 27,54" [ref=e526]
+                      - cell "1" [ref=e527]
+                      - cell "R$ 27,54" [ref=e528]
+                      - cell "992" [ref=e529]
+                      - cell "0.77%" [ref=e530]
+                      - cell [ref=e531]:
+                        - img [ref=e532]
+                    - row "1/3 - IMÓVEL - SIMULADOR - 02/02 Formulário R$ 26,81 8 R$ 3,35 3.228 3.00%" [ref=e535] [cursor=pointer]:
+                      - cell "1/3 - IMÓVEL - SIMULADOR - 02/02 Formulário" [ref=e536]:
+                        - generic [ref=e537]: 1/3 - IMÓVEL - SIMULADOR - 02/02
+                        - text: Formulário
+                      - cell "R$ 26,81" [ref=e538]
+                      - cell "8" [ref=e539]
+                      - cell "R$ 3,35" [ref=e540]
+                      - cell "3.228" [ref=e541]
+                      - cell "3.00%" [ref=e542]
+                      - cell [ref=e543]:
+                        - img [ref=e544]
+                    - row "1/3 - IMÓVEL - SIMULADOR - 19/02 Formulário R$ 25,68 4 R$ 6,42 3.447 2.78%" [ref=e547] [cursor=pointer]:
+                      - cell "1/3 - IMÓVEL - SIMULADOR - 19/02 Formulário" [ref=e548]:
+                        - generic [ref=e549]: 1/3 - IMÓVEL - SIMULADOR - 19/02
+                        - text: Formulário
+                      - cell "R$ 25,68" [ref=e550]
+                      - cell "4" [ref=e551]
+                      - cell "R$ 6,42" [ref=e552]
+                      - cell "3.447" [ref=e553]
+                      - cell "2.78%" [ref=e554]
+                      - cell [ref=e555]:
+                        - img [ref=e556]
+                    - row "01 - VEÍCULO - SIMULADOR [Strada] - 27/02 R$ 21,51 0 R$ 0,00 1.169 0.27%" [ref=e559] [cursor=pointer]:
+                      - cell "01 - VEÍCULO - SIMULADOR [Strada] - 27/02" [ref=e560]:
+                        - generic [ref=e561]: 01 - VEÍCULO - SIMULADOR [Strada] - 27/02
+                      - cell "R$ 21,51" [ref=e562]
+                      - cell "0" [ref=e563]
+                      - cell "R$ 0,00" [ref=e564]
+                      - cell "1.169" [ref=e565]
+                      - cell "0.27%" [ref=e566]
+                      - cell [ref=e567]:
+                        - img [ref=e568]
+                    - row "01/0 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário R$ 14,40 4 R$ 3,60 2.242 3.34%" [ref=e571] [cursor=pointer]:
+                      - cell "01/0 - IMOVEL - MENSAGEM - FORMULARIO - 19/03 Formulário" [ref=e572]:
+                        - generic [ref=e573]: 01/0 - IMOVEL - MENSAGEM - FORMULARIO - 19/03
+                        - text: Formulário
+                      - cell "R$ 14,40" [ref=e574]
+                      - cell "4" [ref=e575]
+                      - cell "R$ 3,60" [ref=e576]
+                      - cell "2.242" [ref=e577]
+                      - cell "3.34%" [ref=e578]
+                      - cell [ref=e579]:
+                        - img [ref=e580]
+                    - row "1/05 - IMOVEL - MENSAGEM - FORMULARIO R$ 2,82 0 R$ 0,00 448 1.09%" [ref=e583] [cursor=pointer]:
+                      - cell "1/05 - IMOVEL - MENSAGEM - FORMULARIO" [ref=e584]:
+                        - generic [ref=e585]: 1/05 - IMOVEL - MENSAGEM - FORMULARIO
+                      - cell "R$ 2,82" [ref=e586]
+                      - cell "0" [ref=e587]
+                      - cell "R$ 0,00" [ref=e588]
+                      - cell "448" [ref=e589]
+                      - cell "1.09%" [ref=e590]
+                      - cell [ref=e591]:
+                        - img [ref=e592]
+                    - row "TOTAL · 16 campanhas R$ 1.179,64 383 R$ 3,08 91.760 2.43%" [ref=e595]:
+                      - cell "TOTAL · 16 campanhas" [ref=e596]:
+                        - generic [ref=e597]: TOTAL · 16 campanhas
+                      - cell "R$ 1.179,64" [ref=e598]
+                      - cell "383" [ref=e599]
+                      - cell "R$ 3,08" [ref=e600]
+                      - cell "91.760" [ref=e601]
+                      - cell "2.43%" [ref=e602]
+                      - cell [ref=e603]
+  - generic [ref=e604]: "7"

@@ -1,0 +1,50 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications alt+T"
+    - generic [ref=e8]:
+      - banner [ref=e566]:
+        - generic [ref=e567]:
+          - generic [ref=e568]:
+            - img "Kairoz" [ref=e569]
+            - generic [ref=e570]: Admin
+          - generic [ref=e571]:
+            - generic [ref=e572]: mateusabcck@gmail.com
+            - button "Sair" [ref=e573] [cursor=pointer]:
+              - img
+      - generic [ref=e575]:
+        - tablist [ref=e576]:
+          - tab "Dashboard" [ref=e577] [cursor=pointer]
+          - tab "Pedidos" [ref=e578] [cursor=pointer]
+          - tab "Clientes" [ref=e579] [cursor=pointer]
+          - tab "Usuários Admin" [ref=e580] [cursor=pointer]
+          - tab "Criar Conta" [active] [selected] [ref=e581] [cursor=pointer]:
+            - img [ref=e582]
+            - text: Criar Conta
+        - tabpanel "Criar Conta" [ref=e842]:
+          - generic [ref=e844]:
+            - generic [ref=e845]:
+              - heading "Criar Nova Conta de Usuário" [level=3] [ref=e846]:
+                - img [ref=e847]
+                - text: Criar Nova Conta de Usuário
+              - paragraph [ref=e850]: Crie uma conta para um novo cliente do CRM. A conta será criada como owner de sua própria organização.
+            - generic [ref=e851]:
+              - generic [ref=e852]:
+                - text: Nome Completo
+                - textbox "Nome Completo" [ref=e853]:
+                  - /placeholder: Nome do cliente
+              - generic [ref=e854]:
+                - text: Email
+                - textbox "Email" [ref=e855]:
+                  - /placeholder: email@exemplo.com
+              - generic [ref=e856]:
+                - text: Senha
+                - textbox "Senha" [ref=e857]:
+                  - /placeholder: Mínimo 8 caracteres
+              - generic [ref=e858]:
+                - text: Confirmar Senha
+                - textbox "Confirmar Senha" [ref=e859]:
+                  - /placeholder: Repita a senha
+              - button "Criar Conta" [ref=e860] [cursor=pointer]
+  - generic [ref=e281]: "0"

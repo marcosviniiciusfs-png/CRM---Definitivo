@@ -1,0 +1,243 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e22]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - img "K" [ref=e29]
+        - generic [ref=e30]:
+          - generic [ref=e31]: Menu
+          - list [ref=e33]:
+            - listitem [ref=e34]:
+              - link "Início" [ref=e35] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e36]
+                - generic: Início
+            - listitem [ref=e39]:
+              - link "Funil de Vendas" [ref=e40] [cursor=pointer]:
+                - /url: /pipeline
+                - img [ref=e41]
+                - generic: Funil de Vendas
+            - listitem [ref=e43]:
+              - link "Métricas" [ref=e44] [cursor=pointer]:
+                - /url: /lead-metrics
+                - img [ref=e45]
+                - generic: Métricas
+            - listitem [ref=e46]:
+              - link "Roleta de Leads" [ref=e47] [cursor=pointer]:
+                - /url: /lead-distribution
+                - img [ref=e48]
+                - generic: Roleta de Leads
+            - listitem [ref=e54]:
+              - link "Chat" [ref=e55] [cursor=pointer]:
+                - /url: /chat
+                - img [ref=e56]
+                - generic: Chat
+            - listitem [ref=e58]:
+              - link "Ranking" [ref=e59] [cursor=pointer]:
+                - /url: /ranking
+                - img [ref=e60]
+                - generic: Ranking
+            - listitem [ref=e67]:
+              - button "Administrativo" [ref=e68] [cursor=pointer]:
+                - img [ref=e69]
+                - generic [ref=e73]: Administrativo
+                - img [ref=e74]
+            - listitem [ref=e76]:
+              - link "Tarefas" [ref=e77] [cursor=pointer]:
+                - /url: /tasks
+                - img [ref=e78]
+                - generic: Tarefas
+            - listitem [ref=e81]:
+              - link "Integrações" [ref=e82] [cursor=pointer]:
+                - /url: /integrations
+                - img [ref=e83]
+                - generic: Integrações
+            - listitem [ref=e85]:
+              - link "Configurações" [ref=e86] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e87]
+                - generic: Configurações
+      - generic [ref=e91]:
+        - button [ref=e92] [cursor=pointer]:
+          - img
+        - button [ref=e93] [cursor=pointer]:
+          - img
+    - main [ref=e94]:
+      - generic [ref=e95]:
+        - heading "Dashboard" [level=1] [ref=e97]
+        - generic [ref=e98]:
+          - button "Google Calendar" [ref=e99] [cursor=pointer]:
+            - img "Google Calendar" [ref=e100]
+          - button [ref=e101] [cursor=pointer]:
+            - img
+          - button "Mateus Brito" [ref=e102] [cursor=pointer]:
+            - img "Mateus Brito" [ref=e104]
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - heading "Dashboard Comercial" [level=1] [ref=e110]
+            - paragraph [ref=e111]: Acompanhe a performance da sua equipe
+          - generic [ref=e112]:
+            - button "Hoje" [ref=e113] [cursor=pointer]
+            - button "Este Mês" [ref=e114] [cursor=pointer]
+            - button "Trimestre" [ref=e115] [cursor=pointer]
+            - button "Ano" [ref=e116] [cursor=pointer]
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - generic [ref=e119]:
+              - generic [ref=e120]: Leads no Mês
+              - generic [ref=e121]:
+                - img [ref=e122]
+                - text: 12%
+            - generic [ref=e125]: "10"
+            - generic [ref=e126]: captados no período
+          - generic [ref=e135]:
+            - generic [ref=e136]:
+              - generic [ref=e137]: Leads Atendidos
+              - generic [ref=e138]:
+                - img [ref=e139]
+                - text: 5%
+            - generic [ref=e142]: 10.0%
+            - generic [ref=e143]: 1 de 10 leads
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]: Vendas no Mês
+              - generic [ref=e155]:
+                - img [ref=e156]
+                - text: 3%
+            - generic [ref=e159]: "4"
+            - generic [ref=e160]: contratos fechados
+          - generic [ref=e169]:
+            - generic [ref=e170]:
+              - generic [ref=e171]: Ticket Médio
+              - generic [ref=e172]:
+                - img [ref=e173]
+                - text: 8%
+            - generic [ref=e176]: R$ 2.209.627
+            - generic [ref=e177]: receita ÷ vendas
+        - generic [ref=e186]:
+          - heading "Hoje" [level=2] [ref=e187]
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - img [ref=e191]
+              - generic [ref=e196]:
+                - generic [ref=e197]: Leads Hoje
+                - generic [ref=e198]: "0"
+                - generic [ref=e199]: captados hoje
+            - generic [ref=e200]:
+              - img [ref=e202]
+              - generic [ref=e204]:
+                - generic [ref=e205]: Agendamentos Hoje
+                - generic [ref=e206]: "0"
+                - generic [ref=e207]: reuniões marcadas
+            - generic [ref=e208]:
+              - img [ref=e210]
+              - generic [ref=e212]:
+                - generic [ref=e213]: Reuniões Realizadas
+                - generic [ref=e214]: 0/0
+                - generic [ref=e215]: realizadas / agendadas
+            - generic [ref=e216]:
+              - img [ref=e218]
+              - generic [ref=e220]:
+                - generic [ref=e221]: Faturamento Gerado
+                - generic [ref=e222]: R$ 883.851
+                - generic [ref=e223]: comissões estimadas
+        - generic [ref=e224]:
+          - generic [ref=e225]:
+            - heading "Receita Total" [level=3] [ref=e226]:
+              - img [ref=e227]
+              - text: Receita Total
+            - generic [ref=e229]:
+              - generic [ref=e230]:
+                - generic [ref=e231]: Mês
+                - generic [ref=e232]: R$ 8.838.507
+              - generic [ref=e233]:
+                - generic [ref=e234]: Trimestre
+                - generic [ref=e235]: R$ 8.838.507
+              - generic [ref=e236]:
+                - generic [ref=e237]: Ano
+                - generic [ref=e238]: R$ 8.970.830
+          - generic [ref=e239]:
+            - heading "Funil Leads → Vendas" [level=3] [ref=e240]:
+              - img [ref=e241]
+              - text: Funil Leads → Vendas
+            - generic [ref=e244]:
+              - generic [ref=e245]:
+                - generic [ref=e246]: Leads captados
+                - generic [ref=e249]: "10"
+              - generic [ref=e250]:
+                - generic [ref=e251]: Leads atendidos
+                - generic [ref=e254]: "1"
+              - generic [ref=e255]:
+                - generic [ref=e256]: Reuniões realizadas
+                - generic [ref=e258]: "0"
+              - generic [ref=e259]:
+                - generic [ref=e260]: Propostas enviadas
+                - generic [ref=e262]: "0"
+              - generic [ref=e263]:
+                - generic [ref=e264]: Vendas fechadas
+                - generic [ref=e267]: "4"
+        - generic [ref=e268]:
+          - generic [ref=e269]:
+            - heading "Conversões por Etapa" [level=3] [ref=e270]:
+              - img [ref=e271]
+              - text: Conversões por Etapa
+            - generic [ref=e275]:
+              - generic [ref=e276]:
+                - generic [ref=e277]: Novo lead
+                - generic [ref=e280]: "10"
+              - generic [ref=e281]:
+                - generic [ref=e282]: Contato realizado
+                - generic [ref=e285]: "1"
+              - generic [ref=e286]:
+                - generic [ref=e287]: Reunião agendada
+                - generic [ref=e289]: "0"
+              - generic [ref=e290]:
+                - generic [ref=e291]: Reunião realizada
+                - generic [ref=e293]: "0"
+              - generic [ref=e294]:
+                - generic [ref=e295]: Proposta enviada
+                - generic [ref=e297]: "0"
+              - generic [ref=e298]:
+                - generic [ref=e299]: Venda fechada
+                - generic [ref=e302]: "4"
+            - generic [ref=e304]:
+              - generic [ref=e305]: Taxa de conversão total
+              - generic [ref=e306]: 40.0%
+          - generic [ref=e307]:
+            - heading "Ranking + Performance" [level=3] [ref=e308]:
+              - img [ref=e309]
+              - text: Ranking + Performance
+            - generic [ref=e315]:
+              - generic [ref=e316]:
+                - generic [ref=e317]: "1"
+                - generic [ref=e319]:
+                  - generic [ref=e320]: Mateus Brito
+                  - generic [ref=e321]: 1 vendas
+              - generic [ref=e324]:
+                - generic [ref=e325]: "2"
+                - generic [ref=e327]:
+                  - generic [ref=e328]: Teste 02
+                  - generic [ref=e329]: 2 vendas
+            - generic [ref=e332]:
+              - generic [ref=e333]:
+                - generic [ref=e334]: Meta do mês
+                - generic [ref=e335]: 13.3% atingida
+              - progressbar [ref=e336]
+            - button "Ver ranking completo →" [ref=e338] [cursor=pointer]
+          - generic [ref=e339]:
+            - heading "Origem dos Leads" [level=3] [ref=e340]:
+              - img [ref=e341]
+              - text: Origem dos Leads
+            - generic [ref=e346]:
+              - generic [ref=e347]:
+                - generic [ref=e348]: Importação
+                - generic [ref=e351]: "9"
+              - generic [ref=e352]:
+                - generic [ref=e353]: Manual
+                - generic [ref=e356]: "1"
+            - generic [ref=e358]:
+              - generic [ref=e359]: Total de canais
+              - generic [ref=e360]: 2 canais ativos

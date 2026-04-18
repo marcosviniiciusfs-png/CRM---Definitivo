@@ -359,10 +359,10 @@ const Equipes = () => {
         {/* ARCADE HEADER */}
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <div>
-            <h1 className="arcade-font text-lg sm:text-xl text-primary arcade-glow tracking-wider">
+            <h1 className="arcade-font text-2xl sm:text-3xl text-primary arcade-glow tracking-wider">
               EQUIPES
             </h1>
-            <p className="arcade-font text-[8px] text-muted-foreground mt-2 tracking-wide">
+            <p className="arcade-font text-[10px] text-muted-foreground mt-2 tracking-wide">
               ORGANIZE SEUS AGENTES &gt;&gt;&gt;
             </p>
           </div>
@@ -379,17 +379,17 @@ const Equipes = () => {
         </div>
 
         {/* ARCADE STATS */}
-        <div className="grid grid-cols-4 gap-2 mb-5">
+        <div className="flex justify-center gap-3 mb-6">
           {[
             { label: 'TEAMS', value: teams.length, sub: 'ATIVAS', icon: '■' },
             { label: 'MEMBROS', value: membersInTeams, sub: `${membersWithoutTeam.length} LIVRES`, icon: '♦' },
             { label: 'LEADS/SEM', value: weeklyLeads, sub: weeklyDelta.toUpperCase(), icon: '▲' },
             { label: 'CONV.%', value: `${conversionRate}%`, sub: 'PIPELINE', icon: '●' },
           ].map(stat => (
-            <div key={stat.label} className="arcade-stat p-2 flex flex-col items-center gap-0.5">
-              <span className="arcade-font text-[6px] text-primary/70 tracking-wider">{stat.label}</span>
-              <span className="arcade-font text-sm text-foreground arcade-glow leading-none">{stat.icon} {stat.value}</span>
-              <span className="arcade-font text-[5px] text-muted-foreground tracking-wide">{stat.sub}</span>
+            <div key={stat.label} className="arcade-stat w-[90px] p-1.5 flex flex-col items-center gap-0.5">
+              <span className="arcade-font text-[7px] text-primary/40 tracking-wider">{stat.label}</span>
+              <span className="arcade-font text-[11px] text-foreground/70 arcade-glow leading-none">{stat.icon} {stat.value}</span>
+              <span className="arcade-font text-[5px] text-muted-foreground/50 tracking-wide">{stat.sub}</span>
             </div>
           ))}
         </div>
@@ -427,7 +427,7 @@ const Equipes = () => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
             {filteredTeams.map((team) => {
               const teamMembersList = getMembersInTeam(team.id);
               const leader = allMembers.find(m => m.user_id === team.leader_id);
@@ -439,27 +439,24 @@ const Equipes = () => {
               return (
                 <Card
                   key={team.id}
-                  className="flex flex-col overflow-hidden bg-card/80"
-                  style={{
-                    border: '3px solid transparent',
-                    borderImage: `linear-gradient(135deg, ${team.color}, ${team.color}88) 1`,
-                  }}
+                  className="flex flex-col overflow-hidden bg-card/80 arcade-team-card"
+                  style={{ '--team-color': team.color } as React.CSSProperties}
                 >
                   <CardContent className="pt-3 pb-2 px-3">
-                    {/* HEADER: avatar + name + menu */}
-                    <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                    {/* HEADER */}
+                    <div className="flex items-center justify-between gap-1.5 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <div
-                          className="w-7 h-7 flex-shrink-0 flex items-center justify-center arcade-font text-[7px] text-white"
+                          className="w-8 h-8 flex-shrink-0 flex items-center justify-center arcade-font text-[8px] text-white"
                           style={{ background: `linear-gradient(135deg, ${team.color}, ${team.color}bb)` }}
                         >
                           {team.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="arcade-font text-[8px] truncate arcade-glow leading-tight" style={{ color: team.color }}>
+                          <h3 className="arcade-font text-[10px] truncate arcade-glow leading-tight" style={{ color: team.color }}>
                             {team.name}
                           </h3>
-                          <p className="arcade-font text-[5px] text-muted-foreground">
+                          <p className="arcade-font text-[7px] text-muted-foreground mt-0.5">
                             {teamMembersList.length} MEMBRO{teamMembersList.length !== 1 ? 'S' : ''}
                           </p>
                         </div>
@@ -581,24 +578,22 @@ const Equipes = () => {
               );
             })}
 
-            <Card className="arcade-border-dashed col-span-full max-w-5xl mx-auto">
-              <CardContent className="pt-3 pb-3 px-3">
-                <div className="flex items-center gap-2 mb-2">
+            <Card className="arcade-border-dashed col-span-full max-w-4xl mx-auto mt-2">
+              <CardContent className="pt-3 pb-3 px-4">
+                <div className="flex items-center justify-center gap-2 mb-2">
                   <div className="w-6 h-6 bg-muted border-2 border-primary/20 flex items-center justify-center">
                     <UserX className="h-3 w-3 text-primary/60" />
                   </div>
-                  <div>
-                    <h3 className="arcade-font text-[7px] text-muted-foreground">SEM EQUIPE</h3>
-                    <p className="arcade-font text-[5px] text-muted-foreground/60">
-                      {membersWithoutTeam.length} MEMBRO{membersWithoutTeam.length !== 1 ? 'S' : ''} &gt;&gt;&gt; ARRASTE
-                    </p>
-                  </div>
+                  <h3 className="arcade-font text-[8px] text-muted-foreground">SEM EQUIPE</h3>
+                  <span className="arcade-font text-[5px] text-muted-foreground/50">
+                    {membersWithoutTeam.length} MEMBRO{membersWithoutTeam.length !== 1 ? 'S' : ''}
+                  </span>
                 </div>
                 <SortableContext
                   items={membersWithoutTeam.map(m => `no-team-${m.user_id}`)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div id="no-team-zone" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 min-h-[32px]">
+                  <div id="no-team-zone" className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 min-h-[32px]">
                     {membersWithoutTeam.map(member => (
                       <DraggableMember
                         key={member.user_id}

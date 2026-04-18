@@ -1,0 +1,59 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e95]:
+        - img [ref=e97]
+        - generic [ref=e100]: Admin removido com sucesso!
+  - generic [ref=e8]:
+    - banner [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - img "Kairoz" [ref=e12]
+          - generic [ref=e13]: Admin
+        - generic [ref=e14]:
+          - generic [ref=e15]: mateusabcck@gmail.com
+          - button "Sair" [ref=e16] [cursor=pointer]:
+            - img
+    - generic [ref=e18]:
+      - tablist [ref=e19]:
+        - tab "Dashboard" [ref=e20] [cursor=pointer]
+        - tab "Pedidos" [ref=e21] [cursor=pointer]
+        - tab "Clientes" [ref=e22] [cursor=pointer]
+        - tab "Usuários Admin" [selected] [ref=e23] [cursor=pointer]
+        - tab "Criar Conta" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Criar Conta
+      - tabpanel "Usuários Admin" [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - heading "Criar Novo Administrador" [level=3] [ref=e32]
+            - generic [ref=e33]:
+              - generic [ref=e34]:
+                - text: Email
+                - textbox "Email" [ref=e35]:
+                  - /placeholder: email@exemplo.com
+              - generic [ref=e36]:
+                - text: Senha
+                - textbox "Senha" [ref=e37]:
+                  - /placeholder: Mínimo 8 caracteres
+              - button "Criar Administrador" [ref=e38] [cursor=pointer]
+          - generic [ref=e39]:
+            - heading "Administradores Ativos" [level=3] [ref=e41]
+            - generic [ref=e43]:
+              - generic [ref=e101]:
+                - generic [ref=e102]:
+                  - generic [ref=e104]: MA
+                  - generic [ref=e105]:
+                    - paragraph [ref=e107]: marcosviniicius.fs@gmail.com
+                    - paragraph [ref=e108]: Adicionado em 15/04/2026
+                - button [ref=e109] [cursor=pointer]:
+                  - img
+              - generic [ref=e111]:
+                - generic [ref=e113]: MA
+                - generic [ref=e114]:
+                  - generic [ref=e115]:
+                    - paragraph [ref=e116]: mateusabcck@gmail.com
+                    - generic [ref=e117]: Você
+                  - paragraph [ref=e118]: Adicionado em 04/03/2026

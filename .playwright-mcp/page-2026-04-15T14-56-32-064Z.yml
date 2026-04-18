@@ -1,0 +1,48 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications alt+T"
+    - generic [ref=e31]:
+      - banner [ref=e32]:
+        - generic [ref=e33]:
+          - generic [ref=e34]:
+            - img "Kairoz" [ref=e35]
+            - generic [ref=e36]: Admin
+          - generic [ref=e37]:
+            - generic [ref=e38]: mateusabcck@gmail.com
+            - button "Sair" [ref=e39] [cursor=pointer]:
+              - img
+      - generic [ref=e41]:
+        - tablist [ref=e42]:
+          - tab "Dashboard" [ref=e43] [cursor=pointer]
+          - tab "Pedidos" [ref=e44] [cursor=pointer]
+          - tab "Clientes" [ref=e45] [cursor=pointer]
+          - tab "Usuários Admin" [selected] [ref=e46] [cursor=pointer]
+          - tab "Criar Conta" [ref=e47] [cursor=pointer]:
+            - img [ref=e48]
+            - text: Criar Conta
+        - tabpanel "Usuários Admin" [ref=e190]:
+          - generic [ref=e191]:
+            - generic [ref=e192]:
+              - heading "Criar Novo Administrador" [level=3] [ref=e194]
+              - generic [ref=e195]:
+                - generic [ref=e196]:
+                  - text: Email
+                  - textbox "Email" [ref=e197]:
+                    - /placeholder: email@exemplo.com
+                - generic [ref=e198]:
+                  - text: Senha
+                  - textbox "Senha" [ref=e199]:
+                    - /placeholder: Mínimo 8 caracteres
+                - button "Criar Administrador" [ref=e200] [cursor=pointer]
+            - generic [ref=e201]:
+              - heading "Administradores Ativos" [level=3] [ref=e203]
+              - generic [ref=e246]:
+                - generic [ref=e248]: MA
+                - generic [ref=e249]:
+                  - generic [ref=e250]:
+                    - paragraph [ref=e251]: mateusabcck@gmail.com
+                    - generic [ref=e252]: Você
+                  - paragraph [ref=e253]: Adicionado em 04/03/2026
+  - generic [ref=e189]: "0"
