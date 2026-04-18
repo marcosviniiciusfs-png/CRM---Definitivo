@@ -1044,10 +1044,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           </div>
         </DialogHeader>
 
-        {/* Content Body (2 Columns) */}
-        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+        {/* Content Body (2 Columns on desktop, stacked scroll on mobile) */}
+        <div className="flex-1 overflow-y-auto md:overflow-hidden flex flex-col md:flex-row">
           {/* Main Content (Left Column) */}
-          <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden md:border-r bg-background">
+          <div className="flex-1 min-w-0 md:h-full flex flex-col md:overflow-hidden md:border-r bg-background">
             <ScrollArea className="flex-1">
               <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
                 {/* Dados do Formulário Facebook (se existir) */}
@@ -1717,8 +1717,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
             </ScrollArea>
           </div>
 
-          {/* Sidebar de Ações e Dados (Right Column: Fixed 280px) */}
-          <div className="w-full md:w-[280px] flex-none h-full flex flex-col overflow-hidden bg-muted/10 border-t md:border-t-0">
+          {/* Sidebar de Ações e Dados (Right Column: Fixed 280px on desktop, stacked on mobile) */}
+          <div className="w-full md:w-[280px] flex-none md:h-full flex flex-col md:overflow-hidden bg-muted/10 border-t md:border-t-0">
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-4">
                 {/* Valor do negócio */}
