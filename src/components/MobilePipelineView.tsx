@@ -68,11 +68,8 @@ export function MobilePipelineView({
 
   return (
     <div
-      className="flex flex-col overflow-hidden"
-      style={{
-        height: 'calc(100dvh - var(--pipeline-offset, 120px) - env(safe-area-inset-bottom, 0px))',
-        minHeight: '280px',
-      }}
+      className="flex flex-col overflow-hidden flex-1 min-h-0"
+      style={{ minHeight: '280px' }}
     >
       {/* Tabs de funil */}
       {allFunnels.length > 1 && (
@@ -142,7 +139,7 @@ export function MobilePipelineView({
           WebkitOverflowScrolling: 'touch',
           overscrollBehaviorY: 'contain',
           minHeight: 0,
-          paddingBottom: 'max(64px, env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'max(80px, env(safe-area-inset-bottom, 0px))',
         }}
       >
         {activeLeads.length === 0 ? (

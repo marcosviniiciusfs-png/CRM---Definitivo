@@ -1729,8 +1729,8 @@ const Pipeline = () => {
   return (
     <>
       {/* Header Section - Always Visible */}
-      <div className="space-y-4 md:space-y-6">
-        <div className="space-y-2 sm:space-y-3">
+      <div className="flex flex-col h-full p-3 sm:p-4 md:p-6">
+        <div className="space-y-2 sm:space-y-3 flex-shrink-0 mb-4 md:mb-6">
           {/* Linha 1: Título + Ações */}
           <div className="flex items-center justify-between gap-2 sm:gap-3">
             <div className="min-w-0">
@@ -1958,6 +1958,7 @@ const Pipeline = () => {
         </div>
 
         {/* View Mode Content */}
+        <div className="flex-1 min-h-0 flex flex-col">
         {viewMode === 'list' ? (
           isMobile ? (
             /* Mobile List View - cards verticais */
