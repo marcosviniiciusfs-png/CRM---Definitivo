@@ -64,8 +64,7 @@ serve(async (req) => {
       );
     }
 
-    const cleanApiUrl = normalizeUrl(cleanApiUrl);
-
+    
     // Buscar instância para validação
     const { data: instanceData, error: instanceError } = await supabase
       .from('whatsapp_instances')
