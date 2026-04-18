@@ -1031,7 +1031,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] sm:h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+      <DialogContent className="max-w-6xl w-[95vw] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Header */}
         <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -1050,19 +1050,6 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           <div className="min-w-0 md:flex-1 md:h-full flex flex-col md:overflow-hidden md:border-r bg-background">
             <ScrollArea className="flex-1 mobile-clip-override">
               <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
-                {/* Dados do Formulário Facebook (se existir) */}
-                {((lead?.additional_data as any)?.source === 'facebook' ||
-                  ((lead?.additional_data as any)?.fields?.length > 0) ||
-                  lead?.source === 'Facebook Leads' ||
-                  lead?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===')) && (
-                    <div className="mb-6">
-                      <FacebookFormData
-                        description={lead.descricao_negocio}
-                        customFields={lead.additional_data as any}
-                      />
-                    </div>
-                  )}
-
                 {/* Tabs de Ações */}
                 <Tabs defaultValue="nota" className="w-full" onValueChange={setCurrentTab}>
                   <TabsList className="w-full flex justify-start bg-transparent border-b rounded-none h-auto p-0 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide">
