@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Tag, Filter, Check, Pin, PinOff, Loader2, ArrowLeft } from "lucide-react";
+import { Search, Tag, Filter, Check, Pin, PinOff, Loader2, ArrowLeft, Radio } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 // New optimized components
 import { ChatHeader, ChatInput, ChatLeadItem, MessageBubble, PinnedMessagesBar, PresenceInfo } from "@/components/chat";
+import { BroadcastPanel } from "@/components/chat/BroadcastPanel";
 import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 
@@ -1231,6 +1232,10 @@ const Chat = () => {
               Fixados
               {pinnedFilteredLeads.length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{pinnedFilteredLeads.length}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="broadcast" className="text-sm gap-1 rounded-none px-4 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              <Radio className="h-3.5 w-3.5" />
+              Transmissão
+            </TabsTrigger>
           </TabsList>
 
           {loading && !selectedLead ? (
@@ -1298,6 +1303,14 @@ const Chat = () => {
                     </DndContext>
                   )}
                 </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="broadcast" className="flex-1 mt-0 min-h-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col">
+                <BroadcastPanel
+                  organizationId={organizationId!}
+                  leads={leads}
+                  userId={user?.id}
+                />
               </TabsContent>
             </>
           )}
