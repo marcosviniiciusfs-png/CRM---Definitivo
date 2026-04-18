@@ -1033,9 +1033,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl w-[95vw] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Header */}
-        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <DialogTitle className="text-xl">
+        <DialogHeader className="px-3 sm:px-6 py-2 sm:py-4 border-b flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <DialogTitle className="text-base sm:text-xl truncate">
               {lead.nome_lead}
             </DialogTitle>
             <Badge className={`${getStageColor(editedStage)} text-white`}>
@@ -1049,75 +1049,73 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           {/* Main Content (Left Column) */}
           <div className="min-w-0 md:flex-1 md:h-full flex flex-col md:overflow-hidden md:border-r bg-background">
             <ScrollArea className="flex-1 mobile-clip-override">
-              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
+              <div className="p-3 sm:p-6 space-y-3 sm:space-y-6 pb-16 sm:pb-6">
                 {/* Tabs de Ações */}
                 <Tabs defaultValue="nota" className="w-full" onValueChange={setCurrentTab}>
                   <TabsList className="w-full flex justify-start bg-transparent border-b rounded-none h-auto p-0 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide">
-                    <TabsTrigger value="nota" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <Pencil className="h-4 w-4" />
+                    <TabsTrigger value="nota" className="gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap text-xs sm:text-sm py-2">
+                      <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       Nota
                     </TabsTrigger>
-                    <TabsTrigger value="agendamento_reuniao" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <CalendarDays className="h-4 w-4 text-blue-500" />
+                    <TabsTrigger value="agendamento_reuniao" className="gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap text-xs sm:text-sm py-2">
+                      <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
                       Ag. Reunião
                     </TabsTrigger>
-                    <TabsTrigger value="agendamento_venda" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap">
-                      <CalendarCheck className="h-4 w-4 text-yellow-500" />
+                    <TabsTrigger value="agendamento_venda" className="gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary flex-shrink-0 whitespace-nowrap text-xs sm:text-sm py-2">
+                      <CalendarCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-500" />
                       Ag. Venda
                     </TabsTrigger>
                   </TabsList>
 
                   <div className="mt-4">
-                    <TabsContent value="nota" className="mt-0 space-y-3">
+                    <TabsContent value="nota" className="mt-0 space-y-2 sm:space-y-3">
                       <Textarea
                         placeholder="O que foi feito e qual o próximo passo?"
-                        className="min-h-[120px] resize-none"
+                        className="min-h-[80px] sm:min-h-[120px] resize-none text-sm"
                         value={currentTab === "nota" ? activityContent : ""}
                         onChange={(e) => currentTab === "nota" && setActivityContent(e.target.value)}
                       />
                       {selectedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                        <div className="flex items-center gap-2 p-1.5 sm:p-2 bg-muted rounded-md">
+                          <FileText className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-xs sm:text-sm flex-1 truncate">{selectedFile.name}</span>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={handleRemoveFile}
-                            className="h-6 w-6 p-0"
+                            className="h-5 w-5 p-0"
                           >
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
                       )}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <input
-                            type="file"
-                            id="nota-file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="*/*"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => document.getElementById('nota-file')?.click()}
-                            disabled={isUploadingFile}
-                          >
-                            <Paperclip className="h-4 w-4" />
-                            Adicionar anexo
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelActivity}>
+                      <div className="flex items-center justify-between gap-2">
+                        <input
+                          type="file"
+                          id="nota-file"
+                          className="hidden"
+                          onChange={handleFileSelect}
+                          accept="*/*"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-8 text-xs"
+                          onClick={() => document.getElementById('nota-file')?.click()}
+                          disabled={isUploadingFile}
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          Anexo
+                        </Button>
+                        <div className="flex items-center gap-1.5">
+                          <Button variant="ghost" size="sm" onClick={handleCancelActivity} className="h-8 text-xs">
                             Cancelar
                           </Button>
                           <Button
                             size="sm"
                             onClick={handleSaveActivity}
                             disabled={isUploadingFile}
-                            className="bg-primary hover:bg-primary/90"
+                            className="bg-primary hover:bg-primary/90 h-8 text-xs"
                           >
                             {isUploadingFile ? "Enviando..." : "Salvar nota"}
                           </Button>
@@ -1125,16 +1123,16 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="agendamento_reuniao" className="mt-0 space-y-4">
-                      <div className="space-y-3">
+                    <TabsContent value="agendamento_reuniao" className="mt-0 space-y-3">
+                      <div className="space-y-2.5">
                         <div>
-                          <Label className="text-xs text-muted-foreground mb-2 block">Data do agendamento</Label>
+                          <Label className="text-xs text-muted-foreground mb-1.5 block">Data do agendamento</Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                                <CalendarDays className="h-4 w-4 mr-2 text-blue-500" />
+                              <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm">
+                                <CalendarDays className="h-3.5 w-3.5 mr-2 text-blue-500" />
                                 {agendReuniaoData
-                                  ? format(agendReuniaoData, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                                  ? format(agendReuniaoData, "dd/MM/yyyy")
                                   : "Selecionar data"}
                               </Button>
                             </PopoverTrigger>
@@ -1173,20 +1171,20 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           <Label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</Label>
                           <Textarea
                             placeholder="Detalhes sobre a reunião..."
-                            className="min-h-[80px] resize-none text-sm"
+                            className="min-h-[60px] sm:min-h-[80px] resize-none text-sm"
                             value={agendReuniaoObs}
                             onChange={(e) => setAgendReuniaoObs(e.target.value)}
                           />
                         </div>
                         {/* Lembrete WhatsApp */}
-                        <div className="border border-dashed border-blue-300/50 rounded-lg p-3 space-y-2 bg-blue-500/5">
+                        <div className="border border-dashed border-blue-300/50 rounded-lg p-2.5 sm:p-3 space-y-2 bg-blue-500/5">
                           <Label className="text-xs font-medium text-blue-400 flex items-center gap-1.5">
-                            <CalendarDays className="h-3.5 w-3.5" />
-                            Lembrete via WhatsApp (opcional)
+                            <CalendarDays className="h-3 w-3" />
+                            Lembrete WhatsApp (opcional)
                           </Label>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <Label className="text-xs text-muted-foreground mb-1 block">Data do lembrete</Label>
+                              <Label className="text-[10px] text-muted-foreground mb-1 block">Data</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal h-8 text-xs">
@@ -1208,7 +1206,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               </Popover>
                             </div>
                             <div>
-                              <Label className="text-xs text-muted-foreground mb-1 block">Horário</Label>
+                              <Label className="text-[10px] text-muted-foreground mb-1 block">Horário</Label>
                               <Input
                                 type="time"
                                 value={agendReuniaoLembreteHora}
@@ -1218,8 +1216,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             </div>
                           </div>
                           {agendReuniaoLembreteData && (
-                            <p className="text-xs text-blue-400">
-                              Mensagem será enviada em {format(agendReuniaoLembreteData, "dd/MM")} às {agendReuniaoLembreteHora}
+                            <p className="text-[10px] text-blue-400">
+                              Enviar em {format(agendReuniaoLembreteData, "dd/MM")} às {agendReuniaoLembreteHora}
                             </p>
                           )}
                         </div>
@@ -1228,6 +1226,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-8 text-xs"
                             onClick={() => {
                               setAgendReuniaoData(undefined);
                               setAgendReuniaoHora("10:00");
@@ -1241,26 +1240,26 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           </Button>
                           <Button
                             size="sm"
+                            className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                             onClick={() => handleSaveAgendamento("Agendamento Reunião")}
                             disabled={!agendReuniaoData}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
                           >
-                            Salvar Agendamento
+                            Salvar
                           </Button>
                         </div>
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="agendamento_venda" className="mt-0 space-y-4">
-                      <div className="space-y-3">
+                    <TabsContent value="agendamento_venda" className="mt-0 space-y-3">
+                      <div className="space-y-2.5">
                         <div>
-                          <Label className="text-xs text-muted-foreground mb-2 block">Data do agendamento</Label>
+                          <Label className="text-xs text-muted-foreground mb-1.5 block">Data do agendamento</Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                                <CalendarCheck className="h-4 w-4 mr-2 text-yellow-500" />
+                              <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm">
+                                <CalendarCheck className="h-3.5 w-3.5 mr-2 text-yellow-500" />
                                 {agendVendaData
-                                  ? format(agendVendaData, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                                  ? format(agendVendaData, "dd/MM/yyyy")
                                   : "Selecionar data"}
                               </Button>
                             </PopoverTrigger>
@@ -1309,20 +1308,20 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           <Label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</Label>
                           <Textarea
                             placeholder="Detalhes sobre a venda..."
-                            className="min-h-[80px] resize-none text-sm"
+                            className="min-h-[60px] sm:min-h-[80px] resize-none text-sm"
                             value={agendVendaObs}
                             onChange={(e) => setAgendVendaObs(e.target.value)}
                           />
                         </div>
                         {/* Lembrete WhatsApp */}
-                        <div className="border border-dashed border-yellow-300/50 rounded-lg p-3 space-y-2 bg-yellow-500/5">
+                        <div className="border border-dashed border-yellow-300/50 rounded-lg p-2.5 sm:p-3 space-y-2 bg-yellow-500/5">
                           <Label className="text-xs font-medium text-yellow-400 flex items-center gap-1.5">
-                            <CalendarCheck className="h-3.5 w-3.5" />
-                            Lembrete via WhatsApp (opcional)
+                            <CalendarCheck className="h-3 w-3" />
+                            Lembrete WhatsApp (opcional)
                           </Label>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <Label className="text-xs text-muted-foreground mb-1 block">Data do lembrete</Label>
+                              <Label className="text-[10px] text-muted-foreground mb-1 block">Data</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal h-8 text-xs">
@@ -1344,7 +1343,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               </Popover>
                             </div>
                             <div>
-                              <Label className="text-xs text-muted-foreground mb-1 block">Horário</Label>
+                              <Label className="text-[10px] text-muted-foreground mb-1 block">Horário</Label>
                               <Input
                                 type="time"
                                 value={agendVendaLembreteHora}
@@ -1354,8 +1353,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             </div>
                           </div>
                           {agendVendaLembreteData && (
-                            <p className="text-xs text-yellow-400">
-                              Mensagem será enviada em {format(agendVendaLembreteData, "dd/MM")} às {agendVendaLembreteHora}
+                            <p className="text-[10px] text-yellow-400">
+                              Enviar em {format(agendVendaLembreteData, "dd/MM")} às {agendVendaLembreteHora}
                             </p>
                           )}
                         </div>
@@ -1364,6 +1363,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-8 text-xs"
                             onClick={() => {
                               setAgendVendaData(undefined);
                               setAgendVendaHora("10:00");
@@ -1378,11 +1378,11 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           </Button>
                           <Button
                             size="sm"
+                            className="h-8 text-xs bg-yellow-600 hover:bg-yellow-700 text-white"
                             onClick={() => handleSaveAgendamento("Agendamento Venda")}
                             disabled={!agendVendaData}
-                            className="bg-yellow-600 hover:bg-yellow-700 text-white"
                           >
-                            Salvar Agendamento
+                            Salvar
                           </Button>
                         </div>
                       </div>
@@ -1707,7 +1707,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
           {/* Sidebar de Ações e Dados (Right Column: Fixed 280px on desktop, stacked on mobile) */}
           <div className="w-full md:w-[280px] flex-none md:h-full flex flex-col md:overflow-hidden bg-muted/10 border-t md:border-t-0">
             <ScrollArea className="flex-1 mobile-clip-override">
-              <div className="p-4 space-y-4">
+              <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
                 {/* Valor do negócio */}
                 <Card className="bg-primary/5 border-primary/10">
                   <CardHeader className="pb-3">
@@ -2291,13 +2291,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         </div>
 
         {/* Global Footer Fixed at Bottom */}
-        <div className="flex-shrink-0 p-4 border-t bg-background flex items-center justify-end gap-3 rounded-b-lg">
+        <div className="flex-shrink-0 p-2 sm:p-4 border-t bg-background flex items-center justify-end gap-2 sm:gap-3 rounded-b-lg">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={isSaving}
             size="sm"
-            className="min-w-[100px]"
+            className="h-8 text-xs min-w-[80px] sm:min-w-[100px]"
           >
             Cancelar
           </Button>
@@ -2305,7 +2305,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
             onClick={handleSaveChanges}
             disabled={isSaving}
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white min-w-[120px]"
+            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white min-w-[90px] sm:min-w-[120px]"
           >
             {isSaving ? "Salvando..." : "Salvar"}
           </Button>
