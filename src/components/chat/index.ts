@@ -7,3 +7,4 @@ export { ReplyPreview } from "./ReplyPreview";
 export { VirtualizedLeadList } from "./VirtualizedLeadList";
 export { VirtualizedMessageList } from "./VirtualizedMessageList";
 export * from "./types";
+export { BroadcastPanel } from "./BroadcastPanel";
