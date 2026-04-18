@@ -538,6 +538,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
         leadName={name}
         open={showDetailsDialog}
         onOpenChange={setShowDetailsDialog}
+        onEdit={onEdit}
       />
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

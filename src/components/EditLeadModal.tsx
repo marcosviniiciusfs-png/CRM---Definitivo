@@ -1047,7 +1047,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         {/* Content Body (2 Columns on desktop, stacked scroll on mobile) */}
         <div className="flex-1 overflow-y-auto md:overflow-hidden flex flex-col md:flex-row">
           {/* Main Content (Left Column) */}
-          <div className="flex-1 min-w-0 md:h-full flex flex-col md:overflow-hidden md:border-r bg-background">
+          <div className="min-h-[50vh] md:min-h-0 md:flex-1 min-w-0 md:h-full flex flex-col md:overflow-hidden md:border-r bg-background">
             <ScrollArea className="flex-1">
               <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
                 {/* Dados do Formulário Facebook (se existir) */}

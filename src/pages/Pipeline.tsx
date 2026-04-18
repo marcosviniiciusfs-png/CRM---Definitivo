@@ -2376,6 +2376,7 @@ const Pipeline = () => {
           </DndContext>
         )}
       </div>
+      </div>
 
       {/* Modal de Edição - FORA do DndContext */}
       {showAddModal && (

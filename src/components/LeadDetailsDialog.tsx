@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle, ExternalLink, Loader2, CalendarClock, Copy } from "lucide-react";
+import { DollarSign, FileText, Clock, User, Paperclip, Calendar, RefreshCw, Globe, MessageCircle, ExternalLink, Loader2, CalendarClock, Copy, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FacebookFormData } from "@/components/FacebookFormData";
@@ -19,6 +19,7 @@ interface LeadDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   leadId: string;
   leadName: string;
+  onEdit?: () => void;
 }
 
 interface DuplicateAttempt {
@@ -67,7 +68,7 @@ interface CalendarEventDetails {
   description?: string;
 }
 
-export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: LeadDetailsDialogProps) => {
+export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit }: LeadDetailsDialogProps) => {
   const { user, isSuperAdmin } = useAuth();
   const [details, setDetails] = useState<LeadDetails | null>(null);
   const [activities, setActivities] = useState<ActivityWithUser[]>([]);
@@ -271,17 +272,33 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName }: Lead
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="text-base sm:text-xl truncate">{leadName}</DialogTitle>
-            {isSuperAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => setShowEventModal(true)}
-              >
-                <Calendar className="h-4 w-4" />
-                Agendar
-              </Button>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {onEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onEdit();
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </Button>
+              )}
+              {isSuperAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShowEventModal(true)}
+                >
+                  <Calendar className="h-4 w-4" />
+                  Agendar
+                </Button>
+              )}
+            </div>
           </div>
         </DialogHeader>
 

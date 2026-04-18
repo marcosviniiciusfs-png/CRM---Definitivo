@@ -229,6 +229,7 @@ export function MobileLeadCard({
             setTimeout(() => { justClosedDialogRef.current = false; }, 500);
           }
         }}
+        onEdit={onEdit}
       />
     </Card>
   );
