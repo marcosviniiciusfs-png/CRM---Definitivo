@@ -285,6 +285,76 @@ serve(async (req) => {
       console.log(`Lead passes filter rules for config "${config.name}"`);
     }
 
+    // 2.6. Execute smart rules (custom rules, hot lead, reroute, work hours)
+    const smartRules = parseSmartRules(config.smart_rules);
+    const leadScore = lead.lead_score || 0;
+
+    // ── Custom Rules ──
+    let forcedAgentId: string | null = null;
+    let leadSkipped = false;
+
+    for (const rule of smartRules.custom) {
+      if (!rule.enabled) continue;
+      const fieldValue = getCustomRuleFieldValue(rule.condition_field, lead);
+      const matches = evaluateCustomCondition(fieldValue, rule.condition_operator, rule.condition_value);
+
+      if (matches) {
+        console.log(`[SmartRules] Custom rule "${rule.name}" matched: ${rule.condition_field} ${rule.condition_operator} ${rule.condition_value}`);
+        if (rule.action === "skip") {
+          console.log(`[SmartRules] Lead skipped by custom rule "${rule.name}"`);
+          leadSkipped = true;
+          break;
+        }
+        if (rule.action === "assign_to" && rule.agent_id) {
+          forcedAgentId = rule.agent_id;
+          console.log(`[SmartRules] Custom rule forces assignment to agent ${rule.agent_id}`);
+          break;
+        }
+      }
+    }
+
+    if (leadSkipped) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Lead skipped by custom smart rule' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── Hot Lead Check ──
+    const isHotLead = smartRules.system.hot_lead_enabled && leadScore >= smartRules.system.hot_lead_score;
+    if (isHotLead) {
+      console.log(`[SmartRules] Hot lead detected (score: ${leadScore} >= ${smartRules.system.hot_lead_score})`);
+    }
+
+    // ── Reroute Same Agent ──
+    if (!forcedAgentId && smartRules.system.reroute_same_agent) {
+      const { data: prevHistory } = await supabase
+        .from('lead_distribution_history')
+        .select('to_user_id')
+        .eq('lead_id', lead_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (prevHistory?.to_user_id) {
+        forcedAgentId = prevHistory.to_user_id;
+        console.log(`[SmartRules] Rerouting to previous agent: ${prevHistory.to_user_id}`);
+      }
+    }
+
+    // ── Work Hours Check ──
+    if (!isHotLead && smartRules.system.work_hours_enabled) {
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0, 5);
+      if (currentTime < smartRules.system.work_hours_start || currentTime > smartRules.system.work_hours_end) {
+        console.log(`[SmartRules] Outside work hours (${currentTime} not in ${smartRules.system.work_hours_start}-${smartRules.system.work_hours_end}), queuing lead`);
+        return new Response(
+          JSON.stringify({ success: false, message: 'Outside work hours, lead queued for next business hours' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // 3. Mapear trigger_source para tipo de trigger correto
     const triggerTypeMap: Record<string, string> = {
       'facebook': 'new_lead',
@@ -356,14 +426,28 @@ serve(async (req) => {
       );
     }
 
-    // 6. Selecionar agente baseado no método de distribuição
-    const selectedAgent = await selectAgent(
-      supabase,
-      availableAgents,
-      config.distribution_method,
-      organization_id,
-      config.id  // config_id para isolar round-robin por roleta
-    );
+    // 6. Selecionar agente baseado no método de distribuição (ou usar agente forçado pelas smart rules)
+    let selectedAgent: any = null;
+
+    if (forcedAgentId) {
+      // Verify the forced agent is actually available
+      selectedAgent = availableAgents.find((a: any) => a.user_id === forcedAgentId) || null;
+      if (selectedAgent) {
+        console.log(`[SmartRules] Using forced agent: ${selectedAgent.full_name || selectedAgent.email}`);
+      } else {
+        console.log(`[SmartRules] Forced agent ${forcedAgentId} not available, falling back to normal selection`);
+      }
+    }
+
+    if (!selectedAgent) {
+      selectedAgent = await selectAgent(
+        supabase,
+        availableAgents,
+        config.distribution_method,
+        organization_id,
+        config.id
+      );
+    }
 
     if (!selectedAgent) {
       console.log('Could not select an agent');
