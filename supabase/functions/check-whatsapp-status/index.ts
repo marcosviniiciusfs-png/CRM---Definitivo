@@ -1,9 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-customer-id',
-};
+import { corsHeaders } from '../_shared/cors.ts';
+import {
+  getEvolutionApiUrl,
+  getEvolutionApiKey,
+  mapEvolutionState,
+  isConnectedState,
+  normalizeUrl,
+} from '../_shared/evolution-config.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -45,41 +48,23 @@ Deno.serve(async (req) => {
     }
 
     // Chamar a Evolution API para obter o status real
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY') || '';
-
-    console.log('🔍 Verificando variáveis de ambiente...');
-    console.log('EVOLUTION_API_URL presente:', !!evolutionApiUrl, 'valor:', evolutionApiUrl ? evolutionApiUrl.substring(0, 30) + '...' : 'VAZIO');
-    console.log('EVOLUTION_API_KEY presente:', !!evolutionApiKey, 'tamanho:', evolutionApiKey ? evolutionApiKey.length : 0);
-
-    // Validar e corrigir URL da Evolution API
-    if (!evolutionApiUrl || evolutionApiUrl.trim() === '' || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida ou vazia. Usando URL padrão.');
-      evolutionApiUrl = 'http://161.97.148.99:8080';
-    }
-
-    if (!evolutionApiKey || evolutionApiKey.trim() === '') {
-      console.error('❌ EVOLUTION_API_KEY não configurada ou vazia');
+    let evolutionApiUrl: string;
+    let evolutionApiKey: string;
+    try {
+      evolutionApiUrl = getEvolutionApiUrl();
+      evolutionApiKey = getEvolutionApiKey();
+    } catch (configError: any) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Credenciais da Evolution API não configuradas',
-          details: 'A chave de API da Evolution não foi encontrada nos secrets do Supabase. Verifique a configuração.'
-        }),
+        JSON.stringify({ error: configError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('✅ Credenciais da Evolution API validadas');
-    console.log('Evolution API URL original:', evolutionApiUrl);
-
-    // Limpar a URL base: remover /manager e trailing slashes
-    evolutionApiUrl = evolutionApiUrl.replace(/\/manager\/?$/, '').replace(/\/+$/, '').trim();
-    
-    console.log('Evolution API URL limpa:', evolutionApiUrl);
+    const cleanApiUrl = evolutionApiUrl;
 
     // Construir a URL completa - usando o endpoint correto da Evolution API v2
-    const statusUrl = `${evolutionApiUrl}/instance/connectionState/${instance_name}`;
-    
+    const statusUrl = `${cleanApiUrl}/instance/connectionState/${instance_name}`;
+
     console.log(`🌐 URL final para Evolution API: ${statusUrl}`);
 
     let evolutionResponse;
@@ -196,23 +181,48 @@ Deno.serve(async (req) => {
     console.log('Evolution API response:', evolutionData);
 
     // Mapear o estado da Evolution API para o nosso status
-    let newStatus = 'DISCONNECTED';
-    
-    // A Evolution API pode retornar diferentes formatos de resposta
-    const state = evolutionData.instance?.state || evolutionData.state || '';
-    
-    if (state === 'open' || state === 'CONNECTED') {
-      newStatus = 'CONNECTED';
-    } else if (state === 'connecting' || state === 'qr') {
-      newStatus = 'WAITING_QR';
-    } else {
-      newStatus = 'DISCONNECTED';
+    let newStatus = mapEvolutionState(evolutionData.instance?.state || evolutionData.state || '');
+
+    // PROTEÇÃO: Se a instância está CONNECTED no banco, tentar restart antes de marcar DISCONNECTED
+    if (newStatus === 'DISCONNECTED' && instanceData.status === 'CONNECTED') {
+      console.log(`🔄 Instância CONNECTED com estado "${evolutionData.instance?.state || evolutionData.state || ''}" — tentando restart...`);
+
+      try {
+        const restartResponse = await fetch(`${cleanApiUrl}/instance/restart/${instance_name}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': evolutionApiKey },
+        });
+
+        if (restartResponse.ok) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+
+          const recheckResponse = await fetch(`${cleanApiUrl}/instance/connectionState/${instance_name}`, {
+            method: 'GET',
+            headers: { 'apikey': evolutionApiKey, 'Content-Type': 'application/json' },
+          });
+
+          if (recheckResponse.ok) {
+            const recheckData = await recheckResponse.json();
+            const recheckState = recheckData.instance?.state || recheckData.state || '';
+
+            if (isConnectedState(recheckState)) {
+              console.log(`✅ Restart bem-sucedido! Mantendo CONNECTED`);
+              return new Response(
+                JSON.stringify({ status: 'CONNECTED', message: 'Reconexão automática bem-sucedida' }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+        }
+      } catch (restartError) {
+        console.warn(`⚠️ Erro no restart: ${restartError}`);
+      }
     }
 
-    console.log(`Status mapeado: ${state} -> ${newStatus}`);
+    console.log(`Status mapeado: ${evolutionData.instance?.state || evolutionData.state || ''} -> ${newStatus}`);
 
     // Atualizar o status no banco de dados
-    const updateData: any = { 
+    const updateData: any = {
       status: newStatus,
       updated_at: new Date().toISOString()
     };
@@ -227,12 +237,12 @@ Deno.serve(async (req) => {
       .from('whatsapp_instances')
       .update(updateData)
       .eq('instance_name', instance_name);
-    
+
     // Se o novo status é DISCONNECTED, não sobrescrever CONNECTED
     if (newStatus === 'DISCONNECTED') {
       updateQuery.neq('status', 'CONNECTED');
     }
-    
+
     const { error: updateError } = await updateQuery;
 
     if (updateError) {

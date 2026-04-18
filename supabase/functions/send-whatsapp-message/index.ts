@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-customer-id',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import {
+  getEvolutionApiUrl,
+  getEvolutionApiKey,
+  normalizeUrl,
+  isConnectedState,
+  createSupabaseAdmin,
+  formatPhoneToJid,
+} from "../_shared/evolution-config.ts";
 
 interface SendMessageRequest {
   instance_name: string;
@@ -36,55 +38,45 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200, // CRÍTICO: Sempre retorna 200
+          status: 400,
         },
       );
     }
-
-    // Limpar o número do WhatsApp - apenas dígitos
-    const cleanNumber = remoteJid.replace(/\D/g, '');
-    
-    if (!cleanNumber) {
-      console.error('❌ Número inválido após limpeza');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Número de WhatsApp inválido',
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200, // CRÍTICO: Sempre retorna 200
-        },
-      );
-    }
-
-    console.log('✅ Número limpo:', cleanNumber);
 
     // Obter credenciais da Evolution API
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || '';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    // Validar e corrigir URL da Evolution API
-    if (!evolutionApiUrl || !/^https?:\/\//.test(evolutionApiUrl)) {
-      console.log('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.');
-      evolutionApiUrl = 'http://161.97.148.99:8080';
+    let evolutionApiUrl: string;
+    let evolutionApiKey: string;
+    try {
+      evolutionApiUrl = getEvolutionApiUrl();
+      evolutionApiKey = getEvolutionApiKey();
+    } catch (configError: any) {
+      return new Response(
+        JSON.stringify({ success: false, error: configError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 },
+      );
     }
 
-    if (!evolutionApiKey) {
-      console.error('❌ Credenciais da Evolution API não configuradas');
+    // Formatar número do WhatsApp corretamente
+    let jid: string;
+    try {
+      jid = formatPhoneToJid(remoteJid);
+    } catch (formatError: any) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Credenciais da Evolution API não configuradas',
+          error: formatError.message,
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: 400,
         },
       );
     }
+
+    console.log('✅ Número formatado:', jid);
+
+    // Criar cliente Supabase
+    const supabase = createSupabaseAdmin();
 
     // VALIDAÇÃO: Verificar se a instância existe e está conectada no banco
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -117,7 +109,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: 404,
         },
       );
     }
@@ -134,7 +126,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: 403,
         },
       );
     }
@@ -145,26 +137,9 @@ serve(async (req) => {
       id: instanceCheck.id
     });
 
-    // Limpar URL base - garantir que está no formato correto
-    let cleanBaseUrl = evolutionApiUrl.trim();
-    
-    // Remover barras finais
-    cleanBaseUrl = cleanBaseUrl.replace(/\/+$/, '');
-    
-    // Remover /manager se existir
-    cleanBaseUrl = cleanBaseUrl.replace(/\/manager\/?$/i, '');
-    
-    // Garantir que tem protocolo correto
-    if (!cleanBaseUrl.startsWith('http://') && !cleanBaseUrl.startsWith('https://')) {
-      cleanBaseUrl = 'https://' + cleanBaseUrl;
-    }
-    
-    // Remover barras duplas EXCETO no protocolo (https:// ou http://)
-    cleanBaseUrl = cleanBaseUrl.replace(/(https?:\/\/)|(\/\/)/g, (match) => {
-      return match.includes('://') ? match : '/';
-    });
-    
-    console.log('🔗 URL limpa da Evolution API:', cleanBaseUrl);
+    // Normalizar URL da Evolution API
+    const cleanBaseUrl = normalizeUrl(evolutionApiUrl);
+    console.log('🔗 URL normalizada da Evolution API:', cleanBaseUrl);
     
     // VERIFICAR STATUS REAL NA EVOLUTION API ANTES DE ENVIAR
     const connectionStateUrl = `${cleanBaseUrl}/instance/connectionState/${instance_name}`;
@@ -183,15 +158,15 @@ serve(async (req) => {
         console.log('📊 Status da conexão:', stateData);
         
         // Verificar se está realmente conectado
-        if (stateData.instance?.state !== 'open' && stateData.state !== 'open') {
+        if (!isConnectedState(stateData.instance?.state || stateData.state)) {
           console.error('❌ Instância não está aberta:', stateData);
-          
+
           // Atualizar status no banco
           await supabase
             .from('whatsapp_instances')
             .update({ status: 'DISCONNECTED' })
             .eq('instance_name', instance_name);
-          
+
           return new Response(
             JSON.stringify({
               success: false,
@@ -199,7 +174,7 @@ serve(async (req) => {
             }),
             {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 200,
+              status: 503,
             },
           );
         }
@@ -224,7 +199,7 @@ serve(async (req) => {
     
     let evolutionResponse;
     const requestBody: any = {
-      number: cleanNumber,
+      number: jid,
       text: message_text,
     };
     
@@ -261,11 +236,11 @@ serve(async (req) => {
           }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
+            status: 504,
           },
         );
       }
-      
+
       // Outros erros de conexão
       return new Response(
         JSON.stringify({
@@ -274,7 +249,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: 502,
         },
       );
     } finally {
@@ -333,16 +308,16 @@ serve(async (req) => {
       // Se for 404, significa que a instância não existe na Evolution API
       if (evolutionResponse.status === 404) {
         friendlyError = 'A instância WhatsApp não existe ou foi desconectada. Por favor, reconecte o WhatsApp nas Configurações.';
-        
+
         // Atualizar status da instância no banco para DISCONNECTED
         await supabase
           .from('whatsapp_instances')
           .update({ status: 'DISCONNECTED' })
           .eq('instance_name', instance_name);
-        
+
         console.log('🔄 Status da instância atualizado para DISCONNECTED');
       }
-      
+
       return new Response(
         JSON.stringify({
           success: false,
@@ -350,7 +325,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: evolutionResponse.status === 404 ? 404 : 502,
         },
       );
     }
@@ -368,7 +343,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: 502,
         },
       );
     }
@@ -430,8 +405,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('💥 Erro crítico na função:', error);
-    
-    // CRÍTICO: Mesmo com erro crítico, retornamos 200
+
     return new Response(
       JSON.stringify({
         success: false,
@@ -439,7 +413,7 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // CRÍTICO: Sempre retorna 200
+        status: 500,
       },
     );
   }

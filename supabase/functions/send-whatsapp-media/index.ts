@@ -1,10 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import {
+  getEvolutionApiUrl,
+  getEvolutionApiKey,
+  normalizeUrl,
+  formatPhoneToJid,
+  createSupabaseAdmin,
+} from "../_shared/evolution-config.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -46,30 +48,21 @@ serve(async (req) => {
       );
     }
 
-    // Inicializar cliente Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
-    // Buscar configurações do ambiente (secrets)
-    let evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'http://161.97.148.99:8080';
-    const apiKey = Deno.env.get('EVOLUTION_API_KEY');
-
-    if (!apiKey) {
-      console.error('❌ API Key não encontrada');
-      throw new Error('API Key da Evolution não configurada');
-    }
-
-    // Validar e normalizar URL da Evolution API
+    let cleanApiUrl: string;
+    let apiKey: string;
     try {
-      const parsed = new URL(evolutionApiUrl);
-      evolutionApiUrl = `${parsed.protocol}//${parsed.host}`;
-    } catch (e) {
-      console.warn('⚠️ EVOLUTION_API_URL inválida. Usando URL padrão.', { evolutionApiUrl });
-      evolutionApiUrl = 'http://161.97.148.99:8080';
+      cleanApiUrl = getEvolutionApiUrl();
+      apiKey = getEvolutionApiKey();
+    } catch (configError: any) {
+      return new Response(
+        JSON.stringify({ success: false, error: configError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
-    console.log('🌐 URL da Evolution API (normalizada):', evolutionApiUrl);
+    const cleanApiUrl = normalizeUrl(cleanApiUrl);
 
     // Buscar instância para validação
     const { data: instanceData, error: instanceError } = await supabase
@@ -88,20 +81,20 @@ serve(async (req) => {
       console.log('🎤 Usando endpoint sendWhatsAppAudio para PTT (com encoding server-side)');
       
       const pttPayload = {
-        number: remoteJid,
+        number: remoteJid.includes('@') ? remoteJid : formatPhoneToJid(remoteJid),
         audio: media_base64,
         delay: 0,
         encoding: true  // Evolution converte para formato PTT correto via FFmpeg
       };
       
       console.log('📤 Enviando áudio PTT para Evolution API:', {
-        url: `${evolutionApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
+        url: `${cleanApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
         number: remoteJid,
         encoding: true
       });
 
       const pttResponse = await fetch(
-        `${evolutionApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
+        `${cleanApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
         {
           method: 'POST',
           headers: {
@@ -185,7 +178,7 @@ serve(async (req) => {
     finalMimeType = finalMimeType || 'application/octet-stream';
 
     const payload: any = {
-      number: remoteJid,
+      number: remoteJid.includes('@') ? remoteJid : formatPhoneToJid(remoteJid),
       mediatype,
       mimetype: finalMimeType,
       caption: caption || '',
@@ -194,14 +187,14 @@ serve(async (req) => {
     };
 
     console.log('📤 Enviando mídia para Evolution API:', {
-      url: `${evolutionApiUrl}/message/sendMedia/${instance_name}`,
+      url: `${cleanApiUrl}/message/sendMedia/${instance_name}`,
       mediaType: mediatype,
       fileName: finalFileName,
       mimetype: finalMimeType
     });
 
     const evolutionResponse = await fetch(
-      `${evolutionApiUrl}/message/sendMedia/${instance_name}`,
+      `${cleanApiUrl}/message/sendMedia/${instance_name}`,
       {
         method: 'POST',
         headers: {
