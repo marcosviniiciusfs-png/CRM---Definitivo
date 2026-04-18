@@ -35,10 +35,10 @@ export function MobilePipelineView({
 
   // Resetar stage ativa quando stages mudam (troca de funil)
   useEffect(() => {
-    if (stages.length > 0 && !stages.find(s => s.id === activeStageId)) {
+    if (stages.length > 0 && (!activeStageId || !stages.find(s => s.id === activeStageId))) {
       setActiveStageId(stages[0].id);
     }
-  }, [stages]);
+  }, [stages, activeStageId]);
 
   const activeLeads = leadsByStage.get(activeStageId) || [];
   const isHexColor = (c: string) => c?.startsWith('#');
