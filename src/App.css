@@ -10,3 +10,17 @@
     --pipeline-offset: 124px;
   }
 }
+
+/* On mobile/tablet, make ScrollArea behave like regular divs
+   so content flows naturally in the parent scroll container */
+@media (max-width: 1023px) {
+  .mobile-clip-override {
+    overflow: visible !important;
+    flex: none !important;
+    height: auto !important;
+  }
+  .mobile-clip-override [data-radix-scroll-area-viewport] {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
