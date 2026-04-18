@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Settings, BarChart3 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import googleCalendarIcon from "@/assets/google-calendar-icon.png";
+import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -58,6 +59,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const isOnChatPage = location.pathname === "/chat";
+  const isPipelinePage = location.pathname === '/pipeline';
 
   // Inicializar com estado do localStorage para evitar flash
   const getInitialOpen = () => {
@@ -127,8 +129,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <UserProfileMenu />
             </div>
           </header>
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
-            <div className="min-w-0 w-full max-w-full">
+          <div
+            className={cn(
+              "flex-1 overflow-x-hidden",
+              isPipelinePage
+                ? "overflow-hidden p-0"
+                : "overflow-y-auto p-3 sm:p-4 md:p-6"
+            )}
+          >
+            <div className={cn("min-w-0 w-full max-w-full", isPipelinePage && "h-full")}>
               {children}
             </div>
           </div>
