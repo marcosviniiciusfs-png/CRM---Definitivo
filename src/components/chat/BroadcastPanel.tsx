@@ -89,6 +89,7 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
 
   const fetchBroadcasts = useCallback(
     async (page: number, append = false) => {
+      if (!organizationId) return;
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
@@ -101,23 +102,23 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
 
       if (error) {
         toast({ title: "Erro", description: "Falha ao carregar transmissões", variant: "destructive" });
-        return;
+      } else {
+        setBroadcasts((prev) => (append ? [...prev, ...(data as Broadcast[])] : (data as Broadcast[])));
+        setHasMoreBroadcasts(data.length === PAGE_SIZE);
       }
-
-      setBroadcasts((prev) => (append ? [...prev, ...(data as Broadcast[])] : (data as Broadcast[])));
-      setHasMoreBroadcasts(data.length === PAGE_SIZE);
       setBroadcastsLoading(false);
     },
     [organizationId, toast]
   );
 
   useEffect(() => {
-    if (view === "list") {
+    if (view === "list" && organizationId) {
       setBroadcastsLoading(true);
       setBroadcastsPage(0);
       fetchBroadcasts(0);
     }
-  }, [view, fetchBroadcasts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, organizationId]);
 
   const fetchDetail = useCallback(
     async (broadcastId: string) => {
@@ -130,6 +131,7 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
 
       if (bError || !bData) {
         toast({ title: "Erro", description: "Transmissão não encontrada", variant: "destructive" });
+        setDetailLoading(false);
         setView("list");
         return;
       }
@@ -212,6 +214,10 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
       toast({ title: "Erro", description: "Mensagem excede 4096 caracteres", variant: "destructive" });
       return;
     }
+    if (!userId) {
+      toast({ title: "Erro", description: "Usuário não identificado", variant: "destructive" });
+      return;
+    }
 
     const selectedLeads = availableLeads.filter((l) => selectedLeadIds.has(l.id));
     const contactsRows = selectedLeads.map((l) => ({
@@ -225,6 +231,7 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
       .from("broadcasts")
       .insert({
         organization_id: organizationId,
+        created_by: userId,
         name: name.trim(),
         message_text: messageText.trim(),
         status: "sending",
