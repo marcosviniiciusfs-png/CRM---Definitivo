@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Lead, Broadcast, BroadcastContact } from "@/types/chat";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,19 +32,22 @@ interface BroadcastPanelProps {
 
 type View = "list" | "create" | "detail";
 
-const STATUS_BADGE: Record<Broadcast["status"], { label: string; className: string }> = {
-  draft: { label: "Rascunho", className: "bg-gray-100 text-gray-600" },
-  sending: { label: "Enviando...", className: "bg-blue-100 text-blue-600 animate-pulse" },
-  completed: { label: "Concluída", className: "bg-green-100 text-green-600" },
-  cancelled: { label: "Cancelada", className: "bg-red-100 text-red-600" },
+const STATUS_BADGE: Record<Broadcast["status"], { label: string; cls: string }> = {
+  draft: { label: "Rascunho", cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+  sending: { label: "Enviando...", cls: "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400 animate-pulse" },
+  completed: { label: "Concluída", cls: "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400" },
+  cancelled: { label: "Cancelada", cls: "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400" },
+  failed: { label: "Falhou", cls: "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400" },
 };
 
-const CONTACT_ICON: Record<BroadcastContact["status"], { icon: React.ReactNode; className: string }> = {
-  pending: { icon: <Clock className="h-3.5 w-3.5" />, className: "text-gray-400" },
-  sent: { icon: <CheckCircle2 className="h-3.5 w-3.5" />, className: "text-green-500" },
-  error: { icon: <XCircle className="h-3.5 w-3.5" />, className: "text-red-500" },
-  skipped: { icon: <Ban className="h-3.5 w-3.5" />, className: "text-gray-400" },
+const CONTACT_ICON: Record<BroadcastContact["status"], { icon: React.ReactNode; cls: string }> = {
+  pending: { icon: <Clock className="h-3 w-3 shrink-0" />, cls: "text-gray-400" },
+  sent: { icon: <CheckCircle2 className="h-3 w-3 shrink-0" />, cls: "text-green-500" },
+  error: { icon: <XCircle className="h-3 w-3 shrink-0" />, cls: "text-red-500" },
+  skipped: { icon: <Ban className="h-3 w-3 shrink-0" />, cls: "text-gray-400" },
 };
+
+const fieldCls = "w-full box-border rounded-md border border-input bg-background px-2.5 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanelProps) {
   const { toast } = useToast();
@@ -207,7 +209,7 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
       return;
     }
     if (selectedLeadIds.size > 500) {
-      toast({ title: "Erro", description: "Máximo de 500 contatos por transmissão", variant: "destructive" });
+      toast({ title: "Erro", description: "Máximo de 500 contatos", variant: "destructive" });
       return;
     }
     if (messageText.length > 4096) {
@@ -282,6 +284,7 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
   const runBatchSend = async (broadcastId: string) => {
     setIsSending(true);
     cancelRef.current = false;
+    let batchError = false;
 
     const { data: cData } = await supabase
       .from("broadcast_contacts")
@@ -303,6 +306,7 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
             description: data?.error || "Falha ao processar lote",
             variant: "destructive",
           });
+          batchError = true;
           break;
         }
 
@@ -310,16 +314,12 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
         if (hasMore) await new Promise((r) => setTimeout(r, 1000));
       } catch {
         toast({ title: "Erro", description: "Falha de conexão com o servidor", variant: "destructive" });
+        batchError = true;
         break;
       }
     }
 
-    if (!cancelRef.current) {
-      await supabase
-        .from("broadcasts")
-        .update({ status: "completed", completed_at: new Date().toISOString() })
-        .eq("id", broadcastId);
-    } else {
+    if (cancelRef.current) {
       await supabase
         .from("broadcast_contacts")
         .update({ status: "skipped" })
@@ -328,6 +328,16 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
       await supabase
         .from("broadcasts")
         .update({ status: "cancelled" })
+        .eq("id", broadcastId);
+    } else if (batchError) {
+      await supabase
+        .from("broadcasts")
+        .update({ status: "failed" })
+        .eq("id", broadcastId);
+    } else {
+      await supabase
+        .from("broadcasts")
+        .update({ status: "completed", completed_at: new Date().toISOString() })
         .eq("id", broadcastId);
     }
 
@@ -378,13 +388,13 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
   // VIEW: List
   if (view === "list") {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h3 className="font-semibold text-sm">Transmissões</h3>
+      <div className="flex flex-col h-full w-full overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2.5 border-b shrink-0">
+          <h3 className="font-semibold text-xs">Transmissões</h3>
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 gap-1 text-xs"
+            className="h-6 gap-1 text-[11px] px-2"
             onClick={() => {
               setName("");
               setMessageText("");
@@ -394,7 +404,7 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
               setView("create");
             }}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-3 w-3" />
             Nova
           </Button>
         </div>
@@ -402,13 +412,13 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
         <ScrollArea className="flex-1">
           {broadcastsLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           ) : broadcasts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 px-4 text-center text-muted-foreground">
-              <Radio className="h-8 w-8 mb-2" />
-              <p className="text-sm">Nenhuma transmissão</p>
-              <p className="text-xs">Clique em "Nova" para criar</p>
+            <div className="flex flex-col items-center justify-center py-8 px-3 text-center text-muted-foreground">
+              <Radio className="h-6 w-6 mb-1.5" />
+              <p className="text-xs">Nenhuma transmissão</p>
+              <p className="text-[10px]">Clique em "Nova" para criar</p>
             </div>
           ) : (
             <div className="divide-y">
@@ -416,15 +426,15 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
                 <button
                   key={b.id}
                   onClick={() => openDetail(b.id)}
-                  className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors"
+                  className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium truncate">{b.name}</span>
-                    <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${STATUS_BADGE[b.status].className}`}>
+                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                    <span className="text-[11px] font-medium truncate">{b.name}</span>
+                    <Badge variant="secondary" className={`text-[9px] px-1 py-0 leading-tight shrink-0 ${STATUS_BADGE[b.status].cls}`}>
                       {STATUS_BADGE[b.status].label}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                     <span>{b.sent_count}/{b.total_contacts} enviados</span>
                     <span>{new Date(b.created_at).toLocaleDateString("pt-BR")}</span>
                   </div>
@@ -433,11 +443,11 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
             </div>
           )}
           {hasMoreBroadcasts && broadcasts.length > 0 && (
-            <div className="p-3 text-center">
+            <div className="p-2 text-center">
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-xs"
+                className="text-[10px] h-6"
                 onClick={() => {
                   const nextPage = broadcastsPage + 1;
                   setBroadcastsPage(nextPage);
@@ -456,128 +466,143 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
   // VIEW: Create
   if (view === "create") {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 px-4 py-3 border-b">
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setView("list")}>
-            <ArrowLeft className="h-4 w-4" />
+      <div className="flex flex-col h-full w-full overflow-hidden">
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b shrink-0">
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={() => setView("list")}>
+            <ArrowLeft className="h-3.5 w-3.5" />
           </Button>
-          <h3 className="font-semibold text-sm">Nova Transmissão</h3>
+          <h3 className="font-semibold text-xs truncate">Nova Transmissão</h3>
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
+          <div className="px-3 py-2.5 space-y-2.5">
+            {/* Nome */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome da transmissão</label>
+              <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Nome</label>
               <Input
                 placeholder="Ex: Promoção Abril"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="text-sm"
+                className="text-xs h-7"
               />
             </div>
 
+            {/* Mensagem */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Mensagem</label>
+              <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Mensagem</label>
               <textarea
-                className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                className={`${fieldCls} min-h-[72px] resize-none`}
                 placeholder="Digite sua mensagem..."
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 maxLength={4096}
               />
-              <div className="flex items-center justify-between mt-1">
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => insertVariable("{{nome}}")}>
-                    {"{{nome}}"}
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => insertVariable("{{telefone}}")}>
-                    {"{{telefone}}"}
-                  </Button>
+              <div className="flex items-center justify-between mt-0.5">
+                <div className="flex gap-0.5 overflow-hidden">
+                  <button
+                    type="button"
+                    className="h-5 text-[9px] px-1.5 rounded border border-input bg-background hover:bg-muted/50 transition-colors shrink-0"
+                    onClick={() => insertVariable("{{nome}}")}
+                  >
+                    nome
+                  </button>
+                  <button
+                    type="button"
+                    className="h-5 text-[9px] px-1.5 rounded border border-input bg-background hover:bg-muted/50 transition-colors shrink-0"
+                    onClick={() => insertVariable("{{telefone}}")}
+                  >
+                    telefone
+                  </button>
                 </div>
-                <span className="text-[10px] text-muted-foreground">{messageText.length}/4096</span>
+                <span className="text-[9px] text-muted-foreground shrink-0">{messageText.length}/4096</span>
               </div>
             </div>
 
+            {/* Preview */}
             {messageText.includes("{{") && (
-              <div className="rounded-md bg-muted/50 p-3">
-                <p className="text-[10px] font-medium text-muted-foreground mb-1">Preview</p>
-                <p className="text-sm whitespace-pre-wrap">{previewMessage}</p>
+              <div className="rounded bg-muted/40 p-2">
+                <p className="text-[9px] font-medium text-muted-foreground mb-0.5">Preview</p>
+                <p className="text-[11px] whitespace-pre-wrap break-words leading-tight">{previewMessage}</p>
               </div>
             )}
 
+            {/* Delay */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Intervalo entre envios</label>
+              <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Intervalo</label>
               <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className={`${fieldCls} h-7`}
                 value={delaySeconds}
                 onChange={(e) => setDelaySeconds(Number(e.target.value))}
               >
-                <option value={2}>2 segundos</option>
-                <option value={3}>3 segundos</option>
-                <option value={5}>5 segundos</option>
-                <option value={10}>10 segundos</option>
+                <option value={2}>2s entre envios</option>
+                <option value={3}>3s entre envios</option>
+                <option value={5}>5s entre envios</option>
+                <option value={10}>10s entre envios</option>
               </select>
             </div>
 
-            <div className="border-t pt-4">
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                Selecionar contatos ({selectedLeadIds.size}/{filteredLeads.length})
+            {/* Contatos */}
+            <div className="border-t pt-2.5">
+              <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
+                Contatos ({selectedLeadIds.size}/{filteredLeads.length})
               </label>
-              <div className="relative mb-2">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <div className="relative mb-1.5">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome ou telefone..."
+                  placeholder="Buscar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 text-sm h-9"
+                  className="pl-7 text-xs h-7"
                 />
               </div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-1.5 mb-1.5">
                 <Checkbox
                   id="select-all"
                   checked={selectedLeadIds.size === filteredLeads.length && filteredLeads.length > 0}
                   onCheckedChange={toggleAll}
+                  className="h-3.5 w-3.5"
                 />
-                <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer">
-                  Selecionar todos
+                <label htmlFor="select-all" className="text-[10px] text-muted-foreground cursor-pointer">
+                  Todos
                 </label>
               </div>
-              <div className="max-h-[200px] overflow-y-auto space-y-1">
+              <div className="max-h-[180px] overflow-y-auto space-y-px">
                 {filteredLeads.map((lead) => (
                   <label
                     key={lead.id}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
+                    className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-muted/50 cursor-pointer"
                   >
                     <Checkbox
                       checked={selectedLeadIds.has(lead.id)}
                       onCheckedChange={() => toggleLead(lead.id)}
+                      className="h-3.5 w-3.5 shrink-0"
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{lead.nome_lead || "Sem nome"}</p>
-                      <p className="text-[10px] text-muted-foreground">{lead.telefone_lead}</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-[11px] truncate">{lead.nome_lead || "Sem nome"}</p>
+                      <p className="text-[9px] text-muted-foreground truncate">{lead.telefone_lead}</p>
                     </div>
                   </label>
                 ))}
                 {filteredLeads.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">Nenhum contato encontrado</p>
+                  <p className="text-[10px] text-muted-foreground text-center py-3">Nenhum contato</p>
                 )}
               </div>
             </div>
           </div>
         </ScrollArea>
 
-        <div className="border-t px-4 py-3 flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{selectedLeadIds.size} contatos selecionados</span>
+        <div className="border-t px-3 py-2 flex items-center justify-between shrink-0">
+          <span className="text-[10px] text-muted-foreground">{selectedLeadIds.size} selecionados</span>
           <Button
             size="sm"
-            className="gap-1"
+            className="gap-1 h-7 text-[11px]"
             disabled={isSending}
             onClick={handleDisparar}
           >
             {isSending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <Send className="h-3.5 w-3.5" />
+              <Send className="h-3 w-3" />
             )}
             Disparar
           </Button>
@@ -591,78 +616,82 @@ export function BroadcastPanel({ organizationId, leads, userId }: BroadcastPanel
     if (detailLoading || !broadcast) {
       return (
         <div className="flex items-center justify-center h-full">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       );
     }
 
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 px-4 py-3 border-b">
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setView("list")}>
-            <ArrowLeft className="h-4 w-4" />
+      <div className="flex flex-col h-full w-full overflow-hidden">
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b shrink-0">
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={() => setView("list")}>
+            <ArrowLeft className="h-3.5 w-3.5" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm truncate">{broadcast.name}</h3>
+            <h3 className="font-semibold text-xs truncate">{broadcast.name}</h3>
           </div>
-          <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${STATUS_BADGE[broadcast.status].className}`}>
+          <Badge variant="secondary" className={`text-[9px] px-1 py-0 leading-tight shrink-0 ${STATUS_BADGE[broadcast.status].cls}`}>
             {STATUS_BADGE[broadcast.status].label}
           </Badge>
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
+          <div className="px-3 py-2.5 space-y-2.5">
+            {/* Progress */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-muted-foreground">
-                  {broadcast.sent_count + broadcast.error_count}/{broadcast.total_contacts} processados
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {broadcast.sent_count + broadcast.error_count}/{broadcast.total_contacts}
                 </span>
-                <span className="text-xs text-muted-foreground">{progressPercent}%</span>
+                <span className="text-[10px] text-muted-foreground">{progressPercent}%</span>
               </div>
-              <Progress value={progressPercent} className="h-2" />
-              <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
+              <Progress value={progressPercent} className="h-1.5" />
+              <div className="flex gap-2 mt-0.5 text-[9px] text-muted-foreground">
                 <span className="text-green-600">{broadcast.sent_count} enviados</span>
                 <span className="text-red-600">{broadcast.error_count} erros</span>
               </div>
             </div>
 
-            <div className="rounded-md bg-muted/50 p-3">
-              <p className="text-[10px] font-medium text-muted-foreground mb-1">Mensagem</p>
-              <p className="text-sm whitespace-pre-wrap">{broadcast.message_text}</p>
+            {/* Mensagem */}
+            <div className="rounded bg-muted/40 p-2">
+              <p className="text-[9px] font-medium text-muted-foreground mb-0.5">Mensagem</p>
+              <p className="text-[11px] whitespace-pre-wrap break-words leading-tight">{broadcast.message_text}</p>
             </div>
 
-            <div className="flex gap-2">
+            {/* Actions */}
+            <div className="flex gap-1.5">
               {isSending && (
-                <Button size="sm" variant="destructive" className="text-xs gap-1" onClick={handleCancel}>
-                  <X className="h-3 w-3" />
+                <Button size="sm" variant="destructive" className="text-[10px] gap-1 h-6 px-2" onClick={handleCancel}>
+                  <X className="h-2.5 w-2.5" />
                   Cancelar
                 </Button>
               )}
               {showResumeButton && (
-                <Button size="sm" className="text-xs gap-1" onClick={handleResume}>
-                  <RotateCcw className="h-3 w-3" />
-                  Retomar envio
+                <Button size="sm" className="text-[10px] gap-1 h-6 px-2" onClick={handleResume}>
+                  <RotateCcw className="h-2.5 w-2.5" />
+                  Retomar
                 </Button>
               )}
             </div>
 
+            {/* Contatos */}
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Contatos</p>
-              <div className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground mb-1">Contatos</p>
+              <div className="space-y-px">
                 {contacts.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50">
-                    <span className={CONTACT_ICON[c.status].className}>{CONTACT_ICON[c.status].icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{c.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{c.phone}</p>
+                  <div key={c.id} className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-muted/50">
+                    <span className={CONTACT_ICON[c.status].cls}>{CONTACT_ICON[c.status].icon}</span>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-[11px] truncate">{c.name}</p>
+                      <p className="text-[9px] text-muted-foreground truncate">{c.phone}</p>
                     </div>
                     {c.status === "sent" && c.sent_at && (
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[9px] text-muted-foreground shrink-0">
                         {new Date(c.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     )}
                     {c.status === "error" && c.error_message && (
-                      <span className="text-[10px] text-red-500 truncate max-w-[100px]">{c.error_message}</span>
+                      <span className="text-[9px] text-red-500 truncate max-w-[80px]">{c.error_message}</span>
                     )}
                   </div>
                 ))}

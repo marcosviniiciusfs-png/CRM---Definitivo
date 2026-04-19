@@ -76,7 +76,7 @@ export interface Broadcast {
   created_by: string;
   name: string;
   message_text: string;
-  status: 'draft' | 'sending' | 'completed' | 'cancelled';
+  status: 'draft' | 'sending' | 'completed' | 'cancelled' | 'failed';
   total_contacts: number;
   sent_count: number;
   error_count: number;
