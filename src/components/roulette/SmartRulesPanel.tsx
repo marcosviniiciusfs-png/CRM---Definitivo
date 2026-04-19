@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Clock, Target, Flame, RefreshCw, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Clock, Target, RefreshCw, Plus, Trash2, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -72,6 +73,25 @@ const ACTIONS = [
   { value: "assign_to", label: "Atribuir para" },
   { value: "skip", label: "Ignorar (nao distribuir)" },
 ];
+
+// ── Rule Tooltip ──────────────────────────────────────────────
+
+function RuleTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors">
+            <Info className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 // ── Toggle Switch ──────────────────────────────────────────────
 
@@ -227,12 +247,15 @@ export function SmartRulesPanel() {
       <div className="space-y-3">
         {/* Rule 1: Reroute same agent */}
         <div className="flex items-center justify-between rounded-xl border bg-card p-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 min-w-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-500/10 shrink-0">
               <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <div>
-              <p className="text-sm font-medium">Reagendamento para mesmo agente</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium">Reagendamento para mesmo agente</p>
+                <RuleTooltip text="Se um lead ja foi atendido por um agente antes, ele sera automaticamente devolvido para esse mesmo agente. Exemplo: o lead 'Joao' conversou com a 'Maria' no passado — ao entrar na roleta novamente, vai direto para a Maria, independente do metodo de distribuicao." />
+              </div>
               <p className="text-[11px] text-muted-foreground">Se o lead ja teve contato com um agente, rotear para o mesmo</p>
             </div>
           </div>
@@ -242,12 +265,15 @@ export function SmartRulesPanel() {
         {/* Rule 2: Work hours */}
         <div className="rounded-xl border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 min-w-0">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-500/10 shrink-0">
                 <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               </div>
-              <div>
-                <p className="text-sm font-medium">Horario de trabalho</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium">Horario de trabalho</p>
+                  <RuleTooltip text="Define um horario limite para distribuicao. Leads que chegam fora desse horario nao sao distribuidos e ficam aguardando ate o proximo horario util. Exemplo: com horario 08:00-18:00, um lead que chega as 22h so sera distribuido no dia seguinte." />
+                </div>
                 <p className="text-[11px] text-muted-foreground">Leads fora do horario ficam em fila para o proximo dia util</p>
               </div>
             </div>
@@ -272,43 +298,17 @@ export function SmartRulesPanel() {
           )}
         </div>
 
-        {/* Rule 3: Hot lead */}
-        <div className="rounded-xl border bg-card p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 dark:bg-red-500/10 shrink-0">
-                <Flame className="h-4 w-4 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Lead quente (score alto)</p>
-                <p className="text-[11px] text-muted-foreground">Leads com score alto ignoram fila e sao distribuidos imediatamente</p>
-              </div>
-            </div>
-            <Toggle checked={current.system.hot_lead_enabled} onChange={() => updateSystemRule("hot_lead_enabled", !current.system.hot_lead_enabled)} />
-          </div>
-          {current.system.hot_lead_enabled && (
-            <div className="flex items-center gap-2 ml-11">
-              <span className="text-xs text-muted-foreground">Score minimo:</span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={current.system.hot_lead_score}
-                onChange={e => updateSystemRule("hot_lead_score", Number(e.target.value))}
-                className="bg-background border rounded-lg px-2 py-1 text-xs w-20"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Rule 4: Auto redistribution timeout */}
+        {/* Rule 3: Auto redistribution timeout */}
         <div className="rounded-xl border bg-card p-4 space-y-3">
           <div className="flex items-start gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-500/10 shrink-0">
               <RefreshCw className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium">Redistribuicao automatica</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium">Redistribuicao automatica</p>
+                <RuleTooltip text="Se um agente receber um lead e nao fizer nenhuma interacao dentro do prazo definido, o lead e automaticamente redistribuido para outro agente disponivel. Exemplo: com prazo de 1h, se o agente 'Carlos' nao contatar o lead em 1 hora, o lead volta para a roleta e vai para outro agente." />
+              </div>
               <p className="text-[11px] text-muted-foreground">Redistribui se o agente nao interagir dentro do prazo</p>
             </div>
           </div>
@@ -334,7 +334,10 @@ export function SmartRulesPanel() {
       <div className="pt-2">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h4 className="text-sm font-semibold">Regras personalizadas</h4>
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-sm font-semibold">Regras personalizadas</h4>
+              <RuleTooltip text="Crie condicoes personalizadas para rotear leads automaticamente. Exemplo: 'Se origem for igual a facebook, atribuir para a Maria' ou 'Se score minimo for maior que 80, nao distribuir'. As regras sao avaliadas na ordem e a primeira que bater e executada." />
+            </div>
             <p className="text-[11px] text-muted-foreground">Crie regras condicionais para rotear leads automaticamente</p>
           </div>
           <Button variant="outline" size="sm" onClick={addCustomRule} className="gap-1 text-xs">
