@@ -284,20 +284,13 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
       setMappings(autoMappings);
 
-      // Load funnels for step 3 — filter by organization to avoid cross-org contamination
-      const funnelQuery = supabase
+      // Load funnels for step 3 — same query as Pipeline page
+      const { data: funnelData } = await supabase
         .from("sales_funnels")
         .select("id, name, is_default")
-        .eq("is_active", true)
-        .order("is_default", { ascending: false });
-
-      // If organizationId is available, restrict to the user's org
-      const currentOrgId = organizationId;
-      if (currentOrgId) {
-        funnelQuery.eq("organization_id", currentOrgId);
-      }
-
-      const { data: funnelData } = await funnelQuery;
+        .eq("organization_id", organizationId)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true });
 
       setFunnels(funnelData || []);
       if (funnelData && funnelData.length > 0) {

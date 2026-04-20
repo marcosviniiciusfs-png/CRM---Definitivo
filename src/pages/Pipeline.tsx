@@ -1783,12 +1783,12 @@ const Pipeline = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={handleExportCSV}>
-                        <Download className="h-4 w-4 mr-2" />
+                        <Upload className="h-4 w-4 mr-2" />
                         Exportar
                       </DropdownMenuItem>
                       {permissions.canViewAllLeads && (
                         <DropdownMenuItem onClick={() => setShowImportModal(true)}>
-                          <Upload className="h-4 w-4 mr-2" />
+                          <Download className="h-4 w-4 mr-2" />
                           Importar
                         </DropdownMenuItem>
                       )}
@@ -1811,12 +1811,12 @@ const Pipeline = () => {
                     <span className="hidden sm:inline">Gerenciar Funis</span>
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                    <Download className="h-4 w-4 sm:mr-2" />
+                    <Upload className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Exportar</span>
                   </Button>
                   {permissions.canViewAllLeads && (
                     <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                      <Upload className="h-4 w-4 sm:mr-2" />
+                      <Download className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Importar</span>
                     </Button>
                   )}
