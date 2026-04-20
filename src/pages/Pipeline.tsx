@@ -2205,12 +2205,12 @@ const Pipeline = () => {
             onDragEnd={handleDragEnd}
             sensors={sensors}
           >
-            <div data-dragging-active={isDraggingActive}>
+            <div data-dragging-active={isDraggingActive} className="flex-1 min-h-0 overflow-hidden flex flex-col">
               {allFunnels.length > 0 ? (
                 <Tabs
                   value={selectedFunnelId || allFunnels[0]?.id || "default"}
                   onValueChange={handleTabChange}
-                  className="w-full pipeline-tabs"
+                  className="w-full pipeline-tabs flex-1 min-h-0 flex flex-col"
                 >
                   <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
                     {allFunnels.map((funnel) => {
@@ -2267,8 +2267,8 @@ const Pipeline = () => {
                       ref={scrollContainerRef}
                       onScroll={handleScrollContainerScroll}
                       className={cn(
-                        "flex pb-4 scrollbar-hide pipeline-content",
-                        !isMobile && "gap-3 overflow-x-auto",
+                        "flex pb-4 scrollbar-hide pipeline-content flex-1 min-h-0",
+                        !isMobile && "gap-3 overflow-x-auto overflow-y-hidden",
                         isTabTransitioning && "transitioning"
                       )}
                       style={isMobile ? {

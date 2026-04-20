@@ -513,6 +513,10 @@ All colors MUST be HSL.
   /* Remover animações de slide do TabsContent no Pipeline */
   .pipeline-tabs [role="tabpanel"] {
     animation: none !important;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .pipeline-tabs [role="tabpanel"][data-state="active"] {
