@@ -27,11 +27,13 @@ interface AnnouncementPopupProps {
 export function AnnouncementPopup({ announcement, onDismiss }: AnnouncementPopupProps) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setDontShowAgain(false);
     setImageLoaded(false);
+    setDismissed(false);
   }, [announcement?.id]);
 
   if (!announcement) return null;
@@ -49,13 +51,15 @@ export function AnnouncementPopup({ announcement, onDismiss }: AnnouncementPopup
     : announcement.gif_url;
 
   const handleDismiss = () => {
+    if (dismissed) return;
+    setDismissed(true);
     onDismiss(announcement.id, dontShowAgain);
   };
 
   const showPopup = imageLoaded || !imageSrc;
 
   return (
-    <Dialog open={!!announcement} onOpenChange={(open) => { if (!open) handleDismiss(); }}>
+    <Dialog open={!!announcement && !dismissed} onOpenChange={(open) => { if (!open) handleDismiss(); }}>
       <DialogContent
         className={`sm:max-w-md ${!showPopup ? 'opacity-0 pointer-events-none' : ''} transition-opacity duration-200`}
         onPointerDownOutside={(e) => e.preventDefault()}
