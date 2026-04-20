@@ -23,6 +23,7 @@ interface UseRankingCompetitionReturn {
   isLoading: boolean;
   revealCompetition: () => Promise<void>;
   isAdmin: boolean;
+  shouldFilterByTeam: boolean;
 }
 
 export function useRankingCompetition(organizationId: string | null): UseRankingCompetitionReturn {
@@ -135,6 +136,12 @@ export function useRankingCompetition(organizationId: string | null): UseRanking
   // isHiddenMode: active + not revealed + NOT admin
   const isHiddenMode = isActive && !isRevealed && !isAdmin;
 
+  // shouldFilterByTeam: if admin → false (admins see everything)
+  //                   if no competition exists → true (filter by team by default)
+  //                   if competition exists but not revealed → true (filter by team)
+  //                   if competition exists and IS revealed → false (everyone sees everything)
+  const shouldFilterByTeam = !isAdmin && (!competition || !isRevealed);
+
   return {
     competition,
     isHiddenMode,
@@ -143,5 +150,6 @@ export function useRankingCompetition(organizationId: string | null): UseRanking
     isLoading,
     revealCompetition,
     isAdmin,
+    shouldFilterByTeam,
   };
 }
