@@ -14,7 +14,7 @@ import {
   Eye,
   Bell,
 } from 'lucide-react';
-import { useAdminAnnouncements } from '@/hooks/useAdminAnnouncements';
+import { useAdminAnnouncements, OrganizationInfo } from '@/hooks/useAdminAnnouncements';
 import { AnnouncementPreview } from '@/components/AnnouncementPreview';
 import {
   Announcement,
@@ -323,18 +323,30 @@ export function AnnouncementsTab() {
           </Button>
         </div>
         {form.target_type === 'organization' && (
-          <select
-            className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={form.target_organization_id}
-            onChange={(e) => updateField('target_organization_id', e.target.value)}
-          >
-            <option value="">Selecione uma organização</option>
-            {organizations.map((org) => (
-              <option key={org.id} value={org.id}>
-                {org.name}
-              </option>
+          <div className="mt-2 max-h-48 overflow-y-auto space-y-1.5">
+            {organizations.map((org: OrganizationInfo) => (
+              <button
+                key={org.id}
+                type="button"
+                onClick={() => updateField('target_organization_id', org.id)}
+                className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-left transition-colors ${
+                  form.target_organization_id === org.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-card hover:bg-muted/50'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-xs font-bold text-muted-foreground uppercase">
+                  {org.name.charAt(0)}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-foreground truncate">{org.name}</div>
+                  {org.owner_email && (
+                    <div className="text-[10px] text-muted-foreground truncate">{org.owner_email}</div>
+                  )}
+                </div>
+              </button>
             ))}
-          </select>
+          </div>
         )}
       </div>
 

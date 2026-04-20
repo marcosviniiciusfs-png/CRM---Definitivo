@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Bell, Link, Star, Settings, Pencil } from 'lucide-react';
-import { Announcement, TEMPLATE_CONFIG, TemplateType } from '@/types/announcements';
+import { Announcement, TEMPLATE_CONFIG } from '@/types/announcements';
 
 const TEMPLATE_ICONS: Record<string, React.ElementType> = {
   Link,
@@ -60,6 +62,8 @@ export function AnnouncementPopup({ announcement, onDismiss }: AnnouncementPopup
         onEscapeKeyDown={(e) => e.preventDefault()}
         hideCloseButton
       >
+        <DialogTitle className="sr-only">{announcement.title}</DialogTitle>
+        <DialogDescription className="sr-only">{announcement.content.slice(0, 100)}</DialogDescription>
         <div className="flex items-start gap-3 mb-3">
           {imageSrc && (
             <div className="flex-shrink-0">

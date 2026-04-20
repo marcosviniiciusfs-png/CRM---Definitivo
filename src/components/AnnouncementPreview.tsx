@@ -1,6 +1,8 @@
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Bell, Link, Star, Settings, Pencil } from 'lucide-react';
@@ -47,6 +49,8 @@ export function AnnouncementPreview({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
+        <DialogTitle className="sr-only">Preview do aviso</DialogTitle>
+        <DialogDescription className="sr-only">Visualização de como o aviso aparecerá para os usuários</DialogDescription>
         <div className="flex items-start gap-3 mb-3">
           {imageSrc && (
             <div className="flex-shrink-0">
