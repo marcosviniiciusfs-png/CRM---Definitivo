@@ -15,8 +15,9 @@ import { useAdminAuth, getAdminToken } from "@/contexts/AdminAuthContext";
 import {
   Users, Shield, ChevronLeft, ChevronRight, TrendingUp, DollarSign,
   Trash2, Search, Download, ShoppingCart, CheckCircle, Clock, BarChart3,
-  Eye, LogOut, UserPlus, Power
+  Eye, LogOut, UserPlus, Power, Bell
 } from "lucide-react";
+import { AnnouncementsTab } from "@/components/AnnouncementsTab";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -444,6 +445,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="criar-conta" className="text-gray-600 data-[state=active]:text-gray-900 data-[state=active]:border-gray-900">
               <UserPlus className="w-4 h-4 mr-2" />
               Criar Conta
+            </TabsTrigger>
+            <TabsTrigger value="avisos" className="text-gray-600 data-[state=active]:text-gray-900 data-[state=active]:border-gray-900">
+              <Bell className="w-4 h-4 mr-2" />
+              Avisos
             </TabsTrigger>
           </TabsList>
 
@@ -879,6 +884,9 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+          <TabsContent value="avisos" className="space-y-6">
+            <AnnouncementsTab />
           </TabsContent>
         </Tabs>
       </div>
