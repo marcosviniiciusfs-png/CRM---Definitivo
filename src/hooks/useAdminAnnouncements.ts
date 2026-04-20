@@ -163,6 +163,19 @@ export function useAdminAnnouncements() {
     await fetchAnnouncements();
   }, [fetchAnnouncements]);
 
+  const deleteAnnouncement = useCallback(async (id: string) => {
+    const token = getToken();
+    if (!token) throw new Error('Admin token not found');
+
+    const { error } = await supabase.rpc('admin_delete_announcement', {
+      p_token: token,
+      p_id: id,
+    });
+
+    if (error) throw error;
+    await fetchAnnouncements();
+  }, [fetchAnnouncements]);
+
   useEffect(() => {
     fetchAnnouncements();
     fetchOrganizations();
@@ -175,6 +188,7 @@ export function useAdminAnnouncements() {
     createAnnouncement,
     updateAnnouncement,
     toggleActive,
+    deleteAnnouncement,
     fetchAnnouncements,
   };
 }

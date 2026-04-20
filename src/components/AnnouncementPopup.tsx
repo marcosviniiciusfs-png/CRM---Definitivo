@@ -114,7 +114,7 @@ export function AnnouncementPopup({ announcement, onDismiss }: AnnouncementPopup
               Entendi e não quero mais ver esse aviso
             </span>
           </label>
-          <Button onClick={handleDismiss} className="w-full" variant="default">
+          <Button onClick={handleDismiss} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
             Fechar
           </Button>
         </div>

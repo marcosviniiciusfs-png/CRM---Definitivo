@@ -54,23 +54,26 @@ export function useAnnouncements() {
     setLoading(false);
   }, [user, organizationId]);
 
-  const dismissAnnouncement = useCallback(async (announcementId: string) => {
+  const dismissAnnouncement = useCallback(async (announcementId: string, permanent: boolean = true) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from('announcement_dismissals')
-      .insert({
-        announcement_id: announcementId,
-        user_id: user.id,
-      });
-
-    if (error) {
-      console.error('Error dismissing announcement:', error);
-      return;
-    }
-
+    // Always remove from current session
     setAnnouncements((prev) => prev.filter((a) => a.id !== announcementId));
     setCurrentIndex(0);
+
+    // Only persist dismissal if user checked "don't show again"
+    if (permanent) {
+      const { error } = await supabase
+        .from('announcement_dismissals')
+        .insert({
+          announcement_id: announcementId,
+          user_id: user.id,
+        });
+
+      if (error) {
+        console.error('Error dismissing announcement:', error);
+      }
+    }
   }, [user]);
 
   // Fetch on mount and when user/org changes

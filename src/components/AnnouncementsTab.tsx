@@ -14,6 +14,7 @@ import {
   Eye,
   Bell,
   Search,
+  Trash2,
 } from 'lucide-react';
 import { useAdminAnnouncements, OrganizationInfo } from '@/hooks/useAdminAnnouncements';
 import { AnnouncementPreview } from '@/components/AnnouncementPreview';
@@ -48,7 +49,7 @@ const emptyForm: AnnouncementFormData = {
 
 export function AnnouncementsTab() {
   const { user } = useAuth();
-  const { announcements, organizations, loading, createAnnouncement, updateAnnouncement, toggleActive } = useAdminAnnouncements();
+  const { announcements, organizations, loading, createAnnouncement, updateAnnouncement, toggleActive, deleteAnnouncement } = useAdminAnnouncements();
 
   const adminUserId = user?.id || null;
 
@@ -126,6 +127,16 @@ export function AnnouncementsTab() {
       toast.error('Erro ao enviar aviso.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAnnouncement(id);
+      toast.success('Aviso excluído com sucesso!');
+    } catch (err) {
+      console.error('Error deleting announcement:', err);
+      toast.error('Erro ao excluir aviso.');
     }
   };
 
@@ -220,6 +231,14 @@ export function AnnouncementsTab() {
                         >
                           <ToggleLeft className="w-3.5 h-3.5" />
                           {a.is_active ? 'Desativar' : 'Ativar'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDelete(a.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
                     </div>

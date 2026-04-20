@@ -65,9 +65,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { currentAnnouncement, dismissAnnouncement } = useAnnouncements();
 
   const handleDismissAnnouncement = (announcementId: string, dontShowAgain: boolean) => {
-    if (dontShowAgain) {
-      dismissAnnouncement(announcementId);
-    }
+    dismissAnnouncement(announcementId, dontShowAgain);
   };
 
   // Inicializar com estado do localStorage para evitar flash
