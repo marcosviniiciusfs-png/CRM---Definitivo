@@ -48,7 +48,7 @@ export function AnnouncementPreview({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-white border-gray-200">
         <DialogTitle className="sr-only">Preview do aviso</DialogTitle>
         <DialogDescription className="sr-only">Visualização de como o aviso aparecerá para os usuários</DialogDescription>
         <div className="flex items-start gap-3 mb-3">
@@ -73,43 +73,43 @@ export function AnnouncementPreview({
                 {label}
               </span>
             </div>
-            <h4 className="text-sm font-semibold text-foreground leading-tight">
+            <h4 className="text-sm font-semibold text-gray-900 leading-tight">
               {formData.title || 'Título do aviso'}
             </h4>
           </div>
         </div>
 
-        <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line max-h-40 overflow-y-auto">
+        <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-line max-h-40 overflow-y-auto">
           {(formData.content || '').split(/(\*\*[^*]+\*\*)/).map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={i} className="text-foreground font-semibold">{part.slice(2, -2)}</strong>;
+              return <strong key={i} className="text-gray-900 font-semibold">{part.slice(2, -2)}</strong>;
             }
             return <span key={i}>{part}</span>;
           })}
         </div>
 
-        <div className="border-t pt-3 mt-3 flex flex-col gap-2.5">
+        <div className="border-t border-gray-100 pt-3 mt-3 flex flex-col gap-2.5">
           <label className="flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-primary rounded" />
-            <span className="text-xs text-muted-foreground">
+            <div className="w-4 h-4 border-2 border-gray-300 rounded" />
+            <span className="text-xs text-gray-500">
               Entendi e não quero mais ver esse aviso
             </span>
           </label>
-          <div className="w-full py-2 text-center text-xs text-muted-foreground border rounded-md bg-muted">
+          <div className="w-full py-2 text-center text-xs text-gray-500 border border-gray-200 rounded-md bg-gray-50">
             Fechar
           </div>
         </div>
 
         {mode === 'confirm' && (
-          <div className="border-t pt-3 mt-2 bg-muted/30 -mx-6 -mb-6 px-6 pb-6 rounded-b-lg">
-            <p className="text-xs text-muted-foreground mb-3">
-              Este aviso será enviado <strong className="text-yellow-500">agora</strong> para{' '}
-              <strong className="text-foreground">{targetLabel}</strong>
+          <div className="border-t border-gray-100 pt-3 mt-2 bg-gray-50 -mx-6 -mb-6 px-6 pb-6 rounded-b-lg">
+            <p className="text-xs text-gray-500 mb-3">
+              Este aviso será enviado <strong className="text-yellow-600">agora</strong> para{' '}
+              <strong className="text-gray-900">{targetLabel}</strong>
             </p>
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                className="flex-1"
+                className="flex-1 bg-white border-gray-200 text-gray-700"
                 onClick={() => onOpenChange(false)}
               >
                 Cancelar
