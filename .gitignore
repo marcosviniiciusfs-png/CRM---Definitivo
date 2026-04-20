@@ -23,4 +23,48 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
-.env*.local
+.env
+.env.*
+*.local
+
+# Secrets and credentials
+secrets*.txt
+full_secrets.txt
+check_admin.js
+get_secrets.js
+print_secrets.js
+print_secrets.py
+repair.js
+repair_all.js
+fix_lead_visibility.sql
+production_blocks_v2.sql
+
+# Database backups
+DATABASE_BACKUP_*
+FULL_DATABASE_SCHEMA*
+_db_*.txt
+
+# Migration backups
+migrations_backup/
+
+# Debug/output files
+lint_output.txt
+migration_list*.txt
+migrations.txt
+versions.txt
+help.txt
+push_*.txt
+network-*.json
+
+# Screenshots and images
+*.png
+*.jpeg
+*.jpg
+*.gif
+*.bmp
+*.svg
+!public/**
+crm_dashboard.html
+
+# Playwright MCP
+.playwright-mcp/

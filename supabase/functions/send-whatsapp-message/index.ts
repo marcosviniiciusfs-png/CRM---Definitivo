@@ -9,6 +9,8 @@ import {
   formatPhoneToJid,
 } from "../_shared/evolution-config.ts";
 
+// Unused import removed: createClient was shadowing createSupabaseAdmin
+
 interface SendMessageRequest {
   instance_name: string;
   remoteJid: string;
@@ -75,11 +77,8 @@ serve(async (req) => {
 
     console.log('✅ Número formatado:', jid);
 
-    // Criar cliente Supabase
+    // Criar cliente Supabase admin
     const supabase = createSupabaseAdmin();
-
-    // VALIDAÇÃO: Verificar se a instância existe e está conectada no banco
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: instanceCheck, error: instanceCheckError } = await supabase
       .from('whatsapp_instances')
       .select('id, status, instance_name')

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Announcement } from '@/types/announcements';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,9 @@ export function useAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Track session-dismissed announcements (closed without "don't show again")
+  const sessionDismissed = useRef<Set<string>>(new Set());
 
   const fetchAnnouncements = useCallback(async () => {
     if (!user) return;
@@ -44,8 +47,10 @@ export function useAnnouncements() {
         .eq('user_id', user.id)
         .in('announcement_id', ids);
 
-      const dismissedIds = new Set((dismissals || []).map((d: { announcement_id: string }) => d.announcement_id));
-      const active = filtered.filter((a: Announcement) => !dismissedIds.has(a.id));
+      const permanentlyDismissed = new Set((dismissals || []).map((d: { announcement_id: string }) => d.announcement_id));
+      const active = filtered.filter((a: Announcement) =>
+        !permanentlyDismissed.has(a.id) && !sessionDismissed.current.has(a.id)
+      );
       setAnnouncements(active);
     } else {
       setAnnouncements([]);
@@ -57,11 +62,12 @@ export function useAnnouncements() {
   const dismissAnnouncement = useCallback(async (announcementId: string, permanent: boolean = true) => {
     if (!user) return;
 
-    // Always remove from current session
+    // Always track dismissal in session
+    sessionDismissed.current.add(announcementId);
     setAnnouncements((prev) => prev.filter((a) => a.id !== announcementId));
     setCurrentIndex(0);
 
-    // Only persist dismissal if user checked "don't show again"
+    // Persist to DB only if user checked "don't show again"
     if (permanent) {
       const { error } = await supabase
         .from('announcement_dismissals')

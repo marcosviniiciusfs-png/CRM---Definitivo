@@ -65,7 +65,7 @@ serve(async (req) => {
       return new Response(null, {
         status: 302,
         headers: {
-          'Location': `${redirectUrl}/settings?integration=google_calendar&error=access_denied`,
+          'Location': `${redirectUrl}/integrations?integration=google_calendar&error=access_denied`,
         },
       });
     }
@@ -193,7 +193,7 @@ serve(async (req) => {
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': `${redirectUrl}/settings?integration=google_calendar&success=true`,
+        'Location': `${redirectUrl}/integrations?integration=google_calendar&success=true`,
       },
     });
   } catch (error) {
@@ -201,7 +201,7 @@ serve(async (req) => {
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': `${redirectUrl}/settings?integration=google_calendar&error=callback_failed`,
+        'Location': `${redirectUrl}/integrations?integration=google_calendar&error=callback_failed`,
       },
     });
   }

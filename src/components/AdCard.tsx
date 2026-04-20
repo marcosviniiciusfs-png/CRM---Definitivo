@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Video, Image as ImageIcon, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import DOMPurify from "dompurify";
 import {
   Dialog,
   DialogContent,
@@ -117,7 +118,7 @@ export const AdCard = ({ ad, getStatusBadgeVariant, getStatusLabel }: AdCardProp
               display: 'flex',
               justifyContent: 'center',
             }}
-            dangerouslySetInnerHTML={{ __html: decodeHtmlEntities(ad.preview_html!) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(decodeHtmlEntities(ad.preview_html!)) }}
           />
           {/* Loading overlay */}
           {!iframeLoaded && !iframeError && (

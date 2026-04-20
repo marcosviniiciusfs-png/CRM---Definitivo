@@ -3,8 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ProductionBlockCard } from "./ProductionBlockCard";
-import { ProductionBlockDetailModal } from "./ProductionBlockDetailModal";
 import { LoadingAnimation } from "./LoadingAnimation";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,20 +14,19 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ProductionMetricCards } from "./ProductionMetricCards";
+import { ProductionSalesTable } from "./ProductionSalesTable";
+import { ProductionFinancialSummary } from "./ProductionFinancialSummary";
 
 export interface ProductionBlock {
   id: string;
@@ -48,6 +45,8 @@ export interface ProductionBlock {
   auto_recurring: boolean;
   recurrence_day: number | null;
 }
+
+const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 const calculateMetrics = async (organizationId: string, startDate: Date, endDate: Date) => {
   const { data: leads } = await supabase
@@ -84,7 +83,6 @@ const calculateMetrics = async (organizationId: string, startDate: Date, endDate
 
 const ensureCurrentMonthBlock = async (organizationId: string, month: number, year: number) => {
   try {
-    // Use maybeSingle() instead of single() — avoids 406 when no row is found
     const { data: existing, error: selectError } = await supabase
       .from("production_blocks")
       .select("id, start_date, end_date")
@@ -104,7 +102,6 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
     if (existing) {
       const metrics = await calculateMetrics(organizationId, blockStartDate, blockEndDate);
 
-      // Safely fetch expenses — table may not exist yet (migration pending)
       const { data: expenses } = await supabase
         .from("production_expenses")
         .select("amount")
@@ -117,7 +114,6 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
 
-      // maybeSingle() — no 406 when previous month block doesn't exist
       const { data: previousBlock } = await supabase
         .from("production_blocks")
         .select("total_profit")
@@ -140,7 +136,6 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
         profit_change_percentage: profitChangePercentage,
       };
 
-      // Set start_date and end_date if not already set
       if (!existing.start_date) {
         updatePayload.start_date = blockStartDate.toISOString().split('T')[0];
       }
@@ -157,12 +152,10 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
       return;
     }
 
-    // Block doesn't exist yet — try to create it
     const metrics = await calculateMetrics(organizationId, blockStartDate, blockEndDate);
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
 
-    // maybeSingle() — no 406 when previous month block doesn't exist
     const { data: previousBlock } = await supabase
       .from("production_blocks")
       .select("total_profit")
@@ -191,7 +184,6 @@ const ensureCurrentMonthBlock = async (organizationId: string, month: number, ye
     });
 
     if (insertError) {
-      // 403 = RLS policy missing (migration pending). Log once, don't throw.
       console.warn("[Production] Could not auto-create block (RLS policy may be missing):", insertError.message);
     }
   } catch (error: any) {
@@ -204,7 +196,6 @@ const fetchProductionBlocks = async (organizationId: string): Promise<Production
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
 
-  // Best-effort: create/sync current month block. Never throws.
   await ensureCurrentMonthBlock(organizationId, currentMonth, currentYear);
 
   const { data, error } = await supabase
@@ -215,7 +206,6 @@ const fetchProductionBlocks = async (organizationId: string): Promise<Production
     .order("month", { ascending: false });
 
   if (error) {
-    // RLS or network error — return empty list instead of throwing (avoids retry loop)
     console.warn("[Production] Could not fetch blocks:", error.message);
     return [];
   }
@@ -229,13 +219,11 @@ export function ProductionDashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [selectedBlock, setSelectedBlock] = useState<ProductionBlock | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-
-  // New block dialog
-  const [isNewBlockOpen, setIsNewBlockOpen] = useState(false);
   const currentDate = new Date();
-  // Default: first day of current month to last day of current month
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+
+  const [isNewBlockOpen, setIsNewBlockOpen] = useState(false);
   const defaultStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0];
   const defaultEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
   const [newBlockStart, setNewBlockStart] = useState(defaultStart);
@@ -244,16 +232,12 @@ export function ProductionDashboard() {
   const [newBlockRecurrenceDay, setNewBlockRecurrenceDay] = useState('1');
   const [creatingBlock, setCreatingBlock] = useState(false);
 
-  // Delete confirmation
-  const [blockToDelete, setBlockToDelete] = useState<ProductionBlock | null>(null);
-  const [deletingBlock, setDeletingBlock] = useState(false);
-
   const { data: blocks = [], isLoading } = useQuery({
     queryKey: ['production-blocks', organizationId],
     queryFn: () => fetchProductionBlocks(organizationId!),
     enabled: isReady && !!organizationId,
     staleTime: 5 * 60 * 1000,
-    retry: false, // Don't retry on error — prevents cascading 403/406 loops
+    retry: false,
   });
 
   useEffect(() => {
@@ -281,47 +265,74 @@ export function ProductionDashboard() {
     };
   }, [organizationId, queryClient]);
 
+  const selectedBlock = blocks.find(b => b.month === selectedMonth && b.year === selectedYear) || null;
+
+  const blockStartDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const blockEndDate = new Date(selectedYear, selectedMonth, 0, 23, 59, 59);
+
+  const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+  const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+  const previousBlock = blocks.find(b => b.month === prevMonth && b.year === prevYear) || null;
+
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
-  const currentBlock = blocks.find(b => b.month === currentMonth && b.year === currentYear) || null;
 
-  const handleBlockClick = (block: ProductionBlock) => {
-    setSelectedBlock(block);
-    setIsDetailModalOpen(true);
+  const metricCards = selectedBlock ? {
+    sales: {
+      value: String(selectedBlock.total_sales),
+      change: previousBlock && previousBlock.total_sales > 0
+        ? ((selectedBlock.total_sales - previousBlock.total_sales) / previousBlock.total_sales) * 100
+        : null,
+    },
+    revenue: {
+      value: fmt(selectedBlock.total_revenue),
+      change: previousBlock && previousBlock.total_revenue > 0
+        ? ((selectedBlock.total_revenue - previousBlock.total_revenue) / previousBlock.total_revenue) * 100
+        : null,
+    },
+    profit: {
+      value: fmt(selectedBlock.total_profit),
+      change: selectedBlock.profit_change_percentage,
+    },
+    ticket: {
+      value: selectedBlock.total_sales > 0 ? fmt(selectedBlock.total_revenue / selectedBlock.total_sales) : fmt(0),
+      change: previousBlock && previousBlock.total_sales > 0
+        ? ((selectedBlock.total_revenue / selectedBlock.total_sales) - (previousBlock.total_revenue / previousBlock.total_sales)) / (previousBlock.total_revenue / previousBlock.total_sales) * 100
+        : null,
+    },
+  } : {
+    sales: { value: "0", change: null },
+    revenue: { value: fmt(0), change: null },
+    profit: { value: fmt(0), change: null },
+    ticket: { value: fmt(0), change: null },
   };
 
-  const handleDeleteRequest = (block: ProductionBlock) => {
-    // Prevent deleting the current month's block
-    if (block.month === currentMonth && block.year === currentYear) {
-      toast({
-        title: "Não é possível excluir o bloco do mês atual",
-        variant: "destructive",
+  const monthOptions = (() => {
+    const options: { month: number; year: number; label: string }[] = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      options.push({
+        month: d.getMonth() + 1,
+        year: d.getFullYear(),
+        label: format(d, "MMMM yyyy", { locale: ptBR }),
       });
-      return;
     }
-    setBlockToDelete(block);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!blockToDelete) return;
-    setDeletingBlock(true);
-    try {
-      const { error } = await supabase
-        .from("production_blocks")
-        .delete()
-        .eq("id", blockToDelete.id);
-
-      if (error) throw error;
-
-      toast({ title: "Bloco excluído com sucesso" });
-      queryClient.invalidateQueries({ queryKey: ['production-blocks', organizationId] });
-    } catch (error: any) {
-      toast({ title: "Erro ao excluir bloco", description: error.message, variant: "destructive" });
-    } finally {
-      setDeletingBlock(false);
-      setBlockToDelete(null);
-    }
-  };
+    blocks.forEach(b => {
+      if (!options.find(o => o.month === b.month && o.year === b.year)) {
+        options.push({
+          month: b.month,
+          year: b.year,
+          label: format(new Date(b.year, b.month - 1), "MMMM yyyy", { locale: ptBR }),
+        });
+      }
+    });
+    options.sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+    return options;
+  })();
 
   const handleCreateBlock = async () => {
     if (!organizationId) return;
@@ -337,7 +348,6 @@ export function ProductionDashboard() {
     }
     const month = startDate.getMonth() + 1;
     const year = startDate.getFullYear();
-    // Check if block already exists for this period
     const existing = blocks.find(b => b.month === month && b.year === year);
     if (existing) {
       toast({ title: "Bloco já existe", description: `Já existe um bloco para este período`, variant: "destructive" });
@@ -377,7 +387,6 @@ export function ProductionDashboard() {
       if (error) throw error;
       toast({ title: "Bloco criado com sucesso" });
       setIsNewBlockOpen(false);
-      // Reset form
       setNewBlockStart(defaultStart);
       setNewBlockEnd(defaultEnd);
       setNewBlockAutoRecurring(false);
@@ -401,68 +410,114 @@ export function ProductionDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Blocos de Produção</h2>
-        {isAdmin && (
-          <Button
-            onClick={() => {
-              // Smart default: if current month already has a block, default to next month
-              const hasCurrentBlock = blocks.some(
-                (b) => b.month === currentMonth && b.year === currentYear
-              );
-              let startD: Date;
-              if (hasCurrentBlock) {
-                startD = new Date(currentYear, currentMonth, 1); // first day of next month
-              } else {
-                startD = new Date(currentYear, currentMonth - 1, 1); // first day of current month
-              }
-              const endD = new Date(startD.getFullYear(), startD.getMonth() + 1, 0); // last day
-              setNewBlockStart(startD.toISOString().split('T')[0]);
-              setNewBlockEnd(endD.toISOString().split('T')[0]);
-              setNewBlockAutoRecurring(false);
-              setNewBlockRecurrenceDay('1');
-              setIsNewBlockOpen(true);
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold">Produção</h2>
+          <p className="text-sm text-muted-foreground">Acompanhe suas métricas de produção</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              onClick={() => {
+                const hasCurrentBlock = blocks.some(
+                  (b) => b.month === currentMonth && b.year === currentYear
+                );
+                let startD: Date;
+                if (hasCurrentBlock) {
+                  startD = new Date(currentYear, currentMonth, 1);
+                } else {
+                  startD = new Date(currentYear, currentMonth - 1, 1);
+                }
+                const endD = new Date(startD.getFullYear(), startD.getMonth() + 1, 0);
+                setNewBlockStart(startD.toISOString().split('T')[0]);
+                setNewBlockEnd(endD.toISOString().split('T')[0]);
+                setNewBlockAutoRecurring(false);
+                setNewBlockRecurrenceDay('1');
+                setIsNewBlockOpen(true);
+              }}
+              size="sm"
+              className="bg-[#6c5ce7] hover:bg-[#5a4bd6] text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Produção
+            </Button>
+          )}
+          <Select
+            value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
+            onValueChange={(val) => {
+              const [y, m] = val.split('-').map(Number);
+              setSelectedYear(y);
+              setSelectedMonth(m);
             }}
-            size="sm"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Bloco
-          </Button>
-        )}
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions.map((opt) => (
+                <SelectItem key={`${opt.year}-${opt.month}`} value={`${opt.year}-${String(opt.month).padStart(2, '0')}`}>
+                  <span className="capitalize">{opt.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {blocks.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {blocks.map((block) => {
-            const isCurrent = block.month === currentBlock?.month && block.year === currentBlock?.year;
-            return (
-              <ProductionBlockCard
-                key={block.id}
-                block={block}
-                organizationId={organizationId}
-                isCurrent={isCurrent}
-                onClick={() => handleBlockClick(block)}
-                onDelete={isAdmin && !isCurrent ? () => handleDeleteRequest(block) : undefined}
-              />
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center py-12 bg-card rounded-lg border">
-          <p className="text-muted-foreground">
-            Nenhum bloco de produção encontrado
-          </p>
-        </div>
+      {/* Metric Cards */}
+      <ProductionMetricCards
+        sales={{ label: "Vendas Fechadas", ...metricCards.sales }}
+        revenue={{ label: "Faturamento", ...metricCards.revenue }}
+        profit={{ label: "Lucro Líquido", ...metricCards.profit }}
+        ticket={{ label: "Ticket Médio", ...metricCards.ticket }}
+      />
+
+      {/* Sales Table */}
+      {organizationId && (
+        <ProductionSalesTable
+          organizationId={organizationId}
+          startDate={blockStartDate}
+          endDate={blockEndDate}
+        />
       )}
 
-      {/* Detail Modal */}
-      {selectedBlock && (
-        <ProductionBlockDetailModal
-          block={selectedBlock}
-          open={isDetailModalOpen}
-          onOpenChange={setIsDetailModalOpen}
-          onBlockUpdated={() => queryClient.invalidateQueries({ queryKey: ['production-blocks', organizationId] })}
+      {/* Financial Summary */}
+      {selectedBlock && organizationId && (
+        <ProductionFinancialSummary
+          organizationId={organizationId}
+          blockId={selectedBlock.id}
+          startDate={blockStartDate}
+          endDate={blockEndDate}
+          totalRevenue={selectedBlock.total_revenue}
+          totalCost={selectedBlock.total_cost}
         />
+      )}
+
+      {/* Empty state */}
+      {!selectedBlock && !isLoading && (
+        <div className="text-center py-12 bg-card rounded-lg border border-dashed">
+          <p className="text-muted-foreground mb-3">
+            Nenhuma produção encontrada para {format(new Date(selectedYear, selectedMonth - 1), "MMMM yyyy", { locale: ptBR })}
+          </p>
+          {isAdmin && (
+            <Button
+              onClick={() => {
+                const startD = new Date(selectedYear, selectedMonth - 1, 1);
+                const endD = new Date(selectedYear, selectedMonth, 0);
+                setNewBlockStart(startD.toISOString().split('T')[0]);
+                setNewBlockEnd(endD.toISOString().split('T')[0]);
+                setNewBlockAutoRecurring(false);
+                setNewBlockRecurrenceDay('1');
+                setIsNewBlockOpen(true);
+              }}
+              size="sm"
+              className="bg-[#6c5ce7] hover:bg-[#5a4bd6] text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Produção
+            </Button>
+          )}
+        </div>
       )}
 
       {/* New Block Dialog */}
@@ -524,7 +579,7 @@ export function ProductionDashboard() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  ✅ Todo dia <strong>{newBlockRecurrenceDay}</strong> de cada mês, um novo bloco de produção será criado automaticamente para o período seguinte.
+                  Todo dia <strong>{newBlockRecurrenceDay}</strong> de cada mês, um novo bloco será criado automaticamente.
                 </p>
               </div>
             )}
@@ -537,36 +592,6 @@ export function ProductionDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!blockToDelete} onOpenChange={(open) => !open && setBlockToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir bloco de produção?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              {blockToDelete && (
-                <>
-                  Deseja excluir o bloco de{" "}
-                  <strong className="capitalize">
-                    {format(new Date(blockToDelete.year, blockToDelete.month - 1), "MMMM yyyy", { locale: ptBR })}
-                  </strong>
-                  ? Esta ação não pode ser desfeita. As despesas associadas também serão excluídas.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={deletingBlock}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletingBlock ? "Excluindo..." : "Excluir"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

@@ -10,6 +10,8 @@ import { WebhookIntegrationsTab } from "@/components/WebhookIntegrationsTab";
 import { IntegratedLogsViewer } from "@/components/IntegratedLogsViewer";
 import { MetaPixelConnection } from "@/components/MetaPixelConnection";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { GoogleCalendarModal } from "@/components/GoogleCalendarModal";
 
 /* ── Design tokens ── */
 const BG   = "linear-gradient(135deg,#921009 0%,#c0392b 50%,#e97555 100%)";
@@ -18,21 +20,7 @@ const R    = "5px";
 
 /* ── Coming-soon integration definitions ── */
 const COMING_SOON = [
-  {
-    id: "gcal", name: "Google Calendar", cat: "Produtividade",
-    desc: "Agende reuniões e sincronize eventos com seu calendário automaticamente.",
-    color: "#4285F4", bg: "rgba(66,133,244,.06)", br: "rgba(66,133,244,.16)",
-    ic: (
-      <svg viewBox="0 0 32 32" width="22" height="22">
-        <rect width="32" height="32" rx="2" fill="#4285F4"/>
-        <rect x="4" y="8" width="24" height="20" rx="1" fill="white"/>
-        <rect x="4" y="8" width="24" height="7" fill="#4285F4"/>
-        <rect x="9" y="4" width="3" height="7" rx="1" fill="white"/>
-        <rect x="20" y="4" width="3" height="7" rx="1" fill="white"/>
-        <text x="16" y="24" textAnchor="middle" fill="#4285F4" fontSize="9" fontWeight="bold">CAL</text>
-      </svg>
-    ),
-  },
+  // Google Calendar foi promovido para card funcional — removido do coming soon
   // Meta Conversions foi promovido para card funcional — removido do coming soon
   {
     id: "gmail", name: "Gmail", cat: "Email",
@@ -85,6 +73,17 @@ const WHATSAPP_IC = (
 const FACEBOOK_IC = (
   <svg viewBox="0 0 24 24" fill="#1877F2" width="22" height="22">
     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+  </svg>
+);
+
+const GCAL_IC = (
+  <svg viewBox="0 0 32 32" width="22" height="22">
+    <rect width="32" height="32" rx="2" fill="#4285F4"/>
+    <rect x="4" y="8" width="24" height="20" rx="1" fill="white"/>
+    <rect x="4" y="8" width="24" height="7" fill="#4285F4"/>
+    <rect x="9" y="4" width="3" height="7" rx="1" fill="white"/>
+    <rect x="20" y="4" width="3" height="7" rx="1" fill="white"/>
+    <text x="16" y="24" textAnchor="middle" fill="#4285F4" fontSize="9" fontWeight="bold">CAL</text>
   </svg>
 );
 
@@ -540,6 +539,149 @@ function MetaConversionsCard({
   );
 }
 
+/* ── Google Calendar summary card ── */
+function GoogleCalendarCard({
+  isConnected,
+  loading,
+  onConnect,
+  canManage,
+}: {
+  isConnected: boolean;
+  loading: boolean;
+  onConnect: () => void;
+  canManage: boolean;
+}) {
+  const [hov, setHov] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const { toast } = useToast();
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-calendar-oauth-initiate", {
+        body: { origin: window.location.origin },
+      });
+      if (error) {
+        let errorMessage = "Não foi possível iniciar a conexão";
+        try {
+          const errorData = await error.context?.json?.();
+          if (errorData?.error) errorMessage = errorData.error;
+        } catch {}
+        throw new Error(errorMessage);
+      }
+      if (data?.error) throw new Error(data.error);
+      if (data?.authUrl) {
+        window.location.href = data.authUrl;
+        return;
+      }
+      throw new Error("URL de autorização não recebida");
+    } catch (err: any) {
+      console.error("Erro ao iniciar conexão:", err);
+      const isSetupError = err.message?.includes("SETUP_REQUIRED");
+      toast({
+        title: isSetupError ? "Configuração necessária" : "Erro ao conectar",
+        description: err.message || "Não foi possível iniciar a conexão com o Google Calendar",
+        variant: "destructive",
+        duration: isSetupError ? 10000 : 5000,
+      });
+      setConnecting(false);
+    }
+  };
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        minHeight: 190,
+        borderRadius: R,
+        border: `1px solid ${isConnected ? "rgba(66,133,244,.25)" : hov ? "rgba(66,133,244,.15)" : "rgba(255,255,255,.07)"}`,
+        background: isConnected ? "rgba(66,133,244,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
+        boxShadow: isConnected ? "0 4px 24px rgba(66,133,244,.1)" : hov ? "0 6px 24px rgba(0,0,0,.3)" : "none",
+        transform: hov ? "translateY(-2px)" : "none",
+        transition: "all .2s",
+        display: "flex", flexDirection: "column",
+        padding: "16px 16px 14px",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: R, flexShrink: 0,
+            background: "rgba(66,133,244,.08)", border: "1px solid rgba(66,133,244,.22)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {GCAL_IC}
+          </div>
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#E8E8F0", lineHeight: 1.2, marginBottom: 4 }}>Google Calendar</div>
+            <span style={{
+              fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 3,
+              background: "rgba(66,133,244,.1)", border: "1px solid rgba(66,133,244,.22)", color: "#4285F4",
+            }}>Produtividade</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+          <span style={{
+            width: 7, height: 7, borderRadius: "50%",
+            background: isConnected ? "#2ECC71" : "#222230",
+            boxShadow: isConnected ? "0 0 6px rgba(46,204,113,.5)" : "none",
+          }}/>
+          <span style={{ fontSize: 11, fontWeight: 500, color: isConnected ? "#2ECC71" : "#2A2A3A" }}>
+            {isConnected ? "Online" : "Offline"}
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <p style={{ fontSize: 12.5, color: "#606070", flex: 1 }}>Verificando conexão...</p>
+      ) : isConnected ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div style={{
+            padding: "8px 10px", borderRadius: R,
+            background: "rgba(66,133,244,.06)", border: "1px solid rgba(66,133,244,.15)",
+            fontSize: 12, color: "#6699DD",
+          }}>
+            Calendário sincronizado com seu Google Calendar
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={onConnect}
+              style={{
+                border: "1px solid rgba(66,133,244,.3)", borderRadius: R, fontFamily: "inherit",
+                fontSize: 12, fontWeight: 600, padding: "6px 14px",
+                cursor: "pointer",
+                background: "rgba(66,133,244,.1)", color: "#6699DD", transition: "all .18s",
+              }}
+            >Gerenciar</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6 }}>
+            Agende reuniões e sincronize eventos com seu calendário automaticamente.
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={canManage ? handleConnect : undefined}
+              disabled={!canManage || connecting}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              style={{
+                border: "none", borderRadius: R, fontFamily: "inherit",
+                fontSize: 12, fontWeight: 700, padding: "7px 15px",
+                cursor: canManage ? "pointer" : "not-allowed",
+                color: "white", background: "linear-gradient(135deg,#4285F4,#2B63C3)",
+                boxShadow: "0 3px 12px rgba(66,133,244,.35)", transition: "all .18s",
+                opacity: canManage ? 1 : 0.45,
+              }}
+            >{connecting ? "Conectando..." : "Conectar Google Calendar"}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Integrations Page ── */
 const Integrations = () => {
   const { organizationId, isReady } = useOrganizationReady();
@@ -551,6 +693,8 @@ const Integrations = () => {
   const [showMetaPixel, setShowMetaPixel] = useState(false);
   const [fbKey, setFbKey] = useState(0); // force remount on dialog open
   const [metaPixelActive, setMetaPixelActive] = useState(false);
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [showGcalModal, setShowGcalModal] = useState(false);
 
   // ── Dados carregados via React Query com cache (5 min) ──
   const [dataLoading, setDataLoading] = useState(true);
@@ -588,6 +732,9 @@ const Integrations = () => {
       const { data: pixelData } = await supabase
         .from("meta_pixel_integrations").select("id, is_active").eq("organization_id", organizationId).maybeSingle();
 
+      const { data: gcalData } = await supabase
+        .from("google_calendar_integrations").select("id, is_active").eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
+
       let configuredForms = 0;
       if (fbData?.page_id) {
         const { data: funnels } = await supabase.from("sales_funnels").select("id").eq("organization_id", organizationId);
@@ -607,6 +754,7 @@ const Integrations = () => {
         fbIntegration: fbData || null,
         fbConfiguredForms: configuredForms,
         metaPixelActive: !!(pixelData?.is_active),
+        gcalConnected: !!gcalData?.is_active,
       };
     },
     enabled: !!organizationId && isReady,
@@ -624,6 +772,7 @@ const Integrations = () => {
       setFbIntegration(cached.fbIntegration);
       setFbConfiguredForms(cached.fbConfiguredForms);
       setMetaPixelActive(cached.metaPixelActive);
+      setGcalConnected(cached.gcalConnected);
     }
     setDataLoading(isIntegrationLoading);
   }, [isIntegrationLoading, organizationId, queryClient]);
@@ -647,6 +796,24 @@ const Integrations = () => {
 
     return () => { supabase.removeChannel(channel); };
   }, [isReady, organizationId, refreshIntegrations]);
+
+  // Detect OAuth return — invalidate cache and show toast
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gcalStatus = params.get('integration');
+    const gcalSuccess = params.get('success');
+    const gcalError = params.get('error');
+
+    if (gcalStatus === 'google_calendar') {
+      refreshIntegrations();
+      if (gcalSuccess === 'true') {
+        toast({ title: "Google Calendar conectado!", description: "Sincronização ativa.", duration: 4000 });
+      } else if (gcalError) {
+        toast({ title: "Erro ao conectar", description: gcalError === 'access_denied' ? "Você negou o acesso." : "Falha na conexão. Tente novamente.", variant: "destructive", duration: 5000 });
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Popup detection - close OAuth popup immediately without rendering the full page
   if (typeof window !== 'undefined' && window.opener && (
@@ -801,6 +968,14 @@ const Integrations = () => {
               canManage={canManage}
             />
 
+            {/* Google Calendar — card funcional */}
+            <GoogleCalendarCard
+              isConnected={gcalConnected}
+              loading={dataLoading}
+              onConnect={() => setShowGcalModal(true)}
+              canManage={canManage}
+            />
+
             {/* Coming soon */}
             {COMING_SOON.map(g => <ComingSoonCard key={g.id} g={g} />)}
 
@@ -883,6 +1058,9 @@ const Integrations = () => {
           <MetaPixelConnection onBack={() => setShowMetaPixel(false)} />
         </DialogContent>
       </Dialog>
+
+      {/* ── Google Calendar Modal ── */}
+      <GoogleCalendarModal open={showGcalModal} onOpenChange={setShowGcalModal} />
     </>
   );
 };

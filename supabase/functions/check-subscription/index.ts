@@ -71,7 +71,7 @@ serve(async (req) => {
     const { data: subscription } = await supabaseClient
       .from("subscriptions")
       .select("*")
-      .eq("status", "active")
+      .in("status", ["active", "authorized"])
       .eq("user_id", user.id)
       .limit(1)
       .maybeSingle();
@@ -79,9 +79,11 @@ serve(async (req) => {
     let totalCollaborators = maxCollaborators;
 
     if (subscription) {
-      // Se tem assinatura, usar limite da assinatura
-      totalCollaborators = 5 + (subscription.extra_collaborators || 0);
-      logStep("Assinatura ativa encontrada", { total: totalCollaborators });
+      // Se tem assinatura, usar o MAIOR entre limite atual e limite da assinatura
+      // Isso garante que encontrar a assinatura nunca REDUZ o limite do usuario
+      const subscriptionLimit = 5 + (subscription.extra_collaborators || 0);
+      totalCollaborators = Math.max(maxCollaborators, subscriptionLimit);
+      logStep("Assinatura ativa encontrada", { subscriptionLimit, total: totalCollaborators });
     }
 
     return new Response(JSON.stringify({

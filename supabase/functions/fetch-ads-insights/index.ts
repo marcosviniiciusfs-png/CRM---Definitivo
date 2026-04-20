@@ -289,12 +289,15 @@ Deno.serve(async (req) => {
     let availableAccounts: AdAccount[] = [];
     let integrationId: string | null = null;
 
-    // Primeiro buscar a integração principal
-    const { data: integration, error: integrationError } = await supabase
+    // Primeiro buscar a integração principal — usar a mais recente se houver múltiplas
+    const { data: integrations, error: integrationError } = await supabase
       .from('facebook_integrations')
       .select('id, ad_account_id, ad_accounts, business_id')
       .eq('organization_id', organization_id)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const integration = integrations?.[0] || null;
 
     if (integrationError || !integration) {
       console.error('Integration not found:', integrationError);
@@ -511,10 +514,74 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Filtrar availableAccounts para conter apenas contas da BM conectada
-    if (integration.business_id && availableAccounts.length > 0) {
+    // Descobrir business_id se não estiver salvo no banco
+    let resolvedBusinessId = integration.business_id;
+    if (!resolvedBusinessId && access_token) {
+      console.log('[ADS] business_id nulo — descobrindo via Facebook API...');
       try {
-        const bmAccountsUrl = `https://graph.facebook.com/v21.0/${integration.business_id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
+        // Tentativa 1: business da página conectada
+        const pageInfoUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,business&access_token=${access_token}`;
+        const pageInfoResp = await fetch(pageInfoUrl);
+        const pageInfoData = await pageInfoResp.json();
+        if (pageInfoData.data && pageInfoData.data.length > 0) {
+          const biz = pageInfoData.data[0]?.business;
+          if (biz?.id) {
+            resolvedBusinessId = biz.id;
+            console.log(`[ADS] Business descoberto via página: ${biz.name} (${biz.id})`);
+          }
+        }
+      } catch (e) {
+        console.warn('[ADS] Erro ao buscar business da página:', e);
+      }
+
+      // Tentativa 2: /me/businesses
+      if (!resolvedBusinessId) {
+        try {
+          const bizListUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name&limit=10&access_token=${access_token}`;
+          const bizListResp = await fetch(bizListUrl);
+          const bizListData = await bizListResp.json();
+          if (bizListData.data && bizListData.data.length > 0) {
+            // Usar o primeiro BM que tenha a conta selecionada
+            for (const biz of bizListData.data) {
+              try {
+                const checkUrl = `https://graph.facebook.com/v21.0/${biz.id}/owned_ad_accounts?fields=id&limit=50&access_token=${access_token}`;
+                const checkResp = await fetch(checkUrl);
+                const checkData = await checkResp.json();
+                if (checkData.data) {
+                  const found = checkData.data.find((a: any) => a.id === selectedAccountId);
+                  if (found) {
+                    resolvedBusinessId = biz.id;
+                    console.log(`[ADS] Business descoberto via /me/businesses: ${biz.name} (${biz.id})`);
+                    break;
+                  }
+                }
+              } catch (_) {}
+            }
+            // Se não encontrou pelo selectedAccountId, usar o primeiro BM
+            if (!resolvedBusinessId) {
+              resolvedBusinessId = bizListData.data[0].id;
+              console.log(`[ADS] Usando primeiro BM: ${bizListData.data[0].name} (${bizListData.data[0].id})`);
+            }
+          }
+        } catch (e) {
+          console.warn('[ADS] Erro ao listar businesses:', e);
+        }
+      }
+
+      // Salvar business_id descoberto no banco
+      if (resolvedBusinessId && integrationId) {
+        await supabase
+          .from('facebook_integrations')
+          .update({ business_id: resolvedBusinessId })
+          .eq('id', integrationId);
+        console.log(`[ADS] business_id salvo no banco: ${resolvedBusinessId}`);
+      }
+    }
+
+    // Filtrar availableAccounts para conter apenas contas da BM conectada
+    if (resolvedBusinessId && availableAccounts.length > 0 && access_token) {
+      try {
+        const bmAccountsUrl = `https://graph.facebook.com/v21.0/${resolvedBusinessId}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
         const bmAccountsResp = await fetch(bmAccountsUrl);
         const bmAccountsData = await bmAccountsResp.json();
 
@@ -523,15 +590,35 @@ Deno.serve(async (req) => {
           const filtered = availableAccounts.filter(acc => bmAccountIds.has(acc.id));
           if (filtered.length > 0) {
             availableAccounts = filtered;
-            console.log(`[ADS] Filtrado para BM ${integration.business_id}: ${availableAccounts.length} conta(s)`);
+            console.log(`[ADS] Filtrado para BM ${resolvedBusinessId}: ${availableAccounts.length} conta(s)`);
           }
+        } else {
+          console.log(`[ADS] BM ${resolvedBusinessId} retornou 0 contas via API — substituindo lista pela resposta da BM`);
+          // Se o banco tinha contas de outros BMs e a BM conectada tem menos, usar só as da BM
+          availableAccounts = [];
         }
       } catch (filterErr) {
         console.warn('[ADS] Erro ao filtrar contas por BM, usando lista completa:', filterErr);
       }
     }
 
-    const selectedAccount = availableAccounts.find(acc => acc.id === selectedAccountId) || {
+    // Se a conta selecionada não está nas contas filtradas da BM, usar a primeira da BM
+    const selectedInFiltered = availableAccounts.find(acc => acc.id === selectedAccountId);
+    if (!selectedInFiltered && availableAccounts.length > 0) {
+      const oldId = selectedAccountId;
+      selectedAccountId = availableAccounts[0].id;
+      if (!selectedAccountId.startsWith('act_')) {
+        selectedAccountId = `act_${selectedAccountId}`;
+      }
+      console.log(`[ADS] Conta ${oldId} não pertence à BM — auto-selecionando: ${selectedAccountId}`);
+      // Atualizar no banco
+      await supabase
+        .from('facebook_integrations')
+        .update({ ad_account_id: selectedAccountId })
+        .eq('id', integrationId);
+    }
+
+    const selectedAccount = selectedInFiltered || availableAccounts[0] || {
       id: selectedAccountId,
       name: 'Conta de Anúncios',
       status: 1
@@ -718,7 +805,7 @@ Deno.serve(async (req) => {
 
     // Buscar breakdown por plataforma
     const platformInsightsUrl = `https://graph.facebook.com/v21.0/${selectedAccountId}/insights?` +
-      `fields=spend,impressions,reach,actions` +
+      `fields=spend,impressions,reach,clicks,actions` +
       `&level=account` +
       `&time_range=${encodeURIComponent(timeRange)}` +
       `&breakdowns=publisher_platform` +
@@ -735,12 +822,17 @@ Deno.serve(async (req) => {
           const pLeads = p.actions?.find((a: any) =>
             a.action_type === 'lead' || a.action_type === 'leadgen_grouped'
           );
+          const pSpend = parseFloat(p.spend || '0');
+          const pLeadsCount = pLeads ? parseInt(pLeads.value || '0', 10) : 0;
+          const pClicks = parseInt(p.clicks || '0', 10);
           return {
             platform: getPlatformName(p.publisher_platform),
-            spend: parseFloat(p.spend || '0'),
-            leads: pLeads ? parseInt(pLeads.value || '0', 10) : 0,
+            spend: pSpend,
+            leads: pLeadsCount,
             impressions: parseInt(p.impressions || '0', 10),
             reach: parseInt(p.reach || '0', 10),
+            clicks: pClicks,
+            cpl: pLeadsCount > 0 ? pSpend / pLeadsCount : 0,
           };
         });
       }

@@ -128,6 +128,12 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       // Check existing connection
       const integrationData = await checkConnection();
 
+      // Auto-subscribe webhook when integration exists but webhook is not verified
+      // This ensures leads start flowing even if user never opens "Gerenciar Formulários"
+      if (integrationData && !integrationData.webhook_verified) {
+        subscribePageWebhook(integrationData);
+      }
+
       if (fbStatus === 'success' && !isPopup) {
         toast.success('Facebook conectado com sucesso!');
         window.history.replaceState({}, '', window.location.pathname);
@@ -142,7 +148,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
     };
 
     init();
-  }, [organizationId, checkConnection, fetchLeadForms]);
+  }, [organizationId, checkConnection, fetchLeadForms, subscribePageWebhook]);
 
   // Sync page selector state between hooks
   useEffect(() => {

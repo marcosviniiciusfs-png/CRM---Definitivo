@@ -118,12 +118,15 @@ Deno.serve(async (req) => {
     let access_token: string | null = null;
     let ad_account_id: string | null = null;
 
-    // Buscar integração principal
-    const { data: integration } = await supabase
+    // Buscar integração principal — usar a mais recente se houver múltiplas
+    const { data: integrations } = await supabase
       .from('facebook_integrations')
       .select('id, ad_account_id')
       .eq('organization_id', organization_id)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const integration = integrations?.[0] || null;
 
     if (!integration) {
       return new Response(
