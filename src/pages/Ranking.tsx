@@ -251,7 +251,6 @@ export default function Ranking() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
     competition,
-    isHiddenMode,
     isActive: competitionActive,
     isRevealed: competitionRevealed,
     revealCompetition,
