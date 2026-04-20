@@ -13,6 +13,8 @@ import { Settings, BarChart3 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import googleCalendarIcon from "@/assets/google-calendar-icon.png";
 import { cn } from "@/lib/utils";
+import { AnnouncementPopup } from "@/components/AnnouncementPopup";
+import { useAnnouncements } from "@/hooks/useAnnouncements";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -60,6 +62,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const isOnChatPage = location.pathname === "/chat";
   const isPipelinePage = location.pathname === '/pipeline';
+  const { currentAnnouncement, dismissAnnouncement } = useAnnouncements();
+
+  const handleDismissAnnouncement = (announcementId: string, dontShowAgain: boolean) => {
+    if (dontShowAgain) {
+      dismissAnnouncement(announcementId);
+    }
+  };
 
   // Inicializar com estado do localStorage para evitar flash
   const getInitialOpen = () => {
@@ -154,6 +163,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <GoogleCalendarModal
         open={calendarModalOpen}
         onOpenChange={setCalendarModalOpen}
+      />
+      <AnnouncementPopup
+        announcement={currentAnnouncement}
+        onDismiss={handleDismissAnnouncement}
       />
     </SidebarProvider>
   );
