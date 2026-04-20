@@ -24,7 +24,7 @@ interface RacerData {
 
 interface AppointmentRaceTabProps {
   organizationId: string;
-  isHiddenMode?: boolean;
+  shouldFilterByTeam?: boolean;
   currentUserId?: string;
   teamMemberUserIds?: string[];
 }
@@ -395,7 +395,7 @@ const RaceSkeleton = () => (
 // ============================================
 // MAIN COMPONENT
 // ============================================
-export function AppointmentRaceTab({ organizationId, isHiddenMode, currentUserId, teamMemberUserIds }: AppointmentRaceTabProps) {
+export function AppointmentRaceTab({ organizationId, shouldFilterByTeam, currentUserId, teamMemberUserIds }: AppointmentRaceTabProps) {
   const [period, setPeriod] = useState<PeriodType>("month");
   const [racers, setRacers] = useState<RacerData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -524,9 +524,9 @@ export function AppointmentRaceTab({ organizationId, isHiddenMode, currentUserId
 
   // Filter racers for competition hidden mode
   const visibleRacers = useMemo(() => {
-    if (!isHiddenMode || !teamMemberUserIds || teamMemberUserIds.length === 0) return racers;
+    if (!shouldFilterByTeam || !teamMemberUserIds || teamMemberUserIds.length === 0) return racers;
     return racers.filter(r => teamMemberUserIds.includes(r.user_id));
-  }, [racers, isHiddenMode, teamMemberUserIds]);
+  }, [racers, shouldFilterByTeam, teamMemberUserIds]);
 
   return (
     <div className="space-y-6">

@@ -10,6 +10,7 @@ interface RankingCompetitionBannerProps {
   revealAt: string | null;
   isAdmin: boolean;
   onRevealNow?: () => void;
+  shouldFilterByTeam?: boolean;
 }
 
 export function RankingCompetitionBanner({
@@ -19,8 +20,27 @@ export function RankingCompetitionBanner({
   revealAt,
   isAdmin,
   onRevealNow,
+  shouldFilterByTeam,
 }: RankingCompetitionBannerProps) {
-  if (!isActive && !isRevealed) return null;
+  // No active competition, not revealed, but team filtering is active — show info banner
+if (!isActive && !isRevealed) {
+  if (shouldFilterByTeam && !isAdmin) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-4">
+        <Trophy className="h-5 w-5 text-blue-500 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+            Ranking disponível apenas para sua equipe
+          </p>
+          <p className="text-xs text-blue-600/70">
+            Os resultados completos serão revelados quando o administrador decidir.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
 
   // Revealed state — celebration banner
   if (isRevealed) {

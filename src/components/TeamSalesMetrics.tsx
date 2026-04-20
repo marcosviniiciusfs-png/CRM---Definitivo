@@ -24,10 +24,10 @@ interface TeamSalesMetricsProps {
   teamMembers: Array<{ team_id: string; user_id: string }>;
   currentUserId?: string;
   isOwner?: boolean;
-  isHiddenMode?: boolean;
+  shouldFilterByTeam?: boolean;
 }
 
-export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUserId, isOwner, isHiddenMode }: TeamSalesMetricsProps) {
+export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUserId, isOwner, shouldFilterByTeam }: TeamSalesMetricsProps) {
   const [salesData, setSalesData] = useState<TeamSalesData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -141,7 +141,7 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUs
   // Verificar se o usuário pode ver dados completos de uma equipe
   // Owners veem tudo (mesmo em competição), membros só da sua equipe
   const canSeeTeamData = (teamId: string) => {
-    if (!isHiddenMode && isOwner) return true;
+    if (!shouldFilterByTeam) return true;
     if (!currentUserId) return true; // Se não tem userId, mostrar tudo (compatibilidade)
     return teamMembers.some(tm => tm.team_id === teamId && tm.user_id === currentUserId);
   };
