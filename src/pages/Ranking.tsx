@@ -173,8 +173,8 @@ const fetchTeamsData = async (organizationId: string) => {
 export default function Ranking() {
   const { organizationId, isReady, user } = useOrganizationReady();
   const [period, setPeriod] = useState<PeriodType>("month");
-  const [rankingType, setRankingType] = useState<RankingType>("tasks");
-  const [sortBy, setSortBy] = useState<SortType>("task_points");
+  const [rankingType, setRankingType] = useState<RankingType>("sales");
+  const [sortBy, setSortBy] = useState<SortType>("revenue");
   const queryClient = useQueryClient();
 
   const { data: salesData = [], isLoading: salesLoading } = useQuery({
@@ -256,11 +256,12 @@ export default function Ranking() {
     isRevealed: competitionRevealed,
     revealCompetition,
     isAdmin: competitionIsAdmin,
+    shouldFilterByTeam,
   } = useRankingCompetition(organizationId);
 
   // Get team member user IDs for current user (for competition filtering)
   const currentUserTeamMemberIds = useMemo(() => {
-    if (!isHiddenMode || !user?.id) return null;
+    if (!user?.id) return null;
     const myTeams = new Set(
       teamMembers
         .filter(tm => tm.user_id === user.id)
@@ -273,13 +274,13 @@ export default function Ranking() {
     );
     teammateIds.add(user.id);
     return teammateIds;
-  }, [isHiddenMode, user?.id, teamMembers]);
+  }, [user?.id, teamMembers]);
 
   // Filter data for competition hidden mode
   const filterData = useCallback((d: LeaderboardData[]) => {
-    if (!isHiddenMode || !currentUserTeamMemberIds) return d;
+    if (!shouldFilterByTeam || !currentUserTeamMemberIds) return d;
     return d.filter(item => currentUserTeamMemberIds.has(item.user_id));
-  }, [isHiddenMode, currentUserTeamMemberIds]);
+  }, [shouldFilterByTeam, currentUserTeamMemberIds]);
 
   const data = rankingType === 'sales' ? salesData : tasksData;
   const isLoading = rankingType === 'sales' ? salesLoading : tasksLoading;
@@ -320,6 +321,7 @@ export default function Ranking() {
           revealAt={competition?.reveal_at ?? null}
           isAdmin={competitionIsAdmin}
           onRevealNow={revealCompetition}
+          shouldFilterByTeam={shouldFilterByTeam}
         />
 
         {/* Ranking Type Tabs */}
@@ -391,7 +393,7 @@ export default function Ranking() {
                   teamMembers={teamMembers}
                   currentUserId={user?.id}
                   isOwner={isOwner}
-                  isHiddenMode={isHiddenMode}
+                  shouldFilterByTeam={shouldFilterByTeam}
                 />
               </div>
             )}
@@ -447,7 +449,7 @@ export default function Ranking() {
                   teamMembers={teamMembers}
                   currentUserId={user?.id}
                   isOwner={isOwner}
-                  isHiddenMode={isHiddenMode}
+                  shouldFilterByTeam={shouldFilterByTeam}
                 />
               </div>
             )}
@@ -456,7 +458,7 @@ export default function Ranking() {
           <TabsContent value="appointments" className="mt-0">
             <AppointmentRaceTab
               organizationId={organizationId}
-              isHiddenMode={isHiddenMode}
+              shouldFilterByTeam={shouldFilterByTeam}
               currentUserId={user?.id}
               teamMemberUserIds={currentUserTeamMemberIds ? Array.from(currentUserTeamMemberIds) : undefined}
             />
