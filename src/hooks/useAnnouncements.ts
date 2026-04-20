@@ -30,14 +30,12 @@ export function useAnnouncements() {
       return;
     }
 
-    // Filter: global OR targeting user's org
     const filtered = (data || []).filter((a: Announcement) => {
       if (a.target_type === 'global') return true;
       if (a.target_organization_id === organizationId) return true;
       return false;
     });
 
-    // Exclude dismissed announcements
     if (filtered.length > 0) {
       const ids = filtered.map((a: Announcement) => a.id);
       const { data: dismissals } = await supabase
@@ -71,14 +69,49 @@ export function useAnnouncements() {
       return;
     }
 
-    // Move to next announcement or clear
     setAnnouncements((prev) => prev.filter((a) => a.id !== announcementId));
     setCurrentIndex(0);
   }, [user]);
 
+  // Fetch on mount and when user/org changes
   useEffect(() => {
     fetchAnnouncements();
   }, [fetchAnnouncements]);
+
+  // Realtime subscription for new announcements
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('announcements-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'announcements',
+        },
+        () => {
+          fetchAnnouncements();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'announcements',
+        },
+        () => {
+          fetchAnnouncements();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchAnnouncements]);
 
   const currentAnnouncement = announcements[currentIndex] || null;
 

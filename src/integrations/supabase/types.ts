@@ -62,6 +62,95 @@ export type Database = {
         }
         Relationships: []
       }
+      announcement_dismissals: {
+        Row: {
+          announcement_id: string
+          dismissed_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          announcement_id: string
+          dismissed_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          announcement_id?: string
+          dismissed_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_dismissals_announcement_id_fkey"
+            columns: ["announcement_id"]
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_dismissals_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "auth.users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcements: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          gif_url: string | null
+          id: string
+          is_active: boolean
+          scheduled_at: string | null
+          target_organization_id: string | null
+          target_type: string
+          template_type: string | null
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          gif_url?: string | null
+          id?: string
+          is_active?: boolean
+          scheduled_at?: string | null
+          target_organization_id?: string | null
+          target_type?: string
+          template_type?: string | null
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          gif_url?: string | null
+          id?: string
+          is_active?: boolean
+          scheduled_at?: string | null
+          target_organization_id?: string | null
+          target_type?: string
+          template_type?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_target_organization_id_fkey"
+            columns: ["target_organization_id"]
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "auth.users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_distribution_settings: {
         Row: {
           capacity_enabled: boolean | null
@@ -2875,6 +2964,55 @@ export type Database = {
       admin_get_user_subscription: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      admin_create_announcement: {
+        Args: {
+          p_token: string
+          p_title: string
+          p_content: string
+          p_gif_url?: string | null
+          p_template_type?: string | null
+          p_target_type?: string
+          p_target_organization_id?: string | null
+          p_scheduled_at?: string | null
+        }
+        Returns: string
+      }
+      admin_update_announcement: {
+        Args: {
+          p_token: string
+          p_id: string
+          p_title?: string | null
+          p_content?: string | null
+          p_gif_url?: string | null
+          p_template_type?: string | null
+          p_target_type?: string | null
+          p_target_organization_id?: string | null
+          p_is_active?: boolean | null
+          p_scheduled_at?: string | null
+        }
+        Returns: boolean
+      }
+      admin_list_announcements: {
+        Args: { p_token: string }
+        Returns: {
+          id: string
+          title: string
+          content: string
+          gif_url: string | null
+          template_type: string | null
+          target_type: string
+          target_organization_id: string | null
+          is_active: boolean
+          scheduled_at: string | null
+          created_by: string | null
+          created_at: string
+          org_name: string | null
+        }[]
+      }
+      admin_delete_announcement: {
+        Args: { p_token: string; p_id: string }
+        Returns: boolean
       }
       admin_login_system: {
         Args: { p_email: string; p_password: string }
