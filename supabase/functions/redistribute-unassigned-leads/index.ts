@@ -430,43 +430,15 @@ async function getAvailableAgentsFast(supabase: any, organization_id: string, el
       if (currentTime < start || currentTime > end) continue;
     }
 
-    // Só verificar capacidade se capacity_enabled estiver ativo
-    const capacityEnabled = agent.capacity_enabled === true;
-
-    if (capacityEnabled) {
-      const { count } = await supabase
-        .from('leads')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', organization_id)
-        .eq('responsavel_user_id', agent.user_id);
-
-      if ((count || 0) >= agent.max_capacity) continue;
-
-      available.push({
-        user_id: agent.user_id,
-        full_name: profilesMap.get(agent.user_id)?.full_name,
-        email: membersMap.get(agent.user_id)?.email,
-        priority_weight: agent.priority_weight,
-        current_load: count || 0,
-        max_capacity: agent.max_capacity,
-      });
-    } else {
-      // Sem limite de capacidade - contar carga para info apenas
-      const { count } = await supabase
-        .from('leads')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', organization_id)
-        .eq('responsavel_user_id', agent.user_id);
-
-      available.push({
-        user_id: agent.user_id,
-        full_name: profilesMap.get(agent.user_id)?.full_name,
-        email: membersMap.get(agent.user_id)?.email,
-        priority_weight: agent.priority_weight,
-        current_load: count || 0,
-        max_capacity: agent.max_capacity,
-      });
-    }
+    // Capacidade ilimitada - sem checagem de limite
+    available.push({
+      user_id: agent.user_id,
+      full_name: profilesMap.get(agent.user_id)?.full_name,
+      email: membersMap.get(agent.user_id)?.email,
+      priority_weight: agent.priority_weight,
+      current_load: 0,
+      max_capacity: 0,
+    });
   }
 
   return available;

@@ -243,7 +243,6 @@ export function RouletteCard({ config, funnelName, onEdit, onDelete, canDelete }
         <div className="px-3 pb-2">
           <div className="flex flex-wrap gap-1.5">
             {agents.map(agent => {
-              const pct = agent.capacity_enabled ? Math.round((agent.currentLoad / agent.max_capacity) * 100) : 0;
               return (
                 <div
                   key={agent.user_id}
@@ -253,11 +252,6 @@ export function RouletteCard({ config, funnelName, onEdit, onDelete, canDelete }
                     {getInitials(agent.full_name)}
                   </div>
                   <span className="font-medium max-w-[60px] truncate">{agent.full_name.split(" ")[0]}</span>
-                  {agent.capacity_enabled && (
-                    <div className="w-6 h-1 rounded-full bg-muted overflow-hidden">
-                      <div className={`h-full rounded-full ${getLoadColor(pct)}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                    </div>
-                  )}
                   {agent.is_paused && <Pause className="h-2.5 w-2.5 text-muted-foreground" />}
                 </div>
               );

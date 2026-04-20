@@ -21,16 +21,7 @@ interface AgentInfo {
 
 function getStatus(agent: AgentInfo): { label: string; dot: string } {
   if (agent.is_paused) return { label: "Ausente", dot: "bg-muted-foreground" };
-  if (agent.capacity_enabled && agent.currentLoad >= agent.max_capacity * 0.85) {
-    return { label: "Quase cheia", dot: "bg-red-500" };
-  }
   return { label: "Online", dot: "bg-emerald-500" };
-}
-
-function getLoadBarColor(pct: number): string {
-  if (pct >= 85) return "bg-red-500";
-  if (pct >= 50) return "bg-amber-400";
-  return "bg-emerald-500";
 }
 
 export function AgentCapacityPanel() {
@@ -51,7 +42,7 @@ export function AgentCapacityPanel() {
       const userIds = settings.map(s => s.user_id);
       const [profilesRes, leadsRes] = await Promise.all([
         supabase.from("profiles").select("user_id, full_name").in("user_id", userIds),
-        supabase.from("leads").select("responsavel_user_id").in("responsavel_user_id", userIds).not("stage", "in", "(ganho,perdido)"),
+        supabase.from("leads").select("responsavel_user_id").eq("organization_id", organizationId).in("responsavel_user_id", userIds),
       ]);
 
       const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p.full_name]));
@@ -63,10 +54,10 @@ export function AgentCapacityPanel() {
       return settings.map(s => ({
         user_id: s.user_id,
         full_name: profileMap.get(s.user_id) || "Agente",
-        max_capacity: s.max_capacity || 50,
+        max_capacity: 0,
         currentLoad: loadCounts.get(s.user_id) || 0,
         is_paused: s.is_paused || false,
-        capacity_enabled: s.capacity_enabled || false,
+        capacity_enabled: false,
         priority_weight: s.priority_weight || 1,
         pause_until: s.pause_until,
       })) as AgentInfo[];
@@ -130,7 +121,7 @@ export function AgentCapacityPanel() {
       {/* Agent list */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Capacidade por agente</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agentes da roleta</h3>
           <button onClick={() => setShowSettings(true)} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
             <Settings className="h-3 w-3" /> Configuracoes
           </button>
@@ -155,7 +146,6 @@ export function AgentCapacityPanel() {
               </thead>
               <tbody>
                 {agents.map(agent => {
-                  const pct = agent.capacity_enabled ? Math.round((agent.currentLoad / agent.max_capacity) * 100) : 0;
                   const status = getStatus(agent);
                   return (
                     <tr key={agent.user_id} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${agent.is_paused ? "opacity-50" : ""}`}>
@@ -169,16 +159,7 @@ export function AgentCapacityPanel() {
                       </td>
                       <td className="text-center px-2 py-2 text-muted-foreground">{agent.priority_weight}x</td>
                       <td className="text-center px-2 py-2">
-                        {agent.capacity_enabled ? (
-                          <div className="flex items-center gap-1.5 justify-center">
-                            <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${getLoadBarColor(pct)}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                            </div>
-                            <span className="text-muted-foreground w-8">{agent.currentLoad}/{agent.max_capacity}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">{agent.currentLoad}</span>
-                        )}
+                        <span className="text-muted-foreground">{agent.currentLoad}</span>
                       </td>
                       <td className="text-center px-2 py-2">
                         <span className="inline-flex items-center gap-1">

@@ -649,45 +649,16 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
       }
     }
 
-    // Verificar capacidade máxima - usando stage_type do funil
-    // Contar por UUID
-    const { data: leadsByUuid } = await supabase
-      .from('leads')
-      .select('id, funnel_stages!inner(stage_type)')
-      .eq('responsavel_user_id', agent.user_id)
-      .not('funnel_stages.stage_type', 'in', '("won","lost")');
-
-    // Contar por nome (fallback para leads antigos sem UUID)
-    let leadsByNameCount = 0;
-    if (profile?.full_name) {
-      const { data: leadsByName } = await supabase
-        .from('leads')
-        .select('id, funnel_stages!inner(stage_type)')
-        .eq('responsavel', profile.full_name)
-        .is('responsavel_user_id', null)
-        .not('funnel_stages.stage_type', 'in', '("won","lost")');
-      leadsByNameCount = leadsByName?.length || 0;
-    }
-
-    const currentLoad = (leadsByUuid?.length || 0) + leadsByNameCount;
     const agentName = profile?.full_name || member?.email;
-
-    // Só verificar capacidade se capacity_enabled estiver ativo
-    const capacityEnabled = agent.capacity_enabled === true;
-    console.log(`Agent ${agentName} (${agent.user_id}): ${currentLoad}/${agent.max_capacity} leads (capacity_enabled: ${capacityEnabled})`);
-
-    if (capacityEnabled && currentLoad >= agent.max_capacity) {
-      console.log(`Agent at capacity (limit active), skipping`);
-      continue;
-    }
+    console.log(`Agent ${agentName} (${agent.user_id}): available (unlimited capacity)`);
 
     available.push({
       user_id: agent.user_id,
       full_name: profile?.full_name,
       email: member?.email,
       priority_weight: agent.priority_weight,
-      current_load: currentLoad,
-      max_capacity: agent.max_capacity,
+      current_load: 0,
+      max_capacity: 0,
     });
   }
 
