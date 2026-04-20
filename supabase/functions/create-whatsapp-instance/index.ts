@@ -161,20 +161,22 @@ serve(async (req) => {
 
     console.log('Creating instance for user:', user.id);
     
-    // Get Evolution API credentials with fallback to database
-    let evolutionApiUrl: string;
+    // Get Evolution API credentials: try env vars first, fallback to database config
+    let evolutionApiUrl: string | undefined;
     let evolutionApiKey: string | undefined;
+
+    // 1) Try environment variables
     try {
       evolutionApiUrl = getEvolutionApiUrl();
       evolutionApiKey = getEvolutionApiKey();
-    } catch (configError: any) {
-      throw new Error(configError.message);
+    } catch {
+      console.log('⚠️ Evolution API env vars not configured, trying database fallback...');
     }
 
-    // FALLBACK: If env vars not available, try database config table
+    // 2) Fallback: try database config table (app_config)
     if (!evolutionApiUrl || !evolutionApiKey) {
-      console.log('⚠️ Evolution API credentials not in env vars, checking database...');
-      
+      console.log('🔍 Checking app_config table for Evolution API credentials...');
+
       const { data: config, error: configError } = await supabase
         .from('app_config')
         .select('config_key, config_value')
@@ -185,14 +187,13 @@ serve(async (req) => {
         console.error('❌ Error fetching config from database:', configError);
       } else if (config && config.length > 0) {
         config.forEach(item => {
-          // CRITICAL: Discard empty or null values
           const value = item.config_value?.trim();
           if (value && value.length > 0) {
             if (item.config_key === 'EVOLUTION_API_URL') evolutionApiUrl = value;
             if (item.config_key === 'EVOLUTION_API_KEY') evolutionApiKey = value;
           }
         });
-        
+
         if (evolutionApiUrl && evolutionApiKey) {
           console.log('✅ Evolution API credentials loaded from database');
         } else {
@@ -211,7 +212,7 @@ serve(async (req) => {
     const baseUrl = normalizeUrl(evolutionApiUrl);
 
     // Webhook URLs
-    const supabaseUrl = supabase.supabaseUrl;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const qrWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-qr-webhook`;
     const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
 
