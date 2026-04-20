@@ -42,12 +42,14 @@ Sistema de avisos que permite ao Super Admin criar notificações exibidas como 
 
 Cada template tem um ícone SVG e cor específica, e pré-preenche título e conteúdo:
 
-| Template | Ícone | Cor | Conteúdo pré-definido |
-|---|---|---|---|
-| `meta_reconnect` | Link/chain | Cyan (#06b6d4) | Passo a passo de reconexão com Meta (4 passos) |
-| `new_feature` | Estrela | Verde (#22c55e) | Placeholder para descrever nova funcionalidade |
-| `maintenance` | Engrenagem | Amarelo (#eab308) | Aviso de sistema indisponível com data/hora |
-| `custom` | Lápis | Roxo (#a855f7) | Em branco |
+| Template | Ícone | Cor | Imagem no popup | Conteúdo pré-definido |
+|---|---|---|---|---|
+| `meta_reconnect` | Link/chain | Cyan (#06b6d4) | PNG fixa (ícone Meta, 48x48px) | Passo a passo de reconexão com Meta (4 passos) |
+| `new_feature` | Estrela | Verde (#22c55e) | GIF (48x48px, customizável) | Placeholder para descrever nova funcionalidade |
+| `maintenance` | Engrenagem | Amarelo (#eab308) | GIF (48x48px, customizável) | Aviso de sistema indisponível com data/hora |
+| `custom` | Lápis | Roxo (#a855f7) | GIF (48x48px, customizável) | Em branco |
+
+**Nota**: O template `meta_reconnect` usa uma imagem PNG estática (ícone do Meta/Facebook) no lugar do GIF. Os demais templates usam GIF animado (configurável via campo `gif_url`).
 
 O Super Admin pode editar o conteúdo pré-definido após selecionar um template.
 
@@ -91,9 +93,9 @@ No `DashboardLayout`, ao carregar a página:
 - Se múltiplos avisos: mostra um por vez (fila), próximo após dispensar o anterior
 
 ### Exibição do modal
-- **Preload do GIF**: o modal só aparece após o GIF estar totalmente carregado (`onload`). Enquanto carrega, o modal fica invisível.
+- **Preload de imagem**: o modal só aparece após a imagem (GIF ou PNG) estar totalmente carregada (`onload`). Enquanto carrega, o modal fica invisível.
 - **Layout**:
-  - GIF pequeno (48x48px, `object-fit: contain`) ao lado esquerdo
+  - Imagem (GIF ou PNG, 48x48px, `object-fit: contain`) ao lado esquerdo. Template `meta_reconnect` usa PNG fixo; demais usam GIF.
   - Ícone do template (SVG pequeno, cor do template) + label do tipo
   - Título do aviso
   - Conteúdo formatado abaixo
