@@ -817,56 +817,45 @@ const navState = location.state as { tab?: string; page?: number; search?: strin
                           )}
                         </TableCell>
                         <TableCell>
-                          {member.user_id ? (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 border-gray-300 text-gray-700 hover:bg-gray-50"
-                                onClick={() => openResetConfirm(member.user_id!, member.email)}
-                                disabled={resettingPassword}
-                                title="Enviar link de reset"
-                              >
-                                <Send className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 border-gray-300 text-gray-700 hover:bg-gray-50"
-                                onClick={() => openTempPassConfirm(member.user_id!, member.email)}
-                                disabled={resettingPassword}
-                                title="Gerar senha temporária"
-                              >
-                                <KeyRound className="w-4 h-4" />
-                              </Button>
-                              {member.role !== 'owner' && (
+                          <div className="flex gap-1">
+                            {member.user_id && (
+                              <>
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50"
-                                  onClick={() => openRemoveMemberConfirm(member)}
-                                  disabled={removingMember}
-                                  title="Remover colaborador"
+                                  className="h-8 w-8 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                  onClick={() => openResetConfirm(member.user_id!, member.email)}
+                                  disabled={resettingPassword}
+                                  title="Enviar link de reset"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Send className="w-4 h-4" />
                                 </Button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                  onClick={() => openTempPassConfirm(member.user_id!, member.email)}
+                                  disabled={resettingPassword}
+                                  title="Gerar senha temporária"
+                                >
+                                  <KeyRound className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                            {!member.user_id && (
                               <span className="text-xs text-gray-400">Convite pendente</span>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50"
-                                onClick={() => openRemoveMemberConfirm(member)}
-                                disabled={removingMember}
-                                title="Remover convite"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
+                            )}
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50"
+                              onClick={() => openRemoveMemberConfirm(member)}
+                              disabled={removingMember}
+                              title={member.role === 'owner' ? 'Não é possível remover o dono' : 'Remover colaborador'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
