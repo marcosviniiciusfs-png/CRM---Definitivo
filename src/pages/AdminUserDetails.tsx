@@ -97,6 +97,11 @@ const navState = location.state as { tab?: string; page?: number; search?: strin
   const [adminPassword, setAdminPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
 
+  // Remove collaborator states
+  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
+
   useEffect(() => {
     if (userId) {
       loadUserDetails();
@@ -385,6 +390,41 @@ const navState = location.state as { tab?: string; page?: number; search?: strin
     } finally {
       setDeleting(false);
       setAdminPassword("");
+    }
+  };
+
+  const openRemoveMemberConfirm = (member: OrganizationMember) => {
+    setMemberToRemove(member);
+    setShowRemoveMemberConfirm(true);
+  };
+
+  const handleRemoveMember = async () => {
+    if (!memberToRemove || !userDetails?.organization_id) return;
+
+    setRemovingMember(true);
+    setShowRemoveMemberConfirm(false);
+
+    try {
+      await adminRpc('remove_organization_member', {
+        member_id: memberToRemove.member_id,
+        organization_id: userDetails.organization_id,
+        user_id: memberToRemove.user_id,
+      });
+
+      toast.success(`${memberToRemove.full_name || memberToRemove.email} foi removido da organização`);
+      setMemberToRemove(null);
+
+      // Reload members
+      const membersData = (await adminRpc('get_organization_members', {
+        organization_id: userDetails.organization_id
+      })).data;
+      setMembers(membersData || []);
+    } catch (error: unknown) {
+      console.error('Erro ao remover colaborador:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao remover colaborador';
+      toast.error(errorMessage);
+    } finally {
+      setRemovingMember(false);
     }
   };
 
@@ -799,9 +839,33 @@ const navState = location.state as { tab?: string; page?: number; search?: strin
                               >
                                 <KeyRound className="w-4 h-4" />
                               </Button>
+                              {member.role !== 'owner' && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50"
+                                  onClick={() => openRemoveMemberConfirm(member)}
+                                  disabled={removingMember}
+                                  title="Remover colaborador"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
                             </div>
                           ) : (
-                            <span className="text-xs text-gray-400">Convite pendente</span>
+                            <div className="flex gap-1">
+                              <span className="text-xs text-gray-400">Convite pendente</span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={() => openRemoveMemberConfirm(member)}
+                                disabled={removingMember}
+                                title="Remover convite"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -983,6 +1047,42 @@ const navState = location.state as { tab?: string; page?: number; search?: strin
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => { setShowTempPasswordDialog(false); setTempPasswordData(null); }} className="bg-blue-600 hover:bg-blue-700 text-white">
                 Entendi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog de Confirmação - Remover Colaborador */}
+        <AlertDialog open={showRemoveMemberConfirm} onOpenChange={setShowRemoveMemberConfirm}>
+          <AlertDialogContent className="bg-white text-gray-900">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-gray-900">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                Remover Colaborador
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <p className="text-gray-600">
+                    Você está prestes a remover <strong className="text-gray-900">{memberToRemove?.full_name || memberToRemove?.email}</strong> da organização <strong className="text-gray-900">{userDetails?.organization_name}</strong>.
+                  </p>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-800">
+                      <strong>Atenção:</strong> Este colaborador perderá acesso ao CRM e a todos os dados da organização.
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-500">Deseja continuar?</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setMemberToRemove(null)} className="border-gray-300 text-gray-700">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleRemoveMember}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                {removingMember ? 'Removendo...' : 'Sim, Remover'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

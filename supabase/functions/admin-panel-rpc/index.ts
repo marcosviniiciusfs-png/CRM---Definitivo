@@ -159,6 +159,47 @@ Deno.serve(async (req) => {
             });
         }
 
+        // ── remove_organization_member ──────────────────────────────────
+        if (operation === "remove_organization_member") {
+            const { member_id, organization_id, user_id } = body;
+
+            // Prevent removing the owner
+            const { data: member } = await adminClient
+                .from("organization_members")
+                .select("role")
+                .eq("id", member_id)
+                .single();
+
+            if (member?.role === "owner") {
+                return new Response(JSON.stringify({ error: "Não é possível remover o dono da organização" }), {
+                    status: 400,
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            }
+
+            // Remove team memberships first
+            await adminClient
+                .from("team_members")
+                .delete()
+                .eq("user_id", user_id)
+                .in("team_id", adminClient
+                    .from("teams")
+                    .select("id")
+                    .eq("organization_id", organization_id)
+                );
+
+            // Remove from organization
+            const { error } = await adminClient
+                .from("organization_members")
+                .delete()
+                .eq("id", member_id);
+
+            if (error) throw error;
+            return new Response(JSON.stringify({ success: true }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
         if (operation === "toggle_user_active") {
             const { target_user_id, is_active } = body;
             const { data, error } = await adminClient.rpc("admin_toggle_user_active", {
