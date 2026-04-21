@@ -439,10 +439,10 @@ const Equipes = () => {
               return (
                 <Card
                   key={team.id}
-                  className="flex flex-col overflow-hidden bg-card/80 arcade-team-card"
+                  className="flex flex-col overflow-hidden bg-card/80 arcade-team-card min-h-[220px]"
                   style={{ '--team-color': team.color } as React.CSSProperties}
                 >
-                  <CardContent className="pt-4 pb-2 px-4">
+                  <CardContent className="pt-4 pb-2 px-4 flex-1 flex flex-col">
                     {/* HEADER */}
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div className="flex items-center gap-3 min-w-0">
@@ -453,8 +453,11 @@ const Equipes = () => {
                           {team.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="arcade-font text-[13px] truncate arcade-glow leading-tight" style={{ color: team.color }}>
-                            {team.name}
+                          <h3
+                            className="arcade-font text-[13px] arcade-glow leading-tight line-clamp-2"
+                            style={{ color: team.color }}
+                          >
+                            {team.name.length > 18 ? team.name.slice(0, 18) + '…' : team.name}
                           </h3>
                           <p className="arcade-font text-[9px] text-muted-foreground mt-1">
                             {teamMembersList.length} MEMBRO{teamMembersList.length !== 1 ? 'S' : ''}
@@ -521,7 +524,7 @@ const Equipes = () => {
                       items={teamMembersList.map(m => `${team.id}-${m.user_id}`)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div id={`team-${team.id}`} className="space-y-1 min-h-[40px]">
+                      <div id={`team-${team.id}`} className="space-y-1 min-h-[40px] flex-1">
                         {teamMembersList.length === 0 ? (
                           <div className="arcade-font text-[9px] text-center py-3 text-primary/40 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-colors">
                             + ARRASTE AQUI
