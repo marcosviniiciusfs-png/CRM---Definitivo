@@ -40,9 +40,11 @@ export function RankingCompetitionSettings({
   const [revealAt, setRevealAt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setIsCreatingNew(false);
       setIsActive(competition?.is_active ?? false);
       setTitle(competition?.title ?? "Competição de Ranking");
       if (competition?.reveal_at) {
@@ -61,7 +63,7 @@ export function RankingCompetitionSettings({
     try {
       const revealAtValue = revealAt ? new Date(revealAt).toISOString() : null;
 
-      if (competition?.id) {
+      if (competition?.id && !isCreatingNew) {
         // Update existing
         const { error } = await supabase
           .from('ranking_competitions')
@@ -123,8 +125,8 @@ export function RankingCompetitionSettings({
     }
   };
 
-  const isRevealed = !!competition?.revealed_at;
-  const competitionActive = competition?.is_active === true;
+  const isRevealed = !isCreatingNew && !!competition?.revealed_at;
+  const competitionActive = !isCreatingNew && competition?.is_active === true;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -142,7 +144,7 @@ export function RankingCompetitionSettings({
 
         <div className="space-y-5 py-4">
           {/* Status indicator */}
-          {competition && (
+          {competition && !isCreatingNew && (
             <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
               isRevealed
                 ? 'bg-green-500/10 text-green-600'
@@ -169,7 +171,22 @@ export function RankingCompetitionSettings({
             </div>
           )}
 
-          {/* Active toggle */}
+          {/* Create new competition button (shown when current is revealed) */}
+          {competition && !!competition.revealed_at && !isCreatingNew && (
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => {
+                setIsCreatingNew(true);
+                setIsActive(true);
+                setTitle("Competição de Ranking");
+                setRevealAt("");
+              }}
+            >
+              <Trophy className="h-4 w-4" />
+              Criar Nova Competição
+            </Button>
+          )}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label className="text-sm font-medium">Ativar competição</Label>
