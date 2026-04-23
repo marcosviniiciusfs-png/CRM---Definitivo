@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.redistribute-unassigned-leads]
 verify_jwt = false
+
+[functions.redistribute-lost-leads]
+verify_jwt = false

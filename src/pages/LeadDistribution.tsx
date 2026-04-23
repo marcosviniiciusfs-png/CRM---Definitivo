@@ -23,6 +23,7 @@ import {
   Users,
   Sparkles,
   History,
+  Skull,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,6 +41,7 @@ export default function LeadDistribution() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editConfig, setEditConfig] = useState<any>(null);
   const [redistributeOpen, setRedistributeOpen] = useState(false);
+  const [redistributeLostOpen, setRedistributeLostOpen] = useState(false);
 
   // Redistribution progress state
   const [redistProgress, setRedistProgress] = useState({ current: 0, total: 0, isRunning: false });
@@ -97,6 +99,39 @@ export default function LeadDistribution() {
     refetchOnWindowFocus: false,
   });
 
+  // Lost leads count
+  const { data: lostLeadsCount } = useQuery({
+    queryKey: ["lost-leads-count", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return 0;
+      // Buscar IDs dos estágios do tipo "lost" dos funis da organização
+      const { data: funnels } = await supabase
+        .from("sales_funnels")
+        .select("id")
+        .eq("organization_id", organizationId);
+      if (!funnels?.length) return 0;
+
+      const funnelIds = funnels.map(f => f.id);
+      const { data: lostStages } = await supabase
+        .from("funnel_stages")
+        .select("id")
+        .in("funnel_id", funnelIds)
+        .eq("stage_type", "lost");
+      if (!lostStages?.length) return 0;
+
+      const stageIds = lostStages.map(s => s.id);
+      const { count } = await supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", organizationId)
+        .in("funnel_stage_id", stageIds);
+      return count || 0;
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   // Redistribute mutation - receives configId from dialog
   const redistributeMutation = useMutation({
     mutationFn: async (configId: string | null) => {
@@ -146,6 +181,58 @@ export default function LeadDistribution() {
     },
     onError: () => {
       toast.error("Erro ao redistribuir leads");
+      setRedistProgress({ current: 0, total: 0, isRunning: false });
+    },
+  });
+
+  // Redistribute lost leads mutation
+  const redistributeLostMutation = useMutation({
+    mutationFn: async (configId: string | null) => {
+      if (!organizationId) return 0;
+
+      setRedistProgress({ current: 0, total: 0, isRunning: true });
+
+      let totalRedistributed = 0;
+      let hasMore = true;
+      let iteration = 0;
+
+      while (hasMore && iteration < 50) {
+        iteration++;
+        const { data, error } = await supabase.functions.invoke("redistribute-lost-leads", {
+          body: { organization_id: organizationId, config_id: configId },
+        });
+        if (error) throw error;
+
+        const count = data?.redistributed_count || 0;
+        const total = data?.total || 0;
+        totalRedistributed += count;
+
+        setRedistProgress(prev => ({
+          ...prev,
+          current: totalRedistributed,
+          total: Math.max(prev.total, total),
+        }));
+
+        hasMore = data?.has_more === true && count > 0;
+      }
+
+      setRedistProgress(prev => ({ ...prev, isRunning: false }));
+      return totalRedistributed;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["lost-leads-count"] });
+      queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
+      queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
+      if (count && count > 0) {
+        toast.success(`${count} leads perdidos redistribuidos!`);
+      } else {
+        toast.info("Nenhum lead perdido para redistribuir");
+      }
+      setRedistributeLostOpen(false);
+      setTimeout(() => setRedistProgress({ current: 0, total: 0, isRunning: false }), 3000);
+    },
+    onError: () => {
+      toast.error("Erro ao redistribuir leads perdidos");
       setRedistProgress({ current: 0, total: 0, isRunning: false });
     },
   });
@@ -257,6 +344,35 @@ export default function LeadDistribution() {
         </div>
       )}
 
+      {/* Lost leads alert */}
+      {(lostLeadsCount ?? 0) > 0 && !redistProgress.isRunning && (
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-500/20 dark:bg-red-500/5 p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/10 shrink-0">
+                <Skull className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                  {lostLeadsCount} lead{lostLeadsCount !== 1 ? "s" : ""} na etapa Perdido
+                </p>
+                <p className="text-xs text-red-600/70 dark:text-red-400/60">
+                  Redistribua esses leads para tentar novamente com outro colaborador
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setRedistributeLostOpen(true)}
+              className="gap-2 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Redistribuir perdidos
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabValue)}>
         <TabsList>
@@ -350,6 +466,18 @@ export default function LeadDistribution() {
         showAutoOption={true}
         title="Redistribuir Leads sem Responsavel"
         description="Escolha qual roleta usar para redistribuir os leads."
+      />
+
+      {/* Redistribute lost leads dialog */}
+      <RedistributeBatchDialog
+        open={redistributeLostOpen}
+        onOpenChange={setRedistributeLostOpen}
+        organizationId={organizationId}
+        onConfirm={(configId) => redistributeLostMutation.mutate(configId)}
+        isPending={redistributeLostMutation.isPending}
+        showAutoOption={true}
+        title="Redistribuir Leads Perdidos"
+        description="Esses leads serao movidos da etapa Perdido para o inicio do funil e redistribuidos entre os colaboradores."
       />
     </div>
   );
