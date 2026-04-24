@@ -149,7 +149,6 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         .from("sales_funnels")
         .select("id, name")
         .eq("organization_id", orgData.organization_id)
-        .eq("is_active", true)
         .order("is_default", { ascending: false })
         .order("name");
 
