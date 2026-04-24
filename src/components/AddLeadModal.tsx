@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { calculateLeadScore } from "@/lib/leadScoring";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import {
   Select,
   SelectContent,
@@ -49,6 +50,7 @@ const sourceOptions = [
 ];
 
 export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) => {
+  const { organizationId: contextOrgId } = useOrganization();
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
@@ -108,7 +110,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     if (open) {
       loadFunnels();
     }
-  }, [open]);
+  }, [open, contextOrgId]);
 
   const loadFunnels = async () => {
     setLoadingFunnels(true);
@@ -116,10 +118,8 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Store current user ID for auto-assignment on lead creation
       setCurrentUserId(user.id);
 
-      // Fetch user's display name from profiles for the responsavel field
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
@@ -134,23 +134,22 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         null
       );
 
-      const { data: orgData } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      // Use org ID from context (more reliable than querying organization_members)
+      const orgId = contextOrgId;
+      if (!orgId) return;
 
-      if (!orgData) return;
+      setOrganizationId(orgId);
 
-      // Store organization_id — required by the RLS INSERT policy on leads
-      setOrganizationId(orgData.organization_id);
-
-      const { data: funnelsData } = await supabase
+      const { data: funnelsData, error } = await supabase
         .from("sales_funnels")
         .select("id, name")
-        .eq("organization_id", orgData.organization_id)
+        .eq("organization_id", orgId)
         .order("is_default", { ascending: false })
         .order("name");
+
+      if (error) {
+        console.error("[AddLeadModal] Error loading funnels:", error);
+      }
 
       if (funnelsData && funnelsData.length > 0) {
         setFunnels(funnelsData);
