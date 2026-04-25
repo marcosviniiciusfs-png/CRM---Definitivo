@@ -1080,6 +1080,13 @@ const Pipeline = () => {
     }));
   }, [leads]);
 
+  // Origens únicas dos leads carregados (para filtro dinâmico)
+  const uniqueSources = useMemo(() => {
+    const sources = new Set<string>();
+    leads.forEach(lead => { if (lead.source) sources.add(lead.source); });
+    return Array.from(sources).sort();
+  }, [leads]);
+
   // Filtrar leads por termo de busca (nome ou fonte)
   const filteredLeads = useMemo(() => {
     let result = leadsWithFormattedDates;
@@ -1096,7 +1103,11 @@ const Pipeline = () => {
     }
 
     if (statusFilter !== "all") {
-      result = result.filter(lead => (lead.stage || "NOVO") === statusFilter);
+      if (usingCustomFunnel) {
+        result = result.filter(lead => lead.funnel_stage_id === statusFilter);
+      } else {
+        result = result.filter(lead => (lead.stage || "NOVO_LEAD") === statusFilter);
+      }
     }
 
     if (sourceFilter !== "all") {
@@ -1885,10 +1896,9 @@ const Pipeline = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="NOVO">Novo</SelectItem>
-                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                  <SelectItem value="FECHADO">Fechado</SelectItem>
-                  <SelectItem value="PERDIDO">Perdido</SelectItem>
+                  {stages.map(stage => (
+                    <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
@@ -1897,10 +1907,9 @@ const Pipeline = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas Origens</SelectItem>
-                  <SelectItem value="Facebook Leads">Meta Ads</SelectItem>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="Webhook">Webhook</SelectItem>
-                  <SelectItem value="Manual">Manual</SelectItem>
+                  {uniqueSources.map(source => (
+                    <SelectItem key={source} value={source}>{source}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
@@ -1962,7 +1971,7 @@ const Pipeline = () => {
         {viewMode === 'list' ? (
           isMobile ? (
             /* Mobile List View - cards verticais */
-            <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: 'calc(100dvh - 200px)', WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
               {selectedLeadIds.size > 0 && (
                 <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-3 flex items-center gap-3">
                   <span className="text-sm font-medium text-primary">
@@ -2066,7 +2075,7 @@ const Pipeline = () => {
             </div>
           ) : (
           /* Desktop List View */
-          <div className="border rounded-lg overflow-x-auto bg-card dark:bg-card">
+          <div className="border rounded-lg overflow-hidden bg-card dark:bg-card flex flex-col flex-1 min-h-0">
             {selectedLeadIds.size > 0 && (
               <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3">
                 <span className="text-sm font-medium text-primary">
@@ -2097,7 +2106,7 @@ const Pipeline = () => {
               <span className="flex-1">Data</span>
               <span className="w-[90px]"></span>
             </div>
-            <div className="max-h-[calc(100vh-350px)] overflow-y-auto bg-card dark:bg-card">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {filteredLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mb-4 opacity-50" />
@@ -2140,7 +2149,7 @@ const Pipeline = () => {
                         <span className={cn(
                           "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
                           stage?.color
-                            ? `${stage.color}/20 text-${stage.color.replace('bg-', '').replace('-500', '-700')}`
+                            ? "bg-muted/50 dark:bg-muted/30 text-foreground"
                             : "bg-muted text-muted-foreground"
                         )}>
                           {stage?.title || lead.stage || "-"}
@@ -2442,10 +2451,9 @@ const Pipeline = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="NOVO">Novo</SelectItem>
-                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
-                  <SelectItem value="FECHADO">Fechado</SelectItem>
-                  <SelectItem value="PERDIDO">Perdido</SelectItem>
+                  {stages.map(stage => (
+                    <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -2457,10 +2465,9 @@ const Pipeline = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas Origens</SelectItem>
-                  <SelectItem value="Facebook Leads">Meta Ads</SelectItem>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="Webhook">Webhook</SelectItem>
-                  <SelectItem value="Manual">Manual</SelectItem>
+                  {uniqueSources.map(source => (
+                    <SelectItem key={source} value={source}>{source}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
