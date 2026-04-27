@@ -52,6 +52,31 @@ serve(async (req) => {
 
     const supabase = createSupabaseAdmin();
 
+    // Determine which instance to use based on the lead's channel
+    let resolvedInstanceName = instance_name;
+
+    if (leadId) {
+      const { data: leadData } = await supabase
+        .from('leads')
+        .select('whatsapp_instance_id')
+        .eq('id', leadId)
+        .maybeSingle();
+
+      if (leadData?.whatsapp_instance_id) {
+        const { data: leadInstance } = await supabase
+          .from('whatsapp_instances')
+          .select('instance_name, status')
+          .eq('id', leadData.whatsapp_instance_id)
+          .maybeSingle();
+
+        if (leadInstance?.instance_name) {
+          resolvedInstanceName = leadInstance.instance_name;
+          console.log('🔄 Usando instância do canal do lead:', resolvedInstanceName);
+        }
+      }
+    }
+    const finalInstanceName = resolvedInstanceName;
+
     let cleanApiUrl: string;
     let apiKey: string;
     try {
@@ -69,11 +94,11 @@ serve(async (req) => {
     const { data: instanceData, error: instanceError } = await supabase
       .from('whatsapp_instances')
       .select('id')
-      .eq('instance_name', instance_name)
+      .eq('instance_name', finalInstanceName)
       .maybeSingle();
 
     if (instanceError || !instanceData) {
-      console.error('❌ Instância não encontrada:', instance_name);
+      console.error('❌ Instância não encontrada:', finalInstanceName);
       throw new Error('Instância WhatsApp não encontrada');
     }
 
@@ -89,13 +114,13 @@ serve(async (req) => {
       };
       
       console.log('📤 Enviando áudio PTT para Evolution API:', {
-        url: `${cleanApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
+        url: `${cleanApiUrl}/message/sendWhatsAppAudio/${finalInstanceName}`,
         number: remoteJid,
         encoding: true
       });
 
       const pttResponse = await fetch(
-        `${cleanApiUrl}/message/sendWhatsAppAudio/${instance_name}`,
+        `${cleanApiUrl}/message/sendWhatsAppAudio/${finalInstanceName}`,
         {
           method: 'POST',
           headers: {
@@ -188,14 +213,14 @@ serve(async (req) => {
     };
 
     console.log('📤 Enviando mídia para Evolution API:', {
-      url: `${cleanApiUrl}/message/sendMedia/${instance_name}`,
+      url: `${cleanApiUrl}/message/sendMedia/${finalInstanceName}`,
       mediaType: mediatype,
       fileName: finalFileName,
       mimetype: finalMimeType
     });
 
     const evolutionResponse = await fetch(
-      `${cleanApiUrl}/message/sendMedia/${instance_name}`,
+      `${cleanApiUrl}/message/sendMedia/${finalInstanceName}`,
       {
         method: 'POST',
         headers: {

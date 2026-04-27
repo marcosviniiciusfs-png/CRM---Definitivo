@@ -79,10 +79,36 @@ serve(async (req) => {
 
     // Criar cliente Supabase admin
     const supabase = createSupabaseAdmin();
+
+    // Determine which instance to use based on the lead's channel
+    let resolvedInstanceName = instance_name;
+
+    if (leadId) {
+      const { data: leadData } = await supabase
+        .from('leads')
+        .select('whatsapp_instance_id')
+        .eq('id', leadId)
+        .maybeSingle();
+
+      if (leadData?.whatsapp_instance_id) {
+        // Look up the instance name from the lead's assigned channel
+        const { data: leadInstance } = await supabase
+          .from('whatsapp_instances')
+          .select('instance_name, status')
+          .eq('id', leadData.whatsapp_instance_id)
+          .maybeSingle();
+
+        if (leadInstance?.instance_name) {
+          resolvedInstanceName = leadInstance.instance_name;
+          console.log('🔄 Usando instância do canal do lead:', resolvedInstanceName);
+        }
+      }
+    }
+
     const { data: instanceCheck, error: instanceCheckError } = await supabase
       .from('whatsapp_instances')
       .select('id, status, instance_name')
-      .eq('instance_name', instance_name)
+      .eq('instance_name', resolvedInstanceName)
       .maybeSingle();
 
     if (instanceCheckError) {
@@ -100,7 +126,7 @@ serve(async (req) => {
     }
 
     if (!instanceCheck) {
-      console.error('❌ Instância não encontrada no banco:', instance_name);
+      console.error('❌ Instância não encontrada no banco:', resolvedInstanceName);
       return new Response(
         JSON.stringify({
           success: false,
@@ -115,7 +141,7 @@ serve(async (req) => {
 
     if (instanceCheck.status !== 'CONNECTED') {
       console.error('❌ Instância não está conectada:', {
-        instance_name,
+        instance_name: resolvedInstanceName,
         status: instanceCheck.status
       });
       return new Response(
@@ -130,8 +156,11 @@ serve(async (req) => {
       );
     }
 
+    // Use the resolved instance name for all subsequent operations
+    const finalInstanceName = resolvedInstanceName;
+
     console.log('✅ Instância validada:', {
-      instance_name,
+      instance_name: finalInstanceName,
       status: instanceCheck.status,
       id: instanceCheck.id
     });
@@ -141,7 +170,7 @@ serve(async (req) => {
     console.log('🔗 URL normalizada da Evolution API:', cleanBaseUrl);
     
     // VERIFICAR STATUS REAL NA EVOLUTION API ANTES DE ENVIAR
-    const connectionStateUrl = `${cleanBaseUrl}/instance/connectionState/${instance_name}`;
+    const connectionStateUrl = `${cleanBaseUrl}/instance/connectionState/${finalInstanceName}`;
     console.log('🔍 Verificando status real na Evolution API:', connectionStateUrl);
     
     try {
@@ -164,7 +193,7 @@ serve(async (req) => {
           await supabase
             .from('whatsapp_instances')
             .update({ status: 'DISCONNECTED' })
-            .eq('instance_name', instance_name);
+            .eq('instance_name', finalInstanceName);
 
           return new Response(
             JSON.stringify({
@@ -186,7 +215,7 @@ serve(async (req) => {
     }
     
     // Construir endpoint correto para envio de mensagem
-    const sendMessageUrl = `${cleanBaseUrl}/message/sendText/${instance_name}`;
+    const sendMessageUrl = `${cleanBaseUrl}/message/sendText/${finalInstanceName}`;
     
     console.log(`🔄 Chamando Evolution API: ${sendMessageUrl}`);
     console.log(`📝 Texto da mensagem sendo enviado para Evolution API:`, message_text);
@@ -269,7 +298,7 @@ serve(async (req) => {
         status: evolutionResponse.status,
         statusText: evolutionResponse.statusText,
         error: errorText,
-        instance_name,
+        finalInstanceName,
         url: sendMessageUrl
       });
       
@@ -296,7 +325,7 @@ serve(async (req) => {
           await supabase
             .from('whatsapp_instances')
             .update({ status: 'DISCONNECTED' })
-            .eq('instance_name', instance_name);
+            .eq('instance_name', finalInstanceName);
           
           console.log('🔄 Status da instância atualizado para DISCONNECTED devido a Connection Closed');
         }
@@ -312,7 +341,7 @@ serve(async (req) => {
         await supabase
           .from('whatsapp_instances')
           .update({ status: 'DISCONNECTED' })
-          .eq('instance_name', instance_name);
+          .eq('instance_name', finalInstanceName);
 
         console.log('🔄 Status da instância atualizado para DISCONNECTED');
       }
