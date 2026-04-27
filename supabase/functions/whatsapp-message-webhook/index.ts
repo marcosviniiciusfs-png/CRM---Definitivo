@@ -483,7 +483,7 @@ serve(async (req) => {
     // Buscar a instância do WhatsApp no banco para obter o user_id e organization_id
     const { data: instanceData, error: instanceError } = await supabase
       .from('whatsapp_instances')
-      .select('user_id, phone_number, organization_id')
+      .select('id, user_id, phone_number, organization_id')
       .eq('instance_name', instance)
       .maybeSingle();
 
@@ -523,6 +523,9 @@ serve(async (req) => {
     }
 
     console.log('✅ Organization ID:', organizationId);
+
+    // Instance database ID for associating leads with channel
+    const instanceId = instanceData?.id || null;
 
     // Função auxiliar para salvar log
     const saveWebhookLog = async (status: string, errorMessage?: string) => {
@@ -716,7 +719,7 @@ serve(async (req) => {
     // Verificar se o lead já existe
     const { data: existingLead, error: leadSearchError } = await supabase
       .from('leads')
-      .select('id, nome_lead, funnel_id, funnel_stage_id')
+      .select('id, nome_lead, funnel_id, funnel_stage_id, whatsapp_instance_id')
       .eq('telefone_lead', phoneNumber)
       .eq('organization_id', organizationId)
       .maybeSingle();
@@ -747,7 +750,16 @@ serve(async (req) => {
         
         leadName = pushName;
       }
-      
+
+      // Associate lead to channel if not yet linked
+      if (instanceId && !existingLead.whatsapp_instance_id) {
+        console.log('🔗 Associating lead to channel:', instanceId);
+        await supabase
+          .from('leads')
+          .update({ whatsapp_instance_id: instanceId })
+          .eq('id', existingLead.id);
+      }
+
       // Se o lead existente ainda não tem funil configurado, aplicar mesma regra de mapeamento
       if (!existingLead.funnel_id) {
         console.log('🔄 Lead existente sem funil, aplicando mapeamento padrão de funil para WhatsApp...');
@@ -915,6 +927,7 @@ serve(async (req) => {
           stage: 'NOVO',
           funnel_id: funnelId,
           funnel_stage_id: funnelStageId,
+          whatsapp_instance_id: instanceId,
           last_message_at: new Date().toISOString()
         })
         .select()
