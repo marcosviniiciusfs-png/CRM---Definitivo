@@ -60,6 +60,7 @@ import { CSS } from "@dnd-kit/utilities";
 // New optimized components
 import { ChatHeader, ChatInput, ChatLeadItem, MessageBubble, PinnedMessagesBar, PresenceInfo } from "@/components/chat";
 import { BroadcastPanel } from "@/components/chat/BroadcastPanel";
+import { ChannelSelector } from "@/components/ChannelSelector";
 import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 
@@ -107,6 +108,11 @@ const Chat = () => {
   // Pinned state
   const [pinnedLeads, setPinnedLeads] = useState<string[]>([]);
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
+
+  // Channel state
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const channelsRef = useRef<any[]>([]);
 
   // Reply state
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -472,11 +478,13 @@ const Chat = () => {
         return;
       }
 
+      setOrgId(orgMember.organization_id);
+
       // Build leads query - RLS policy handles role-based filtering automatically
       // Admins/Owners see all leads, Members see only assigned leads via RLS
       const leadsQuery = supabase
         .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id")
+        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id, whatsapp_instance_id")
         .eq("organization_id", orgMember.organization_id)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
@@ -500,6 +508,15 @@ const Chat = () => {
       // Process leads
       const leadsData = leadsResult.data || [];
       setLeads(leadsData);
+
+      // Load connected channels for channel selector and colored bars
+      const { data: channelsData } = await supabase
+        .from("whatsapp_instances")
+        .select("id, instance_name, channel_name, channel_color, status")
+        .eq("organization_id", orgMember.organization_id)
+        .eq("status", "CONNECTED")
+        .order("created_at", { ascending: true });
+      channelsRef.current = (channelsData || []) as any[];
 
       // Set presence status
       const initialPresence = new Map<string, PresenceInfo>();
@@ -766,7 +783,17 @@ const Chat = () => {
       const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
       if (!memberData) throw new Error("Organização não encontrada");
 
-      const { data: instanceData } = await supabase.from("whatsapp_instances").select("instance_name").eq("organization_id", memberData.organization_id).eq("status", "CONNECTED").limit(1).maybeSingle();
+      let instanceQuery = supabase
+        .from("whatsapp_instances")
+        .select("instance_name")
+        .eq("organization_id", memberData.organization_id)
+        .eq("status", "CONNECTED");
+
+      if (selectedLead.whatsapp_instance_id) {
+        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      }
+
+      const { data: instanceData } = await instanceQuery.maybeSingle();
       if (!instanceData) throw new Error("Nenhuma instância WhatsApp conectada");
 
       const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
@@ -799,7 +826,17 @@ const Chat = () => {
       const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
       if (!memberData) throw new Error("Organização não encontrada");
 
-      const { data: instanceData } = await supabase.from("whatsapp_instances").select("instance_name").eq("organization_id", memberData.organization_id).eq("status", "CONNECTED").limit(1).maybeSingle();
+      let instanceQuery = supabase
+        .from("whatsapp_instances")
+        .select("instance_name")
+        .eq("organization_id", memberData.organization_id)
+        .eq("status", "CONNECTED");
+
+      if (selectedLead.whatsapp_instance_id) {
+        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      }
+
+      const { data: instanceData } = await instanceQuery.maybeSingle();
       if (!instanceData) throw new Error("Nenhuma instância WhatsApp conectada");
 
       const reader = new FileReader();
@@ -873,7 +910,17 @@ const Chat = () => {
         const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
         if (!memberData) throw new Error("Organização não encontrada");
 
-        const { data: instanceData } = await supabase.from("whatsapp_instances").select("instance_name").eq("organization_id", memberData.organization_id).eq("status", "CONNECTED").limit(1).maybeSingle();
+        let instanceQuery = supabase
+        .from("whatsapp_instances")
+        .select("instance_name")
+        .eq("organization_id", memberData.organization_id)
+        .eq("status", "CONNECTED");
+
+      if (selectedLead.whatsapp_instance_id) {
+        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      }
+
+      const { data: instanceData } = await instanceQuery.maybeSingle();
         if (!instanceData) throw new Error("Nenhuma instância WhatsApp conectada");
 
         let mediaType = "document";
@@ -1080,14 +1127,21 @@ const Chat = () => {
   // Computed values
   const searchResults = useMemo(() => messages.filter((m) => messageSearchQuery.trim() && m.corpo_mensagem.toLowerCase().includes(messageSearchQuery.toLowerCase())), [messages, messageSearchQuery]);
 
+  const getChannelColor = useCallback((lead: Lead): string | null => {
+    if (!lead.whatsapp_instance_id) return null;
+    const channel = channelsRef.current.find(c => c.id === lead.whatsapp_instance_id);
+    return channel?.channel_color || null;
+  }, []);
+
   const baseFilteredLeads = useMemo(() => leads.filter((lead) => {
     const matchesSearch = lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) || lead.telefone_lead.includes(searchQuery);
+    const matchesChannel = !selectedChannelId || lead.whatsapp_instance_id === selectedChannelId;
     if (selectedTagIds.length > 0) {
       const leadTags = leadTagsMap.get(lead.id) || [];
-      return matchesSearch && selectedTagIds.some((tagId) => leadTags.includes(tagId));
+      return matchesSearch && matchesChannel && selectedTagIds.some((tagId) => leadTags.includes(tagId));
     }
-    return matchesSearch;
-  }), [leads, searchQuery, selectedTagIds, leadTagsMap]);
+    return matchesSearch && matchesChannel;
+  }), [leads, searchQuery, selectedTagIds, leadTagsMap, selectedChannelId]);
 
   const pinnedFilteredLeads = useMemo(() => baseFilteredLeads.filter((lead) => pinnedLeads.includes(lead.id)).sort((a, b) => pinnedLeads.indexOf(a.id) - pinnedLeads.indexOf(b.id)), [baseFilteredLeads, pinnedLeads]);
 
@@ -1118,7 +1172,7 @@ const Chat = () => {
       <div ref={setNodeRef} style={style}>
         <ContextMenu>
           <ContextMenuTrigger asChild>
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+            <div {...attributes} {...listeners} className="relative cursor-grab active:cursor-grabbing">
               <ChatLeadItem
                 lead={lead}
                 isSelected={selectedLead?.id === lead.id}
@@ -1130,6 +1184,13 @@ const Chat = () => {
                 onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
               />
+              {getChannelColor(lead) && (
+                <div
+                  className="absolute right-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-l"
+                  style={{ backgroundColor: getChannelColor(lead) || undefined }}
+                  title={channelsRef.current.find(c => c.id === lead.whatsapp_instance_id)?.channel_name || ''}
+                />
+              )}
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-56">
@@ -1223,6 +1284,11 @@ const Chat = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar contato..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
+          <ChannelSelector
+            organizationId={orgId || ''}
+            selectedChannelId={selectedChannelId}
+            onChannelChange={setSelectedChannelId}
+          />
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -1251,7 +1317,7 @@ const Chat = () => {
                       {unpinnedFilteredLeads.map((lead) => (
                         <ContextMenu key={lead.id}>
                           <ContextMenuTrigger asChild>
-                            <div>
+                            <div className="relative">
                               <ChatLeadItem
                                 lead={lead}
                                 isSelected={selectedLead?.id === lead.id}
@@ -1263,6 +1329,13 @@ const Chat = () => {
                                 onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
                                 onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
                               />
+                              {getChannelColor(lead) && (
+                                <div
+                                  className="absolute right-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-l"
+                                  style={{ backgroundColor: getChannelColor(lead) || undefined }}
+                                  title={channelsRef.current.find(c => c.id === lead.whatsapp_instance_id)?.channel_name || ''}
+                                />
+                              )}
                             </div>
                           </ContextMenuTrigger>
                           <ContextMenuContent className="w-56">
