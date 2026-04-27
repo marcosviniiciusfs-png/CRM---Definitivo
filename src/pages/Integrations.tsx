@@ -16,7 +16,6 @@ import { GoogleCalendarModal } from "@/components/GoogleCalendarModal";
 /* ── Design tokens ── */
 const BG   = "linear-gradient(135deg,#921009 0%,#c0392b 50%,#e97555 100%)";
 const GLOW = "rgba(192,57,43,0.35)";
-const R    = "5px";
 
 /* ── Coming-soon integration definitions ── */
 const COMING_SOON = [
@@ -94,45 +93,24 @@ function ComingSoonCard({ g }: { g: typeof COMING_SOON[number] }) {
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{
-        minHeight: 190,
-        borderRadius: R,
-        border: `1px solid ${hov ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.06)"}`,
-        background: hov ? "rgba(255,255,255,.03)" : "rgba(255,255,255,.015)",
-        transition: "all .2s",
-        display: "flex",
-        flexDirection: "column",
-        padding: "16px 16px 14px",
-        opacity: 0.55,
-      }}
+      className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 opacity-55 transition-all ${
+        hov ? "border-border bg-accent/50" : "border-border/60 bg-card"
+      }`}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: R, flexShrink: 0,
-            background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            filter: "grayscale(.5) opacity(.5)",
-          }}>
+      <div className="flex justify-between items-start mb-2.5">
+        <div className="flex gap-2.5 items-center">
+          <div className="w-10 h-10 rounded-[5px] flex-shrink-0 bg-muted border border-border flex items-center justify-center grayscale-[.5] opacity-50">
             {g.ic}
           </div>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#3A3A4A", lineHeight: 1.2, marginBottom: 4 }}>{g.name}</div>
-            <span style={{
-              fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 3,
-              background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", color: "#2A2A3A",
-            }}>{g.cat}</span>
+            <div className="text-[13.5px] font-bold text-card-foreground leading-tight mb-1">{g.name}</div>
+            <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded bg-muted border border-border text-muted-foreground">{g.cat}</span>
           </div>
         </div>
       </div>
-      <p style={{ fontSize: 12.5, color: "#2A2A3A", lineHeight: 1.6, flex: 1,
-        overflow: "hidden", display: "-webkit-box" as any, WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as any }}>{g.desc}</p>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <div style={{
-          fontSize: 11.5, color: "#1E1E28", fontWeight: 500,
-          background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)",
-          borderRadius: R, padding: "6px 13px",
-        }}>🔒 Em breve</div>
+      <p className="text-[12.5px] text-muted-foreground leading-relaxed flex-1 line-clamp-2">{g.desc}</p>
+      <div className="flex justify-end">
+        <div className="text-[11.5px] font-medium bg-muted border border-border rounded-[5px] px-3 py-1.5 text-muted-foreground">🔒 Em breve</div>
       </div>
     </div>
   );
@@ -161,115 +139,79 @@ function WhatsAppCard({
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{
-        minHeight: 190,
-        borderRadius: R,
-        border: `1px solid ${isConnected ? "rgba(37,211,102,.22)" : hov ? "rgba(37,211,102,.15)" : "rgba(255,255,255,.07)"}`,
-        background: isConnected ? "rgba(37,211,102,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
-        boxShadow: isConnected ? "0 4px 24px rgba(37,211,102,.08)" : hov ? "0 6px 24px rgba(0,0,0,.3)" : "none",
-        transform: hov ? "translateY(-2px)" : "none",
-        transition: "all .2s",
-        display: "flex", flexDirection: "column",
-        padding: "16px 16px 14px",
-      }}
+      className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 transition-all ${
+        isConnected
+          ? "border-[#25D366]/22 bg-[#25D366]/6 shadow-[0_4px_24px_rgba(37,211,102,.08)]"
+          : hov
+            ? "border-border bg-accent/50 shadow-md"
+            : "border-border bg-card"
+      } ${hov ? "-translate-y-0.5" : ""}`}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: R, flexShrink: 0,
-            background: "rgba(37,211,102,.08)", border: "1px solid rgba(37,211,102,.22)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+      <div className="flex justify-between items-start mb-2.5">
+        <div className="flex gap-2.5 items-center">
+          <div className="w-10 h-10 rounded-[5px] flex-shrink-0 bg-[#25D366]/8 border border-[#25D366]/22 flex items-center justify-center">
             {WHATSAPP_IC}
           </div>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#E8E8F0", lineHeight: 1.2, marginBottom: 4 }}>WhatsApp</div>
-            <span style={{
-              fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 3,
-              background: "rgba(37,211,102,.1)", border: "1px solid rgba(37,211,102,.2)", color: "#25D366",
-            }}>Mensagens</span>
+            <div className="text-[13.5px] font-bold text-card-foreground leading-tight mb-1">WhatsApp</div>
+            <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366]">Mensagens</span>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-          <span style={{
-            width: 7, height: 7, borderRadius: "50%",
-            background: isConnected ? "#2ECC71" : "#222230",
-            boxShadow: isConnected ? "0 0 6px rgba(46,204,113,.5)" : "none",
-          }}/>
-          <span style={{ fontSize: 11, fontWeight: 500, color: isConnected ? "#2ECC71" : "#2A2A3A" }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`w-[7px] h-[7px] rounded-full ${isConnected ? "bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" : "bg-muted-foreground/30"}`}/>
+          <span className={`text-[11px] font-medium ${isConnected ? "text-success" : "text-muted-foreground"}`}>
             {isConnected ? "Online" : "Offline"}
           </span>
         </div>
       </div>
 
       {loading ? (
-        <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6, flex: 1 }}>Verificando conexão...</p>
+        <p className="text-[12.5px] text-muted-foreground leading-relaxed flex-1">Verificando conexão...</p>
       ) : isConnected ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <div style={{
-              padding: "5px 9px", borderRadius: R,
-              background: "rgba(37,211,102,.06)", border: "1px solid rgba(37,211,102,.15)",
-              display: "flex", alignItems: "center", gap: 7,
-            }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <div className="flex flex-col gap-1.5">
+            <div className="py-[5px] px-2.5 rounded-[5px] bg-muted/50 border border-border flex items-center gap-2">
               <svg viewBox="0 0 24 24" fill="#25D366" width="11" height="11">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
               </svg>
-              <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Instâncias:</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#88DDAA" }}>
+              <span className="text-[10.5px] text-muted-foreground flex-shrink-0">Instâncias:</span>
+              <span className="text-[11px] font-semibold text-[#25D366]">
                 {connectedCount} conectada{connectedCount !== 1 ? "s" : ""}
-                {instanceCount > connectedCount && <span style={{ color: "#555566", marginLeft: 4 }}>({instanceCount - connectedCount} off)</span>}
+                {instanceCount > connectedCount && <span className="text-muted-foreground ml-1">({instanceCount - connectedCount} off)</span>}
               </span>
             </div>
             {funnelName && (
-              <div style={{
-                padding: "5px 9px", borderRadius: R,
-                background: "rgba(37,211,102,.04)", border: "1px solid rgba(37,211,102,.12)",
-                display: "flex", alignItems: "center", gap: 7,
-              }}>
+              <div className="py-[5px] px-2.5 rounded-[5px] bg-muted/50 border border-border flex items-center gap-2">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" width="11" height="11" strokeWidth="2" strokeLinecap="round">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                 </svg>
-                <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Funil:</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#88DDAA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span className="text-[10.5px] text-muted-foreground flex-shrink-0">Funil:</span>
+                <span className="text-[11px] font-semibold text-[#25D366] overflow-hidden text-ellipsis whitespace-nowrap">
                   {funnelName}
                 </span>
               </div>
             )}
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
               title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              style={{
-                border: "1px solid rgba(37,211,102,.3)", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 600, padding: "6px 14px",
-                cursor: canManage ? "pointer" : "not-allowed",
-                background: "rgba(37,211,102,.1)", color: "#2ECC71", transition: "all .18s",
-                opacity: canManage ? 1 : 0.45,
-              }}
+              className="border border-[#25D366]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#25D366]/10 text-[#25D366] transition-all hover:bg-[#25D366]/20 disabled:opacity-45 disabled:cursor-not-allowed"
             >Gerenciar</button>
           </div>
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6 }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
             Receba e envie mensagens diretamente para seus leads com número Business.
           </p>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
               title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              style={{
-                border: "none", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 700, padding: "7px 15px",
-                cursor: canManage ? "pointer" : "not-allowed",
-                color: "white", background: "linear-gradient(135deg,#128C7E,#25D366)",
-                boxShadow: "0 3px 12px rgba(37,211,102,.3)", transition: "all .18s",
-                opacity: canManage ? 1 : 0.45,
-              }}
+              className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#128C7E] to-[#25D366] shadow-[0_3px_12px_rgba(37,211,102,.3)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
             >Conectar WhatsApp</button>
           </div>
         </div>
@@ -299,121 +241,82 @@ function FacebookCard({
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{
-        minHeight: 190,
-        borderRadius: R,
-        border: `1px solid ${isConnected ? "rgba(24,119,242,.25)" : hov ? "rgba(24,119,242,.15)" : "rgba(255,255,255,.07)"}`,
-        background: isConnected ? "rgba(24,119,242,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
-        boxShadow: isConnected ? "0 4px 24px rgba(24,119,242,.1)" : hov ? "0 6px 24px rgba(0,0,0,.3)" : "none",
-        transform: hov ? "translateY(-2px)" : "none",
-        transition: "all .2s",
-        display: "flex", flexDirection: "column",
-        padding: "16px 16px 14px",
-      }}
+      className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 transition-all ${
+        isConnected
+          ? "border-[#1877F2]/25 bg-[#1877F2]/6 shadow-[0_4px_24px_rgba(24,119,242,.1)]"
+          : hov
+            ? "border-border bg-accent/50 shadow-md"
+            : "border-border bg-card"
+      } ${hov ? "-translate-y-0.5" : ""}`}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: R, flexShrink: 0,
-            background: "rgba(24,119,242,.08)", border: "1px solid rgba(24,119,242,.22)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+      <div className="flex justify-between items-start mb-2.5">
+        <div className="flex gap-2.5 items-center">
+          <div className="w-10 h-10 rounded-[5px] flex-shrink-0 bg-[#1877F2]/8 border border-[#1877F2]/22 flex items-center justify-center">
             {FACEBOOK_IC}
           </div>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#E8E8F0", lineHeight: 1.2, marginBottom: 4 }}>Facebook Leads</div>
-            <span style={{
-              fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 3,
-              background: "rgba(24,119,242,.1)", border: "1px solid rgba(24,119,242,.22)", color: "#1877F2",
-            }}>Anúncios</span>
+            <div className="text-[13.5px] font-bold text-card-foreground leading-tight mb-1">Facebook Leads</div>
+            <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded bg-[#1877F2]/10 border border-[#1877F2]/22 text-[#1877F2]">Anúncios</span>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-          <span style={{
-            width: 7, height: 7, borderRadius: "50%",
-            background: isConnected ? "#2ECC71" : "#222230",
-            boxShadow: isConnected ? "0 0 6px rgba(46,204,113,.5)" : "none",
-          }}/>
-          <span style={{ fontSize: 11, fontWeight: 500, color: isConnected ? "#2ECC71" : "#2A2A3A" }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`w-[7px] h-[7px] rounded-full ${isConnected ? "bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" : "bg-muted-foreground/30"}`}/>
+          <span className={`text-[11px] font-medium ${isConnected ? "text-success" : "text-muted-foreground"}`}>
             {isConnected ? "Online" : "Offline"}
           </span>
         </div>
       </div>
 
       {loading ? (
-        <p style={{ fontSize: 12.5, color: "#606070", flex: 1 }}>Verificando conexão...</p>
+        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando conexão...</p>
       ) : isConnected ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {/* Page name */}
-            <div style={{
-              padding: "5px 9px", borderRadius: R,
-              background: "rgba(24,119,242,.07)", border: "1px solid rgba(24,119,242,.2)",
-              display: "flex", alignItems: "center", gap: 7,
-            }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <div className="flex flex-col gap-1.5">
+            <div className="py-[5px] px-2.5 rounded-[5px] bg-muted/50 border border-border flex items-center gap-2">
               <svg viewBox="0 0 24 24" fill="#1877F2" width="11" height="11">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
-              <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Página:</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#99BBDD", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span className="text-[10.5px] text-muted-foreground flex-shrink-0">Página:</span>
+              <span className="text-[11px] font-semibold text-[#1877F2] overflow-hidden text-ellipsis whitespace-nowrap">
                 {integration?.page_name || "Página conectada"}
               </span>
             </div>
-            {/* Form count */}
-            <div style={{
-              padding: "5px 9px", borderRadius: R,
-              background: configuredForms > 0 ? "rgba(46,204,113,.05)" : "rgba(255,255,255,.03)",
-              border: `1px solid ${configuredForms > 0 ? "rgba(46,204,113,.2)" : "rgba(255,255,255,.06)"}`,
-              display: "flex", alignItems: "center", gap: 7,
-            }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke={configuredForms > 0 ? "#2ECC71" : "#444455"}
+            <div className={`py-[5px] px-2.5 rounded-[5px] border flex items-center gap-2 ${configuredForms > 0 ? "bg-success/5 border-success/20" : "bg-muted/50 border-border"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke={configuredForms > 0 ? "hsl(var(--success))" : "hsl(var(--muted-foreground))"}
                 width="11" height="11" strokeWidth="2.2" strokeLinecap="round">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
                 <line x1="8" y1="8" x2="16" y2="8"/>
                 <line x1="8" y1="12" x2="16" y2="12"/>
                 <line x1="8" y1="16" x2="13" y2="16"/>
               </svg>
-              <span style={{ fontSize: 10.5, color: "#607080", flexShrink: 0 }}>Ativos no CRM:</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: configuredForms > 0 ? "#88DDAA" : "#2A2A3A" }}>
+              <span className="text-[10.5px] text-muted-foreground flex-shrink-0">Ativos no CRM:</span>
+              <span className={`text-[11px] font-semibold ${configuredForms > 0 ? "text-success" : "text-muted-foreground"}`}>
                 {configuredForms > 0
                   ? `${configuredForms} formulário${configuredForms !== 1 ? "s" : ""}`
                   : "Nenhum ativo"}
               </span>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
               title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              style={{
-                border: "1px solid rgba(24,119,242,.3)", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 600, padding: "6px 14px",
-                cursor: canManage ? "pointer" : "not-allowed",
-                background: "rgba(24,119,242,.1)", color: "#5599DD", transition: "all .18s",
-                opacity: canManage ? 1 : 0.45,
-              }}
+              className="border border-[#1877F2]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#1877F2]/10 text-[#1877F2] transition-all hover:bg-[#1877F2]/20 disabled:opacity-45 disabled:cursor-not-allowed"
             >Gerenciar Formulários</button>
           </div>
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6 }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
             Importe leads automaticamente das campanhas de anúncios do Facebook Ads.
           </p>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
               title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              style={{
-                border: "none", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 700, padding: "7px 15px",
-                cursor: canManage ? "pointer" : "not-allowed",
-                color: "white", background: "linear-gradient(135deg,#1877F2,#1565C0)",
-                boxShadow: "0 3px 12px rgba(24,119,242,.35)", transition: "all .18s",
-                opacity: canManage ? 1 : 0.45,
-              }}
+              className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#1877F2] to-[#1565C0] shadow-[0_3px_12px_rgba(24,119,242,.35)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
             >Conectar ao Facebook</button>
           </div>
         </div>
@@ -446,91 +349,59 @@ function MetaConversionsCard({
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{
-        minHeight: 190,
-        borderRadius: R,
-        border: `1px solid ${isActive ? "rgba(0,130,251,.25)" : hov ? "rgba(0,130,251,.15)" : "rgba(255,255,255,.07)"}`,
-        background: isActive ? "rgba(0,130,251,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
-        boxShadow: isActive ? "0 4px 24px rgba(0,130,251,.1)" : hov ? "0 6px 24px rgba(0,0,0,.3)" : "none",
-        transform: hov ? "translateY(-2px)" : "none",
-        transition: "all .2s",
-        display: "flex", flexDirection: "column",
-        padding: "16px 16px 14px",
-      }}
+      className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 transition-all ${
+        isActive
+          ? "border-[#0082FB]/25 bg-[#0082FB]/6 shadow-[0_4px_24px_rgba(0,130,251,.1)]"
+          : hov
+            ? "border-border bg-accent/50 shadow-md"
+            : "border-border bg-card"
+      } ${hov ? "-translate-y-0.5" : ""}`}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: R, flexShrink: 0,
-            background: "rgba(0,130,251,.08)", border: "1px solid rgba(0,130,251,.22)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+      <div className="flex justify-between items-start mb-2.5">
+        <div className="flex gap-2.5 items-center">
+          <div className="w-10 h-10 rounded-[5px] flex-shrink-0 bg-[#0082FB]/8 border border-[#0082FB]/22 flex items-center justify-center">
             {META_PIXEL_IC}
           </div>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#E8E8F0", lineHeight: 1.2, marginBottom: 4 }}>Meta Conversions</div>
-            <span style={{
-              fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 3,
-              background: "rgba(0,130,251,.1)", border: "1px solid rgba(0,130,251,.22)", color: "#0082FB",
-            }}>Pixel</span>
+            <div className="text-[13.5px] font-bold text-card-foreground leading-tight mb-1">Meta Conversions</div>
+            <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded bg-[#0082FB]/10 border border-[#0082FB]/22 text-[#0082FB]">Pixel</span>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-          <span style={{
-            width: 7, height: 7, borderRadius: "50%",
-            background: isActive ? "#2ECC71" : "#222230",
-            boxShadow: isActive ? "0 0 6px rgba(46,204,113,.5)" : "none",
-          }}/>
-          <span style={{ fontSize: 11, fontWeight: 500, color: isActive ? "#2ECC71" : "#2A2A3A" }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`w-[7px] h-[7px] rounded-full ${isActive ? "bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" : "bg-muted-foreground/30"}`}/>
+          <span className={`text-[11px] font-medium ${isActive ? "text-success" : "text-muted-foreground"}`}>
             {isActive ? "Ativo" : "Inativo"}
           </span>
         </div>
       </div>
 
       {loading ? (
-        <p style={{ fontSize: 12.5, color: "#606070", flex: 1 }}>Verificando configuração...</p>
+        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando configuração...</p>
       ) : isActive ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div style={{
-            padding: "8px 10px", borderRadius: R,
-            background: "rgba(0,130,251,.06)", border: "1px solid rgba(0,130,251,.15)",
-            fontSize: 12, color: "#5599DD",
-          }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <div className="py-2 px-2.5 rounded-[5px] bg-muted/50 border border-border text-[12px] text-[#0082FB]">
             Pixel configurado e rastreando conversões
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
               title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              style={{
-                border: "1px solid rgba(0,130,251,.3)", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 600, padding: "6px 14px",
-                cursor: canManage ? "pointer" : "not-allowed",
-                background: "rgba(0,130,251,.1)", color: "#5599DD", transition: "all .18s",
-                opacity: canManage ? 1 : 0.45,
-              }}
+              className="border border-[#0082FB]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#0082FB]/10 text-[#0082FB] transition-all hover:bg-[#0082FB]/20 disabled:opacity-45 disabled:cursor-not-allowed"
             >Gerenciar Pixel</button>
           </div>
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6 }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
             Envie eventos de conversão ao Meta e otimize suas campanhas de anúncios.
           </p>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
               title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              style={{
-                border: "none", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 700, padding: "7px 15px",
-                cursor: canManage ? "pointer" : "not-allowed",
-                color: "white", background: "linear-gradient(135deg,#0082FB,#0050A0)",
-                boxShadow: "0 3px 12px rgba(0,130,251,.35)", transition: "all .18s",
-                opacity: canManage ? 1 : 0.45,
-              }}
+              className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#0082FB] to-[#0050A0] shadow-[0_3px_12px_rgba(0,130,251,.35)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
             >Configurar Pixel</button>
           </div>
         </div>
@@ -592,88 +463,57 @@ function GoogleCalendarCard({
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{
-        minHeight: 190,
-        borderRadius: R,
-        border: `1px solid ${isConnected ? "rgba(66,133,244,.25)" : hov ? "rgba(66,133,244,.15)" : "rgba(255,255,255,.07)"}`,
-        background: isConnected ? "rgba(66,133,244,.06)" : hov ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
-        boxShadow: isConnected ? "0 4px 24px rgba(66,133,244,.1)" : hov ? "0 6px 24px rgba(0,0,0,.3)" : "none",
-        transform: hov ? "translateY(-2px)" : "none",
-        transition: "all .2s",
-        display: "flex", flexDirection: "column",
-        padding: "16px 16px 14px",
-      }}
+      className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 transition-all ${
+        isConnected
+          ? "border-[#4285F4]/25 bg-[#4285F4]/6 shadow-[0_4px_24px_rgba(66,133,244,.1)]"
+          : hov
+            ? "border-border bg-accent/50 shadow-md"
+            : "border-border bg-card"
+      } ${hov ? "-translate-y-0.5" : ""}`}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: R, flexShrink: 0,
-            background: "rgba(66,133,244,.08)", border: "1px solid rgba(66,133,244,.22)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+      <div className="flex justify-between items-start mb-2.5">
+        <div className="flex gap-2.5 items-center">
+          <div className="w-10 h-10 rounded-[5px] flex-shrink-0 bg-[#4285F4]/8 border border-[#4285F4]/22 flex items-center justify-center">
             {GCAL_IC}
           </div>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#E8E8F0", lineHeight: 1.2, marginBottom: 4 }}>Google Calendar</div>
-            <span style={{
-              fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 3,
-              background: "rgba(66,133,244,.1)", border: "1px solid rgba(66,133,244,.22)", color: "#4285F4",
-            }}>Produtividade</span>
+            <div className="text-[13.5px] font-bold text-card-foreground leading-tight mb-1">Google Calendar</div>
+            <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded bg-[#4285F4]/10 border border-[#4285F4]/22 text-[#4285F4]">Produtividade</span>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-          <span style={{
-            width: 7, height: 7, borderRadius: "50%",
-            background: isConnected ? "#2ECC71" : "#222230",
-            boxShadow: isConnected ? "0 0 6px rgba(46,204,113,.5)" : "none",
-          }}/>
-          <span style={{ fontSize: 11, fontWeight: 500, color: isConnected ? "#2ECC71" : "#2A2A3A" }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`w-[7px] h-[7px] rounded-full ${isConnected ? "bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" : "bg-muted-foreground/30"}`}/>
+          <span className={`text-[11px] font-medium ${isConnected ? "text-success" : "text-muted-foreground"}`}>
             {isConnected ? "Online" : "Offline"}
           </span>
         </div>
       </div>
 
       {loading ? (
-        <p style={{ fontSize: 12.5, color: "#606070", flex: 1 }}>Verificando conexão...</p>
+        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando conexão...</p>
       ) : isConnected ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div style={{
-            padding: "8px 10px", borderRadius: R,
-            background: "rgba(66,133,244,.06)", border: "1px solid rgba(66,133,244,.15)",
-            fontSize: 12, color: "#6699DD",
-          }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <div className="py-2 px-2.5 rounded-[5px] bg-muted/50 border border-border text-[12px] text-[#4285F4]">
             Calendário sincronizado com seu Google Calendar
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={onConnect}
-              style={{
-                border: "1px solid rgba(66,133,244,.3)", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 600, padding: "6px 14px",
-                cursor: "pointer",
-                background: "rgba(66,133,244,.1)", color: "#6699DD", transition: "all .18s",
-              }}
+              className="border border-[#4285F4]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#4285F4]/10 text-[#4285F4] transition-all hover:bg-[#4285F4]/20"
             >Gerenciar</button>
           </div>
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <p style={{ fontSize: 12.5, color: "#606070", lineHeight: 1.6 }}>
+        <div className="flex-1 flex flex-col justify-between">
+          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
             Agende reuniões e sincronize eventos com seu calendário automaticamente.
           </p>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="flex justify-end">
             <button
               onClick={canManage ? handleConnect : undefined}
               disabled={!canManage || connecting}
               title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              style={{
-                border: "none", borderRadius: R, fontFamily: "inherit",
-                fontSize: 12, fontWeight: 700, padding: "7px 15px",
-                cursor: canManage ? "pointer" : "not-allowed",
-                color: "white", background: "linear-gradient(135deg,#4285F4,#2B63C3)",
-                boxShadow: "0 3px 12px rgba(66,133,244,.35)", transition: "all .18s",
-                opacity: canManage ? 1 : 0.45,
-              }}
+              className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#4285F4] to-[#2B63C3] shadow-[0_3px_12px_rgba(66,133,244,.35)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
             >{connecting ? "Conectando..." : "Conectar Google Calendar"}</button>
           </div>
         </div>
@@ -861,76 +701,45 @@ const Integrations = () => {
 
   return (
     <>
-      <style>{`
-        @keyframes _sp { to { transform: rotate(360deg) } }
-        .int-tab-btn {
-          background: none; border: none; cursor: pointer; font-family: inherit;
-          font-size: 12px; font-weight: 500; padding: 8px 12px; border-radius: 5px;
-          display: flex; align-items: center; gap: 7px;
-          color: #555566; transition: all .18s; white-space: nowrap;
-        }
-        @media (min-width: 640px) {
-          .int-tab-btn { font-size: 13px; padding: 9px 17px; }
-        }
-        .int-tab-btn:hover { color: #C0C0D0; background: rgba(255,255,255,.04); }
-        .int-tab-btn.active { color: #F0F0F8; background: rgba(255,255,255,.07); }
-        .int-tab-btn.active .int-dot { background: linear-gradient(135deg,#921009,#e97555); }
-        .int-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.1); flex-shrink: 0; transition: all .2s; }
-        .int-grid-card-add:hover { border-color: rgba(255,255,255,.13) !important; background: rgba(255,255,255,.02) !important; }
-      `}</style>
 
       <div
-        style={{
-          minHeight: "100%",
-          background: "linear-gradient(180deg, #0A0A0E 0%, #0E0E14 100%)",
-          color: "#E8E8F0",
-          fontFamily: "'DM Sans',system-ui,sans-serif",
-          borderRadius: 8,
-          overflowX: "hidden",
-          minWidth: 0,
-        }}
-        className="p-4 sm:p-6 md:p-7"
+        className="bg-muted/60 text-foreground p-4 sm:p-6 md:p-7 rounded-lg overflow-x-hidden min-w-0 min-h-full"
       >
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4 mb-4 sm:mb-6 md:mb-7">
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 7 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: "5px", background: BG, flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: `0 4px 18px ${GLOW}`,
-              }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 rounded-[5px] flex-shrink-0 flex items-center justify-center" style={{ background: BG, boxShadow: `0 4px 18px ${GLOW}` }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                 </svg>
               </div>
-              <h1 className="text-lg sm:text-xl md:text-[22px]" style={{
-                fontWeight: 700, letterSpacing: "-0.03em",
-                background: "linear-gradient(135deg,#F5F0F0 30%,#C09080)",
-                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-              }}>Integrações</h1>
+              <h1 className="text-lg sm:text-xl md:text-[22px] font-bold tracking-tight text-foreground">Integrações</h1>
             </div>
-            <p className="hidden sm:block" style={{ fontSize: 13, color: "#555566" }}>Conecte serviços externos e automatize seus fluxos de trabalho</p>
+            <p className="hidden sm:block text-[13px] text-muted-foreground">Conecte serviços externos e automatize seus fluxos de trabalho</p>
           </div>
-          <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-            <div style={{ padding: "10px 16px", borderRadius: "5px", textAlign: "center", background: "rgba(233,117,85,.07)", border: "1px solid rgba(233,117,85,.2)" }}>
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, background: BG, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{totalAvailable}</div>
-              <div style={{ fontSize: 10.5, color: "#C07060", opacity: .8, marginTop: 2 }}>Disponíveis</div>
+          <div className="flex gap-2.5 flex-shrink-0">
+            <div className="px-4 py-2.5 rounded-[5px] text-center bg-primary/7 border border-primary/20">
+              <div className="text-[22px] font-bold leading-none text-primary">{totalAvailable}</div>
+              <div className="text-[10.5px] text-primary/70 mt-0.5">Disponíveis</div>
             </div>
           </div>
         </div>
 
         {/* ── Tabs ── */}
-        <div className="mb-4 sm:mb-6 overflow-x-auto" style={{
-          display: "flex", gap: 3,
-          background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.07)",
-          borderRadius: "5px", padding: 4, width: "fit-content",
-          maxWidth: "100%",
-        }}>
+        <div className="mb-4 sm:mb-6 overflow-x-auto flex gap-1 bg-muted/50 border border-border rounded-md p-1 w-fit max-w-full">
           {(["connections", "webhooks", "logs"] as const).map(t => (
-            <button key={t} className={`int-tab-btn ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-              <span className="int-dot"/>
+            <button
+              key={t}
+              className={`flex items-center gap-1.5 text-xs sm:text-[13px] font-medium px-3 sm:px-4 py-2 rounded-[5px] whitespace-nowrap transition-all ${
+                tab === t
+                  ? "text-foreground bg-accent"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              onClick={() => setTab(t)}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all ${tab === t ? "bg-primary" : "bg-muted-foreground/30"}`}/>
               {t === "connections" ? "Conexões" : t === "webhooks" ? "Webhooks" : "Logs"}
             </button>
           ))}
@@ -981,25 +790,16 @@ const Integrations = () => {
 
             {/* Request integration card */}
             <div
-              className="int-grid-card-add"
-              style={{
-                minHeight: 190, border: "1px dashed rgba(255,255,255,.07)", borderRadius: "5px",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 10, cursor: "pointer", transition: "all .2s",
-              }}
+              className="int-grid-card-add min-h-[190px] border border-dashed border-border rounded-[5px] flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-all hover:border-muted-foreground/30 hover:bg-muted/30"
             >
-              <div style={{
-                width: 38, height: 38, borderRadius: "5px",
-                background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2A2A36" strokeWidth="2.2">
+              <div className="w-9.5 h-9.5 rounded-[5px] bg-muted border border-border flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="text-muted-foreground">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
               </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: "#2A2A36" }}>Solicitar integração</div>
-                <div style={{ fontSize: 11, color: "#1E1E28", marginTop: 3 }}>Sugira um novo serviço</div>
+              <div className="text-center">
+                <div className="text-[12.5px] font-medium text-muted-foreground">Solicitar integração</div>
+                <div className="text-[11px] text-muted-foreground/70 mt-0.5">Sugira um novo serviço</div>
               </div>
             </div>
           </div>
@@ -1007,20 +807,14 @@ const Integrations = () => {
 
         {/* ── Webhooks Tab ── */}
         {tab === "webhooks" && (
-          <div style={{
-            background: "rgba(255,255,255,.02)", borderRadius: 8,
-            border: "1px solid rgba(255,255,255,.06)",
-          }}>
+          <div className="bg-card border border-border rounded-lg">
             <WebhookIntegrationsTab organizationId={organizationId} />
           </div>
         )}
 
         {/* ── Logs Tab ── */}
         {tab === "logs" && (
-          <div style={{
-            background: "rgba(255,255,255,.02)", borderRadius: 8,
-            border: "1px solid rgba(255,255,255,.06)",
-          }}>
+          <div className="bg-card border border-border rounded-lg">
             <IntegratedLogsViewer />
           </div>
         )}
