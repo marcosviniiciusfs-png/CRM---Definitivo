@@ -5,7 +5,7 @@ import { useOrganization } from "@/contexts/OrganizationContext";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
-import WhatsAppConnection from "@/components/WhatsAppConnection";
+import { WhatsAppChannelModal } from "@/components/WhatsAppChannelModal";
 import { WebhookIntegrationsTab } from "@/components/WebhookIntegrationsTab";
 import { IntegratedLogsViewer } from "@/components/IntegratedLogsViewer";
 import { MetaPixelConnection } from "@/components/MetaPixelConnection";
@@ -123,25 +123,24 @@ function WhatsAppCard({
   connectedCount,
   loading,
   canManage,
-  funnelName,
 }: {
   onManage: () => void;
   instanceCount: number;
   connectedCount: number;
   loading: boolean;
   canManage: boolean;
-  funnelName?: string | null;
 }) {
   const [hov, setHov] = useState(false);
   const isConnected = connectedCount > 0;
 
   return (
     <div
+      onClick={isConnected && canManage ? onManage : undefined}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 transition-all ${
         isConnected
-          ? "border-[#25D366]/22 bg-[#25D366]/6 shadow-[0_4px_24px_rgba(37,211,102,.08)]"
+          ? "border-[#25D366]/22 bg-[#25D366]/6 shadow-[0_4px_24px_rgba(37,211,102,.08)] cursor-pointer"
           : hov
             ? "border-border bg-accent/50 shadow-md"
             : "border-border bg-card"
@@ -169,36 +168,14 @@ function WhatsAppCard({
         <p className="text-[12.5px] text-muted-foreground leading-relaxed flex-1">Verificando conexão...</p>
       ) : isConnected ? (
         <div className="flex-1 flex flex-col justify-between">
-          <div className="flex flex-col gap-1.5">
-            <div className="py-[5px] px-2.5 rounded-[5px] bg-muted/50 border border-border flex items-center gap-2">
-              <svg viewBox="0 0 24 24" fill="#25D366" width="11" height="11">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
-              </svg>
-              <span className="text-[10.5px] text-muted-foreground flex-shrink-0">Instâncias:</span>
-              <span className="text-[11px] font-semibold text-[#25D366]">
-                {connectedCount} conectada{connectedCount !== 1 ? "s" : ""}
-                {instanceCount > connectedCount && <span className="text-muted-foreground ml-1">({instanceCount - connectedCount} off)</span>}
-              </span>
+          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+            Receba e envie mensagens diretamente para seus leads com número Business.
+          </p>
+          <div className="flex justify-end mt-2">
+            <div className="flex items-center gap-1.5 bg-[#25D366]/15 px-3 py-1.5 rounded-full">
+              <span className="w-[7px] h-[7px] rounded-full bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" />
+              <span className="text-[12px] font-semibold text-[#25D366]">{connectedCount} ativo{connectedCount !== 1 ? "s" : ""}</span>
             </div>
-            {funnelName && (
-              <div className="py-[5px] px-2.5 rounded-[5px] bg-muted/50 border border-border flex items-center gap-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" width="11" height="11" strokeWidth="2" strokeLinecap="round">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                </svg>
-                <span className="text-[10.5px] text-muted-foreground flex-shrink-0">Funil:</span>
-                <span className="text-[11px] font-semibold text-[#25D366] overflow-hidden text-ellipsis whitespace-nowrap">
-                  {funnelName}
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end">
-            <button
-              onClick={canManage ? onManage : undefined}
-              disabled={!canManage}
-              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
-              className="border border-[#25D366]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#25D366]/10 text-[#25D366] transition-all hover:bg-[#25D366]/20 disabled:opacity-45 disabled:cursor-not-allowed"
-            >Gerenciar</button>
           </div>
         </div>
       ) : (
@@ -551,7 +528,7 @@ const Integrations = () => {
       if (!organizationId) return null;
       // Carregar WhatsApp e Facebook em PARALELO (sem waterfall)
       const [waResult, fbResult] = await Promise.all([
-        supabase.from("whatsapp_instances").select("status").eq("organization_id", organizationId),
+        supabase.from("whatsapp_instances").select("id, status, channel_name, channel_color, phone_number").eq("organization_id", organizationId),
         supabase.from("facebook_integrations").select("id, page_id, page_name, webhook_verified").eq("organization_id", organizationId).maybeSingle(),
       ]);
 
@@ -757,7 +734,6 @@ const Integrations = () => {
               connectedCount={waConnectedCount}
               loading={dataLoading}
               canManage={canManage}
-              funnelName={waFunnelName}
             />
 
             {/* Facebook — dados já carregados pelo pai */}
@@ -820,15 +796,16 @@ const Integrations = () => {
         )}
       </div>
 
-      {/* ── WhatsApp Management Dialog ── */}
-      <Dialog open={showWhatsApp} onOpenChange={(open) => {
-        setShowWhatsApp(open);
-        if (!open) refreshIntegrations();
-      }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
-          <WhatsAppConnection />
-        </DialogContent>
-      </Dialog>
+      {/* ── WhatsApp Channel Modal ── */}
+      <WhatsAppChannelModal
+        open={showWhatsApp}
+        onOpenChange={(open) => {
+          setShowWhatsApp(open);
+          if (!open) refreshIntegrations();
+        }}
+        organizationId={organizationId}
+        canManage={canManage}
+      />
 
       {/* ── Facebook Management Dialog ── */}
       <Dialog open={showFacebook} onOpenChange={(open) => {
