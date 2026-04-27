@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
@@ -42,6 +43,8 @@ const WhatsAppConnection = () => {
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
   const [fixingWebhook, setFixingWebhook] = useState(false);
+  const [showNameInput, setShowNameInput] = useState(false);
+  const [channelName, setChannelName] = useState("");
 
   // CRÍTICO: useRef para manter referência atualizada no callback do Realtime
   const selectedInstanceRef = useRef<WhatsAppInstance | null>(null);
@@ -302,8 +305,26 @@ const WhatsAppConnection = () => {
     }
   };
 
+  // Gerar nome padrão para o canal baseado no numero de instancias existentes
+  const getDefaultChannelName = () => {
+    const count = instances.length + 1;
+    return `Canal ${count}`;
+  };
+
+  // Abrir o input de nome do canal
+  const handleConnectClick = () => {
+    setChannelName(getDefaultChannelName());
+    setShowNameInput(true);
+  };
+
+  // Cancelar o input de nome
+  const handleCancelNameInput = () => {
+    setShowNameInput(false);
+    setChannelName("");
+  };
+
   // Criar nova instância
-  const createInstance = async () => {
+  const createInstance = async (name?: string) => {
     if (!user) {
       toast({
         title: "Erro",
@@ -313,6 +334,9 @@ const WhatsAppConnection = () => {
       return;
     }
 
+    const finalChannelName = name?.trim() || getDefaultChannelName();
+
+    setShowNameInput(false);
     setCreating(true);
     try {
       // CRÍTICO: Limpeza síncrona de instâncias pendentes ANTES de criar nova
@@ -343,7 +367,7 @@ const WhatsAppConnection = () => {
       }
 
       const { data, error } = await supabase.functions.invoke('create-whatsapp-instance', {
-        body: {},
+        body: { channel_name: finalChannelName },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -969,7 +993,7 @@ const WhatsAppConnection = () => {
                   ))
               ) : (
                 <Button
-                  onClick={createInstance}
+                  onClick={handleConnectClick}
                   disabled={creating}
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -989,6 +1013,48 @@ const WhatsAppConnection = () => {
               )}
             </div>
           </div>
+
+          {/* Channel name input - shown before connecting */}
+          {showNameInput && (
+            <div className="mt-3 space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Nome do canal
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  value={channelName}
+                  onChange={(e) => setChannelName(e.target.value)}
+                  placeholder="Ex: Vendas Principal"
+                  className="h-8 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && channelName.trim()) {
+                      createInstance(channelName);
+                    }
+                    if (e.key === 'Escape') {
+                      handleCancelNameInput();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  className="h-8 bg-blue-600 hover:bg-blue-700 text-white px-3"
+                  disabled={!channelName.trim()}
+                  onClick={() => createInstance(channelName)}
+                >
+                  Conectar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3"
+                  onClick={handleCancelNameInput}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Funnel Selector - only show when connected */}
           {instances.some(i => i.status === 'CONNECTED') && (
