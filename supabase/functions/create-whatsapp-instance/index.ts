@@ -8,6 +8,8 @@ import {
   createSupabaseAdmin,
 } from '../_shared/evolution-config.ts';
 
+const CHANNEL_COLORS = ['#25D366', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+
 interface CreateInstanceRequest {
   userId: string;
 }
@@ -335,6 +337,11 @@ serve(async (req) => {
     const instanceName = `crm-${user.id.substring(0, 8)}-${Date.now()}`;
     console.log('Creating fresh instance with name:', instanceName);
 
+    // Extract channel_name from request body
+    let body: { userId?: string; channel_name?: string } = {};
+    try { body = await req.clone().json(); } catch {}
+    const channelName = body.channel_name?.trim() || `Canal ${Date.now()}`;
+
     // Create instance in Evolution API (WITHOUT webhook - will be configured separately)
     const evolutionResponse = await fetch(`${baseUrl}/instance/create`, {
       method: 'POST',
@@ -485,6 +492,23 @@ serve(async (req) => {
       console.warn('⚠️ Could not resolve organization. Proceeding with organization_id = null');
     }
 
+    // VALIDATION: Max 5 channels per organization + determine color
+    let channelColor = CHANNEL_COLORS[0];
+    if (orgId) {
+      const { count, error: countError } = await supabase
+        .from('whatsapp_instances')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', orgId);
+
+      if (countError) {
+        console.error('❌ Error counting instances:', countError);
+      } else if (count && count >= 5) {
+        throw new Error('Limite de 5 canais WhatsApp atingido. Desconecte um canal para conectar um novo.');
+      }
+
+      channelColor = CHANNEL_COLORS[(count || 0) % CHANNEL_COLORS.length];
+    }
+
     // ========================================
     // IMMEDIATE DATABASE SAVE
     // ========================================
@@ -501,6 +525,8 @@ serve(async (req) => {
         status: qrCodeBase64 ? 'WAITING_QR' : 'CREATING',
         webhook_url: qrWebhookUrl,
         qr_code: qrCodeBase64, // String pura, já limpa
+        channel_name: channelName,
+        channel_color: channelColor,
       })
       .select()
       .single();
