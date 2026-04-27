@@ -25,6 +25,7 @@ export interface Lead {
   funnel_id?: string | null;
   funnel_stage_id?: string | null;
   additional_data?: any;
+  whatsapp_instance_id?: string | null;
 }
 
 export interface MessageReaction {
