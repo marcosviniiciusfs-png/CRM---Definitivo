@@ -256,9 +256,12 @@ Deno.serve(async (req) => {
     console.log(`Status atualizado com sucesso para: ${newStatus}`);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         status: newStatus,
-        message: 'Status verificado e atualizado com sucesso'
+        message: 'Status verificado e atualizado com sucesso',
+        channel_name: instanceData.channel_name || instanceData.instance_name,
+        channel_color: instanceData.channel_color || '#25D366',
+        phone_number: instanceData.phone_number || null,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
