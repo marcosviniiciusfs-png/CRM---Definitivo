@@ -209,7 +209,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
         <div className="px-4 py-3 border-t">
           {showConnect ? (
             <div className="space-y-3">
-              <WhatsAppConnection />
+              <WhatsAppConnection newConnectionMode />
               <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowConnect(false)}>
                 Cancelar
               </Button>

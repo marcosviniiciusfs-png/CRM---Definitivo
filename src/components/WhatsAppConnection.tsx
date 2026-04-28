@@ -29,7 +29,11 @@ interface WhatsAppInstance {
   connected_at: string | null;
 }
 
-const WhatsAppConnection = () => {
+interface WhatsAppConnectionProps {
+  newConnectionMode?: boolean;
+}
+
+const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionProps = {}) => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { organizationId } = useOrganization();
@@ -779,6 +783,8 @@ const WhatsAppConnection = () => {
     );
   }
 
+  const hasConnected = !newConnectionMode && instances.some(i => i.status === 'CONNECTED');
+
   const renderQRCode = (instance: WhatsAppInstance) => {
     try {
       console.log('🔍 Processando QR Code:', {
@@ -955,19 +961,19 @@ const WhatsAppConnection = () => {
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold">WhatsApp</h3>
                 <p className="text-xs text-muted-foreground truncate">
-                  {instances.some(i => i.status === 'CONNECTED')
+                  {hasConnected
                     ? `Conectado: ${instances.find(i => i.status === 'CONNECTED')?.phone_number || 'Ativo'}`
                     : 'Conecte seu número'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {instances.some(i => i.status === 'CONNECTED') && (
+              {hasConnected && (
                 <Badge variant="default" className="bg-[#66ee78] text-xs">Ativo</Badge>
               )}
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : instances.some(instance => instance.status === 'CONNECTED') ? (
+              ) : hasConnected ? (
                 instances
                   .filter(instance => instance.status === 'CONNECTED')
                   .map((instance) => (
@@ -1056,8 +1062,8 @@ const WhatsAppConnection = () => {
             </div>
           )}
 
-          {/* Funnel Selector - only show when connected */}
-          {instances.some(i => i.status === 'CONNECTED') && (
+          {/* Funnel Selector - only show when connected (and not in new-connection mode) */}
+          {hasConnected && (
             <FunnelSelector sourceType="whatsapp" className="mt-3" />
           )}
         </CardContent>
