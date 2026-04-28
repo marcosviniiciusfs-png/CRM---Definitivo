@@ -259,7 +259,7 @@ serve(async (req) => {
       }
       
       const filePath = `${leadId}/${Date.now()}-${finalFileName}`;
-      
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('chat-media')
         .upload(filePath, bytes, {
@@ -270,8 +270,10 @@ serve(async (req) => {
       if (uploadError) {
         console.error('⚠️ Erro no upload para Storage:', uploadError);
       } else if (uploadData) {
-        // Construir URL do Storage (bucket privado, requer signed URL)
-        storageUrl = `${supabaseUrl}/storage/v1/object/chat-media/${filePath}`;
+        const { data: urlData } = supabase.storage
+          .from('chat-media')
+          .getPublicUrl(filePath);
+        storageUrl = urlData.publicUrl;
         console.log('✅ Mídia salva no Storage:', storageUrl);
       }
     } catch (uploadErr) {
