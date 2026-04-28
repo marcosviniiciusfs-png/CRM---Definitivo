@@ -331,7 +331,39 @@ serve(async (req) => {
     performCleanup().catch(err => console.error('❌ [CLEANUP] Error in background cleanup:', err));
 
     // ========================================
-    // STEP 2: CREATE NEW INSTANCE
+    // STEP 2: RESOLVE ORG + VALIDATE CHANNEL LIMIT
+    // ========================================
+    // Resolve org and enforce the 5-channel cap BEFORE talking to Evolution API,
+    // so a hit on the limit doesn't leak an orphan instance on Evolution's side.
+    const orgId = await getOrCreateOrganizationId(supabase, {
+      id: user.id,
+      email: user.email,
+    });
+
+    if (orgId) {
+      console.log('✅ Organization resolved:', orgId);
+    } else {
+      console.warn('⚠️ Could not resolve organization. Proceeding with organization_id = null');
+    }
+
+    let channelColor = CHANNEL_COLORS[0];
+    if (orgId) {
+      const { count, error: countError } = await supabase
+        .from('whatsapp_instances')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', orgId);
+
+      if (countError) {
+        console.error('❌ Error counting instances:', countError);
+      } else if (count && count >= 5) {
+        throw new Error('Limite de 5 canais WhatsApp atingido. Desconecte um canal para conectar um novo.');
+      }
+
+      channelColor = CHANNEL_COLORS[(count || 0) % CHANNEL_COLORS.length];
+    }
+
+    // ========================================
+    // STEP 3: CREATE NEW INSTANCE
     // ========================================
     // Generate unique instance name using user ID and timestamp
     const instanceName = `crm-${user.id.substring(0, 8)}-${Date.now()}`;
@@ -393,12 +425,12 @@ serve(async (req) => {
     }
 
     // ========================================
-    // STEP 3: PARALLEL OPERATIONS (NON-BLOCKING)
+    // STEP 4: PARALLEL OPERATIONS (NON-BLOCKING)
     // ========================================
-    // OTIMIZAÇÃO: Executar webhook, presença e busca de org em PARALELO
+    // OTIMIZAÇÃO: Executar webhook e presença em PARALELO
     // Isso economiza vários segundos de latência
-    
-    console.log('⚡ Executando operações paralelas (webhook, presença, org)...');
+
+    console.log('⚡ Executando operações paralelas (webhook, presença)...');
     
     // Get webhook secret for authentication
     const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
@@ -468,46 +500,11 @@ serve(async (req) => {
       }
     };
 
-    // Buscar organização (necessário para salvar no banco)
-    const getOrganization = async () => {
-      return await getOrCreateOrganizationId(supabase, {
-        id: user.id,
-        email: user.email,
-      });
-    };
-
-    // OTIMIZAÇÃO: Executar todas as operações em paralelo
-    const [webhookResult, presenceResult, organizationId] = await Promise.allSettled([
+    // OTIMIZAÇÃO: Executar webhook e presença em paralelo
+    await Promise.allSettled([
       configureWebhook(),
       setPresence(),
-      getOrganization(),
     ]);
-
-    // Extrair organizationId do resultado
-    const orgId = organizationId.status === 'fulfilled' ? organizationId.value : null;
-    
-    if (orgId) {
-      console.log('✅ Organization resolved:', orgId);
-    } else {
-      console.warn('⚠️ Could not resolve organization. Proceeding with organization_id = null');
-    }
-
-    // VALIDATION: Max 5 channels per organization + determine color
-    let channelColor = CHANNEL_COLORS[0];
-    if (orgId) {
-      const { count, error: countError } = await supabase
-        .from('whatsapp_instances')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', orgId);
-
-      if (countError) {
-        console.error('❌ Error counting instances:', countError);
-      } else if (count && count >= 5) {
-        throw new Error('Limite de 5 canais WhatsApp atingido. Desconecte um canal para conectar um novo.');
-      }
-
-      channelColor = CHANNEL_COLORS[(count || 0) % CHANNEL_COLORS.length];
-    }
 
     // ========================================
     // IMMEDIATE DATABASE SAVE
