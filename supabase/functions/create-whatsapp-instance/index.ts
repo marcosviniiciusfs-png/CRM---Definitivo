@@ -239,18 +239,21 @@ serve(async (req) => {
     // Função de limpeza que será executada em background
     const performCleanup = async () => {
       try {
-        // Get all instances from database for this user
+        // Multi-channel mode: only clean up STALE instances (CREATING/WAITING_QR/DISCONNECTED).
+        // CONNECTED instances belong to other channels owned by the user and MUST be preserved —
+        // wiping them would break the multi-WhatsApp feature.
         const { data: dbInstances, error: dbFetchError } = await supabase
           .from('whatsapp_instances')
           .select('*')
-          .eq('user_id', cleanupData.userId);
+          .eq('user_id', cleanupData.userId)
+          .neq('status', 'CONNECTED');
 
         if (dbFetchError) {
           console.error('❌ [CLEANUP] Error fetching instances from database:', dbFetchError);
           return;
         }
 
-        console.log(`📋 [CLEANUP] Found ${dbInstances?.length || 0} instances in database for user`);
+        console.log(`📋 [CLEANUP] Found ${dbInstances?.length || 0} stale instances to clean up (CONNECTED preserved)`);
 
         // Fetch all instances from Evolution API
         const fetchInstancesResponse = await fetch(`${cleanupData.baseUrl}/instance/fetchInstances`, {
@@ -266,20 +269,19 @@ serve(async (req) => {
         }
 
         const allInstances = await fetchInstancesResponse.json();
-        const userPrefix = `crm-${cleanupData.userId.substring(0, 8)}`;
         const dbInstanceNames = dbInstances?.map(inst => inst.instance_name) || [];
-        
-        const userInstances = Array.isArray(allInstances) 
+
+        // Match only by DB instance_name (already filtered to non-CONNECTED).
+        // The previous prefix-based match would also catch the user's own CONNECTED
+        // channels in the Evolution API, breaking multi-channel.
+        const userInstances = Array.isArray(allInstances)
           ? allInstances.filter((inst: any) => {
               const instanceName = inst.instance?.instanceName;
-              return instanceName && (
-                instanceName.startsWith(userPrefix) || 
-                dbInstanceNames.includes(instanceName)
-              );
+              return instanceName && dbInstanceNames.includes(instanceName);
             })
           : [];
 
-        console.log(`🔍 [CLEANUP] Found ${userInstances.length} old instances to clean up`);
+        console.log(`🔍 [CLEANUP] Found ${userInstances.length} stale instances to clean up`);
 
         // Delete each old instance (don't block on these)
         for (const oldInstance of userInstances) {
