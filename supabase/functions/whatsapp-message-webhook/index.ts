@@ -826,17 +826,20 @@ serve(async (req) => {
       leadId = existingLead.id;
       leadName = existingLead.nome_lead;
       
-      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome se pushName estiver disponível e for diferente
-      if (pushName && pushName !== existingLead.nome_lead) {
+      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome se pushName estiver disponível e for diferente.
+      // CRITICO: ignorar para mensagens fromMe — o pushName desses eventos e o nome do
+      // dono da conta WhatsApp (vendedor), nao do contato. Se atualizassemos, todos os
+      // leads recebiam o nome do vendedor.
+      if (!isFromMe && pushName && pushName !== existingLead.nome_lead) {
         console.log('🔄 Atualizando nome do lead:', pushName);
         await supabase
           .from('leads')
-          .update({ 
+          .update({
             nome_lead: pushName,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingLead.id);
-        
+
         leadName = pushName;
       }
 
@@ -943,9 +946,12 @@ serve(async (req) => {
       });
     } else {
       console.log('🆕 Criando novo lead...');
-      
-      // Usar pushName ou número como nome do lead
-      const newLeadName = pushName || phoneNumber;
+
+      // Usar pushName so quando a mensagem foi recebida (ENTRADA): nesse caso
+      // pushName e o nome do contato no WhatsApp dele.
+      // Para fromMe (vendedor enviou pelo celular para um contato novo), o
+      // pushName e o nome do vendedor — nao serve como nome do lead.
+      const newLeadName = (!isFromMe && pushName) ? pushName : phoneNumber;
       
       // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WHATSAPP
       console.log('🔍 Buscando mapeamento de funil para WhatsApp...');
