@@ -427,6 +427,69 @@ serve(async (req) => {
       if (newStatus === 'CONNECTED') {
         updatePayload.qr_code = null;
         updatePayload.connected_at = new Date().toISOString();
+
+        // Capturar phone_number do dono da instancia.
+        // O payload connection.update raramente traz isso, entao consultamos
+        // /instance/fetchInstances que retorna o owner ("5511...@s.whatsapp.net").
+        // Sem isso, a UI mostrava "Aguardando..." eternamente apos conectar.
+        try {
+          let rawPhone: string | null = null;
+
+          // 1) Tentar extrair direto do payload (alguns events trazem)
+          const payloadCandidates = [
+            data?.user?.id,
+            data?.wuid,
+            data?.instance?.wuid,
+            data?.instance?.user?.id,
+            data?.phoneNumber,
+            data?.number,
+          ];
+          for (const cand of payloadCandidates) {
+            if (typeof cand === 'string' && cand.length > 0) {
+              rawPhone = cand;
+              break;
+            }
+          }
+
+          // 2) Fallback: consultar Evolution API pelo owner da instancia
+          if (!rawPhone) {
+            try {
+              const evoUrl = getEvolutionApiUrl();
+              const evoKey = getEvolutionApiKey();
+              const fetchUrl = `${evoUrl}/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`;
+              const fetchRes = await fetch(fetchUrl, {
+                method: 'GET',
+                headers: { apikey: evoKey, 'Content-Type': 'application/json' },
+              });
+              if (fetchRes.ok) {
+                const fetchJson = await fetchRes.json();
+                const list = Array.isArray(fetchJson) ? fetchJson : [fetchJson];
+                for (const item of list) {
+                  const candidate = item?.instance?.owner
+                    || item?.owner
+                    || item?.instance?.user?.id
+                    || item?.user?.id;
+                  if (typeof candidate === 'string' && candidate.length > 0) {
+                    rawPhone = candidate;
+                    break;
+                  }
+                }
+              }
+            } catch (fetchErr) {
+              console.warn('⚠️ Falha ao consultar fetchInstances para phone_number:', fetchErr);
+            }
+          }
+
+          if (rawPhone) {
+            const cleaned = extractPhoneNumber(String(rawPhone));
+            if (cleaned && cleaned.length >= 10) {
+              updatePayload.phone_number = cleaned;
+              console.log(`📞 phone_number capturado: ${cleaned}`);
+            }
+          }
+        } catch (phoneErr) {
+          console.warn('⚠️ Erro ao extrair phone_number:', phoneErr);
+        }
       }
 
       // PROTEÇÃO: Se atualizando para qualquer status não-CONNECTED, não sobrescrever CONNECTED

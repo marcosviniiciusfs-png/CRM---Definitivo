@@ -74,6 +74,35 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     if (channels.length > 0) loadLeadCounts(channels.map((c) => c.id));
   }, [channels, loadLeadCounts]);
 
+  // Backfill: when the modal opens, trigger check-whatsapp-status for any
+  // CONNECTED channel without phone_number. The Edge Function does the
+  // backfill on-demand (fetchInstances on Evolution API) and updates the row.
+  // Realtime then propagates the update back into `channels`. Without this,
+  // channels that connected before the webhook captured phone_number show
+  // "Aguardando..." forever.
+  useEffect(() => {
+    if (!open || channels.length === 0) return;
+
+    const stale = channels.filter((c) => c.status === "CONNECTED" && !c.phone_number);
+    if (stale.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      await Promise.allSettled(
+        stale.map((c) =>
+          supabase.functions.invoke("check-whatsapp-status", {
+            body: { instance_name: c.instance_name },
+          })
+        )
+      );
+      if (!cancelled) loadChannels();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, channels, loadChannels]);
+
   // Watch for new connections while the connect panel is shown.
   // WhatsAppConnection is a self-contained component with no onConnected callback,
   // so we poll the DB to detect when a channel reaches CONNECTED status.

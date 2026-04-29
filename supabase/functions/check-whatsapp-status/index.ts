@@ -6,6 +6,7 @@ import {
   mapEvolutionState,
   isConnectedState,
   normalizeUrl,
+  extractPhoneNumber,
 } from '../_shared/evolution-config.ts';
 
 Deno.serve(async (req) => {
@@ -232,6 +233,41 @@ Deno.serve(async (req) => {
       updateData.connected_at = new Date().toISOString();
     }
 
+    // Backfill on-demand: se conectado e phone_number ainda nao foi capturado,
+    // consultar fetchInstances para descobrir o owner. Isso resolve canais
+    // que conectaram antes do webhook capturar phone_number.
+    let backfilledPhone: string | null = null;
+    if (newStatus === 'CONNECTED' && !instanceData.phone_number) {
+      try {
+        const fetchUrl = `${cleanApiUrl}/instance/fetchInstances?instanceName=${encodeURIComponent(instance_name)}`;
+        const fetchRes = await fetch(fetchUrl, {
+          method: 'GET',
+          headers: { apikey: evolutionApiKey, 'Content-Type': 'application/json' },
+        });
+        if (fetchRes.ok) {
+          const fetchJson = await fetchRes.json();
+          const list = Array.isArray(fetchJson) ? fetchJson : [fetchJson];
+          for (const item of list) {
+            const candidate = item?.instance?.owner
+              || item?.owner
+              || item?.instance?.user?.id
+              || item?.user?.id;
+            if (typeof candidate === 'string' && candidate.length > 0) {
+              const cleaned = extractPhoneNumber(candidate);
+              if (cleaned && cleaned.length >= 10) {
+                backfilledPhone = cleaned;
+                updateData.phone_number = cleaned;
+                console.log(`📞 Backfill phone_number: ${cleaned}`);
+                break;
+              }
+            }
+          }
+        }
+      } catch (phoneErr) {
+        console.warn('⚠️ Erro no backfill de phone_number:', phoneErr);
+      }
+    }
+
     // CRÍTICO: Se estamos tentando atualizar para DISCONNECTED, não sobrescrever CONNECTED
     const updateQuery = supabase
       .from('whatsapp_instances')
@@ -261,7 +297,7 @@ Deno.serve(async (req) => {
         message: 'Status verificado e atualizado com sucesso',
         channel_name: instanceData.channel_name || instanceData.instance_name,
         channel_color: instanceData.channel_color || '#25D366',
-        phone_number: instanceData.phone_number || null,
+        phone_number: backfilledPhone || instanceData.phone_number || null,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
