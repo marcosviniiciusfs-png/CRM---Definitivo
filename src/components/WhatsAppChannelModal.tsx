@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WhatsAppChannel } from "@/types/whatsapp-channel";
@@ -105,12 +105,19 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   };
 
   const handleDisconnect = async (channel: WhatsAppChannel) => {
-    const { error } = await supabase.functions.invoke("disconnect-whatsapp-instance", {
-      body: { instance_name: channel.instance_name },
+    // The Edge Function expects `instanceId` (matches whatsapp_instances.id),
+    // not `instance_name`. The previous payload made the function fail with
+    // "Instance ID is required" → toast "Erro ao desconectar" no console.
+    const { data, error } = await supabase.functions.invoke("disconnect-whatsapp-instance", {
+      body: { instanceId: channel.id },
     });
 
-    if (error) {
-      toast({ title: "Erro ao desconectar", variant: "destructive" });
+    if (error || !data?.success) {
+      toast({
+        title: "Erro ao desconectar",
+        description: data?.error || error?.message || undefined,
+        variant: "destructive",
+      });
     } else {
       toast({ title: "Canal desconectado" });
       loadChannels();
@@ -123,6 +130,10 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
+        <DialogTitle className="sr-only">Canais WhatsApp</DialogTitle>
+        <DialogDescription className="sr-only">
+          Gerencie os canais WhatsApp conectados a esta organização. Conecte até 5 números diferentes.
+        </DialogDescription>
         {/* Header */}
         <div className="px-5 py-4 border-b flex items-center justify-between">
           <div className="flex items-center gap-3">
