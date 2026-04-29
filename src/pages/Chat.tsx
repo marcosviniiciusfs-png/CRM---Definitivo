@@ -188,6 +188,9 @@ const Chat = () => {
   // list in place to avoid a full-screen flash on tab focus.
   const hasInitialLoadCompletedRef = useRef(false);
 
+  // Mantem orgId acessivel dentro de callbacks Realtime sem invalidar deps.
+  const orgIdRef = useRef<string | null>(null);
+
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
     const channels = supabase.getChannels();
@@ -303,11 +306,23 @@ const Chat = () => {
         // Leads changes
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "leads" }, (payload) => {
           const updatedLead = payload.new as Lead;
-          // Merge with previous to preserve fields that the Realtime payload may not
-          // include (e.g. whatsapp_instance_id when REPLICA IDENTITY only ships
-          // changed columns). Without this, the channel filter momentarily loses
-          // the lead and the conversation list goes blank when switching channels.
-          setLeads((prev) => prev.map((lead) => (lead.id === updatedLead.id ? { ...lead, ...updatedLead, whatsapp_instance_id: updatedLead.whatsapp_instance_id ?? lead.whatsapp_instance_id } : lead)));
+          // Filter by org: Realtime stream is global and o backend ainda nao filtra
+          // por organization_id em UPDATEs.
+          if (orgIdRef.current && updatedLead.organization_id !== orgIdRef.current) return;
+          setLeads((prev) => {
+            const idx = prev.findIndex((l) => l.id === updatedLead.id);
+            // Lead nao estava na lista (limit 300 ou criado depois do load):
+            // adicionar no topo para nao "desaparecer" mensagens novas.
+            if (idx === -1) return [updatedLead, ...prev];
+            // Merge: REPLICA IDENTITY DEFAULT pode mandar colunas como NULL quando
+            // nao foram alteradas. Preservamos whatsapp_instance_id antigo nesse caso.
+            const merged = {
+              ...prev[idx],
+              ...updatedLead,
+              whatsapp_instance_id: updatedLead.whatsapp_instance_id ?? prev[idx].whatsapp_instance_id,
+            };
+            return [...prev.slice(0, idx), merged, ...prev.slice(idx + 1)];
+          });
           setSelectedLead((prev) => (prev?.id === updatedLead.id ? { ...prev, ...updatedLead, whatsapp_instance_id: updatedLead.whatsapp_instance_id ?? prev.whatsapp_instance_id } : prev));
           if (updatedLead.is_online !== null || updatedLead.last_seen) {
             setPresenceStatus((prev) => new Map(prev).set(updatedLead.id, { isOnline: !!updatedLead.is_online, lastSeen: updatedLead.last_seen || undefined }));
@@ -501,6 +516,7 @@ const Chat = () => {
       }
 
       setOrgId(orgMember.organization_id);
+      orgIdRef.current = orgMember.organization_id;
 
       // Build leads query - RLS policy handles role-based filtering automatically
       // Admins/Owners see all leads, Members see only assigned leads via RLS
