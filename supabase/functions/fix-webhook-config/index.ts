@@ -61,8 +61,7 @@ serve(async (req) => {
           'CONNECTION_UPDATE',
           'MESSAGES_UPSERT',
           'MESSAGES_UPDATE',
-          'SEND_MESSAGE',
-          'PRESENCE_UPDATE'
+          'SEND_MESSAGE'
         ],
         // 🔒 SEGURANÇA: Adicionar header de autenticação
         ...(webhookSecret ? {

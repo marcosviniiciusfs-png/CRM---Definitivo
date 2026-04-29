@@ -453,9 +453,13 @@ serve(async (req) => {
             'CONNECTION_UPDATE',
             'MESSAGES_UPSERT',
             'MESSAGES_UPDATE',
-            'SEND_MESSAGE',
-            'PRESENCE_UPDATE'
+            'SEND_MESSAGE'
           ],
+          // PRESENCE_UPDATE removido: a versao da Evolution API em uso
+          // rejeita esse evento na config (o webhook inteiro nao registra),
+          // fazendo a instancia nao receber NENHUMA mensagem. O handler
+          // do evento foi mantido em whatsapp-message-webhook caso a
+          // Evolution suporte futuramente.
           ...(webhookSecret ? {
             headers: {
               'x-api-key': webhookSecret
