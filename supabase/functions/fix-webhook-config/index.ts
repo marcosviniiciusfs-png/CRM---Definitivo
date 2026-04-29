@@ -25,36 +25,31 @@ serve(async (req) => {
       throw new Error('Invalid authorization token');
     }
 
-    // Buscar instância conectada do usuário
-    const { data: instance, error: instanceError } = await supabase
+    // Buscar TODAS as instancias conectadas do usuario.
+    // Antes: .single() falhava com multi-canal (>= 2 instancias CONNECTED).
+    const { data: instances, error: instanceError } = await supabase
       .from('whatsapp_instances')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'CONNECTED')
-      .single();
+      .eq('status', 'CONNECTED');
 
-    if (instanceError || !instance) {
+    if (instanceError || !instances || instances.length === 0) {
       throw new Error('Nenhuma instância conectada encontrada');
     }
 
-    console.log('✅ Instância encontrada:', instance.instance_name);
+    console.log(`✅ ${instances.length} instancia(s) encontrada(s)`);
 
     const evolutionApiUrl = getEvolutionApiUrl();
     const evolutionApiKey = getEvolutionApiKey();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
 
-    console.log('🔧 Evolution API URL:', evolutionApiUrl);
-
-    // Reconfigurar webhook com eventos habilitados
-    console.log('🔄 Reconfigurando webhook...');
-    
     // Get webhook secret for authentication
     const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
     if (!webhookSecret) {
       console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET not configured - webhooks will not be authenticated!');
     }
-    
+
     const webhookConfig = {
       webhook: {
         enabled: true,
@@ -66,7 +61,8 @@ serve(async (req) => {
           'CONNECTION_UPDATE',
           'MESSAGES_UPSERT',
           'MESSAGES_UPDATE',
-          'SEND_MESSAGE'
+          'SEND_MESSAGE',
+          'PRESENCE_UPDATE'
         ],
         // 🔒 SEGURANÇA: Adicionar header de autenticação
         ...(webhookSecret ? {
@@ -77,50 +73,54 @@ serve(async (req) => {
       }
     };
 
-    const webhookUrl = `${evolutionApiUrl}/webhook/set/${instance.instance_name}`;
-    console.log('🔗 URL completa do webhook:', webhookUrl);
-    console.log('📦 Config do webhook:', JSON.stringify(webhookConfig, null, 2));
+    const results: any[] = [];
 
-    const webhookResponse = await fetch(
-      webhookUrl,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': evolutionApiKey,
-        },
-        body: JSON.stringify(webhookConfig),
+    for (const instance of instances) {
+      console.log(`🔄 Reconfigurando webhook para ${instance.instance_name}...`);
+      const webhookUrl = `${evolutionApiUrl}/webhook/set/${instance.instance_name}`;
+
+      try {
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': evolutionApiKey,
+          },
+          body: JSON.stringify(webhookConfig),
+        });
+
+        if (!webhookResponse.ok) {
+          const errBody = await webhookResponse.text().catch(() => 'unknown');
+          console.error(`❌ Erro ao configurar webhook de ${instance.instance_name}:`, errBody);
+          results.push({ instance: instance.instance_name, success: false, error: errBody });
+          continue;
+        }
+
+        const webhookResult = await webhookResponse.json();
+        console.log(`✅ Webhook reconfigurado: ${instance.instance_name}`);
+
+        await supabase
+          .from('whatsapp_instances')
+          .update({
+            webhook_url: messageWebhookUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', instance.id);
+
+        results.push({ instance: instance.instance_name, success: true, webhookConfig: webhookResult });
+      } catch (err: any) {
+        console.error(`❌ Excecao ao configurar ${instance.instance_name}:`, err);
+        results.push({ instance: instance.instance_name, success: false, error: err.message });
       }
-    );
-
-    if (!webhookResponse.ok) {
-      const error = await webhookResponse.json().catch(async () => {
-        const text = await webhookResponse.text();
-        return { error: text, status: webhookResponse.status };
-      });
-      console.error('❌ Resposta de erro da Evolution API:', JSON.stringify(error, null, 2));
-      throw new Error(`Erro ao configurar webhook: ${JSON.stringify(error)}`);
     }
 
-    const webhookResult = await webhookResponse.json();
-    console.log('✅ Webhook reconfigurado:', JSON.stringify(webhookResult, null, 2));
-
-    // Atualizar banco de dados
-    await supabase
-      .from('whatsapp_instances')
-      .update({ 
-        webhook_url: messageWebhookUrl,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', instance.id);
+    const successCount = results.filter((r) => r.success).length;
 
     return new Response(
       JSON.stringify({
-        success: true,
-        message: 'Webhook reconfigurado com sucesso! Agora você receberá as mensagens.',
-        instanceName: instance.instance_name,
-        webhookUrl: messageWebhookUrl,
-        webhookConfig: webhookResult
+        success: successCount > 0,
+        message: `${successCount}/${instances.length} webhook(s) reconfigurados com sucesso`,
+        results,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

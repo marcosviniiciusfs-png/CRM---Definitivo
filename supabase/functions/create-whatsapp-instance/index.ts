@@ -453,7 +453,8 @@ serve(async (req) => {
             'CONNECTION_UPDATE',
             'MESSAGES_UPSERT',
             'MESSAGES_UPDATE',
-            'SEND_MESSAGE'
+            'SEND_MESSAGE',
+            'PRESENCE_UPDATE'
           ],
           ...(webhookSecret ? {
             headers: {

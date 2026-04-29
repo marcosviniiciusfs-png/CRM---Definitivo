@@ -524,6 +524,88 @@ serve(async (req) => {
       );
     }
 
+    // ==================== EVENTO: PRESENCE.UPDATE ====================
+    // O Evolution API envia presenca real (online/offline/typing) quando os
+    // contatos do WhatsApp do dono mudam de estado. Sem isso, leads ficavam
+    // marcados como "Online" para sempre apos enviar uma mensagem.
+    if (event === 'presence.update' || event === 'PRESENCE_UPDATE') {
+      console.log(`👀 Processando presenca para instancia: ${instance}`);
+
+      // Estrutura tipica: { id: "5511..@s.whatsapp.net", presences: { "...": { lastKnownPresence: "available" } } }
+      // Tambem aceita formato direto: { id: ..., presence: "available" }
+      const remoteJid = data?.id || data?.remoteJid || '';
+      const presencesObj = data?.presences || {};
+      let lastKnownPresence: string | undefined =
+        data?.presence
+        || data?.lastKnownPresence
+        || (remoteJid && presencesObj[remoteJid]?.lastKnownPresence);
+
+      // Se nao veio direto, pegar a primeira chave
+      if (!lastKnownPresence && presencesObj && typeof presencesObj === 'object') {
+        const first = Object.values(presencesObj)[0] as any;
+        lastKnownPresence = first?.lastKnownPresence;
+      }
+
+      if (!remoteJid || !lastKnownPresence) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Presence sem dados suficientes' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      // Ignorar grupos
+      if (remoteJid.endsWith('@g.us')) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Presence de grupo ignorado' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      const presencePhone = extractPhoneNumber(remoteJid);
+      if (!presencePhone || presencePhone.length < 8) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Presence sem phone valido' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      // Pegar organization_id pela instancia
+      const { data: presenceInstance } = await supabase
+        .from('whatsapp_instances')
+        .select('organization_id')
+        .eq('instance_name', instance)
+        .maybeSingle();
+
+      if (!presenceInstance?.organization_id) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Instancia sem org' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      const isOnline = lastKnownPresence === 'available' || lastKnownPresence === 'composing' || lastKnownPresence === 'recording';
+      const nowIso = new Date().toISOString();
+
+      // Atualizar lead correspondente
+      await supabase
+        .from('leads')
+        .update({
+          is_online: isOnline,
+          // Quando vai offline, registrar last_seen; quando volta online, limpar.
+          last_seen: isOnline ? null : nowIso,
+          updated_at: nowIso,
+        })
+        .eq('telefone_lead', presencePhone)
+        .eq('organization_id', presenceInstance.organization_id);
+
+      console.log(`✅ Presenca atualizada: ${presencePhone} -> ${lastKnownPresence} (online=${isOnline})`);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Presenca atualizada', presence: lastKnownPresence }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // Processar apenas eventos de mensagens recebidas
     if (event !== 'messages.upsert' && event !== 'MESSAGES_UPSERT') {
       console.log(`⏭️ Evento ${event} - ignorado`);
