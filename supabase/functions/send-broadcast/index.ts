@@ -51,13 +51,18 @@ serve(async (req) => {
       );
     }
 
-    // Get connected WhatsApp instance
-    const { data: instance, error: instanceError } = await supabase
+    // Get a connected WhatsApp instance (first one created).
+    // Using .maybeSingle() previously returned null when 2+ instances were
+    // CONNECTED — the multi-channel feature broke the broadcast silently.
+    const { data: instances, error: instanceError } = await supabase
       .from("whatsapp_instances")
       .select("instance_name")
       .eq("organization_id", broadcast.organization_id)
       .eq("status", "CONNECTED")
-      .maybeSingle();
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    const instance = instances?.[0] ?? null;
 
     if (instanceError || !instance) {
       return new Response(
