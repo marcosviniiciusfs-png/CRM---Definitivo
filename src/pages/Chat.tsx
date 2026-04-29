@@ -183,6 +183,11 @@ const Chat = () => {
   // Ref para rastrear se o componente está montado
   const isMountedRef = useRef(true);
 
+  // Stale-while-revalidate: only the very first load shows the leads spinner.
+  // Subsequent refetches (Realtime invalidation, reconnect) keep the rendered
+  // list in place to avoid a full-screen flash on tab focus.
+  const hasInitialLoadCompletedRef = useRef(false);
+
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
     const channels = supabase.getChannels();
@@ -257,6 +262,10 @@ const Chat = () => {
     // (leads[]) resets on unmount → blank list on re-navigation.
     gcTime: 0,
     refetchOnWindowFocus: false,
+    // Some browsers fire reconnect events on tab focus. Without this, the
+    // entire chat session reloads (full "Carregando leads..." flash) every
+    // time the user alt-tabs away and back. Realtime keeps the list fresh.
+    refetchOnReconnect: false,
   });
 
   // CONSOLIDATED: Global realtime channel for leads, tags, tag assignments, and profile
@@ -463,7 +472,8 @@ const Chat = () => {
   // Data loading functions - OPTIMIZED with parallel queries
   const loadAllChatData = async () => {
     if (!user?.id) return;
-    setLoading(true);
+    const isFirstLoad = !hasInitialLoadCompletedRef.current;
+    if (isFirstLoad) setLoading(true);
 
     try {
       // Get organization ID first
@@ -474,7 +484,7 @@ const Chat = () => {
         .maybeSingle();
 
       if (!orgMember?.organization_id) {
-        setLoading(false);
+        if (isFirstLoad) setLoading(false);
         return;
       }
 
@@ -591,7 +601,10 @@ const Chat = () => {
     } catch (error) {
       toast({ title: "Erro", description: "Não foi possível carregar os contatos", variant: "destructive" });
     } finally {
-      setLoading(false);
+      if (isFirstLoad) {
+        setLoading(false);
+        hasInitialLoadCompletedRef.current = true;
+      }
     }
   };
 
