@@ -303,8 +303,12 @@ const Chat = () => {
         // Leads changes
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "leads" }, (payload) => {
           const updatedLead = payload.new as Lead;
-          setLeads((prev) => prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead)));
-          setSelectedLead((prev) => (prev?.id === updatedLead.id ? updatedLead : prev));
+          // Merge with previous to preserve fields that the Realtime payload may not
+          // include (e.g. whatsapp_instance_id when REPLICA IDENTITY only ships
+          // changed columns). Without this, the channel filter momentarily loses
+          // the lead and the conversation list goes blank when switching channels.
+          setLeads((prev) => prev.map((lead) => (lead.id === updatedLead.id ? { ...lead, ...updatedLead, whatsapp_instance_id: updatedLead.whatsapp_instance_id ?? lead.whatsapp_instance_id } : lead)));
+          setSelectedLead((prev) => (prev?.id === updatedLead.id ? { ...prev, ...updatedLead, whatsapp_instance_id: updatedLead.whatsapp_instance_id ?? prev.whatsapp_instance_id } : prev));
           if (updatedLead.is_online !== null || updatedLead.last_seen) {
             setPresenceStatus((prev) => new Map(prev).set(updatedLead.id, { isOnline: !!updatedLead.is_online, lastSeen: updatedLead.last_seen || undefined }));
           }
@@ -351,7 +355,15 @@ const Chat = () => {
         supabase.removeChannel(globalChannel);
       }
     };
-  }, [location.state, permissions.loading, permissions.canViewAllLeads, userProfile?.full_name, user?.id, removeExistingChannel]);
+    // CRITICAL: depend ONLY on user?.id. Including volatile values like
+    // `permissions.loading`, `permissions.canViewAllLeads`, `userProfile?.full_name`
+    // or `location.state` caused the channel to be torn down and recreated
+    // every time those references changed (which can happen when the tab
+    // regains focus and contexts re-render), making the user perceive a
+    // "session reload" on every alt-tab. The Realtime subscription itself
+    // does not need to react to those values — it just streams DB changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // CONSOLIDATED: Lead-specific realtime channel for messages, reactions, and pinned messages
   // With debounce to prevent rapid channel creation when switching leads
