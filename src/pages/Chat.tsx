@@ -191,6 +191,9 @@ const Chat = () => {
   // Mantem orgId acessivel dentro de callbacks Realtime sem invalidar deps.
   const orgIdRef = useRef<string | null>(null);
 
+  // Mantem selectedLead acessivel dentro de callbacks sem reinscrever channel.
+  const selectedLeadRef = useRef<Lead | null>(null);
+
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
     const channels = supabase.getChannels();
@@ -228,6 +231,11 @@ const Chat = () => {
       isMountedRef.current = false;
     };
   }, []);
+
+  // Sync selectedLead ref to keep callbacks current.
+  useEffect(() => {
+    selectedLeadRef.current = selectedLead;
+  }, [selectedLead]);
 
   // Load user profile
   useEffect(() => {
@@ -327,6 +335,14 @@ const Chat = () => {
           if (updatedLead.is_online !== null || updatedLead.last_seen) {
             setPresenceStatus((prev) => new Map(prev).set(updatedLead.id, { isOnline: !!updatedLead.is_online, lastSeen: updatedLead.last_seen || undefined }));
           }
+          // Se o lead atualizado e o que esta selecionado e last_message_at avancou,
+          // recarregar mensagens — fallback caso o Realtime de mensagens_chat falhe.
+          if (selectedLeadRef.current?.id === updatedLead.id && updatedLead.last_message_at) {
+            const prevTs = selectedLeadRef.current.last_message_at;
+            if (!prevTs || new Date(updatedLead.last_message_at) > new Date(prevTs)) {
+              loadMessages(updatedLead.id);
+            }
+          }
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, () => {
           clearTimeout(reloadTimeout);
@@ -359,13 +375,29 @@ const Chat = () => {
             return newMap;
           });
         })
-        .subscribe();
+        .subscribe((status, err) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn(`⚠️ Realtime channel ${globalChannelName} status: ${status}`, err);
+          } else if (status === 'SUBSCRIBED') {
+            console.log(`✅ Realtime channel ${globalChannelName} SUBSCRIBED`);
+          }
+        });
     };
 
     setupGlobalChannel();
 
+    // Polling defensivo: a cada 20s, invalida a query para refetchar leads.
+    // Garante que mensagens chegam ate em casos de Realtime falhar (CHANNEL_ERROR
+    // silencioso, RLS bloqueando stream, throttle do navegador em background).
+    // O loadAllChatData usa stale-while-revalidate, entao o refetch e silencioso
+    // (sem flicker de "Carregando leads...").
+    const pollingInterval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey });
+    }, 20000);
+
     return () => {
       clearTimeout(reloadTimeout);
+      clearInterval(pollingInterval);
       if (globalChannel) {
         supabase.removeChannel(globalChannel);
       }
@@ -462,7 +494,11 @@ const Chat = () => {
             return newSet;
           });
         })
-        .subscribe();
+        .subscribe((status, err) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn(`⚠️ Lead channel ${leadChannelName} status: ${status}`, err);
+          }
+        });
     }, 200);
 
     return () => {
