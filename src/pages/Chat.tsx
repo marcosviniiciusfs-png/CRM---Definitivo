@@ -200,6 +200,9 @@ const Chat = () => {
 
   // Notificacao sonora — ref para acessar de callbacks sem reinscrever.
   const notificationSoundEnabledRef = useRef<boolean>(true);
+  // Audio so pode ser tocado apos a primeira interacao do usuario com a pagina
+  // (politica de autoplay dos navegadores). Esta ref guarda se ja destravamos.
+  const audioUnlockedRef = useRef<boolean>(false);
 
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
@@ -255,6 +258,35 @@ const Chat = () => {
   useEffect(() => {
     notificationSoundEnabledRef.current = notificationSoundEnabled;
   }, [notificationSoundEnabled]);
+
+  // Destrava o audio na primeira interacao do usuario.
+  // Browsers (Chrome, Safari) bloqueiam audio.play() ate que haja um gesto
+  // do usuario na pagina. Sem destravar, .play() rejeita silenciosamente
+  // (foi para o catch) e a notificacao aparecia muda. Aqui pre-aquecemos
+  // o elemento Audio com um play+pause na primeira pointerdown/keydown.
+  useEffect(() => {
+    const unlock = () => {
+      if (audioUnlockedRef.current) return;
+      const audio = notificationAudioRef.current;
+      if (!audio) return;
+      const originalVolume = audio.volume;
+      audio.volume = 0;
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = originalVolume;
+        audioUnlockedRef.current = true;
+      }).catch(() => {
+        // Se ainda nao tem gesto (improvavel aqui), tenta de novo na proxima.
+      });
+    };
+    window.addEventListener('pointerdown', unlock, { once: false });
+    window.addEventListener('keydown', unlock, { once: false });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   // Load user profile
   useEffect(() => {
@@ -369,7 +401,9 @@ const Chat = () => {
             }
             // Toca som de notificacao se permitido.
             if (notificationSoundEnabledRef.current && notificationAudioRef.current) {
-              notificationAudioRef.current.play().catch(() => {});
+              const a = notificationAudioRef.current;
+              a.currentTime = 0;
+              a.play().catch((err) => console.warn('🔇 notification audio.play() rejeitado:', err));
             }
           }
           // Atualiza snapshot para a proxima comparacao.
@@ -528,12 +562,71 @@ const Chat = () => {
         .subscribe((status, err) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.warn(`⚠️ Lead channel ${leadChannelName} status: ${status}`, err);
+          } else if (status === 'SUBSCRIBED') {
+            console.log(`✅ Realtime channel ${leadChannelName} SUBSCRIBED`);
           }
         });
     }, 200);
 
+    // Polling incremental de mensagens — fallback para quando o Realtime
+    // postgres_changes em mensagens_chat nao entrega (RLS bloqueando stream,
+    // throttle do navegador, etc). A cada 4s, busca mensagens com
+    // data_hora > ultima conhecida e adiciona ao state com deduplicacao.
+    // Nao usa setLoading, entao roda em background sem flicker.
+    const messagePollingInterval = setInterval(async () => {
+      const leadId = selectedLeadRef.current?.id;
+      if (!leadId || !isMountedRef.current) return;
+
+      // Determina timestamp da ultima mensagem ja conhecida.
+      let lastTs: string | null = null;
+      setMessages((prev) => {
+        if (prev.length > 0) {
+          const ordered = [...prev].sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime());
+          lastTs = ordered[0]?.data_hora || null;
+        }
+        return prev; // nao muda state aqui
+      });
+
+      try {
+        let q = supabase
+          .from("mensagens_chat")
+          .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
+          .eq("id_lead", leadId)
+          .order("data_hora", { ascending: true })
+          .limit(50);
+        if (lastTs) q = q.gt("data_hora", lastTs);
+
+        const { data, error } = await q;
+        if (error || !data || data.length === 0) return;
+
+        const parsed = parseMessages(data);
+        let hadNewIncoming = false;
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const existingEvIds = new Set(prev.filter((m) => m.evolution_message_id).map((m) => m.evolution_message_id));
+          const fresh = parsed.filter((m) => {
+            if (existingIds.has(m.id)) return false;
+            if (m.evolution_message_id && existingEvIds.has(m.evolution_message_id)) return false;
+            return true;
+          });
+          if (fresh.length === 0) return prev;
+          if (fresh.some((m) => m.direcao === "ENTRADA")) hadNewIncoming = true;
+          return [...prev, ...fresh];
+        });
+
+        if (hadNewIncoming && notificationSoundEnabledRef.current && notificationAudioRef.current) {
+          const a = notificationAudioRef.current;
+          a.currentTime = 0;
+          a.play().catch(() => {});
+        }
+      } catch {
+        // silencioso — proxima iteracao tenta de novo
+      }
+    }, 4000);
+
     return () => {
       clearTimeout(debounceTimeout);
+      clearInterval(messagePollingInterval);
       // Remove o canal específico do lead
       if (leadChannel) {
         supabase.removeChannel(leadChannel);
