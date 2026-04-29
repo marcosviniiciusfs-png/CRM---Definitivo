@@ -32,10 +32,14 @@ serve(async (req) => {
   }
 
   // 🔒 VALIDAÇÃO DE AUTENTICAÇÃO
+  // Só validar quando EVOLUTION_WEBHOOK_SECRET está configurado.
+  // Antes: !webhookSecret || → rejeitava TODOS os QR Codes quando a variável
+  // não estava definida, bloqueando o fluxo de conexão por completo.
+  // Mesmo padrão já corrigido em whatsapp-message-webhook.
   const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
   const authHeader = req.headers.get('x-api-key');
 
-  if (!webhookSecret || !authHeader || authHeader !== webhookSecret) {
+  if (webhookSecret && (!authHeader || authHeader !== webhookSecret)) {
     console.error('❌ Unauthorized webhook access attempt');
     return new Response(
       JSON.stringify({ error: 'Unauthorized' }),
