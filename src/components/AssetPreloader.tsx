@@ -7,7 +7,7 @@ import loadingGif from '@/assets/loading-hourglass.gif';
 import saleConfirmationGif from '@/assets/sale-confirmation-icon.gif';
 
 const criticalImages = [kairozLogo, loadingGif, saleConfirmationGif];
-const criticalAudio = ['/button-click.mp3', '/notification.mp3'];
+const criticalAudio = ['/notification.mp3'];
 
 export function AssetPreloader() {
   useEffect(() => {

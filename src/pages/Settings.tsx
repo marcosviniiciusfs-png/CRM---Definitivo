@@ -33,7 +33,6 @@ const Settings = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
-  const [buttonClickSoundEnabled, setButtonClickSoundEnabled] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -87,9 +86,6 @@ const Settings = () => {
           setJobTitle(profileData.job_title || '');
           setAvatarUrl(profileData.avatar_url || null);
           setNotificationSoundEnabled(profileData.notification_sound_enabled ?? true);
-          const btnSoundEnabled = (profileData as any).button_click_sound_enabled ?? true;
-          setButtonClickSoundEnabled(btnSoundEnabled);
-          localStorage.setItem('buttonClickSoundEnabled', String(btnSoundEnabled));
         }
         // Se profileData == null, o perfil ainda não existe — os campos ficam vazios e o upsert vai criar na primeira vez que salvar
       } catch (error) {
@@ -148,30 +144,6 @@ const Settings = () => {
 
       setNotificationSoundEnabled(enabled);
       toast.success(enabled ? "Som de notificação ativado" : "Som de notificação desativado");
-    } catch (error) {
-      console.error('Erro ao atualizar preferência:', error);
-      toast.error("Erro ao atualizar preferência. Tente novamente.");
-    }
-  };
-
-  const handleToggleButtonClickSound = async (enabled: boolean) => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          user_id: user.id,
-          full_name: fullName.trim(),
-          job_title: jobTitle.trim(),
-          button_click_sound_enabled: enabled,
-        } as any, { onConflict: 'user_id' });
-
-      if (error) throw error;
-
-      setButtonClickSoundEnabled(enabled);
-      localStorage.setItem('buttonClickSoundEnabled', String(enabled));
-      toast.success(enabled ? "Som de clique ativado" : "Som de clique desativado");
     } catch (error) {
       console.error('Erro ao atualizar preferência:', error);
       toast.error("Erro ao atualizar preferência. Tente novamente.");
@@ -631,19 +603,6 @@ const Settings = () => {
                   id="notification-sound"
                   checked={notificationSoundEnabled}
                   onCheckedChange={handleToggleNotificationSound}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="button-click-sound" className="text-base">Som de Clique</Label>
-                  <p className="text-sm text-muted-foreground hidden sm:block">
-                    Reproduzir som ao clicar nos botões
-                  </p>
-                </div>
-                <Switch
-                  id="button-click-sound"
-                  checked={buttonClickSoundEnabled}
-                  onCheckedChange={handleToggleButtonClickSound}
                 />
               </div>
             </CardContent>
