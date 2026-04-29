@@ -1186,7 +1186,7 @@ const Chat = () => {
               />
               {getChannelColor(lead) && (
                 <div
-                  className="absolute right-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-l"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 rounded-r pointer-events-none"
                   style={{ backgroundColor: getChannelColor(lead) || undefined }}
                   title={channelsRef.current.find(c => c.id === lead.whatsapp_instance_id)?.channel_name || ''}
                 />

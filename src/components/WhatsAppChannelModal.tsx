@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -25,9 +25,14 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   const [showConnect, setShowConnect] = useState(false);
   const [leadCounts, setLeadCounts] = useState<Record<string, number>>({});
 
+  // Stale-while-revalidate: only the very first load shows the spinner.
+  // Subsequent refetches (polling, post-action refreshes) keep the rendered
+  // list in place to avoid flicker.
+  const hasLoadedOnceRef = useRef(false);
+
   const loadChannels = useCallback(async () => {
     if (!organizationId) return;
-    setLoading(true);
+    if (!hasLoadedOnceRef.current) setLoading(true);
 
     const { data, error } = await supabase
       .from("whatsapp_instances")
@@ -40,7 +45,10 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     } else {
       setChannels((data || []) as WhatsAppChannel[]);
     }
-    setLoading(false);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(false);
+      hasLoadedOnceRef.current = true;
+    }
   }, [organizationId, toast]);
 
   const loadLeadCounts = useCallback(async (channelIds: string[]) => {
