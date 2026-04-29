@@ -42,3 +42,23 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// CRITICAL: keep Realtime WebSocket auth in sync with the user session.
+// Without this, when autoRefreshToken renews the JWT, the WebSocket keeps
+// using the OLD token. Once that old token expires, RLS-enforced events
+// (postgres_changes on tables with RLS) stop being delivered silently —
+// the channel stays "SUBSCRIBED" but no payloads arrive. Symptom in this
+// app: messages and leads only appear after a full page refresh.
+supabase.auth.onAuthStateChange((_event, session) => {
+  // Realtime accepts undefined to fall back to anon key.
+  supabase.realtime.setAuth(session?.access_token ?? undefined as any);
+});
+
+// Apply current session token immediately on module load (covers cases
+// where the session restored from storage but onAuthStateChange has not
+// fired yet by the time the first channel subscribes).
+supabase.auth.getSession().then(({ data }) => {
+  if (data.session?.access_token) {
+    supabase.realtime.setAuth(data.session.access_token);
+  }
+});

@@ -194,6 +194,13 @@ const Chat = () => {
   // Mantem selectedLead acessivel dentro de callbacks sem reinscrever channel.
   const selectedLeadRef = useRef<Lead | null>(null);
 
+  // Snapshot de leads no callback do Realtime para detectar mudanca real
+  // de last_message_at (nao depender de prev no setLeads).
+  const leadsBeforeUpdateRef = useRef<Map<string, Lead>>(new Map());
+
+  // Notificacao sonora — ref para acessar de callbacks sem reinscrever.
+  const notificationSoundEnabledRef = useRef<boolean>(true);
+
   // Helper to remove ALL existing channels matching a pattern
   const removeExistingChannel = useCallback(async (channelName: string) => {
     const channels = supabase.getChannels();
@@ -236,6 +243,18 @@ const Chat = () => {
   useEffect(() => {
     selectedLeadRef.current = selectedLead;
   }, [selectedLead]);
+
+  // Mantem leadsBeforeUpdateRef sincronizado para detectar last_message_at avancando.
+  useEffect(() => {
+    const map = new Map<string, Lead>();
+    leads.forEach((l) => map.set(l.id, l));
+    leadsBeforeUpdateRef.current = map;
+  }, [leads]);
+
+  // Mantem notificationSoundEnabledRef sincronizado.
+  useEffect(() => {
+    notificationSoundEnabledRef.current = notificationSoundEnabled;
+  }, [notificationSoundEnabled]);
 
   // Load user profile
   useEffect(() => {
@@ -335,14 +354,26 @@ const Chat = () => {
           if (updatedLead.is_online !== null || updatedLead.last_seen) {
             setPresenceStatus((prev) => new Map(prev).set(updatedLead.id, { isOnline: !!updatedLead.is_online, lastSeen: updatedLead.last_seen || undefined }));
           }
-          // Se o lead atualizado e o que esta selecionado e last_message_at avancou,
-          // recarregar mensagens — fallback caso o Realtime de mensagens_chat falhe.
-          if (selectedLeadRef.current?.id === updatedLead.id && updatedLead.last_message_at) {
-            const prevTs = selectedLeadRef.current.last_message_at;
-            if (!prevTs || new Date(updatedLead.last_message_at) > new Date(prevTs)) {
+          // Disparar notificacao ao detectar mensagem nova (last_message_at avancou).
+          // Funciona como fallback caso o Realtime de mensagens_chat falhe — garante
+          // alerta sonoro mesmo quando o lead nao esta selecionado.
+          const prevLead = leadsBeforeUpdateRef.current.get(updatedLead.id);
+          const newTs = updatedLead.last_message_at;
+          const oldTs = prevLead?.last_message_at;
+          const advanced = newTs && (!oldTs || new Date(newTs) > new Date(oldTs));
+          if (advanced) {
+            const isCurrentLead = selectedLeadRef.current?.id === updatedLead.id;
+            // Recarrega mensagens se for o lead aberto.
+            if (isCurrentLead) {
               loadMessages(updatedLead.id);
             }
+            // Toca som de notificacao se permitido.
+            if (notificationSoundEnabledRef.current && notificationAudioRef.current) {
+              notificationAudioRef.current.play().catch(() => {});
+            }
           }
+          // Atualiza snapshot para a proxima comparacao.
+          leadsBeforeUpdateRef.current.set(updatedLead.id, updatedLead);
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, () => {
           clearTimeout(reloadTimeout);
