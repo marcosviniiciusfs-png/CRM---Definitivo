@@ -628,14 +628,40 @@ serve(async (req) => {
     
     console.log('📱 Número extraído:', phoneNumber);
     
-    // Se for mensagem enviada por nós, ignorar (já foi salva ao enviar)
+    // Mensagens com fromMe=true podem vir de duas origens:
+    //  1. Enviadas pelo proprio CRM (ja salvas em mensagens_chat por
+    //     send-whatsapp-message com o evolution_message_id) -> ignorar.
+    //  2. Enviadas pelo celular/WhatsApp Web do vendedor (nao passam pelo
+    //     CRM) -> precisam ser salvas como direcao=SAIDA para o historico
+    //     ficar completo. Antes, todas eram descartadas e a conversa parecia
+    //     ter so as respostas do cliente quando o vendedor respondia fora do CRM.
     if (isFromMe) {
-      console.log('⏭️ Mensagem enviada por nós - ignorando');
-      await saveWebhookLog('ignored', 'Mensagem enviada por nós');
-      return new Response(
-        JSON.stringify({ success: true, message: 'Mensagem própria ignorada' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+      const incomingMessageId = messageKey.id;
+      if (incomingMessageId) {
+        const { data: existingMsg } = await supabase
+          .from('mensagens_chat')
+          .select('id')
+          .eq('evolution_message_id', incomingMessageId)
+          .maybeSingle();
+
+        if (existingMsg) {
+          console.log('⏭️ Mensagem propria ja registrada pelo CRM - ignorando');
+          await saveWebhookLog('ignored', 'Mensagem propria ja registrada');
+          return new Response(
+            JSON.stringify({ success: true, message: 'Mensagem propria ja registrada' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+
+        console.log('📲 Mensagem fromMe nova (enviada pelo celular) - sera salva como SAIDA');
+      } else {
+        console.log('⏭️ Mensagem fromMe sem ID - ignorando');
+        await saveWebhookLog('ignored', 'Mensagem propria sem ID');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Mensagem propria sem ID' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
     }
 
     // Extrair conteúdo da mensagem e dados de mídia (URLs originais)
@@ -1053,10 +1079,12 @@ serve(async (req) => {
       .insert({
         id_lead: leadId,
         corpo_mensagem: messageContent,
-        direcao: 'ENTRADA', // ENTRADA para mensagens recebidas
+        // SAIDA quando o vendedor respondeu pelo celular (fromMe nao registrado pelo CRM);
+        // ENTRADA para mensagens recebidas do cliente.
+        direcao: isFromMe ? 'SAIDA' : 'ENTRADA',
         data_hora: new Date().toISOString(),
         evolution_message_id: messageId,
-        status_entrega: 'DELIVERED',
+        status_entrega: isFromMe ? 'SENT' : 'DELIVERED',
         media_url: mediaUrl,
         media_type: mediaType,
         media_metadata: mediaMetadata
@@ -1076,43 +1104,52 @@ serve(async (req) => {
 
     const nowIso = new Date().toISOString();
 
-    // Atualizar last_message_at do lead e marcá-lo como online imediatamente
+    // Atualizar last_message_at do lead. Para mensagens ENTRADA (cliente),
+    // marcar como online; para SAIDA (vendedor respondendo pelo celular),
+    // o estado online do cliente nao deve ser tocado.
+    const leadUpdate: any = {
+      last_message_at: nowIso,
+      updated_at: nowIso,
+    };
+    if (!isFromMe) {
+      leadUpdate.is_online = true;
+      leadUpdate.last_seen = null;
+    }
     await supabase
       .from('leads')
-      .update({ 
-        last_message_at: nowIso,
-        is_online: true,
-        last_seen: null,
-        updated_at: nowIso,
-      })
+      .update(leadUpdate)
       .eq('id', leadId);
 
     await saveWebhookLog('success');
 
-    // Processar automações (não bloqueia o retorno)
-    const isFirstMessage = !existingLead;
-    const triggerType = isFirstMessage ? 'WHATSAPP_FIRST_MESSAGE' : 'NEW_INCOMING_MESSAGE';
-    
-    supabase.functions.invoke('process-automation-rules', {
-      body: {
-        trigger_type: triggerType,
-        trigger_data: {
-          lead_id: leadId,
-          message_id: savedMessage.id,
-          message_content: messageContent,
-          organization_id: organizationId,
-          phone_number: phoneNumber,
+    // Processar automações apenas para mensagens recebidas do cliente.
+    // Mensagens fromMe (vendedor respondendo pelo celular) nao sao gatilhos
+    // de NEW_INCOMING_MESSAGE / WHATSAPP_FIRST_MESSAGE.
+    if (!isFromMe) {
+      const isFirstMessage = !existingLead;
+      const triggerType = isFirstMessage ? 'WHATSAPP_FIRST_MESSAGE' : 'NEW_INCOMING_MESSAGE';
+
+      supabase.functions.invoke('process-automation-rules', {
+        body: {
+          trigger_type: triggerType,
+          trigger_data: {
+            lead_id: leadId,
+            message_id: savedMessage.id,
+            message_content: messageContent,
+            organization_id: organizationId,
+            phone_number: phoneNumber,
+          },
         },
-      },
-    }).then(({ data, error }) => {
-      if (error) {
-        console.error('⚠️ Erro ao processar automações:', error);
-      } else {
-        console.log('✅ Automações processadas:', data);
-      }
-    }).catch(err => {
-      console.error('⚠️ Falha ao invocar process-automation-rules:', err);
-    });
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('⚠️ Erro ao processar automações:', error);
+        } else {
+          console.log('✅ Automações processadas:', data);
+        }
+      }).catch(err => {
+        console.error('⚠️ Falha ao invocar process-automation-rules:', err);
+      });
+    }
 
     return new Response(
       JSON.stringify({
