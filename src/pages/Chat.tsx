@@ -451,14 +451,16 @@ const Chat = () => {
 
     setupGlobalChannel();
 
-    // Polling defensivo: a cada 20s, invalida a query para refetchar leads.
+    // Polling defensivo: a cada 5s, invalida a query para refetchar leads.
     // Garante que mensagens chegam ate em casos de Realtime falhar (CHANNEL_ERROR
     // silencioso, RLS bloqueando stream, throttle do navegador em background).
+    // Intervalo curto porque Realtime tem se mostrado nao-confiavel — usuario
+    // espera ver leads novos quase imediatamente.
     // O loadAllChatData usa stale-while-revalidate, entao o refetch e silencioso
     // (sem flicker de "Carregando leads...").
     const pollingInterval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey });
-    }, 20000);
+    }, 5000);
 
     return () => {
       clearTimeout(reloadTimeout);
@@ -622,7 +624,7 @@ const Chat = () => {
       } catch {
         // silencioso — proxima iteracao tenta de novo
       }
-    }, 4000);
+    }, 2000);
 
     return () => {
       clearTimeout(debounceTimeout);
