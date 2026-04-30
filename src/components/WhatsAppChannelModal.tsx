@@ -153,6 +153,28 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     }
   };
 
+  const [reconfiguring, setReconfiguring] = useState(false);
+  const handleReconfigureWebhooks = async () => {
+    setReconfiguring(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fix-webhook-config");
+      if (error) {
+        toast({
+          title: "Erro ao reconfigurar webhooks",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Webhooks reconfigurados",
+          description: data?.message || "Mensagens devem voltar a chegar em alguns segundos.",
+        });
+      }
+    } finally {
+      setReconfiguring(false);
+    }
+  };
+
   const connectedCount = channels.filter((c) => c.status === "CONNECTED").length;
   const remaining = MAX_CHANNELS - channels.length;
 
@@ -176,6 +198,18 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
               </p>
             </div>
           </div>
+          {connectedCount > 0 && canManage && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[10px] px-2.5"
+              disabled={reconfiguring}
+              onClick={handleReconfigureWebhooks}
+              title="Reaplica a configuracao de webhook em todos os canais conectados desta organizacao. Use se as mensagens pararam de chegar apos conectar um novo canal."
+            >
+              {reconfiguring ? "Reconfigurando..." : "Reconfigurar webhooks"}
+            </Button>
+          )}
         </div>
 
         {/* Channel List */}

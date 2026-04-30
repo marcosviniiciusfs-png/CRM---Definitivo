@@ -513,6 +513,61 @@ serve(async (req) => {
       setPresence(),
     ]);
 
+    // CRITICAL: Em algumas versoes da Evolution API, criar uma nova instancia
+    // tem efeito colateral no webhook das instancias existentes (config global
+    // sobrescrita ou outro bug nao-documentado). Sintoma observado: depois de
+    // conectar Canal 2, Canal 1 (que estava recebendo mensagens normalmente)
+    // parou de receber. Para mitigar, re-configuramos os webhooks de TODAS as
+    // outras instancias CONNECTED da mesma org logo apos criar a nova.
+    if (orgId) {
+      const { data: otherConnected } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name')
+        .eq('organization_id', orgId)
+        .eq('status', 'CONNECTED')
+        .neq('instance_name', instanceName);
+
+      if (otherConnected && otherConnected.length > 0) {
+        console.log(`🔄 Reconfigurando webhook de ${otherConnected.length} canal(is) existente(s) da org para evitar regressao...`);
+        const reconfigPromises = otherConnected.map(async (inst: any) => {
+          try {
+            const reconfigUrl = `${baseUrl}/webhook/set/${inst.instance_name}`;
+            const resp = await fetch(reconfigUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': evolutionApiKey!,
+              },
+              body: JSON.stringify({
+                webhook: {
+                  enabled: true,
+                  url: messageWebhookUrl,
+                  webhook_by_events: true,
+                  webhook_base64: false,
+                  events: [
+                    'QRCODE_UPDATED',
+                    'CONNECTION_UPDATE',
+                    'MESSAGES_UPSERT',
+                    'MESSAGES_UPDATE',
+                    'SEND_MESSAGE'
+                  ],
+                  ...(webhookSecret ? { headers: { 'x-api-key': webhookSecret } } : {})
+                }
+              }),
+            });
+            if (resp.ok) {
+              console.log(`✅ Webhook re-aplicado em ${inst.instance_name}`);
+            } else {
+              console.warn(`⚠️ Falha ao re-aplicar webhook em ${inst.instance_name}: ${resp.status}`);
+            }
+          } catch (e) {
+            console.warn(`⚠️ Excecao ao re-aplicar webhook em ${inst.instance_name}:`, e);
+          }
+        });
+        await Promise.allSettled(reconfigPromises);
+      }
+    }
+
     // ========================================
     // IMMEDIATE DATABASE SAVE
     // ========================================
