@@ -155,13 +155,24 @@ serve(async (req) => {
 
     for (const orgId of uniqueOrgIds) {
       try {
-        // Buscar leads sem dono nesta org (limitado para evitar timeout)
-        const { data: unassignedLeads } = await supabase
+        // Buscar IDs de stages won/lost (não devem ser redistribuídos)
+        const { data: closedStages } = await supabase
+          .from('funnel_stages')
+          .select('id')
+          .in('stage_type', ['won', 'lost']);
+        const closedStageIds = (closedStages || []).map((s: { id: string }) => s.id);
+
+        // Buscar leads sem dono que NÃO estejam em won/lost (limitado para evitar timeout)
+        let query = supabase
           .from('leads')
           .select('id')
           .eq('organization_id', orgId)
           .is('responsavel_user_id', null)
           .limit(UNASSIGNED_LIMIT);
+        if (closedStageIds.length > 0) {
+          query = query.not('funnel_stage_id', 'in', `(${closedStageIds.join(',')})`);
+        }
+        const { data: unassignedLeads } = await query;
 
         if (!unassignedLeads || unassignedLeads.length === 0) continue;
 
