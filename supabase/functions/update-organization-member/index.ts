@@ -190,16 +190,18 @@ Deno.serve(async (req) => {
       const banDuration = is_active ? 'none' : '876000h'; // 100 anos ≈ permanente
       const { error: banError } = await adminClient.auth.admin.updateUserById(
         targetMember.user_id,
-        // @ts-expect-error - ban_duration is supported by Supabase Auth admin API but not in older type defs
-        { ban_duration: banDuration }
+        { ban_duration: banDuration } as { ban_duration: string }
       );
       if (banError) {
         console.error('Error setting ban_duration:', banError);
         // Rollback do is_active para evitar estado inconsistente
-        await adminClient
+        const { error: rollbackError } = await adminClient
           .from('organization_members')
           .update({ is_active: !is_active })
           .eq('id', memberId);
+        if (rollbackError) {
+          console.error('CRITICAL: rollback de is_active falhou, estado inconsistente:', rollbackError);
+        }
         return new Response(JSON.stringify({ error: `Erro ao aplicar bloqueio de acesso: ${banError.message}` }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
