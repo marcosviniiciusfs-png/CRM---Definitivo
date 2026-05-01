@@ -145,14 +145,16 @@ serve(async (req) => {
       const closedStageIds = (closedStages ?? []).map((s: { id: string }) => s.id);
 
       // Passo 4b: leads ativos — zerar responsavel_user_id E responsavel (texto)
-      // Filtro: funnel_stage_id IS NULL ou NOT IN (won/lost)
+      // Filtro: funnel_stage_id IS NULL OR NOT IN (won/lost) — 3VL-safe via .or()
       let activeQuery = adminClient
         .from("leads")
         .update({ responsavel_user_id: null, responsavel: null })
         .eq("organization_id", organization_id)
         .eq("responsavel_user_id", targetUserId);
       if (closedStageIds.length > 0) {
-        activeQuery = activeQuery.not("funnel_stage_id", "in", `(${closedStageIds.join(",")})`);
+        activeQuery = activeQuery.or(
+          `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(",")})`
+        );
       }
       const { count: activeCount, error: activeErr } = await activeQuery
         .select("*", { count: "exact", head: true });
