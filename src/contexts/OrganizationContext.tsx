@@ -25,6 +25,7 @@ interface RpcMembershipResult {
   organization_name: string;
   role: 'owner' | 'admin' | 'member';
   is_owner: boolean;
+  created_at?: string; // pode estar ausente em RPCs antigas
 }
 
 // Interface for Supabase RPC error with status
@@ -476,16 +477,16 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         console.warn('[ORG] RPC get_my_organization_memberships not found, using direct table fallback...');
         const { data: directData, error: directError } = await supabase
           .from('organization_members')
-          .from('organization_members')
-          .select('organization_id, role, organizations(id, name)')
+          .select('organization_id, role, created_at, organizations(id, name)')
           .eq('user_id', user.id);
 
         if (!directError && directData) {
-          memberships = directData.map((m: DirectMemberQueryResult) => ({
+          memberships = directData.map((m: any) => ({
             organization_id: m.organization_id,
             organization_name: m.organizations?.name || 'Workspace',
             role: m.role,
-            is_owner: m.role === 'owner'
+            is_owner: m.role === 'owner',
+            created_at: m.created_at,
           }));
           rpcError = null;
         } else if (directError) {
@@ -523,7 +524,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           // Then admin
           if (a.role === 'admin' && b.role === 'member') return -1;
           if (b.role === 'admin' && a.role === 'member') return 1;
-          return 0;
+          // Tiebreaker DETERMINISTICO: created_at ASC. Sem isso, quando o user
+          // tem 2+ memberships do mesmo role (caso documentado de duplicacao),
+          // a ordem era arbitraria — frontend podia escolher uma org enquanto
+          // o backend salvava em outra. Combinado com getOrCreateOrganizationId
+          // do create-whatsapp-instance (que tambem pega created_at ASC),
+          // backend e frontend agora SEMPRE concordam sobre qual org e a primaria.
+          const aTs = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTs = b.created_at ? new Date(b.created_at).getTime() : 0;
+          if (aTs !== bTs) return aTs - bTs;
+          // Ultimo recurso: organization_id alfabetico (estavel).
+          return a.organization_id.localeCompare(b.organization_id);
         });
 
         // Take ONLY the single best membership
