@@ -101,10 +101,11 @@ serve(async (req) => {
       summary.teams_as_leader_cleared = leaderCount ?? 0;
 
       // Passo 2: remover de team_members (apenas equipes desta org)
-      const { data: teamRows } = await adminClient
+      const { data: teamRows, error: teamsReadErr } = await adminClient
         .from("teams")
         .select("id")
         .eq("organization_id", organization_id);
+      if (teamsReadErr) throw new Error(`Step 2 (teams read): ${teamsReadErr.message}`);
       const teamIds = (teamRows ?? []).map((t: { id: string }) => t.id);
       if (teamIds.length > 0) {
         const { error: tmErr } = await adminClient
