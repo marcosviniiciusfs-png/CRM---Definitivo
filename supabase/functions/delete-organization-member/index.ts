@@ -80,9 +80,65 @@ serve(async (req) => {
       });
     }
 
-    // TODO: Steps 1-6 da cascata serão implementados em tarefas seguintes
-    return new Response(JSON.stringify({ error: "Cascata ainda não implementada" }), {
-      status: 501, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const targetUserId = target.user_id; // pode ser null se convite pendente
+    const summary = {
+      active_leads_unassigned: 0,
+      closed_leads_preserved: 0,
+      teams_as_leader_cleared: 0,
+      roulettes_cleaned: 0,
+      auth_deleted: false,
+    };
+
+    if (targetUserId) {
+      // Passo 1: limpar liderança em equipes (set leader_id = NULL)
+      const { count: leaderCount, error: leaderErr } = await adminClient
+        .from("teams")
+        .update({ leader_id: null })
+        .eq("leader_id", targetUserId)
+        .eq("organization_id", organization_id)
+        .select("*", { count: "exact", head: true });
+      if (leaderErr) throw new Error(`Step 1 (teams.leader_id): ${leaderErr.message}`);
+      summary.teams_as_leader_cleared = leaderCount ?? 0;
+
+      // Passo 2: remover de team_members (apenas equipes desta org)
+      const { data: teamRows } = await adminClient
+        .from("teams")
+        .select("id")
+        .eq("organization_id", organization_id);
+      const teamIds = (teamRows ?? []).map((t: { id: string }) => t.id);
+      if (teamIds.length > 0) {
+        const { error: tmErr } = await adminClient
+          .from("team_members")
+          .delete()
+          .eq("user_id", targetUserId)
+          .in("team_id", teamIds);
+        if (tmErr) throw new Error(`Step 2 (team_members): ${tmErr.message}`);
+      }
+
+      // Passo 3: remover das roletas (eligible_agents é text[])
+      const { data: configs, error: cfgErr } = await adminClient
+        .from("lead_distribution_configs")
+        .select("id, eligible_agents")
+        .eq("organization_id", organization_id);
+      if (cfgErr) throw new Error(`Step 3 (lead_distribution_configs read): ${cfgErr.message}`);
+
+      for (const cfg of configs ?? []) {
+        const agents: string[] = Array.isArray(cfg.eligible_agents) ? cfg.eligible_agents : [];
+        if (agents.includes(targetUserId)) {
+          const novo = agents.filter((id) => id !== targetUserId);
+          const { error: updErr } = await adminClient
+            .from("lead_distribution_configs")
+            .update({ eligible_agents: novo })
+            .eq("id", cfg.id);
+          if (updErr) throw new Error(`Step 3 (config ${cfg.id} update): ${updErr.message}`);
+          summary.roulettes_cleaned++;
+        }
+      }
+    }
+
+    // TODO: Passos 4-6 (leads + delete member + auth)
+    return new Response(JSON.stringify({ success: true, partial: true, summary }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err: any) {
