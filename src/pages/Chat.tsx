@@ -63,6 +63,7 @@ import { BroadcastPanel } from "@/components/chat/BroadcastPanel";
 import { ChannelSelector } from "@/components/ChannelSelector";
 import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
+import { useAssignedChannels, isLeadVisibleByChannel } from "@/hooks/useAssignedChannels";
 
 const Chat = () => {
   const location = useLocation();
@@ -1372,15 +1373,31 @@ const Chat = () => {
     return channel?.channel_color || null;
   }, []);
 
+  // Hook que retorna canais aos quais o member esta atribuido. Owner/admin
+  // recebe `null` (visibilidade total). Member sem atribuicoes recebe Set vazio
+  // — nesse caso so verao leads sem canal (nao-WhatsApp).
+  const { assignedChannelIds, loading: assignmentsLoading, hasFullAccess } = useAssignedChannels();
+
   const baseFilteredLeads = useMemo(() => leads.filter((lead) => {
     const matchesSearch = lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) || lead.telefone_lead.includes(searchQuery);
     const matchesChannel = !selectedChannelId || lead.whatsapp_instance_id === selectedChannelId;
+    // Filtro de atribuicao: members so veem leads dos canais atribuidos
+    // ou leads sem canal (nao-WhatsApp). Enquanto carrega as atribuicoes,
+    // members nao veem leads WhatsApp para evitar flash de dados sensiveis.
+    let matchesAssignment = true;
+    if (!hasFullAccess) {
+      if (assignmentsLoading) {
+        matchesAssignment = !lead.whatsapp_instance_id;
+      } else {
+        matchesAssignment = isLeadVisibleByChannel(lead.whatsapp_instance_id, assignedChannelIds);
+      }
+    }
     if (selectedTagIds.length > 0) {
       const leadTags = leadTagsMap.get(lead.id) || [];
-      return matchesSearch && matchesChannel && selectedTagIds.some((tagId) => leadTags.includes(tagId));
+      return matchesSearch && matchesChannel && matchesAssignment && selectedTagIds.some((tagId) => leadTags.includes(tagId));
     }
-    return matchesSearch && matchesChannel;
-  }), [leads, searchQuery, selectedTagIds, leadTagsMap, selectedChannelId]);
+    return matchesSearch && matchesChannel && matchesAssignment;
+  }), [leads, searchQuery, selectedTagIds, leadTagsMap, selectedChannelId, hasFullAccess, assignmentsLoading, assignedChannelIds]);
 
   const pinnedFilteredLeads = useMemo(() => baseFilteredLeads.filter((lead) => pinnedLeads.includes(lead.id)).sort((a, b) => pinnedLeads.indexOf(a.id) - pinnedLeads.indexOf(b.id)), [baseFilteredLeads, pinnedLeads]);
 

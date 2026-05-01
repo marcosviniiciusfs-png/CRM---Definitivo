@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WhatsAppChannel } from "@/types/whatsapp-channel";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
+import { ChannelAssignMembersDialog } from "@/components/ChannelAssignMembersDialog";
 
 const MAX_CHANNELS = 5;
 
@@ -154,6 +155,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   };
 
   const [reconfiguring, setReconfiguring] = useState(false);
+  const [assigningChannel, setAssigningChannel] = useState<WhatsAppChannel | null>(null);
   const handleReconfigureWebhooks = async () => {
     setReconfiguring(true);
     try {
@@ -275,6 +277,15 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                     <Button
                       size="sm"
                       variant="outline"
+                      className="h-7 text-[10px] px-2.5"
+                      onClick={() => setAssigningChannel(channel)}
+                      title="Atribuir colaboradores que veem leads deste canal"
+                    >
+                      Atribuir
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="h-7 text-[10px] px-2.5 text-red-500 border-red-200 hover:bg-red-50"
                       onClick={() => handleDisconnect(channel)}
                     >
@@ -307,6 +318,16 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
           )}
         </div>
       </DialogContent>
+
+      {assigningChannel && (
+        <ChannelAssignMembersDialog
+          open={!!assigningChannel}
+          onOpenChange={(o) => { if (!o) setAssigningChannel(null); }}
+          channelId={assigningChannel.id}
+          channelName={assigningChannel.channel_name || assigningChannel.instance_name}
+          organizationId={organizationId}
+        />
+      )}
     </Dialog>
   );
 }
