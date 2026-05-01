@@ -30,22 +30,48 @@ serve(async (req) => {
 
     console.log(`🔄 [redistribute] Iniciando para org: ${organization_id}`);
 
-    // 1. Buscar leads sem responsável (batch limitado)
-    const { data: unassignedLeads, error: leadsError } = await supabase
+    // 0. Buscar IDs de stages won/lost desta org (não devem ser redistribuídos).
+    // Org-scoped via JOIN em sales_funnels.organization_id.
+    const { data: closedStages, error: closedStagesErr } = await supabase
+      .from('funnel_stages')
+      .select('id, sales_funnels!inner(organization_id)')
+      .eq('sales_funnels.organization_id', organization_id)
+      .in('stage_type', ['won', 'lost']);
+    if (closedStagesErr) {
+      console.error(`❌ Erro ao buscar stages won/lost:`, closedStagesErr);
+      return new Response(
+        JSON.stringify({ success: false, error: `Erro ao buscar stages: ${closedStagesErr.message}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+    const closedStageIds = (closedStages || []).map((s: { id: string }) => s.id);
+
+    // Helper: aplica o filtro de exclusão won/lost (3VL-safe via .or()).
+    const excludeClosedStages = <T extends { or: (filter: string) => T }>(q: T): T =>
+      closedStageIds.length > 0
+        ? q.or(`funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(',')})`)
+        : q;
+
+    // 1. Buscar leads sem responsável que NÃO estejam em won/lost (batch limitado)
+    let unassignedQuery = supabase
       .from('leads')
       .select('id, source, funnel_id')
       .eq('organization_id', organization_id)
       .is('responsavel_user_id', null)
       .limit(BATCH_SIZE);
+    unassignedQuery = excludeClosedStages(unassignedQuery);
+    const { data: unassignedLeads, error: leadsError } = await unassignedQuery;
 
     if (leadsError) throw leadsError;
 
-    // Contar total real (para saber se há mais)
-    const { count: totalCount, error: countError } = await supabase
+    // Contar total real (excluindo won/lost para alinhar com o batch fetch)
+    let countQuery = supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', organization_id)
       .is('responsavel_user_id', null);
+    countQuery = excludeClosedStages(countQuery);
+    const { count: totalCount, error: countError } = await countQuery;
 
     if (countError) throw countError;
 
