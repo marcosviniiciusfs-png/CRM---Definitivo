@@ -20,17 +20,25 @@ async function getOrCreateOrganizationId(
   supabase: any,
   user: { id: string; email?: string | null },
 ): Promise<string | null> {
-  // PREVENÇÃO DE DUPLICATAS: Primeiro verificar se já é OWNER de alguma organização
-  const { data: existingOwner, error: ownerError } = await supabase
+  // PREVENÇÃO DE DUPLICATAS: Primeiro verificar se já é OWNER de alguma organização.
+  // CRITICO: usar order + limit(1) e NAO maybeSingle(). Se o user tiver 2+ orgs como
+  // owner (caso ja documentado de duplicacao), maybeSingle() retorna null sem erro
+  // util e o codigo cai no fallback que CRIA UMA NOVA ORG, multiplicando o problema.
+  // Pegamos sempre a mais antiga para dar consistencia: o canal sempre vai para a
+  // mesma org, evitando que conexoes consecutivas espalhem em orgs diferentes.
+  const { data: ownerRows, error: ownerError } = await supabase
     .from('organization_members')
-    .select('organization_id')
+    .select('organization_id, created_at')
     .eq('user_id', user.id)
     .eq('role', 'owner')
-    .maybeSingle();
+    .order('created_at', { ascending: true })
+    .limit(1);
 
   if (ownerError) {
     console.warn('⚠️ Error checking existing owner status:', ownerError);
   }
+
+  const existingOwner = (ownerRows && ownerRows.length > 0) ? ownerRows[0] : null;
 
   // Se já for owner, retornar a organização existente (NÃO criar nova)
   if (existingOwner?.organization_id) {
@@ -38,16 +46,20 @@ async function getOrCreateOrganizationId(
     return existingOwner.organization_id;
   }
 
-  // 1) Happy path: membership already linked by user_id (como membro)
-  const { data: memberByUser, error: memberByUserError } = await supabase
+  // 1) Happy path: membership already linked by user_id (como membro).
+  // Mesmo cuidado que acima — usar order + limit(1) ao inves de maybeSingle().
+  const { data: memberRows, error: memberByUserError } = await supabase
     .from('organization_members')
-    .select('id, organization_id')
+    .select('id, organization_id, created_at')
     .eq('user_id', user.id)
-    .maybeSingle();
+    .order('created_at', { ascending: true })
+    .limit(1);
 
   if (memberByUserError) {
     console.warn('⚠️ Error fetching org by user_id (continuing):', memberByUserError);
   }
+
+  const memberByUser = (memberRows && memberRows.length > 0) ? memberRows[0] : null;
 
   if (memberByUser?.organization_id) {
     return memberByUser.organization_id;
