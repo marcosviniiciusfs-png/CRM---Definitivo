@@ -445,17 +445,39 @@ const Colaboradores = () => {
   };
 
   const confirmDeleteColaborador = async () => {
-    if (!colaboradorToDelete) return;
+    if (!colaboradorToDelete || !organizationId) return;
     setIsMutating(true);
     try {
-      const { error } = await supabase.from('organization_members').delete().eq('id', colaboradorToDelete.id);
+      const { data, error } = await supabase.functions.invoke('delete-organization-member', {
+        body: {
+          member_id: colaboradorToDelete.id,
+          organization_id: organizationId,
+        },
+      });
       if (error) throw error;
-      toast({ title: "Colaborador removido", description: `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi removido da organização` });
+      if (data?.error) throw new Error(data.error);
+
+      const s = data?.summary;
+      const desc = s
+        ? `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi excluído. ${s.active_leads_unassigned} lead(s) voltaram para a roleta.`
+        : `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi excluído.`;
+
+      toast({ title: "Colaborador removido", description: desc });
+
+      if (data?.warning) {
+        toast({ title: "Atenção", description: data.warning, variant: "destructive" });
+      }
+
       invalidateData();
       setDeleteDialogOpen(false);
       setColaboradorToDelete(null);
-    } catch (error: any) {
-      toast({ title: "Erro ao excluir", description: error.message || "Não foi possível excluir o colaborador", variant: "destructive" });
+      setDeletePreview(null);
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: err?.message || "Não foi possível excluir o colaborador",
+        variant: "destructive",
+      });
     } finally {
       setIsMutating(false);
     }
