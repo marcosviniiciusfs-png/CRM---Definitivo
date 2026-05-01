@@ -135,9 +135,45 @@ serve(async (req) => {
           summary.roulettes_cleaned++;
         }
       }
+
+      // Passo 4a: identificar estágios won/lost
+      const { data: closedStages, error: stagesErr } = await adminClient
+        .from("funnel_stages")
+        .select("id")
+        .in("stage_type", ["won", "lost"]);
+      if (stagesErr) throw new Error(`Step 4a (funnel_stages): ${stagesErr.message}`);
+      const closedStageIds = (closedStages ?? []).map((s: { id: string }) => s.id);
+
+      // Passo 4b: leads ativos — zerar responsavel_user_id E responsavel (texto)
+      // Filtro: funnel_stage_id IS NULL ou NOT IN (won/lost)
+      let activeQuery = adminClient
+        .from("leads")
+        .update({ responsavel_user_id: null, responsavel: null })
+        .eq("organization_id", organization_id)
+        .eq("responsavel_user_id", targetUserId);
+      if (closedStageIds.length > 0) {
+        activeQuery = activeQuery.not("funnel_stage_id", "in", `(${closedStageIds.join(",")})`);
+      }
+      const { count: activeCount, error: activeErr } = await activeQuery
+        .select("*", { count: "exact", head: true });
+      if (activeErr) throw new Error(`Step 4b (active leads): ${activeErr.message}`);
+      summary.active_leads_unassigned = activeCount ?? 0;
+
+      // Passo 4c: leads fechados — zerar SÓ responsavel_user_id; campo "responsavel" (texto) preserva nome
+      if (closedStageIds.length > 0) {
+        const { count: closedCount, error: closedErr } = await adminClient
+          .from("leads")
+          .update({ responsavel_user_id: null })
+          .eq("organization_id", organization_id)
+          .eq("responsavel_user_id", targetUserId)
+          .in("funnel_stage_id", closedStageIds)
+          .select("*", { count: "exact", head: true });
+        if (closedErr) throw new Error(`Step 4c (closed leads): ${closedErr.message}`);
+        summary.closed_leads_preserved = closedCount ?? 0;
+      }
     }
 
-    // TODO: Passos 4-6 (leads + delete member + auth)
+    // TODO: Passos 5-6 (delete member + auth)
     return new Response(JSON.stringify({ success: true, partial: true, summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
