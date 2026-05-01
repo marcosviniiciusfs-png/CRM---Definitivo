@@ -38,6 +38,15 @@ interface Colaborador {
   custom_role_id?: string | null;
 }
 
+interface DeletePreview {
+  member_name: string;
+  active_leads: number;
+  closed_leads: number;
+  teams_as_leader: number;
+  roulettes_in: number;
+  has_auth_user: boolean;
+}
+
 interface CustomRoleOption {
   id: string;
   name: string;
@@ -50,6 +59,8 @@ const Colaboradores = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [colaboradorToDelete, setColaboradorToDelete] = useState<Colaborador | null>(null);
+  const [deletePreview, setDeletePreview] = useState<DeletePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   // Visibilidade de senha nos modais
   const [showNewPassword, setShowNewPassword] = useState(false);
