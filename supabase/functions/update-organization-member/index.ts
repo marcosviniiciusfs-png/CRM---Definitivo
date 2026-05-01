@@ -184,10 +184,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Se o owner/admin alterou o is_active, refletir no auth ban.
+    // Sem isso, marcar "Inativo" só esconde da lista mas o user continua logando.
+    if (is_active !== undefined && targetMember.user_id) {
+      const banDuration = is_active ? 'none' : '876000h'; // 100 anos ≈ permanente
+      const { error: banError } = await adminClient.auth.admin.updateUserById(
+        targetMember.user_id,
+        // @ts-expect-error - ban_duration is supported by Supabase Auth admin API but not in older type defs
+        { ban_duration: banDuration }
+      );
+      if (banError) {
+        console.error('Error setting ban_duration:', banError);
+        // Rollback do is_active para evitar estado inconsistente
+        await adminClient
+          .from('organization_members')
+          .update({ is_active: !is_active })
+          .eq('id', memberId);
+        return new Response(JSON.stringify({ error: `Erro ao aplicar bloqueio de acesso: ${banError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Colaborador atualizado com sucesso" 
+      JSON.stringify({
+        success: true,
+        message: "Colaborador atualizado com sucesso"
       }),
       {
         status: 200,
