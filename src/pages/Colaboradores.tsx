@@ -408,7 +408,7 @@ const Colaboradores = () => {
     }
   };
 
-  const handleDeleteColaborador = (colaborador: Colaborador) => {
+  const handleDeleteColaborador = async (colaborador: Colaborador) => {
     if (userRole !== 'owner') {
       toast({ title: "Acesso negado", description: "Apenas o proprietário da organização pode excluir colaboradores", variant: "destructive" });
       return;
@@ -417,8 +417,31 @@ const Colaboradores = () => {
       toast({ title: "Ação não permitida", description: "Você não pode excluir sua própria conta", variant: "destructive" });
       return;
     }
+    if (!organizationId) return;
+
+    // Abre o dialog imediatamente em estado de loading
     setColaboradorToDelete(colaborador);
+    setDeletePreview(null);
+    setPreviewLoading(true);
     setDeleteDialogOpen(true);
+
+    const { data, error } = await supabase.rpc('preview_organization_member_deletion', {
+      p_member_id: colaborador.id,
+      p_organization_id: organizationId,
+    });
+
+    setPreviewLoading(false);
+    if (error) {
+      toast({
+        title: "Erro ao calcular impacto",
+        description: error.message || "Não foi possível carregar o preview",
+        variant: "destructive",
+      });
+      setDeleteDialogOpen(false);
+      setColaboradorToDelete(null);
+      return;
+    }
+    setDeletePreview(data as DeletePreview);
   };
 
   const confirmDeleteColaborador = async () => {
