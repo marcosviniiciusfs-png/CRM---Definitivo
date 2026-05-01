@@ -175,8 +175,29 @@ serve(async (req) => {
       }
     }
 
-    // TODO: Passos 5-6 (delete member + auth)
-    return new Response(JSON.stringify({ success: true, partial: true, summary }), {
+    // Passo 5: deletar o vínculo organization_members
+    const { error: memDelErr } = await adminClient
+      .from("organization_members")
+      .delete()
+      .eq("id", member_id);
+    if (memDelErr) throw new Error(`Step 5 (organization_members delete): ${memDelErr.message}`);
+
+    // Passo 6: hard-delete do usuário em auth.users (só se tiver user_id)
+    if (targetUserId) {
+      const { error: authDelErr } = await adminClient.auth.admin.deleteUser(targetUserId);
+      if (authDelErr) {
+        // Não rollback — o vínculo já foi removido. Log e retorna sucesso parcial.
+        console.error(`[delete-organization-member] Step 6 falhou:`, authDelErr);
+        return new Response(JSON.stringify({
+          success: true,
+          summary: { ...summary, auth_deleted: false },
+          warning: `Vínculo removido, mas auth.users não foi deletado: ${authDelErr.message}. Use o admin panel para finalizar.`,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      summary.auth_deleted = true;
+    }
+
+    return new Response(JSON.stringify({ success: true, summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
