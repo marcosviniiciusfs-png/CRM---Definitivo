@@ -590,6 +590,7 @@ const Chat = () => {
       });
 
       try {
+        // Fetch 1: mensagens novas (data_hora > ultima conhecida).
         let q = supabase
           .from("mensagens_chat")
           .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
@@ -599,21 +600,56 @@ const Chat = () => {
         if (lastTs) q = q.gt("data_hora", lastTs);
 
         const { data, error } = await q;
-        if (error || !data || data.length === 0) return;
+        const newMessages = !error && data ? parseMessages(data) : [];
 
-        const parsed = parseMessages(data);
+        // Fetch 2: ultimas 20 mensagens do lead (qualquer data) para sincronizar
+        // mudancas em campos como status_entrega (SENT -> DELIVERED -> READ) e
+        // media_url, que NAO mudam data_hora e nao chegam pelo Realtime quando
+        // este esta nao-confiavel. Sem isso, o status do envio (incluindo midias)
+        // ficava congelado em SENT ate o usuario recarregar a pagina.
+        const { data: recentData } = await supabase
+          .from("mensagens_chat")
+          .select("*")
+          .eq("id_lead", leadId)
+          .order("data_hora", { ascending: false })
+          .limit(20);
+        const recentMessages = recentData || [];
+
         let hadNewIncoming = false;
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const existingEvIds = new Set(prev.filter((m) => m.evolution_message_id).map((m) => m.evolution_message_id));
-          const fresh = parsed.filter((m) => {
+
+          // 1) Aplica updates em mensagens ja presentes (status_entrega, media_url, etc).
+          const recentById = new Map<string, any>();
+          for (const r of recentMessages) recentById.set(r.id, r);
+          let mutated = false;
+          const merged = prev.map((m) => {
+            const fresh = recentById.get(m.id);
+            if (!fresh) return m;
+            const statusChanged = fresh.status_entrega !== m.status_entrega;
+            const mediaUrlChanged = fresh.media_url && fresh.media_url !== m.media_url;
+            if (!statusChanged && !mediaUrlChanged && fresh.updated_at === (m as any).updated_at) {
+              return m;
+            }
+            mutated = true;
+            return {
+              ...m,
+              status_entrega: fresh.status_entrega ?? m.status_entrega,
+              media_url: fresh.media_url || m.media_url,
+              media_metadata: fresh.media_metadata ?? m.media_metadata,
+            };
+          });
+
+          // 2) Adiciona mensagens novas que nao estavam em prev.
+          const fresh = newMessages.filter((m) => {
             if (existingIds.has(m.id)) return false;
             if (m.evolution_message_id && existingEvIds.has(m.evolution_message_id)) return false;
             return true;
           });
-          if (fresh.length === 0) return prev;
+          if (fresh.length === 0) return mutated ? merged : prev;
           if (fresh.some((m) => m.direcao === "ENTRADA")) hadNewIncoming = true;
-          return [...prev, ...fresh];
+          return [...merged, ...fresh];
         });
 
         if (hadNewIncoming && notificationSoundEnabledRef.current && notificationAudioRef.current) {
