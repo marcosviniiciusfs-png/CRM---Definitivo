@@ -40,7 +40,7 @@ BEGIN
   LEFT JOIN public.profiles p ON p.user_id = om.user_id
   WHERE om.id = p_member_id AND om.organization_id = p_organization_id;
 
-  IF v_target_user_id IS NULL AND v_target_role IS NULL THEN
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Membro não encontrado nesta organização' USING ERRCODE = 'P0002';
   END IF;
 
@@ -52,9 +52,11 @@ BEGIN
   -- 4. Calcular contadores (só se há user_id; convite pendente retorna zeros)
   IF v_target_user_id IS NOT NULL THEN
     -- estágios won/lost
-    SELECT COALESCE(array_agg(id), ARRAY[]::uuid[]) INTO v_closed_stage_ids
-    FROM public.funnel_stages
-    WHERE stage_type IN ('won', 'lost');
+    SELECT COALESCE(array_agg(fs.id), ARRAY[]::uuid[]) INTO v_closed_stage_ids
+    FROM public.funnel_stages fs
+    JOIN public.sales_funnels sf ON sf.id = fs.funnel_id
+    WHERE sf.organization_id = p_organization_id
+      AND fs.stage_type IN ('won', 'lost');
 
     -- leads ativos
     SELECT COUNT(*) INTO v_active_leads
