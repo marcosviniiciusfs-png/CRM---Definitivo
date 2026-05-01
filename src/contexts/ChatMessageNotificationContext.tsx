@@ -4,6 +4,7 @@ import React, {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAssignedChannels } from '@/hooks/useAssignedChannels';
 
 export interface ChatMessageNotif {
     id: string;
@@ -40,6 +41,14 @@ function getMessagePreview(msg: any): string {
 export function ChatMessageNotificationProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const { organizationId } = useOrganization();
+    // Atribuicao de canais: owner/admin (hasFullAccess=true) recebe todas as
+    // notificacoes; member recebe apenas dos canais aos quais foi atribuido,
+    // ou de leads sem canal (nao-WhatsApp).
+    const { assignedChannelIds, hasFullAccess } = useAssignedChannels();
+    const assignedChannelIdsRef = useRef<Set<string> | null>(assignedChannelIds);
+    const hasFullAccessRef = useRef<boolean>(hasFullAccess);
+    useEffect(() => { assignedChannelIdsRef.current = assignedChannelIds; }, [assignedChannelIds]);
+    useEffect(() => { hasFullAccessRef.current = hasFullAccess; }, [hasFullAccess]);
     const [notifications, setNotifications] = useState<ChatMessageNotif[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const audioUnlockedRef = useRef<boolean>(false);
@@ -107,21 +116,43 @@ export function ChatMessageNotificationProvider({ children }: { children: React.
 
     // Resolve lead info (cache + DB fallback). Centralizado para reuso entre
     // o handler do Realtime e o polling.
+    // Aplica tambem o filtro de atribuicao: members so veem leads cujo canal
+    // esta na lista de atribuicoes (ou que nao tem canal nenhum).
     const resolveLeadInfo = useCallback(async (leadId: string, currentOrgId: string) => {
         let info = leadCacheRef.current.get(leadId);
-        if (info) return info;
-        const { data: lead } = await supabase
-            .from('leads')
-            .select('id, nome_lead, avatar_url, organization_id')
-            .eq('id', leadId)
-            .maybeSingle();
-        if (!lead) return null;
-        if ((lead as any).organization_id !== currentOrgId) return null;
-        info = {
-            name: (lead as any).nome_lead || 'Lead sem nome',
-            avatar_url: (lead as any).avatar_url ?? null,
-        };
-        leadCacheRef.current.set(leadId, info);
+        let leadInstanceId: string | null | undefined;
+
+        if (info) {
+            leadInstanceId = (info as any).whatsapp_instance_id;
+        } else {
+            const { data: lead } = await supabase
+                .from('leads')
+                .select('id, nome_lead, avatar_url, organization_id, whatsapp_instance_id')
+                .eq('id', leadId)
+                .maybeSingle();
+            if (!lead) return null;
+            if ((lead as any).organization_id !== currentOrgId) return null;
+            leadInstanceId = (lead as any).whatsapp_instance_id;
+            info = {
+                name: (lead as any).nome_lead || 'Lead sem nome',
+                avatar_url: (lead as any).avatar_url ?? null,
+            };
+            // Guardamos whatsapp_instance_id no cache pra evitar refetch.
+            (info as any).whatsapp_instance_id = leadInstanceId ?? null;
+            leadCacheRef.current.set(leadId, info);
+        }
+
+        // Filtro de atribuicao: aplica APOS resolver o lead (cache funciona
+        // mesmo quando atribuicoes mudam — proxima check usa Set atualizado).
+        if (!hasFullAccessRef.current) {
+            // Lead sem canal sempre visivel para members tambem.
+            if (leadInstanceId) {
+                const ids = assignedChannelIdsRef.current;
+                if (!ids || !ids.has(leadInstanceId)) {
+                    return null;
+                }
+            }
+        }
         return info;
     }, []);
 
