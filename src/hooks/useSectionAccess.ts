@@ -44,6 +44,11 @@ export function useSectionAccess() {
       if (path === '/tasks' && !permissions.canViewKanban) return false;
     }
 
+    // Override universal: atribuicao a canal libera /chat mesmo se o
+    // sectionAccess global disser false (admin global / plano restrito).
+    // Sem isso a rota /chat continuava bloqueada para members atribuidos.
+    if (path === '/chat' && canAccessChat) return true;
+
     if (sectionAccess) {
       if (sectionAccess[sectionKey] === true) return true;
       if (sectionAccess[sectionKey] === false) return false;
