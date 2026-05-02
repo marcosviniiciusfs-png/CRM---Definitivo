@@ -78,26 +78,39 @@ serve(async (req) => {
       // Continue to delete even if logout fails
     }
 
-    // STEP 2: Delete instance from Evolution API
+    // STEP 2: Delete instance from Evolution API (best-effort).
+    // Antes: throw new Error em qualquer non-2xx — incluindo 404 (instancia
+    // ja nao existe na Evolution API por algum cleanup background) — fazia
+    // o canal ficar "fantasma" no banco e o usuario via "Erro ao desconectar"
+    // sem conseguir remover a linha. Agora logamos e seguimos para o DELETE
+    // do banco assim mesmo. Autorizacao (.eq('user_id', user.id)) ja foi
+    // checada acima — o user e dono da instancia.
     console.log('🗑️ Deleting instance from Evolution API:', instance.instance_name);
-    const deleteResponse = await fetch(`${baseUrl}/instance/delete/${instance.instance_name}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': evolutionApiKey,
-      },
-    });
+    let evolutionData: any = null;
+    let evolutionDeleteWarning: string | null = null;
+    try {
+      const deleteResponse = await fetch(`${baseUrl}/instance/delete/${instance.instance_name}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionApiKey,
+        },
+      });
 
-    if (!deleteResponse.ok) {
-      const errorText = await deleteResponse.text();
-      console.error('Evolution API delete error:', errorText);
-      throw new Error(`Evolution API delete error: ${deleteResponse.status} - ${errorText}`);
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text().catch(() => 'unknown');
+        evolutionDeleteWarning = `Evolution API ${deleteResponse.status}: ${errorText}`;
+        console.warn(`⚠️ Evolution API delete falhou (${deleteResponse.status}) — prosseguindo com delete no banco. Body: ${errorText}`);
+      } else {
+        evolutionData = await deleteResponse.json().catch(() => null);
+        console.log('✅ Evolution API delete response:', evolutionData);
+      }
+    } catch (evoErr) {
+      evolutionDeleteWarning = (evoErr as Error)?.message || 'fetch failed';
+      console.warn('⚠️ Excecao ao chamar Evolution API delete — prosseguindo com delete no banco:', evoErr);
     }
 
-    const evolutionData = await deleteResponse.json();
-    console.log('✅ Evolution API delete response:', evolutionData);
-
-    // STEP 3: Delete instance from database
+    // STEP 3: Delete instance from database (sempre roda, mesmo se Evolution falhou)
     const { error: deleteError } = await supabase
       .from('whatsapp_instances')
       .delete()
@@ -115,6 +128,7 @@ serve(async (req) => {
         success: true,
         message: 'Instance deleted successfully',
         evolutionData: evolutionData,
+        evolutionDeleteWarning,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
