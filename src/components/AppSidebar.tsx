@@ -1,4 +1,4 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -11,6 +11,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSectionAccess } from "@/hooks/useSectionAccess";
+import { useChatAccess } from "@/hooks/useChatAccess";
 import { cn } from "@/lib/utils";
 import { useTaskAlert } from "@/contexts/TaskAlertContext";
 import {
@@ -49,6 +50,7 @@ const URL_TO_SECTION: Record<string, string> = {
   '/lead-distribution': 'lead-distribution',
   '/chat': 'chat',
   '/ranking': 'ranking',
+  '/reunioes': 'reunioes',
   '/administrativo/colaboradores': 'colaboradores',
   '/administrativo/producao': 'producao',
   '/administrativo/equipes': 'equipes',
@@ -65,6 +67,7 @@ const items = [
   { title: "Roleta de Leads", url: "/lead-distribution", icon: Shuffle },
   { title: "Chat", url: "/chat", icon: MessageCircle },
   { title: "Ranking", url: "/ranking", icon: Trophy },
+  { title: "Reuniões", url: "/reunioes", icon: CalendarDays },
 ];
 
 const administrativoItems = [
@@ -90,6 +93,7 @@ function AppSidebarComponent() {
   const { theme } = useTheme();
   const { signOut, user, subscriptionData, isSuperAdmin, roleLoading } = useAuth();
   const permissions = usePermissions();
+  const { canAccessChat } = useChatAccess();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
 
   const { sectionAccess, loading: sectionLoading } = useSectionAccess();
@@ -101,18 +105,20 @@ function AppSidebarComponent() {
       return undefined; // undefined = não bloqueia, não força
     }
 
-    // Para membros com cargo personalizado, aplicar permissões do cargo
+    // Para membros com cargo personalizado, aplicar permissões do cargo.
+    // Excecao: /chat tem fallback de atribuicao a canal WhatsApp
+    // (useChatAccess combina cargo + atribuicao em whatsapp_channel_members).
     if (permissions.role === 'member' && permissions.customRoleId !== null && !permissions.loading) {
       if (url === '/pipeline' && !permissions.canViewPipeline) return false;
       if (url === '/tasks' && !permissions.canViewKanban) return false;
-      if (url === '/chat' && !permissions.canViewChat) return false;
+      if (url === '/chat' && !canAccessChat) return false;
     }
 
     if (sectionAccess === null) return undefined;
     const key = URL_TO_SECTION[url];
     if (!key) return undefined;
     return sectionAccess[key];
-  }, [sectionAccess, isSuperAdmin, permissions]);
+  }, [sectionAccess, isSuperAdmin, permissions, canAccessChat]);
 
   // Helper: check if a feature should be locked
   const isFeatureLocked = useCallback((url: string) => {

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useChatAccess } from '@/hooks/useChatAccess';
 
 const URL_TO_SECTION: Record<string, string> = {
   '/dashboard': 'dashboard',
@@ -23,6 +24,7 @@ const LOCKED_FEATURES: string[] = [];
 export function useSectionAccess() {
   const { sectionAccess, sectionAccessLoading, user, isSuperAdmin } = useAuth();
   const permissions = usePermissions();
+  const { canAccessChat } = useChatAccess();
 
   const loading = sectionAccessLoading || (!!user && sectionAccess === null);
 
@@ -35,7 +37,9 @@ export function useSectionAccess() {
 
     // Para membros com cargo personalizado, verificar permissões do cargo
     if (permissions.role === 'member' && permissions.customRoleId !== null && !permissions.loading) {
-      if (path === '/chat' && !permissions.canViewChat) return false;
+      // Chat usa logica especial: cargo OU atribuicao a canal WhatsApp libera.
+      // useChatAccess ja combina ambos os sinais.
+      if (path === '/chat' && !canAccessChat) return false;
       if (path === '/pipeline' && !permissions.canViewPipeline) return false;
       if (path === '/tasks' && !permissions.canViewKanban) return false;
     }
@@ -46,7 +50,7 @@ export function useSectionAccess() {
     }
 
     return !LOCKED_FEATURES.includes(sectionKey);
-  }, [sectionAccess, isSuperAdmin, permissions]);
+  }, [sectionAccess, isSuperAdmin, permissions, canAccessChat]);
 
   return { isSectionUnlocked, loading, sectionAccess };
 }
