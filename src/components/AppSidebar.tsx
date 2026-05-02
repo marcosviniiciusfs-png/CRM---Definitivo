@@ -114,6 +114,12 @@ function AppSidebarComponent() {
       if (url === '/chat' && !canAccessChat) return false;
     }
 
+    // Override universal: atribuicao a canal libera /chat mesmo se o
+    // sectionAccess global do plano/admin disser false. Sem isso, o
+    // cadeado continuava aparecendo para members sem can_view_chat
+    // mesmo com canal atribuido (bug observado).
+    if (url === '/chat' && canAccessChat) return true;
+
     if (sectionAccess === null) return undefined;
     const key = URL_TO_SECTION[url];
     if (!key) return undefined;
