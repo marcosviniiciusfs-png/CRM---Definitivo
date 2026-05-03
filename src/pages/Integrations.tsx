@@ -12,6 +12,7 @@ import { MetaPixelConnection } from "@/components/MetaPixelConnection";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleCalendarModal } from "@/components/GoogleCalendarModal";
+import { GoogleSheetsModal } from "@/components/GoogleSheetsModal";
 
 /* ── Design tokens ── */
 const BG   = "linear-gradient(135deg,#921009 0%,#c0392b 50%,#e97555 100%)";
@@ -83,6 +84,19 @@ const GCAL_IC = (
     <rect x="9" y="4" width="3" height="7" rx="1" fill="white"/>
     <rect x="20" y="4" width="3" height="7" rx="1" fill="white"/>
     <text x="16" y="24" textAnchor="middle" fill="#4285F4" fontSize="9" fontWeight="bold">CAL</text>
+  </svg>
+);
+
+const GSHEETS_IC = (
+  <svg viewBox="0 0 32 32" width="22" height="22">
+    <rect width="32" height="32" rx="2" fill="#0F9D58"/>
+    <rect x="6" y="6" width="20" height="20" rx="1" fill="white"/>
+    <rect x="9" y="10" width="14" height="2" fill="#0F9D58"/>
+    <rect x="9" y="14" width="14" height="2" fill="#0F9D58"/>
+    <rect x="9" y="18" width="14" height="2" fill="#0F9D58"/>
+    <rect x="9" y="22" width="14" height="2" fill="#0F9D58"/>
+    <rect x="14" y="9" width="2" height="15" fill="white"/>
+    <rect x="19" y="9" width="2" height="15" fill="white"/>
   </svg>
 );
 
@@ -499,6 +513,89 @@ function GoogleCalendarCard({
   );
 }
 
+/* ── Google Sheets summary card ── */
+function GoogleSheetsCard({
+  isConnected,
+  activeConfigsCount,
+  loading,
+  onManage,
+  canManage,
+}: {
+  isConnected: boolean;
+  activeConfigsCount: number;
+  loading: boolean;
+  onManage: () => void;
+  canManage: boolean;
+}) {
+  const [hov, setHov] = useState(false);
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 transition-all ${
+        isConnected
+          ? "border-[#0F9D58]/25 bg-[#0F9D58]/6 shadow-[0_4px_24px_rgba(15,157,88,.1)]"
+          : hov
+            ? "border-border bg-accent/50 shadow-md"
+            : "border-border bg-card"
+      } ${hov ? "-translate-y-0.5" : ""}`}
+    >
+      <div className="flex justify-between items-start mb-2.5">
+        <div className="flex gap-2.5 items-center">
+          <div className="w-10 h-10 rounded-[5px] flex-shrink-0 bg-[#0F9D58]/8 border border-[#0F9D58]/22 flex items-center justify-center">
+            {GSHEETS_IC}
+          </div>
+          <div>
+            <div className="text-[13.5px] font-bold text-card-foreground leading-tight mb-1">Google Sheets</div>
+            <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded bg-[#0F9D58]/10 border border-[#0F9D58]/22 text-[#0F9D58]">Importação automática</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`w-[7px] h-[7px] rounded-full ${isConnected ? "bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" : "bg-muted-foreground/30"}`}/>
+          <span className={`text-[11px] font-medium ${isConnected ? "text-success" : "text-muted-foreground"}`}>
+            {isConnected ? "Online" : "Offline"}
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando conexão...</p>
+      ) : isConnected ? (
+        <div className="flex-1 flex flex-col justify-between">
+          <div className="py-2 px-2.5 rounded-[5px] bg-muted/50 border border-border text-[12px] text-[#0F9D58]">
+            {activeConfigsCount > 0
+              ? `${activeConfigsCount} planilha${activeConfigsCount !== 1 ? "s" : ""} sincronizando · novos leads em até 2 min`
+              : "Conta Google conectada — clique em Gerenciar para vincular uma planilha"}
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              className="border border-[#0F9D58]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#0F9D58]/10 text-[#0F9D58] transition-all hover:bg-[#0F9D58]/20 disabled:opacity-45 disabled:cursor-not-allowed"
+            >Gerenciar</button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col justify-between">
+          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+            Conecte uma planilha — novos leads viram cards no funil automaticamente.
+          </p>
+          <div className="flex justify-end">
+            <button
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#0F9D58] to-[#0B7A45] shadow-[0_3px_12px_rgba(15,157,88,.35)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
+            >Conectar Google Sheets</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Integrations Page ── */
 const Integrations = () => {
   const { organizationId, isReady } = useOrganizationReady();
@@ -512,6 +609,9 @@ const Integrations = () => {
   const [metaPixelActive, setMetaPixelActive] = useState(false);
   const [gcalConnected, setGcalConnected] = useState(false);
   const [showGcalModal, setShowGcalModal] = useState(false);
+  const [gsheetsConnected, setGsheetsConnected] = useState(false);
+  const [gsheetsActiveCount, setGsheetsActiveCount] = useState(0);
+  const [showGsheetsModal, setShowGsheetsModal] = useState(false);
 
   // ── Dados carregados via React Query com cache (5 min) ──
   const [dataLoading, setDataLoading] = useState(true);
@@ -552,6 +652,9 @@ const Integrations = () => {
       const { data: gcalData } = await supabase
         .from("google_calendar_integrations").select("id, is_active").eq("organization_id", organizationId).eq("is_active", true).maybeSingle();
 
+      const { count: gsheetsCount } = await supabase
+        .from("sheet_sync_configs").select("*", { count: "exact", head: true }).eq("organization_id", organizationId).eq("is_active", true);
+
       let configuredForms = 0;
       if (fbData?.page_id) {
         const { data: funnels } = await supabase.from("sales_funnels").select("id").eq("organization_id", organizationId);
@@ -572,6 +675,8 @@ const Integrations = () => {
         fbConfiguredForms: configuredForms,
         metaPixelActive: !!(pixelData?.is_active),
         gcalConnected: !!gcalData?.is_active,
+        gsheetsConnected: (gsheetsCount || 0) > 0,
+        gsheetsActiveCount: gsheetsCount || 0,
       };
     },
     enabled: !!organizationId && isReady,
@@ -590,6 +695,8 @@ const Integrations = () => {
       setFbConfiguredForms(cached.fbConfiguredForms);
       setMetaPixelActive(cached.metaPixelActive);
       setGcalConnected(cached.gcalConnected);
+      setGsheetsConnected(cached.gsheetsConnected);
+      setGsheetsActiveCount(cached.gsheetsActiveCount || 0);
     }
     setDataLoading(isIntegrationLoading);
   }, [isIntegrationLoading, organizationId, queryClient]);
@@ -761,6 +868,15 @@ const Integrations = () => {
               canManage={canManage}
             />
 
+            {/* Google Sheets — card funcional */}
+            <GoogleSheetsCard
+              isConnected={gsheetsConnected}
+              activeConfigsCount={gsheetsActiveCount}
+              loading={dataLoading}
+              onManage={() => setShowGsheetsModal(true)}
+              canManage={canManage}
+            />
+
             {/* Coming soon */}
             {COMING_SOON.map(g => <ComingSoonCard key={g.id} g={g} />)}
 
@@ -832,6 +948,15 @@ const Integrations = () => {
 
       {/* ── Google Calendar Modal ── */}
       <GoogleCalendarModal open={showGcalModal} onOpenChange={setShowGcalModal} />
+
+      {/* ── Google Sheets Modal ── */}
+      <GoogleSheetsModal
+        open={showGsheetsModal}
+        onOpenChange={(open) => {
+          setShowGsheetsModal(open);
+          if (!open) refreshIntegrations();
+        }}
+      />
     </>
   );
 };
