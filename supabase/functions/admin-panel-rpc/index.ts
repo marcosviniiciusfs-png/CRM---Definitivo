@@ -178,15 +178,19 @@ Deno.serve(async (req) => {
             }
 
             // Remove team memberships first
-            await adminClient
-                .from("team_members")
-                .delete()
-                .eq("user_id", user_id)
-                .in("team_id", adminClient
-                    .from("teams")
-                    .select("id")
-                    .eq("organization_id", organization_id)
-                );
+            const { data: teams } = await adminClient
+                .from("teams")
+                .select("id")
+                .eq("organization_id", organization_id);
+
+            if (teams && teams.length > 0) {
+                const teamIds = teams.map((t: { id: string }) => t.id);
+                await adminClient
+                    .from("team_members")
+                    .delete()
+                    .eq("user_id", user_id)
+                    .in("team_id", teamIds);
+            }
 
             // Remove from organization
             const { error } = await adminClient
