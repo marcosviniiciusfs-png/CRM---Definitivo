@@ -57,8 +57,17 @@ supabase.auth.onAuthStateChange((_event, session) => {
 // Apply current session token immediately on module load (covers cases
 // where the session restored from storage but onAuthStateChange has not
 // fired yet by the time the first channel subscribes).
-supabase.auth.getSession().then(({ data }) => {
-  if (data.session?.access_token) {
-    supabase.realtime.setAuth(data.session.access_token);
-  }
-});
+// Catch is required: when the stored session has an expired access token
+// and the auto-refresh fails (network error, invalid refresh token), this
+// promise rejects with AuthRetryableFetchError. Without a catch we get an
+// unhandled rejection in the console. The actual session-recovery logic
+// lives in AuthContext, which has its own timeout + cleanup.
+supabase.auth.getSession()
+  .then(({ data }) => {
+    if (data.session?.access_token) {
+      supabase.realtime.setAuth(data.session.access_token);
+    }
+  })
+  .catch(() => {
+    // Silenciado de propósito - AuthContext trata a recuperação.
+  });

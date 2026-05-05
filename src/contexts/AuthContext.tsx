@@ -504,7 +504,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Initial session check - OPTIMIZED: Non-blocking
-    supabase.auth.getSession()
+    // Wrapped in Promise.race com timeout porque supabase-js v2 chama
+    // _callRefreshToken dentro do getSession() quando o access_token está
+    // expirado. Se a renovação falhar com erro de rede (AuthRetryableFetchError,
+    // ERR_ABORTED, etc.), o getSession() pode demorar muito ou nunca retornar,
+    // travando a UI no estado de loading. Sintoma observado em produção:
+    // tela preta com logo Kairoz (Landing.tsx loading state) eternamente.
+    const SESSION_INIT_TIMEOUT_MS = 8000;
+    const sessionPromise = supabase.auth.getSession();
+    // Anexa um catch silencioso para evitar UnhandledPromiseRejection caso
+    // a promise interna resolva DEPOIS do timeout vencer.
+    sessionPromise.catch(() => {});
+
+    Promise.race([
+      sessionPromise,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error('SESSION_INIT_TIMEOUT')),
+          SESSION_INIT_TIMEOUT_MS
+        )
+      ),
+    ])
       .then(({ data: { session } }) => {
         if (!mounted) return;
 
@@ -600,11 +620,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }, 100);
         }
       })
-      .catch((error) => {
+      .catch(async (error) => {
+        if (!mounted) return;
+
         logger.error('[AUTH] Erro ao obter sessão:', error);
-        if (mounted) {
-          setLoading(false);
+
+        const err = error as { name?: string; message?: string } | null | undefined;
+        const isTimeout = err?.message === 'SESSION_INIT_TIMEOUT';
+        const isRetryableFetch =
+          err?.name === 'AuthRetryableFetchError' ||
+          /failed to fetch/i.test(err?.message ?? '');
+
+        // Sessão potencialmente corrompida (refresh travado ou rede instável).
+        // Limpar storage local SEM chamar o servidor (scope: 'local') para
+        // destravar a UI e permitir que o usuário faça login novamente.
+        if (isTimeout || isRetryableFetch) {
+          logger.warn('[AUTH] Sessão local sendo limpa após falha de init - usuário precisará logar novamente');
+          try {
+            await supabase.auth.signOut({ scope: 'local' });
+          } catch {
+            // Fallback bruto: limpar tokens supabase manualmente
+            try {
+              const keysToRemove: string[] = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k?.startsWith('sb-')) keysToRemove.push(k);
+              }
+              keysToRemove.forEach(k => localStorage.removeItem(k));
+            } catch {
+              // Storage indisponível - ignorar
+            }
+          }
+          setSession(null);
+          setUser(null);
         }
+
+        setLoading(false);
         setSectionAccessLoading(false);
       });
 
