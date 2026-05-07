@@ -34,7 +34,7 @@ serve(async (req) => {
     }
 
     // 2. Parse body
-    const { organization_id, collaborator_user_id } = await req.json();
+    const { organization_id, collaborator_user_id, config_id } = await req.json();
     if (!organization_id || !collaborator_user_id) {
       return new Response(JSON.stringify({ error: "organization_id e collaborator_user_id são obrigatórios" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -125,7 +125,10 @@ serve(async (req) => {
 
     while (iteration < MAX_ITERATIONS) {
       iteration++;
-      const result = await redistributeBatch(supabase, organization_id, { batchSize: 100 });
+      const result = await redistributeBatch(supabase, organization_id, {
+        batchSize: 100,
+        configId: config_id || null,
+      });
       totalRedistributed += result.redistributed;
       totalSkipped += result.skipped;
       allErrors.push(...result.errors);

@@ -40,7 +40,6 @@ export default function LeadDistribution() {
   const [editConfig, setEditConfig] = useState<any>(null);
   const [redistributeOpen, setRedistributeOpen] = useState(false);
   const [redistributeLostOpen, setRedistributeLostOpen] = useState(false);
-  const [collabRedistOpen, setCollabRedistOpen] = useState(false);
 
   // Redistribution progress state
   const [redistProgress, setRedistProgress] = useState({ current: 0, total: 0, isRunning: false });
@@ -275,16 +274,16 @@ export default function LeadDistribution() {
 
   // Redistribuir leads de um colaborador
   const redistributeFromCollaboratorMutation = useMutation({
-    mutationFn: async (collaboratorUserId: string) => {
+    mutationFn: async ({ userId, configId }: { userId: string; configId: string | null }) => {
       if (!organizationId) return { redistributed: 0, skipped: 0, total: 0 };
 
       setRedistProgress({ current: 0, total: 0, isRunning: true });
 
-      // A edge function ja faz o loop interno e retorna agregado.
       const { data, error } = await supabase.functions.invoke("redistribute-from-collaborator", {
         body: {
           organization_id: organizationId,
-          collaborator_user_id: collaboratorUserId,
+          collaborator_user_id: userId,
+          config_id: configId,
         },
       });
       if (error) throw error;
@@ -342,14 +341,6 @@ export default function LeadDistribution() {
           <p className="text-muted-foreground mt-1">Distribuicao inteligente e automatica entre sua equipe</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setCollabRedistOpen(!collabRedistOpen)}
-            className="gap-2"
-          >
-            <Shuffle className="h-4 w-4" />
-            Redistribuir colaborador
-          </Button>
           {permissions.canCreateRoulettes && (
             <Button onClick={() => { setEditConfig(null); setCreateModalOpen(true); }} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -364,9 +355,7 @@ export default function LeadDistribution() {
 
       {/* Redistribuir leads de um colaborador (colapsavel) */}
       <RedistributeFromCollaboratorPanel
-        open={collabRedistOpen}
-        onToggle={() => setCollabRedistOpen(!collabRedistOpen)}
-        onConfirm={(userId) => redistributeFromCollaboratorMutation.mutate(userId)}
+        onConfirm={(userId, configId) => redistributeFromCollaboratorMutation.mutate({ userId, configId })}
         isPending={redistributeFromCollaboratorMutation.isPending}
       />
 
