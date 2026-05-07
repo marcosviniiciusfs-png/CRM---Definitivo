@@ -11,6 +11,7 @@
 export interface RedistributeBatchOptions {
   batchSize?: number;
   configId?: string | null;
+  batchId?: string | null;
 }
 
 export interface RedistributeBatchResult {
@@ -29,6 +30,7 @@ export async function redistributeBatch(
 ): Promise<RedistributeBatchResult> {
   const batchSize = options.batchSize ?? 100;
   const configIdFilter = options.configId ?? null;
+  const batchId = options.batchId ?? null;
 
   // 1. Buscar leads sem dono (excluir won/lost)
   const { data: closedStages, error: closedStagesErr } = await supabase
@@ -207,6 +209,7 @@ export async function redistributeBatch(
           lead_id: item.id,
           organization_id: organizationId,
           config_id: configId,
+          batch_id: batchId,
           to_user_id: agentId,
           distribution_method: config.distribution_method,
           trigger_source: 'manual',
