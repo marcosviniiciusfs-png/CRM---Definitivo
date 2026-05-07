@@ -6,7 +6,6 @@ import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { RouletteAnalyticsBar } from "@/components/roulette/RouletteAnalyticsBar";
-import { RouletteSimulator } from "@/components/roulette/RouletteSimulator";
 import { RouletteCard } from "@/components/roulette/RouletteCard";
 import { AgentCapacityPanel } from "@/components/roulette/AgentCapacityPanel";
 import { SmartRulesPanel } from "@/components/roulette/SmartRulesPanel";
@@ -16,7 +15,6 @@ import { RedistributeBatchDialog } from "@/components/RedistributeBatchDialog";
 import { toast } from "sonner";
 import {
   Plus,
-  Target,
   AlertCircle,
   RefreshCw,
   Shuffle,
@@ -37,7 +35,6 @@ export default function LeadDistribution() {
   const permissions = usePermissions();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabValue>("roulettes");
-  const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editConfig, setEditConfig] = useState<any>(null);
   const [redistributeOpen, setRedistributeOpen] = useState(false);
@@ -298,14 +295,6 @@ export default function LeadDistribution() {
           <p className="text-muted-foreground mt-1">Distribuicao inteligente e automatica entre sua equipe</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setSimulatorOpen(!simulatorOpen)}
-            className="gap-2"
-          >
-            <Target className="h-4 w-4" />
-            Simular
-          </Button>
           {permissions.canCreateRoulettes && (
             <Button onClick={() => { setEditConfig(null); setCreateModalOpen(true); }} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -317,9 +306,6 @@ export default function LeadDistribution() {
 
       {/* Analytics bar */}
       <RouletteAnalyticsBar />
-
-      {/* Simulator (collapsible) */}
-      <RouletteSimulator open={simulatorOpen} onToggle={() => setSimulatorOpen(!simulatorOpen)} />
 
       {/* Redistribution progress bar */}
       {redistProgress.isRunning && redistProgress.total > 0 && (
