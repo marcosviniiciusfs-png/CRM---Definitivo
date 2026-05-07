@@ -135,15 +135,18 @@ export default function LeadDistribution() {
   // Redistribute mutation - receives configId from dialog
   const redistributeMutation = useMutation({
     mutationFn: async (configId: string | null) => {
-      if (!organizationId) return 0;
+      if (!organizationId) return { redistributed: 0, skipped: 0 };
 
       setRedistProgress({ current: 0, total: 0, isRunning: true });
 
       let totalRedistributed = 0;
+      let totalSkipped = 0;
       let hasMore = true;
       let iteration = 0;
+      const MAX_ITERATIONS = 500;
+      const DELAY_MS = 800;
 
-      while (hasMore && iteration < 50) {
+      while (hasMore && iteration < MAX_ITERATIONS) {
         iteration++;
         const { data, error } = await supabase.functions.invoke("redistribute-unassigned-leads", {
           body: { organization_id: organizationId, config_id: configId },
@@ -152,31 +155,47 @@ export default function LeadDistribution() {
 
         const count = data?.redistributed_count || 0;
         const total = data?.total || 0;
+        const skipped = data?.skipped || 0;
         totalRedistributed += count;
+        totalSkipped += skipped;
 
-        // Update progress
         setRedistProgress(prev => ({
           ...prev,
           current: totalRedistributed,
           total: Math.max(prev.total, total),
         }));
 
-        hasMore = data?.has_more === true && count > 0;
+        hasMore = data?.has_more === true;
+
+        // Guarda anti-loop-vazio: se nao processou nenhum mas diz has_more,
+        // significa que faltam roletas/agentes. Saimos para nao loopar.
+        if (count === 0 && hasMore) {
+          break;
+        }
+
+        // Delay entre iteracoes para nao travar e dar folga ao banco
+        if (hasMore && iteration < MAX_ITERATIONS) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+        }
       }
 
       setRedistProgress(prev => ({ ...prev, isRunning: false }));
-      return totalRedistributed;
+      return { redistributed: totalRedistributed, skipped: totalSkipped };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ redistributed, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      if (count && count > 0) {
-        toast.success(`${count} leads redistribuidos com sucesso!`);
+      if (redistributed > 0) {
+        const msg = skipped > 0
+          ? `${redistributed} leads redistribuidos. ${skipped} aguardando configuracao de roleta/agente.`
+          : `${redistributed} leads redistribuidos com sucesso!`;
+        toast.success(msg);
+      } else if (skipped > 0) {
+        toast.warning(`${skipped} leads aguardando configuracao de roleta/agente.`);
       } else {
         toast.info("Nenhum lead para redistribuir");
       }
       setRedistributeOpen(false);
-      // Reset progress after a delay
       setTimeout(() => setRedistProgress({ current: 0, total: 0, isRunning: false }), 3000);
     },
     onError: () => {
@@ -188,15 +207,18 @@ export default function LeadDistribution() {
   // Redistribute lost leads mutation
   const redistributeLostMutation = useMutation({
     mutationFn: async (configId: string | null) => {
-      if (!organizationId) return 0;
+      if (!organizationId) return { redistributed: 0, skipped: 0 };
 
       setRedistProgress({ current: 0, total: 0, isRunning: true });
 
       let totalRedistributed = 0;
+      let totalSkipped = 0;
       let hasMore = true;
       let iteration = 0;
+      const MAX_ITERATIONS = 500;
+      const DELAY_MS = 800;
 
-      while (hasMore && iteration < 50) {
+      while (hasMore && iteration < MAX_ITERATIONS) {
         iteration++;
         const { data, error } = await supabase.functions.invoke("redistribute-lost-leads", {
           body: { organization_id: organizationId, config_id: configId },
@@ -205,7 +227,9 @@ export default function LeadDistribution() {
 
         const count = data?.redistributed_count || 0;
         const total = data?.total || 0;
+        const skipped = data?.skipped || 0;
         totalRedistributed += count;
+        totalSkipped += skipped;
 
         setRedistProgress(prev => ({
           ...prev,
@@ -213,18 +237,31 @@ export default function LeadDistribution() {
           total: Math.max(prev.total, total),
         }));
 
-        hasMore = data?.has_more === true && count > 0;
+        hasMore = data?.has_more === true;
+
+        if (count === 0 && hasMore) {
+          break;
+        }
+
+        if (hasMore && iteration < MAX_ITERATIONS) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+        }
       }
 
       setRedistProgress(prev => ({ ...prev, isRunning: false }));
-      return totalRedistributed;
+      return { redistributed: totalRedistributed, skipped: totalSkipped };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ redistributed, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ["lost-leads-count"] });
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      if (count && count > 0) {
-        toast.success(`${count} leads perdidos redistribuidos!`);
+      if (redistributed > 0) {
+        const msg = skipped > 0
+          ? `${redistributed} leads perdidos redistribuidos. ${skipped} aguardando configuracao.`
+          : `${redistributed} leads perdidos redistribuidos!`;
+        toast.success(msg);
+      } else if (skipped > 0) {
+        toast.warning(`${skipped} leads perdidos aguardando configuracao de roleta/agente.`);
       } else {
         toast.info("Nenhum lead perdido para redistribuir");
       }
