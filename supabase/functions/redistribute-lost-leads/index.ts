@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 100;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -30,37 +30,46 @@ serve(async (req) => {
 
     console.log(`🔄 [redistribute-lost] Iniciando para org: ${organization_id}`);
 
-    // 1. Buscar leads na etapa "Perdido" (lost)
+    // 1. Pré-buscar IDs de stages 'lost' desta org (org-scoped via JOIN)
+    const { data: lostStages, error: lostStagesErr } = await supabase
+      .from('funnel_stages')
+      .select('id, sales_funnels!inner(organization_id)')
+      .eq('sales_funnels.organization_id', organization_id)
+      .eq('stage_type', 'lost');
+    if (lostStagesErr) {
+      console.error('❌ Erro ao buscar stages lost:', lostStagesErr);
+      return new Response(
+        JSON.stringify({ success: false, error: `Erro ao buscar stages: ${lostStagesErr.message}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+    const lostStageIds = (lostStages || []).map((s: { id: string }) => s.id);
+
+    if (lostStageIds.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, redistributed_count: 0, total: 0, has_more: false, message: 'Nenhuma etapa Perdido configurada' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Buscar leads perdidos diretamente do banco
     const { data: lostLeads, error: leadsError } = await supabase
       .from('leads')
       .select('id, source, funnel_id, funnel_stage_id')
       .eq('organization_id', organization_id)
-      .not('funnel_stage_id', 'is', null)
+      .in('funnel_stage_id', lostStageIds)
       .limit(BATCH_SIZE);
 
     if (leadsError) throw leadsError;
 
-    // Filtrar apenas leads cujo estágio seja do tipo "lost"
-    const stageIds = [...new Set((lostLeads || []).map(l => l.funnel_stage_id))];
-    const lostStageIds = new Set<string>();
+    const filteredLeads = lostLeads || [];
 
-    if (stageIds.length > 0) {
-      const { data: stages } = await supabase
-        .from('funnel_stages')
-        .select('id')
-        .in('id', stageIds)
-        .eq('stage_type', 'lost');
-      (stages || []).forEach(s => lostStageIds.add(s.id));
-    }
-
-    const filteredLeads = (lostLeads || []).filter(l => lostStageIds.has(l.funnel_stage_id));
-
-    // Contar total real
+    // Contar total restante de perdidos
     const { count: totalCount, error: countError } = await supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', organization_id)
-      .not('funnel_stage_id', 'is', null);
+      .in('funnel_stage_id', lostStageIds);
 
     if (countError) throw countError;
 
@@ -258,7 +267,9 @@ serve(async (req) => {
       }
     }
 
-    const hasMore = filteredLeads.length >= BATCH_SIZE;
+    // has_more baseado em count real do que sobrou apos esta iteracao
+    const remainingAfter = (totalCount || 0) - redistributedCount;
+    const hasMore = remainingAfter > 0;
 
     console.log(`✅ [redistribute-lost] ${redistributedCount} leads redistribuídos (skipped: ${skippedCount})`);
 
