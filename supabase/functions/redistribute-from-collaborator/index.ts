@@ -34,9 +34,9 @@ serve(async (req) => {
     }
 
     // 2. Parse body
-    const { organization_id, collaborator_user_id, config_id } = await req.json();
-    if (!organization_id || !collaborator_user_id) {
-      return new Response(JSON.stringify({ error: "organization_id e collaborator_user_id são obrigatórios" }), {
+    const { organization_id, collaborator_user_ids, config_id } = await req.json();
+    if (!organization_id || !Array.isArray(collaborator_user_ids) || collaborator_user_ids.length === 0) {
+      return new Response(JSON.stringify({ error: "organization_id e collaborator_user_ids (array não vazio) são obrigatórios" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -55,16 +55,17 @@ serve(async (req) => {
       });
     }
 
-    // 4. Verificar que o colaborador existe na org
-    const { data: target, error: targetErr } = await supabase
+    // 4. Verificar que TODOS os colaboradores existem na org
+    const { data: targets, error: targetsErr } = await supabase
       .from("organization_members")
-      .select("id, user_id")
-      .eq("user_id", collaborator_user_id)
-      .eq("organization_id", organization_id)
-      .maybeSingle();
-    if (targetErr) throw new Error(`Target lookup: ${targetErr.message}`);
-    if (!target) {
-      return new Response(JSON.stringify({ error: "Colaborador não encontrado nesta organização" }), {
+      .select("user_id")
+      .in("user_id", collaborator_user_ids)
+      .eq("organization_id", organization_id);
+    if (targetsErr) throw new Error(`Targets lookup: ${targetsErr.message}`);
+    const foundIds = new Set((targets || []).map((t: { user_id: string }) => t.user_id));
+    const missing = collaborator_user_ids.filter((id: string) => !foundIds.has(id));
+    if (missing.length > 0) {
+      return new Response(JSON.stringify({ error: `Colaborador(es) não encontrado(s) nesta organização: ${missing.join(", ")}` }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -77,12 +78,12 @@ serve(async (req) => {
       .in("stage_type", ["won", "lost"]);
     const closedStageIds = (closedStages || []).map((s: { id: string }) => s.id);
 
-    // 6. Contar leads ativos do colaborador (intent)
+    // 6. Contar leads ativos dos colaboradores (intent)
     let countQuery = supabase
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", organization_id)
-      .eq("responsavel_user_id", collaborator_user_id);
+      .in("responsavel_user_id", collaborator_user_ids);
     if (closedStageIds.length > 0) {
       countQuery = countQuery.or(
         `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(",")})`
@@ -101,12 +102,12 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 7. Desatribuir TODOS os leads ativos do colaborador (operação única)
+    // 7. Desatribuir TODOS os leads ativos dos colaboradores (operação única)
     let unassignQuery = supabase
       .from("leads")
       .update({ responsavel_user_id: null, responsavel: null })
       .eq("organization_id", organization_id)
-      .eq("responsavel_user_id", collaborator_user_id);
+      .in("responsavel_user_id", collaborator_user_ids);
     if (closedStageIds.length > 0) {
       unassignQuery = unassignQuery.or(
         `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(",")})`
@@ -139,7 +140,7 @@ serve(async (req) => {
     }
 
     const durationMs = Date.now() - startTime;
-    console.log(`✅ [redistribute-from-collaborator] ${totalRedistributed}/${totalIntended} redistribuidos em ${durationMs}ms (skipped: ${totalSkipped}, iteracoes: ${iteration})`);
+    console.log(`✅ [redistribute-from-collaborator] ${totalRedistributed}/${totalIntended} redistribuidos de ${collaborator_user_ids.length} colaborador(es) em ${durationMs}ms (skipped: ${totalSkipped}, iteracoes: ${iteration})`);
 
     return new Response(JSON.stringify({
       success: true,

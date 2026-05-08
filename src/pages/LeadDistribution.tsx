@@ -274,7 +274,7 @@ export default function LeadDistribution() {
 
   // Redistribuir leads de um colaborador
   const redistributeFromCollaboratorMutation = useMutation({
-    mutationFn: async ({ userId, configId }: { userId: string; configId: string | null }) => {
+    mutationFn: async ({ userIds, configId }: { userIds: string[]; configId: string | null }) => {
       if (!organizationId) return { redistributed: 0, skipped: 0, total: 0 };
 
       setRedistProgress({ current: 0, total: 0, isRunning: true });
@@ -282,7 +282,7 @@ export default function LeadDistribution() {
       const { data, error } = await supabase.functions.invoke("redistribute-from-collaborator", {
         body: {
           organization_id: organizationId,
-          collaborator_user_id: userId,
+          collaborator_user_ids: userIds,
           config_id: configId,
         },
       });
@@ -300,7 +300,7 @@ export default function LeadDistribution() {
     onSuccess: ({ redistributed, skipped, total }) => {
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      queryClient.invalidateQueries({ queryKey: ["collaborator-active-leads-count"] });
+      queryClient.invalidateQueries({ queryKey: ["multi-collaborator-active-leads-count"] });
       if (redistributed > 0) {
         const msg = skipped > 0
           ? `${redistributed}/${total} leads redistribuidos. ${skipped} aguardando configuracao.`
@@ -355,7 +355,7 @@ export default function LeadDistribution() {
 
       {/* Redistribuir leads de um colaborador (colapsavel) */}
       <RedistributeFromCollaboratorPanel
-        onConfirm={(userId, configId) => redistributeFromCollaboratorMutation.mutate({ userId, configId })}
+        onConfirm={(userIds, configId) => redistributeFromCollaboratorMutation.mutate({ userIds, configId })}
         isPending={redistributeFromCollaboratorMutation.isPending}
       />
 
