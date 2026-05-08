@@ -272,40 +272,70 @@ export default function LeadDistribution() {
     },
   });
 
-  // Redistribuir leads de um colaborador
+  // Redistribuir leads de um colaborador (loop client-side: cada chamada
+  // processa 1 batch, frontend mostra progresso entre chamadas)
   const redistributeFromCollaboratorMutation = useMutation({
     mutationFn: async ({ userIds, configId }: { userIds: string[]; configId: string | null }) => {
-      if (!organizationId) return { redistributed: 0, skipped: 0, total: 0 };
+      if (!organizationId) return { redistributed: 0, skipped: 0 };
 
       setRedistProgress({ current: 0, total: 0, isRunning: true });
 
-      const { data, error } = await supabase.functions.invoke("redistribute-from-collaborator", {
-        body: {
-          organization_id: organizationId,
-          collaborator_user_ids: userIds,
-          config_id: configId,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      let totalRedistributed = 0;
+      let totalSkipped = 0;
+      let hasMore = true;
+      let iteration = 0;
+      const MAX_ITERATIONS = 500;
+      const DELAY_MS = 800;
 
-      const redistributed = data?.redistributed_count || 0;
-      const skipped = data?.skipped || 0;
-      const total = data?.total_intended || 0;
+      while (hasMore && iteration < MAX_ITERATIONS) {
+        iteration++;
+        const { data, error } = await supabase.functions.invoke("redistribute-from-collaborator", {
+          body: {
+            organization_id: organizationId,
+            collaborator_user_ids: userIds,
+            config_id: configId,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
 
-      setRedistProgress({ current: redistributed, total, isRunning: false });
+        const count = data?.redistributed_count || 0;
+        const total = data?.total || 0;
+        const skipped = data?.skipped || 0;
+        totalRedistributed += count;
+        totalSkipped += skipped;
 
-      return { redistributed, skipped, total };
+        setRedistProgress(prev => ({
+          ...prev,
+          current: totalRedistributed,
+          total: Math.max(prev.total, total),
+        }));
+
+        hasMore = data?.has_more === true;
+
+        // Anti-loop: se servidor diz has_more=true mas processou 0, sai
+        if (count === 0 && hasMore) break;
+
+        // Delay entre iteracoes para UI atualizar e nao travar o banco
+        if (hasMore && iteration < MAX_ITERATIONS) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+        }
+      }
+
+      setRedistProgress(prev => ({ ...prev, isRunning: false }));
+      return { redistributed: totalRedistributed, skipped: totalSkipped };
     },
-    onSuccess: ({ redistributed, skipped, total }) => {
+    onSuccess: ({ redistributed, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
       queryClient.invalidateQueries({ queryKey: ["multi-collaborator-active-leads-count"] });
       if (redistributed > 0) {
         const msg = skipped > 0
-          ? `${redistributed}/${total} leads redistribuidos. ${skipped} aguardando configuracao.`
+          ? `${redistributed} leads redistribuidos. ${skipped} aguardando configuracao de roleta/agente.`
           : `${redistributed} leads redistribuidos com sucesso!`;
         toast.success(msg);
+      } else if (skipped > 0) {
+        toast.warning(`${skipped} leads aguardando configuracao de roleta/agente.`);
       } else {
         toast.info("Nenhum lead foi redistribuido");
       }

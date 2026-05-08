@@ -78,7 +78,8 @@ serve(async (req) => {
       .in("stage_type", ["won", "lost"]);
     const closedStageIds = (closedStages || []).map((s: { id: string }) => s.id);
 
-    // 6. Contar leads ativos dos colaboradores (intent)
+    // 6. Contar leads ainda atribuidos a esses colaboradores (para has_more + total na UI).
+    // Cada chamada do cliente processa 1 batch; o cliente loopa ate has_more=false.
     let countQuery = supabase
       .from("leads")
       .select("id", { count: "exact", head: true })
@@ -89,86 +90,79 @@ serve(async (req) => {
         `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(",")})`
       );
     }
-    const { count: totalIntended, error: countErr } = await countQuery;
-    if (countErr) throw new Error(`Count intended: ${countErr.message}`);
+    const { count: totalRemaining, error: countErr } = await countQuery;
+    if (countErr) throw new Error(`Count: ${countErr.message}`);
 
-    if (!totalIntended || totalIntended === 0) {
+    if (!totalRemaining || totalRemaining === 0) {
       return new Response(JSON.stringify({
         success: true,
         redistributed_count: 0,
-        total_intended: 0,
+        total: 0,
+        processed: 0,
         skipped: 0,
+        has_more: false,
         message: "Nenhum lead ativo para redistribuir"
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 7a. Capturar os IDs dos leads que serao desatribuidos.
-    // Necessario antes do UPDATE para escopar a redistribuicao posterior
-    // SOMENTE a esses leads (evita varrer toda a fila de unassigned da org,
-    // que pode ter centenas de leads pre-existentes e fazer a funcao timeout).
-    let targetLeadsQuery = supabase
+    // 7. Capturar IDs do PROXIMO BATCH (nao todos de uma vez).
+    // Permite que cada chamada complete em poucos segundos e o cliente
+    // mostre progresso real entre chamadas (com delay de 800ms).
+    const BATCH_SIZE = 100;
+    let batchQuery = supabase
       .from("leads")
       .select("id")
       .eq("organization_id", organization_id)
-      .in("responsavel_user_id", collaborator_user_ids);
+      .in("responsavel_user_id", collaborator_user_ids)
+      .limit(BATCH_SIZE);
     if (closedStageIds.length > 0) {
-      targetLeadsQuery = targetLeadsQuery.or(
+      batchQuery = batchQuery.or(
         `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(",")})`
       );
     }
-    const { data: targetLeads, error: targetLeadsErr } = await targetLeadsQuery;
-    if (targetLeadsErr) throw new Error(`Fetch target leads: ${targetLeadsErr.message}`);
-    const leadIdsToProcess: string[] = (targetLeads || []).map((l: { id: string }) => l.id);
+    const { data: batchLeads, error: batchErr } = await batchQuery;
+    if (batchErr) throw new Error(`Fetch batch: ${batchErr.message}`);
+    const batchIds: string[] = (batchLeads || []).map((l: { id: string }) => l.id);
 
-    if (leadIdsToProcess.length === 0) {
+    if (batchIds.length === 0) {
+      // totalRemaining > 0 mas o batch retornou 0 — improvavel mas seguro retornar done
       return new Response(JSON.stringify({
-        success: true, redistributed_count: 0, total_intended: 0, skipped: 0,
-        message: "Nenhum lead ativo para redistribuir"
+        success: true,
+        redistributed_count: 0,
+        total: totalRemaining,
+        processed: 0,
+        skipped: 0,
+        has_more: false,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 7b. Desatribuir esses leads (operacao unica, escopada por id)
+    // 8. Desatribuir SOMENTE este batch
     const { error: unassignErr } = await supabase
       .from("leads")
       .update({ responsavel_user_id: null, responsavel: null })
-      .in("id", leadIdsToProcess);
+      .in("id", batchIds);
     if (unassignErr) throw new Error(`Unassign: ${unassignErr.message}`);
 
-    // 8. Loop: redistribuir SOMENTE os leads que acabamos de desatribuir
-    let totalRedistributed = 0;
-    let totalSkipped = 0;
-    let iteration = 0;
-    const MAX_ITERATIONS = 500;
-    const startTime = Date.now();
-    const allErrors: string[] = [];
+    // 9. Redistribuir SOMENTE este batch via helper (escopado por leadIds)
+    const result = await redistributeBatch(supabase, organization_id, {
+      batchSize: BATCH_SIZE,
+      configId: config_id || null,
+      leadIds: batchIds,
+    });
 
-    while (iteration < MAX_ITERATIONS) {
-      iteration++;
-      const result = await redistributeBatch(supabase, organization_id, {
-        batchSize: 100,
-        configId: config_id || null,
-        leadIds: leadIdsToProcess,
-      });
-      totalRedistributed += result.redistributed;
-      totalSkipped += result.skipped;
-      allErrors.push(...result.errors);
+    // has_more: ainda existem leads dos colaboradores apos este batch
+    const hasMore = totalRemaining > batchIds.length;
 
-      if (!result.hasMore) break;
-      // Anti-loop: se nao processou nada mas hasMore, sai
-      if (result.redistributed === 0) break;
-    }
-
-    const durationMs = Date.now() - startTime;
-    console.log(`✅ [redistribute-from-collaborator] ${totalRedistributed}/${totalIntended} redistribuidos de ${collaborator_user_ids.length} colaborador(es) em ${durationMs}ms (skipped: ${totalSkipped}, iteracoes: ${iteration})`);
+    console.log(`✅ [redistribute-from-collaborator] batch: ${result.redistributed}/${batchIds.length}, total_remaining: ${totalRemaining}, has_more: ${hasMore}`);
 
     return new Response(JSON.stringify({
       success: true,
-      redistributed_count: totalRedistributed,
-      total_intended: totalIntended,
-      skipped: totalSkipped,
-      duration_ms: durationMs,
-      iterations: iteration,
-      errors: allErrors.length > 0 ? allErrors : undefined,
+      redistributed_count: result.redistributed,
+      total: totalRemaining,
+      processed: result.redistributed,
+      skipped: result.skipped,
+      has_more: hasMore,
+      errors: result.errors.length > 0 ? result.errors : undefined,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err) {
