@@ -12,6 +12,12 @@ export interface RedistributeBatchOptions {
   batchSize?: number;
   configId?: string | null;
   batchId?: string | null;
+  /**
+   * Quando setado, restringe a busca de leads sem dono APENAS aos IDs listados.
+   * Util para chamadas que querem redistribuir um conjunto especifico (ex.:
+   * leads recem-desatribuidos de um colaborador) sem varrer toda a fila da org.
+   */
+  leadIds?: string[];
 }
 
 export interface RedistributeBatchResult {
@@ -31,6 +37,7 @@ export async function redistributeBatch(
   const batchSize = options.batchSize ?? 100;
   const configIdFilter = options.configId ?? null;
   const batchId = options.batchId ?? null;
+  const leadIdsFilter = options.leadIds && options.leadIds.length > 0 ? options.leadIds : null;
 
   // 1. Buscar leads sem dono (excluir won/lost)
   const { data: closedStages, error: closedStagesErr } = await supabase
@@ -54,6 +61,9 @@ export async function redistributeBatch(
       `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(',')})`
     );
   }
+  if (leadIdsFilter) {
+    leadsQuery = leadsQuery.in('id', leadIdsFilter);
+  }
   const { data: unassignedLeads, error: leadsError } = await leadsQuery;
   if (leadsError) {
     return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [`leadsFetch: ${leadsError.message}`] };
@@ -63,7 +73,7 @@ export async function redistributeBatch(
     return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [] };
   }
 
-  // 2. Contar total restante
+  // 2. Contar total restante (escopado tambem por leadIds quando aplicavel)
   let countQuery = supabase
     .from('leads')
     .select('id', { count: 'exact', head: true })
@@ -73,6 +83,9 @@ export async function redistributeBatch(
     countQuery = countQuery.or(
       `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(',')})`
     );
+  }
+  if (leadIdsFilter) {
+    countQuery = countQuery.in('id', leadIdsFilter);
   }
   const { count: totalRemaining } = await countQuery;
 

@@ -102,21 +102,39 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 7. Desatribuir TODOS os leads ativos dos colaboradores (operação única)
-    let unassignQuery = supabase
+    // 7a. Capturar os IDs dos leads que serao desatribuidos.
+    // Necessario antes do UPDATE para escopar a redistribuicao posterior
+    // SOMENTE a esses leads (evita varrer toda a fila de unassigned da org,
+    // que pode ter centenas de leads pre-existentes e fazer a funcao timeout).
+    let targetLeadsQuery = supabase
       .from("leads")
-      .update({ responsavel_user_id: null, responsavel: null })
+      .select("id")
       .eq("organization_id", organization_id)
       .in("responsavel_user_id", collaborator_user_ids);
     if (closedStageIds.length > 0) {
-      unassignQuery = unassignQuery.or(
+      targetLeadsQuery = targetLeadsQuery.or(
         `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(",")})`
       );
     }
-    const { error: unassignErr } = await unassignQuery;
+    const { data: targetLeads, error: targetLeadsErr } = await targetLeadsQuery;
+    if (targetLeadsErr) throw new Error(`Fetch target leads: ${targetLeadsErr.message}`);
+    const leadIdsToProcess: string[] = (targetLeads || []).map((l: { id: string }) => l.id);
+
+    if (leadIdsToProcess.length === 0) {
+      return new Response(JSON.stringify({
+        success: true, redistributed_count: 0, total_intended: 0, skipped: 0,
+        message: "Nenhum lead ativo para redistribuir"
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // 7b. Desatribuir esses leads (operacao unica, escopada por id)
+    const { error: unassignErr } = await supabase
+      .from("leads")
+      .update({ responsavel_user_id: null, responsavel: null })
+      .in("id", leadIdsToProcess);
     if (unassignErr) throw new Error(`Unassign: ${unassignErr.message}`);
 
-    // 8. Loop: chamar redistributeBatch até esgotar
+    // 8. Loop: redistribuir SOMENTE os leads que acabamos de desatribuir
     let totalRedistributed = 0;
     let totalSkipped = 0;
     let iteration = 0;
@@ -129,6 +147,7 @@ serve(async (req) => {
       const result = await redistributeBatch(supabase, organization_id, {
         batchSize: 100,
         configId: config_id || null,
+        leadIds: leadIdsToProcess,
       });
       totalRedistributed += result.redistributed;
       totalSkipped += result.skipped;
