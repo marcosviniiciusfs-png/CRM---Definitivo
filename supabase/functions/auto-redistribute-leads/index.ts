@@ -155,13 +155,33 @@ serve(async (req) => {
 
     for (const orgId of uniqueOrgIds) {
       try {
-        // Buscar leads sem dono nesta org (limitado para evitar timeout)
-        const { data: unassignedLeads } = await supabase
+        // Buscar IDs de stages won/lost desta org (não devem ser redistribuídos).
+        // Org-scoped via JOIN em sales_funnels.organization_id.
+        const { data: closedStages, error: stagesErr } = await supabase
+          .from('funnel_stages')
+          .select('id, sales_funnels!inner(organization_id)')
+          .eq('sales_funnels.organization_id', orgId)
+          .in('stage_type', ['won', 'lost']);
+        if (stagesErr) {
+          console.error(`❌ [PHASE 2] Org ${orgId}: erro ao buscar stages won/lost, pulando:`, stagesErr);
+          continue;
+        }
+        const closedStageIds = (closedStages || []).map((s: { id: string }) => s.id);
+
+        // Buscar leads sem dono que NÃO estejam em won/lost (limitado para evitar timeout).
+        // Filtro 3VL-safe: stage NULL é tratado como "ativo" (incluído) via .or().
+        let query = supabase
           .from('leads')
           .select('id')
           .eq('organization_id', orgId)
           .is('responsavel_user_id', null)
           .limit(UNASSIGNED_LIMIT);
+        if (closedStageIds.length > 0) {
+          query = query.or(
+            `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(',')})`
+          );
+        }
+        const { data: unassignedLeads } = await query;
 
         if (!unassignedLeads || unassignedLeads.length === 0) continue;
 

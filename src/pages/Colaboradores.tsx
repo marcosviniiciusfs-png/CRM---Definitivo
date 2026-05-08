@@ -38,6 +38,15 @@ interface Colaborador {
   custom_role_id?: string | null;
 }
 
+interface DeletePreview {
+  member_name: string;
+  active_leads: number;
+  closed_leads: number;
+  teams_as_leader: number;
+  roulettes_in: number;
+  has_auth_user: boolean;
+}
+
 interface CustomRoleOption {
   id: string;
   name: string;
@@ -50,6 +59,8 @@ const Colaboradores = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [colaboradorToDelete, setColaboradorToDelete] = useState<Colaborador | null>(null);
+  const [deletePreview, setDeletePreview] = useState<DeletePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   // Visibilidade de senha nos modais
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -397,7 +408,7 @@ const Colaboradores = () => {
     }
   };
 
-  const handleDeleteColaborador = (colaborador: Colaborador) => {
+  const handleDeleteColaborador = async (colaborador: Colaborador) => {
     if (userRole !== 'owner') {
       toast({ title: "Acesso negado", description: "Apenas o proprietário da organização pode excluir colaboradores", variant: "destructive" });
       return;
@@ -406,22 +417,67 @@ const Colaboradores = () => {
       toast({ title: "Ação não permitida", description: "Você não pode excluir sua própria conta", variant: "destructive" });
       return;
     }
+    if (!organizationId) return;
+
+    // Abre o dialog imediatamente em estado de loading
     setColaboradorToDelete(colaborador);
+    setDeletePreview(null);
+    setPreviewLoading(true);
     setDeleteDialogOpen(true);
+
+    const { data, error } = await supabase.rpc('preview_organization_member_deletion', {
+      p_member_id: colaborador.id,
+      p_organization_id: organizationId,
+    });
+
+    setPreviewLoading(false);
+    if (error) {
+      toast({
+        title: "Erro ao calcular impacto",
+        description: error.message || "Não foi possível carregar o preview",
+        variant: "destructive",
+      });
+      setDeleteDialogOpen(false);
+      setColaboradorToDelete(null);
+      return;
+    }
+    setDeletePreview(data as DeletePreview);
   };
 
   const confirmDeleteColaborador = async () => {
-    if (!colaboradorToDelete) return;
+    if (!colaboradorToDelete || !organizationId) return;
     setIsMutating(true);
     try {
-      const { error } = await supabase.from('organization_members').delete().eq('id', colaboradorToDelete.id);
+      const { data, error } = await supabase.functions.invoke('delete-organization-member', {
+        body: {
+          member_id: colaboradorToDelete.id,
+          organization_id: organizationId,
+        },
+      });
       if (error) throw error;
-      toast({ title: "Colaborador removido", description: `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi removido da organização` });
+      if (data?.error) throw new Error(data.error);
+
+      const s = data?.summary;
+      const desc = s
+        ? `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi excluído. ${s.active_leads_unassigned} lead(s) voltaram para a roleta.`
+        : `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi excluído.`;
+
+      toast({ title: "Colaborador removido", description: desc });
+
+      if (data?.warning) {
+        toast({ title: "Atenção", description: data.warning, variant: "destructive" });
+      }
+
       invalidateData();
       setDeleteDialogOpen(false);
       setColaboradorToDelete(null);
-    } catch (error: any) {
-      toast({ title: "Erro ao excluir", description: error.message || "Não foi possível excluir o colaborador", variant: "destructive" });
+      setDeletePreview(null);
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: err?.message || "Não foi possível excluir o colaborador",
+        variant: "destructive",
+      });
     } finally {
       setIsMutating(false);
     }
@@ -1035,23 +1091,67 @@ const Colaboradores = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      {/* Delete Confirmation com preview */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) {
+          setColaboradorToDelete(null);
+          setDeletePreview(null);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Exclusão</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja remover {colaboradorToDelete?.full_name || colaboradorToDelete?.email} da organização?
-              Esta ação não pode ser desfeita.
+            <DialogTitle>
+              Excluir {deletePreview?.member_name || colaboradorToDelete?.full_name || colaboradorToDelete?.email || 'colaborador'} da organização
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                {previewLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Calculando impacto...</span>
+                  </div>
+                ) : deletePreview ? (
+                  <>
+                    <p className="text-foreground font-medium">Esta ação fará:</p>
+                    <ul className="list-disc pl-5 space-y-1.5 text-sm">
+                      <li>
+                        <strong>{deletePreview.active_leads}</strong> lead(s) ativo(s) voltarão para a roleta automaticamente
+                      </li>
+                      <li>
+                        <strong>{deletePreview.closed_leads}</strong> lead(s) fechado(s) (vendidos/perdidos) ficarão sem responsável atribuído, mas o nome é preservado nos relatórios
+                      </li>
+                      <li>
+                        Liderança removida em <strong>{deletePreview.teams_as_leader}</strong> equipe(s)
+                      </li>
+                      <li>
+                        Removido(a) de <strong>{deletePreview.roulettes_in}</strong> roleta(s)
+                      </li>
+                      {deletePreview.has_auth_user && (
+                        <li>
+                          Acesso (e-mail e senha) <strong>excluído permanentemente</strong>
+                        </li>
+                      )}
+                    </ul>
+                    <p className="text-destructive font-medium pt-1">Esta ação não pode ser desfeita.</p>
+                  </>
+                ) : (
+                  <p>Tem certeza que deseja remover este colaborador? Esta ação não pode ser desfeita.</p>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isMutating}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={confirmDeleteColaborador} disabled={isMutating}>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteColaborador}
+              disabled={isMutating || previewLoading}
+            >
               {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Excluir
+              Excluir definitivamente
             </Button>
           </DialogFooter>
         </DialogContent>

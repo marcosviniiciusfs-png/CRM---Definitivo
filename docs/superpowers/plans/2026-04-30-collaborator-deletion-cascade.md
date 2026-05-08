@@ -1182,6 +1182,80 @@ Criar convite via "Novo Colaborador" para um e-mail que **nunca** vai aceitar. Q
 
 ---
 
+---
+
+## Task 13: Patch `update-organization-member` para banir usuário no toggle "Status Ativo"
+
+**Files:**
+- Modify: `supabase/functions/update-organization-member/index.ts:184-185`
+
+**Context:** O toggle "Status Ativo" no modal de edição (linhas 1017-1024 de `Colaboradores.tsx`) hoje só atualiza `organization_members.is_active`. A função não bane o auth user, então o usuário continua logando normalmente. Spec exige que `is_active=false` bloqueie acesso de fato. Solução: usar `auth.admin.updateUserById(user_id, { ban_duration })` para banir/desbanir simultaneamente.
+
+- [ ] **Step 13.1: Adicionar bloco de ban/unban antes do return final**
+
+Em `supabase/functions/update-organization-member/index.ts`, localizar o final do bloco `if (targetMember.user_id) { ... }` (fechamento na linha ~185), e **antes** do `return new Response(...)` final (linha ~187), inserir:
+
+```ts
+    // Se o is_active foi alterado, banir/desbanir o usuário no Supabase Auth.
+    // Sem isso, marcar "Inativo" só esconde da lista mas o user continua logando.
+    if (is_active !== undefined && targetMember.user_id) {
+      const banDuration = is_active ? 'none' : '876000h'; // 100 anos ≈ permanente
+      const { error: banError } = await adminClient.auth.admin.updateUserById(
+        targetMember.user_id,
+        { ban_duration: banDuration }
+      );
+      if (banError) {
+        console.error('Error setting ban_duration:', banError);
+        // Rollback do is_active para evitar estado inconsistente
+        await adminClient
+          .from('organization_members')
+          .update({ is_active: !is_active })
+          .eq('id', memberId);
+        return new Response(JSON.stringify({ error: `Erro ao aplicar bloqueio de acesso: ${banError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+```
+
+**Importante:** o bloco fica **fora** do `if (Object.keys(authUpdates).length > 0)` porque o ban roda mesmo quando email/senha não estão sendo alterados.
+
+- [ ] **Step 13.2: Deploy**
+
+```bash
+npx supabase functions deploy update-organization-member
+```
+
+- [ ] **Step 13.3: Verificar via app**
+
+1. Logar como owner. Editar um colaborador de teste (`Teste Pedro`), desligar o switch "Status Ativo", salvar. Toast deve aparecer: "Colaborador atualizado com sucesso".
+2. Sair do app. Tentar logar como Pedro com e-mail/senha original. Esperado: erro de login (mensagem nativa do Supabase para usuário banido — ex.: `User is banned` ou `Invalid login credentials` dependendo da versão).
+3. Logar de volta como owner. Editar Pedro, religar o switch. Salvar.
+4. Sair. Logar como Pedro. Esperado: login funciona normalmente.
+
+Verificação SQL:
+```sql
+-- Quando inativo: banned_until > now()
+SELECT id, email, banned_until FROM auth.users WHERE id = '<pedro_user_id>';
+-- Quando ativo: banned_until IS NULL ou < now()
+```
+
+- [ ] **Step 13.4: Commit**
+
+```bash
+git add supabase/functions/update-organization-member/index.ts
+git commit -m "fix(update-member): banir auth user quando is_active=false
+
+O toggle Status Ativo agora bane o usuario no Supabase Auth via
+ban_duration. Inativo bloqueia login imediatamente (no proximo
+refresh de token); religar o toggle remove o ban.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
 ## Resumo dos commits esperados
 
 1. `feat(rpc): preview_organization_member_deletion para preview de impacto`
@@ -1195,5 +1269,6 @@ Criar convite via "Novo Colaborador" para um e-mail que **nunca** vai aceitar. Q
 9. `refactor(colaboradores): handleDelete carrega preview via RPC`
 10. `refactor(colaboradores): confirmDelete chama edge function de cascata`
 11. `feat(colaboradores): AlertDialog mostra preview do impacto da exclusao`
+12. `fix(update-member): banir auth user quando is_active=false`
 
-Total: 11 commits, sem testes unitários (projeto não tem infra). Verificação manual em cada deploy via SQL/curl/browser conforme passos.
+Total: 12 commits, sem testes unitários (projeto não tem infra). Verificação manual em cada deploy via SQL/curl/browser conforme passos.

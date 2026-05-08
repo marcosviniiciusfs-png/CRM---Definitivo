@@ -289,9 +289,65 @@ const { data: unassignedLeads } = await query;
 5. **Aguardar cron** (1 min): leads ativos foram distribuídos a outros agentes da roleta.
 6. **Verificar leads won:** continuam com `responsavel_user_id IS NULL` (não foram redistribuídos pelo cron).
 
+## Escopo adicional — Toggle "Status Ativo"
+
+No modal de edição de colaborador (linhas 1017-1024 de `Colaboradores.tsx`) já existe um `<Switch id="edit-active">` que atualiza `is_active` no banco. **Esse toggle hoje é cosmético** — `update-organization-member` (linha 124) só faz `UPDATE organization_members SET is_active = ?`, mas:
+
+- A função **não bane o usuário no Supabase Auth**.
+- `AuthContext.tsx` **não verifica** `is_active` no login.
+- Resultado: marcar "Inativo" não impede o usuário de logar e usar a aplicação.
+
+### Comportamento esperado
+
+Quando o owner/admin desliga "Status Ativo":
+- A flag `is_active = false` é gravada (já funciona).
+- O usuário é **banido no Supabase Auth** via `auth.admin.updateUserById(user_id, { ban_duration: '876000h' })` (≈100 anos, equivalente a permanente).
+- Sessões ativas do usuário são **invalidadas no próximo refresh de token** (comportamento nativo do Supabase para usuários banidos).
+- Login retorna erro `User is banned`.
+
+Quando religa:
+- Flag `is_active = true`.
+- `auth.admin.updateUserById(user_id, { ban_duration: 'none' })` remove o ban.
+- Login volta a funcionar.
+
+### Casos de borda
+
+- Membro com `user_id = NULL` (convite pendente): pula a chamada de ban/unban, só altera a flag.
+- Self-deactivation: já bloqueado em `update-organization-member` linha 105.
+
+### Fix
+
+Patch em `supabase/functions/update-organization-member/index.ts` logo após o bloco de update do auth (linha 184), antes do `return` final:
+
+```ts
+// Se o owner/admin alterou o is_active, refletir no auth ban
+if (is_active !== undefined && targetMember.user_id) {
+  const banDuration = is_active ? 'none' : '876000h';
+  const { error: banError } = await adminClient.auth.admin.updateUserById(
+    targetMember.user_id,
+    { ban_duration: banDuration }
+  );
+  if (banError) {
+    console.error('Error setting ban_duration:', banError);
+    // Rollback do is_active para evitar estado inconsistente
+    await adminClient
+      .from('organization_members')
+      .update({ is_active: !is_active })
+      .eq('id', memberId);
+    return new Response(JSON.stringify({ error: `Erro ao aplicar bloqueio de acesso: ${banError.message}` }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+```
+
+Observação: o patch fica **fora** do `if (Object.keys(authUpdates).length > 0)` porque o ban roda mesmo quando email/senha não estão sendo alterados.
+
 ## Fora de escopo
 
 - Migrar comissões pendentes da Maria para outro agente (continuam vinculadas a `user_id` órfão; relatórios usam JOIN que retorna NULL — assumido aceitável).
 - Recuperar acesso após hard-delete (não há undo — alinhado com escolha A).
 - Reaproveitamento do e-mail: livre após hard-delete; owner pode cadastrar novo membro com mesmo e-mail.
 - Notificação ao colaborador excluído (e-mail/Slack) — não solicitado.
+- Forçar logout imediato de sessão ativa do usuário inativado: o ban invalida no próximo refresh de token (≤1h por padrão), suficiente para o caso de uso. Forçar logout instantâneo via realtime fica fora do escopo.
