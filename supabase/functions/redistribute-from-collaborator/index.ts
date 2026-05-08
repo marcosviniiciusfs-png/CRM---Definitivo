@@ -106,9 +106,10 @@ serve(async (req) => {
     }
 
     // 7. Capturar IDs do PROXIMO BATCH (nao todos de uma vez).
-    // Permite que cada chamada complete em poucos segundos e o cliente
-    // mostre progresso real entre chamadas (com delay de 800ms).
-    const BATCH_SIZE = 100;
+    // 25 leads por batch: cada chamada completa em ~1-2s, o cliente loopa
+    // com 800ms entre chamadas, e a barra de progresso preenche visivelmente
+    // (em vez de pular de 0 -> N em 1 update so).
+    const BATCH_SIZE = 25;
     let batchQuery = supabase
       .from("leads")
       .select("id")
