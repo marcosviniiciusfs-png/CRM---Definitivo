@@ -136,6 +136,16 @@ serve(async (req) => {
         }
       }
 
+      // Passo 3.5: remover de agent_distribution_settings desta org.
+      // Sem isso, o agente deletado fica fantasma na pagina "Agentes da Roleta"
+      // (aparece como "Agente" sem nome porque nao tem mais profile/org_member).
+      const { error: adsErr } = await adminClient
+        .from("agent_distribution_settings")
+        .delete()
+        .eq("user_id", targetUserId)
+        .eq("organization_id", organization_id);
+      if (adsErr) throw new Error(`Step 3.5 (agent_distribution_settings): ${adsErr.message}`);
+
       // Passo 4a: identificar estágios won/lost
       const { data: closedStages, error: stagesErr } = await adminClient
         .from("funnel_stages")
