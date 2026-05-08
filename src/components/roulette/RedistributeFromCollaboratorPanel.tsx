@@ -15,7 +15,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shuffle, Loader2, Users, ChevronRight, Search } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Shuffle, Loader2, Users, ChevronRight, Search, ChevronDown } from "lucide-react";
 
 interface Props {
   onConfirm: (collaboratorUserIds: string[], configId: string | null) => void;
@@ -204,63 +205,76 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Colaboradores (multi-select) */}
+            {/* Colaboradores (multi-select via Popover) */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Colaboradores</Label>
-                {selectedIdsArray.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {selectedIdsArray.length} selecionado(s)
-                  </span>
-                )}
-              </div>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar colaborador..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-9 h-9 text-sm"
-                  disabled={isPending}
-                />
-              </div>
-
-              <div className="rounded-md border max-h-56 overflow-y-auto">
-                {filteredCollaborators.length > 0 && (
-                  <div className="flex items-center gap-3 p-2.5 border-b bg-muted/30">
-                    <Checkbox
-                      id="rfc-all"
-                      checked={allFilteredSelected}
-                      onCheckedChange={toggleSelectAllFiltered}
-                      disabled={isPending}
-                    />
-                    <Label htmlFor="rfc-all" className="text-xs font-medium cursor-pointer flex-1">
-                      {allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
-                      {searchTerm && ` (${filteredCollaborators.length} filtrado${filteredCollaborators.length !== 1 ? "s" : ""})`}
-                    </Label>
-                  </div>
-                )}
-                {filteredCollaborators.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-muted-foreground">
-                    {collaborators.length === 0 ? "Nenhum colaborador ativo" : "Nenhum resultado"}
-                  </div>
-                ) : (
-                  filteredCollaborators.map(c => (
-                    <div key={c.user_id} className="flex items-center gap-3 p-2.5 border-t first:border-t-0 hover:bg-muted/30">
-                      <Checkbox
-                        id={`rfc-c-${c.user_id}`}
-                        checked={selectedUserIds.has(c.user_id)}
-                        onCheckedChange={() => toggleUser(c.user_id)}
+              <Label className="text-sm font-medium">Colaboradores</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                    disabled={isPending}
+                  >
+                    <span className={selectedIdsArray.length === 0 ? "text-muted-foreground" : ""}>
+                      {selectedIdsArray.length === 0
+                        ? "Selecionar colaboradores"
+                        : `${selectedIdsArray.length} colaborador(es) selecionado(s)`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <div className="p-2 border-b">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar colaborador..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="pl-9 h-8 text-sm"
                         disabled={isPending}
                       />
-                      <Label htmlFor={`rfc-c-${c.user_id}`} className="text-sm cursor-pointer flex-1 truncate">
-                        {c.display}
-                      </Label>
                     </div>
-                  ))
-                )}
-              </div>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto">
+                    {filteredCollaborators.length > 0 && (
+                      <div className="flex items-center gap-3 p-2.5 border-b bg-muted/30">
+                        <Checkbox
+                          id="rfc-all"
+                          checked={allFilteredSelected}
+                          onCheckedChange={toggleSelectAllFiltered}
+                          disabled={isPending}
+                        />
+                        <Label htmlFor="rfc-all" className="text-xs font-medium cursor-pointer flex-1">
+                          {allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
+                          {searchTerm && ` (${filteredCollaborators.length} filtrado${filteredCollaborators.length !== 1 ? "s" : ""})`}
+                        </Label>
+                      </div>
+                    )}
+                    {filteredCollaborators.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-muted-foreground">
+                        {collaborators.length === 0 ? "Nenhum colaborador ativo" : "Nenhum resultado"}
+                      </div>
+                    ) : (
+                      filteredCollaborators.map(c => (
+                        <div key={c.user_id} className="flex items-center gap-3 p-2.5 border-t first:border-t-0 hover:bg-muted/30">
+                          <Checkbox
+                            id={`rfc-c-${c.user_id}`}
+                            checked={selectedUserIds.has(c.user_id)}
+                            onCheckedChange={() => toggleUser(c.user_id)}
+                            disabled={isPending}
+                          />
+                          <Label htmlFor={`rfc-c-${c.user_id}`} className="text-sm cursor-pointer flex-1 truncate">
+                            {c.display}
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Count */}
