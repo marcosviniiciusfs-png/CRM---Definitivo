@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +15,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shuffle, Loader2, Users, ChevronRight } from "lucide-react";
+import { Shuffle, Loader2, Users, ChevronRight, Search } from "lucide-react";
 
 interface Props {
-  onConfirm: (collaboratorUserId: string, configId: string | null) => void;
+  onConfirm: (collaboratorUserIds: string[], configId: string | null) => void;
   isPending: boolean;
 }
 
@@ -39,16 +40,26 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
   const { organizationId } = useOrganization();
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [selectedConfigId, setSelectedConfigId] = useState<string>(""); // "" means "Auto"
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [selectedConfigId, setSelectedConfigId] = useState<string>(""); // "" = Auto
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Reset state when modal closes
   const handleModalChange = (open: boolean) => {
     setModalOpen(open);
     if (!open) {
-      setSelectedUserId("");
+      setSelectedUserIds(new Set());
       setSelectedConfigId("");
+      setSearchTerm("");
     }
+  };
+
+  const toggleUser = (userId: string) => {
+    setSelectedUserIds(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
   };
 
   // Buscar colaboradores ativos
@@ -102,11 +113,20 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
     staleTime: 2 * 60 * 1000,
   });
 
-  // Contar leads ativos do selecionado
+  // Filtro de busca aplicado a colaboradores
+  const filteredCollaborators = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return collaborators;
+    return collaborators.filter(c => c.display.toLowerCase().includes(term));
+  }, [collaborators, searchTerm]);
+
+  const selectedIdsArray = useMemo(() => Array.from(selectedUserIds), [selectedUserIds]);
+
+  // Contar leads ativos dos selecionados (somado)
   const { data: activeLeadsCount, isLoading: countLoading } = useQuery({
-    queryKey: ["collaborator-active-leads-count", organizationId, selectedUserId],
+    queryKey: ["multi-collaborator-active-leads-count", organizationId, selectedIdsArray.join(",")],
     queryFn: async () => {
-      if (!organizationId || !selectedUserId) return 0;
+      if (!organizationId || selectedIdsArray.length === 0) return 0;
 
       const { data: closedStages } = await supabase
         .from("funnel_stages")
@@ -119,26 +139,40 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", organizationId)
-        .eq("responsavel_user_id", selectedUserId);
+        .in("responsavel_user_id", selectedIdsArray);
       if (closedIds.length > 0) {
         q = q.or(`funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedIds.join(",")})`);
       }
       const { count } = await q;
       return count || 0;
     },
-    enabled: !!organizationId && !!selectedUserId,
+    enabled: !!organizationId && selectedIdsArray.length > 0,
     staleTime: 30 * 1000,
   });
 
-  const selectedDisplay = collaborators.find(c => c.user_id === selectedUserId)?.display || "";
+  const allFilteredSelected = filteredCollaborators.length > 0
+    && filteredCollaborators.every(c => selectedUserIds.has(c.user_id));
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedUserIds(prev => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filteredCollaborators.forEach(c => next.delete(c.user_id));
+      } else {
+        filteredCollaborators.forEach(c => next.add(c.user_id));
+      }
+      return next;
+    });
+  };
+
   const selectedConfigName = selectedConfigId
     ? configs.find(c => c.id === selectedConfigId)?.name
     : "Automático (escolhe a melhor por lead)";
-  const canConfirm = !!selectedUserId && (activeLeadsCount ?? 0) > 0 && !isPending;
+  const canConfirm = selectedIdsArray.length > 0 && (activeLeadsCount ?? 0) > 0 && !isPending;
 
   return (
     <>
-      {/* Trigger row — clicar abre o modal */}
+      {/* Trigger row */}
       <button
         type="button"
         onClick={() => setModalOpen(true)}
@@ -151,7 +185,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
           <div className="min-w-0">
             <p className="text-sm font-semibold">Redistribuir leads de um colaborador</p>
             <p className="text-xs text-muted-foreground truncate">
-              Solta os leads de um agente e os redistribui pelas roletas
+              Solta os leads de um ou mais agentes e os redistribui pelas roletas
             </p>
           </div>
         </div>
@@ -162,31 +196,75 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
       <Dialog open={modalOpen} onOpenChange={handleModalChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Redistribuir leads de um colaborador</DialogTitle>
+            <DialogTitle>Redistribuir leads de colaboradores</DialogTitle>
             <DialogDescription>
-              Os leads ativos do colaborador serão desatribuídos e redistribuídos.
-              O colaborador permanece ativo na organização.
+              Os leads ativos dos colaboradores selecionados serão desatribuídos e redistribuídos.
+              Os colaboradores permanecem ativos na organização.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Colaborador */}
+            {/* Colaboradores (multi-select) */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Colaborador</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={isPending}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um colaborador" />
-                </SelectTrigger>
-                <SelectContent>
-                  {collaborators.map(c => (
-                    <SelectItem key={c.user_id} value={c.user_id}>{c.display}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Colaboradores</Label>
+                {selectedIdsArray.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedIdsArray.length} selecionado(s)
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar colaborador..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-sm"
+                  disabled={isPending}
+                />
+              </div>
+
+              <div className="rounded-md border max-h-56 overflow-y-auto">
+                {filteredCollaborators.length > 0 && (
+                  <div className="flex items-center gap-3 p-2.5 border-b bg-muted/30">
+                    <Checkbox
+                      id="rfc-all"
+                      checked={allFilteredSelected}
+                      onCheckedChange={toggleSelectAllFiltered}
+                      disabled={isPending}
+                    />
+                    <Label htmlFor="rfc-all" className="text-xs font-medium cursor-pointer flex-1">
+                      {allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
+                      {searchTerm && ` (${filteredCollaborators.length} filtrado${filteredCollaborators.length !== 1 ? "s" : ""})`}
+                    </Label>
+                  </div>
+                )}
+                {filteredCollaborators.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-muted-foreground">
+                    {collaborators.length === 0 ? "Nenhum colaborador ativo" : "Nenhum resultado"}
+                  </div>
+                ) : (
+                  filteredCollaborators.map(c => (
+                    <div key={c.user_id} className="flex items-center gap-3 p-2.5 border-t first:border-t-0 hover:bg-muted/30">
+                      <Checkbox
+                        id={`rfc-c-${c.user_id}`}
+                        checked={selectedUserIds.has(c.user_id)}
+                        onCheckedChange={() => toggleUser(c.user_id)}
+                        disabled={isPending}
+                      />
+                      <Label htmlFor={`rfc-c-${c.user_id}`} className="text-sm cursor-pointer flex-1 truncate">
+                        {c.display}
+                      </Label>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
             {/* Count */}
-            {selectedUserId && (
+            {selectedIdsArray.length > 0 && (
               <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs">
                 {countLoading ? (
                   <span className="flex items-center gap-2 text-muted-foreground">
@@ -194,7 +272,8 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                   </span>
                 ) : (
                   <span>
-                    Este colaborador tem <strong>{activeLeadsCount ?? 0}</strong> lead(s) ativo(s).
+                    Total de <strong>{activeLeadsCount ?? 0}</strong> lead(s) ativo(s) entre os{" "}
+                    <strong>{selectedIdsArray.length}</strong> colaborador(es) selecionado(s).
                   </span>
                 )}
               </div>
@@ -254,7 +333,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
               disabled={!canConfirm}
             >
               {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Redistribuir todos os leads
+              Redistribuir {activeLeadsCount ?? 0} lead(s)
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -267,7 +346,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
             <AlertDialogTitle>Confirmar redistribuição</AlertDialogTitle>
             <AlertDialogDescription>
               Você está prestes a desatribuir <strong>{activeLeadsCount ?? 0}</strong> lead(s) de{" "}
-              <strong>{selectedDisplay}</strong> e redistribuí-los via{" "}
+              <strong>{selectedIdsArray.length}</strong> colaborador(es) selecionado(s) e redistribuí-los via{" "}
               <strong>{selectedConfigName}</strong>. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -277,9 +356,10 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
               onClick={() => {
                 setConfirmOpen(false);
                 setModalOpen(false);
-                onConfirm(selectedUserId, selectedConfigId || null);
-                setSelectedUserId("");
+                onConfirm(selectedIdsArray, selectedConfigId || null);
+                setSelectedUserIds(new Set());
                 setSelectedConfigId("");
+                setSearchTerm("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
