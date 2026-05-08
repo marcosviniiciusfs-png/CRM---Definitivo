@@ -40,27 +40,41 @@ export function AgentCapacityPanel() {
       if (!settings?.length) return [];
 
       const userIds = settings.map(s => s.user_id);
-      const [profilesRes, leadsRes] = await Promise.all([
+      const [profilesRes, membersRes, leadsRes] = await Promise.all([
         supabase.from("profiles").select("user_id, full_name").in("user_id", userIds),
+        supabase
+          .from("organization_members")
+          .select("user_id, email, display_name")
+          .eq("organization_id", organizationId)
+          .in("user_id", userIds),
         supabase.from("leads").select("responsavel_user_id").eq("organization_id", organizationId).in("responsavel_user_id", userIds),
       ]);
 
       const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p.full_name]));
+      const memberMap = new Map(
+        (membersRes.data || []).map((m: any) => [m.user_id, { email: m.email, display_name: m.display_name }])
+      );
       const loadCounts = new Map<string, number>();
       for (const row of leadsRes.data || []) {
         loadCounts.set(row.responsavel_user_id, (loadCounts.get(row.responsavel_user_id) || 0) + 1);
       }
 
-      return settings.map(s => ({
-        user_id: s.user_id,
-        full_name: profileMap.get(s.user_id) || "Agente",
-        max_capacity: 0,
-        currentLoad: loadCounts.get(s.user_id) || 0,
-        is_paused: s.is_paused || false,
-        capacity_enabled: false,
-        priority_weight: s.priority_weight || 1,
-        pause_until: s.pause_until,
-      })) as AgentInfo[];
+      return settings.map(s => {
+        const profileName = profileMap.get(s.user_id);
+        const member = memberMap.get(s.user_id);
+        const resolvedName =
+          profileName || member?.display_name || member?.email || "Sem nome";
+        return {
+          user_id: s.user_id,
+          full_name: resolvedName,
+          max_capacity: 0,
+          currentLoad: loadCounts.get(s.user_id) || 0,
+          is_paused: s.is_paused || false,
+          capacity_enabled: false,
+          priority_weight: s.priority_weight || 1,
+          pause_until: s.pause_until,
+        };
+      }) as AgentInfo[];
     },
     staleTime: 30_000,
     enabled: !!organizationId,

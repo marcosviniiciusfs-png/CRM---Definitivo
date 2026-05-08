@@ -245,9 +245,17 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                       />
                     </div>
                   </div>
-                  <div className="max-h-56 overflow-y-auto">
+                  <div
+                    className="max-h-72 overflow-y-auto overscroll-contain"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                    onWheel={(e) => {
+                      // Stop wheel events from bubbling to Dialog/Popover ancestors
+                      // que podem capturar e impedir o scroll desta lista interna.
+                      e.stopPropagation();
+                    }}
+                  >
                     {filteredCollaborators.length > 0 && (
-                      <div className="flex items-center gap-3 p-2.5 border-b bg-muted/30">
+                      <div className="flex items-center gap-3 p-2.5 border-b bg-muted/30 sticky top-0 z-10">
                         <Checkbox
                           id="rfc-all"
                           checked={allFilteredSelected}
