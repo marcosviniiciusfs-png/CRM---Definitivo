@@ -171,6 +171,13 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
     : "Automático (escolhe a melhor por lead)";
   const canConfirm = selectedIdsArray.length > 0 && (activeLeadsCount ?? 0) > 0 && !isPending;
 
+  // Set de user_ids ativos da org — usado para contar apenas agentes valid+ativos
+  // dentro de cada eligible_agents (ignora inativos e fantasmas).
+  const activeUserIdsSet = useMemo(
+    () => new Set(collaborators.map(c => c.user_id)),
+    [collaborators]
+  );
+
   return (
     <>
       {/* Trigger row */}
@@ -312,7 +319,9 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                   </Label>
                 </div>
                 {configs.map((config) => {
-                  const agentCount = config.eligible_agents?.length ?? 0;
+                  const arr = config.eligible_agents || [];
+                  const validActiveCount = arr.filter(id => activeUserIdsSet.has(id)).length;
+                  const isUnrestricted = arr.length === 0;
                   return (
                     <div key={config.id} className="flex items-center space-x-3 p-3 rounded-md border">
                       <RadioGroupItem value={config.id} id={`rfc-${config.id}`} />
@@ -325,9 +334,11 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                         </div>
                         <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                           <Users className="h-3 w-3" />
-                          {agentCount === 0
+                          {isUnrestricted
                             ? "Todos os colaboradores ativos"
-                            : `${agentCount} colaborador${agentCount !== 1 ? "es" : ""}`}
+                            : validActiveCount === 0
+                              ? "Nenhum colaborador ativo"
+                              : `${validActiveCount} colaborador${validActiveCount !== 1 ? "es" : ""} ativo${validActiveCount !== 1 ? "s" : ""}`}
                         </div>
                       </Label>
                     </div>
