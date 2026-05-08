@@ -143,11 +143,14 @@ serve(async (req) => {
       .in("id", batchIds);
     if (unassignErr) throw new Error(`Unassign: ${unassignErr.message}`);
 
-    // 9. Redistribuir SOMENTE este batch via helper (escopado por leadIds)
+    // 9. Redistribuir SOMENTE este batch via helper (escopado por leadIds).
+    // excludeUserIds garante que os leads nao voltem para os proprios colaboradores
+    // selecionados (caso eles estejam na roleta como agentes).
     const result = await redistributeBatch(supabase, organization_id, {
       batchSize: BATCH_SIZE,
       configId: config_id || null,
       leadIds: batchIds,
+      excludeUserIds: collaborator_user_ids,
     });
 
     // has_more: ainda existem leads dos colaboradores apos este batch

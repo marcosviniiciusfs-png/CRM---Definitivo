@@ -18,6 +18,13 @@ export interface RedistributeBatchOptions {
    * leads recem-desatribuidos de um colaborador) sem varrer toda a fila da org.
    */
   leadIds?: string[];
+  /**
+   * Quando setado, esses user_ids sao removidos do pool de agentes elegiveis
+   * de qualquer roleta. Usado pelo redistribute-from-collaborator para evitar
+   * que os leads do(s) colaborador(es) escolhido(s) voltem para eles via
+   * round-robin (caso o proprio esteja na roleta).
+   */
+  excludeUserIds?: string[];
 }
 
 export interface RedistributeBatchResult {
@@ -38,6 +45,9 @@ export async function redistributeBatch(
   const configIdFilter = options.configId ?? null;
   const batchId = options.batchId ?? null;
   const leadIdsFilter = options.leadIds && options.leadIds.length > 0 ? options.leadIds : null;
+  const excludeUserIdsSet = options.excludeUserIds && options.excludeUserIds.length > 0
+    ? new Set(options.excludeUserIds)
+    : null;
 
   // 1. Buscar leads sem dono (excluir won/lost)
   const { data: closedStages, error: closedStagesErr } = await supabase
@@ -107,7 +117,13 @@ export async function redistributeBatch(
   const agentsByConfig = new Map<string, any[]>();
   for (const config of configs) {
     const eligibleIds = config.eligible_agents as string[] | null;
-    const agents = await getAvailableAgentsFast(supabase, organizationId, eligibleIds, config.team_id);
+    let agents = await getAvailableAgentsFast(supabase, organizationId, eligibleIds, config.team_id);
+    // Remove agentes que devem ser excluidos do pool (ex.: o proprio colaborador
+    // cujos leads estao sendo redistribuidos — para nao receber os leads de volta).
+    if (excludeUserIdsSet) {
+      // deno-lint-ignore no-explicit-any
+      agents = agents.filter((a: any) => !excludeUserIdsSet.has(a.user_id));
+    }
     agentsByConfig.set(config.id, agents);
   }
 
