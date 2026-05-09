@@ -10,8 +10,16 @@ import { useOrganization } from "@/contexts/OrganizationContext";
  * Regras:
  * - Owner / admin (canViewAllLeads = true): retorna `null` (significa "todos
  *   os canais"). Os componentes interpretam null como bypass do filtro.
- * - Member: retorna um Set<string> com os IDs dos canais em que esta atribuido
- *   via tabela whatsapp_channel_members. Set vazio = nenhum canal acessivel.
+ * - Member com 1+ atribuicao em whatsapp_channel_members: retorna o Set
+ *   dos IDs atribuidos. So ve leads desses canais.
+ * - Member SEM nenhuma atribuicao (Set vazio): tratamos como "org nao
+ *   opt-ou para o filtro de canal" e nao filtramos nada (comportamento
+ *   legado pre-feature). Sem essa fallback, members em orgs que nunca
+ *   configuraram a tabela WCM perdem visibilidade de TODOS os leads
+ *   WhatsApp no Chat (Pipeline continua mostrando porque nao usa esse
+ *   filtro). Quem quiser restringir um member precisa atribui-lo a pelo
+ *   menos um canal — restricoes implicitas via "remover todas as
+ *   atribuicoes" devem ser feitas via section_access ou cargo custom.
  *
  * `loading` indica que o hook ainda nao terminou de buscar os dados — ate la
  * o consumidor deve evitar renderizar listas filtradas para nao "vazar" dados.
@@ -95,7 +103,9 @@ export function useAssignedChannels(): {
  *
  * - Lead sem whatsapp_instance_id (criado manual / Facebook / etc.): sempre visivel.
  * - Owner/admin (assignedChannelIds === null): sempre visivel.
- * - Member: visivel apenas se o canal do lead esta no Set.
+ * - Member com Set vazio: tratamos como "sem opt-in da org" -> visivel
+ *   (compatibilidade com orgs que nao configuraram a tabela WCM).
+ * - Member com Set nao-vazio: visivel apenas se o canal do lead esta no Set.
  */
 export function isLeadVisibleByChannel(
   leadInstanceId: string | null | undefined,
@@ -103,5 +113,6 @@ export function isLeadVisibleByChannel(
 ): boolean {
   if (!leadInstanceId) return true;
   if (assignedChannelIds === null) return true;
+  if (assignedChannelIds.size === 0) return true;
   return assignedChannelIds.has(leadInstanceId);
 }

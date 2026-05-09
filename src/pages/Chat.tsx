@@ -309,8 +309,12 @@ const Chat = () => {
     // Profile changes are handled in the global channel below
   }, [user?.id]);
 
-  // React Query para persistência da lista de leads do chat
-  const chatLeadsQueryKey = ['chat-leads', user?.id];
+  // React Query para persistência da lista de leads do chat.
+  // organizationId entra na chave para que multi-org users (que tem 2+ rows
+  // em organization_members) recarreguem ao OrganizationContext resolver a
+  // org primaria. Sem isso, queryFn dispara antes de organizationId estar
+  // pronto e cai no early-return.
+  const chatLeadsQueryKey = ['chat-leads', user?.id, organizationId];
 
   const { data: chatDataLoaded } = useQuery({
     queryKey: chatLeadsQueryKey,
@@ -318,7 +322,7 @@ const Chat = () => {
       await loadAllChatData();
       return { loaded: true };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!organizationId,
     staleTime: 5 * 60 * 1000,
     // gcTime: 0 ensures cache is cleared when component unmounts.
     // Without this, React Query keeps {loaded:true} cached while local state
@@ -697,32 +701,24 @@ const Chat = () => {
 
   // Data loading functions - OPTIMIZED with parallel queries
   const loadAllChatData = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !organizationId) return;
     const isFirstLoad = !hasInitialLoadCompletedRef.current;
     if (isFirstLoad) setLoading(true);
 
     try {
-      // Get organization ID first
-      const { data: orgMember } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!orgMember?.organization_id) {
-        if (isFirstLoad) setLoading(false);
-        return;
-      }
-
-      setOrgId(orgMember.organization_id);
-      orgIdRef.current = orgMember.organization_id;
+      // Usa organizationId resolvido pelo OrganizationContext (mesma org
+      // primaria que Pipeline/edge functions usam). Antes consultavamos
+      // organization_members.maybeSingle() aqui — isso falhava com PGRST116
+      // para users com 2+ memberships, deixando o Chat eternamente vazio.
+      setOrgId(organizationId);
+      orgIdRef.current = organizationId;
 
       // Build leads query - RLS policy handles role-based filtering automatically
       // Admins/Owners see all leads, Members see only assigned leads via RLS
       const leadsQuery = supabase
         .from("leads")
         .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id, whatsapp_instance_id")
-        .eq("organization_id", orgMember.organization_id)
+        .eq("organization_id", organizationId)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
         .limit(300);
@@ -733,7 +729,7 @@ const Chat = () => {
         supabase
           .from("lead_tags")
           .select("*")
-          .eq("organization_id", orgMember.organization_id)
+          .eq("organization_id", organizationId)
           .order("name"),
         supabase
           .from("profiles")
@@ -750,7 +746,7 @@ const Chat = () => {
       const { data: channelsData } = await supabase
         .from("whatsapp_instances")
         .select("id, instance_name, channel_name, channel_color, status")
-        .eq("organization_id", orgMember.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED")
         .order("created_at", { ascending: true });
       channelsRef.current = (channelsData || []) as any[];
@@ -839,18 +835,11 @@ const Chat = () => {
   const loadLeads = loadAllChatData;
 
   const loadAvailableTags = async () => {
-    if (!user?.id) return;
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!orgMember?.organization_id) return;
+    if (!user?.id || !organizationId) return;
     const { data } = await supabase
       .from("lead_tags")
       .select("*")
-      .eq("organization_id", orgMember.organization_id)
+      .eq("organization_id", organizationId)
       .order("name");
     setAvailableTags(data || []);
   };
@@ -1020,13 +1009,15 @@ const Chat = () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error("Usuário não autenticado");
 
-      const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
-      if (!memberData) throw new Error("Organização não encontrada");
+      // Usa organizationId do contexto (mesma org primaria que o restante
+      // do app). Antes consultavamos organization_members aqui — quebrava
+      // para users multi-org (.single() falhava com PGRST116).
+      if (!organizationId) throw new Error("Organização não encontrada");
 
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
-        .eq("organization_id", memberData.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
       if (selectedLead.whatsapp_instance_id) {
@@ -1063,13 +1054,15 @@ const Chat = () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error("Usuário não autenticado");
 
-      const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
-      if (!memberData) throw new Error("Organização não encontrada");
+      // Usa organizationId do contexto (mesma org primaria que o restante
+      // do app). Antes consultavamos organization_members aqui — quebrava
+      // para users multi-org (.single() falhava com PGRST116).
+      if (!organizationId) throw new Error("Organização não encontrada");
 
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
-        .eq("organization_id", memberData.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
       if (selectedLead.whatsapp_instance_id) {
@@ -1147,13 +1140,15 @@ const Chat = () => {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) throw new Error("Usuário não autenticado");
 
-        const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
-        if (!memberData) throw new Error("Organização não encontrada");
+        // Usa organizationId do contexto (mesma org primaria que o restante
+        // do app). Antes consultavamos organization_members aqui — quebrava
+        // para users multi-org (.single() falhava com PGRST116).
+        if (!organizationId) throw new Error("Organização não encontrada");
 
         let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
-        .eq("organization_id", memberData.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
       if (selectedLead.whatsapp_instance_id) {
