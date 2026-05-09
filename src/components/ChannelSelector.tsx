@@ -28,9 +28,12 @@ export function ChannelSelector({ organizationId, selectedChannelId, onChannelCh
   }, [organizationId]);
 
   // Members veem apenas canais aos quais foram atribuidos. Owner/admin (hasFullAccess) ve todos.
+  // Set vazio = org nao opt-ou para o filtro WCM -> mostra todos (legado),
+  // alinhado com isLeadVisibleByChannel.
   const visibleChannels = useMemo(() => {
     if (hasFullAccess) return channels;
     if (loading || !assignedChannelIds) return [];
+    if (assignedChannelIds.size === 0) return channels;
     return channels.filter((c) => assignedChannelIds.has(c.id));
   }, [channels, hasFullAccess, loading, assignedChannelIds]);
 
