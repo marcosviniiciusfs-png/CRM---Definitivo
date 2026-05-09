@@ -58,7 +58,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 // New optimized components
-import { ChatHeader, ChatInput, ChatLeadItem, MessageBubble, PinnedMessagesBar, PresenceInfo } from "@/components/chat";
+import { ChatHeader, ChatInput, ChatLeadItem, MessageBubble, PinnedMessagesBar, PresenceInfo, GroupListPanel, GroupConversationView } from "@/components/chat";
+import type { ContactGroup } from "@/hooks/useContactGroups";
 import { BroadcastPanel } from "@/components/chat/BroadcastPanel";
 import { ChannelSelector } from "@/components/ChannelSelector";
 import chatGif from "@/assets/chat.gif";
@@ -96,6 +97,9 @@ const Chat = () => {
   const [filterOption, setFilterOption] = useState<"alphabetical" | "created" | "last_interaction" | "none">("none");
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("all");
+  // Grupo selecionado na aba "Grupos" do painel esquerdo. Quando definido,
+  // o painel direito mostra a conversa do grupo em vez do lead selecionado.
+  const [selectedGroup, setSelectedGroup] = useState<ContactGroup | null>(null);
   const [removeTagsDialogOpen, setRemoveTagsDialogOpen] = useState(false);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
 
@@ -248,6 +252,11 @@ const Chat = () => {
     selectedLeadRef.current = selectedLead;
   }, [selectedLead]);
 
+  // Quando seleciona um lead, limpa selecao de grupo (e vice-versa via onSelectGroup).
+  useEffect(() => {
+    if (selectedLead) setSelectedGroup(null);
+  }, [selectedLead?.id]);
+
   // Mantem leadsBeforeUpdateRef sincronizado para detectar last_message_at avancando.
   useEffect(() => {
     const map = new Map<string, Lead>();
@@ -309,8 +318,12 @@ const Chat = () => {
     // Profile changes are handled in the global channel below
   }, [user?.id]);
 
-  // React Query para persistência da lista de leads do chat
-  const chatLeadsQueryKey = ['chat-leads', user?.id];
+  // React Query para persistência da lista de leads do chat.
+  // organizationId entra na chave para que multi-org users (que tem 2+ rows
+  // em organization_members) recarreguem ao OrganizationContext resolver a
+  // org primaria. Sem isso, queryFn dispara antes de organizationId estar
+  // pronto e cai no early-return.
+  const chatLeadsQueryKey = ['chat-leads', user?.id, organizationId];
 
   const { data: chatDataLoaded } = useQuery({
     queryKey: chatLeadsQueryKey,
@@ -318,7 +331,7 @@ const Chat = () => {
       await loadAllChatData();
       return { loaded: true };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!organizationId,
     staleTime: 5 * 60 * 1000,
     // gcTime: 0 ensures cache is cleared when component unmounts.
     // Without this, React Query keeps {loaded:true} cached while local state
@@ -697,32 +710,24 @@ const Chat = () => {
 
   // Data loading functions - OPTIMIZED with parallel queries
   const loadAllChatData = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !organizationId) return;
     const isFirstLoad = !hasInitialLoadCompletedRef.current;
     if (isFirstLoad) setLoading(true);
 
     try {
-      // Get organization ID first
-      const { data: orgMember } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!orgMember?.organization_id) {
-        if (isFirstLoad) setLoading(false);
-        return;
-      }
-
-      setOrgId(orgMember.organization_id);
-      orgIdRef.current = orgMember.organization_id;
+      // Usa organizationId resolvido pelo OrganizationContext (mesma org
+      // primaria que Pipeline/edge functions usam). Antes consultavamos
+      // organization_members.maybeSingle() aqui — isso falhava com PGRST116
+      // para users com 2+ memberships, deixando o Chat eternamente vazio.
+      setOrgId(organizationId);
+      orgIdRef.current = organizationId;
 
       // Build leads query - RLS policy handles role-based filtering automatically
       // Admins/Owners see all leads, Members see only assigned leads via RLS
       const leadsQuery = supabase
         .from("leads")
         .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id, whatsapp_instance_id")
-        .eq("organization_id", orgMember.organization_id)
+        .eq("organization_id", organizationId)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
         .limit(300);
@@ -733,7 +738,7 @@ const Chat = () => {
         supabase
           .from("lead_tags")
           .select("*")
-          .eq("organization_id", orgMember.organization_id)
+          .eq("organization_id", organizationId)
           .order("name"),
         supabase
           .from("profiles")
@@ -750,7 +755,7 @@ const Chat = () => {
       const { data: channelsData } = await supabase
         .from("whatsapp_instances")
         .select("id, instance_name, channel_name, channel_color, status")
-        .eq("organization_id", orgMember.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED")
         .order("created_at", { ascending: true });
       channelsRef.current = (channelsData || []) as any[];
@@ -839,18 +844,11 @@ const Chat = () => {
   const loadLeads = loadAllChatData;
 
   const loadAvailableTags = async () => {
-    if (!user?.id) return;
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!orgMember?.organization_id) return;
+    if (!user?.id || !organizationId) return;
     const { data } = await supabase
       .from("lead_tags")
       .select("*")
-      .eq("organization_id", orgMember.organization_id)
+      .eq("organization_id", organizationId)
       .order("name");
     setAvailableTags(data || []);
   };
@@ -1020,13 +1018,15 @@ const Chat = () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error("Usuário não autenticado");
 
-      const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
-      if (!memberData) throw new Error("Organização não encontrada");
+      // Usa organizationId do contexto (mesma org primaria que o restante
+      // do app). Antes consultavamos organization_members aqui — quebrava
+      // para users multi-org (.single() falhava com PGRST116).
+      if (!organizationId) throw new Error("Organização não encontrada");
 
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
-        .eq("organization_id", memberData.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
       if (selectedLead.whatsapp_instance_id) {
@@ -1063,13 +1063,15 @@ const Chat = () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error("Usuário não autenticado");
 
-      const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
-      if (!memberData) throw new Error("Organização não encontrada");
+      // Usa organizationId do contexto (mesma org primaria que o restante
+      // do app). Antes consultavamos organization_members aqui — quebrava
+      // para users multi-org (.single() falhava com PGRST116).
+      if (!organizationId) throw new Error("Organização não encontrada");
 
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
-        .eq("organization_id", memberData.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
       if (selectedLead.whatsapp_instance_id) {
@@ -1147,13 +1149,15 @@ const Chat = () => {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) throw new Error("Usuário não autenticado");
 
-        const { data: memberData } = await supabase.from("organization_members").select("organization_id").eq("user_id", currentUser.id).single();
-        if (!memberData) throw new Error("Organização não encontrada");
+        // Usa organizationId do contexto (mesma org primaria que o restante
+        // do app). Antes consultavamos organization_members aqui — quebrava
+        // para users multi-org (.single() falhava com PGRST116).
+        if (!organizationId) throw new Error("Organização não encontrada");
 
         let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
-        .eq("organization_id", memberData.organization_id)
+        .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
       if (selectedLead.whatsapp_instance_id) {
@@ -1472,8 +1476,8 @@ const Chat = () => {
   };
 
   // On mobile, show only the leads list or the conversation (not both)
-  const showLeadsList = !isMobile || !selectedLead;
-  const showChatArea = !isMobile || !!selectedLead;
+  const showLeadsList = !isMobile || (!selectedLead && !selectedGroup);
+  const showChatArea = !isMobile || !!selectedLead || !!selectedGroup;
 
   return (
     <div className="flex h-[calc(100vh-5.5rem)] md:h-[calc(100vh-8rem)] gap-0 md:gap-4 min-w-0 overflow-hidden">
@@ -1548,15 +1552,23 @@ const Chat = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <TabsList className="mx-4 mt-2 w-[calc(100%-2rem)] justify-start border-b rounded-none h-auto p-0 bg-transparent">
-            <TabsTrigger value="all" className="text-sm rounded-none px-4 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Tudo</TabsTrigger>
-            <TabsTrigger value="pinned" className="text-sm gap-1 rounded-none px-4 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
-              Fixados
-              {pinnedFilteredLeads.length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{pinnedFilteredLeads.length}</Badge>}
+          {/* Abas distribuidas igualmente (flex-1) e na ordem solicitada:
+              Tudo | Grupos | Fixados | Transmissão. Texto reduzido (text-xs +
+              padding x-1) para caber sem quebrar em sidebar de 320px. */}
+          <TabsList className="mx-4 mt-2 w-[calc(100%-2rem)] grid grid-cols-4 border-b rounded-none h-auto p-0 bg-transparent gap-0">
+            <TabsTrigger value="all" className="text-xs rounded-none px-1 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              Tudo
             </TabsTrigger>
-            <TabsTrigger value="broadcast" className="text-sm gap-1 rounded-none px-4 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
-              <Radio className="h-3.5 w-3.5" />
-              Transmissão
+            <TabsTrigger value="groups" className="text-xs rounded-none px-1 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              Grupos
+            </TabsTrigger>
+            <TabsTrigger value="pinned" className="text-xs gap-1 rounded-none px-1 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              Fixados
+              {pinnedFilteredLeads.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[9px]">{pinnedFilteredLeads.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="broadcast" className="text-xs gap-1 rounded-none px-1 py-2 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
+              <Radio className="h-3 w-3" />
+              <span className="truncate">Transmissão</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1641,6 +1653,22 @@ const Chat = () => {
                   userId={user?.id}
                 />
               </TabsContent>
+
+              <TabsContent value="groups" className="flex-1 mt-0 min-h-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col">
+                <GroupListPanel
+                  instanceName={
+                    // Se ha selectedChannelId, usa esse canal; senao usa o primeiro CONNECTED.
+                    (channelsRef.current.find((c) => c.id === selectedChannelId)?.instance_name)
+                    || channelsRef.current[0]?.instance_name
+                    || null
+                  }
+                  selectedGroupId={selectedGroup?.id || null}
+                  onSelectGroup={(g) => {
+                    setSelectedGroup(g);
+                    setSelectedLead(null); // limpa lead para mostrar painel direito de grupo
+                  }}
+                />
+              </TabsContent>
             </>
           )}
         </Tabs>
@@ -1648,7 +1676,17 @@ const Chat = () => {
 
       {/* Chat Area */}
       <Card className={`flex-1 flex flex-col overflow-hidden h-full min-w-0 max-w-full ${!showChatArea ? 'hidden md:flex' : ''}`}>
-        {selectedLead ? (
+        {selectedGroup ? (
+          <GroupConversationView
+            group={selectedGroup}
+            instanceName={
+              (channelsRef.current.find((c) => c.id === selectedChannelId)?.instance_name)
+              || channelsRef.current[0]?.instance_name
+              || ""
+            }
+            onBack={isMobile ? () => setSelectedGroup(null) : undefined}
+          />
+        ) : selectedLead ? (
           <>
             {/* Mobile back button */}
             {isMobile && (
