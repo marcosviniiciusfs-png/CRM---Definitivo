@@ -94,11 +94,23 @@ async function downloadAndUploadMedia(
     // Criar cliente Supabase admin
     const supabaseAdmin = createSupabaseAdmin();
     
+    // Normalizar mimetype: navegadores tem dificuldade com "audio/ogg; codecs=opus"
+    // (em particular Safari/Chrome com PTT do WhatsApp). Stripamos o ";codecs="
+    // para deixar o tag MIME limpo — o browser tenta tocar mesmo assim e
+    // funciona melhor na pratica.
+    let normalizedMimetype = mimetype;
+    if (mediaType === 'audio') {
+      normalizedMimetype = mimetype.split(';')[0].trim();
+      if (!normalizedMimetype || normalizedMimetype === 'application/octet-stream') {
+        normalizedMimetype = 'audio/ogg';
+      }
+    }
+
     // Fazer upload para o bucket 'chat-media'
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('chat-media')
       .upload(fileName, binaryData, {
-        contentType: mimetype,
+        contentType: normalizedMimetype,
         upsert: false
       });
     
@@ -606,6 +618,75 @@ serve(async (req) => {
       );
     }
 
+    // ==================== EVENTO: MESSAGES.UPDATE (status de leitura) ====================
+    // Evolution dispara este evento quando o status muda no WhatsApp:
+    // SERVER_ACK / DELIVERY_ACK / READ. Precisamos so para mensagens NOSSAS (saida).
+    // Para grupos, atualizamos so a SAIDA (msgs que enviamos pelo CRM); status individual
+    // por participante nao e suportado pela Evolution.
+    if (event === 'messages.update' || event === 'MESSAGES_UPDATE') {
+      console.log(`📩 Processando messages.update para instancia: ${instance}`);
+
+      // Evolution as vezes manda data como objeto, as vezes como array de objetos.
+      const updates = Array.isArray(data) ? data : [data];
+
+      // Mapeamento dos status enviados pela Evolution / Baileys:
+      //   PENDING / ERROR -> ignoramos (mantem SENT)
+      //   SERVER_ACK     -> SENT (servidor recebeu)
+      //   DELIVERY_ACK   -> DELIVERED (chegou no destinatario)
+      //   READ           -> READ (visto)
+      //   PLAYED         -> READ (audio ouvido)
+      // Tambem aceitamos forma numerica do Baileys: 1=PENDING 2=SERVER_ACK 3=DELIVERY_ACK 4=READ 5=PLAYED
+      const mapStatus = (raw: any): string | null => {
+        if (raw == null) return null;
+        const s = String(raw).toUpperCase();
+        if (s === 'READ' || s === 'PLAYED' || s === '4' || s === '5') return 'READ';
+        if (s === 'DELIVERY_ACK' || s === 'DELIVERED' || s === '3') return 'DELIVERED';
+        if (s === 'SERVER_ACK' || s === 'SENT' || s === '2') return 'SENT';
+        return null;
+      };
+
+      // "Forca" de cada status: nao deixamos um upgrade voltar (READ nao volta pra DELIVERED).
+      const rank = (s: string | null) => (s === 'READ' ? 3 : s === 'DELIVERED' ? 2 : s === 'SENT' ? 1 : 0);
+
+      for (const upd of updates) {
+        if (!upd) continue;
+        const key = upd.key || {};
+        const evMsgId: string | null = key.id || upd.keyId || null;
+        const remoteJidUpd: string = key.remoteJid || upd.remoteJid || '';
+        const newStatus = mapStatus(upd.status ?? upd.update?.status);
+        if (!evMsgId || !newStatus) continue;
+
+        const isGroup = remoteJidUpd.endsWith('@g.us');
+        const table = isGroup ? 'mensagens_grupo' : 'mensagens_chat';
+
+        // Le status atual pra evitar downgrade.
+        const { data: existingRow } = await supabase
+          .from(table)
+          .select('id, status_entrega')
+          .eq('evolution_message_id', evMsgId)
+          .maybeSingle();
+
+        if (!existingRow) continue;
+        if (rank(newStatus) <= rank(existingRow.status_entrega)) continue;
+
+        const { error: updErr } = await supabase
+          .from(table)
+          .update({ status_entrega: newStatus })
+          .eq('id', existingRow.id);
+
+        if (updErr) {
+          console.error(`❌ Erro ao atualizar status_entrega em ${table}:`, updErr);
+        } else {
+          console.log(`✅ ${table}.${existingRow.id} status_entrega -> ${newStatus}`);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'messages.update processado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // Processar apenas eventos de mensagens recebidas
     if (event !== 'messages.upsert' && event !== 'MESSAGES_UPSERT') {
       console.log(`⏭️ Evento ${event} - ignorado`);
@@ -747,12 +828,210 @@ serve(async (req) => {
     console.log('📱 Sender Phone final:', senderPhone);
     console.log('📱 Remote JID:', remoteJid);
     
-    // FILTRO CRÍTICO: Ignorar mensagens de grupos
+    // ============================================================
+    // BRANCH: mensagem de GRUPO -> salvar em mensagens_grupo e RETORNAR.
+    // O fluxo de leads abaixo nao roda para grupos (grupos nao sao leads).
+    // ============================================================
     if (remoteJid.endsWith('@g.us')) {
-      console.log('⏭️ Mensagem de grupo ignorada - não criar lead');
-      console.log('📱 Group JID:', remoteJid);
+      console.log('👥 Mensagem de grupo recebida — salvando em mensagens_grupo:', remoteJid);
+
+      // Extrair conteudo (subset minimo dos tipos suportados; segue padrao do fluxo de leads).
+      let groupBody = '';
+      let groupMediaUrl: string | null = null;
+      let groupMediaType: string | null = null;
+      let groupMediaMetadata: any = null;
+
+      // Mencoes (@): WhatsApp envia em extendedTextMessage.contextInfo.mentionedJid
+      // (array de JIDs ex: ["5511999999999@s.whatsapp.net"]). Tambem aparecem em
+      // contextInfo de outras mensagens (caption de imagem etc), entao tentamos pegar
+      // de varios lugares.
+      const collectMentioned = (info: any): string[] => {
+        const candidates: string[] = [];
+        const tryGet = (path: any) => {
+          const arr = path?.contextInfo?.mentionedJid;
+          if (Array.isArray(arr)) candidates.push(...arr.filter((x: any) => typeof x === 'string'));
+        };
+        tryGet(info?.extendedTextMessage);
+        tryGet(info?.imageMessage);
+        tryGet(info?.videoMessage);
+        tryGet(info?.documentMessage);
+        tryGet(info?.audioMessage);
+        return [...new Set(candidates)];
+      };
+      const groupMentionedJids = collectMentioned(messageInfo);
+
+      // Reply / quoted message: contextInfo.quotedMessage + contextInfo.stanzaId.
+      // Pode estar em qualquer dos sub-tipos (extendedText, image, video, doc, audio, sticker).
+      const findQuoted = (info: any): { stanzaId: string | null; participant: string | null; raw: any } | null => {
+        const tryPath = (sub: any) => {
+          const ctx = sub?.contextInfo;
+          if (!ctx?.quotedMessage) return null;
+          return {
+            stanzaId: ctx.stanzaId || null,
+            participant: ctx.participant || null,
+            raw: ctx.quotedMessage,
+          };
+        };
+        return (
+          tryPath(info?.extendedTextMessage) ||
+          tryPath(info?.imageMessage) ||
+          tryPath(info?.videoMessage) ||
+          tryPath(info?.documentMessage) ||
+          tryPath(info?.audioMessage) ||
+          tryPath(info?.stickerMessage) ||
+          null
+        );
+      };
+      const quotedInfo = findQuoted(messageInfo);
+
+      // Resume o conteudo da quotedMessage para um snapshot leve.
+      const summarizeQuoted = (q: any): { body: string; mediaType: string | null } => {
+        if (!q || typeof q !== 'object') return { body: '', mediaType: null };
+        if (q.conversation) return { body: q.conversation, mediaType: null };
+        if (q.extendedTextMessage?.text) return { body: q.extendedTextMessage.text, mediaType: null };
+        if (q.imageMessage) return { body: q.imageMessage.caption || '[Imagem]', mediaType: 'image' };
+        if (q.videoMessage) return { body: q.videoMessage.caption || '[Vídeo]', mediaType: 'video' };
+        if (q.audioMessage) return { body: '[Áudio]', mediaType: 'audio' };
+        if (q.documentMessage) return { body: q.documentMessage.fileName || '[Documento]', mediaType: 'document' };
+        if (q.stickerMessage) return { body: '[Figurinha]', mediaType: 'sticker' };
+        return { body: '[Mensagem]', mediaType: null };
+      };
+
+      if (messageInfo.conversation) {
+        groupBody = messageInfo.conversation;
+      } else if (messageInfo.extendedTextMessage?.text) {
+        groupBody = messageInfo.extendedTextMessage.text;
+      } else if (messageInfo.imageMessage) {
+        groupBody = `[Imagem] ${messageInfo.imageMessage.caption || ''}`;
+        groupMediaUrl = messageInfo.imageMessage.url || null;
+        groupMediaType = 'image';
+        groupMediaMetadata = { mimetype: messageInfo.imageMessage.mimetype };
+      } else if (messageInfo.videoMessage) {
+        groupBody = `[Vídeo] ${messageInfo.videoMessage.caption || ''}`;
+        groupMediaUrl = messageInfo.videoMessage.url || null;
+        groupMediaType = 'video';
+        groupMediaMetadata = { mimetype: messageInfo.videoMessage.mimetype };
+      } else if (messageInfo.audioMessage) {
+        groupBody = '[Áudio]';
+        groupMediaUrl = messageInfo.audioMessage.url || null;
+        groupMediaType = 'audio';
+        groupMediaMetadata = { mimetype: messageInfo.audioMessage.mimetype, ptt: messageInfo.audioMessage.ptt };
+      } else if (messageInfo.documentMessage) {
+        groupBody = `[Documento] ${messageInfo.documentMessage.fileName || ''}`;
+        groupMediaUrl = messageInfo.documentMessage.url || null;
+        groupMediaType = 'document';
+        groupMediaMetadata = { mimetype: messageInfo.documentMessage.mimetype, fileName: messageInfo.documentMessage.fileName };
+      } else if (messageInfo.stickerMessage) {
+        groupBody = '[Figurinha]';
+        groupMediaUrl = messageInfo.stickerMessage.url || null;
+        groupMediaType = 'sticker';
+      } else {
+        groupBody = '[Mensagem não suportada]';
+      }
+
+      const groupMsgId = messageKey.id || null;
+      // sender real em grupo: messageKey.participant
+      const senderJid = messageKey.participant || messageKey.senderPn || null;
+
+      // Upload de midia pro Storage (igual ao fluxo de leads). URLs do
+      // WhatsApp expiram em horas — sem upload, mensagens antigas viram 404.
+      // Se falhar, mantemos o URL temporario como fallback.
+      if (groupMediaUrl && groupMediaType && groupMsgId && serverUrl && apiKey) {
+        try {
+          // Pasta no bucket: "groups/<group_id_so_digitos>" para isolar
+          // do namespace de leads (que usa "<lead_id>/").
+          const groupFolder = `groups/${remoteJid.replace(/[^0-9]/g, '')}`;
+          const persistedUrl = await downloadAndUploadMedia(
+            groupMsgId,
+            groupMediaType,
+            groupMediaMetadata?.mimetype || 'application/octet-stream',
+            groupFolder,
+            serverUrl,
+            apiKey,
+            instance
+          );
+          groupMediaUrl = persistedUrl;
+          console.log('✅ Midia de grupo persistida no Storage:', persistedUrl);
+        } catch (mediaErr) {
+          console.warn('⚠️ Falha ao persistir midia de grupo no Storage — mantendo URL temporario:', mediaErr);
+        }
+      }
+
+      // Mencoes vivem em media_metadata pra evitar mudanca de schema.
+      // Se nao havia metadata (mensagem so de texto), criamos um objeto.
+      const finalMetadata: any = groupMediaMetadata ? { ...groupMediaMetadata } : {};
+      if (groupMentionedJids.length > 0) {
+        finalMetadata.mentionedJid = groupMentionedJids;
+      }
+
+      // Resolve quoted: se o stanzaId mapear pra uma msg que ja temos no nosso DB,
+      // linka via FK. O snapshot JSONB sempre vai (mesmo se nao acharmos a msg
+      // original) — nao quebrar reply quando a msg citada nao foi capturada pelo CRM.
+      let quotedMessageId: string | null = null;
+      let quotedMessageSnapshot: any = null;
+      if (quotedInfo) {
+        const summary = summarizeQuoted(quotedInfo.raw);
+        quotedMessageSnapshot = {
+          evolution_message_id: quotedInfo.stanzaId,
+          participant: quotedInfo.participant,
+          corpo_mensagem: summary.body,
+          media_type: summary.mediaType,
+        };
+        if (quotedInfo.stanzaId) {
+          const { data: origRow } = await supabase
+            .from('mensagens_grupo')
+            .select('id, sender_pushname, direcao')
+            .eq('whatsapp_instance_id', instanceId)
+            .eq('group_id', remoteJid)
+            .eq('evolution_message_id', quotedInfo.stanzaId)
+            .maybeSingle();
+          if (origRow) {
+            quotedMessageId = origRow.id;
+            quotedMessageSnapshot.sender_pushname = origRow.sender_pushname;
+            quotedMessageSnapshot.direcao = origRow.direcao;
+          }
+        }
+      }
+
+      try {
+        const { error: insertError } = await supabase.from('mensagens_grupo').insert({
+          organization_id: organizationId,
+          whatsapp_instance_id: instanceId,
+          group_id: remoteJid,
+          group_subject: data?.pushName ? null : null, // nome do grupo nao vem nesse evento; resolveremos via UI
+          evolution_message_id: groupMsgId,
+          sender_jid: senderJid,
+          sender_pushname: pushName || null,
+          corpo_mensagem: groupBody,
+          direcao: isFromMe ? 'SAIDA' : 'ENTRADA',
+          data_hora: new Date().toISOString(),
+          status_entrega: isFromMe ? 'SENT' : 'DELIVERED',
+          media_url: groupMediaUrl,
+          media_type: groupMediaType,
+          media_metadata: Object.keys(finalMetadata).length > 0 ? finalMetadata : null,
+          quoted_message_id: quotedMessageId,
+          quoted_message: quotedMessageSnapshot,
+        });
+
+        if (insertError) {
+          // 23505 = unique violation (duplicata por evolution_message_id) — webhook reprocessado, OK ignorar.
+          const code = (insertError as any)?.code;
+          if (code === '23505') {
+            console.log('ℹ️ Mensagem de grupo duplicada (reprocessamento) — ignorada com sucesso');
+          } else {
+            console.error('❌ Erro ao salvar mensagem de grupo:', insertError);
+            await saveWebhookLog('error', `mensagens_grupo insert: ${insertError.message}`);
+          }
+        } else {
+          console.log('✅ Mensagem de grupo salva');
+          await saveWebhookLog('success');
+        }
+      } catch (err: any) {
+        console.error('❌ Excecao ao salvar mensagem de grupo:', err);
+      }
+
       return new Response(
-        JSON.stringify({ success: true, message: 'Mensagem de grupo ignorada' }),
+        JSON.stringify({ success: true, message: 'Mensagem de grupo processada' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
