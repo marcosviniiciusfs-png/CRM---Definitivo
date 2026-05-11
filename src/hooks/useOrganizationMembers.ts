@@ -43,16 +43,24 @@ export function useOrganizationMembers(organizationId?: string | null) {
   return useQuery({
     queryKey: ["organization-members-safe", organizationId],
     queryFn: async (): Promise<OrganizationMember[]> => {
-      // Buscar membros usando função mascarada
-      let { data: members, error } = await supabase.rpc('get_organization_members_masked');
+      // Buscar membros usando função mascarada, passando organizationId
+      // para evitar o bug de retornar membros da org errada quando o usuario
+      // e' membro de varias orgs.
+      let { data: members, error } = await supabase.rpc('get_organization_members_masked', {
+        p_organization_id: organizationId || null,
+      });
 
       // Fallback para query direta se a RPC não existir
       if (error && (error.code === 'PGRST202' || error.message?.includes('not found'))) {
         console.warn('[ORG] RPC get_organization_members_masked not found, using direct table fallback...');
         // organization_members NÃO tem full_name/avatar_url — usar email e display_name
-        const { data: directData, error: directError } = await supabase
+        let directQuery = supabase
           .from('organization_members')
           .select('id, user_id, organization_id, role, created_at, email, display_name');
+        if (organizationId) {
+          directQuery = directQuery.eq('organization_id', organizationId);
+        }
+        const { data: directData, error: directError } = await directQuery;
 
         if (!directError && directData) {
           // Normalizar para o formato esperado pela interface
