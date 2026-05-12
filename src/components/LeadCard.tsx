@@ -1,9 +1,10 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check, CalendarDays, CalendarCheck, GripVertical } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check, CalendarDays, CalendarCheck, GripVertical, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, CSSProperties, memo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -193,6 +194,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
 }) => {
   const [totalValue, setTotalValue] = useState<number>(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const navigate = useNavigate();
 
 
   const isNewLead = () => {
@@ -390,6 +392,23 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                     <CalendarCheck className="h-3 w-3" />
                   </button>
                 )}
+              {!dragging && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/chat?lead_id=${id}`);
+                  }}
+                  className="p-1 rounded hover:bg-muted/60 transition-colors"
+                  title="Abrir conversa"
+                  aria-label="Abrir conversa no chat"
+                >
+                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
               <DropdownMenu onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger
                   asChild
