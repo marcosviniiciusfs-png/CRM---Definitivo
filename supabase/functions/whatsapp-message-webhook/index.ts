@@ -1124,8 +1124,10 @@ serve(async (req) => {
       leadId = newLead.id;
       leadName = newLead.nome_lead;
       
-      // ✅ DISTRIBUIR LEAD NA ROLETA (apenas para leads NOVOS)
-      supabase.functions.invoke('distribute-lead', {
+      // ✅ DISTRIBUIR LEAD NA ROLETA (apenas para leads NOVOS) — waitUntil mantém o isolate
+      // Deno vivo até a promessa resolver. Sem isso o runtime pode encerrar antes do invoke
+      // executar, causando leads criados mas não distribuídos (intermitente).
+      const distributePromise = supabase.functions.invoke('distribute-lead', {
         body: {
           lead_id: newLead.id,
           organization_id: organizationId,
@@ -1140,9 +1142,8 @@ serve(async (req) => {
       }).catch(err => {
         console.error('⚠️ Falha ao invocar distribute-lead:', err);
       });
-      
-      // Buscar foto de perfil do WhatsApp de forma assíncrona (não bloqueia o fluxo)
-      supabase.functions.invoke('fetch-profile-picture', {
+
+      const profilePicPromise = supabase.functions.invoke('fetch-profile-picture', {
         body: {
           instance_name: instance,
           phone_number: phoneNumber,
@@ -1157,6 +1158,12 @@ serve(async (req) => {
       }).catch(err => {
         console.error('⚠️ Falha ao invocar fetch-profile-picture:', err);
       });
+
+      // @ts-ignore — EdgeRuntime é global em Supabase Edge Functions (Deno isolate)
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(Promise.allSettled([distributePromise, profilePicPromise]));
+      }
     }
 
 

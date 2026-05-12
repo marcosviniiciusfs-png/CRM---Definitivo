@@ -615,8 +615,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ✅ DISTRIBUIR LEAD NA ROLETA
-    supabase.functions.invoke('distribute-lead', {
+    // ✅ DISTRIBUIR LEAD NA ROLETA — waitUntil mantém o isolate Deno vivo até a promessa
+    // resolver. Sem isso o runtime pode encerrar antes do invoke executar, causando leads
+    // criados mas não distribuídos (intermitente).
+    const distributePromise = supabase.functions.invoke('distribute-lead', {
       body: {
         lead_id: lead.id,
         organization_id: webhookConfig.organization_id,
@@ -633,8 +635,7 @@ Deno.serve(async (req) => {
       console.error('⚠️ Falha ao invocar distribute-lead:', err);
     });
 
-    // Processar automações (não bloqueia o retorno)
-    supabase.functions.invoke('process-automation-rules', {
+    const automationPromise = supabase.functions.invoke('process-automation-rules', {
       body: {
         trigger_type: 'LEAD_CREATED_FORM_WEBHOOK',
         trigger_data: {
@@ -652,6 +653,12 @@ Deno.serve(async (req) => {
     }).catch(err => {
       console.error('⚠️ Falha ao invocar process-automation-rules:', err);
     });
+
+    // @ts-ignore — EdgeRuntime é global em Supabase Edge Functions (Deno isolate)
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(Promise.allSettled([distributePromise, automationPromise]));
+    }
 
     // Log success
     await supabase.from('form_webhook_logs').insert({

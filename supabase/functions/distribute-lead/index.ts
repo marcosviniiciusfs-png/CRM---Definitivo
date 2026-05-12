@@ -86,6 +86,57 @@ function evaluateCustomCondition(value: any, operator: string, conditionValue: s
   }
 }
 
+// ── Helpers de horário (Brasil/São Paulo) ──────────────────────
+// Supabase Edge Functions rodam em UTC. As working_hours são configuradas pelo usuário
+// pensando em horário local (BRT). Sem converter, os filtros bloqueiam agentes em horários
+// errados (ex.: 14h BRT = 17h UTC ainda OK, mas 18h BRT = 21h UTC fica fora do horário).
+const BR_TZ = 'America/Sao_Paulo';
+const TIME_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: BR_TZ,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+const DAY_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: BR_TZ,
+  weekday: 'long',
+});
+
+function currentTimeBR(now: Date = new Date()): string {
+  // "HH:MM" em America/Sao_Paulo
+  return TIME_FMT.format(now);
+}
+
+function currentDayBR(now: Date = new Date()): string {
+  // "monday", "tuesday", etc — minúsculo, em America/Sao_Paulo
+  return DAY_FMT.format(now).toLowerCase();
+}
+
+// Parsing defensivo do campo triggers — aceita os formatos vistos em prod sem quebrar:
+//   - string[]            → ["new_lead","manual"]    (esperado)
+//   - string JSON         → '["new_lead"]'            (ocorre quando serializado errado)
+//   - objeto              → {triggers:[...]}          (legado raro)
+//   - null/undefined/etc  → []                        (config sem triggers)
+function parseTriggers(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((t): t is string => typeof t === 'string');
+  }
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parseTriggers(parsed);
+    } catch {
+      // String simples (não-JSON) — tratar como trigger único
+      return [raw];
+    }
+  }
+  if (typeof raw === 'object' && Array.isArray(raw.triggers)) {
+    return parseTriggers(raw.triggers);
+  }
+  return [];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -342,12 +393,11 @@ serve(async (req) => {
       }
     }
 
-    // ── Work Hours Check ──
+    // ── Work Hours Check (em horário de Brasília) ──
     if (!isHotLead && smartRules.system.work_hours_enabled) {
-      const now = new Date();
-      const currentTime = now.toTimeString().slice(0, 5);
+      const currentTime = currentTimeBR();
       if (currentTime < smartRules.system.work_hours_start || currentTime > smartRules.system.work_hours_end) {
-        console.log(`[SmartRules] Outside work hours (${currentTime} not in ${smartRules.system.work_hours_start}-${smartRules.system.work_hours_end}), queuing lead`);
+        console.log(`[SmartRules] Outside work hours BRT (${currentTime} not in ${smartRules.system.work_hours_start}-${smartRules.system.work_hours_end}), queuing lead`);
         return new Response(
           JSON.stringify({ success: false, message: 'Outside work hours, lead queued for next business hours' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -358,17 +408,22 @@ serve(async (req) => {
     // 3. Mapear trigger_source para tipo de trigger correto
     const triggerTypeMap: Record<string, string> = {
       'facebook': 'new_lead',
-      'whatsapp': 'new_lead', 
+      'whatsapp': 'new_lead',
       'webhook': 'new_lead',
       'manual': 'manual',
       'auto_redistribution': 'auto_redistribution',
       'new_lead': 'new_lead'
     };
-    
+
     const mappedTrigger = triggerTypeMap[trigger_source] || trigger_source;
-    
-    // Verificar se o trigger está habilitado
-    const triggers = (config.triggers as string[]) || [];
+
+    // Verificar se o trigger está habilitado — parsing defensivo:
+    // O campo 'triggers' deveria ser text[] no Postgres, mas dependendo do schema/cliente
+    // pode chegar como string JSON, objeto {triggers:[...]}, ou null. Histórico de bugs
+    // aqui (commit f6c355b). parseTriggers normaliza formatos anômalos sem mudar semântica
+    // do happy-path: array vazio continua bloqueando (preserva intenção do admin).
+    const triggers = parseTriggers(config.triggers);
+    console.log(`[Triggers] Config "${config.name}" enabled triggers:`, triggers);
     if (!triggers.includes(mappedTrigger)) {
       console.log('Trigger not enabled:', mappedTrigger, 'for trigger_source:', trigger_source);
       return new Response(
@@ -383,32 +438,51 @@ serve(async (req) => {
 
     if (teamId) {
       console.log(`Filtering by team_id: ${teamId}`);
-      
+
       const { data: teamMembers, error: teamMembersError } = await supabase
         .from('team_members')
         .select('user_id')
         .eq('team_id', teamId);
 
       if (teamMembersError) {
-        console.error('Error fetching team members:', teamMembersError);
+        // Erro de query: logar e ignorar o team filter (fail-open para não parar a roleta)
+        console.error('Error fetching team members, ignoring team filter:', teamMembersError);
       } else if (teamMembers && teamMembers.length > 0) {
         const teamMemberIds = teamMembers.map(tm => tm.user_id);
         console.log(`Team has ${teamMemberIds.length} members:`, teamMemberIds);
-        
+
         // Se já havia agentes elegíveis, fazer interseção
         if (eligibleAgentIds && eligibleAgentIds.length > 0) {
-          eligibleAgentIds = eligibleAgentIds.filter(id => teamMemberIds.includes(id));
+          const intersection = eligibleAgentIds.filter(id => teamMemberIds.includes(id));
+          if (intersection.length > 0) {
+            eligibleAgentIds = intersection;
+            console.log(`Filtered eligible agents by team: ${eligibleAgentIds.length}`);
+          } else {
+            // Interseção vazia: time e eligible_agents não tem ninguém em comum.
+            // Fallback para eligible_agents (não fail-closed) — admin pode ter trocado o time
+            // depois de configurar eligible_agents.
+            console.warn(`Team ${teamId} has no overlap with eligible_agents — falling back to eligible_agents`);
+          }
         } else {
           eligibleAgentIds = teamMemberIds;
+          console.log(`Using team members as eligible: ${eligibleAgentIds.length}`);
         }
-        
-        console.log(`Filtered eligible agents: ${eligibleAgentIds.length}`);
       } else {
-        console.log('Team has no members');
-        return new Response(
-          JSON.stringify({ success: false, message: 'Team has no members' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        // Time vazio (todos os membros foram removidos). Antes era fail-closed (roleta parava).
+        // Agora: se há eligible_agents configurados explicitamente, fazer fallback. Caso
+        // contrário (eligible_agents também vazio), manter fail-closed — admin não definiu
+        // ninguém em lugar nenhum, é erro real de configuração.
+        // Razão do fallback: cascade de exclusão de colaborador remove de team_members mas
+        // não desvincula team_id da config da roleta, deixando o time órfão.
+        if (eligibleAgentIds && eligibleAgentIds.length > 0) {
+          console.warn(`Team ${teamId} has no members — falling back to ${eligibleAgentIds.length} eligible_agents`);
+        } else {
+          console.log('Team has no members and no eligible_agents configured');
+          return new Response(
+            JSON.stringify({ success: false, message: 'Team has no members' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 
@@ -627,20 +701,21 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
   }
 
   const now = new Date();
-  const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-  const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+  // Dia/hora em horário de Brasília — working_hours são configuradas pelo usuário em BRT
+  const currentDay = currentDayBR(now);
+  const currentTime = currentTimeBR(now);
 
   // 5. Filtrar agentes disponíveis - ATUALIZADO: usar responsavel_user_id
   const available = [];
   for (const agent of settings) {
     const profile = profilesMap.get(agent.user_id);
     const member = membersMap.get(agent.user_id);
-    // Verificar pause_until
+    // Verificar pause_until (pause_until armazena timestamp UTC, comparação com now/UTC é OK)
     if (agent.pause_until && new Date(agent.pause_until) > now) {
       continue;
     }
 
-    // Verificar horário de trabalho
+    // Verificar horário de trabalho (em horário de Brasília)
     const workingHours = agent.working_hours as any;
     if (workingHours && workingHours[currentDay]) {
       const { start, end } = workingHours[currentDay];

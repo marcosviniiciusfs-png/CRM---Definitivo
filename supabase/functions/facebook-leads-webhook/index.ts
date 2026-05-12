@@ -644,15 +644,25 @@ Deno.serve(async (req) => {
                 console.log(`✅ [FB-WEBHOOK] Lead criado: ${newLead.id} | funil=${funnelId} | etapa=${funnelStageId}`);
                 if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'success', lead_id: newLead.id, form_id: leadData.form_id }).eq('id', logId);
 
-                // Distribuir na roleta
-                supabase.functions.invoke('distribute-lead', {
+                // Distribuir na roleta — waitUntil mantém o isolate Deno vivo até a promessa
+                // resolver. Sem isso o runtime pode encerrar antes do invoke executar, causando
+                // leads criados mas não distribuídos (intermitente).
+                const distributePromise = supabase.functions.invoke('distribute-lead', {
                   body: { lead_id: newLead.id, organization_id: integration.organization_id, trigger_source: 'facebook' }
-                }).catch((err: any) => console.error('⚠️ distribute-lead:', err));
+                }).then(({ data, error }) => {
+                  if (error) console.error('⚠️ distribute-lead error:', error);
+                  else console.log('✅ Lead distribuído (FB):', data);
+                }).catch((err: any) => console.error('⚠️ distribute-lead exception:', err));
 
-                // Processar automações
-                supabase.functions.invoke('process-automation-rules', {
+                const automationPromise = supabase.functions.invoke('process-automation-rules', {
                   body: { trigger_type: 'LEAD_CREATED_META_FORM', trigger_data: { lead_id: newLead.id, organization_id: integration.organization_id, form_id: leadData.form_id, form_name: formName } }
                 }).catch((err: any) => console.error('⚠️ process-automation-rules:', err));
+
+                // @ts-ignore — EdgeRuntime é global em Supabase Edge Functions (Deno isolate)
+                if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+                  // @ts-ignore
+                  EdgeRuntime.waitUntil(Promise.allSettled([distributePromise, automationPromise]));
+                }
               }
             } catch (integrationError: any) {
               console.error(`❌ [FB-WEBHOOK] Erro ao processar integração ${integration.id}:`, integrationError.message);
