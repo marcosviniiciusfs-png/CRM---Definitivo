@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -68,6 +68,7 @@ import { useAssignedChannels, isLeadVisibleByChannel } from "@/hooks/useAssigned
 
 const Chat = () => {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, organizationId, isReady } = useOrganizationReady();
   const { theme } = useTheme();
@@ -256,6 +257,46 @@ const Chat = () => {
   useEffect(() => {
     if (selectedLead) setSelectedGroup(null);
   }, [selectedLead?.id]);
+
+  // Auto-seleciona lead via query param (?lead_id=<uuid>). Usado pelo
+  // balao "abrir chat" no Pipeline. Roda uma vez se o param mudar.
+  useEffect(() => {
+    const leadIdParam = searchParams.get("lead_id");
+    if (!leadIdParam) return;
+
+    const found = leads.find((l) => l.id === leadIdParam);
+    if (found) {
+      setSelectedLead(found);
+    } else {
+      // Fetch direto — RLS valida acesso e retorna null se nao autorizado.
+      (async () => {
+        const { data } = await supabase
+          .from("leads")
+          .select("*")
+          .eq("id", leadIdParam)
+          .maybeSingle();
+        if (data) {
+          setSelectedLead(data as any);
+        } else {
+          toast({
+            title: "Sem acesso a esta conversa",
+            description: "Voce nao foi atribuido ao canal deste lead.",
+            variant: "destructive",
+          });
+        }
+      })();
+    }
+
+    // Limpa o param da URL.
+    setSearchParams(
+      (params) => {
+        params.delete("lead_id");
+        return params;
+      },
+      { replace: true }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get("lead_id"), leads]);
 
   // Mantem leadsBeforeUpdateRef sincronizado para detectar last_message_at avancando.
   useEffect(() => {
