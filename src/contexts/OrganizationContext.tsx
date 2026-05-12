@@ -253,7 +253,7 @@ const calculateBasePermissions = (role: 'owner' | 'admin' | 'member' | null): Pa
     canCreateRoulettes: isOwnerOrAdmin,
     canDeleteRoulettes: isOwner,
     canManualDistribute: isOwnerOrAdmin,
-    canViewAllLeads: isOwnerOrAdmin,
+    canViewAllLeads: isOwner,
     canViewTeamLeads: isOwnerOrAdmin,
     canAssignLeads: isOwnerOrAdmin,
     canDeleteLeads: isOwnerOrAdmin,

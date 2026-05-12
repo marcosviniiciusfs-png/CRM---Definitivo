@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
@@ -35,6 +36,11 @@ serve(async (req) => {
       );
     }
     const supabase = createSupabaseAdmin();
+    const userScopedClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -64,6 +70,18 @@ serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Defense-in-depth: verifica acesso granular ao canal antes de tocar a tabela de mensagens.
+    const { data: channelOk } = await userScopedClient
+      .rpc("user_can_access_channel", { p_channel_id: instanceRow.id });
+
+    if (!channelOk) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Sem acesso a este canal" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data: membership } = await supabase
       .from("organization_members")
       .select("organization_id")

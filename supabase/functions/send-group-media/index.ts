@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
   getEvolutionApiUrl,
@@ -93,6 +94,35 @@ serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Cliente escopado ao usuário para o RPC de permissao — auth.uid() precisa
+    // resolver para o JWT do caller, e nao para service_role.
+    const userScopedClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Spec channel-access-control: usuario so envia para canais aos quais
+    // tem acesso atribuido (em whatsapp_channel_members) ou e owner.
+    {
+      const { data: channelOk, error: channelErr } = await userScopedClient
+        .rpc("user_can_access_channel", { p_channel_id: instanceRow.id });
+      if (channelErr) {
+        console.error("user_can_access_channel RPC error:", channelErr);
+        return new Response(
+          JSON.stringify({ success: false, error: "Falha ao verificar permissao" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!channelOk) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Sem acesso a este canal" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (instanceRow.status !== "CONNECTED") {
       return new Response(
         JSON.stringify({ success: false, error: `Instance is ${instanceRow.status}` }),

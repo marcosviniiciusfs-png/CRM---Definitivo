@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
   getEvolutionApiUrl,
@@ -57,6 +58,11 @@ serve(async (req) => {
       );
     }
     const supabase = createSupabaseAdmin();
+    const userScopedClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -87,6 +93,19 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, error: "Instance not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Defense-in-depth: verifica acesso granular ao canal (RLS ja filtra, mas falha rapido aqui).
+    // Retorna lista vazia (nao 403) para evitar enumeracao de quais canais existem.
+    const { data: channelOk } = await userScopedClient
+      .rpc("user_can_access_channel", { p_channel_id: instanceRow.id });
+
+    if (!channelOk) {
+      console.log(`User without access to channel ${instanceRow.id} — returning empty groups list`);
+      return new Response(
+        JSON.stringify({ success: true, groups: [] }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

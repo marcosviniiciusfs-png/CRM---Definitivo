@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import {
   getEvolutionApiUrl,
@@ -16,6 +17,14 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const {
       instance_name,
       remoteJid,
@@ -40,14 +49,43 @@ serve(async (req) => {
     });
 
     // Validar campos obrigatórios
-    if (!instance_name || !remoteJid || !media_base64 || !media_type) {
+    if (!instance_name || !remoteJid || !media_base64 || !media_type || !leadId) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Campos obrigatórios faltando: instance_name, remoteJid, media_base64, media_type'
+          error: 'Campos obrigatórios faltando: instance_name, remoteJid, media_base64, media_type, leadId'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
+    }
+
+    // Cliente escopado ao usuário para o RPC de permissao — auth.uid() precisa
+    // resolver para o JWT do caller, e nao para service_role.
+    const userScopedClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Spec channel-access-control: usuario so envia para leads aos quais
+    // tem acesso (RLS valida leitura, mas envio precisa de check explicito).
+    // leadId e obrigatorio (validado acima), entao este check roda sempre.
+    {
+      const { data: accessOk, error: accessErr } = await userScopedClient
+        .rpc("user_can_access_lead", { p_lead_id: leadId });
+      if (accessErr) {
+        console.error("user_can_access_lead RPC error:", accessErr);
+        return new Response(
+          JSON.stringify({ success: false, error: "Falha ao verificar permissao" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!accessOk) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Sem acesso a este lead/canal" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const supabase = createSupabaseAdmin();
