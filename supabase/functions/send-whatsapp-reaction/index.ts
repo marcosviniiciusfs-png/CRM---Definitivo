@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin, formatPhoneToJid } from "../_shared/evolution-config.ts";
 
@@ -36,6 +37,30 @@ serve(async (req) => {
 
     if (!message_id || !emoji || !lead_id) {
       throw new Error("Missing required fields: message_id, emoji, lead_id");
+    }
+
+    // Verificar acesso ao canal (lead) via user-scoped client
+    const userScopedClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: accessOk, error: accessErr } = await userScopedClient
+      .rpc("user_can_access_lead", { p_lead_id: lead_id });
+
+    if (accessErr) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Falha ao verificar permissao" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!accessOk) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Sem acesso a este lead/canal" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Buscar a mensagem original (usando service role, sem RLS bloqueando)

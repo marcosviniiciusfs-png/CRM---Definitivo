@@ -76,31 +76,31 @@ serve(async (req) => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(potentialLeadId);
 
     if (hasLeadIdPrefix) {
-      // Verify the lead exists in the user's organization using admin client (avoids RLS issues)
-      const { data: userOrg } = await supabaseClient
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Verificar acesso ao canal via user_can_access_lead (user-scoped client aplica RLS de canal)
+      const { data: accessOk, error: accessErr } = await supabaseClient
+        .rpc('user_can_access_lead', { p_lead_id: potentialLeadId });
 
-      if (userOrg?.organization_id) {
-        const { data: lead } = await supabaseAdmin
-          .from('leads')
-          .select('id')
-          .eq('id', potentialLeadId)
-          .eq('organization_id', userOrg.organization_id)
-          .maybeSingle();
-
-        if (!lead) {
-          console.log('Lead not found in user org:', potentialLeadId);
-          return new Response(
-            JSON.stringify({ error: 'Access denied to this media' }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+      if (accessErr) {
+        console.error('Error checking lead access:', accessErr);
+        return new Response(
+          JSON.stringify({ error: 'Falha ao verificar permissao' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-      // If we can't determine the org, still try to generate the URL
-      // (the user is authenticated, which is the primary security gate)
+
+      if (!accessOk) {
+        console.log('Access denied to lead:', potentialLeadId);
+        return new Response(
+          JSON.stringify({ error: 'Sem acesso a este lead/canal' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      // Path has no leadId prefix — reject rather than silently allow
+      return new Response(
+        JSON.stringify({ error: 'Caminho de midia invalido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Generate signed URL valid for 1 hour
