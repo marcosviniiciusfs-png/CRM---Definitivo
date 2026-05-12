@@ -38,12 +38,12 @@ serve(async (req) => {
     console.log('📤 Enviando mensagem:', { instance_name, remoteJid, message_text, leadId, quotedMessageId });
 
     // Validar parâmetros obrigatórios
-    if (!instance_name || !remoteJid || !message_text) {
+    if (!instance_name || !remoteJid || !message_text || !leadId) {
       console.error('❌ Parâmetros obrigatórios faltando');
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Parâmetros obrigatórios: instance_name, remoteJid, message_text',
+          error: 'Parâmetros obrigatórios: instance_name, remoteJid, message_text, leadId',
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -62,7 +62,8 @@ serve(async (req) => {
 
     // Spec channel-access-control: usuario so envia para leads aos quais
     // tem acesso (RLS valida leitura, mas envio precisa de check explicito).
-    if (leadId) {
+    // leadId e obrigatorio (validado acima), entao este check roda sempre.
+    {
       const { data: accessOk, error: accessErr } = await userScopedClient
         .rpc("user_can_access_lead", { p_lead_id: leadId });
       if (accessErr) {

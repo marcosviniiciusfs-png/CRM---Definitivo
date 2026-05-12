@@ -49,11 +49,11 @@ serve(async (req) => {
     });
 
     // Validar campos obrigatórios
-    if (!instance_name || !remoteJid || !media_base64 || !media_type) {
+    if (!instance_name || !remoteJid || !media_base64 || !media_type || !leadId) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Campos obrigatórios faltando: instance_name, remoteJid, media_base64, media_type'
+          error: 'Campos obrigatórios faltando: instance_name, remoteJid, media_base64, media_type, leadId'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
@@ -69,7 +69,8 @@ serve(async (req) => {
 
     // Spec channel-access-control: usuario so envia para leads aos quais
     // tem acesso (RLS valida leitura, mas envio precisa de check explicito).
-    if (leadId) {
+    // leadId e obrigatorio (validado acima), entao este check roda sempre.
+    {
       const { data: accessOk, error: accessErr } = await userScopedClient
         .rpc("user_can_access_lead", { p_lead_id: leadId });
       if (accessErr) {
