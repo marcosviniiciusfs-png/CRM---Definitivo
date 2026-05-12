@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -503,6 +504,18 @@ function GoogleCalendarCard({
 const Integrations = () => {
   const { organizationId, isReady } = useOrganizationReady();
   const { permissions } = useOrganization();
+  const navigate = useNavigate();
+  const role = permissions.role;
+  const canAccess = role === "owner" || role === "admin";
+
+  useEffect(() => {
+    if (role !== null && !canAccess) {
+      navigate("/", { replace: true });
+    }
+  }, [role, canAccess, navigate]);
+
+  if (!canAccess) return null;
+
   const canManage = permissions.canManageIntegrations;
   const [tab, setTab] = useState<"connections" | "webhooks" | "logs">("connections");
   const [showWhatsApp, setShowWhatsApp] = useState(false);
