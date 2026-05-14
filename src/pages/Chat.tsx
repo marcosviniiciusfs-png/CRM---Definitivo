@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Tag, Filter, Check, Pin, PinOff, Loader2, ArrowLeft, Radio } from "lucide-react";
+import { Search, Tag, Filter, Check, Pin, PinOff, Loader2, ArrowLeft, Radio, ArrowRightLeft } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,7 @@ import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 import { useAssignedChannels, isLeadVisibleByChannel } from "@/hooks/useAssignedChannels";
 import { useLeadMemberships, type LeadMembershipCard } from "@/hooks/useLeadMemberships";
+import { TransferLeadDialog } from "@/components/chat";
 
 const Chat = () => {
   const location = useLocation();
@@ -84,6 +85,24 @@ const Chat = () => {
   // selectedLead, define qual canal a UI esta usando para enviar/ler msgs.
   const [selectedMembership, setSelectedMembership] = useState<LeadMembershipCard | null>(null);
   const { cards: membershipCards, loading: membershipsLoading, reload: reloadMemberships } = useLeadMemberships();
+
+  // TransferLeadDialog: estado para abrir o modal de transferencia da
+  // membership clicada com botao direito.
+  const [transferDialogState, setTransferDialogState] = useState<{
+    open: boolean;
+    leadId: string | null;
+    leadName: string;
+    channelId: string | null;
+  }>({ open: false, leadId: null, leadName: '', channelId: null });
+
+  const openTransferDialog = (card: LeadMembershipCard) => {
+    setTransferDialogState({
+      open: true,
+      leadId: card.lead_id,
+      leadName: card.nome_lead,
+      channelId: card.whatsapp_instance_id,
+    });
+  };
   const [lockedLeadId, setLockedLeadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -1798,6 +1817,11 @@ const Chat = () => {
                                 Fixar conversa
                               </ContextMenuItem>
                               <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => openTransferDialog(card)}>
+                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                Transferir para outro canal...
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
                               <ContextMenuItem onClick={() => { setSelectedLead(leadObj as Lead); setSelectedMembership(card); setLeadTagsOpen(true); }}>
                                 <Tag className="mr-2 h-4 w-4" />
                                 Adicionar etiquetas
@@ -2025,6 +2049,18 @@ const Chat = () => {
 
       {/* Modals */}
       <ManageTagsDialog open={manageTagsOpen} onOpenChange={setManageTagsOpen} />
+
+      {/* Modal de transferencia entre canais */}
+      {transferDialogState.leadId && transferDialogState.channelId && organizationId && (
+        <TransferLeadDialog
+          open={transferDialogState.open}
+          onOpenChange={(open) => setTransferDialogState((s) => ({ ...s, open }))}
+          leadId={transferDialogState.leadId}
+          leadName={transferDialogState.leadName}
+          organizationId={organizationId}
+          currentChannelId={transferDialogState.channelId}
+        />
+      )}
 
       <Dialog open={leadTagsOpen && !!selectedLead} onOpenChange={setLeadTagsOpen}>
         <DialogContent className="max-w-sm">
