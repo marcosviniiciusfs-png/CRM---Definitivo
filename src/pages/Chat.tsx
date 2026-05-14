@@ -66,7 +66,7 @@ import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 import { useAssignedChannels, isLeadVisibleByChannel } from "@/hooks/useAssignedChannels";
 import { useLeadMemberships, type LeadMembershipCard } from "@/hooks/useLeadMemberships";
-import { TransferLeadDialog } from "@/components/chat";
+import { TransferLeadDialog, TransferDivider } from "@/components/chat";
 
 const Chat = () => {
   const location = useLocation();
@@ -94,6 +94,10 @@ const Chat = () => {
     leadName: string;
     channelId: string | null;
   }>({ open: false, leadId: null, leadName: '', channelId: null });
+
+  // Read-only history (msgs do canal de origem antes do transferred_at)
+  // quando a membership selecionada eh 'transferred'.
+  const [preTransferMessages, setPreTransferMessages] = useState<Message[]>([]);
 
   const openTransferDialog = (card: LeadMembershipCard) => {
     setTransferDialogState({
@@ -879,6 +883,39 @@ const Chat = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Carrega historico read-only do canal de origem quando a membership
+  // selecionada eh 'transferred'. Bounded por limit(200).
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!selectedMembership
+        || selectedMembership.source !== 'transferred'
+        || !selectedMembership.transferred_from_instance_id
+        || !selectedMembership.transferred_at) {
+        setPreTransferMessages([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('mensagens_chat')
+        .select('*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)')
+        .eq('id_lead', selectedMembership.lead_id)
+        .eq('whatsapp_instance_id', selectedMembership.transferred_from_instance_id)
+        .lt('data_hora', selectedMembership.transferred_at)
+        .order('data_hora', { ascending: true })
+        .limit(200);
+
+      if (cancelled) return;
+      if (error) {
+        console.error('loadPreTransferHistory error:', error);
+        setPreTransferMessages([]);
+        return;
+      }
+      setPreTransferMessages(parseMessages(data || []));
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [selectedMembership?.lead_id, selectedMembership?.whatsapp_instance_id, selectedMembership?.source, selectedMembership?.transferred_from_instance_id, selectedMembership?.transferred_at]);
 
   // Search navigation
   useEffect(() => {
@@ -1963,6 +2000,55 @@ const Chat = () => {
                           </Button>
                         </div>
                       )}
+
+                      {/* Read-only history: msgs do canal de origem antes do transferred_at */}
+                      {preTransferMessages.length > 0 && (
+                        <div className="bg-muted/30 -mx-2 px-2 py-2 rounded">
+                          <div className="px-2 py-1 text-xs text-muted-foreground italic">
+                            📋 Histórico do canal anterior (somente leitura)
+                          </div>
+                          {preTransferMessages.map((m) => (
+                            <div key={`pre-${m.id}`} className="opacity-70 pointer-events-none select-none">
+                              <MessageBubble
+                                message={m}
+                                lead={selectedLead!}
+                                isPinned={false}
+                                reactions={[]}
+                                currentUserId={user?.id}
+                                isSearchMatch={false}
+                                isCurrentSearchResult={false}
+                                dropdownOpen={false}
+                                reactionPopoverOpen={false}
+                                onToggleDropdown={() => {}}
+                                onToggleReactionPopover={() => {}}
+                                onToggleReaction={() => {}}
+                                onTogglePin={() => {}}
+                                onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
+                                onReply={() => {}}
+                                onDelete={() => {}}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Divider de transferencia */}
+                      {selectedMembership?.source === 'transferred' && selectedMembership.transferred_at && (
+                        <TransferDivider
+                          transferredAt={selectedMembership.transferred_at}
+                          transferredByName={
+                            (selectedMembership.transferred_by_user_id
+                              ? responsiblesMap.get(selectedMembership.transferred_by_user_id)?.full_name
+                              : null) || null
+                          }
+                          fromChannelName={
+                            channelsRef.current.find((c: any) => c.id === selectedMembership.transferred_from_instance_id)?.channel_name
+                            || channelsRef.current.find((c: any) => c.id === selectedMembership.transferred_from_instance_id)?.instance_name
+                            || 'canal anterior'
+                          }
+                        />
+                      )}
+
                       {messages.map((message, index) => {
                         const isSearchMatch = messageSearchQuery.trim() && message.corpo_mensagem.toLowerCase().includes(messageSearchQuery.toLowerCase());
                         let searchResultIndex = -1;

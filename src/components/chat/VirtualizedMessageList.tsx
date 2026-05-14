@@ -1,6 +1,7 @@
 import { memo, useRef, useEffect } from "react";
 import { Message, MessageReaction, Lead } from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
+import { TransferDivider } from "./TransferDivider";
 
 interface VirtualizedMessageListProps {
   messages: Message[];
@@ -22,6 +23,15 @@ interface VirtualizedMessageListProps {
   onReply: (message: Message) => void;
   onScrollToMessage?: (messageId: string) => void;
   onDelete: (message: Message) => void;
+  // Read-only prefix: mensagens historicas do canal de origem quando a
+  // membership atual eh 'transferred'. Renderizadas nao-interativamente
+  // antes do divider. Bounded por limit(200) no caller.
+  preTransferMessages?: Message[];
+  transferDivider?: {
+    transferred_at: string;
+    transferred_by_name: string | null;
+    from_channel_name: string;
+  } | null;
 }
 
 const MemoizedMessage = memo(function MemoizedMessage({
@@ -121,6 +131,8 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
   onReply,
   onScrollToMessage,
   onDelete,
+  preTransferMessages,
+  transferDivider,
 }: VirtualizedMessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -129,10 +141,51 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [messages.length]);
+  }, [messages.length, preTransferMessages?.length]);
+
+  const hasReadOnlyPrefix = !!preTransferMessages && preTransferMessages.length > 0;
 
   return (
     <div ref={containerRef} className="space-y-1 px-2 overflow-y-auto h-full scroll-smooth">
+      {hasReadOnlyPrefix && (
+        <div className="bg-muted/30 -mx-2 px-2 py-2 mb-2 rounded">
+          <div className="px-2 py-1 text-xs text-muted-foreground italic">
+            📋 Histórico do canal anterior (somente leitura)
+          </div>
+          {preTransferMessages!.map((m) => (
+            <div key={`pre-${m.id}`} className="opacity-70 pointer-events-none select-none">
+              <MessageBubble
+                message={m}
+                lead={selectedLead}
+                isPinned={false}
+                reactions={[]}
+                currentUserId={currentUserId}
+                isSearchMatch={false}
+                isCurrentSearchResult={false}
+                dropdownOpen={false}
+                reactionPopoverOpen={false}
+                onToggleDropdown={() => {}}
+                onToggleReactionPopover={() => {}}
+                onToggleReaction={() => {}}
+                onTogglePin={() => {}}
+                onAvatarClick={onAvatarClick}
+                onReply={() => {}}
+                onScrollToMessage={onScrollToMessage}
+                onDelete={() => {}}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {transferDivider && (
+        <TransferDivider
+          transferredAt={transferDivider.transferred_at}
+          transferredByName={transferDivider.transferred_by_name}
+          fromChannelName={transferDivider.from_channel_name}
+        />
+      )}
+
       {messages.map((message) => (
         <MemoizedMessage
           key={message.id}
