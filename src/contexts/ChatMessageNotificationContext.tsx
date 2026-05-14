@@ -189,6 +189,55 @@ export function ChatMessageNotificationProvider({ children }: { children: React.
                     if (msg.data_hora) lastSeenTsRef.current = msg.data_hora;
                 }
             )
+            // Notificacao para o canal alvo de uma transferencia.
+            // INSERT em lead_channel_memberships com source='transferred' =
+            // alguem transferiu um lead para um canal que esse user tem
+            // acesso (WCM ou owner/admin). Toast in-app + som.
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'lead_channel_memberships' },
+                async (payload) => {
+                    const m = payload.new as any;
+                    if (!m?.lead_id || !m?.whatsapp_instance_id) return;
+                    if (m.organization_id !== organizationId) return;
+                    if (m.source !== 'transferred') return;
+
+                    // Filtro WCM: only notifica se o canal alvo eh visivel
+                    // ao user. Owner/admin tem hasFullAccess -> sempre.
+                    const ids = assignedChannelIdsRef.current;
+                    const hasAccess = hasFullAccessRef.current
+                        || (ids && (ids.size === 0 || ids.has(m.whatsapp_instance_id)));
+                    if (!hasAccess) return;
+
+                    const notifId = `lcm-${m.lead_id}-${m.whatsapp_instance_id}`;
+                    if (seenIds.current.has(notifId)) return;
+
+                    const { data: lead } = await supabase
+                        .from('leads')
+                        .select('nome_lead, avatar_url')
+                        .eq('id', m.lead_id)
+                        .maybeSingle();
+
+                    let transferredByName = 'um colega';
+                    if (m.transferred_by_user_id) {
+                        const { data: prof } = await supabase
+                            .from('profiles')
+                            .select('full_name')
+                            .eq('user_id', m.transferred_by_user_id)
+                            .maybeSingle();
+                        if (prof?.full_name) transferredByName = prof.full_name;
+                    }
+
+                    addNotification({
+                        id: notifId,
+                        lead_id: m.lead_id,
+                        lead_name: (lead as any)?.nome_lead || 'Lead',
+                        avatar_url: (lead as any)?.avatar_url ?? null,
+                        message_preview: `📥 Transferido por ${transferredByName}`,
+                        media_type: null,
+                    });
+                }
+            )
             .subscribe();
 
         // Polling fallback: o Realtime tem se mostrado nao-confiavel neste

@@ -90,26 +90,48 @@ serve(async (req) => {
 
     const supabase = createSupabaseAdmin();
 
-    // Determine which instance to use based on the lead's channel
+    // Resolve o canal de envio: respeita o instance_name passado pelo
+    // frontend (canal da membership selecionada). Valida membership;
+    // fallback para canal de origem se nao houver row em
+    // lead_channel_memberships pro par.
     let resolvedInstanceName = instance_name;
 
     if (leadId) {
-      const { data: leadData } = await supabase
-        .from('leads')
-        .select('whatsapp_instance_id')
-        .eq('id', leadId)
+      const { data: requestedInstance } = await supabase
+        .from('whatsapp_instances')
+        .select('id, organization_id, instance_name')
+        .eq('instance_name', instance_name)
         .maybeSingle();
 
-      if (leadData?.whatsapp_instance_id) {
-        const { data: leadInstance } = await supabase
-          .from('whatsapp_instances')
-          .select('instance_name, status')
-          .eq('id', leadData.whatsapp_instance_id)
+      if (requestedInstance?.id) {
+        const { data: membership } = await supabase
+          .from('lead_channel_memberships')
+          .select('lead_id')
+          .eq('lead_id', leadId)
+          .eq('whatsapp_instance_id', requestedInstance.id)
           .maybeSingle();
 
-        if (leadInstance?.instance_name) {
-          resolvedInstanceName = leadInstance.instance_name;
-          console.log('🔄 Usando instância do canal do lead:', resolvedInstanceName);
+        if (membership) {
+          resolvedInstanceName = requestedInstance.instance_name;
+          console.log('🔄 Canal validado via membership:', resolvedInstanceName);
+        } else {
+          const { data: leadData } = await supabase
+            .from('leads')
+            .select('whatsapp_instance_id')
+            .eq('id', leadId)
+            .maybeSingle();
+
+          if (leadData?.whatsapp_instance_id) {
+            const { data: leadInstance } = await supabase
+              .from('whatsapp_instances')
+              .select('instance_name')
+              .eq('id', leadData.whatsapp_instance_id)
+              .maybeSingle();
+            if (leadInstance?.instance_name) {
+              resolvedInstanceName = leadInstance.instance_name;
+              console.log('🔄 Fallback para canal de origem do lead:', resolvedInstanceName);
+            }
+          }
         }
       }
     }
@@ -229,11 +251,21 @@ serve(async (req) => {
             fileName: 'ptt.ogg',
             mimeType: 'audio/ogg; codecs=opus',
             isPTT: true
-          }
+          },
+          whatsapp_instance_id: instanceData.id,
         });
 
       if (insertError) {
         console.error('⚠️ Erro ao salvar mensagem PTT no banco:', insertError);
+      } else {
+        const { error: updateLcmError } = await supabase
+          .from('lead_channel_memberships')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('lead_id', leadId)
+          .eq('whatsapp_instance_id', instanceData.id);
+        if (updateLcmError) {
+          console.warn('⚠️ Falha ao atualizar last_message_at em lead_channel_memberships:', updateLcmError);
+        }
       }
 
       return new Response(
@@ -380,13 +412,23 @@ serve(async (req) => {
           fileName: finalFileName,
           mimeType: finalMimeType,
           fileSize: media_base64.length
-        }
+        },
+        whatsapp_instance_id: instanceData.id,
       });
 
     if (insertError) {
       console.error('⚠️ Erro ao salvar mensagem no banco:', insertError);
     } else {
       console.log('✅ Mensagem salva no banco de dados');
+
+      const { error: updateLcmError } = await supabase
+        .from('lead_channel_memberships')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('lead_id', leadId)
+        .eq('whatsapp_instance_id', instanceData.id);
+      if (updateLcmError) {
+        console.warn('⚠️ Falha ao atualizar last_message_at em lead_channel_memberships:', updateLcmError);
+      }
     }
 
     return new Response(

@@ -116,27 +116,55 @@ serve(async (req) => {
     // Criar cliente Supabase admin
     const supabase = createSupabaseAdmin();
 
-    // Determine which instance to use based on the lead's channel
+    // Resolve o canal de envio: respeita o instance_name passado pelo
+    // frontend (canal da membership selecionada na UI) e valida que existe
+    // membership do par (lead, canal). Sem fallback automatico para
+    // lead.whatsapp_instance_id — apos transferencia, um lead pode estar
+    // em multiplos canais e a UI sabe qual escolher.
     let resolvedInstanceName = instance_name;
 
     if (leadId) {
-      const { data: leadData } = await supabase
-        .from('leads')
-        .select('whatsapp_instance_id')
-        .eq('id', leadId)
+      // Busca instancia passada pelo frontend para conferir membership.
+      const { data: requestedInstance } = await supabase
+        .from('whatsapp_instances')
+        .select('id, organization_id, instance_name')
+        .eq('instance_name', instance_name)
         .maybeSingle();
 
-      if (leadData?.whatsapp_instance_id) {
-        // Look up the instance name from the lead's assigned channel
-        const { data: leadInstance } = await supabase
-          .from('whatsapp_instances')
-          .select('instance_name, status')
-          .eq('id', leadData.whatsapp_instance_id)
+      if (requestedInstance?.id) {
+        const { data: membership } = await supabase
+          .from('lead_channel_memberships')
+          .select('lead_id')
+          .eq('lead_id', leadId)
+          .eq('whatsapp_instance_id', requestedInstance.id)
           .maybeSingle();
 
-        if (leadInstance?.instance_name) {
-          resolvedInstanceName = leadInstance.instance_name;
-          console.log('🔄 Usando instância do canal do lead:', resolvedInstanceName);
+        if (membership) {
+          // Match — usa o canal pedido (caso normal apos lead estar em
+          // multiplos canais via transferencia).
+          resolvedInstanceName = requestedInstance.instance_name;
+          console.log('🔄 Canal validado via membership:', resolvedInstanceName);
+        } else {
+          // Sem membership para esse par. Fallback: usa o canal de origem
+          // do lead (lead.whatsapp_instance_id) — compat com leads antigos
+          // que ainda nao tiveram a primeira mensagem pos-deploy do webhook.
+          const { data: leadData } = await supabase
+            .from('leads')
+            .select('whatsapp_instance_id')
+            .eq('id', leadId)
+            .maybeSingle();
+
+          if (leadData?.whatsapp_instance_id) {
+            const { data: leadInstance } = await supabase
+              .from('whatsapp_instances')
+              .select('instance_name')
+              .eq('id', leadData.whatsapp_instance_id)
+              .maybeSingle();
+            if (leadInstance?.instance_name) {
+              resolvedInstanceName = leadInstance.instance_name;
+              console.log('🔄 Fallback para canal de origem do lead:', resolvedInstanceName);
+            }
+          }
         }
       }
     }
@@ -445,12 +473,27 @@ serve(async (req) => {
             evolution_message_id: messageId,
             status_entrega: 'SENT',
             quoted_message_id: quotedDbMessageId,
+            whatsapp_instance_id: instanceCheck.id,
           });
 
         if (dbError) {
           console.error('⚠️ Erro ao salvar no banco (mensagem foi enviada):', dbError);
         } else {
           console.log('💾 Mensagem salva no banco com sucesso');
+
+          // Atualiza last_message_at na membership do canal de envio para
+          // que a sidebar reordene corretamente. Assume membership ja existe
+          // (lead estava visivel no Chat, logo foi criada pelo webhook ou
+          // por transfer-lead-to-channel).
+          const { error: updateLcmError } = await supabase
+            .from('lead_channel_memberships')
+            .update({ last_message_at: new Date().toISOString() })
+            .eq('lead_id', leadId)
+            .eq('whatsapp_instance_id', instanceCheck.id);
+
+          if (updateLcmError) {
+            console.warn('⚠️ Falha ao atualizar last_message_at em lead_channel_memberships:', updateLcmError);
+          }
         }
       } catch (dbException) {
         console.error('⚠️ Exceção ao salvar no banco (mensagem foi enviada):', dbException);

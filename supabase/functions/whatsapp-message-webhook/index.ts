@@ -1504,6 +1504,42 @@ serve(async (req) => {
     
     const messageId = messageKey.id || `${Date.now()}-${Math.random()}`;
     
+    // Mantem lead_channel_memberships sincronizado: se o lead ainda nao
+    // tem membership nesse canal (caso comum: primeira msg pelo numero),
+    // cria como 'inbound'. Se ja tem (caso: lead respondendo ou ja
+    // transferido pra esse canal), so atualiza last_message_at.
+    // Falhas aqui nao bloqueiam o salvamento da mensagem.
+    if (instanceId) {
+      const lcmNow = new Date().toISOString();
+      const { error: lcmInsertError } = await supabase
+        .from('lead_channel_memberships')
+        .insert({
+          lead_id: leadId,
+          whatsapp_instance_id: instanceId,
+          organization_id: organizationId,
+          source: 'inbound',
+          last_message_at: lcmNow,
+        });
+
+      if (lcmInsertError) {
+        const code = (lcmInsertError as any)?.code;
+        if (code === '23505') {
+          // Membership ja existia. UPDATE so last_message_at preservando
+          // source='transferred' caso aplicavel.
+          const { error: lcmUpdateError } = await supabase
+            .from('lead_channel_memberships')
+            .update({ last_message_at: lcmNow })
+            .eq('lead_id', leadId)
+            .eq('whatsapp_instance_id', instanceId);
+          if (lcmUpdateError) {
+            console.warn('⚠️ Falha ao UPDATE last_message_at em lead_channel_memberships:', lcmUpdateError);
+          }
+        } else {
+          console.warn('⚠️ Falha ao INSERT em lead_channel_memberships (nao bloqueia):', lcmInsertError);
+        }
+      }
+    }
+
     const { data: savedMessage, error: saveMessageError } = await supabase
       .from('mensagens_chat')
       .insert({
@@ -1517,7 +1553,8 @@ serve(async (req) => {
         status_entrega: isFromMe ? 'SENT' : 'DELIVERED',
         media_url: mediaUrl,
         media_type: mediaType,
-        media_metadata: mediaMetadata
+        media_metadata: mediaMetadata,
+        whatsapp_instance_id: instanceId,
       })
       .select()
       .single();

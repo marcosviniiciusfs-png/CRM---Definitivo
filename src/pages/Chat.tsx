@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Tag, Filter, Check, Pin, PinOff, Loader2, ArrowLeft, Radio } from "lucide-react";
+import { Search, Tag, Filter, Check, Pin, PinOff, Loader2, ArrowLeft, Radio, ArrowRightLeft } from "lucide-react";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +65,8 @@ import { ChannelSelector } from "@/components/ChannelSelector";
 import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 import { useAssignedChannels, isLeadVisibleByChannel } from "@/hooks/useAssignedChannels";
+import { useLeadMemberships, type LeadMembershipCard } from "@/hooks/useLeadMemberships";
+import { TransferLeadDialog, TransferDivider } from "@/components/chat";
 
 const Chat = () => {
   const location = useLocation();
@@ -79,6 +81,32 @@ const Chat = () => {
   // Core state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  // Membership selecionada (par lead × canal). Quando setado em conjunto com
+  // selectedLead, define qual canal a UI esta usando para enviar/ler msgs.
+  const [selectedMembership, setSelectedMembership] = useState<LeadMembershipCard | null>(null);
+  const { cards: membershipCards, loading: membershipsLoading, reload: reloadMemberships } = useLeadMemberships();
+
+  // TransferLeadDialog: estado para abrir o modal de transferencia da
+  // membership clicada com botao direito.
+  const [transferDialogState, setTransferDialogState] = useState<{
+    open: boolean;
+    leadId: string | null;
+    leadName: string;
+    channelId: string | null;
+  }>({ open: false, leadId: null, leadName: '', channelId: null });
+
+  // Read-only history (msgs do canal de origem antes do transferred_at)
+  // quando a membership selecionada eh 'transferred'.
+  const [preTransferMessages, setPreTransferMessages] = useState<Message[]>([]);
+
+  const openTransferDialog = (card: LeadMembershipCard) => {
+    setTransferDialogState({
+      open: true,
+      leadId: card.lead_id,
+      leadName: card.nome_lead,
+      channelId: card.whatsapp_instance_id,
+    });
+  };
   const [lockedLeadId, setLockedLeadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -252,6 +280,118 @@ const Chat = () => {
   useEffect(() => {
     selectedLeadRef.current = selectedLead;
   }, [selectedLead]);
+
+  // Deduplicacao membership-cards -> leads[] (1 lead por id, agregando
+  // last_message_at maximo entre canais). Mantem o estado leads compativel
+  // com o restante do componente, que ainda referencia o tipo Lead.
+  const leadsFromMemberships = useMemo<any[]>(() => {
+    const byId = new Map<string, any>();
+    for (const c of membershipCards) {
+      const existing = byId.get(c.lead_id);
+      if (!existing) {
+        byId.set(c.lead_id, {
+          id: c.lead_id,
+          nome_lead: c.nome_lead,
+          telefone_lead: c.telefone_lead,
+          email: c.email,
+          stage: c.stage,
+          avatar_url: c.avatar_url,
+          is_online: c.is_online,
+          last_seen: c.last_seen,
+          last_message_at: c.last_message_at,
+          source: c.source_lead,
+          responsavel: c.responsavel,
+          responsavel_user_id: c.responsavel_user_id,
+          created_at: c.lead_created_at,
+          updated_at: c.lead_updated_at,
+          organization_id: c.organization_id,
+          whatsapp_instance_id: c.lead_whatsapp_instance_id,
+        });
+      } else {
+        const a = existing.last_message_at ? new Date(existing.last_message_at).getTime() : 0;
+        const b = c.last_message_at ? new Date(c.last_message_at).getTime() : 0;
+        if (b > a) existing.last_message_at = c.last_message_at;
+      }
+    }
+    return Array.from(byId.values());
+  }, [membershipCards]);
+
+  // Sincroniza leads state com membership-derived leads.
+  useEffect(() => {
+    setLeads(leadsFromMemberships as Lead[]);
+  }, [leadsFromMemberships]);
+
+  // Presence map derivado dos leads (cada lead unico).
+  useEffect(() => {
+    const presenceMap = new Map<string, PresenceInfo>();
+    leadsFromMemberships.forEach((lead: any) => {
+      if (lead.is_online !== null || lead.last_seen) {
+        presenceMap.set(lead.id, { isOnline: !!lead.is_online, lastSeen: lead.last_seen || undefined });
+      }
+    });
+    setPresenceStatus(presenceMap);
+  }, [leadsFromMemberships]);
+
+  // Carrega tag assignments + responsibles map quando os leads mudam.
+  // Substitui o bloco antigo que rodava dentro de loadAllChatData.
+  useEffect(() => {
+    if (!organizationId) return;
+    if (leadsFromMemberships.length === 0) return;
+
+    let cancelled = false;
+    const load = async () => {
+      const responsibleUserIds = [...new Set(
+        leadsFromMemberships
+          .map((l: any) => l.responsavel_user_id)
+          .filter((id: any): id is string => !!id)
+      )];
+
+      const [tagAssignmentsResult, responsiblesResult, rpcChatResult] = await Promise.all([
+        supabase
+          .from("lead_tag_assignments")
+          .select("lead_id, tag_id")
+          .in("lead_id", leadsFromMemberships.map((l: any) => l.id)),
+        responsibleUserIds.length > 0
+          ? supabase
+            .from("profiles")
+            .select("user_id, full_name, avatar_url")
+            .in("user_id", responsibleUserIds)
+          : Promise.resolve({ data: [] }),
+        supabase.rpc("get_organization_members_masked"),
+      ]);
+
+      if (cancelled) return;
+
+      const rpcChatNamesMap: Record<string, string | null> = {};
+      (rpcChatResult.data || []).forEach((m: any) => { if (m.user_id) rpcChatNamesMap[m.user_id] = m.full_name; });
+
+      const newTagMap = new Map<string, string[]>();
+      tagAssignmentsResult.data?.forEach((assignment: any) => {
+        const current = newTagMap.get(assignment.lead_id) || [];
+        newTagMap.set(assignment.lead_id, [...current, assignment.tag_id]);
+      });
+      setLeadTagsMap(newTagMap);
+
+      const newResponsiblesMap = new Map<string, { full_name: string; avatar_url: string | null }>();
+      responsiblesResult.data?.forEach((profile: any) => {
+        if (profile.user_id) {
+          newResponsiblesMap.set(profile.user_id, {
+            full_name: profile.full_name || rpcChatNamesMap[profile.user_id] || "Sem nome",
+            avatar_url: profile.avatar_url,
+          });
+        }
+      });
+      (rpcChatResult.data || []).forEach((m: any) => {
+        if (m.user_id && !newResponsiblesMap.has(m.user_id) && responsibleUserIds.includes(m.user_id)) {
+          newResponsiblesMap.set(m.user_id, { full_name: m.full_name || "Sem nome", avatar_url: null });
+        }
+      });
+      setResponsiblesMap(newResponsiblesMap);
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [leadsFromMemberships, organizationId]);
 
   // Quando seleciona um lead, limpa selecao de grupo (e vice-versa via onSelectGroup).
   useEffect(() => {
@@ -495,6 +635,22 @@ const Chat = () => {
             return newMap;
           });
         })
+        // lead_channel_memberships: novas memberships (inbound automatico do
+        // webhook, ou transferred do edge transfer-lead-to-channel) e updates
+        // (last_message_at) precisam refletir na sidebar em tempo real.
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_channel_memberships" }, (payload) => {
+          const m = payload.new as any;
+          if (m.organization_id !== orgIdRef.current) return;
+          reloadMemberships();
+        })
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "lead_channel_memberships" }, (payload) => {
+          const m = payload.new as any;
+          if (m.organization_id !== orgIdRef.current) return;
+          reloadMemberships();
+        })
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "lead_channel_memberships" }, () => {
+          reloadMemberships();
+        })
         .subscribe((status, err) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.warn(`⚠️ Realtime channel ${globalChannelName} status: ${status}`, err);
@@ -560,7 +716,13 @@ const Chat = () => {
         .channel(leadChannelName)
         // Messages INSERT
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-          const newMessage = payload.new as Message;
+          const newMessage = payload.new as Message & { whatsapp_instance_id?: string | null };
+          // Dropa msgs de outro canal — selectedMembership define o filtro.
+          // NULL passa (msgs legadas / fallback).
+          const currentChannel = selectedMembership?.whatsapp_instance_id;
+          if (currentChannel && newMessage.whatsapp_instance_id && newMessage.whatsapp_instance_id !== currentChannel) {
+            return;
+          }
           if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
             notificationAudioRef.current?.play().catch(() => { });
           }
@@ -580,7 +742,11 @@ const Chat = () => {
         })
         // Messages UPDATE
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-          const updatedMessage = payload.new as Message;
+          const updatedMessage = payload.new as Message & { whatsapp_instance_id?: string | null };
+          const currentChannel = selectedMembership?.whatsapp_instance_id;
+          if (currentChannel && updatedMessage.whatsapp_instance_id && updatedMessage.whatsapp_instance_id !== currentChannel) {
+            return;
+          }
           setMessages((prev) => prev.map((msg) => (msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, media_url: updatedMessage.media_url || msg.media_url } : msg)));
         })
         // Reactions INSERT
@@ -725,7 +891,7 @@ const Chat = () => {
         supabase.removeChannel(leadChannel);
       }
     };
-  }, [selectedLead?.id, notificationSoundEnabled]);
+  }, [selectedLead?.id, selectedMembership?.whatsapp_instance_id, notificationSoundEnabled]);
 
   // Auto-scroll — skip when prepending older messages (loadMore) to preserve position
   useEffect(() => {
@@ -733,6 +899,39 @@ const Chat = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Carrega historico read-only do canal de origem quando a membership
+  // selecionada eh 'transferred'. Bounded por limit(200).
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!selectedMembership
+        || selectedMembership.source !== 'transferred'
+        || !selectedMembership.transferred_from_instance_id
+        || !selectedMembership.transferred_at) {
+        setPreTransferMessages([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('mensagens_chat')
+        .select('*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)')
+        .eq('id_lead', selectedMembership.lead_id)
+        .eq('whatsapp_instance_id', selectedMembership.transferred_from_instance_id)
+        .lt('data_hora', selectedMembership.transferred_at)
+        .order('data_hora', { ascending: true })
+        .limit(200);
+
+      if (cancelled) return;
+      if (error) {
+        console.error('loadPreTransferHistory error:', error);
+        setPreTransferMessages([]);
+        return;
+      }
+      setPreTransferMessages(parseMessages(data || []));
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [selectedMembership?.lead_id, selectedMembership?.whatsapp_instance_id, selectedMembership?.source, selectedMembership?.transferred_from_instance_id, selectedMembership?.transferred_at]);
 
   // Search navigation
   useEffect(() => {
@@ -763,19 +962,14 @@ const Chat = () => {
       setOrgId(organizationId);
       orgIdRef.current = organizationId;
 
-      // Build leads query - RLS policy handles role-based filtering automatically
-      // Admins/Owners see all leads, Members see only assigned leads via RLS
-      const leadsQuery = supabase
-        .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id, whatsapp_instance_id")
-        .eq("organization_id", organizationId)
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false })
-        .limit(300);
+      // Leads agora vem do useLeadMemberships (1 card por par lead × canal).
+      // Triggera o fetch do hook; os states leads/presence/leadTagsMap/
+      // responsiblesMap sao populados por useEffects separados que observam
+      // membershipCards / leadsFromMemberships.
+      await reloadMemberships();
 
-      // Execute all queries in parallel
-      const [leadsResult, tagsResult, profileResult] = await Promise.all([
-        leadsQuery,
+      // Tags da org + preferencia de som (independentes dos leads)
+      const [tagsResult, profileResult] = await Promise.all([
         supabase
           .from("lead_tags")
           .select("*")
@@ -788,10 +982,6 @@ const Chat = () => {
           .single()
       ]);
 
-      // Process leads
-      const leadsData = leadsResult.data || [];
-      setLeads(leadsData);
-
       // Load connected channels for channel selector and colored bars
       const { data: channelsData } = await supabase
         .from("whatsapp_instances")
@@ -801,15 +991,6 @@ const Chat = () => {
         .order("created_at", { ascending: true });
       channelsRef.current = (channelsData || []) as any[];
 
-      // Set presence status
-      const initialPresence = new Map<string, PresenceInfo>();
-      leadsData.forEach((lead) => {
-        if (lead.is_online !== null || lead.last_seen) {
-          initialPresence.set(lead.id, { isOnline: !!lead.is_online, lastSeen: lead.last_seen || undefined });
-        }
-      });
-      setPresenceStatus(initialPresence);
-
       // Set tags
       setAvailableTags(tagsResult.data || []);
 
@@ -818,59 +999,8 @@ const Chat = () => {
         setNotificationSoundEnabled(profileResult.data.notification_sound_enabled ?? true);
       }
 
-      // Load tag assignments and responsibles in parallel (after we have lead IDs)
-      if (leadsData.length > 0) {
-        // Get unique responsible user IDs
-        const responsibleUserIds = [...new Set(
-          leadsData
-            .map(l => l.responsavel_user_id)
-            .filter((id): id is string => !!id)
-        )];
-
-        const [tagAssignmentsResult, responsiblesResult, rpcChatResult] = await Promise.all([
-          supabase
-            .from("lead_tag_assignments")
-            .select("lead_id, tag_id")
-            .in("lead_id", leadsData.map(l => l.id)),
-          responsibleUserIds.length > 0
-            ? supabase
-              .from("profiles")
-              .select("user_id, full_name, avatar_url")
-              .in("user_id", responsibleUserIds)
-            : Promise.resolve({ data: [] }),
-          supabase.rpc("get_organization_members_masked"),
-        ]);
-
-        // Build RPC names fallback map
-        const rpcChatNamesMap: Record<string, string | null> = {};
-        (rpcChatResult.data || []).forEach((m: any) => { if (m.user_id) rpcChatNamesMap[m.user_id] = m.full_name; });
-
-        // Set tag assignments
-        const newTagMap = new Map<string, string[]>();
-        tagAssignmentsResult.data?.forEach((assignment) => {
-          const current = newTagMap.get(assignment.lead_id) || [];
-          newTagMap.set(assignment.lead_id, [...current, assignment.tag_id]);
-        });
-        setLeadTagsMap(newTagMap);
-
-        // Set responsibles map
-        const newResponsiblesMap = new Map<string, { full_name: string; avatar_url: string | null }>();
-        responsiblesResult.data?.forEach((profile) => {
-          if (profile.user_id) {
-            newResponsiblesMap.set(profile.user_id, {
-              full_name: profile.full_name || rpcChatNamesMap[profile.user_id] || "Sem nome",
-              avatar_url: profile.avatar_url
-            });
-          }
-        });
-        // Add entries for users in RPC but not in profiles
-        (rpcChatResult.data || []).forEach((m: any) => {
-          if (m.user_id && !newResponsiblesMap.has(m.user_id) && responsibleUserIds.includes(m.user_id)) {
-            newResponsiblesMap.set(m.user_id, { full_name: m.full_name || "Sem nome", avatar_url: null });
-          }
-        });
-        setResponsiblesMap(newResponsiblesMap);
-      }
+      // Tag assignments + responsibles ficam num useEffect separado
+      // (loadLeadDerivedData) dependente de leadsFromMemberships.
     } catch (error) {
       toast({ title: "Erro", description: "Não foi possível carregar os contatos", variant: "destructive" });
     } finally {
@@ -927,13 +1057,23 @@ const Chat = () => {
     setHasMoreMessages(false);
     oldestMessageTimeRef.current = null;
     try {
-      // Load last MESSAGE_PAGE_SIZE messages (most recent first), then reverse for display
-      const { data, error } = await supabase
+      // Filtro por canal: msgs com whatsapp_instance_id = canal atual.
+      // Fallback OR whatsapp_instance_id IS NULL para mensagens antigas
+      // (pre-backfill / pre-feature) que aparecem em qualquer canal.
+      const currentChannel = selectedMembership?.whatsapp_instance_id;
+
+      let query = supabase
         .from("mensagens_chat")
         .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
         .eq("id_lead", leadId)
         .order("data_hora", { ascending: false })
         .limit(MESSAGE_PAGE_SIZE);
+
+      if (currentChannel) {
+        query = query.or(`whatsapp_instance_id.eq.${currentChannel},whatsapp_instance_id.is.null`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
       const reversed = (data || []).slice().reverse();
@@ -972,13 +1112,21 @@ const Chat = () => {
     isLoadingMoreRef.current = true;
     setLoadingMoreMessages(true);
     try {
-      const { data, error } = await supabase
+      const currentChannel = selectedMembership?.whatsapp_instance_id;
+
+      let mmQuery = supabase
         .from("mensagens_chat")
         .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
         .eq("id_lead", selectedLead.id)
         .lt("data_hora", oldestMessageTimeRef.current)
         .order("data_hora", { ascending: false })
         .limit(MESSAGE_PAGE_SIZE);
+
+      if (currentChannel) {
+        mmQuery = mmQuery.or(`whatsapp_instance_id.eq.${currentChannel},whatsapp_instance_id.is.null`);
+      }
+
+      const { data, error } = await mmQuery;
       if (error) throw error;
 
       const reversed = (data || []).slice().reverse();
@@ -1064,14 +1212,18 @@ const Chat = () => {
       // para users multi-org (.single() falhava com PGRST116).
       if (!organizationId) throw new Error("Organização não encontrada");
 
+      // Canal de envio: prioridade para selectedMembership (canal da
+      // conversa aberta); fallback para lead.whatsapp_instance_id.
+      const sendInstanceId = selectedMembership?.whatsapp_instance_id || selectedLead.whatsapp_instance_id;
+
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
         .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
-      if (selectedLead.whatsapp_instance_id) {
-        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      if (sendInstanceId) {
+        instanceQuery = instanceQuery.eq("id", sendInstanceId);
       }
 
       const { data: instanceData } = await instanceQuery.maybeSingle();
@@ -1094,7 +1246,7 @@ const Chat = () => {
       setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? { ...msg, sendError: true, errorMessage: error instanceof Error ? error.message : "Erro desconhecido" } : msg)));
       toast({ title: "Erro ao enviar", description: error instanceof Error ? error.message : "Erro desconhecido", variant: "destructive" });
     }
-  }, [selectedLead, currentUserName, toast, replyingTo]);
+  }, [selectedLead, selectedMembership, organizationId, currentUserName, toast, replyingTo]);
 
   const sendAudio = useCallback(async (audioBlob: Blob) => {
     if (!selectedLead || sendingAudio) return;
@@ -1109,14 +1261,16 @@ const Chat = () => {
       // para users multi-org (.single() falhava com PGRST116).
       if (!organizationId) throw new Error("Organização não encontrada");
 
+      const sendInstanceIdAudio = selectedMembership?.whatsapp_instance_id || selectedLead.whatsapp_instance_id;
+
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
         .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
-      if (selectedLead.whatsapp_instance_id) {
-        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      if (sendInstanceIdAudio) {
+        instanceQuery = instanceQuery.eq("id", sendInstanceIdAudio);
       }
 
       const { data: instanceData } = await instanceQuery.maybeSingle();
@@ -1169,7 +1323,7 @@ const Chat = () => {
       setSendingAudio(false);
       setAudioBlob(null);
     }
-  }, [selectedLead, sendingAudio, opusRecorder.recordingTime, toast]);
+  }, [selectedLead, selectedMembership, organizationId, sendingAudio, opusRecorder.recordingTime, toast]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1195,14 +1349,16 @@ const Chat = () => {
         // para users multi-org (.single() falhava com PGRST116).
         if (!organizationId) throw new Error("Organização não encontrada");
 
+        const sendInstanceIdFile = selectedMembership?.whatsapp_instance_id || selectedLead.whatsapp_instance_id;
+
         let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
         .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
-      if (selectedLead.whatsapp_instance_id) {
-        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      if (sendInstanceIdFile) {
+        instanceQuery = instanceQuery.eq("id", sendInstanceIdFile);
       }
 
       const { data: instanceData } = await instanceQuery.maybeSingle();
@@ -1251,7 +1407,7 @@ const Chat = () => {
       setSendingFile(false);
     };
     reader.readAsDataURL(file);
-  }, [selectedLead, toast]);
+  }, [selectedLead, selectedMembership, organizationId, toast]);
 
   const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!user) return;
@@ -1422,6 +1578,44 @@ const Chat = () => {
   // recebe `null` (visibilidade total). Member sem atribuicoes recebe Set vazio
   // — nesse caso so verao leads sem canal (nao-WhatsApp).
   const { assignedChannelIds, loading: assignmentsLoading, hasFullAccess } = useAssignedChannels();
+
+  // Filtros operando sobre membership cards (1 card por par lead × canal).
+  // Substitui o baseFilteredLeads no rendering — owner/admin com lead em 2
+  // canais ve 2 cards distintos. Owner/admin com WCM = todos memberships;
+  // member ja recebe filtrado pelo hook.
+  const baseFilteredMemberships = useMemo(() => membershipCards.filter((card) => {
+    const matchesSearch = card.nome_lead.toLowerCase().includes(searchQuery.toLowerCase())
+      || card.telefone_lead.includes(searchQuery);
+    const matchesChannel = !selectedChannelId || card.whatsapp_instance_id === selectedChannelId;
+    if (selectedTagIds.length > 0) {
+      const leadTags = leadTagsMap.get(card.lead_id) || [];
+      return matchesSearch && matchesChannel && selectedTagIds.some((tagId) => leadTags.includes(tagId));
+    }
+    return matchesSearch && matchesChannel;
+  }), [membershipCards, searchQuery, selectedTagIds, leadTagsMap, selectedChannelId]);
+
+  const pinnedFilteredMemberships = useMemo(
+    () => baseFilteredMemberships.filter((c) => pinnedLeads.includes(c.lead_id))
+      .sort((a, b) => pinnedLeads.indexOf(a.lead_id) - pinnedLeads.indexOf(b.lead_id)),
+    [baseFilteredMemberships, pinnedLeads]
+  );
+
+  const unpinnedFilteredMemberships = useMemo(() => {
+    return baseFilteredMemberships.filter((c) => !pinnedLeads.includes(c.lead_id)).sort((a, b) => {
+      if (a.lead_id === lockedLeadId) return -1;
+      if (b.lead_id === lockedLeadId) return 1;
+      switch (filterOption) {
+        case "alphabetical": return a.nome_lead.localeCompare(b.nome_lead);
+        case "created":
+          return new Date(b.lead_created_at).getTime() - new Date(a.lead_created_at).getTime();
+        case "last_interaction":
+          return new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime();
+        default:
+          return new Date(b.last_message_at || b.lead_updated_at || 0).getTime()
+            - new Date(a.last_message_at || a.lead_updated_at || 0).getTime();
+      }
+    });
+  }, [baseFilteredMemberships, pinnedLeads, lockedLeadId, filterOption]);
 
   const baseFilteredLeads = useMemo(() => leads.filter((lead) => {
     const matchesSearch = lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) || lead.telefone_lead.includes(searchQuery);
@@ -1619,53 +1813,82 @@ const Chat = () => {
             <>
               <TabsContent value="all" className="flex-1 mt-0 min-h-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col">
                 <ScrollArea className="flex-1">
-                  {unpinnedFilteredLeads.length === 0 ? (
+                  {unpinnedFilteredMemberships.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">Nenhum contato encontrado</div>
                   ) : (
                     <div className="space-y-1 p-2">
-                      {unpinnedFilteredLeads.map((lead) => (
-                        <ContextMenu key={lead.id}>
-                          <ContextMenuTrigger asChild>
-                            <div className="relative">
-                              <ChatLeadItem
-                                lead={lead}
-                                isSelected={selectedLead?.id === lead.id}
-                                isPinned={false}
-                                isLocked={lead.id === lockedLeadId}
-                                presenceStatus={presenceStatus.get(lead.id)}
-                                tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
-                                responsibleInfo={permissions.canViewAllLeads && lead.responsavel_user_id ? responsiblesMap.get(lead.responsavel_user_id) : undefined}
-                                onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
-                                onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
-                              />
-                              {getChannelColor(lead) && (
-                                <div
-                                  className="absolute right-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-l"
-                                  style={{ backgroundColor: getChannelColor(lead) || undefined }}
-                                  title={channelsRef.current.find(c => c.id === lead.whatsapp_instance_id)?.channel_name || ''}
+                      {unpinnedFilteredMemberships.map((card) => {
+                        const leadObj = leadsFromMemberships.find((l: any) => l.id === card.lead_id) || {
+                          id: card.lead_id,
+                          nome_lead: card.nome_lead,
+                          telefone_lead: card.telefone_lead,
+                          email: card.email,
+                          avatar_url: card.avatar_url,
+                          is_online: card.is_online,
+                          last_seen: card.last_seen,
+                          last_message_at: card.last_message_at,
+                          responsavel_user_id: card.responsavel_user_id,
+                          whatsapp_instance_id: card.lead_whatsapp_instance_id,
+                          organization_id: card.organization_id,
+                        } as Lead;
+                        const channelColor = channelsRef.current.find((c: any) => c.id === card.whatsapp_instance_id)?.channel_color || null;
+                        const channelName = channelsRef.current.find((c: any) => c.id === card.whatsapp_instance_id)?.channel_name || '';
+                        const isSelected = selectedMembership?.lead_id === card.lead_id
+                          && selectedMembership?.whatsapp_instance_id === card.whatsapp_instance_id;
+                        return (
+                          <ContextMenu key={`${card.lead_id}-${card.whatsapp_instance_id}`}>
+                            <ContextMenuTrigger asChild>
+                              <div className="relative">
+                                <ChatLeadItem
+                                  lead={leadObj as Lead}
+                                  isSelected={isSelected}
+                                  isPinned={false}
+                                  isLocked={card.lead_id === lockedLeadId}
+                                  presenceStatus={presenceStatus.get(card.lead_id)}
+                                  tagVersion={(leadTagsMap.get(card.lead_id) || []).join(",")}
+                                  responsibleInfo={permissions.canViewAllLeads && card.responsavel_user_id ? responsiblesMap.get(card.responsavel_user_id) : undefined}
+                                  onClick={() => {
+                                    setSelectedLead(leadObj as Lead);
+                                    setSelectedMembership(card);
+                                    setLockedLeadId(card.lead_id);
+                                    refreshPresenceForLead(leadObj as Lead);
+                                  }}
+                                  onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
                                 />
-                              )}
-                            </div>
-                          </ContextMenuTrigger>
-                          <ContextMenuContent className="w-56">
-                            <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
-                              <Pin className="mr-2 h-4 w-4" />
-                              Fixar conversa
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem onClick={() => { setSelectedLead(lead); setLeadTagsOpen(true); }}>
-                              <Tag className="mr-2 h-4 w-4" />
-                              Adicionar etiquetas
-                            </ContextMenuItem>
-                            {(leadTagsMap.get(lead.id)?.length || 0) > 0 && (
-                              <ContextMenuItem onClick={() => handleRemoveAllTags(lead.id)}>
-                                <Tag className="mr-2 h-4 w-4" />
-                                Remover etiquetas
+                                {channelColor && (
+                                  <div
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-l"
+                                    style={{ backgroundColor: channelColor }}
+                                    title={channelName}
+                                  />
+                                )}
+                              </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-56">
+                              <ContextMenuItem onClick={() => togglePinLead(card.lead_id)}>
+                                <Pin className="mr-2 h-4 w-4" />
+                                Fixar conversa
                               </ContextMenuItem>
-                            )}
-                          </ContextMenuContent>
-                        </ContextMenu>
-                      ))}
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => openTransferDialog(card)}>
+                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                Transferir para outro canal...
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => { setSelectedLead(leadObj as Lead); setSelectedMembership(card); setLeadTagsOpen(true); }}>
+                                <Tag className="mr-2 h-4 w-4" />
+                                Adicionar etiquetas
+                              </ContextMenuItem>
+                              {(leadTagsMap.get(card.lead_id)?.length || 0) > 0 && (
+                                <ContextMenuItem onClick={() => handleRemoveAllTags(card.lead_id)}>
+                                  <Tag className="mr-2 h-4 w-4" />
+                                  Remover etiquetas
+                                </ContextMenuItem>
+                              )}
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        );
+                      })}
                     </div>
                   )}
                 </ScrollArea>
@@ -1793,6 +2016,55 @@ const Chat = () => {
                           </Button>
                         </div>
                       )}
+
+                      {/* Read-only history: msgs do canal de origem antes do transferred_at */}
+                      {preTransferMessages.length > 0 && (
+                        <div className="bg-muted/30 -mx-2 px-2 py-2 rounded">
+                          <div className="px-2 py-1 text-xs text-muted-foreground italic">
+                            📋 Histórico do canal anterior (somente leitura)
+                          </div>
+                          {preTransferMessages.map((m) => (
+                            <div key={`pre-${m.id}`} className="opacity-70 pointer-events-none select-none">
+                              <MessageBubble
+                                message={m}
+                                lead={selectedLead!}
+                                isPinned={false}
+                                reactions={[]}
+                                currentUserId={user?.id}
+                                isSearchMatch={false}
+                                isCurrentSearchResult={false}
+                                dropdownOpen={false}
+                                reactionPopoverOpen={false}
+                                onToggleDropdown={() => {}}
+                                onToggleReactionPopover={() => {}}
+                                onToggleReaction={() => {}}
+                                onTogglePin={() => {}}
+                                onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
+                                onReply={() => {}}
+                                onDelete={() => {}}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Divider de transferencia */}
+                      {selectedMembership?.source === 'transferred' && selectedMembership.transferred_at && (
+                        <TransferDivider
+                          transferredAt={selectedMembership.transferred_at}
+                          transferredByName={
+                            (selectedMembership.transferred_by_user_id
+                              ? responsiblesMap.get(selectedMembership.transferred_by_user_id)?.full_name
+                              : null) || null
+                          }
+                          fromChannelName={
+                            channelsRef.current.find((c: any) => c.id === selectedMembership.transferred_from_instance_id)?.channel_name
+                            || channelsRef.current.find((c: any) => c.id === selectedMembership.transferred_from_instance_id)?.instance_name
+                            || 'canal anterior'
+                          }
+                        />
+                      )}
+
                       {messages.map((message, index) => {
                         const isSearchMatch = messageSearchQuery.trim() && message.corpo_mensagem.toLowerCase().includes(messageSearchQuery.toLowerCase());
                         let searchResultIndex = -1;
@@ -1879,6 +2151,18 @@ const Chat = () => {
 
       {/* Modals */}
       <ManageTagsDialog open={manageTagsOpen} onOpenChange={setManageTagsOpen} />
+
+      {/* Modal de transferencia entre canais */}
+      {transferDialogState.leadId && transferDialogState.channelId && organizationId && (
+        <TransferLeadDialog
+          open={transferDialogState.open}
+          onOpenChange={(open) => setTransferDialogState((s) => ({ ...s, open }))}
+          leadId={transferDialogState.leadId}
+          leadName={transferDialogState.leadName}
+          organizationId={organizationId}
+          currentChannelId={transferDialogState.channelId}
+        />
+      )}
 
       <Dialog open={leadTagsOpen && !!selectedLead} onOpenChange={setLeadTagsOpen}>
         <DialogContent className="max-w-sm">
