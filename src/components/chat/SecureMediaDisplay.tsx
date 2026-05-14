@@ -64,12 +64,15 @@ interface SecureAudioProps {
   mediaUrl: string | null | undefined;
   mimetype?: string;
   duration?: number;
+  /** Quando true, usa estilo "saída" no AudioPlayer (bolha teal escura). */
+  outgoing?: boolean;
 }
 
-export const SecureAudio = memo(function SecureAudio({ 
-  mediaUrl, 
-  mimetype, 
-  duration 
+export const SecureAudio = memo(function SecureAudio({
+  mediaUrl,
+  mimetype,
+  duration,
+  outgoing,
 }: SecureAudioProps) {
   const { signedUrl, loading, error } = useSignedMediaUrl(mediaUrl);
 
@@ -103,6 +106,7 @@ export const SecureAudio = memo(function SecureAudio({
       audioUrl={signedUrl || mediaUrl!}
       mimetype={mimetype}
       duration={duration}
+      outgoing={outgoing}
     />
   );
 });
