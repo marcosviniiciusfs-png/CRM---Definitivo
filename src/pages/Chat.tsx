@@ -635,6 +635,22 @@ const Chat = () => {
             return newMap;
           });
         })
+        // lead_channel_memberships: novas memberships (inbound automatico do
+        // webhook, ou transferred do edge transfer-lead-to-channel) e updates
+        // (last_message_at) precisam refletir na sidebar em tempo real.
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_channel_memberships" }, (payload) => {
+          const m = payload.new as any;
+          if (m.organization_id !== orgIdRef.current) return;
+          reloadMemberships();
+        })
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "lead_channel_memberships" }, (payload) => {
+          const m = payload.new as any;
+          if (m.organization_id !== orgIdRef.current) return;
+          reloadMemberships();
+        })
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "lead_channel_memberships" }, () => {
+          reloadMemberships();
+        })
         .subscribe((status, err) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.warn(`⚠️ Realtime channel ${globalChannelName} status: ${status}`, err);
