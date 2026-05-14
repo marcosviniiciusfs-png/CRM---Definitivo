@@ -1471,6 +1471,44 @@ const Chat = () => {
   // — nesse caso so verao leads sem canal (nao-WhatsApp).
   const { assignedChannelIds, loading: assignmentsLoading, hasFullAccess } = useAssignedChannels();
 
+  // Filtros operando sobre membership cards (1 card por par lead × canal).
+  // Substitui o baseFilteredLeads no rendering — owner/admin com lead em 2
+  // canais ve 2 cards distintos. Owner/admin com WCM = todos memberships;
+  // member ja recebe filtrado pelo hook.
+  const baseFilteredMemberships = useMemo(() => membershipCards.filter((card) => {
+    const matchesSearch = card.nome_lead.toLowerCase().includes(searchQuery.toLowerCase())
+      || card.telefone_lead.includes(searchQuery);
+    const matchesChannel = !selectedChannelId || card.whatsapp_instance_id === selectedChannelId;
+    if (selectedTagIds.length > 0) {
+      const leadTags = leadTagsMap.get(card.lead_id) || [];
+      return matchesSearch && matchesChannel && selectedTagIds.some((tagId) => leadTags.includes(tagId));
+    }
+    return matchesSearch && matchesChannel;
+  }), [membershipCards, searchQuery, selectedTagIds, leadTagsMap, selectedChannelId]);
+
+  const pinnedFilteredMemberships = useMemo(
+    () => baseFilteredMemberships.filter((c) => pinnedLeads.includes(c.lead_id))
+      .sort((a, b) => pinnedLeads.indexOf(a.lead_id) - pinnedLeads.indexOf(b.lead_id)),
+    [baseFilteredMemberships, pinnedLeads]
+  );
+
+  const unpinnedFilteredMemberships = useMemo(() => {
+    return baseFilteredMemberships.filter((c) => !pinnedLeads.includes(c.lead_id)).sort((a, b) => {
+      if (a.lead_id === lockedLeadId) return -1;
+      if (b.lead_id === lockedLeadId) return 1;
+      switch (filterOption) {
+        case "alphabetical": return a.nome_lead.localeCompare(b.nome_lead);
+        case "created":
+          return new Date(b.lead_created_at).getTime() - new Date(a.lead_created_at).getTime();
+        case "last_interaction":
+          return new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime();
+        default:
+          return new Date(b.last_message_at || b.lead_updated_at || 0).getTime()
+            - new Date(a.last_message_at || a.lead_updated_at || 0).getTime();
+      }
+    });
+  }, [baseFilteredMemberships, pinnedLeads, lockedLeadId, filterOption]);
+
   const baseFilteredLeads = useMemo(() => leads.filter((lead) => {
     const matchesSearch = lead.nome_lead.toLowerCase().includes(searchQuery.toLowerCase()) || lead.telefone_lead.includes(searchQuery);
     const matchesChannel = !selectedChannelId || lead.whatsapp_instance_id === selectedChannelId;
@@ -1667,53 +1705,77 @@ const Chat = () => {
             <>
               <TabsContent value="all" className="flex-1 mt-0 min-h-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col">
                 <ScrollArea className="flex-1">
-                  {unpinnedFilteredLeads.length === 0 ? (
+                  {unpinnedFilteredMemberships.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">Nenhum contato encontrado</div>
                   ) : (
                     <div className="space-y-1 p-2">
-                      {unpinnedFilteredLeads.map((lead) => (
-                        <ContextMenu key={lead.id}>
-                          <ContextMenuTrigger asChild>
-                            <div className="relative">
-                              <ChatLeadItem
-                                lead={lead}
-                                isSelected={selectedLead?.id === lead.id}
-                                isPinned={false}
-                                isLocked={lead.id === lockedLeadId}
-                                presenceStatus={presenceStatus.get(lead.id)}
-                                tagVersion={(leadTagsMap.get(lead.id) || []).join(",")}
-                                responsibleInfo={permissions.canViewAllLeads && lead.responsavel_user_id ? responsiblesMap.get(lead.responsavel_user_id) : undefined}
-                                onClick={() => { setSelectedLead(lead); setLockedLeadId(lead.id); refreshPresenceForLead(lead); }}
-                                onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
-                              />
-                              {getChannelColor(lead) && (
-                                <div
-                                  className="absolute right-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-l"
-                                  style={{ backgroundColor: getChannelColor(lead) || undefined }}
-                                  title={channelsRef.current.find(c => c.id === lead.whatsapp_instance_id)?.channel_name || ''}
+                      {unpinnedFilteredMemberships.map((card) => {
+                        const leadObj = leadsFromMemberships.find((l: any) => l.id === card.lead_id) || {
+                          id: card.lead_id,
+                          nome_lead: card.nome_lead,
+                          telefone_lead: card.telefone_lead,
+                          email: card.email,
+                          avatar_url: card.avatar_url,
+                          is_online: card.is_online,
+                          last_seen: card.last_seen,
+                          last_message_at: card.last_message_at,
+                          responsavel_user_id: card.responsavel_user_id,
+                          whatsapp_instance_id: card.lead_whatsapp_instance_id,
+                          organization_id: card.organization_id,
+                        } as Lead;
+                        const channelColor = channelsRef.current.find((c: any) => c.id === card.whatsapp_instance_id)?.channel_color || null;
+                        const channelName = channelsRef.current.find((c: any) => c.id === card.whatsapp_instance_id)?.channel_name || '';
+                        const isSelected = selectedMembership?.lead_id === card.lead_id
+                          && selectedMembership?.whatsapp_instance_id === card.whatsapp_instance_id;
+                        return (
+                          <ContextMenu key={`${card.lead_id}-${card.whatsapp_instance_id}`}>
+                            <ContextMenuTrigger asChild>
+                              <div className="relative">
+                                <ChatLeadItem
+                                  lead={leadObj as Lead}
+                                  isSelected={isSelected}
+                                  isPinned={false}
+                                  isLocked={card.lead_id === lockedLeadId}
+                                  presenceStatus={presenceStatus.get(card.lead_id)}
+                                  tagVersion={(leadTagsMap.get(card.lead_id) || []).join(",")}
+                                  responsibleInfo={permissions.canViewAllLeads && card.responsavel_user_id ? responsiblesMap.get(card.responsavel_user_id) : undefined}
+                                  onClick={() => {
+                                    setSelectedLead(leadObj as Lead);
+                                    setSelectedMembership(card);
+                                    setLockedLeadId(card.lead_id);
+                                    refreshPresenceForLead(leadObj as Lead);
+                                  }}
+                                  onAvatarClick={(url, name) => setViewingAvatar({ url, name })}
                                 />
-                              )}
-                            </div>
-                          </ContextMenuTrigger>
-                          <ContextMenuContent className="w-56">
-                            <ContextMenuItem onClick={() => togglePinLead(lead.id)}>
-                              <Pin className="mr-2 h-4 w-4" />
-                              Fixar conversa
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem onClick={() => { setSelectedLead(lead); setLeadTagsOpen(true); }}>
-                              <Tag className="mr-2 h-4 w-4" />
-                              Adicionar etiquetas
-                            </ContextMenuItem>
-                            {(leadTagsMap.get(lead.id)?.length || 0) > 0 && (
-                              <ContextMenuItem onClick={() => handleRemoveAllTags(lead.id)}>
-                                <Tag className="mr-2 h-4 w-4" />
-                                Remover etiquetas
+                                {channelColor && (
+                                  <div
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-l"
+                                    style={{ backgroundColor: channelColor }}
+                                    title={channelName}
+                                  />
+                                )}
+                              </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-56">
+                              <ContextMenuItem onClick={() => togglePinLead(card.lead_id)}>
+                                <Pin className="mr-2 h-4 w-4" />
+                                Fixar conversa
                               </ContextMenuItem>
-                            )}
-                          </ContextMenuContent>
-                        </ContextMenu>
-                      ))}
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => { setSelectedLead(leadObj as Lead); setSelectedMembership(card); setLeadTagsOpen(true); }}>
+                                <Tag className="mr-2 h-4 w-4" />
+                                Adicionar etiquetas
+                              </ContextMenuItem>
+                              {(leadTagsMap.get(card.lead_id)?.length || 0) > 0 && (
+                                <ContextMenuItem onClick={() => handleRemoveAllTags(card.lead_id)}>
+                                  <Tag className="mr-2 h-4 w-4" />
+                                  Remover etiquetas
+                                </ContextMenuItem>
+                              )}
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        );
+                      })}
                     </div>
                   )}
                 </ScrollArea>
