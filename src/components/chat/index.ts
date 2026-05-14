@@ -10,3 +10,4 @@ export * from "./types";
 export { BroadcastPanel } from "./BroadcastPanel";
 export { GroupListPanel } from "./GroupListPanel";
 export { GroupConversationView } from "./GroupConversationView";
+export { TransferLeadDialog } from "./TransferLeadDialog";
