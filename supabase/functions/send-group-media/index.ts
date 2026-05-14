@@ -185,12 +185,17 @@ serve(async (req) => {
       };
     };
 
+    // Strip data URL prefix se vier do frontend (espelho do chat privado).
+    // Evolution espera base64 puro — se mandar "data:audio/...;base64,XYZ"
+    // ela tenta decodificar a string inteira e rejeita com 4xx → nosso 502.
+    const cleanBase64 = media_base64.replace(/^data:[^;]+;base64,/, "");
+
     // ============== AUDIO PTT (voice note) ==============
     if (media_type === "audio" && is_ptt) {
       const pttUrl = `${cleanApiUrl}/message/sendWhatsAppAudio/${encodeURIComponent(instance_name)}`;
       const pttPayload: Record<string, unknown> = {
         number: group_id,
-        audio: media_base64,
+        audio: cleanBase64,
         delay: 0,
         encoding: true,
       };
@@ -204,26 +209,34 @@ serve(async (req) => {
       });
       if (!pttResp.ok) {
         const errText = await pttResp.text().catch(() => "unknown");
+        console.error(`Evolution sendWhatsAppAudio falhou:`, pttResp.status, errText);
+        // Retorna 200 com success:false para o frontend conseguir ler a mensagem
+        // de erro real no toast (supabase-js esconde o body de respostas non-2xx).
         return new Response(
-          JSON.stringify({ success: false, error: `Evolution API ${pttResp.status}: ${errText.slice(0, 300)}` }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ success: false, error: `Evolution ${pttResp.status}: ${errText.slice(0, 300)}` }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const pttData = await pttResp.json().catch(() => ({}));
       const messageId: string | null = pttData?.key?.id || null;
 
-      // Upload para Storage (mesmo formato que webhook usa para audios recebidos).
+      // Upload para Storage. Usa o mime REAL (vindo do frontend) para o player
+      // do navegador conseguir decodificar — se gravamos WebM e rotularmos
+      // como OGG, o player do chat nao toca direito.
+      const actualMime = (mime_type && typeof mime_type === "string")
+        ? mime_type
+        : "audio/ogg; codecs=opus";
+      const ext = actualMime.includes("webm") ? "webm" : "ogg";
       let storageUrl: string | null = null;
       try {
-        const base64Clean = media_base64.replace(/^data:[^;]+;base64,/, "");
-        const bin = atob(base64Clean);
+        const bin = atob(cleanBase64);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         const groupDigits = group_id.replace(/[^0-9]/g, "");
-        const filePath = `groups/${groupDigits}/${messageId || `ptt-${Date.now()}`}.ogg`;
+        const filePath = `groups/${groupDigits}/${messageId || `ptt-${Date.now()}`}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("chat-media")
-          .upload(filePath, bytes, { contentType: "audio/ogg", upsert: true });
+          .upload(filePath, bytes, { contentType: actualMime.split(";")[0].trim(), upsert: true });
         if (!upErr) {
           const { data: pub } = supabase.storage.from("chat-media").getPublicUrl(filePath);
           storageUrl = pub.publicUrl;
@@ -247,7 +260,7 @@ serve(async (req) => {
           media_url: storageUrl,
           media_type: "audio",
           media_metadata: {
-            mimetype: "audio/ogg; codecs=opus",
+            mimetype: actualMime,
             ptt: true,
             ...(sanitizedMentions.length > 0 ? { mentionedJid: sanitizedMentions } : {}),
           },
@@ -292,7 +305,7 @@ serve(async (req) => {
       mediatype: media_type,
       mimetype: finalMime,
       caption: caption || "",
-      media: media_base64,
+      media: cleanBase64,
       fileName: finalFileName,
     };
     if (sanitizedMentions.length > 0) sendPayload.mentioned = sanitizedMentions;
@@ -306,9 +319,10 @@ serve(async (req) => {
     });
     if (!sendResp.ok) {
       const errText = await sendResp.text().catch(() => "unknown");
+      console.error(`Evolution sendMedia falhou:`, sendResp.status, errText);
       return new Response(
-        JSON.stringify({ success: false, error: `Evolution API ${sendResp.status}: ${errText.slice(0, 300)}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: `Evolution ${sendResp.status}: ${errText.slice(0, 300)}` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     const sendData = await sendResp.json().catch(() => ({}));
@@ -317,8 +331,7 @@ serve(async (req) => {
     // Upload para Storage (URL permanente, similar ao chat privado).
     let storageUrl: string | null = null;
     try {
-      const base64Clean = media_base64.replace(/^data:[^;]+;base64,/, "");
-      const bin = atob(base64Clean);
+      const bin = atob(cleanBase64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const groupDigits = group_id.replace(/[^0-9]/g, "");

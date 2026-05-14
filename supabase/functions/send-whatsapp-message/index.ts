@@ -382,6 +382,9 @@ serve(async (req) => {
         console.log('🔄 Status da instância atualizado para DISCONNECTED');
       }
 
+      // 200 + success:false: deixa o toast do frontend mostrar o erro real
+      // (supabase-js esconde body de respostas non-2xx). 404 fica preservado
+      // pois e usado pra detectar "instancia desconectada" no frontend.
       return new Response(
         JSON.stringify({
           success: false,
@@ -389,7 +392,7 @@ serve(async (req) => {
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: evolutionResponse.status === 404 ? 404 : 502,
+          status: evolutionResponse.status === 404 ? 404 : 200,
         },
       );
     }

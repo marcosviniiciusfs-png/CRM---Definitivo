@@ -67,8 +67,12 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
         console.log('🛑 Gravação parada. Chunks:', audioChunks.length);
 
         if (audioChunks.length > 0) {
-          // Forçamos o tipo OGG/OPUS para maximizar compatibilidade com backend/PTT.
-          const finalBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+          // CRITICAL: use o mimeType REAL com o qual gravamos. Mentir aqui (rotular
+          // como OGG bytes que sao WebM) quebra a conversao server-side da Evolution
+          // — FFmpeg recebe input declarado como OGG, ve container WebM, gera audio
+          // silencioso ou rejeita totalmente (502).
+          // O caller usa `blob.type` para informar o mime correto para o backend.
+          const finalBlob = new Blob(audioChunks, { type: mimeType });
 
           console.log('✅ Blob de áudio criado:', {
             size: finalBlob.size,
