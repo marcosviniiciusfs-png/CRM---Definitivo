@@ -187,8 +187,14 @@ serve(async (req) => {
 
     // Strip data URL prefix se vier do frontend (espelho do chat privado).
     // Evolution espera base64 puro — se mandar "data:audio/...;base64,XYZ"
-    // ela tenta decodificar a string inteira e rejeita com 4xx → nosso 502.
-    const cleanBase64 = media_base64.replace(/^data:[^;]+;base64,/, "");
+    // ela rejeita com 400 "Owned media must be a url, base64, or valid file...".
+    // Regex anterior `^data:[^;]+;base64,` quebrava com data URLs de multiplos
+    // parametros tipo "data:audio/webm;codecs=opus;base64,XYZ" — o [^;]+ so pega
+    // ate o primeiro ';'. Agora usamos comma-based split, robusto para qualquer
+    // formato RFC 2397.
+    const cleanBase64 = media_base64.includes(",")
+      ? media_base64.slice(media_base64.indexOf(",") + 1)
+      : media_base64;
 
     // ============== AUDIO PTT (voice note) ==============
     if (media_type === "audio" && is_ptt) {
