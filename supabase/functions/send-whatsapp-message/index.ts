@@ -442,12 +442,27 @@ serve(async (req) => {
             evolution_message_id: messageId,
             status_entrega: 'SENT',
             quoted_message_id: quotedDbMessageId,
+            whatsapp_instance_id: instanceCheck.id,
           });
 
         if (dbError) {
           console.error('⚠️ Erro ao salvar no banco (mensagem foi enviada):', dbError);
         } else {
           console.log('💾 Mensagem salva no banco com sucesso');
+
+          // Atualiza last_message_at na membership do canal de envio para
+          // que a sidebar reordene corretamente. Assume membership ja existe
+          // (lead estava visivel no Chat, logo foi criada pelo webhook ou
+          // por transfer-lead-to-channel).
+          const { error: updateLcmError } = await supabase
+            .from('lead_channel_memberships')
+            .update({ last_message_at: new Date().toISOString() })
+            .eq('lead_id', leadId)
+            .eq('whatsapp_instance_id', instanceCheck.id);
+
+          if (updateLcmError) {
+            console.warn('⚠️ Falha ao atualizar last_message_at em lead_channel_memberships:', updateLcmError);
+          }
         }
       } catch (dbException) {
         console.error('⚠️ Exceção ao salvar no banco (mensagem foi enviada):', dbException);

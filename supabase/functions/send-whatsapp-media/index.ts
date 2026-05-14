@@ -198,11 +198,21 @@ serve(async (req) => {
             fileName: 'ptt.ogg',
             mimeType: 'audio/ogg; codecs=opus',
             isPTT: true
-          }
+          },
+          whatsapp_instance_id: instanceData.id,
         });
 
       if (insertError) {
         console.error('⚠️ Erro ao salvar mensagem PTT no banco:', insertError);
+      } else {
+        const { error: updateLcmError } = await supabase
+          .from('lead_channel_memberships')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('lead_id', leadId)
+          .eq('whatsapp_instance_id', instanceData.id);
+        if (updateLcmError) {
+          console.warn('⚠️ Falha ao atualizar last_message_at em lead_channel_memberships:', updateLcmError);
+        }
       }
 
       return new Response(
@@ -344,13 +354,23 @@ serve(async (req) => {
           fileName: finalFileName,
           mimeType: finalMimeType,
           fileSize: media_base64.length
-        }
+        },
+        whatsapp_instance_id: instanceData.id,
       });
 
     if (insertError) {
       console.error('⚠️ Erro ao salvar mensagem no banco:', insertError);
     } else {
       console.log('✅ Mensagem salva no banco de dados');
+
+      const { error: updateLcmError } = await supabase
+        .from('lead_channel_memberships')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('lead_id', leadId)
+        .eq('whatsapp_instance_id', instanceData.id);
+      if (updateLcmError) {
+        console.warn('⚠️ Falha ao atualizar last_message_at em lead_channel_memberships:', updateLcmError);
+      }
     }
 
     return new Response(
