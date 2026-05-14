@@ -65,6 +65,7 @@ import { ChannelSelector } from "@/components/ChannelSelector";
 import chatGif from "@/assets/chat.gif";
 import { useChatPresence } from "@/hooks/useChatPresence";
 import { useAssignedChannels, isLeadVisibleByChannel } from "@/hooks/useAssignedChannels";
+import { useLeadMemberships, type LeadMembershipCard } from "@/hooks/useLeadMemberships";
 
 const Chat = () => {
   const location = useLocation();
@@ -79,6 +80,10 @@ const Chat = () => {
   // Core state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  // Membership selecionada (par lead × canal). Quando setado em conjunto com
+  // selectedLead, define qual canal a UI esta usando para enviar/ler msgs.
+  const [selectedMembership, setSelectedMembership] = useState<LeadMembershipCard | null>(null);
+  const { cards: membershipCards, loading: membershipsLoading, reload: reloadMemberships } = useLeadMemberships();
   const [lockedLeadId, setLockedLeadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -252,6 +257,118 @@ const Chat = () => {
   useEffect(() => {
     selectedLeadRef.current = selectedLead;
   }, [selectedLead]);
+
+  // Deduplicacao membership-cards -> leads[] (1 lead por id, agregando
+  // last_message_at maximo entre canais). Mantem o estado leads compativel
+  // com o restante do componente, que ainda referencia o tipo Lead.
+  const leadsFromMemberships = useMemo<any[]>(() => {
+    const byId = new Map<string, any>();
+    for (const c of membershipCards) {
+      const existing = byId.get(c.lead_id);
+      if (!existing) {
+        byId.set(c.lead_id, {
+          id: c.lead_id,
+          nome_lead: c.nome_lead,
+          telefone_lead: c.telefone_lead,
+          email: c.email,
+          stage: c.stage,
+          avatar_url: c.avatar_url,
+          is_online: c.is_online,
+          last_seen: c.last_seen,
+          last_message_at: c.last_message_at,
+          source: c.source_lead,
+          responsavel: c.responsavel,
+          responsavel_user_id: c.responsavel_user_id,
+          created_at: c.lead_created_at,
+          updated_at: c.lead_updated_at,
+          organization_id: c.organization_id,
+          whatsapp_instance_id: c.lead_whatsapp_instance_id,
+        });
+      } else {
+        const a = existing.last_message_at ? new Date(existing.last_message_at).getTime() : 0;
+        const b = c.last_message_at ? new Date(c.last_message_at).getTime() : 0;
+        if (b > a) existing.last_message_at = c.last_message_at;
+      }
+    }
+    return Array.from(byId.values());
+  }, [membershipCards]);
+
+  // Sincroniza leads state com membership-derived leads.
+  useEffect(() => {
+    setLeads(leadsFromMemberships as Lead[]);
+  }, [leadsFromMemberships]);
+
+  // Presence map derivado dos leads (cada lead unico).
+  useEffect(() => {
+    const presenceMap = new Map<string, PresenceInfo>();
+    leadsFromMemberships.forEach((lead: any) => {
+      if (lead.is_online !== null || lead.last_seen) {
+        presenceMap.set(lead.id, { isOnline: !!lead.is_online, lastSeen: lead.last_seen || undefined });
+      }
+    });
+    setPresenceStatus(presenceMap);
+  }, [leadsFromMemberships]);
+
+  // Carrega tag assignments + responsibles map quando os leads mudam.
+  // Substitui o bloco antigo que rodava dentro de loadAllChatData.
+  useEffect(() => {
+    if (!organizationId) return;
+    if (leadsFromMemberships.length === 0) return;
+
+    let cancelled = false;
+    const load = async () => {
+      const responsibleUserIds = [...new Set(
+        leadsFromMemberships
+          .map((l: any) => l.responsavel_user_id)
+          .filter((id: any): id is string => !!id)
+      )];
+
+      const [tagAssignmentsResult, responsiblesResult, rpcChatResult] = await Promise.all([
+        supabase
+          .from("lead_tag_assignments")
+          .select("lead_id, tag_id")
+          .in("lead_id", leadsFromMemberships.map((l: any) => l.id)),
+        responsibleUserIds.length > 0
+          ? supabase
+            .from("profiles")
+            .select("user_id, full_name, avatar_url")
+            .in("user_id", responsibleUserIds)
+          : Promise.resolve({ data: [] }),
+        supabase.rpc("get_organization_members_masked"),
+      ]);
+
+      if (cancelled) return;
+
+      const rpcChatNamesMap: Record<string, string | null> = {};
+      (rpcChatResult.data || []).forEach((m: any) => { if (m.user_id) rpcChatNamesMap[m.user_id] = m.full_name; });
+
+      const newTagMap = new Map<string, string[]>();
+      tagAssignmentsResult.data?.forEach((assignment: any) => {
+        const current = newTagMap.get(assignment.lead_id) || [];
+        newTagMap.set(assignment.lead_id, [...current, assignment.tag_id]);
+      });
+      setLeadTagsMap(newTagMap);
+
+      const newResponsiblesMap = new Map<string, { full_name: string; avatar_url: string | null }>();
+      responsiblesResult.data?.forEach((profile: any) => {
+        if (profile.user_id) {
+          newResponsiblesMap.set(profile.user_id, {
+            full_name: profile.full_name || rpcChatNamesMap[profile.user_id] || "Sem nome",
+            avatar_url: profile.avatar_url,
+          });
+        }
+      });
+      (rpcChatResult.data || []).forEach((m: any) => {
+        if (m.user_id && !newResponsiblesMap.has(m.user_id) && responsibleUserIds.includes(m.user_id)) {
+          newResponsiblesMap.set(m.user_id, { full_name: m.full_name || "Sem nome", avatar_url: null });
+        }
+      });
+      setResponsiblesMap(newResponsiblesMap);
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [leadsFromMemberships, organizationId]);
 
   // Quando seleciona um lead, limpa selecao de grupo (e vice-versa via onSelectGroup).
   useEffect(() => {
@@ -763,19 +880,14 @@ const Chat = () => {
       setOrgId(organizationId);
       orgIdRef.current = organizationId;
 
-      // Build leads query - RLS policy handles role-based filtering automatically
-      // Admins/Owners see all leads, Members see only assigned leads via RLS
-      const leadsQuery = supabase
-        .from("leads")
-        .select("id, nome_lead, telefone_lead, email, stage, avatar_url, is_online, last_seen, last_message_at, source, responsavel, responsavel_user_id, created_at, updated_at, organization_id, whatsapp_instance_id")
-        .eq("organization_id", organizationId)
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false })
-        .limit(300);
+      // Leads agora vem do useLeadMemberships (1 card por par lead × canal).
+      // Triggera o fetch do hook; os states leads/presence/leadTagsMap/
+      // responsiblesMap sao populados por useEffects separados que observam
+      // membershipCards / leadsFromMemberships.
+      await reloadMemberships();
 
-      // Execute all queries in parallel
-      const [leadsResult, tagsResult, profileResult] = await Promise.all([
-        leadsQuery,
+      // Tags da org + preferencia de som (independentes dos leads)
+      const [tagsResult, profileResult] = await Promise.all([
         supabase
           .from("lead_tags")
           .select("*")
@@ -788,10 +900,6 @@ const Chat = () => {
           .single()
       ]);
 
-      // Process leads
-      const leadsData = leadsResult.data || [];
-      setLeads(leadsData);
-
       // Load connected channels for channel selector and colored bars
       const { data: channelsData } = await supabase
         .from("whatsapp_instances")
@@ -801,15 +909,6 @@ const Chat = () => {
         .order("created_at", { ascending: true });
       channelsRef.current = (channelsData || []) as any[];
 
-      // Set presence status
-      const initialPresence = new Map<string, PresenceInfo>();
-      leadsData.forEach((lead) => {
-        if (lead.is_online !== null || lead.last_seen) {
-          initialPresence.set(lead.id, { isOnline: !!lead.is_online, lastSeen: lead.last_seen || undefined });
-        }
-      });
-      setPresenceStatus(initialPresence);
-
       // Set tags
       setAvailableTags(tagsResult.data || []);
 
@@ -818,59 +917,8 @@ const Chat = () => {
         setNotificationSoundEnabled(profileResult.data.notification_sound_enabled ?? true);
       }
 
-      // Load tag assignments and responsibles in parallel (after we have lead IDs)
-      if (leadsData.length > 0) {
-        // Get unique responsible user IDs
-        const responsibleUserIds = [...new Set(
-          leadsData
-            .map(l => l.responsavel_user_id)
-            .filter((id): id is string => !!id)
-        )];
-
-        const [tagAssignmentsResult, responsiblesResult, rpcChatResult] = await Promise.all([
-          supabase
-            .from("lead_tag_assignments")
-            .select("lead_id, tag_id")
-            .in("lead_id", leadsData.map(l => l.id)),
-          responsibleUserIds.length > 0
-            ? supabase
-              .from("profiles")
-              .select("user_id, full_name, avatar_url")
-              .in("user_id", responsibleUserIds)
-            : Promise.resolve({ data: [] }),
-          supabase.rpc("get_organization_members_masked"),
-        ]);
-
-        // Build RPC names fallback map
-        const rpcChatNamesMap: Record<string, string | null> = {};
-        (rpcChatResult.data || []).forEach((m: any) => { if (m.user_id) rpcChatNamesMap[m.user_id] = m.full_name; });
-
-        // Set tag assignments
-        const newTagMap = new Map<string, string[]>();
-        tagAssignmentsResult.data?.forEach((assignment) => {
-          const current = newTagMap.get(assignment.lead_id) || [];
-          newTagMap.set(assignment.lead_id, [...current, assignment.tag_id]);
-        });
-        setLeadTagsMap(newTagMap);
-
-        // Set responsibles map
-        const newResponsiblesMap = new Map<string, { full_name: string; avatar_url: string | null }>();
-        responsiblesResult.data?.forEach((profile) => {
-          if (profile.user_id) {
-            newResponsiblesMap.set(profile.user_id, {
-              full_name: profile.full_name || rpcChatNamesMap[profile.user_id] || "Sem nome",
-              avatar_url: profile.avatar_url
-            });
-          }
-        });
-        // Add entries for users in RPC but not in profiles
-        (rpcChatResult.data || []).forEach((m: any) => {
-          if (m.user_id && !newResponsiblesMap.has(m.user_id) && responsibleUserIds.includes(m.user_id)) {
-            newResponsiblesMap.set(m.user_id, { full_name: m.full_name || "Sem nome", avatar_url: null });
-          }
-        });
-        setResponsiblesMap(newResponsiblesMap);
-      }
+      // Tag assignments + responsibles ficam num useEffect separado
+      // (loadLeadDerivedData) dependente de leadsFromMemberships.
     } catch (error) {
       toast({ title: "Erro", description: "Não foi possível carregar os contatos", variant: "destructive" });
     } finally {
