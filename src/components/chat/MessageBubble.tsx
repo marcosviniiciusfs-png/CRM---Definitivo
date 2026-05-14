@@ -255,6 +255,7 @@ export const MessageBubble = memo(function MessageBubble({
             mediaUrl={message.media_url}
             mimetype={message.media_metadata?.mimetype}
             duration={message.media_metadata?.seconds}
+            outgoing={message.direcao === "SAIDA"}
           />
         ) : message.media_type === "image" ? (
           <div className="space-y-2">
