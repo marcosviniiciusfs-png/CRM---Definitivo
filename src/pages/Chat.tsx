@@ -1140,14 +1140,18 @@ const Chat = () => {
       // para users multi-org (.single() falhava com PGRST116).
       if (!organizationId) throw new Error("Organização não encontrada");
 
+      // Canal de envio: prioridade para selectedMembership (canal da
+      // conversa aberta); fallback para lead.whatsapp_instance_id.
+      const sendInstanceId = selectedMembership?.whatsapp_instance_id || selectedLead.whatsapp_instance_id;
+
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
         .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
-      if (selectedLead.whatsapp_instance_id) {
-        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      if (sendInstanceId) {
+        instanceQuery = instanceQuery.eq("id", sendInstanceId);
       }
 
       const { data: instanceData } = await instanceQuery.maybeSingle();
@@ -1170,7 +1174,7 @@ const Chat = () => {
       setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? { ...msg, sendError: true, errorMessage: error instanceof Error ? error.message : "Erro desconhecido" } : msg)));
       toast({ title: "Erro ao enviar", description: error instanceof Error ? error.message : "Erro desconhecido", variant: "destructive" });
     }
-  }, [selectedLead, currentUserName, toast, replyingTo]);
+  }, [selectedLead, selectedMembership, organizationId, currentUserName, toast, replyingTo]);
 
   const sendAudio = useCallback(async (audioBlob: Blob) => {
     if (!selectedLead || sendingAudio) return;
@@ -1185,14 +1189,16 @@ const Chat = () => {
       // para users multi-org (.single() falhava com PGRST116).
       if (!organizationId) throw new Error("Organização não encontrada");
 
+      const sendInstanceIdAudio = selectedMembership?.whatsapp_instance_id || selectedLead.whatsapp_instance_id;
+
       let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
         .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
-      if (selectedLead.whatsapp_instance_id) {
-        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      if (sendInstanceIdAudio) {
+        instanceQuery = instanceQuery.eq("id", sendInstanceIdAudio);
       }
 
       const { data: instanceData } = await instanceQuery.maybeSingle();
@@ -1245,7 +1251,7 @@ const Chat = () => {
       setSendingAudio(false);
       setAudioBlob(null);
     }
-  }, [selectedLead, sendingAudio, opusRecorder.recordingTime, toast]);
+  }, [selectedLead, selectedMembership, organizationId, sendingAudio, opusRecorder.recordingTime, toast]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1271,14 +1277,16 @@ const Chat = () => {
         // para users multi-org (.single() falhava com PGRST116).
         if (!organizationId) throw new Error("Organização não encontrada");
 
+        const sendInstanceIdFile = selectedMembership?.whatsapp_instance_id || selectedLead.whatsapp_instance_id;
+
         let instanceQuery = supabase
         .from("whatsapp_instances")
         .select("instance_name")
         .eq("organization_id", organizationId)
         .eq("status", "CONNECTED");
 
-      if (selectedLead.whatsapp_instance_id) {
-        instanceQuery = instanceQuery.eq("id", selectedLead.whatsapp_instance_id);
+      if (sendInstanceIdFile) {
+        instanceQuery = instanceQuery.eq("id", sendInstanceIdFile);
       }
 
       const { data: instanceData } = await instanceQuery.maybeSingle();
@@ -1327,7 +1335,7 @@ const Chat = () => {
       setSendingFile(false);
     };
     reader.readAsDataURL(file);
-  }, [selectedLead, toast]);
+  }, [selectedLead, selectedMembership, organizationId, toast]);
 
   const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!user) return;
