@@ -211,9 +211,12 @@ serve(async (req) => {
 
     if (!evoResp.ok) {
       const errText = await evoResp.text().catch(() => "unknown");
+      console.error(`Evolution sendText falhou:`, evoResp.status, errText);
+      // 200 + success:false: supabase-js esconde body de respostas non-2xx do
+      // frontend, entao retornar 200 deixa o toast mostrar o erro real.
       return new Response(
-        JSON.stringify({ success: false, error: `Evolution API ${evoResp.status}: ${errText.slice(0, 300)}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: `Evolution ${evoResp.status}: ${errText.slice(0, 300)}` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

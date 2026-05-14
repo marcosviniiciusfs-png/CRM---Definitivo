@@ -214,7 +214,15 @@ function GroupConversationViewImpl({ group, instanceName, onBack }: Props) {
   const handleSend = async () => {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
+    // Optimistic UX: limpa o input + reply IMEDIATAMENTE para o usuario poder
+    // continuar digitando sem esperar o round-trip do edge function (~500ms-2s
+    // por causa do RPC user_can_access_channel + chamada Evolution). Se a msg
+    // falhar, restauramos o texto no catch.
+    const snapshotReply = replyingTo;
+    setText("");
+    setReplyingTo(null);
     setSending(true);
+    inputRef.current?.focus();
     try {
       const mentions = extractMentionsFromInput(trimmed);
       const { data, error } = await supabase.functions.invoke("send-group-message", {
@@ -223,16 +231,16 @@ function GroupConversationViewImpl({ group, instanceName, onBack }: Props) {
           group_id: group.id,
           message_text: trimmed,
           mentions: mentions.length > 0 ? mentions : undefined,
-          quoted_message_id: replyingTo?.id || undefined,
+          quoted_message_id: snapshotReply?.id || undefined,
         },
       });
       if (error || !data?.success) {
         throw new Error(data?.error || error?.message || "Falha ao enviar");
       }
-      setText("");
-      setReplyingTo(null);
-      inputRef.current?.focus();
     } catch (err: any) {
+      // Restaura o estado pra usuario poder tentar de novo.
+      setText(trimmed);
+      setReplyingTo(snapshotReply);
       toast({ title: "Erro ao enviar", description: err?.message || "Tente novamente", variant: "destructive" });
     } finally {
       setSending(false);
@@ -321,11 +329,15 @@ function GroupConversationViewImpl({ group, instanceName, onBack }: Props) {
     onDataAvailable: async (blob) => {
       setSendingAudio(true);
       try {
+        // Usa o mime REAL do blob (pode ser audio/ogg ou audio/webm — depende do
+        // que o navegador conseguiu gravar). Extensao do arquivo bate com o tipo.
+        const realMime = blob.type || "audio/ogg; codecs=opus";
+        const ext = realMime.includes("webm") ? "webm" : "ogg";
         await sendMediaBlob({
           blob,
           mediaType: "audio",
-          fileName: "ptt.ogg",
-          mimeType: "audio/ogg; codecs=opus",
+          fileName: `ptt.${ext}`,
+          mimeType: realMime,
           isPtt: true,
         });
         setReplyingTo(null);

@@ -176,7 +176,12 @@ serve(async (req) => {
           statusText: pttResponse.statusText,
           body: errorText
         });
-        throw new Error(`Erro ao enviar áudio PTT: ${pttResponse.status} - ${errorText}`);
+        // 200 + success:false: supabase-js esconde o body de respostas non-2xx
+        // do frontend. Retornando 200, o toast consegue mostrar o erro real.
+        return new Response(
+          JSON.stringify({ success: false, error: `Evolution ${pttResponse.status}: ${errorText.slice(0, 300)}` }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       const pttData = await pttResponse.json();
@@ -276,7 +281,11 @@ serve(async (req) => {
         statusText: evolutionResponse.statusText,
         body: errorText
       });
-      throw new Error(`Erro da Evolution API: ${evolutionResponse.status} - ${errorText}`);
+      // 200 + success:false: deixa o toast do frontend mostrar o erro real
+      return new Response(
+        JSON.stringify({ success: false, error: `Evolution ${evolutionResponse.status}: ${errorText.slice(0, 300)}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const evolutionData = await evolutionResponse.json();
