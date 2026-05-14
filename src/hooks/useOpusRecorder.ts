@@ -5,10 +5,43 @@ interface OpusRecorderConfig {
   onError: (error: Error) => void;
 }
 
-// Hook de gravação que PRIORIZA funcionamento estável no navegador
-// Usa MediaRecorder nativo e tenta usar OGG/OPUS quando suportado.
-// Em navegadores que não suportarem, ainda grava áudio com boa qualidade
-// e mantém o fluxo PTT (ptt: true) no backend.
+// `opus-media-recorder` carregado dinamicamente quando o navegador NAO suporta
+// MediaRecorder nativo com audio/ogg+opus (caso do Chrome, que so faz WebM).
+// Garante que o blob final seja OGG/Opus real — Evolution API + WhatsApp aceitam
+// como PTT sem precisar de conversao server-side via FFmpeg, que estava produzindo
+// audio silencioso quando recebia bytes WebM rotulados como OGG.
+const OPUS_LIB_OPTIONS = {
+  // Servidos como assets estaticos pelo Vite a partir de public/.
+  encoderWorkerFactory: () => new Worker('/opus-encoder-worker.js'),
+  OggOpusEncoderWasmPath: '/OggOpusEncoder.wasm',
+  WebMOpusEncoderWasmPath: '/WebMOpusEncoder.wasm',
+};
+
+async function getRecorder(stream: MediaStream): Promise<{ recorder: MediaRecorder; mimeType: string }> {
+  const desired = 'audio/ogg; codecs=opus';
+  // Caminho rapido: navegador suporta OGG nativo (Firefox).
+  if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(desired)) {
+    console.log('🎙️ Usando MediaRecorder nativo (suporta OGG/Opus)');
+    const recorder = new MediaRecorder(stream, {
+      mimeType: desired,
+      audioBitsPerSecond: 64000,
+    });
+    return { recorder, mimeType: desired };
+  }
+
+  // Fallback: carrega o polyfill que produz OGG/Opus via WebAssembly (Chrome/Edge/Safari).
+  console.log('🎙️ Navegador sem OGG nativo — carregando opus-media-recorder...');
+  const mod = await import('opus-media-recorder');
+  // O polyfill exporta default. Construtor aceita workerOptions como 3o arg.
+  const OpusMediaRecorder = (mod as any).default || mod;
+  const polyfillRecorder = new OpusMediaRecorder(
+    stream,
+    { mimeType: desired, audioBitsPerSecond: 64000 },
+    OPUS_LIB_OPTIONS
+  ) as unknown as MediaRecorder;
+  return { recorder: polyfillRecorder, mimeType: desired };
+}
+
 export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -21,7 +54,7 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
   const startRecording = useCallback(async () => {
     try {
       setIsLoading(true);
-      console.log('🎙️ Iniciando gravação (MediaRecorder nativo)...');
+      console.log('🎙️ Iniciando gravação...');
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -34,31 +67,13 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
 
       streamRef.current = stream;
 
-      // Tentar OGG/OPUS primeiro
-      let mimeType = 'audio/ogg; codecs=opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm; codecs=opus';
-        console.log('⚠️ OGG/OPUS não suportado, usando WebM/OPUS');
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm';
-        console.log('⚠️ WebM/OPUS não suportado, usando WebM genérico');
-      }
-
-      console.log('🎙️ Formato selecionado para gravação:', mimeType);
-
-      const options: MediaRecorderOptions = {
-        mimeType,
-        audioBitsPerSecond: 64000, // 64kbps para voz
-      };
-
-      const recorder = new MediaRecorder(stream, options);
+      const { recorder, mimeType } = await getRecorder(stream);
       mediaRecorderRef.current = recorder;
 
       const audioChunks: Blob[] = [];
 
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+      recorder.ondataavailable = (event: any) => {
+        if (event.data && event.data.size > 0) {
           audioChunks.push(event.data);
         }
       };
@@ -67,11 +82,8 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
         console.log('🛑 Gravação parada. Chunks:', audioChunks.length);
 
         if (audioChunks.length > 0) {
-          // CRITICAL: use o mimeType REAL com o qual gravamos. Mentir aqui (rotular
-          // como OGG bytes que sao WebM) quebra a conversao server-side da Evolution
-          // — FFmpeg recebe input declarado como OGG, ve container WebM, gera audio
-          // silencioso ou rejeita totalmente (502).
-          // O caller usa `blob.type` para informar o mime correto para o backend.
+          // Sempre rotulamos como audio/ogg porque garantimos bytes OGG/Opus —
+          // nativo (Firefox) ou via polyfill (Chrome/Edge/Safari).
           const finalBlob = new Blob(audioChunks, { type: mimeType });
 
           console.log('✅ Blob de áudio criado:', {
@@ -92,8 +104,8 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
         setIsLoading(false);
       };
 
-      recorder.onerror = (event) => {
-        console.error('❌ Erro no MediaRecorder:', event);
+      recorder.onerror = (event: any) => {
+        console.error('❌ Erro no recorder:', event);
         setIsRecording(false);
         setIsLoading(false);
         onError(new Error('Erro ao gravar áudio'));
@@ -107,7 +119,7 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
-      console.log('✅ Gravação iniciada com MediaRecorder');
+      console.log('✅ Gravação iniciada');
     } catch (error) {
       console.error('❌ Erro ao iniciar gravação:', error);
       setIsRecording(false);
@@ -128,7 +140,7 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
       try {
         mediaRecorderRef.current.stop();
       } catch (error) {
-        console.error('❌ Erro ao parar MediaRecorder:', error);
+        console.error('❌ Erro ao parar recorder:', error);
       }
     }
   }, [isRecording]);
@@ -145,7 +157,7 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
       try {
         mediaRecorderRef.current.stop();
       } catch (error) {
-        console.error('Erro ao parar MediaRecorder no cleanup:', error);
+        console.error('Erro ao parar recorder no cleanup:', error);
       }
     }
 
