@@ -189,7 +189,32 @@ serve(async (req) => {
 
       // Salvar mensagem no banco
       const messageId = pttData.key?.id || `ptt-${Date.now()}`;
-      
+
+      // Upload pro Storage (URL permanente). Sem isso, a mensagem fica com
+      // media_url=NULL no banco; quando recarregada, o AudioPlayer nao tem
+      // o que reproduzir — soa "vazio" mesmo com a duracao correta. Espelha
+      // o que send-group-media ja faz.
+      // Frontend (Chat.tsx) ja envia base64 puro (strip via `.split(",")[1]`).
+      let storageUrl: string | null = null;
+      try {
+        const bin = atob(media_base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const filePath = `${leadId}/${messageId || `ptt-${Date.now()}`}.ogg`;
+        const { error: upErr } = await supabase.storage
+          .from('chat-media')
+          .upload(filePath, bytes, { contentType: 'audio/ogg', upsert: true });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from('chat-media').getPublicUrl(filePath);
+          storageUrl = pub.publicUrl;
+          console.log('✅ Áudio PTT salvo no Storage:', storageUrl);
+        } else {
+          console.warn('⚠️ Falha upload audio PTT privado:', upErr);
+        }
+      } catch (uploadErr) {
+        console.warn('⚠️ Excecao upload audio PTT privado:', uploadErr);
+      }
+
       const { error: insertError } = await supabase
         .from('mensagens_chat')
         .insert({
@@ -199,6 +224,7 @@ serve(async (req) => {
           evolution_message_id: messageId,
           status_entrega: 'SENT',
           media_type: 'audio',
+          media_url: storageUrl,
           media_metadata: {
             fileName: 'ptt.ogg',
             mimeType: 'audio/ogg; codecs=opus',
@@ -214,6 +240,7 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           messageId: messageId,
+          mediaUrl: storageUrl,
           evolutionData: pttData
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -50,6 +50,11 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Espelha recordingTime em ref para nao recriar startRecording a cada
+  // tick do timer (recordingTime nas deps do useCallback dispara cascata:
+  // hook re-renderiza → recorder muda referencia → cleanup useEffect que
+  // tem `recorder` nas deps re-roda → mata a gravacao em andamento).
+  const recordingTimeRef = useRef(0);
 
   const startRecording = useCallback(async () => {
     try {
@@ -89,7 +94,7 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
           console.log('✅ Blob de áudio criado:', {
             size: finalBlob.size,
             type: finalBlob.type,
-            duration: recordingTime,
+            duration: recordingTimeRef.current,
           });
 
           onDataAvailable(finalBlob);
@@ -114,8 +119,10 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
       recorder.start();
       setIsRecording(true);
       setRecordingTime(0);
+      recordingTimeRef.current = 0;
 
       intervalRef.current = setInterval(() => {
+        recordingTimeRef.current += 1;
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
@@ -126,7 +133,7 @@ export const useOpusRecorder = ({ onDataAvailable, onError }: OpusRecorderConfig
       setIsLoading(false);
       onError(error instanceof Error ? error : new Error('Não foi possível acessar o microfone'));
     }
-  }, [onDataAvailable, onError, recordingTime]);
+  }, [onDataAvailable, onError]);
 
   const stopRecording = useCallback(() => {
     console.log('🛑 stopRecording chamado');
