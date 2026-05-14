@@ -325,37 +325,47 @@ function GroupConversationViewImpl({ group, instanceName, onBack }: Props) {
   };
 
   // ---- Audio recording (PTT) ----
+  // Callbacks estaveis via useCallback — sem isso o recorder e recriado a
+  // cada render e a useEffect de cleanup abaixo entra em loop destrutivo
+  // (mata a gravacao em andamento ao 1o segundo).
+  const handleAudioData = useCallback(async (blob: Blob) => {
+    setSendingAudio(true);
+    try {
+      const realMime = blob.type || "audio/ogg; codecs=opus";
+      const ext = realMime.includes("webm") ? "webm" : "ogg";
+      await sendMediaBlob({
+        blob,
+        mediaType: "audio",
+        fileName: `ptt.${ext}`,
+        mimeType: realMime,
+        isPtt: true,
+      });
+      setReplyingTo(null);
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar áudio", description: err?.message || "Tente novamente", variant: "destructive" });
+    } finally {
+      setSendingAudio(false);
+    }
+  }, [sendMediaBlob, toast]);
+
+  const handleAudioError = useCallback((err: Error) => {
+    toast({ title: "Erro de gravação", description: err.message, variant: "destructive" });
+  }, [toast]);
+
   const recorder = useOpusRecorder({
-    onDataAvailable: async (blob) => {
-      setSendingAudio(true);
-      try {
-        // Usa o mime REAL do blob (pode ser audio/ogg ou audio/webm — depende do
-        // que o navegador conseguiu gravar). Extensao do arquivo bate com o tipo.
-        const realMime = blob.type || "audio/ogg; codecs=opus";
-        const ext = realMime.includes("webm") ? "webm" : "ogg";
-        await sendMediaBlob({
-          blob,
-          mediaType: "audio",
-          fileName: `ptt.${ext}`,
-          mimeType: realMime,
-          isPtt: true,
-        });
-        setReplyingTo(null);
-      } catch (err: any) {
-        toast({ title: "Erro ao enviar áudio", description: err?.message || "Tente novamente", variant: "destructive" });
-      } finally {
-        setSendingAudio(false);
-      }
-    },
-    onError: (err) => {
-      toast({ title: "Erro de gravação", description: err.message, variant: "destructive" });
-    },
+    onDataAvailable: handleAudioData,
+    onError: handleAudioError,
   });
 
-  // Cleanup do gravador ao trocar de grupo / desmontar
+  // Cleanup do gravador ao trocar de grupo / desmontar.
+  // NAO incluir `recorder` nas deps — o objeto retornado pelo hook muda de
+  // referencia a cada render, fazendo o cleanup re-disparar a cada segundo
+  // (mata a gravacao em andamento). Cleanup so deve rodar ao trocar de grupo
+  // ou desmontar o componente.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     return () => recorder.cleanup();
-  }, [group.id, recorder]);
+  }, [group.id]);
 
   const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
