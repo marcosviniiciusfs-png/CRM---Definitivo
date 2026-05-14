@@ -677,7 +677,13 @@ const Chat = () => {
         .channel(leadChannelName)
         // Messages INSERT
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-          const newMessage = payload.new as Message;
+          const newMessage = payload.new as Message & { whatsapp_instance_id?: string | null };
+          // Dropa msgs de outro canal — selectedMembership define o filtro.
+          // NULL passa (msgs legadas / fallback).
+          const currentChannel = selectedMembership?.whatsapp_instance_id;
+          if (currentChannel && newMessage.whatsapp_instance_id && newMessage.whatsapp_instance_id !== currentChannel) {
+            return;
+          }
           if (newMessage.direcao === "ENTRADA" && notificationSoundEnabled) {
             notificationAudioRef.current?.play().catch(() => { });
           }
@@ -697,7 +703,11 @@ const Chat = () => {
         })
         // Messages UPDATE
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "mensagens_chat", filter: `id_lead=eq.${selectedLead.id}` }, (payload) => {
-          const updatedMessage = payload.new as Message;
+          const updatedMessage = payload.new as Message & { whatsapp_instance_id?: string | null };
+          const currentChannel = selectedMembership?.whatsapp_instance_id;
+          if (currentChannel && updatedMessage.whatsapp_instance_id && updatedMessage.whatsapp_instance_id !== currentChannel) {
+            return;
+          }
           setMessages((prev) => prev.map((msg) => (msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, media_url: updatedMessage.media_url || msg.media_url } : msg)));
         })
         // Reactions INSERT
@@ -842,7 +852,7 @@ const Chat = () => {
         supabase.removeChannel(leadChannel);
       }
     };
-  }, [selectedLead?.id, notificationSoundEnabled]);
+  }, [selectedLead?.id, selectedMembership?.whatsapp_instance_id, notificationSoundEnabled]);
 
   // Auto-scroll — skip when prepending older messages (loadMore) to preserve position
   useEffect(() => {
@@ -975,13 +985,23 @@ const Chat = () => {
     setHasMoreMessages(false);
     oldestMessageTimeRef.current = null;
     try {
-      // Load last MESSAGE_PAGE_SIZE messages (most recent first), then reverse for display
-      const { data, error } = await supabase
+      // Filtro por canal: msgs com whatsapp_instance_id = canal atual.
+      // Fallback OR whatsapp_instance_id IS NULL para mensagens antigas
+      // (pre-backfill / pre-feature) que aparecem em qualquer canal.
+      const currentChannel = selectedMembership?.whatsapp_instance_id;
+
+      let query = supabase
         .from("mensagens_chat")
         .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
         .eq("id_lead", leadId)
         .order("data_hora", { ascending: false })
         .limit(MESSAGE_PAGE_SIZE);
+
+      if (currentChannel) {
+        query = query.or(`whatsapp_instance_id.eq.${currentChannel},whatsapp_instance_id.is.null`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
       const reversed = (data || []).slice().reverse();
@@ -1020,13 +1040,21 @@ const Chat = () => {
     isLoadingMoreRef.current = true;
     setLoadingMoreMessages(true);
     try {
-      const { data, error } = await supabase
+      const currentChannel = selectedMembership?.whatsapp_instance_id;
+
+      let mmQuery = supabase
         .from("mensagens_chat")
         .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
         .eq("id_lead", selectedLead.id)
         .lt("data_hora", oldestMessageTimeRef.current)
         .order("data_hora", { ascending: false })
         .limit(MESSAGE_PAGE_SIZE);
+
+      if (currentChannel) {
+        mmQuery = mmQuery.or(`whatsapp_instance_id.eq.${currentChannel},whatsapp_instance_id.is.null`);
+      }
+
+      const { data, error } = await mmQuery;
       if (error) throw error;
 
       const reversed = (data || []).slice().reverse();
