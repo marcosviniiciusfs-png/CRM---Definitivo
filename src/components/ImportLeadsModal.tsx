@@ -552,7 +552,13 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         const chunk = newLeads.slice(i, i + CHUNK_SIZE);
 
         try {
-          const { data, error } = await supabase.from("leads").insert(chunk).select();
+          // Usa RPC SECURITY DEFINER (bypassa RLS de leads_insert_v2 que
+          // estava rejeitando inserts para alguns usuarios mesmo com membership
+          // valida; ver migration 20260514120000_bulk_insert_leads_rpc.sql).
+          const { data, error } = await supabase.rpc("bulk_insert_leads", {
+            p_organization_id: organizationId,
+            p_leads: chunk,
+          });
 
           if (error) {
             console.error('[handleImport] Insert chunk error:', error);
@@ -561,7 +567,13 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
               errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${error.message}`);
             });
           } else {
-            successCount += data?.length || 0;
+            const inserted = (data as { inserted?: number } | null)?.inserted ?? 0;
+            successCount += inserted;
+            if (inserted < chunk.length) {
+              const failed = chunk.length - inserted;
+              errorCount += failed;
+              errorDetails.push(`Chunk ${i / CHUNK_SIZE + 1}: ${failed} lead(s) ignorado(s) (sem nome ou telefone)`);
+            }
           }
         } catch (err: any) {
           console.error('[handleImport] Insert chunk exception:', err);
