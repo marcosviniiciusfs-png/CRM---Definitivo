@@ -2,6 +2,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Globe, FileText, Tag as TagIcon } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface LeadTag {
   id: string;
@@ -19,7 +24,7 @@ export function LeadTagsBadge({ leadId, version }: LeadTagsBadgeProps) {
 
   useEffect(() => {
     loadTags();
-    
+
     // Configurar realtime para atualizar quando as tags mudarem
     const channel = supabase
       .channel(`lead-tags-${leadId}`)
@@ -62,7 +67,7 @@ export function LeadTagsBadge({ leadId, version }: LeadTagsBadgeProps) {
       const loadedTags = data
         .map((item: any) => item.lead_tags)
         .filter(Boolean) as LeadTag[];
-      
+
       setTags(loadedTags);
     } catch (error: any) {
       console.error("Erro ao carregar etiquetas do lead:", error);
@@ -72,7 +77,7 @@ export function LeadTagsBadge({ leadId, version }: LeadTagsBadgeProps) {
   // Função para obter o ícone baseado no nome da tag
   const getTagIcon = (tagName: string) => {
     const name = tagName.toLowerCase();
-    
+
     if (name.includes('whatsapp')) {
       return MessageCircle;
     }
@@ -82,7 +87,7 @@ export function LeadTagsBadge({ leadId, version }: LeadTagsBadgeProps) {
     if (name.includes('formulário') || name.includes('formulario') || name.includes('form')) {
       return FileText;
     }
-    
+
     // Ícone padrão
     return TagIcon;
   };
@@ -90,24 +95,30 @@ export function LeadTagsBadge({ leadId, version }: LeadTagsBadgeProps) {
   if (tags.length === 0) return null;
 
   return (
-    <div className="flex gap-1 items-center flex-wrap">
+    <div className="flex gap-1 items-center min-w-0 flex-shrink overflow-hidden">
       {tags.map((tag) => {
         const IconComponent = getTagIcon(tag.name);
-        
+
         return (
-          <Badge 
-            key={tag.id}
-            variant="secondary" 
-            className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5"
-            style={{
-              backgroundColor: `${tag.color}15`,
-              color: tag.color,
-              borderColor: `${tag.color}40`,
-            }}
-          >
-            <IconComponent className="h-2.5 w-2.5" />
-            {tag.name}
-          </Badge>
+          <Tooltip key={tag.id}>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="secondary"
+                className="text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 min-w-0 flex-shrink overflow-hidden"
+                style={{
+                  backgroundColor: `${tag.color}15`,
+                  color: tag.color,
+                  borderColor: `${tag.color}40`,
+                }}
+              >
+                <IconComponent className="h-2.5 w-2.5 flex-shrink-0" />
+                <span className="truncate min-w-0">{tag.name}</span>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {tag.name}
+            </TooltipContent>
+          </Tooltip>
         );
       })}
     </div>

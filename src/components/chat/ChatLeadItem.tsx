@@ -111,7 +111,7 @@ export const ChatLeadItem = memo(function ChatLeadItem({
               Online
             </span>
           )}
-          <div className="flex-shrink-0 flex gap-1">
+          <div className="flex gap-1 min-w-0 flex-shrink overflow-hidden">
             <LeadTagsBadge leadId={lead.id} version={tagVersion} />
           </div>
         </div>
