@@ -151,5 +151,29 @@ export async function maybeApplyAdLeadTag(
   }
 
   console.log(`🎯 [ad-tag] lead ${leadId} taggeado como ${TAG_NAME} (canal ${instanceId})`);
+
+  // 6) Loga o match em tracking_match_log para alimentar o contador da UI.
+  // Identifica QUAL keyword bateu (a primeira que bater no modo 'any').
+  // Falha aqui nao bloqueia o flow.
+  const matchedKeywordRaw = (rule.keywords as string[]).find(k => {
+    const n = normalize(k);
+    return n.length > 0 && haystack.includes(n);
+  }) || '';
+
+  if (matchedKeywordRaw) {
+    const { error: logErr } = await supabase
+      .from('tracking_match_log')
+      .insert({
+        lead_id: leadId,
+        whatsapp_instance_id: instanceId,
+        organization_id: organizationId,
+        matched_keyword: matchedKeywordRaw,
+      });
+
+    if (logErr) {
+      console.warn('⚠️ [ad-tag] falha logar match (nao bloqueia):', logErr);
+    }
+  }
+
   return { tagged: true };
 }
