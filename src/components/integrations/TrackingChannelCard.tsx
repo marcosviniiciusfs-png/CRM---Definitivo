@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Info } from "lucide-react";
 import { ChannelWithRule } from "@/hooks/useTrackingRules";
 import { KeywordsInput } from "./KeywordsInput";
+import { TrackingChannelStats } from "./TrackingChannelStats";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -128,6 +129,13 @@ export function TrackingChannelCard({ channel, canEdit, onSave }: Props) {
           </div>
         )}
       </div>
+
+      {channel.rule?.enabled && (
+        <TrackingChannelStats
+          instanceId={channel.instance_id}
+          keywords={keywords}
+        />
+      )}
     </div>
   );
 }
