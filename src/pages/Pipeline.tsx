@@ -2594,6 +2594,40 @@ const Pipeline = () => {
         />
       )}
 
+      {/* Bulk action dialogs */}
+      <BulkMoveStageDialog
+        open={bulkMoveStageOpen}
+        onClose={() => setBulkMoveStageOpen(false)}
+        onConfirm={handleBulkMoveStage}
+        selectedCount={selectedLeadIds.size}
+        stages={stages.map(s => ({ id: s.id, title: s.title || s.name || 'Etapa' }))}
+      />
+
+      <BulkAssignDialog
+        open={bulkAssignOpen}
+        onClose={() => setBulkAssignOpen(false)}
+        onConfirm={handleBulkAssign}
+        selectedCount={selectedLeadIds.size}
+        colaboradores={(colaboradores || [])
+          .filter((c: any) => c.is_active !== false && c.user_id)
+          .map((c: any) => ({ user_id: c.user_id, full_name: c.full_name || c.email || 'Colaborador' }))
+        }
+      />
+
+      <BulkAddNoteDialog
+        open={bulkAddNoteOpen}
+        onClose={() => setBulkAddNoteOpen(false)}
+        onConfirm={handleBulkAddNote}
+        selectedCount={selectedLeadIds.size}
+      />
+
+      <BulkDeleteDialog
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        selectedCount={selectedLeadIds.size}
+      />
+
       {showImportModal && (
         <ImportLeadsModal
           open={showImportModal}
