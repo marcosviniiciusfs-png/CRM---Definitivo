@@ -13,7 +13,7 @@ import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X, ArrowRight, UserCog, MessageSquarePlus, Trash2, Filter } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
@@ -36,6 +36,10 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AddLeadModal } from "@/components/AddLeadModal";
 import { ImportLeadsModal } from "@/components/ImportLeadsModal";
+import { BulkAssignDialog } from "@/components/BulkAssignDialog";
+import { BulkMoveStageDialog } from "@/components/BulkMoveStageDialog";
+import { BulkAddNoteDialog } from "@/components/BulkAddNoteDialog";
+import { BulkDeleteDialog } from "@/components/BulkDeleteDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -173,6 +177,12 @@ const Pipeline = () => {
 
   // Bulk selection for list view
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+
+  // Bulk action dialogs
+  const [bulkMoveStageOpen, setBulkMoveStageOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkAddNoteOpen, setBulkAddNoteOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // Interface para estado de paginação por etapa
   interface StagePaginationState {
@@ -1446,6 +1456,103 @@ const Pipeline = () => {
       setLeadToDelete(null);
     }
   };
+
+  // ========== BULK ACTIONS (Lista) ==========
+
+  const handleSelectByStage = useCallback((stageId: string) => {
+    const ids = filteredLeads
+      .filter(l => (l.funnel_stage_id || l.stage) === stageId)
+      .map(l => l.id);
+    setSelectedLeadIds(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.add(id));
+      return next;
+    });
+    toast.success(`${ids.length} lead(s) adicionado(s) à seleção`);
+  }, [filteredLeads]);
+
+  const handleBulkMoveStage = useCallback(async (stageId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ funnel_stage_id: stageId, stage: stageId })
+        .in('id', ids);
+      if (error) {
+        toast.error('Erro ao mover leads: ' + error.message);
+        return;
+      }
+      setLeads(prev => prev.map(l =>
+        selectedLeadIds.has(l.id) ? { ...l, funnel_stage_id: stageId, stage: stageId } : l
+      ));
+      toast.success(`${ids.length} lead(s) movido(s)`);
+      setSelectedLeadIds(new Set());
+    } catch (err: any) {
+      toast.error('Erro inesperado ao mover leads');
+    }
+  }, [selectedLeadIds]);
+
+  const handleBulkAssign = useCallback(async (userId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0) return;
+    try {
+      // Zerar responsavel (texto) para o trigger sync_responsavel_user_id repopular
+      const { error } = await supabase
+        .from('leads')
+        .update({ responsavel_user_id: userId, responsavel: null })
+        .in('id', ids);
+      if (error) {
+        toast.error('Erro ao atribuir leads: ' + error.message);
+        return;
+      }
+      toast.success(`${ids.length} lead(s) atribuído(s)`);
+      setSelectedLeadIds(new Set());
+      // Forçar refetch para ver o nome novo do responsável (trigger atualizou no banco)
+      queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+    } catch (err: any) {
+      toast.error('Erro inesperado ao atribuir leads');
+    }
+  }, [selectedLeadIds, queryClient]);
+
+  const handleBulkAddNote = useCallback(async (content: string) => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0 || !user?.id) return;
+    try {
+      const rows = ids.map(lead_id => ({
+        lead_id,
+        user_id: user.id,
+        activity_type: 'note',
+        content,
+      }));
+      const { error } = await supabase.from('lead_activities').insert(rows);
+      if (error) {
+        toast.error('Erro ao adicionar nota: ' + error.message);
+        return;
+      }
+      toast.success(`Nota adicionada em ${ids.length} lead(s)`);
+      setSelectedLeadIds(new Set());
+    } catch (err: any) {
+      toast.error('Erro inesperado ao adicionar nota');
+    }
+  }, [selectedLeadIds, user?.id]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase.from('leads').delete().in('id', ids);
+      if (error) {
+        toast.error('Erro ao excluir leads: ' + error.message);
+        return;
+      }
+      setLeads(prev => prev.filter(l => !selectedLeadIds.has(l.id)));
+      toast.success(`${ids.length} lead(s) excluído(s)`);
+      setSelectedLeadIds(new Set());
+    } catch (err: any) {
+      toast.error('Erro inesperado ao excluir leads');
+    }
+  }, [selectedLeadIds]);
 
   const handleWonConfirmation = async (confirmed: boolean) => {
     if (!confirmed || !wonConfirmation.lead || !wonConfirmation.event) {
