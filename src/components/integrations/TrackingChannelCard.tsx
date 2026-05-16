@@ -1,5 +1,5 @@
 import { Switch } from "@/components/ui/switch";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, UserX } from "lucide-react";
 import { ChannelWithRule } from "@/hooks/useTrackingRules";
 import { cn } from "@/lib/utils";
 
@@ -58,13 +58,21 @@ export function TrackingChannelCard({ channel, canEdit, onCardClick, onToggle }:
       </div>
 
       {enabled && (
-        <div className="mt-2.5 pt-2.5 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>
-            <strong className="text-foreground font-medium">{keywordCount}</strong>{" "}
-            {keywordCount === 1 ? 'palavra cadastrada' : 'palavras cadastradas'}
-          </span>
+        <div className="mt-2.5 pt-2.5 border-t border-border/60 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="truncate">
+              <strong className="text-foreground font-medium">{keywordCount}</strong>{" "}
+              {keywordCount === 1 ? 'palavra' : 'palavras'}
+            </span>
+            {channel.rule?.detect_unknown_contacts && (
+              <span className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" title="Detecta números desconhecidos">
+                <UserX className="h-3 w-3" />
+                desconhecidos
+              </span>
+            )}
+          </div>
           {canEdit && (
-            <span className="flex items-center gap-0.5 text-primary">
+            <span className="flex items-center gap-0.5 text-primary flex-shrink-0">
               Configurar
               <ChevronRight className="h-3 w-3" />
             </span>
