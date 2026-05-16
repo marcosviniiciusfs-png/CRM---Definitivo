@@ -3,6 +3,7 @@ import { Loader2, Target, Tag as TagIcon } from "lucide-react";
 import { useTrackingRules } from "@/hooks/useTrackingRules";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { TrackingChannelCard } from "./TrackingChannelCard";
+import { TrackingChannelDialog } from "./TrackingChannelDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +21,7 @@ export function WhatsAppTrackingTab() {
   const { channels, loading, upsertRule } = useTrackingRules();
   const { toast } = useToast();
   const [adTag, setAdTag] = useState<AdTagInfo | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<typeof channels[number] | null>(null);
 
   const canEdit = permissions.role === 'owner' || permissions.role === 'admin';
 
@@ -33,6 +35,14 @@ export function WhatsAppTrackingTab() {
       .maybeSingle()
       .then(({ data }) => setAdTag(data as AdTagInfo | null));
   }, [organizationId, channels]); // re-fetch quando channels muda (auto-criação após primeiro tag)
+
+  // Re-sync selectedChannel from channels whenever channels updates (auto-save propagation)
+  useEffect(() => {
+    if (selectedChannel) {
+      const fresh = channels.find(c => c.instance_id === selectedChannel.instance_id);
+      if (fresh) setSelectedChannel(fresh);
+    }
+  }, [channels]);
 
   const handleSave = async (
     instanceId: string,
@@ -113,16 +123,24 @@ export function WhatsAppTrackingTab() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {channels.map(c => (
           <TrackingChannelCard
             key={c.instance_id}
             channel={c}
             canEdit={canEdit}
-            onSave={handleSave}
+            onCardClick={() => setSelectedChannel(c)}
+            onToggle={(en) => handleSave(c.instance_id, { enabled: en })}
           />
         ))}
       </div>
+
+      <TrackingChannelDialog
+        channel={selectedChannel}
+        canEdit={canEdit}
+        onClose={() => setSelectedChannel(null)}
+        onSave={handleSave}
+      />
     </div>
   );
 }
