@@ -137,6 +137,7 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
                 disabled={!canEdit}
                 onCheckedChange={handleToggle}
                 aria-label="Trackear este canal"
+                className="data-[state=checked]:bg-green-500"
               />
             </div>
           </div>

@@ -52,6 +52,7 @@ export function TrackingChannelCard({ channel, canEdit, onCardClick, onToggle }:
             disabled={!canEdit}
             onCheckedChange={onToggle}
             aria-label="Trackear este canal"
+            className="data-[state=checked]:bg-green-500"
           />
         </div>
       </div>
