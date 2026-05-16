@@ -144,13 +144,12 @@ export function ChatMessageNotificationProvider({ children }: { children: React.
 
         // Filtro de atribuicao: aplica APOS resolver o lead (cache funciona
         // mesmo quando atribuicoes mudam — proxima check usa Set atualizado).
-        // Set vazio = org nao opt-ou para o filtro WCM -> sem restricao
-        // (alinhado com isLeadVisibleByChannel).
+        // Member sem WCM (Set vazio) -> bloqueia notificacao. Lead sem canal
+        // (Facebook/manual) continua passando pelo bloco `if (leadInstanceId)`.
         if (!hasFullAccessRef.current) {
-            // Lead sem canal sempre visivel para members tambem.
             if (leadInstanceId) {
                 const ids = assignedChannelIdsRef.current;
-                if (ids && ids.size > 0 && !ids.has(leadInstanceId)) {
+                if (ids && !ids.has(leadInstanceId)) {
                     return null;
                 }
             }
