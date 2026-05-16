@@ -2184,12 +2184,60 @@ const Pipeline = () => {
           /* Desktop List View */
           <div className="border rounded-lg overflow-hidden bg-card dark:bg-card flex flex-col flex-1 min-h-0">
             {selectedLeadIds.size > 0 && (
-              <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3">
+              <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-medium text-primary">
                   {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
                 </span>
-                <div className="flex items-center gap-2 ml-auto">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                  {/* Selecionar por etapa */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Filter className="h-4 w-4 mr-1" />
+                        Selecionar etapa
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                      {stages.map(s => (
+                        <DropdownMenuItem key={s.id} onClick={() => handleSelectByStage(s.id)}>
+                          {s.title}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Mover etapa */}
+                  {permissions.canMoveLeadsPipeline && (
+                    <Button variant="outline" size="sm" onClick={() => setBulkMoveStageOpen(true)}>
+                      <ArrowRight className="h-4 w-4 mr-1" />
+                      Mover etapa
+                    </Button>
+                  )}
+
+                  {/* Atribuir */}
+                  {permissions.canAssignLeads && (
+                    <Button variant="outline" size="sm" onClick={() => setBulkAssignOpen(true)}>
+                      <UserCog className="h-4 w-4 mr-1" />
+                      Atribuir
+                    </Button>
+                  )}
+
+                  {/* Adicionar nota */}
+                  <Button variant="outline" size="sm" onClick={() => setBulkAddNoteOpen(true)}>
+                    <MessageSquarePlus className="h-4 w-4 mr-1" />
+                    Nota
+                  </Button>
+
+                  {/* Excluir */}
+                  {permissions.canDeleteLeads && (
+                    <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Excluir
+                    </Button>
+                  )}
+
+                  {/* Limpar seleção */}
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
                     Limpar seleção
                   </Button>
                 </div>
