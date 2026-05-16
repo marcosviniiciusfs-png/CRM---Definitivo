@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, UserX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -93,11 +93,36 @@ export function TrackingChannelStats({ instanceId, keywords }: Props) {
       </div>
 
       {keywords.length === 0 ? (
-        <div className="text-[11px] text-muted-foreground italic">
-          Cadastre keywords acima para ver estatísticas.
-        </div>
+        counts['__unknown_contact__'] > 0 ? (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 px-2 py-1 rounded text-[11px] bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 border border-blue-200/50 dark:border-blue-800/50">
+              <span className="flex-1 flex items-center gap-1 truncate">
+                <UserX className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">Número desconhecido (não está na agenda)</span>
+              </span>
+              <span className="font-mono tabular-nums font-medium flex-shrink-0">
+                {counts['__unknown_contact__']}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-[11px] text-muted-foreground italic">
+            Cadastre keywords acima para ver estatísticas.
+          </div>
+        )
       ) : (
         <div className="space-y-1">
+          {counts['__unknown_contact__'] > 0 && (
+            <div className="flex items-center justify-between gap-2 px-2 py-1 rounded text-[11px] bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 border border-blue-200/50 dark:border-blue-800/50">
+              <span className="flex-1 flex items-center gap-1 truncate">
+                <UserX className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">Número desconhecido (não está na agenda)</span>
+              </span>
+              <span className="font-mono tabular-nums font-medium flex-shrink-0">
+                {counts['__unknown_contact__']}
+              </span>
+            </div>
+          )}
           {keywords.map(kw => {
             const c = counts[kw.toLowerCase()] || 0;
             return (
