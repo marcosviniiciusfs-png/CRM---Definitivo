@@ -398,17 +398,65 @@ const Chat = () => {
     if (selectedLead) setSelectedGroup(null);
   }, [selectedLead?.id]);
 
+  /**
+   * Escolhe a membership "preferida" pra abrir um lead via deep-link.
+   * - Owner com hasFullAccess: candidatas = todas memberships do lead na org.
+   * - Member: candidatas = memberships do lead que estao no WCM dele
+   *   (membershipCards ja vem filtrado pelo hook useLeadMemberships).
+   *
+   * Tie-break: maior last_message_at NULLS LAST (default razoavel —
+   * usuario pode trocar de canal clicando em outro card colorido na
+   * sidebar). Retorna null se nao ha candidata.
+   */
+  const pickPreferredMembership = useCallback(
+    (leadId: string): LeadMembershipCard | null => {
+      const candidates = membershipCards.filter((c) => c.lead_id === leadId);
+      if (candidates.length === 0) return null;
+      const sorted = [...candidates].sort((a, b) => {
+        const aTs = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+        const bTs = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+        return bTs - aTs;
+      });
+      return sorted[0];
+    },
+    [membershipCards]
+  );
+
   // Auto-seleciona lead via query param (?lead_id=<uuid>). Usado pelo
   // balao "abrir chat" no Pipeline. Roda uma vez se o param mudar.
+  // Espera membershipCards carregar para escolher a membership compativel
+  // com o WCM do user.
   useEffect(() => {
     const leadIdParam = searchParams.get("lead_id");
     if (!leadIdParam) return;
+    // Espera o hook de memberships carregar antes de decidir. Sem isso,
+    // membershipCards pode estar vazio durante o boot e cair no toast
+    // de "sem acesso" indevidamente.
+    if (membershipsLoading) return;
 
-    const found = leads.find((l) => l.id === leadIdParam);
-    if (found) {
-      setSelectedLead(found);
+    const pickedMembership = pickPreferredMembership(leadIdParam);
+
+    if (pickedMembership) {
+      // Caso normal: lead com membership acessivel.
+      const leadObj = leads.find((l) => l.id === leadIdParam) || {
+        id: pickedMembership.lead_id,
+        nome_lead: pickedMembership.nome_lead,
+        telefone_lead: pickedMembership.telefone_lead,
+        email: pickedMembership.email,
+        avatar_url: pickedMembership.avatar_url,
+        is_online: pickedMembership.is_online,
+        last_seen: pickedMembership.last_seen,
+        last_message_at: pickedMembership.last_message_at,
+        responsavel_user_id: pickedMembership.responsavel_user_id,
+        whatsapp_instance_id: pickedMembership.lead_whatsapp_instance_id,
+        organization_id: pickedMembership.organization_id,
+      };
+      setSelectedLead(leadObj as any);
+      setSelectedMembership(pickedMembership);
     } else {
-      // Fetch direto — RLS valida acesso e retorna null se nao autorizado.
+      // Sem membership compativel. Pode ser: (a) lead sem canal (Facebook/
+      // manual), (b) lead com canal mas user sem WCM nesse canal, (c) lead
+      // de outra org (RLS bloqueia). Fazemos fetch direto para distinguir.
       (async () => {
         const { data } = await supabase
           .from("leads")
@@ -416,7 +464,11 @@ const Chat = () => {
           .eq("id", leadIdParam)
           .maybeSingle();
         if (data) {
+          // Lead existe (RLS liberou via owner OR responsavel OR sem canal).
+          // Abre sem selectedMembership — sendMessage cai no fallback final
+          // de lead.whatsapp_instance_id, e msgs aparecem sem filtro de canal.
           setSelectedLead(data as any);
+          setSelectedMembership(null);
         } else {
           toast({
             title: "Sem acesso a esta conversa",
@@ -427,7 +479,7 @@ const Chat = () => {
       })();
     }
 
-    // Limpa o param da URL.
+    // Limpa o param da URL para nao reabrir ao navegar.
     setSearchParams(
       (params) => {
         params.delete("lead_id");
@@ -436,7 +488,7 @@ const Chat = () => {
       { replace: true }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.get("lead_id"), leads]);
+  }, [searchParams.get("lead_id"), leads, membershipCards, membershipsLoading]);
 
   // Mantem leadsBeforeUpdateRef sincronizado para detectar last_message_at avancando.
   useEffect(() => {
