@@ -2080,12 +2080,55 @@ const Pipeline = () => {
             /* Mobile List View - cards verticais */
             <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
               {selectedLeadIds.size > 0 && (
-                <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-3 flex items-center gap-3">
-                  <span className="text-sm font-medium text-primary">
-                    {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-2.5 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-primary">
+                    {selectedLeadIds.size} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
                   </span>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
+                  <div className="flex items-center gap-1 ml-auto flex-wrap">
+                    {/* Selecionar por etapa */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Selecionar por etapa">
+                          <Filter className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                        {stages.map(s => (
+                          <DropdownMenuItem key={s.id} onClick={() => handleSelectByStage(s.id)}>
+                            {s.title}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {permissions.canMoveLeadsPipeline && (
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Mover etapa"
+                        onClick={() => setBulkMoveStageOpen(true)}>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+
+                    {permissions.canAssignLeads && (
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Atribuir"
+                        onClick={() => setBulkAssignOpen(true)}>
+                        <UserCog className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+
+                    <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Adicionar nota"
+                      onClick={() => setBulkAddNoteOpen(true)}>
+                      <MessageSquarePlus className="h-3.5 w-3.5" />
+                    </Button>
+
+                    {permissions.canDeleteLeads && (
+                      <Button variant="destructive" size="sm" className="h-8 w-8 p-0" title="Excluir"
+                        onClick={() => setBulkDeleteOpen(true)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs"
+                      onClick={() => setSelectedLeadIds(new Set())}>
                       Limpar
                     </Button>
                   </div>
