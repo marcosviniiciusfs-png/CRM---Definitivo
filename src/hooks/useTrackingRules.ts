@@ -9,6 +9,7 @@ export interface TrackingRule {
   keywords: string[];
   match_mode: 'any' | 'all' | 'exact_phrase';
   case_sensitive: boolean;
+  detect_unknown_contacts: boolean;
   updated_at: string;
 }
 
@@ -27,7 +28,7 @@ interface UseTrackingRulesResult {
   reload: () => Promise<void>;
   upsertRule: (
     instanceId: string,
-    patch: Partial<Pick<TrackingRule, 'enabled' | 'keywords' | 'match_mode' | 'case_sensitive'>>
+    patch: Partial<Pick<TrackingRule, 'enabled' | 'keywords' | 'match_mode' | 'case_sensitive' | 'detect_unknown_contacts'>>
   ) => Promise<void>;
 }
 
@@ -88,7 +89,7 @@ export function useTrackingRules(): UseTrackingRulesResult {
 
   const upsertRule = useCallback(async (
     instanceId: string,
-    patch: Partial<Pick<TrackingRule, 'enabled' | 'keywords' | 'match_mode' | 'case_sensitive'>>
+    patch: Partial<Pick<TrackingRule, 'enabled' | 'keywords' | 'match_mode' | 'case_sensitive' | 'detect_unknown_contacts'>>
   ) => {
     if (!organizationId) return;
 
@@ -101,6 +102,7 @@ export function useTrackingRules(): UseTrackingRulesResult {
       keywords: patch.keywords ?? current?.keywords ?? [],
       match_mode: patch.match_mode ?? current?.match_mode ?? 'any',
       case_sensitive: patch.case_sensitive ?? current?.case_sensitive ?? false,
+      detect_unknown_contacts: patch.detect_unknown_contacts ?? current?.detect_unknown_contacts ?? false,
     };
 
     const { error } = await supabase
