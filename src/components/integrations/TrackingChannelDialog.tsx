@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void;
   onSave: (
     instanceId: string,
-    patch: { enabled?: boolean; keywords?: string[] }
+    patch: { enabled?: boolean; keywords?: string[]; detect_unknown_contacts?: boolean }
   ) => Promise<void>;
 }
 
@@ -30,6 +30,7 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
 
   const [enabled, setEnabled] = useState(false);
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [detectUnknown, setDetectUnknown] = useState(false);
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
@@ -40,6 +41,7 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
     if (channel) {
       setEnabled(channel.rule?.enabled ?? false);
       setKeywords(channel.rule?.keywords ?? []);
+      setDetectUnknown(channel.rule?.detect_unknown_contacts ?? false);
       isDirtyRef.current = false;
     }
   }, [channel?.instance_id]);
@@ -49,15 +51,16 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
     if (channel && !isDirtyRef.current) {
       setEnabled(channel.rule?.enabled ?? false);
       setKeywords(channel.rule?.keywords ?? []);
+      setDetectUnknown(channel.rule?.detect_unknown_contacts ?? false);
     }
-  }, [channel?.rule?.enabled, channel?.rule?.keywords]);
+  }, [channel?.rule?.enabled, channel?.rule?.keywords, channel?.rule?.detect_unknown_contacts]);
 
   useEffect(() => () => {
     mountedRef.current = false;
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
 
-  const scheduleSave = (patch: { enabled?: boolean; keywords?: string[] }) => {
+  const scheduleSave = (patch: { enabled?: boolean; keywords?: string[]; detect_unknown_contacts?: boolean }) => {
     if (!canEdit || !channel) return;
     isDirtyRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -77,12 +80,17 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
 
   const handleToggle = (next: boolean) => {
     setEnabled(next);
-    scheduleSave({ enabled: next, keywords });
+    scheduleSave({ enabled: next, keywords, detect_unknown_contacts: detectUnknown });
   };
 
   const handleKeywordsChange = (next: string[]) => {
     setKeywords(next);
-    scheduleSave({ enabled, keywords: next });
+    scheduleSave({ enabled, keywords: next, detect_unknown_contacts: detectUnknown });
+  };
+
+  const handleDetectUnknownToggle = (next: boolean) => {
+    setDetectUnknown(next);
+    scheduleSave({ enabled, keywords, detect_unknown_contacts: next });
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -91,7 +99,7 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
       if (debounceRef.current && channel) {
         clearTimeout(debounceRef.current);
         setSaving(true);
-        onSave(channel.instance_id, { enabled, keywords }).finally(() => {
+        onSave(channel.instance_id, { enabled, keywords, detect_unknown_contacts: detectUnknown }).finally(() => {
           if (mountedRef.current) setSaving(false);
         });
       }
@@ -140,6 +148,27 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
                 className="data-[state=checked]:bg-green-500"
               />
             </div>
+          </div>
+
+          {/* NOVO: detect unknown contacts */}
+          <div className={cn(
+            "flex items-center justify-between p-3 border border-border rounded-md bg-muted/30",
+            !enabled && "opacity-50 pointer-events-none"
+          )}>
+            <div>
+              <Label className="text-sm font-medium">Detectar contatos desconhecidos</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Tagueia leads cujo número não está na agenda do aparelho do canal.
+                Útil pra pegar leads que apagaram a mensagem pré-preenchida do anúncio.
+              </p>
+            </div>
+            <Switch
+              checked={detectUnknown}
+              disabled={!canEdit || !enabled}
+              onCheckedChange={handleDetectUnknownToggle}
+              aria-label="Detectar contatos desconhecidos"
+              className="data-[state=checked]:bg-green-500"
+            />
           </div>
 
           {/* Keywords editor */}
