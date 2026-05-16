@@ -1460,8 +1460,15 @@ const Pipeline = () => {
   // ========== BULK ACTIONS (Lista) ==========
 
   const handleSelectByStage = useCallback((stageId: string) => {
+    // Mesma logica de leadsByStage (linha ~1150) — `usingCustomFunnel`
+    // determina qual coluna usar. Misturar os dois com `||` quebra em casos
+    // onde o lead tem ambos os campos populados (UUID em funnel_stage_id
+    // mas slug legacy em stage).
     const ids = filteredLeads
-      .filter(l => (l.funnel_stage_id || l.stage) === stageId)
+      .filter(l => usingCustomFunnel
+        ? l.funnel_stage_id === stageId
+        : (l.stage || 'NOVO') === stageId
+      )
       .map(l => l.id);
     if (ids.length === 0) {
       toast.info('Nenhum lead nessa etapa');
@@ -1473,7 +1480,7 @@ const Pipeline = () => {
       return next;
     });
     toast.success(`${ids.length} lead(s) adicionado(s) à seleção`);
-  }, [filteredLeads]);
+  }, [filteredLeads, usingCustomFunnel]);
 
   const handleBulkMoveStage = useCallback(async (stageId: string) => {
     const ids = Array.from(selectedLeadIds);
