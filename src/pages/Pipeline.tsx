@@ -13,7 +13,7 @@ import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X, ArrowRight, UserCog, MessageSquarePlus, Trash2, Filter } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
@@ -36,6 +36,10 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AddLeadModal } from "@/components/AddLeadModal";
 import { ImportLeadsModal } from "@/components/ImportLeadsModal";
+import { BulkAssignDialog } from "@/components/BulkAssignDialog";
+import { BulkMoveStageDialog } from "@/components/BulkMoveStageDialog";
+import { BulkAddNoteDialog } from "@/components/BulkAddNoteDialog";
+import { BulkDeleteDialog } from "@/components/BulkDeleteDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -173,6 +177,12 @@ const Pipeline = () => {
 
   // Bulk selection for list view
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+
+  // Bulk action dialogs
+  const [bulkMoveStageOpen, setBulkMoveStageOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkAddNoteOpen, setBulkAddNoteOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // Interface para estado de paginação por etapa
   interface StagePaginationState {
@@ -1447,6 +1457,118 @@ const Pipeline = () => {
     }
   };
 
+  // ========== BULK ACTIONS (Lista) ==========
+
+  const handleSelectByStage = useCallback((stageId: string) => {
+    // Mesma logica de leadsByStage (linha ~1150) — `usingCustomFunnel`
+    // determina qual coluna usar. Misturar os dois com `||` quebra em casos
+    // onde o lead tem ambos os campos populados (UUID em funnel_stage_id
+    // mas slug legacy em stage).
+    const ids = filteredLeads
+      .filter(l => usingCustomFunnel
+        ? l.funnel_stage_id === stageId
+        : (l.stage || 'NOVO') === stageId
+      )
+      .map(l => l.id);
+    if (ids.length === 0) {
+      toast.info('Nenhum lead nessa etapa');
+      return;
+    }
+    setSelectedLeadIds(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.add(id));
+      return next;
+    });
+    toast.success(`${ids.length} lead(s) adicionado(s) à seleção`);
+  }, [filteredLeads, usingCustomFunnel]);
+
+  const handleBulkMoveStage = useCallback(async (stageId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ funnel_stage_id: stageId, stage: stageId })
+        .in('id', ids);
+      if (error) {
+        toast.error('Erro ao mover leads: ' + error.message);
+        return;
+      }
+      setLeads(prev => prev.map(l =>
+        selectedLeadIds.has(l.id) ? { ...l, funnel_stage_id: stageId, stage: stageId } : l
+      ));
+      toast.success(`${ids.length} lead(s) movido(s)`);
+      setSelectedLeadIds(new Set());
+    } catch (err: any) {
+      console.error('[handleBulkMoveStage]', err);
+      toast.error('Erro inesperado ao mover leads');
+    }
+  }, [selectedLeadIds]);
+
+  const handleBulkAssign = useCallback(async (userId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0) return;
+    try {
+      // Zerar responsavel (texto) para o trigger sync_responsavel_user_id repopular
+      const { error } = await supabase
+        .from('leads')
+        .update({ responsavel_user_id: userId, responsavel: null })
+        .in('id', ids);
+      if (error) {
+        toast.error('Erro ao atribuir leads: ' + error.message);
+        return;
+      }
+      toast.success(`${ids.length} lead(s) atribuído(s)`);
+      setSelectedLeadIds(new Set());
+      // Forçar refetch para ver o nome novo do responsável (trigger atualizou no banco)
+      queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+    } catch (err: any) {
+      console.error('[handleBulkAssign]', err);
+      toast.error('Erro inesperado ao atribuir leads');
+    }
+  }, [selectedLeadIds, queryClient]);
+
+  const handleBulkAddNote = useCallback(async (content: string) => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0 || !user?.id) return;
+    try {
+      const rows = ids.map(lead_id => ({
+        lead_id,
+        user_id: user.id,
+        activity_type: 'note',
+        content,
+      }));
+      const { error } = await supabase.from('lead_activities').insert(rows);
+      if (error) {
+        toast.error('Erro ao adicionar nota: ' + error.message);
+        return;
+      }
+      toast.success(`Nota adicionada em ${ids.length} lead(s)`);
+      setSelectedLeadIds(new Set());
+    } catch (err: any) {
+      console.error('[handleBulkAddNote]', err);
+      toast.error('Erro inesperado ao adicionar nota');
+    }
+  }, [selectedLeadIds, user?.id]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedLeadIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase.from('leads').delete().in('id', ids);
+      if (error) {
+        toast.error('Erro ao excluir leads: ' + error.message);
+        return;
+      }
+      setLeads(prev => prev.filter(l => !selectedLeadIds.has(l.id)));
+      toast.success(`${ids.length} lead(s) excluído(s)`);
+      setSelectedLeadIds(new Set());
+    } catch (err: any) {
+      console.error('[handleBulkDelete]', err);
+      toast.error('Erro inesperado ao excluir leads');
+    }
+  }, [selectedLeadIds]);
+
   const handleWonConfirmation = async (confirmed: boolean) => {
     if (!confirmed || !wonConfirmation.lead || !wonConfirmation.event) {
       setWonConfirmation({ show: false, lead: null, targetStage: '', event: null });
@@ -1973,12 +2095,55 @@ const Pipeline = () => {
             /* Mobile List View - cards verticais */
             <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
               {selectedLeadIds.size > 0 && (
-                <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-3 flex items-center gap-3">
-                  <span className="text-sm font-medium text-primary">
-                    {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-2.5 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-primary">
+                    {selectedLeadIds.size} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
                   </span>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
+                  <div className="flex items-center gap-1 ml-auto flex-wrap">
+                    {/* Selecionar por etapa */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Selecionar por etapa">
+                          <Filter className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                        {stages.map(s => (
+                          <DropdownMenuItem key={s.id} onClick={() => handleSelectByStage(s.id)}>
+                            {s.title}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {permissions.canMoveLeadsPipeline && (
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Mover etapa"
+                        onClick={() => setBulkMoveStageOpen(true)}>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+
+                    {permissions.canAssignLeads && (
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Atribuir"
+                        onClick={() => setBulkAssignOpen(true)}>
+                        <UserCog className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+
+                    <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Adicionar nota"
+                      onClick={() => setBulkAddNoteOpen(true)}>
+                      <MessageSquarePlus className="h-3.5 w-3.5" />
+                    </Button>
+
+                    {permissions.canDeleteLeads && (
+                      <Button variant="destructive" size="sm" className="h-8 w-8 p-0" title="Excluir"
+                        onClick={() => setBulkDeleteOpen(true)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs"
+                      onClick={() => setSelectedLeadIds(new Set())}>
                       Limpar
                     </Button>
                   </div>
@@ -2077,12 +2242,60 @@ const Pipeline = () => {
           /* Desktop List View */
           <div className="border rounded-lg overflow-hidden bg-card dark:bg-card flex flex-col flex-1 min-h-0">
             {selectedLeadIds.size > 0 && (
-              <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3">
+              <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-medium text-primary">
                   {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
                 </span>
-                <div className="flex items-center gap-2 ml-auto">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                  {/* Selecionar por etapa */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Filter className="h-4 w-4 mr-1" />
+                        Selecionar etapa
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                      {stages.map(s => (
+                        <DropdownMenuItem key={s.id} onClick={() => handleSelectByStage(s.id)}>
+                          {s.title}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Mover etapa */}
+                  {permissions.canMoveLeadsPipeline && (
+                    <Button variant="outline" size="sm" onClick={() => setBulkMoveStageOpen(true)}>
+                      <ArrowRight className="h-4 w-4 mr-1" />
+                      Mover etapa
+                    </Button>
+                  )}
+
+                  {/* Atribuir */}
+                  {permissions.canAssignLeads && (
+                    <Button variant="outline" size="sm" onClick={() => setBulkAssignOpen(true)}>
+                      <UserCog className="h-4 w-4 mr-1" />
+                      Atribuir
+                    </Button>
+                  )}
+
+                  {/* Adicionar nota */}
+                  <Button variant="outline" size="sm" onClick={() => setBulkAddNoteOpen(true)}>
+                    <MessageSquarePlus className="h-4 w-4 mr-1" />
+                    Nota
+                  </Button>
+
+                  {/* Excluir */}
+                  {permissions.canDeleteLeads && (
+                    <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Excluir
+                    </Button>
+                  )}
+
+                  {/* Limpar seleção */}
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedLeadIds(new Set())}>
                     Limpar seleção
                   </Button>
                 </div>
@@ -2395,6 +2608,40 @@ const Pipeline = () => {
           onSuccess={() => setShowAddModal(false)}
         />
       )}
+
+      {/* Bulk action dialogs */}
+      <BulkMoveStageDialog
+        open={bulkMoveStageOpen}
+        onClose={() => setBulkMoveStageOpen(false)}
+        onConfirm={handleBulkMoveStage}
+        selectedCount={selectedLeadIds.size}
+        stages={stages.map(s => ({ id: s.id, title: s.title || s.name || 'Etapa' }))}
+      />
+
+      <BulkAssignDialog
+        open={bulkAssignOpen}
+        onClose={() => setBulkAssignOpen(false)}
+        onConfirm={handleBulkAssign}
+        selectedCount={selectedLeadIds.size}
+        colaboradores={(colaboradores || [])
+          .filter((c: any) => c.is_active !== false && c.user_id)
+          .map((c: any) => ({ user_id: c.user_id, full_name: c.full_name || c.email || 'Colaborador' }))
+        }
+      />
+
+      <BulkAddNoteDialog
+        open={bulkAddNoteOpen}
+        onClose={() => setBulkAddNoteOpen(false)}
+        onConfirm={handleBulkAddNote}
+        selectedCount={selectedLeadIds.size}
+      />
+
+      <BulkDeleteDialog
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        selectedCount={selectedLeadIds.size}
+      />
 
       {showImportModal && (
         <ImportLeadsModal
