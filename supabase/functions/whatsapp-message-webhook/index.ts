@@ -1413,6 +1413,8 @@ serve(async (req) => {
           organizationId,
           leadId,
           instanceId,
+          instanceName: instance,
+          senderJid: messageKey.remoteJid || senderPhone,
           messageInfo,
         });
       } catch (tagErr) {
