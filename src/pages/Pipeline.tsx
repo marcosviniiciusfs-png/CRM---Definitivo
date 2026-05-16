@@ -1463,6 +1463,10 @@ const Pipeline = () => {
     const ids = filteredLeads
       .filter(l => (l.funnel_stage_id || l.stage) === stageId)
       .map(l => l.id);
+    if (ids.length === 0) {
+      toast.info('Nenhum lead nessa etapa');
+      return;
+    }
     setSelectedLeadIds(prev => {
       const next = new Set(prev);
       ids.forEach(id => next.add(id));
@@ -1489,6 +1493,7 @@ const Pipeline = () => {
       toast.success(`${ids.length} lead(s) movido(s)`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
+      console.error('[handleBulkMoveStage]', err);
       toast.error('Erro inesperado ao mover leads');
     }
   }, [selectedLeadIds]);
@@ -1511,6 +1516,7 @@ const Pipeline = () => {
       // Forçar refetch para ver o nome novo do responsável (trigger atualizou no banco)
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
     } catch (err: any) {
+      console.error('[handleBulkAssign]', err);
       toast.error('Erro inesperado ao atribuir leads');
     }
   }, [selectedLeadIds, queryClient]);
@@ -1533,6 +1539,7 @@ const Pipeline = () => {
       toast.success(`Nota adicionada em ${ids.length} lead(s)`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
+      console.error('[handleBulkAddNote]', err);
       toast.error('Erro inesperado ao adicionar nota');
     }
   }, [selectedLeadIds, user?.id]);
@@ -1550,6 +1557,7 @@ const Pipeline = () => {
       toast.success(`${ids.length} lead(s) excluído(s)`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
+      console.error('[handleBulkDelete]', err);
       toast.error('Erro inesperado ao excluir leads');
     }
   }, [selectedLeadIds]);
