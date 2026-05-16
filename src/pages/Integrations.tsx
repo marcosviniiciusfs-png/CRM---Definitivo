@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FacebookLeadsConnection } from "@/components/FacebookLeadsConnection";
 import { WhatsAppChannelModal } from "@/components/WhatsAppChannelModal";
 import { WebhookIntegrationsTab } from "@/components/WebhookIntegrationsTab";
+import { WhatsAppTrackingTab } from "@/components/integrations/WhatsAppTrackingTab";
 import { IntegratedLogsViewer } from "@/components/IntegratedLogsViewer";
 import { MetaPixelConnection } from "@/components/MetaPixelConnection";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -517,7 +518,7 @@ const Integrations = () => {
   if (!canAccess) return null;
 
   const canManage = permissions.canManageIntegrations;
-  const [tab, setTab] = useState<"connections" | "webhooks" | "logs">("connections");
+  const [tab, setTab] = useState<"connections" | "webhooks" | "logs" | "tracking">("connections");
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showFacebook, setShowFacebook] = useState(false);
   const [showMetaPixel, setShowMetaPixel] = useState(false);
@@ -719,7 +720,7 @@ const Integrations = () => {
 
         {/* ── Tabs ── */}
         <div className="mb-4 sm:mb-6 overflow-x-auto flex gap-1 bg-muted/50 border border-border rounded-md p-1 w-fit max-w-full">
-          {(["connections", "webhooks", "logs"] as const).map(t => (
+          {(["connections", "webhooks", "logs", "tracking"] as const).map(t => (
             <button
               key={t}
               className={`flex items-center gap-1.5 text-xs sm:text-[13px] font-medium px-3 sm:px-4 py-2 rounded-[5px] whitespace-nowrap transition-all ${
@@ -730,7 +731,7 @@ const Integrations = () => {
               onClick={() => setTab(t)}
             >
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all ${tab === t ? "bg-primary" : "bg-muted-foreground/30"}`}/>
-              {t === "connections" ? "Conexões" : t === "webhooks" ? "Webhooks" : "Logs"}
+              {t === "connections" ? "Conexões" : t === "webhooks" ? "Webhooks" : t === "logs" ? "Logs" : "Trackeamento"}
             </button>
           ))}
         </div>
@@ -805,6 +806,13 @@ const Integrations = () => {
         {tab === "logs" && (
           <div className="bg-card border border-border rounded-lg">
             <IntegratedLogsViewer />
+          </div>
+        )}
+
+        {/* ── Tracking Tab ── */}
+        {tab === "tracking" && (
+          <div className="bg-card border border-border rounded-lg">
+            <WhatsAppTrackingTab />
           </div>
         )}
       </div>

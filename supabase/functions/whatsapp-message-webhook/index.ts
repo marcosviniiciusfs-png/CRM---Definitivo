@@ -8,6 +8,7 @@ import {
   extractPhoneNumber,
   createSupabaseAdmin,
 } from "../_shared/evolution-config.ts";
+import { maybeApplyAdLeadTag } from "../_shared/ad-lead-tagging.ts";
 
 // Função auxiliar para baixar mídia usando Evolution API e fazer upload para Supabase Storage
 async function downloadAndUploadMedia(
@@ -1402,7 +1403,24 @@ serve(async (req) => {
       console.log('🏢 Organization:', newLead.organization_id);
       leadId = newLead.id;
       leadName = newLead.nome_lead;
-      
+
+      // Lead recem-criado: avalia tracking rule do canal para aplicar
+      // tag "Lead de anuncio" se a primeira msg bater em keywords.
+      // Falhas nao bloqueiam o fluxo principal.
+      try {
+        await maybeApplyAdLeadTag({
+          supabase,
+          organizationId,
+          leadId,
+          instanceId,
+          instanceName: instance,
+          senderJid: messageKey.remoteJid || senderPhone,
+          messageInfo,
+        });
+      } catch (tagErr) {
+        console.warn('⚠️ [webhook] erro ao aplicar tag de anuncio (nao bloqueia):', tagErr);
+      }
+
       // ✅ DISTRIBUIR LEAD NA ROLETA (apenas para leads NOVOS)
       supabase.functions.invoke('distribute-lead', {
         body: {
