@@ -102,10 +102,11 @@ export function useAssignedChannels(): {
  * atribuicao de canais.
  *
  * - Lead sem whatsapp_instance_id (criado manual / Facebook / etc.): sempre visivel.
- * - Owner/admin (assignedChannelIds === null): sempre visivel.
- * - Member com Set vazio: tratamos como "sem opt-in da org" -> visivel
- *   (compatibilidade com orgs que nao configuraram a tabela WCM).
+ * - Owner/admin com hasFullAccess (assignedChannelIds === null): sempre visivel.
  * - Member com Set nao-vazio: visivel apenas se o canal do lead esta no Set.
+ * - Member com Set vazio (sem WCM): NAO visivel. Owner precisa atribuir
+ *   explicitamente. Migration 20260516120000 fez backfill defensivo no
+ *   deploy para nao quebrar acesso de members existentes.
  */
 export function isLeadVisibleByChannel(
   leadInstanceId: string | null | undefined,
@@ -113,6 +114,5 @@ export function isLeadVisibleByChannel(
 ): boolean {
   if (!leadInstanceId) return true;
   if (assignedChannelIds === null) return true;
-  if (assignedChannelIds.size === 0) return true;
   return assignedChannelIds.has(leadInstanceId);
 }
