@@ -67,12 +67,24 @@ export function useLeadMemberships(): UseLeadMembershipsResult {
       let instanceFilter: string[] | null = null;
       if (!hasFullAccess) {
         if (assignedChannelIds === null) {
-          instanceFilter = null;
-        } else if (assignedChannelIds.size === 0) {
+          // owner/admin via custom-role (defesa — nao deveria cair aqui
+          // dado hasFullAccess ja seria true)
           instanceFilter = null;
         } else {
+          // Member: filtra estritamente pelo WCM. Set vazio = sem acesso
+          // a leads WhatsApp. Fallback legacy 'Set vazio -> sem filtro'
+          // foi removido; migration 20260516120000 backfilled members
+          // existentes para preservar acesso no deploy.
           instanceFilter = Array.from(assignedChannelIds);
         }
+      }
+
+      // Member sem WCM (instanceFilter array vazio) -> nada a mostrar.
+      // Early return ANTES da query. O `finally` do try ja existente vai
+      // resetar loadingRef e setLoading(false).
+      if (instanceFilter && instanceFilter.length === 0) {
+        setCards([]);
+        return;
       }
 
       let query = supabase
