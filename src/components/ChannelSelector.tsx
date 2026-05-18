@@ -37,8 +37,32 @@ export function ChannelSelector({ organizationId, selectedChannelId, onChannelCh
     return channels.filter((c) => assignedChannelIds.has(c.id));
   }, [channels, hasFullAccess, loading, assignedChannelIds]);
 
-  if (visibleChannels.length <= 1) return null;
+  // Nenhum canal visivel: nao renderiza nada (Chat ja vai estar vazio).
+  if (visibleChannels.length === 0) return null;
 
+  // Exatamente 1 canal: mostra label informativo com o nome do canal +
+  // borda colorida. Nao ha o que alternar, mas o member precisa saber
+  // em qual canal esta operando.
+  if (visibleChannels.length === 1) {
+    const ch = visibleChannels[0];
+    return (
+      <div className="px-3 pb-1">
+        <div className="w-full flex items-center gap-2 text-[12px] bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-foreground">
+          <div
+            className="h-3 w-1 rounded shrink-0"
+            style={{ backgroundColor: ch.channel_color || "#888" }}
+            aria-hidden
+          />
+          <span className="text-muted-foreground">Canal:</span>
+          <span className="font-medium truncate">
+            {ch.channel_name || ch.instance_name}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2+ canais visiveis: dropdown para alternar.
   return (
     <div className="px-3 pb-1">
       <select
