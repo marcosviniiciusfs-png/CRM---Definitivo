@@ -3,6 +3,7 @@ import { Lead } from '@/types/chat';
 import { MobileLeadCard } from './MobileLeadCard';
 import { MoveStageSheet } from './MoveStageSheet';
 import { cn } from '@/lib/utils';
+import { mapTriggerSourceToReason } from '@/lib/redistribution';
 
 interface MobilePipelineViewProps {
   stages: any[];
@@ -17,7 +18,7 @@ interface MobilePipelineViewProps {
   profilesMap: Record<string, { full_name: string; avatar_url: string | null }>;
   duplicateLeadIds: Set<string>;
   agendamentosMap: Record<string, { reuniao?: string | null; venda?: string | null }>;
-  redistributedMap: Record<string, { fromName: string; minutes: number }>;
+  redistributedMap: Record<string, { fromName: string; minutes: number; triggerSource: string }>;
   stagePagination: Record<string, any>;
   onLoadMore: (stageId: string) => void;
 }
@@ -168,6 +169,7 @@ export function MobilePipelineView({
                   agendamentos={agendamentosMap[lead.id]}
                   isRedistributed={!!redistributedMap[lead.id]}
                   redistributedFromName={redistributedMap[lead.id]?.fromName}
+                  redistributionReason={mapTriggerSourceToReason(redistributedMap[lead.id]?.triggerSource)}
                 />
               );
             })}

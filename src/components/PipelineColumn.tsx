@@ -5,6 +5,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Lead } from "@/types/chat";
 import { memo } from "react";
+import { mapTriggerSourceToReason } from "@/lib/redistribution";
 
 interface StagePaginationState {
   loadedCount: number;
@@ -29,7 +30,7 @@ interface PipelineColumnProps {
   profilesMap?: Record<string, { full_name: string; avatar_url: string | null }>;
   duplicateLeadIds?: Set<string>;
   agendamentosMap?: Record<string, { reuniao?: string | null; venda?: string | null }>;
-  redistributedMap?: Record<string, { fromName: string; minutes: number }>;
+  redistributedMap?: Record<string, { fromName: string; minutes: number; triggerSource: string }>;
   // Props de paginação
   pagination?: StagePaginationState;
   onLoadMore?: () => void;
@@ -132,6 +133,7 @@ export const PipelineColumn = memo(({
                   isRedistributed={!!redistributedMap[lead.id]}
                   redistributedFromName={redistributedMap[lead.id]?.fromName}
                   redistributionMinutes={redistributedMap[lead.id]?.minutes}
+                  redistributionReason={mapTriggerSourceToReason(redistributedMap[lead.id]?.triggerSource)}
                 />
               );
             })
