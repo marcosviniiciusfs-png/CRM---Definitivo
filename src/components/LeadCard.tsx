@@ -14,6 +14,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { type RedistributionReason } from "@/lib/redistribution";
 import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { LeadTagsBadgeStatic } from "@/components/LeadTagsBadgeStatic";
 import * as Icons from "lucide-react";
@@ -131,6 +132,7 @@ export interface BaseLeadCardProps {
   isRedistributed?: boolean;
   redistributedFromName?: string;
   redistributionMinutes?: number;
+  redistributionReason?: RedistributionReason;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -152,6 +154,7 @@ interface LeadCardViewProps extends BaseLeadCardProps {
   isRedistributed?: boolean;
   redistributedFromName?: string;
   redistributionMinutes?: number;
+  redistributionReason?: RedistributionReason;
 }
 
 // Componente puramente visual, sem lógica de drag
@@ -191,6 +194,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   isRedistributed = false,
   redistributedFromName,
   redistributionMinutes,
+  redistributionReason = 'inactivity',
 }) => {
   const [totalValue, setTotalValue] = useState<number>(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -263,8 +267,10 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
           : "transition-[border-color,box-shadow] duration-200 ease-in-out",
         hasRedBorder && !dragging
           ? "border-border animate-glow-pulse"
-          : isRedistributed && !dragging
+          : isRedistributed && !dragging && redistributionReason === 'inactivity'
           ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
+          : isRedistributed && !dragging
+          ? "border-slate-600 dark:border-slate-500 hover:border-slate-400 hover:shadow-[0_4px_18px_0_rgba(100,116,139,0.35)]"
           : isDuplicate && !dragging
           ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
           : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
@@ -285,18 +291,32 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   {name}
                 </h3>
                 <div className="flex items-center gap-1 flex-wrap" data-lead-badges>
-                  {isRedistributed && (
-                    <Badge
-                      variant="secondary"
-                      title={redistributedFromName && redistributionMinutes
-                        ? `Lead redistribuído automaticamente pois o colaborador anterior (${redistributedFromName}) não interagiu dentro de ${redistributionMinutes} min`
-                        : "Lead redistribuído automaticamente para este colaborador"}
-                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-blue-950 text-blue-300 border-blue-800 cursor-default"
-                    >
-                      <RefreshCw className="h-2.5 w-2.5" />
-                      Redistribuído
-                    </Badge>
-                  )}
+                  {isRedistributed && (() => {
+                    const isInactivity = redistributionReason === 'inactivity';
+                    const isLost = redistributionReason === 'lost';
+                    const colorClass = isInactivity
+                      ? "bg-blue-950 text-blue-300 border-blue-800"
+                      : "bg-slate-800 text-slate-300 border-slate-700";
+                    const tooltip = isLost
+                      ? "Lead recuperado da etapa Perdido e redistribuído via roleta"
+                      : isInactivity
+                      ? (redistributedFromName && redistributionMinutes
+                          ? `Lead redistribuído automaticamente pois o colaborador anterior (${redistributedFromName}) não interagiu dentro de ${redistributionMinutes} min`
+                          : "Lead redistribuído automaticamente para este colaborador")
+                      : (redistributedFromName
+                          ? `Lead redistribuído via roleta (vinha do colaborador ${redistributedFromName})`
+                          : "Lead redistribuído via roleta");
+                    return (
+                      <Badge
+                        variant="secondary"
+                        title={tooltip}
+                        className={`w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 ${colorClass} cursor-default`}
+                      >
+                        <RefreshCw className="h-2.5 w-2.5" />
+                        Redistribuído
+                      </Badge>
+                    );
+                  })()}
                   {isDuplicate && (
                     <Badge
                       variant="secondary"
@@ -642,7 +662,8 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.isDuplicate === nextProps.isDuplicate &&
     prevProps.dataAgendamentoReuniao === nextProps.dataAgendamentoReuniao &&
     prevProps.dataAgendamentoVenda === nextProps.dataAgendamentoVenda &&
-    prevProps.isRedistributed === nextProps.isRedistributed
+    prevProps.isRedistributed === nextProps.isRedistributed &&
+    prevProps.redistributionReason === nextProps.redistributionReason
   );
 });
 
