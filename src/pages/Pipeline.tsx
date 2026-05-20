@@ -160,7 +160,7 @@ const Pipeline = () => {
   // Mapa leadId -> { reuniao, venda } para ícones de agendamento nos cards
   const [agendamentosMap, setAgendamentosMap] = useState<Record<string, { reuniao?: string | null; venda?: string | null }>>({});
   // Mapa leadId -> { fromName, minutes } para badge de redistribuição nos cards
-  const [redistributedMap, setRedistributedMap] = useState<Record<string, { fromName: string; minutes: number }>>({});;
+  const [redistributedMap, setRedistributedMap] = useState<Record<string, { fromName: string; minutes: number; triggerSource: string }>>({});
 
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -424,6 +424,7 @@ const Pipeline = () => {
             [row.lead_id]: {
               fromName: (profileRes.data as any)?.full_name || '',
               minutes: (configRes.data as any)?.redistribution_timeout_minutes || 0,
+              triggerSource: (row as any).trigger_source || '',
             },
           }));
         }
@@ -1037,7 +1038,7 @@ const Pipeline = () => {
     // Buscar a redistribuição mais recente por lead
     const { data } = await supabase
       .from('lead_distribution_history')
-      .select('lead_id, from_user_id, config_id, created_at')
+      .select('lead_id, from_user_id, config_id, trigger_source, created_at')
       .in('lead_id', leadIds)
       .eq('is_redistribution', true)
       .order('created_at', { ascending: false });
@@ -1071,11 +1072,12 @@ const Pipeline = () => {
     const configsById: Record<string, number> = {};
     (configsRes.data || []).forEach((c: any) => { configsById[c.id] = c.redistribution_timeout_minutes || 0; });
 
-    const map: Record<string, { fromName: string; minutes: number }> = {};
+    const map: Record<string, { fromName: string; minutes: number; triggerSource: string }> = {};
     latestByLead.forEach((row, leadId) => {
       map[leadId] = {
         fromName: row.from_user_id ? (profilesById[row.from_user_id] || '') : '',
         minutes: row.config_id ? (configsById[row.config_id] || 0) : 0,
+        triggerSource: (row as any).trigger_source || '',
       };
     });
 
