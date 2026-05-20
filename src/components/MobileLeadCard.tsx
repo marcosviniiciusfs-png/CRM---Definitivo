@@ -11,6 +11,7 @@ import {
   DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { LeadDetailsDialog } from '@/components/LeadDetailsDialog';
+import { type RedistributionReason } from '@/lib/redistribution';
 
 interface MobileLeadCardProps {
   lead: Lead;
@@ -26,12 +27,13 @@ interface MobileLeadCardProps {
   agendamentos?: { reuniao?: string | null; venda?: string | null };
   isRedistributed?: boolean;
   redistributedFromName?: string;
+  redistributionReason?: RedistributionReason;
 }
 
 export function MobileLeadCard({
   lead, stages, currentStageId, onEdit, onDelete, onMoveRequest,
   responsavelName, tags = [], isDuplicate, agendamentos,
-  isRedistributed, redistributedFromName,
+  isRedistributed, redistributedFromName, redistributionReason = 'inactivity',
 }: MobileLeadCardProps) {
   const [copied, setCopied] = useState(false);
   const [copiedInfo, setCopiedInfo] = useState(false);
@@ -177,8 +179,13 @@ export function MobileLeadCard({
               <Calendar className="h-2.5 w-2.5" />{agendStatus.label}
             </span>
           )}
-          {isRedistributed && redistributedFromName && (
-            <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-full">
+          {isRedistributed && (redistributionReason !== 'inactivity' || redistributedFromName) && (
+            <span className={cn(
+              'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border',
+              redistributionReason === 'inactivity'
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-slate-100 text-slate-700 border-slate-300'
+            )}>
               <RefreshCw className="h-2.5 w-2.5" />Redistribuído
             </span>
           )}
