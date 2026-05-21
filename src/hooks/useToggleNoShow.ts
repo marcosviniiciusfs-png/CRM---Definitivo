@@ -1,12 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-type StatusReuniao = 'realizada' | 'no_show' | null;
+import type { StatusReuniao } from '@/types/chat';
 
 interface ToggleNoShowInput {
   leadId: string;
-  currentStatus: StatusReuniao;
+  currentStatus: StatusReuniao | null;
 }
 
 export function useToggleNoShow() {
@@ -15,7 +14,7 @@ export function useToggleNoShow() {
 
   return useMutation({
     mutationFn: async ({ leadId, currentStatus }: ToggleNoShowInput) => {
-      const nextStatus: StatusReuniao =
+      const nextStatus: StatusReuniao | null =
         currentStatus === 'no_show' ? null : 'no_show';
 
       const { error } = await supabase
@@ -35,7 +34,7 @@ export function useToggleNoShow() {
         title: nextStatus === 'no_show' ? 'Lead marcado como no-show' : 'No-show desfeito',
       });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({
         title: 'Erro ao atualizar status',
         description: err?.message ?? 'Tente novamente.',
