@@ -1,4 +1,5 @@
 import { Lead } from '@/types/chat';
+import type { StatusReuniao } from '@/types/chat';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Phone, Check, AlertCircle, Calendar, RefreshCw, Pencil, Trash2 } from 'lucide-react';
@@ -25,6 +26,8 @@ interface MobileLeadCardProps {
   tags?: Array<{ id: string; name: string; color: string }>;
   isDuplicate?: boolean;
   agendamentos?: { reuniao?: string | null; venda?: string | null };
+  statusReuniao?: StatusReuniao | null;
+  onToggleNoShow?: () => void;
   isRedistributed?: boolean;
   redistributedFromName?: string;
   redistributionReason?: RedistributionReason;
@@ -33,6 +36,7 @@ interface MobileLeadCardProps {
 export function MobileLeadCard({
   lead, stages, currentStageId, onEdit, onDelete, onMoveRequest,
   responsavelName, tags = [], isDuplicate, agendamentos,
+  statusReuniao, onToggleNoShow,
   isRedistributed, redistributedFromName, redistributionReason = 'inactivity',
 }: MobileLeadCardProps) {
   const [copied, setCopied] = useState(false);
@@ -172,11 +176,14 @@ export function MobileLeadCard({
           {agendStatus && (
             <span className={cn(
               'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border',
-              agendStatus.color === 'destructive' ? 'bg-red-50 text-red-700 border-red-200' :
-              agendStatus.color === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-              'bg-blue-50 text-blue-700 border-blue-200'
+              statusReuniao === 'no_show'
+                ? 'bg-orange-50 text-orange-700 border-orange-200'
+                : agendStatus.color === 'destructive' ? 'bg-red-50 text-red-700 border-red-200' :
+                  agendStatus.color === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                  'bg-blue-50 text-blue-700 border-blue-200'
             )}>
-              <Calendar className="h-2.5 w-2.5" />{agendStatus.label}
+              <Calendar className="h-2.5 w-2.5" />
+              {statusReuniao === 'no_show' ? `No-show · ${agendStatus.label}` : agendStatus.label}
             </span>
           )}
           {isRedistributed && (redistributionReason !== 'inactivity' || redistributedFromName) && (
@@ -203,6 +210,12 @@ export function MobileLeadCard({
           <DropdownMenuContent align="start">
             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
               Editar lead
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!agendamentos?.reuniao}
+              onClick={(e) => { e.stopPropagation(); onToggleNoShow?.(); }}
+            >
+              {statusReuniao === 'no_show' ? 'Desfazer no-show' : 'Marcar como no-show'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => { e.stopPropagation(); onDelete(); }}

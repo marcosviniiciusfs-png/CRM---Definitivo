@@ -4,6 +4,8 @@ import { MobileLeadCard } from './MobileLeadCard';
 import { MoveStageSheet } from './MoveStageSheet';
 import { cn } from '@/lib/utils';
 import { mapTriggerSourceToReason } from '@/lib/redistribution';
+import { useToggleNoShow } from '@/hooks/useToggleNoShow';
+import type { StatusReuniao } from '@/types/chat';
 
 interface MobilePipelineViewProps {
   stages: any[];
@@ -33,6 +35,13 @@ export function MobilePipelineView({
   const [moveSheetLead, setMoveSheetLead] = useState<Lead | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null);
+
+  const toggleNoShow = useToggleNoShow();
+  const handleToggleNoShow = useCallback(
+    (leadId: string, currentStatus: StatusReuniao | null | undefined) =>
+      toggleNoShow.mutate({ leadId, currentStatus: currentStatus ?? null }),
+    [toggleNoShow]
+  );
 
   // Resetar stage ativa quando stages mudam (troca de funil)
   useEffect(() => {
@@ -167,6 +176,8 @@ export function MobilePipelineView({
                   tags={leadTagsMap[lead.id] || []}
                   isDuplicate={duplicateLeadIds.has(lead.id)}
                   agendamentos={agendamentosMap[lead.id]}
+                  statusReuniao={lead.status_reuniao}
+                  onToggleNoShow={() => handleToggleNoShow(lead.id, lead.status_reuniao)}
                   isRedistributed={!!redistributedMap[lead.id]}
                   redistributedFromName={redistributedMap[lead.id]?.fromName}
                   redistributionReason={mapTriggerSourceToReason(redistributedMap[lead.id]?.triggerSource)}
