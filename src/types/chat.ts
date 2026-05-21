@@ -26,6 +26,7 @@ export interface Lead {
   funnel_stage_id?: string | null;
   additional_data?: any;
   whatsapp_instance_id?: string | null;
+  status_reuniao?: 'realizada' | 'no_show' | null;
 }
 
 export interface MessageReaction {
