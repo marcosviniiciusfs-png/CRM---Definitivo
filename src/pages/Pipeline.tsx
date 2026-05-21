@@ -48,6 +48,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { useToggleNoShow } from "@/hooks/useToggleNoShow";
+import type { StatusReuniao } from "@/types/chat";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -100,6 +102,11 @@ const Pipeline = () => {
   const permissions = usePermissions();
   const { toast: toastUI } = useToast();
   const isMobile = useIsMobile();
+  const toggleNoShow = useToggleNoShow();
+
+  const handleToggleNoShow = useCallback((leadId: string, currentStatus: StatusReuniao | null | undefined) => {
+    toggleNoShow.mutate({ leadId, currentStatus: currentStatus ?? null });
+  }, [toggleNoShow]);
 
   // States for features migrated from Leads page
   const [showAddModal, setShowAddModal] = useState(false);
@@ -2526,6 +2533,7 @@ const Pipeline = () => {
                             redistributedMap={redistributedMap}
                             pagination={stagePagination[stage.id]}
                             onLoadMore={() => loadMoreForStage(stage.id)}
+                            onToggleNoShow={handleToggleNoShow}
                           />
                         );
                       })}
@@ -2572,6 +2580,7 @@ const Pipeline = () => {
                         redistributedMap={redistributedMap}
                         pagination={stagePagination[stage.id]}
                         onLoadMore={() => loadMoreForStage(stage.id)}
+                        onToggleNoShow={handleToggleNoShow}
                       />
                     );
                   })}
@@ -2594,6 +2603,9 @@ const Pipeline = () => {
                   description={activeLead.descricao_negocio}
                   leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
                   leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
+                  dataAgendamentoReuniao={agendamentosMap[activeLead.id]?.reuniao}
+                  statusReuniao={activeLead.status_reuniao}
+                  onToggleNoShow={() => handleToggleNoShow(activeLead.id, activeLead.status_reuniao)}
                 />
               ) : null}
             </DragOverlay>

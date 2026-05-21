@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Lead } from "@/types/chat";
+import type { StatusReuniao } from "@/types/chat";
 import { memo } from "react";
 import { mapTriggerSourceToReason } from "@/lib/redistribution";
 
@@ -34,6 +35,7 @@ interface PipelineColumnProps {
   // Props de paginação
   pagination?: StagePaginationState;
   onLoadMore?: () => void;
+  onToggleNoShow?: (leadId: string, currentStatus: StatusReuniao | null | undefined) => void;
 }
 
 export const PipelineColumn = memo(({
@@ -55,6 +57,7 @@ export const PipelineColumn = memo(({
   redistributedMap = {},
   pagination,
   onLoadMore,
+  onToggleNoShow,
 }: PipelineColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
@@ -130,6 +133,8 @@ export const PipelineColumn = memo(({
                   isDuplicate={duplicateLeadIds ? duplicateLeadIds.has(lead.id) : false}
                   dataAgendamentoReuniao={agendamentosMap[lead.id]?.reuniao}
                   dataAgendamentoVenda={agendamentosMap[lead.id]?.venda}
+                  statusReuniao={lead.status_reuniao}
+                  onToggleNoShow={() => onToggleNoShow?.(lead.id, lead.status_reuniao)}
                   isRedistributed={!!redistributedMap[lead.id]}
                   redistributedFromName={redistributedMap[lead.id]?.fromName}
                   redistributionMinutes={redistributedMap[lead.id]?.minutes}
