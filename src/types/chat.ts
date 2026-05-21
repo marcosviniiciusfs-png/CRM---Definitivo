@@ -1,3 +1,5 @@
+export type StatusReuniao = 'realizada' | 'no_show';
+
 export interface Lead {
   id: string;
   telefone_lead: string;
@@ -26,6 +28,7 @@ export interface Lead {
   funnel_stage_id?: string | null;
   additional_data?: any;
   whatsapp_instance_id?: string | null;
+  status_reuniao?: StatusReuniao | null;
 }
 
 export interface MessageReaction {

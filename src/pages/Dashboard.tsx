@@ -408,6 +408,24 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
+  // 3b. Reuniões no-show
+  const { data: noShowCount } = useQuery({
+    queryKey: ['dashboard-no-show', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryFn: async () => {
+      if (!organizationId || !startDate) return 0;
+      const { count } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('status_reuniao', 'no_show')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      return count || 0;
+    },
+    enabled: !!organizationId && !!startDate,
+    staleTime: 1000 * 60 * 5,
+  });
+
   // 4. Propostas enviadas
   const { data: proposalsCount } = useQuery({
     queryKey: ['dashboard-proposals', organizationId, startDate?.toISOString(), endDate?.toISOString()],
@@ -751,6 +769,9 @@ const Dashboard = () => {
   const attendedLeadsValue = attendedLeads ?? 0;
   const attendedPct = totalLeadsValue > 0 ? Math.round((attendedLeadsValue / totalLeadsValue) * 100) : 0;
   const realizedValue = realizedCount ?? 0;
+  const noShowValue = noShowCount ?? 0;
+  const totalMeetings = realizedValue + noShowValue;
+  const noShowRate = totalMeetings > 0 ? Math.round((noShowValue / totalMeetings) * 100) : 0;
   const proposalsValue = proposalsCount ?? 0;
   const soldValue = soldTotal ?? 0;
   const revenueValue = monthRevenue ?? 0;
@@ -830,7 +851,7 @@ const Dashboard = () => {
       {/* ════════════════════════════════════════════════════════════════════════
           BLOCO 1 — VISÃO GERAL DO MÊS
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard
           title="Leads no Mês"
           value={totalLeadsValue}
@@ -864,6 +885,12 @@ const Dashboard = () => {
           color="#f5a623"
           subtitle="receita ÷ vendas"
           format="currency"
+        />
+        <MetricCard
+          title="No-show"
+          value={noShowValue}
+          color="#f59e0b"
+          subtitle={`${noShowRate}% das reuniões`}
         />
       </div>
 

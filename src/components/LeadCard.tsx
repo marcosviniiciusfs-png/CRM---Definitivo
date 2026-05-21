@@ -11,6 +11,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import type { StatusReuniao } from "@/types/chat";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
@@ -129,6 +136,8 @@ export interface BaseLeadCardProps {
   isDuplicate?: boolean;
   dataAgendamentoReuniao?: string | null;
   dataAgendamentoVenda?: string | null;
+  statusReuniao?: StatusReuniao | null;
+  onToggleNoShow?: () => void;
   isRedistributed?: boolean;
   redistributedFromName?: string;
   redistributionMinutes?: number;
@@ -151,6 +160,8 @@ interface LeadCardViewProps extends BaseLeadCardProps {
   isDuplicate?: boolean;
   dataAgendamentoReuniao?: string | null;
   dataAgendamentoVenda?: string | null;
+  statusReuniao?: StatusReuniao | null;
+  onToggleNoShow?: () => void;
   isRedistributed?: boolean;
   redistributedFromName?: string;
   redistributionMinutes?: number;
@@ -191,6 +202,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   isDuplicate = false,
   dataAgendamentoReuniao,
   dataAgendamentoVenda,
+  statusReuniao,
+  onToggleNoShow,
   isRedistributed = false,
   redistributedFromName,
   redistributionMinutes,
@@ -253,29 +266,31 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   };
 
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      data-dragging={dragging}
-      className={cn(
-        "lead-card rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
-        dragging && "cursor-grabbing",
-        dragging
-          ? "transition-none"
-          : "transition-[border-color,box-shadow] duration-200 ease-in-out",
-        hasRedBorder && !dragging
-          ? "border-border animate-glow-pulse"
-          : isRedistributed && !dragging && redistributionReason === 'inactivity'
-          ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
-          : isRedistributed && !dragging
-          ? "border-slate-600 dark:border-slate-500 hover:border-slate-400 hover:shadow-[0_4px_18px_0_rgba(100,116,139,0.35)]"
-          : isDuplicate && !dragging
-          ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
-          : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
-      )}
-    >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <Card
+          ref={setNodeRef}
+          style={style}
+          {...attributes}
+          {...listeners}
+          data-dragging={dragging}
+          className={cn(
+            "lead-card rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
+            dragging && "cursor-grabbing",
+            dragging
+              ? "transition-none"
+              : "transition-[border-color,box-shadow] duration-200 ease-in-out",
+            hasRedBorder && !dragging
+              ? "border-border animate-glow-pulse"
+              : isRedistributed && !dragging && redistributionReason === 'inactivity'
+              ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
+              : isRedistributed && !dragging
+              ? "border-slate-600 dark:border-slate-500 hover:border-slate-400 hover:shadow-[0_4px_18px_0_rgba(100,116,139,0.35)]"
+              : isDuplicate && !dragging
+              ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
+              : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
+          )}
+        >
       <div className="p-1.5">
         <div className="flex items-start gap-2 mb-1">
           <LazyAvatar
@@ -394,8 +409,17 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(); }}
-                    title={`Reunião: ${new Date(dataAgendamentoReuniao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
-                    className="h-4 w-4 flex items-center justify-center text-blue-500 hover:text-blue-400 transition-colors"
+                    title={
+                      statusReuniao === 'no_show'
+                        ? `Reunião (No-show): ${new Date(dataAgendamentoReuniao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                        : `Reunião: ${new Date(dataAgendamentoReuniao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                    }
+                    className={cn(
+                      "h-4 w-4 flex items-center justify-center transition-colors",
+                      statusReuniao === 'no_show'
+                        ? "text-orange-500 hover:text-orange-400"
+                        : "text-blue-500 hover:text-blue-400"
+                    )}
                   >
                     <CalendarDays className="h-3 w-3" />
                   </button>
@@ -606,7 +630,20 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+        </Card>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="bg-background z-50">
+        <ContextMenuItem
+          disabled={!dataAgendamentoReuniao}
+          onSelect={(e) => {
+            e.preventDefault();
+            onToggleNoShow?.();
+          }}
+        >
+          {statusReuniao === 'no_show' ? 'Desfazer no-show' : 'Marcar como no-show'}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
 
@@ -661,6 +698,7 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl &&
     prevProps.isDuplicate === nextProps.isDuplicate &&
     prevProps.dataAgendamentoReuniao === nextProps.dataAgendamentoReuniao &&
+    prevProps.statusReuniao === nextProps.statusReuniao &&
     prevProps.dataAgendamentoVenda === nextProps.dataAgendamentoVenda &&
     prevProps.isRedistributed === nextProps.isRedistributed &&
     prevProps.redistributionReason === nextProps.redistributionReason

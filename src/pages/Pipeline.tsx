@@ -48,6 +48,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { useToggleNoShow } from "@/hooks/useToggleNoShow";
+import type { StatusReuniao } from "@/types/chat";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -100,6 +102,11 @@ const Pipeline = () => {
   const permissions = usePermissions();
   const { toast: toastUI } = useToast();
   const isMobile = useIsMobile();
+  const toggleNoShow = useToggleNoShow();
+
+  const handleToggleNoShow = useCallback((leadId: string, currentStatus: StatusReuniao | null | undefined) => {
+    toggleNoShow.mutate({ leadId, currentStatus: currentStatus ?? null });
+  }, [toggleNoShow]);
 
   // States for features migrated from Leads page
   const [showAddModal, setShowAddModal] = useState(false);
@@ -741,7 +748,7 @@ const Pipeline = () => {
         if (stageCount === 0) {
           return { stageId, count: 0, leads: [] as Lead[] };
         }
-        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data').eq('organization_id', organizationId);
+        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao').eq('organization_id', organizationId);
         dataQ = applyBaseFilters(dataQ) as any;
         dataQ = applyStageFilter(dataQ, stageId) as any;
         const dataRes = await dataQ.order('position', { ascending: true }).order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1);
@@ -841,7 +848,7 @@ const Pipeline = () => {
 
       let query = supabase
         .from('leads')
-        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data')
+        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data, status_reuniao')
         .eq('organization_id', organizationId);
 
       // Aplicar filtro de permissão
@@ -2526,6 +2533,7 @@ const Pipeline = () => {
                             redistributedMap={redistributedMap}
                             pagination={stagePagination[stage.id]}
                             onLoadMore={() => loadMoreForStage(stage.id)}
+                            onToggleNoShow={handleToggleNoShow}
                           />
                         );
                       })}
@@ -2572,6 +2580,7 @@ const Pipeline = () => {
                         redistributedMap={redistributedMap}
                         pagination={stagePagination[stage.id]}
                         onLoadMore={() => loadMoreForStage(stage.id)}
+                        onToggleNoShow={handleToggleNoShow}
                       />
                     );
                   })}
@@ -2594,6 +2603,9 @@ const Pipeline = () => {
                   description={activeLead.descricao_negocio}
                   leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
                   leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
+                  dataAgendamentoReuniao={agendamentosMap[activeLead.id]?.reuniao}
+                  statusReuniao={activeLead.status_reuniao}
+                  onToggleNoShow={() => handleToggleNoShow(activeLead.id, activeLead.status_reuniao)}
                 />
               ) : null}
             </DragOverlay>
