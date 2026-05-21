@@ -792,7 +792,6 @@ const Dashboard = () => {
     { etapa: 'Leads captados', valor: totalLeadsValue, color: '#4a7cfb' },
     { etapa: 'Leads atendidos', valor: attendedLeadsValue, color: '#3ecf8e' },
     { etapa: 'Reuniões realizadas', valor: realizedValue, color: '#f5a623' },
-    { etapa: 'No-show', valor: noShowValue, color: '#f59e0b' },
     { etapa: 'Propostas enviadas', valor: proposalsValue, color: '#a78bfa' },
     { etapa: 'Vendas fechadas', valor: soldValue, color: '#3ecf8e' }
   ];
@@ -852,7 +851,7 @@ const Dashboard = () => {
       {/* ════════════════════════════════════════════════════════════════════════
           BLOCO 1 — VISÃO GERAL DO MÊS
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard
           title="Leads no Mês"
           value={totalLeadsValue}
@@ -890,8 +889,6 @@ const Dashboard = () => {
         <MetricCard
           title="No-show"
           value={noShowValue}
-          variation={0}
-          sparkline={[0, 0, 0, 0, 0, 0, noShowValue]}
           color="#f59e0b"
           subtitle={`${noShowRate}% das reuniões`}
         />
