@@ -560,6 +560,30 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, redistState, onCa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirmação de cancelamento (somente quando há progresso) */}
+      <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar redistribuição?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{redistState.current - redistState.skipped}</strong> lead(s) já foram redistribuídos. Cancelar agora não desfaz o que já foi feito — os leads restantes permanecem com os colaboradores originais.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar redistribuindo</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setCancelConfirmOpen(false);
+                onCancel();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cancelar operação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
