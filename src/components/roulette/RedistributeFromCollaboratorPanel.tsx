@@ -450,6 +450,54 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, redistState, onCa
                 </div>
               </div>
             )}
+
+            {/* Fase 3 — Concluído / Cancelado / Erro */}
+            {isFinished && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {phase === "done" && <CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+                  {phase === "aborted" && <AlertTriangle className="h-5 w-5 text-amber-600" />}
+                  {phase === "error" && <XCircle className="h-5 w-5 text-destructive" />}
+                  <span className="text-sm font-medium">
+                    {phase === "done" && `Redistribuição concluída: ${redistState.current - redistState.skipped} de ${redistState.total} leads atribuídos`}
+                    {phase === "aborted" && `Operação cancelada após ${redistState.current - redistState.skipped} de ${redistState.total} leads`}
+                    {phase === "error" && `Erro: ${redistState.errorMessage || "falha desconhecida"}`}
+                  </span>
+                </div>
+                {redistState.skipped > 0 && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+                    {redistState.skipped} lead(s) aguardando configuração de roleta/agente.
+                  </div>
+                )}
+                {phase === "error" && (
+                  <p className="text-xs text-muted-foreground">
+                    {redistState.current - redistState.skipped} leads foram redistribuídos antes da falha. Use "Retomar" para continuar.
+                  </p>
+                )}
+                {redistState.log.length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Ver log completo ({redistState.log.length})</summary>
+                    <div className="mt-2 max-h-48 overflow-y-auto space-y-1 rounded-md border bg-muted/30 p-2">
+                      {redistState.log.map((a, i) => (
+                        <div key={`final-${a.lead_id}-${a.timestamp}-${i}`} className="flex items-center gap-2">
+                          {a.agent_user_id ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span className="truncate"><span className="font-medium">{a.lead_nome}</span> → {a.agent_name}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Ban className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              <span className="truncate text-muted-foreground"><span className="font-medium">{a.lead_nome}</span> — sem agente</span>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -471,6 +519,16 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, redistState, onCa
               <Button variant="destructive" onClick={handleCancelClick}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
+            )}
+            {isFinished && (
+              <>
+                {phase === "error" && (
+                  <Button variant="outline" onClick={onResume}>
+                    Retomar
+                  </Button>
+                )}
+                <Button onClick={handleClose}>Fechar</Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
