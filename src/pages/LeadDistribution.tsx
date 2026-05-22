@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -30,6 +30,36 @@ import { Progress } from "@/components/ui/progress";
 
 type TabValue = "roulettes" | "agents" | "rules" | "history";
 
+type CollabRedistPhase = "idle" | "running" | "done" | "aborted" | "error";
+
+interface CollabAssignment {
+  lead_id: string;
+  lead_nome: string;
+  agent_user_id: string | null;
+  agent_name: string | null;
+  timestamp: number;
+}
+
+interface CollabRedistState {
+  phase: CollabRedistPhase;
+  current: number;
+  total: number;
+  skipped: number;
+  log: CollabAssignment[];
+  errorMessage: string | null;
+  lastParams: { userIds: string[]; configId: string | null } | null;
+}
+
+const INITIAL_COLLAB_STATE: CollabRedistState = {
+  phase: "idle",
+  current: 0,
+  total: 0,
+  skipped: 0,
+  log: [],
+  errorMessage: null,
+  lastParams: null,
+};
+
 export default function LeadDistribution() {
   const { isReady, isLoading: orgLoading } = useOrganizationReady();
   const { organizationId } = useOrganization();
@@ -41,8 +71,12 @@ export default function LeadDistribution() {
   const [redistributeOpen, setRedistributeOpen] = useState(false);
   const [redistributeLostOpen, setRedistributeLostOpen] = useState(false);
 
-  // Redistribution progress state
+  // Redistribution progress state (compartilhado por redistributeMutation e redistributeLostMutation)
   const [redistProgress, setRedistProgress] = useState({ current: 0, total: 0, isRunning: false });
+
+  // Estado da redistribuição cadenciada de colaboradores (modal-controlled, isolado das outras 2)
+  const [collabRedistState, setCollabRedistState] = useState<CollabRedistState>(INITIAL_COLLAB_STATE);
+  const collabAbortRef = useRef<AbortController | null>(null);
 
   // Fetch configs for roulette cards
   const { data: configs, isLoading: configsLoading } = useQuery({
