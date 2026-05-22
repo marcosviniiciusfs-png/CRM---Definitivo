@@ -112,7 +112,7 @@ serve(async (req) => {
     const BATCH_SIZE = 1;
     let batchQuery = supabase
       .from("leads")
-      .select("id, nome_lead")
+      .select("id")
       .eq("organization_id", organization_id)
       .in("responsavel_user_id", collaborator_user_ids)
       .limit(BATCH_SIZE);
@@ -123,7 +123,7 @@ serve(async (req) => {
     }
     const { data: batchLeads, error: batchErr } = await batchQuery;
     if (batchErr) throw new Error(`Fetch batch: ${batchErr.message}`);
-    const batchLeadsTyped: Array<{ id: string; nome_lead: string | null }> = batchLeads || [];
+    const batchLeadsTyped: Array<{ id: string }> = batchLeads || [];
     const batchIds: string[] = batchLeadsTyped.map((l) => l.id);
 
     if (batchIds.length === 0) {
