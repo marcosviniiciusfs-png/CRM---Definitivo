@@ -60,6 +60,40 @@ const INITIAL_COLLAB_STATE: CollabRedistState = {
   lastParams: null,
 };
 
+function computeDelay(processedSoFar: number): number {
+  return processedSoFar < 50 ? 2000 : 500;
+}
+
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timeout = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function formatEta(remaining: number, processedSoFar: number): string {
+  let totalMs = 0;
+  for (let i = 0; i < remaining; i++) {
+    totalMs += computeDelay(processedSoFar + i);
+  }
+  const totalSeconds = Math.ceil(totalMs / 1000);
+  if (totalSeconds < 60) return `~${totalSeconds}s restantes`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `~${minutes}min restantes` : `~${minutes}min ${seconds}s restantes`;
+}
+
 export default function LeadDistribution() {
   const { isReady, isLoading: orgLoading } = useOrganizationReady();
   const { organizationId } = useOrganization();
