@@ -101,18 +101,18 @@ serve(async (req) => {
         processed: 0,
         skipped: 0,
         has_more: false,
+        assignments: [],
         message: "Nenhum lead ativo para redistribuir"
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 7. Capturar IDs do PROXIMO BATCH (nao todos de uma vez).
-    // 25 leads por batch: cada chamada completa em ~1-2s, o cliente loopa
-    // com 800ms entre chamadas, e a barra de progresso preenche visivelmente
-    // (em vez de pular de 0 -> N em 1 update so).
-    const BATCH_SIZE = 25;
+    // 7. Capturar 1 lead por chamada — cadência lead-a-lead.
+    // O cliente loopa com delay adaptativo (2s/lead até 50, 500ms depois)
+    // e usa cada `assignments[0]` retornado para alimentar o log do modal.
+    const BATCH_SIZE = 1;
     let batchQuery = supabase
       .from("leads")
-      .select("id")
+      .select("id, nome_lead")
       .eq("organization_id", organization_id)
       .in("responsavel_user_id", collaborator_user_ids)
       .limit(BATCH_SIZE);
@@ -123,7 +123,8 @@ serve(async (req) => {
     }
     const { data: batchLeads, error: batchErr } = await batchQuery;
     if (batchErr) throw new Error(`Fetch batch: ${batchErr.message}`);
-    const batchIds: string[] = (batchLeads || []).map((l: { id: string }) => l.id);
+    const batchLeadsTyped: Array<{ id: string; nome_lead: string | null }> = batchLeads || [];
+    const batchIds: string[] = batchLeadsTyped.map((l) => l.id);
 
     if (batchIds.length === 0) {
       // totalRemaining > 0 mas o batch retornou 0 — improvavel mas seguro retornar done
@@ -134,6 +135,7 @@ serve(async (req) => {
         processed: 0,
         skipped: 0,
         has_more: false,
+        assignments: [],
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -166,6 +168,7 @@ serve(async (req) => {
       processed: result.redistributed,
       skipped: result.skipped,
       has_more: hasMore,
+      assignments: result.assignments,
       errors: result.errors.length > 0 ? result.errors : undefined,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
