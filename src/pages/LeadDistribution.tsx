@@ -512,8 +512,12 @@ export default function LeadDistribution() {
 
       {/* Redistribuir leads de um colaborador (colapsavel) */}
       <RedistributeFromCollaboratorPanel
-        onConfirm={(userIds, configId) => redistributeFromCollaboratorMutation.mutate({ userIds, configId })}
-        isPending={redistributeFromCollaboratorMutation.isPending}
+        onConfirm={(userIds, configId) => void runCollabRedistribution(userIds, configId)}
+        redistState={collabRedistState}
+        onCancel={cancelCollabRedistribution}
+        onClose={closeCollabRedistribution}
+        onResume={resumeCollabRedistribution}
+        computeEta={(remaining, current) => formatEta(remaining, current)}
       />
 
       {/* Redistribution progress bar */}
