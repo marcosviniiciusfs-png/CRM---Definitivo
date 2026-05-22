@@ -443,10 +443,6 @@ export default function LeadDistribution() {
           toast.info("Nenhum lead foi redistribuído");
         }
       }
-
-      queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
-      queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      queryClient.invalidateQueries({ queryKey: ["multi-collaborator-active-leads-count"] });
     } catch (err) {
       if ((err as DOMException)?.name === "AbortError" || signal.aborted) {
         setCollabRedistState((prev) => ({ ...prev, phase: "aborted" }));
@@ -455,6 +451,12 @@ export default function LeadDistribution() {
       const message = err instanceof Error ? err.message : "Falha desconhecida";
       setCollabRedistState((prev) => ({ ...prev, phase: "error", errorMessage: message }));
       toast.error(`Erro: ${message}`);
+    } finally {
+      // Invalidar caches em todos os paths (done/aborted/error) — partial work
+      // ainda altera contagens e estados que outras telas leem.
+      queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
+      queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
+      queryClient.invalidateQueries({ queryKey: ["multi-collaborator-active-leads-count"] });
     }
   }, [organizationId, queryClient]);
 
