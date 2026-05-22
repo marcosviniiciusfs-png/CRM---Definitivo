@@ -263,6 +263,8 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, redistState, onCa
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {phase === "idle" && (
+            <>
             {/* Colaboradores (multi-select via Popover) */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Colaboradores</Label>
@@ -405,20 +407,71 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, redistState, onCa
                 })}
               </RadioGroup>
             </div>
+            </>
+            )}
+
+            {/* Fase 2 — Em execução */}
+            {phase === "running" && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium">Redistribuindo {redistState.total} lead(s)...</span>
+                </div>
+                <div className="space-y-1">
+                  <Progress
+                    value={redistState.total > 0 ? (redistState.current / redistState.total) * 100 : 0}
+                    className="h-2"
+                  />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{redistState.current} / {redistState.total}</span>
+                    <span>{computeEta(Math.max(0, redistState.total - redistState.current), redistState.current)}</span>
+                  </div>
+                </div>
+                <div className="rounded-md border bg-muted/30 max-h-72 overflow-y-auto p-2 space-y-1">
+                  {redistState.log.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">Iniciando...</p>
+                  ) : (
+                    redistState.log.slice(0, 50).map((a, i) => (
+                      <div key={`${a.lead_id}-${a.timestamp}-${i}`} className="flex items-center gap-2 text-xs">
+                        {a.agent_user_id ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            <span className="truncate"><span className="font-medium">{a.lead_nome}</span> → {a.agent_name}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Ban className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                            <span className="truncate text-muted-foreground"><span className="font-medium">{a.lead_nome}</span> — sem agente compatível</span>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleModalChange(false)} disabled={isPending}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setConfirmOpen(true)}
-              disabled={!canConfirm}
-            >
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Redistribuir {activeLeadsCount ?? 0} lead(s)
-            </Button>
+            {phase === "idle" && (
+              <>
+                <Button variant="outline" onClick={() => handleModalChange(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={!canConfirm}
+                >
+                  Redistribuir {activeLeadsCount ?? 0} lead(s)
+                </Button>
+              </>
+            )}
+            {phase === "running" && (
+              <Button variant="destructive" onClick={handleCancelClick}>
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
