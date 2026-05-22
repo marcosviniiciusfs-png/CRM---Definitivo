@@ -340,80 +340,139 @@ export default function LeadDistribution() {
     },
   });
 
-  // Redistribuir leads de um colaborador (loop client-side: cada chamada
-  // processa 1 batch, frontend mostra progresso entre chamadas)
-  const redistributeFromCollaboratorMutation = useMutation({
-    mutationFn: async ({ userIds, configId }: { userIds: string[]; configId: string | null }) => {
-      if (!organizationId) return { redistributed: 0, skipped: 0 };
+  // Redistribuição cadenciada lead-a-lead — modal-controlled, isolada de redistProgress.
+  // NÃO usa onSuccess/onError do useMutation (precisamos persistir o modal aberto
+  // mesmo após "concluir"). O modal lê de collabRedistState para decidir fase 2/3.
+  const runCollabRedistribution = useCallback(async (userIds: string[], configId: string | null) => {
+    if (!organizationId) return;
 
-      setRedistProgress({ current: 0, total: 0, isRunning: true });
+    // Aborta loop anterior se ainda houver
+    collabAbortRef.current?.abort();
+    const controller = new AbortController();
+    collabAbortRef.current = controller;
+    const signal = controller.signal;
 
-      let totalRedistributed = 0;
-      let totalSkipped = 0;
-      let hasMore = true;
-      let iteration = 0;
-      const MAX_ITERATIONS = 500;
-      const DELAY_MS = 800;
+    setCollabRedistState({
+      ...INITIAL_COLLAB_STATE,
+      phase: "running",
+      lastParams: { userIds, configId },
+    });
 
-      while (hasMore && iteration < MAX_ITERATIONS) {
-        iteration++;
-        const { data, error } = await supabase.functions.invoke("redistribute-from-collaborator", {
-          body: {
-            organization_id: organizationId,
-            collaborator_user_ids: userIds,
-            config_id: configId,
-          },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+    let totalRedistributed = 0;
+    let totalSkipped = 0;
+    let totalKnown = 0;
+    let emptyIterationStreak = 0;
+    const MAX_EMPTY_STREAK = 3;
+    const MAX_ITERATIONS = 5000;
 
+    const invokeOnce = async () => {
+      return await supabase.functions.invoke("redistribute-from-collaborator", {
+        body: {
+          organization_id: organizationId,
+          collaborator_user_ids: userIds,
+          config_id: configId,
+        },
+      });
+    };
+
+    try {
+      for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+        if (signal.aborted) break;
+
+        // 1 retry com backoff de 1s em falha de rede/edge
+        let resp = await invokeOnce();
+        if (resp.error || resp.data?.error) {
+          if (signal.aborted) break;
+          await abortableDelay(1000, signal);
+          resp = await invokeOnce();
+        }
+        if (resp.error) throw resp.error;
+        if (resp.data?.error) throw new Error(resp.data.error);
+
+        const data = resp.data;
         const count = data?.redistributed_count || 0;
         const total = data?.total || 0;
         const skipped = data?.skipped || 0;
+        const hasMore = data?.has_more === true;
+        const assignments: CollabAssignment[] = ((data?.assignments as Array<{
+          lead_id: string;
+          lead_nome: string;
+          agent_user_id: string | null;
+          agent_name: string | null;
+        }>) || []).map((a) => ({ ...a, timestamp: Date.now() }));
+
         totalRedistributed += count;
         totalSkipped += skipped;
+        totalKnown = Math.max(totalKnown, total);
 
-        setRedistProgress(prev => ({
+        setCollabRedistState((prev) => ({
           ...prev,
-          current: totalRedistributed,
+          current: totalRedistributed + totalSkipped,
           total: Math.max(prev.total, total),
+          skipped: totalSkipped,
+          log: [...assignments.slice().reverse(), ...prev.log],
         }));
 
-        hasMore = data?.has_more === true;
+        // Anti-loop tolerante: até 3 iterações vazias com has_more=true
+        if (count === 0 && skipped === 0 && hasMore) {
+          emptyIterationStreak++;
+          if (emptyIterationStreak >= MAX_EMPTY_STREAK) break;
+        } else {
+          emptyIterationStreak = 0;
+        }
 
-        // Anti-loop: se servidor diz has_more=true mas processou 0, sai
-        if (count === 0 && hasMore) break;
+        if (!hasMore) break;
+        if (signal.aborted) break;
 
-        // Delay entre iteracoes para UI atualizar e nao travar o banco
-        if (hasMore && iteration < MAX_ITERATIONS) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+        await abortableDelay(computeDelay(totalRedistributed + totalSkipped), signal);
+      }
+
+      if (signal.aborted) {
+        setCollabRedistState((prev) => ({ ...prev, phase: "aborted" }));
+        toast.info(`Operação cancelada. ${totalRedistributed} leads redistribuídos antes.`);
+      } else {
+        setCollabRedistState((prev) => ({ ...prev, phase: "done" }));
+        if (totalRedistributed > 0) {
+          const msg = totalSkipped > 0
+            ? `${totalRedistributed} leads redistribuídos. ${totalSkipped} aguardando configuração de roleta/agente.`
+            : `${totalRedistributed} leads redistribuídos com sucesso!`;
+          toast.success(msg);
+        } else if (totalSkipped > 0) {
+          toast.warning(`${totalSkipped} leads aguardando configuração de roleta/agente.`);
+        } else {
+          toast.info("Nenhum lead foi redistribuído");
         }
       }
 
-      setRedistProgress(prev => ({ ...prev, isRunning: false }));
-      return { redistributed: totalRedistributed, skipped: totalSkipped };
-    },
-    onSuccess: ({ redistributed, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
       queryClient.invalidateQueries({ queryKey: ["multi-collaborator-active-leads-count"] });
-      if (redistributed > 0) {
-        const msg = skipped > 0
-          ? `${redistributed} leads redistribuidos. ${skipped} aguardando configuracao de roleta/agente.`
-          : `${redistributed} leads redistribuidos com sucesso!`;
-        toast.success(msg);
-      } else if (skipped > 0) {
-        toast.warning(`${skipped} leads aguardando configuracao de roleta/agente.`);
-      } else {
-        toast.info("Nenhum lead foi redistribuido");
+    } catch (err) {
+      if ((err as DOMException)?.name === "AbortError" || signal.aborted) {
+        setCollabRedistState((prev) => ({ ...prev, phase: "aborted" }));
+        return;
       }
-      setTimeout(() => setRedistProgress({ current: 0, total: 0, isRunning: false }), 3000);
-    },
-    onError: (err: Error) => {
-      toast.error(`Erro: ${err.message || "falha ao redistribuir"}`);
-      setRedistProgress({ current: 0, total: 0, isRunning: false });
-    },
-  });
+      const message = err instanceof Error ? err.message : "Falha desconhecida";
+      setCollabRedistState((prev) => ({ ...prev, phase: "error", errorMessage: message }));
+      toast.error(`Erro: ${message}`);
+    }
+  }, [organizationId, queryClient]);
+
+  const cancelCollabRedistribution = useCallback(() => {
+    collabAbortRef.current?.abort();
+  }, []);
+
+  const closeCollabRedistribution = useCallback(() => {
+    collabAbortRef.current?.abort();
+    collabAbortRef.current = null;
+    setCollabRedistState(INITIAL_COLLAB_STATE);
+  }, []);
+
+  const resumeCollabRedistribution = useCallback(() => {
+    const params = collabRedistState.lastParams;
+    if (!params) return;
+    void runCollabRedistribution(params.userIds, params.configId);
+  }, [collabRedistState.lastParams, runCollabRedistribution]);
 
   // Delete mutation
   const deleteMutation = useMutation({
