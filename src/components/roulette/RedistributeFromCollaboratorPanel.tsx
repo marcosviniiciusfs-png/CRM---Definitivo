@@ -16,11 +16,36 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Shuffle, Loader2, Users, ChevronRight, Search, ChevronDown } from "lucide-react";
+import { Shuffle, Loader2, Users, ChevronRight, Search, ChevronDown, CheckCircle2, XCircle, AlertTriangle, Ban } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+
+type CollabRedistPhase = "idle" | "running" | "done" | "aborted" | "error";
+
+interface CollabAssignment {
+  lead_id: string;
+  lead_nome: string;
+  agent_user_id: string | null;
+  agent_name: string | null;
+  timestamp: number;
+}
+
+interface CollabRedistState {
+  phase: CollabRedistPhase;
+  current: number;
+  total: number;
+  skipped: number;
+  log: CollabAssignment[];
+  errorMessage: string | null;
+  lastParams: { userIds: string[]; configId: string | null } | null;
+}
 
 interface Props {
   onConfirm: (collaboratorUserIds: string[], configId: string | null) => void;
-  isPending: boolean;
+  redistState: CollabRedistState;
+  onCancel: () => void;
+  onClose: () => void;
+  onResume: () => void;
+  computeEta: (remaining: number, current: number) => string;
 }
 
 interface DistributionConfig {
@@ -37,20 +62,46 @@ const methodLabels: Record<string, string> = {
   random: "Aleatório",
 };
 
-export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Props) {
+export function RedistributeFromCollaboratorPanel({ onConfirm, redistState, onCancel, onClose, onResume, computeEta }: Props) {
   const { organizationId } = useOrganization();
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [selectedConfigId, setSelectedConfigId] = useState<string>(""); // "" = Auto
   const [searchTerm, setSearchTerm] = useState("");
 
+  const phase = redistState.phase;
+  const isPending = phase === "running";
+  const isFinished = phase === "done" || phase === "aborted" || phase === "error";
+
+  // Forçar modal aberto durante execução/finalização (não permite fechar pelo overlay)
+  const dialogOpen = modalOpen || isPending || isFinished;
+
   const handleModalChange = (open: boolean) => {
+    // Bloqueia close enquanto está rodando ou em fase final (deve usar botão Fechar)
+    if (!open && (isPending || isFinished)) return;
     setModalOpen(open);
     if (!open) {
       setSelectedUserIds(new Set());
       setSelectedConfigId("");
       setSearchTerm("");
+    }
+  };
+
+  const handleClose = () => {
+    onClose();
+    setModalOpen(false);
+    setSelectedUserIds(new Set());
+    setSelectedConfigId("");
+    setSearchTerm("");
+  };
+
+  const handleCancelClick = () => {
+    if (redistState.current > 0) {
+      setCancelConfirmOpen(true);
+    } else {
+      onCancel();
     }
   };
 
@@ -201,7 +252,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
       </button>
 
       {/* Modal principal */}
-      <Dialog open={modalOpen} onOpenChange={handleModalChange}>
+      <Dialog open={dialogOpen} onOpenChange={handleModalChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Redistribuir leads de colaboradores</DialogTitle>
@@ -388,11 +439,8 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
             <AlertDialogAction
               onClick={() => {
                 setConfirmOpen(false);
-                setModalOpen(false);
+                // Modal pai permanece aberto durante a operação (fase 2/3)
                 onConfirm(selectedIdsArray, selectedConfigId || null);
-                setSelectedUserIds(new Set());
-                setSelectedConfigId("");
-                setSearchTerm("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
