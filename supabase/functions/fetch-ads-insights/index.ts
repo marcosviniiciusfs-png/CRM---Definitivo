@@ -274,6 +274,27 @@ const fetchAllPages = async (baseUrl: string): Promise<any[]> => {
   return allData;
 };
 
+const fetchCampaignList = async (adAccountId: string, accessToken: string): Promise<any[]> => {
+  const campaignStatuses = [
+    'ACTIVE',
+    'PAUSED',
+    'ARCHIVED',
+    'DELETED',
+    'IN_PROCESS',
+    'WITH_ISSUES',
+  ];
+
+  const campaignsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/campaigns?` +
+    `fields=id,name,status,effective_status,objective` +
+    `&filtering=${encodeURIComponent(JSON.stringify([
+      { field: 'effective_status', operator: 'IN', value: campaignStatuses }
+    ]))}` +
+    `&limit=500` +
+    `&access_token=${accessToken}`;
+
+  return fetchAllPages(campaignsUrl);
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -604,6 +625,56 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Quando já existe ad_account_id salvo, a lista pode estar vazia em integrações antigas.
+    // Preencher nome/lista sem pedir nova conexão e sem mexer nos tokens/webhooks.
+    if (selectedAccountId && availableAccounts.length === 0 && access_token) {
+      try {
+        const accountInfoUrl = `https://graph.facebook.com/v21.0/${selectedAccountId}?fields=id,name,account_status&access_token=${access_token}`;
+        const accountInfoResp = await fetch(accountInfoUrl);
+        const accountInfoData = await accountInfoResp.json();
+
+        if (accountInfoData?.id && !accountInfoData.error) {
+          availableAccounts = normalizeAdAccounts([{
+            id: accountInfoData.id,
+            name: accountInfoData.name || 'Conta de Anúncios',
+            status: accountInfoData.account_status ?? 1,
+          }]);
+          console.log(`[ADS] Conta salva resolvida via Meta API: ${availableAccounts[0].name}`);
+        } else {
+          console.warn('[ADS] Conta salva não resolvida, tentando /me/adaccounts:', accountInfoData?.error?.message);
+          const adAccountsUrl = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
+          const adAccountsData = await (await fetch(adAccountsUrl)).json();
+          const discoveredAccounts = normalizeAdAccounts((adAccountsData.data || []).map((a: any) => ({
+            id: a.id,
+            name: a.name,
+            status: a.account_status ?? 1,
+          })));
+
+          if (discoveredAccounts.length > 0) {
+            availableAccounts = discoveredAccounts;
+            const selectedFromDiscovery = availableAccounts.find(acc => acc.id === selectedAccountId);
+            if (!selectedFromDiscovery) {
+              selectedAccountId = availableAccounts[0].id;
+              await supabase
+                .from('facebook_integrations')
+                .update({ ad_account_id: selectedAccountId })
+                .eq('id', integrationId);
+              console.log(`[ADS] Conta salva indisponível — usando conta descoberta: ${selectedAccountId}`);
+            }
+          }
+        }
+
+        if (availableAccounts.length > 0) {
+          await supabase
+            .from('facebook_integrations')
+            .update({ ad_accounts: JSON.stringify(availableAccounts) })
+            .eq('id', integrationId);
+        }
+      } catch (accountInfoError) {
+        console.warn('[ADS] Erro ao resolver nome/lista da conta salva:', accountInfoError);
+      }
+    }
+
     // Se a conta selecionada não está nas contas filtradas da BM, usar a primeira da BM
     const selectedInFiltered = availableAccounts.find(acc => acc.id === selectedAccountId);
     if (!selectedInFiltered && availableAccounts.length > 0) {
@@ -645,13 +716,42 @@ Deno.serve(async (req) => {
     const aggregatedData = await fetchAllPages(aggregatedInsightsUrl);
 
     if (!aggregatedData || aggregatedData.length === 0) {
-      console.log('Nenhum dado encontrado para o período');
+      console.log('Nenhum dado de insights encontrado para o período; buscando lista de campanhas da conta');
+      const campaigns = await fetchCampaignList(selectedAccountId, access_token);
+      const campaignBreakdown = campaigns.map((campaign: any) => {
+        const objective = campaign.objective || '';
+        return {
+          id: campaign.id,
+          name: campaign.name || 'Campanha sem nome',
+          spend: 0,
+          leads: 0,
+          reach: 0,
+          impressions: 0,
+          clicks: 0,
+          leadType: '',
+          leadTypeName: '',
+          costPerLead: 0,
+          cpl: 0,
+          cpc: 0,
+          ctr: 0,
+          frequency: 0,
+          outboundClicks: 0,
+          landingPageViews: 0,
+          qualityRanking: '',
+          engagementRanking: '',
+          conversionRanking: '',
+          objective,
+          objectiveName: objectiveToName[objective] || objective || 'Outro',
+          status: campaign.effective_status || campaign.status || '',
+        };
+      });
+
       return new Response(
         JSON.stringify({
           data: {
             totalSpend: 0, totalReach: 0, totalImpressions: 0, totalClicks: 0, totalLeads: 0,
             avgCPL: 0, avgCPC: 0, avgCTR: 0, avgFrequency: 0,
-            chartData: [], campaignBreakdown: [], platformBreakdown: [],
+            chartData: [], campaignBreakdown, platformBreakdown: [],
             crmValidation: { metaReportedLeads: 0, crmReceivedLeads: 0, captureRate: 0, discrepancy: 0 }
           },
           error: null, selectedAccount, availableAccounts
