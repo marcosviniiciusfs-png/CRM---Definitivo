@@ -393,6 +393,12 @@ const LeadMetrics = () => {
       if (data?.selectedAccount) {
         setSelectedAdAccountId(data.selectedAccount.id);
         setSelectedAdAccountName(data.selectedAccount.name);
+      } else if (data?.error || data?.selectedAccount === null) {
+        setSelectedAdAccountId(null);
+        setSelectedAdAccountName(null);
+        if (!data?.availableAccounts?.length) {
+          setAvailableAdAccounts([]);
+        }
       }
 
       if (data?.error) {
@@ -402,6 +408,9 @@ const LeadMetrics = () => {
           data.error.includes('Nenhuma conta de anúncios encontrada');
 
         if (isNotConfigured) {
+          setSelectedAdAccountId(null);
+          setSelectedAdAccountName(null);
+          setAvailableAdAccounts([]);
           setAdsError(
             fbConnected && !fbNeedsReconnect
               ? 'Facebook Leads está conectado, mas nenhuma conta de anúncios com campanhas foi encontrada para essa conexão.'

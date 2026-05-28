@@ -382,6 +382,61 @@ const fetchBusinessAdAccounts = async (businessId: string, accessToken: string):
   return [...accountMap.values()];
 };
 
+const fetchUserAdAccounts = async (accessToken: string): Promise<AdAccount[]> => {
+  const adAccountsUrl = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&limit=50&access_token=${accessToken}`;
+  const accounts = await fetchAllPages(adAccountsUrl);
+  return normalizeAdAccounts(accounts.map((a: any) => ({
+    id: a.id,
+    name: a.name,
+    status: a.account_status ?? 1,
+  })));
+};
+
+const discoverAccountsUsingPage = async (
+  accessToken: string,
+  pageId: string,
+  initialAccounts: AdAccount[] = []
+): Promise<{ accounts: AdAccount[]; campaignIdsByAccount: Record<string, string[]> }> => {
+  const accountMap = new Map<string, AdAccount>();
+  const campaignIdsByAccount: Record<string, string[]> = {};
+
+  for (const account of initialAccounts) {
+    accountMap.set(account.id, account);
+  }
+
+  try {
+    for (const account of await fetchUserAdAccounts(accessToken)) {
+      accountMap.set(account.id, account);
+    }
+  } catch (userAccountsError) {
+    console.warn('[ADS] Erro ao listar contas do usuário para prova por página:', userAccountsError);
+  }
+
+  try {
+    const bizListUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name&limit=50&access_token=${accessToken}`;
+    const businesses = await fetchAllPages(bizListUrl);
+    for (const business of businesses) {
+      for (const account of await fetchBusinessAdAccounts(business.id, accessToken)) {
+        accountMap.set(account.id, account);
+      }
+    }
+  } catch (businessDiscoveryError) {
+    console.warn('[ADS] Erro ao listar BMs para prova por página:', businessDiscoveryError);
+  }
+
+  const provenAccounts: AdAccount[] = [];
+  for (const account of accountMap.values()) {
+    const campaignIds = await fetchCampaignIdsForPage(account.id, accessToken, pageId);
+    if (campaignIds && campaignIds.size > 0) {
+      provenAccounts.push(account);
+      campaignIdsByAccount[account.id] = [...campaignIds];
+    }
+  }
+
+  console.log(`[ADS] Contas comprovadas usando a página ${pageId}: ${provenAccounts.length}`);
+  return { accounts: provenAccounts, campaignIdsByAccount };
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -410,6 +465,7 @@ Deno.serve(async (req) => {
     let selectedAccountId: string | null = null;
     let availableAccounts: AdAccount[] = [];
     let integrationId: string | null = null;
+    let provenCampaignIdsByAccount: Record<string, string[]> = {};
 
     // Primeiro buscar a integração principal — usar a mais recente se houver múltiplas
     const { data: integrations, error: integrationError } = await supabase
@@ -529,6 +585,25 @@ Deno.serve(async (req) => {
         console.warn('[ADS] Erro ao resolver BM da página conectada; bloqueando fallback pessoal:', pageBusinessError);
         selectedAccountId = null;
         availableAccounts = [];
+      }
+
+      if (!selectedAccountId && integration.page_id) {
+        console.log('[ADS] BM da página não trouxe conta válida; procurando contas com campanhas que usam a página conectada');
+        const proven = await discoverAccountsUsingPage(access_token, integration.page_id, availableAccounts);
+        provenCampaignIdsByAccount = proven.campaignIdsByAccount;
+        availableAccounts = proven.accounts;
+        selectedAccountId = availableAccounts[0]?.id || null;
+
+        if (selectedAccountId) {
+          await supabase
+            .from('facebook_integrations')
+            .update({
+              ad_account_id: selectedAccountId,
+              ad_accounts: JSON.stringify(availableAccounts)
+            })
+            .eq('id', integrationId);
+          console.log(`[ADS] Conta selecionada por prova de uso da página: ${selectedAccountId}`);
+        }
       }
     }
 
@@ -835,13 +910,17 @@ Deno.serve(async (req) => {
     console.log(`Conta de Anúncios: ${selectedAccountId} (${selectedAccount.name})`);
     console.log(`Página conectada: ${integration.page_name || 'sem nome'} (${integration.page_id || 'sem page_id'})`);
 
-    let pageCampaignIds = await fetchCampaignIdsForPage(selectedAccountId, access_token, integration.page_id);
+    let pageCampaignIds = provenCampaignIdsByAccount[selectedAccountId]
+      ? new Set(provenCampaignIdsByAccount[selectedAccountId])
+      : await fetchCampaignIdsForPage(selectedAccountId, access_token, integration.page_id);
 
     if (hasConnectedPage && pageCampaignIds && pageCampaignIds.size === 0 && availableAccounts.length > 1) {
       console.log('[ADS] Conta selecionada não possui campanhas da página; procurando em outras contas da BM da página');
       for (const account of availableAccounts) {
         if (account.id === selectedAccountId) continue;
-        const candidateCampaignIds = await fetchCampaignIdsForPage(account.id, access_token, integration.page_id);
+        const candidateCampaignIds = provenCampaignIdsByAccount[account.id]
+          ? new Set(provenCampaignIdsByAccount[account.id])
+          : await fetchCampaignIdsForPage(account.id, access_token, integration.page_id);
         if (candidateCampaignIds && candidateCampaignIds.size > 0) {
           selectedAccountId = account.id;
           selectedAccount = account;
@@ -853,6 +932,26 @@ Deno.serve(async (req) => {
           console.log(`[ADS] Conta corrigida para campanhas da página conectada: ${selectedAccountId}`);
           break;
         }
+      }
+    }
+
+    if (hasConnectedPage && pageCampaignIds && pageCampaignIds.size === 0 && integration.page_id) {
+      console.log('[ADS] Nenhuma conta atual comprovou uso da página; varrendo contas acessíveis por prova de page_id');
+      const proven = await discoverAccountsUsingPage(access_token, integration.page_id, availableAccounts);
+      if (proven.accounts.length > 0) {
+        provenCampaignIdsByAccount = proven.campaignIdsByAccount;
+        availableAccounts = proven.accounts;
+        selectedAccountId = availableAccounts[0].id;
+        selectedAccount = availableAccounts[0];
+        pageCampaignIds = new Set(provenCampaignIdsByAccount[selectedAccountId] || []);
+        await supabase
+          .from('facebook_integrations')
+          .update({
+            ad_account_id: selectedAccountId,
+            ad_accounts: JSON.stringify(availableAccounts)
+          })
+          .eq('id', integrationId);
+        console.log(`[ADS] Conta corrigida por campanha que usa a página: ${selectedAccountId}`);
       }
     }
 
