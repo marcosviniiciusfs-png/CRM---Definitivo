@@ -19,6 +19,20 @@ interface AdsInsightsParams {
   ad_account_id?: string;
 }
 
+const normalizeAdAccountId = (id?: string | null): string | null => {
+  if (!id) return null;
+  return id.startsWith('act_') ? id : `act_${id}`;
+};
+
+const normalizeAdAccounts = (accounts: AdAccount[]): AdAccount[] =>
+  accounts
+    .filter((account) => Boolean(account?.id))
+    .map((account) => ({
+      ...account,
+      id: normalizeAdAccountId(account.id) || account.id,
+      status: account.status ?? 1,
+    }));
+
 // Função para descriptografar tokens
 async function decryptToken(encryptedToken: string, key: string): Promise<string> {
   if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
@@ -308,19 +322,14 @@ Deno.serve(async (req) => {
     }
 
     integrationId = integration.id;
-    selectedAccountId = ad_account_id || integration.ad_account_id;
-
-    // Garantir prefixo act_ obrigatório pela Meta API
-    if (selectedAccountId && !selectedAccountId.startsWith('act_')) {
-      selectedAccountId = `act_${selectedAccountId}`;
-    }
+    selectedAccountId = normalizeAdAccountId(ad_account_id || integration.ad_account_id);
 
     if (integration.ad_accounts) {
       if (Array.isArray(integration.ad_accounts)) {
-        availableAccounts = integration.ad_accounts;
+        availableAccounts = normalizeAdAccounts(integration.ad_accounts);
       } else if (typeof integration.ad_accounts === 'string') {
         try {
-          availableAccounts = JSON.parse(integration.ad_accounts);
+          availableAccounts = normalizeAdAccounts(JSON.parse(integration.ad_accounts));
         } catch (e) {
           console.error('Failed to parse ad_accounts:', e);
         }
@@ -367,10 +376,7 @@ Deno.serve(async (req) => {
 
       // Se já temos contas salvas no banco, usar a primeira
       if (availableAccounts.length > 0) {
-        selectedAccountId = availableAccounts[0].id;
-        if (!selectedAccountId.startsWith('act_')) {
-          selectedAccountId = `act_${selectedAccountId}`;
-        }
+        selectedAccountId = normalizeAdAccountId(availableAccounts[0].id);
         console.log(`[ADS] Usando conta salva no banco: ${selectedAccountId}`);
       } else {
         // Tentar buscar via API — PRIORIZAR BM conectada
@@ -386,11 +392,11 @@ Deno.serve(async (req) => {
               const bizAccountsData = await bizAccountsResponse.json();
 
               if (bizAccountsData.data && bizAccountsData.data.length > 0) {
-                accounts = bizAccountsData.data.map((a: any) => ({
+                accounts = normalizeAdAccounts(bizAccountsData.data.map((a: any) => ({
                   id: a.id,
                   name: a.name,
                   status: a.account_status ?? 1
-                }));
+                })));
                 console.log(`[ADS] Encontrou ${accounts.length} conta(s) via BM conectado`);
               } else if (bizAccountsData.error) {
                 console.warn('[ADS] Erro ao buscar via BM conectado:', bizAccountsData.error.message);
@@ -429,11 +435,11 @@ Deno.serve(async (req) => {
               );
             }
 
-            accounts = (adAccountsData.data || []).map((a: any) => ({
+            accounts = normalizeAdAccounts((adAccountsData.data || []).map((a: any) => ({
               id: a.id,
               name: a.name,
               status: a.account_status ?? 1
-            }));
+            })));
           }
 
           // Tentativa 3: Descobrir TODOS os Business Managers do usuário e buscar contas em cada um
@@ -453,11 +459,11 @@ Deno.serve(async (req) => {
                     const bizAccResp = await fetch(bizAccUrl);
                     const bizAccData = await bizAccResp.json();
                     if (bizAccData.data && bizAccData.data.length > 0) {
-                      accounts = bizAccData.data.map((a: any) => ({
+                      accounts = normalizeAdAccounts(bizAccData.data.map((a: any) => ({
                         id: a.id,
                         name: a.name,
                         status: a.account_status ?? 1
-                      }));
+                      })));
                       console.log(`[ADS] Encontrou ${accounts.length} conta(s) no BM "${biz.name}" (${biz.id})`);
                       await supabase
                         .from('facebook_integrations')
@@ -486,11 +492,7 @@ Deno.serve(async (req) => {
           }
 
           availableAccounts = accounts;
-          selectedAccountId = accounts[0].id;
-
-          if (!selectedAccountId.startsWith('act_')) {
-            selectedAccountId = `act_${selectedAccountId}`;
-          }
+          selectedAccountId = normalizeAdAccountId(accounts[0].id);
 
           console.log(`[ADS] Auto-descoberta: ${accounts.length} conta(s). Usando: ${selectedAccountId}`);
 
@@ -548,7 +550,7 @@ Deno.serve(async (req) => {
                 const checkResp = await fetch(checkUrl);
                 const checkData = await checkResp.json();
                 if (checkData.data) {
-                  const found = checkData.data.find((a: any) => a.id === selectedAccountId);
+                  const found = checkData.data.find((a: any) => normalizeAdAccountId(a.id) === selectedAccountId);
                   if (found) {
                     resolvedBusinessId = biz.id;
                     console.log(`[ADS] Business descoberto via /me/businesses: ${biz.name} (${biz.id})`);
@@ -586,7 +588,7 @@ Deno.serve(async (req) => {
         const bmAccountsData = await bmAccountsResp.json();
 
         if (bmAccountsData.data && bmAccountsData.data.length > 0) {
-          const bmAccountIds = new Set(bmAccountsData.data.map((a: any) => a.id));
+          const bmAccountIds = new Set(bmAccountsData.data.map((a: any) => normalizeAdAccountId(a.id)));
           const filtered = availableAccounts.filter(acc => bmAccountIds.has(acc.id));
           if (filtered.length > 0) {
             availableAccounts = filtered;
@@ -606,10 +608,7 @@ Deno.serve(async (req) => {
     const selectedInFiltered = availableAccounts.find(acc => acc.id === selectedAccountId);
     if (!selectedInFiltered && availableAccounts.length > 0) {
       const oldId = selectedAccountId;
-      selectedAccountId = availableAccounts[0].id;
-      if (!selectedAccountId.startsWith('act_')) {
-        selectedAccountId = `act_${selectedAccountId}`;
-      }
+      selectedAccountId = normalizeAdAccountId(availableAccounts[0].id);
       console.log(`[ADS] Conta ${oldId} não pertence à BM — auto-selecionando: ${selectedAccountId}`);
       // Atualizar no banco
       await supabase

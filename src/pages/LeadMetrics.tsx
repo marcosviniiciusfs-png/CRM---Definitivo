@@ -396,14 +396,17 @@ const LeadMetrics = () => {
       }
 
       if (data?.error) {
-        // Se o hook de conexão diz que está conectado, ignorar erros de "not found"
-        // — a conexão existe, o problema pode ser temporário
         const isNotConfigured = data.error.includes('integration not found') ||
           data.error.includes('not configured') ||
-          data.error.includes('Facebook integration not found');
+          data.error.includes('Facebook integration not found') ||
+          data.error.includes('Nenhuma conta de anúncios encontrada');
 
         if (isNotConfigured) {
-          setAdsError(null);
+          setAdsError(
+            fbConnected && !fbNeedsReconnect
+              ? 'Facebook Leads está conectado, mas nenhuma conta de anúncios com campanhas foi encontrada para essa conexão.'
+              : null
+          );
           setAdsMetrics(null);
           setAdsNeedsReconnect(false);
           return;
@@ -1493,7 +1496,9 @@ const LeadMetrics = () => {
                 <Facebook className="h-4 w-4 text-[#1877F2]" />
               </div>
               <div>
-                <p className="font-medium text-sm">{selectedAdAccountName || 'Não configurada'}</p>
+                <p className="font-medium text-sm">
+                  {selectedAdAccountName || (fbConnected ? 'Facebook Leads conectado' : 'Não configurada')}
+                </p>
                 {availableAdAccounts.length > 0 && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     ID: {selectedAdAccountId?.slice(0,8)}... · {availableAdAccounts.length} conta{availableAdAccounts.length !== 1 ? 's' : ''} disponível{availableAdAccounts.length !== 1 ? 'is' : ''}
