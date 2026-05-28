@@ -9,6 +9,7 @@ interface FetchCampaignAdsParams {
   organization_id: string;
   campaign_id?: string;
   campaign_name?: string;
+  ad_account_id?: string;
 }
 
 interface CampaignAd {
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { organization_id, campaign_id, campaign_name }: FetchCampaignAdsParams = await req.json();
+    const { organization_id, campaign_id, campaign_name, ad_account_id: requested_ad_account_id }: FetchCampaignAdsParams = await req.json();
 
     if (!organization_id) {
       throw new Error('Missing required parameter: organization_id');
@@ -135,7 +136,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    ad_account_id = integration.ad_account_id;
+    ad_account_id = requested_ad_account_id || integration.ad_account_id;
     const integrationId = integration.id;
 
     // Tenta tabela segura primeiro

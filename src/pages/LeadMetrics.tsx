@@ -454,7 +454,8 @@ const LeadMetrics = () => {
         body: {
           organization_id: organizationId,
           campaign_id: campaign.id || undefined,
-          campaign_name: campaign.name
+          campaign_name: campaign.name,
+          ad_account_id: selectedAdAccountId || undefined
         }
       });
 
@@ -1901,7 +1902,9 @@ const LeadMetrics = () => {
                   <p className="text-sm max-w-md mx-auto">
                     {(adsNeedsReconnect || fbNeedsReconnect)
                       ? 'Sua conta do Facebook precisa ser reconectada para exibir as métricas de campanhas.'
-                      : 'Conecte sua conta do Facebook para acompanhar o desempenho das suas campanhas de anúncios.'}
+                      : fbConnected
+                        ? 'A conexão com Facebook Leads está ativa. Verifique se há uma conta de anúncios vinculada e campanhas com dados no período selecionado.'
+                        : 'Conecte sua conta do Facebook para acompanhar o desempenho das suas campanhas de anúncios.'}
                   </p>
                   <Button
                     variant="outline"
@@ -1909,7 +1912,7 @@ const LeadMetrics = () => {
                     onClick={() => window.location.href = '/integrations'}
                   >
                     <Facebook className="h-4 w-4 mr-2" />
-                    {(adsNeedsReconnect || fbNeedsReconnect) ? 'Ir para Integrações' : 'Conectar Facebook'}
+                    {(adsNeedsReconnect || fbNeedsReconnect) ? 'Ir para Integrações' : fbConnected ? 'Ver Integrações' : 'Conectar Facebook'}
                   </Button>
                 </div>
               </CardContent>
