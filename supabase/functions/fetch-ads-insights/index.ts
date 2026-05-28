@@ -479,7 +479,60 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!selectedAccountId) {
+    let resolvedBusinessId = integration.business_id;
+    const hasConnectedPage = Boolean(integration.page_id);
+
+    if (hasConnectedPage && access_token) {
+      console.log(`[ADS] Modo restrito por página conectada: ${integration.page_name || integration.page_id}`);
+      try {
+        const pageInfoUrl = `https://graph.facebook.com/v21.0/${integration.page_id}?fields=id,name,business&access_token=${access_token}`;
+        const pageInfoResp = await fetch(pageInfoUrl);
+        const pageInfoData = await pageInfoResp.json();
+        const pageBusinessId = pageInfoData?.business?.id || null;
+
+        if (pageBusinessId) {
+          resolvedBusinessId = pageBusinessId;
+          if (resolvedBusinessId !== integration.business_id) {
+            await supabase
+              .from('facebook_integrations')
+              .update({ business_id: resolvedBusinessId })
+              .eq('id', integrationId);
+          }
+
+          const pageBusinessAccounts = await fetchBusinessAdAccounts(resolvedBusinessId, access_token);
+          if (pageBusinessAccounts.length > 0) {
+            const businessAccountIds = new Set(pageBusinessAccounts.map(acc => acc.id));
+            availableAccounts = pageBusinessAccounts;
+            selectedAccountId = selectedAccountId && businessAccountIds.has(selectedAccountId)
+              ? selectedAccountId
+              : pageBusinessAccounts[0].id;
+
+            await supabase
+              .from('facebook_integrations')
+              .update({
+                ad_account_id: selectedAccountId,
+                ad_accounts: JSON.stringify(pageBusinessAccounts)
+              })
+              .eq('id', integrationId);
+            console.log(`[ADS] Conta selecionada restrita à BM da página: ${selectedAccountId}`);
+          } else {
+            selectedAccountId = null;
+            availableAccounts = [];
+            console.log('[ADS] BM da página não retornou contas de anúncios');
+          }
+        } else {
+          console.log('[ADS] Página conectada não possui Business Manager visível pelo token; não usando conta pessoal automaticamente');
+          selectedAccountId = null;
+          availableAccounts = [];
+        }
+      } catch (pageBusinessError) {
+        console.warn('[ADS] Erro ao resolver BM da página conectada; bloqueando fallback pessoal:', pageBusinessError);
+        selectedAccountId = null;
+        availableAccounts = [];
+      }
+    }
+
+    if (!selectedAccountId && !hasConnectedPage) {
       console.log('[ADS] Nenhuma conta configurada — tentando auto-descoberta...');
 
       // Se já temos contas salvas no banco, usar a primeira
@@ -608,8 +661,7 @@ Deno.serve(async (req) => {
     }
 
     // Descobrir business_id se não estiver salvo no banco
-    let resolvedBusinessId = integration.business_id;
-    if (!resolvedBusinessId && access_token) {
+    if (!resolvedBusinessId && access_token && !hasConnectedPage) {
       console.log('[ADS] business_id nulo — descobrindo via Facebook API...');
       try {
         // Tentativa 1: business da página conectada no CRM
@@ -701,7 +753,7 @@ Deno.serve(async (req) => {
 
     // Quando já existe ad_account_id salvo, a lista pode estar vazia em integrações antigas.
     // Preencher nome/lista sem pedir nova conexão e sem mexer nos tokens/webhooks.
-    if (selectedAccountId && availableAccounts.length === 0 && access_token) {
+    if (selectedAccountId && availableAccounts.length === 0 && access_token && !hasConnectedPage) {
       try {
         const accountInfoUrl = `https://graph.facebook.com/v21.0/${selectedAccountId}?fields=id,name,account_status&access_token=${access_token}`;
         const accountInfoResp = await fetch(accountInfoUrl);
@@ -749,6 +801,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (hasConnectedPage && !selectedAccountId) {
+      return new Response(
+        JSON.stringify({
+          error: 'Nenhuma conta de anúncios vinculada à página conectada foi encontrada. As métricas não usarão contas pessoais do perfil do Facebook.',
+          data: null,
+          selectedAccount: null,
+          availableAccounts: []
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // Se a conta selecionada não está nas contas filtradas da BM, usar a primeira da BM
     const selectedInFiltered = availableAccounts.find(acc => acc.id === selectedAccountId);
     if (!selectedInFiltered && availableAccounts.length > 0) {
@@ -762,7 +826,7 @@ Deno.serve(async (req) => {
         .eq('id', integrationId);
     }
 
-    const selectedAccount = selectedInFiltered || availableAccounts[0] || {
+    let selectedAccount = selectedInFiltered || availableAccounts[0] || {
       id: selectedAccountId,
       name: 'Conta de Anúncios',
       status: 1
@@ -771,7 +835,38 @@ Deno.serve(async (req) => {
     console.log(`Conta de Anúncios: ${selectedAccountId} (${selectedAccount.name})`);
     console.log(`Página conectada: ${integration.page_name || 'sem nome'} (${integration.page_id || 'sem page_id'})`);
 
-    const pageCampaignIds = await fetchCampaignIdsForPage(selectedAccountId, access_token, integration.page_id);
+    let pageCampaignIds = await fetchCampaignIdsForPage(selectedAccountId, access_token, integration.page_id);
+
+    if (hasConnectedPage && pageCampaignIds && pageCampaignIds.size === 0 && availableAccounts.length > 1) {
+      console.log('[ADS] Conta selecionada não possui campanhas da página; procurando em outras contas da BM da página');
+      for (const account of availableAccounts) {
+        if (account.id === selectedAccountId) continue;
+        const candidateCampaignIds = await fetchCampaignIdsForPage(account.id, access_token, integration.page_id);
+        if (candidateCampaignIds && candidateCampaignIds.size > 0) {
+          selectedAccountId = account.id;
+          selectedAccount = account;
+          pageCampaignIds = candidateCampaignIds;
+          await supabase
+            .from('facebook_integrations')
+            .update({ ad_account_id: selectedAccountId })
+            .eq('id', integrationId);
+          console.log(`[ADS] Conta corrigida para campanhas da página conectada: ${selectedAccountId}`);
+          break;
+        }
+      }
+    }
+
+    if (hasConnectedPage && pageCampaignIds && pageCampaignIds.size === 0) {
+      return new Response(
+        JSON.stringify({
+          error: 'Nenhuma campanha vinculada à página conectada foi encontrada nesta conta de anúncios. As métricas não usarão campanhas do perfil pessoal.',
+          data: null,
+          selectedAccount: null,
+          availableAccounts: []
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
 
     const insightsFields = [
       'campaign_id', 'campaign_name', 'reach', 'impressions', 'spend', 'clicks',
