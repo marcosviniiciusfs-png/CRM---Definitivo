@@ -314,10 +314,11 @@ const fetchCampaignIdsForPage = async (
   ];
 
   const pageCampaignIds = new Set<string>();
+  const pagePostPrefix = `${pageId}_`;
 
   try {
     const adsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads?` +
-      `fields=campaign_id,creative{object_story_spec}` +
+      `fields=campaign_id,creative{object_story_spec,actor_id,object_story_id,effective_object_story_id}` +
       `&filtering=${encodeURIComponent(JSON.stringify([
         { field: 'effective_status', operator: 'IN', value: effectiveStatuses }
       ]))}` +
@@ -326,9 +327,27 @@ const fetchCampaignIdsForPage = async (
 
     const ads = await fetchAllPages(adsUrl);
     for (const ad of ads) {
-      const storySpec = ad.creative?.object_story_spec;
-      const creativePageId = storySpec?.page_id || storySpec?.link_data?.page_id || storySpec?.video_data?.page_id;
-      if (creativePageId === pageId && ad.campaign_id) {
+      const creative = ad.creative || {};
+      const storySpec = creative.object_story_spec || {};
+      const creativePageIds = [
+        storySpec.page_id,
+        storySpec.link_data?.page_id,
+        storySpec.video_data?.page_id,
+        storySpec.template_data?.page_id,
+        storySpec.photo_data?.page_id,
+        creative.actor_id,
+      ].filter(Boolean).map(String);
+      const storyIds = [
+        creative.object_story_id,
+        creative.effective_object_story_id,
+        storySpec.object_story_id,
+        storySpec.effective_object_story_id,
+      ].filter(Boolean).map(String);
+
+      const usesConnectedPage = creativePageIds.includes(pageId) ||
+        storyIds.some((storyId) => storyId.startsWith(pagePostPrefix));
+
+      if (usesConnectedPage && ad.campaign_id) {
         pageCampaignIds.add(ad.campaign_id);
       }
     }
