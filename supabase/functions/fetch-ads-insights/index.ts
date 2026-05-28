@@ -295,6 +295,93 @@ const fetchCampaignList = async (adAccountId: string, accessToken: string): Prom
   return fetchAllPages(campaignsUrl);
 };
 
+const fetchCampaignIdsForPage = async (
+  adAccountId: string,
+  accessToken: string,
+  pageId?: string | null
+): Promise<Set<string> | null> => {
+  if (!pageId) return null;
+
+  const effectiveStatuses = [
+    'ACTIVE',
+    'PAUSED',
+    'ARCHIVED',
+    'DELETED',
+    'IN_PROCESS',
+    'WITH_ISSUES',
+    'CAMPAIGN_PAUSED',
+    'ADSET_PAUSED',
+  ];
+
+  const pageCampaignIds = new Set<string>();
+
+  try {
+    const adsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/ads?` +
+      `fields=campaign_id,creative{object_story_spec}` +
+      `&filtering=${encodeURIComponent(JSON.stringify([
+        { field: 'effective_status', operator: 'IN', value: effectiveStatuses }
+      ]))}` +
+      `&limit=500` +
+      `&access_token=${accessToken}`;
+
+    const ads = await fetchAllPages(adsUrl);
+    for (const ad of ads) {
+      const storySpec = ad.creative?.object_story_spec;
+      const creativePageId = storySpec?.page_id || storySpec?.link_data?.page_id || storySpec?.video_data?.page_id;
+      if (creativePageId === pageId && ad.campaign_id) {
+        pageCampaignIds.add(ad.campaign_id);
+      }
+    }
+  } catch (adsError) {
+    console.warn('[ADS] Erro ao filtrar campanhas por criativos da página:', adsError);
+  }
+
+  try {
+    const adsetsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adsets?` +
+      `fields=campaign_id,promoted_object,effective_status` +
+      `&filtering=${encodeURIComponent(JSON.stringify([
+        { field: 'effective_status', operator: 'IN', value: effectiveStatuses }
+      ]))}` +
+      `&limit=500` +
+      `&access_token=${accessToken}`;
+
+    const adsets = await fetchAllPages(adsetsUrl);
+    for (const adset of adsets) {
+      const promotedPageId = adset.promoted_object?.page_id;
+      if (promotedPageId === pageId && adset.campaign_id) {
+        pageCampaignIds.add(adset.campaign_id);
+      }
+    }
+  } catch (adsetsError) {
+    console.warn('[ADS] Erro ao filtrar campanhas por conjuntos da página:', adsetsError);
+  }
+
+  console.log(`[ADS] Campanhas vinculadas à página ${pageId}: ${pageCampaignIds.size}`);
+  return pageCampaignIds;
+};
+
+const fetchBusinessAdAccounts = async (businessId: string, accessToken: string): Promise<AdAccount[]> => {
+  const accountMap = new Map<string, AdAccount>();
+
+  for (const edge of ['owned_ad_accounts', 'client_ad_accounts']) {
+    try {
+      const accountsUrl = `https://graph.facebook.com/v21.0/${businessId}/${edge}?fields=id,name,account_status&limit=50&access_token=${accessToken}`;
+      const accounts = await fetchAllPages(accountsUrl);
+      for (const account of normalizeAdAccounts(accounts.map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        status: a.account_status ?? 1,
+      })))) {
+        accountMap.set(account.id, account);
+      }
+    } catch (businessAccountsError) {
+      console.warn(`[ADS] Erro ao buscar ${edge} da BM ${businessId}:`, businessAccountsError);
+    }
+  }
+
+  return [...accountMap.values()];
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -327,7 +414,7 @@ Deno.serve(async (req) => {
     // Primeiro buscar a integração principal — usar a mais recente se houver múltiplas
     const { data: integrations, error: integrationError } = await supabase
       .from('facebook_integrations')
-      .select('id, ad_account_id, ad_accounts, business_id')
+      .select('id, page_id, page_name, ad_account_id, ad_accounts, business_id')
       .eq('organization_id', organization_id)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -408,19 +495,9 @@ Deno.serve(async (req) => {
           if (integration.business_id) {
             console.log(`[ADS] Tentativa 1 — Business Manager conectado: ${integration.business_id}`);
             try {
-              const bizAccountsUrl = `https://graph.facebook.com/v21.0/${integration.business_id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
-              const bizAccountsResponse = await fetch(bizAccountsUrl);
-              const bizAccountsData = await bizAccountsResponse.json();
-
-              if (bizAccountsData.data && bizAccountsData.data.length > 0) {
-                accounts = normalizeAdAccounts(bizAccountsData.data.map((a: any) => ({
-                  id: a.id,
-                  name: a.name,
-                  status: a.account_status ?? 1
-                })));
+              accounts = await fetchBusinessAdAccounts(integration.business_id, access_token);
+              if (accounts.length > 0) {
                 console.log(`[ADS] Encontrou ${accounts.length} conta(s) via BM conectado`);
-              } else if (bizAccountsData.error) {
-                console.warn('[ADS] Erro ao buscar via BM conectado:', bizAccountsData.error.message);
               }
             } catch (bizErr) {
               console.warn('[ADS] Erro ao buscar via BM conectado:', bizErr);
@@ -476,15 +553,8 @@ Deno.serve(async (req) => {
                 for (const biz of bizListData.data) {
                   if (accounts.length > 0) break;
                   try {
-                    const bizAccUrl = `https://graph.facebook.com/v21.0/${biz.id}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
-                    const bizAccResp = await fetch(bizAccUrl);
-                    const bizAccData = await bizAccResp.json();
-                    if (bizAccData.data && bizAccData.data.length > 0) {
-                      accounts = normalizeAdAccounts(bizAccData.data.map((a: any) => ({
-                        id: a.id,
-                        name: a.name,
-                        status: a.account_status ?? 1
-                      })));
+                    accounts = await fetchBusinessAdAccounts(biz.id, access_token);
+                    if (accounts.length > 0) {
                       console.log(`[ADS] Encontrou ${accounts.length} conta(s) no BM "${biz.name}" (${biz.id})`);
                       await supabase
                         .from('facebook_integrations')
@@ -542,11 +612,19 @@ Deno.serve(async (req) => {
     if (!resolvedBusinessId && access_token) {
       console.log('[ADS] business_id nulo — descobrindo via Facebook API...');
       try {
-        // Tentativa 1: business da página conectada
-        const pageInfoUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,business&access_token=${access_token}`;
+        // Tentativa 1: business da página conectada no CRM
+        const pageInfoUrl = integration.page_id
+          ? `https://graph.facebook.com/v21.0/${integration.page_id}?fields=id,name,business&access_token=${access_token}`
+          : `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,business&access_token=${access_token}`;
         const pageInfoResp = await fetch(pageInfoUrl);
         const pageInfoData = await pageInfoResp.json();
-        if (pageInfoData.data && pageInfoData.data.length > 0) {
+        if (integration.page_id) {
+          const biz = pageInfoData?.business;
+          if (biz?.id) {
+            resolvedBusinessId = biz.id;
+            console.log(`[ADS] Business descoberto pela página conectada (${integration.page_name || integration.page_id}): ${biz.name} (${biz.id})`);
+          }
+        } else if (pageInfoData.data && pageInfoData.data.length > 0) {
           const biz = pageInfoData.data[0]?.business;
           if (biz?.id) {
             resolvedBusinessId = biz.id;
@@ -604,17 +682,13 @@ Deno.serve(async (req) => {
     // Filtrar availableAccounts para conter apenas contas da BM conectada
     if (resolvedBusinessId && availableAccounts.length > 0 && access_token) {
       try {
-        const bmAccountsUrl = `https://graph.facebook.com/v21.0/${resolvedBusinessId}/owned_ad_accounts?fields=id,name,account_status&limit=50&access_token=${access_token}`;
-        const bmAccountsResp = await fetch(bmAccountsUrl);
-        const bmAccountsData = await bmAccountsResp.json();
+        const bmAccounts = await fetchBusinessAdAccounts(resolvedBusinessId, access_token);
 
-        if (bmAccountsData.data && bmAccountsData.data.length > 0) {
-          const bmAccountIds = new Set(bmAccountsData.data.map((a: any) => normalizeAdAccountId(a.id)));
+        if (bmAccounts.length > 0) {
+          const bmAccountIds = new Set(bmAccounts.map((a: any) => normalizeAdAccountId(a.id)));
           const filtered = availableAccounts.filter(acc => bmAccountIds.has(acc.id));
-          if (filtered.length > 0) {
-            availableAccounts = filtered;
-            console.log(`[ADS] Filtrado para BM ${resolvedBusinessId}: ${availableAccounts.length} conta(s)`);
-          }
+          availableAccounts = filtered.length > 0 ? filtered : bmAccounts;
+          console.log(`[ADS] Contas restritas à BM da página ${resolvedBusinessId}: ${availableAccounts.length} conta(s)`);
         } else {
           console.log(`[ADS] BM ${resolvedBusinessId} retornou 0 contas via API — substituindo lista pela resposta da BM`);
           // Se o banco tinha contas de outros BMs e a BM conectada tem menos, usar só as da BM
@@ -695,6 +769,9 @@ Deno.serve(async (req) => {
     };
 
     console.log(`Conta de Anúncios: ${selectedAccountId} (${selectedAccount.name})`);
+    console.log(`Página conectada: ${integration.page_name || 'sem nome'} (${integration.page_id || 'sem page_id'})`);
+
+    const pageCampaignIds = await fetchCampaignIdsForPage(selectedAccountId, access_token, integration.page_id);
 
     const insightsFields = [
       'campaign_id', 'campaign_name', 'reach', 'impressions', 'spend', 'clicks',
@@ -713,11 +790,19 @@ Deno.serve(async (req) => {
       `&access_token=${access_token}`;
 
     console.log(`\n[STEP 1] Buscando insights agregados por campanha...`);
-    const aggregatedData = await fetchAllPages(aggregatedInsightsUrl);
+    const rawAggregatedData = await fetchAllPages(aggregatedInsightsUrl);
+    const aggregatedData = pageCampaignIds
+      ? rawAggregatedData.filter((record: any) => pageCampaignIds.has(record.campaign_id))
+      : rawAggregatedData;
+
+    if (pageCampaignIds && rawAggregatedData.length !== aggregatedData.length) {
+      console.log(`[ADS] Filtrado pela página conectada: ${aggregatedData.length}/${rawAggregatedData.length} campanhas com insights`);
+    }
 
     if (!aggregatedData || aggregatedData.length === 0) {
       console.log('Nenhum dado de insights encontrado para o período; buscando lista de campanhas da conta');
-      const campaigns = await fetchCampaignList(selectedAccountId, access_token);
+      const campaigns = (await fetchCampaignList(selectedAccountId, access_token))
+        .filter((campaign: any) => !pageCampaignIds || pageCampaignIds.has(campaign.id));
       const campaignBreakdown = campaigns.map((campaign: any) => {
         const objective = campaign.objective || '';
         return {
