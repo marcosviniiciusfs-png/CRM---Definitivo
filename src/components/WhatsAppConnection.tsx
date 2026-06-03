@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MessageSquare, Loader2, QrCode, CheckCircle2, XCircle, Clock, LogOut, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import whatsappLogo from "@/assets/whatsapp-icon.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -27,6 +28,7 @@ interface WhatsAppInstance {
   phone_number: string | null;
   created_at: string;
   connected_at: string | null;
+  accepts_leads?: boolean | null;
 }
 
 interface WhatsAppConnectionProps {
@@ -43,6 +45,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
   const [creating, setCreating] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [leadCaptureSaving, setLeadCaptureSaving] = useState<string | null>(null);
   const [qrCodeErrors, setQrCodeErrors] = useState<Record<string, boolean>>({});
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<WhatsAppInstance | null>(null);
@@ -371,7 +374,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       }
 
       const { data, error } = await supabase.functions.invoke('create-whatsapp-instance', {
-        body: { channel_name: finalChannelName },
+        body: { channel_name: finalChannelName, accepts_leads: instances.length === 0 },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -427,6 +430,59 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const updateLeadCaptureChannel = async (instanceId: string, enabled: boolean) => {
+    if (!organizationId) {
+      toast({
+        title: "Organizacao nao identificada",
+        description: "Recarregue a pagina e tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLeadCaptureSaving(instanceId);
+    try {
+      if (enabled) {
+        const { error: disableOthersError } = await (supabase.from('whatsapp_instances') as any)
+          .update({ accepts_leads: false })
+          .eq('organization_id', organizationId)
+          .neq('id', instanceId);
+
+        if (disableOthersError) throw disableOthersError;
+      }
+
+      const { error } = await (supabase.from('whatsapp_instances') as any)
+        .update({ accepts_leads: enabled })
+        .eq('id', instanceId)
+        .eq('organization_id', organizationId);
+
+      if (error) throw error;
+
+      setInstances((current) =>
+        current.map((instance) => ({
+          ...instance,
+          accepts_leads: instance.id === instanceId ? enabled : enabled ? false : instance.accepts_leads,
+        })),
+      );
+
+      toast({
+        title: enabled ? "Canal recebendo leads" : "Canal pausado para novos leads",
+        description: enabled
+          ? "Novos contatos do WhatsApp serao criados como leads por este numero."
+          : "Este numero continuara atendendo conversas existentes.",
+      });
+    } catch (error: any) {
+      console.error('Erro ao atualizar captura de leads:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Nao foi possivel atualizar o canal que recebe leads.",
+        variant: "destructive",
+      });
+    } finally {
+      setLeadCaptureSaving(null);
     }
   };
 
@@ -1064,7 +1120,39 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
 
           {/* Funnel Selector - only show when connected (and not in new-connection mode) */}
           {hasConnected && (
-            <FunnelSelector sourceType="whatsapp" className="mt-3" />
+            <div className="mt-3 space-y-3">
+              <FunnelSelector sourceType="whatsapp" />
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Numero que recebe leads</p>
+                  <p className="text-xs text-muted-foreground">
+                    Escolha qual canal cria novos leads. Os outros continuam atendendo conversas existentes.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {instances
+                    .filter(instance => instance.status === 'CONNECTED')
+                    .map((instance) => (
+                      <div key={instance.id} className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {instance.phone_number || instance.instance_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {instance.accepts_leads !== false ? 'Recebe novos leads' : 'Somente conversas'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={instance.accepts_leads !== false}
+                          disabled={leadCaptureSaving === instance.id}
+                          onCheckedChange={(checked) => updateLeadCaptureChannel(instance.id, checked)}
+                          aria-label={`Definir ${instance.phone_number || instance.instance_name} como canal que recebe leads`}
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -2907,9 +2907,10 @@ export type Database = {
         ]
       }
       whatsapp_instances: {
-        Row: {
-          connected_at: string | null
-          created_at: string
+          Row: {
+            accepts_leads: boolean
+            connected_at: string | null
+            created_at: string
           id: string
           instance_name: string
           organization_id: string | null
@@ -2920,9 +2921,10 @@ export type Database = {
           user_id: string
           webhook_url: string | null
         }
-        Insert: {
-          connected_at?: string | null
-          created_at?: string
+          Insert: {
+            accepts_leads?: boolean
+            connected_at?: string | null
+            created_at?: string
           id?: string
           instance_name: string
           organization_id?: string | null
@@ -2933,9 +2935,10 @@ export type Database = {
           user_id: string
           webhook_url?: string | null
         }
-        Update: {
-          connected_at?: string | null
-          created_at?: string
+          Update: {
+            accepts_leads?: boolean
+            connected_at?: string | null
+            created_at?: string
           id?: string
           instance_name?: string
           organization_id?: string | null
@@ -3096,9 +3099,10 @@ export type Database = {
       }
       get_my_whatsapp_instances: {
         Args: never
-        Returns: {
-          connected_at: string | null
-          created_at: string
+          Returns: {
+            accepts_leads: boolean
+            connected_at: string | null
+            created_at: string
           id: string
           instance_name: string
           organization_id: string | null

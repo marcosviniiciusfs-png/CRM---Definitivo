@@ -34,6 +34,7 @@ const LeadMetrics = lazy(() => import("./pages/LeadMetrics"));
 const LeadDistribution = lazy(() => import("./pages/LeadDistribution"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Ranking = lazy(() => import("./pages/Ranking"));
+const Reunioes = lazy(() => import("./pages/Reunioes"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Integrations = lazy(() => import("./pages/Integrations"));
@@ -109,6 +110,7 @@ const App = () => (
                     <Route path="/lead-distribution" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
                     <Route path="/chat" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
                     <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                    <Route path="/reunioes" element={<ProtectedRoute><DashboardLayout><LazyPage><Reunioes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                     <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
                     <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
                     <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />

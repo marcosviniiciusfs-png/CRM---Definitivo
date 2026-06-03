@@ -710,7 +710,7 @@ serve(async (req) => {
     // Buscar a instância do WhatsApp no banco para obter o user_id e organization_id
     const { data: instanceData, error: instanceError } = await supabase
       .from('whatsapp_instances')
-      .select('id, user_id, phone_number, organization_id')
+      .select('id, user_id, phone_number, organization_id, accepts_leads')
       .eq('instance_name', instance)
       .maybeSingle();
 
@@ -1307,6 +1307,19 @@ serve(async (req) => {
         console.error('⚠️ Falha ao invocar fetch-profile-picture:', err);
       });
     } else {
+      if (instanceData.accepts_leads === false) {
+        console.log('Canal configurado apenas para conversas. Novo contato nao sera criado como lead:', phoneNumber);
+        await saveWebhookLog('ignored', 'Canal WhatsApp configurado apenas para conversas');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            ignored: true,
+            message: 'Canal configurado apenas para conversas',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+        );
+      }
+
       console.log('🆕 Criando novo lead...');
 
       // Usar pushName so quando a mensagem foi recebida (ENTRADA): nesse caso

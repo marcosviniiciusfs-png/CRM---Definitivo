@@ -12,6 +12,7 @@ const CHANNEL_COLORS = ['#25D366', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 interface CreateInstanceRequest {
   userId: string;
+  accepts_leads?: boolean;
 }
 
 async function getOrCreateOrganizationId(
@@ -384,9 +385,10 @@ serve(async (req) => {
     console.log('Creating fresh instance with name:', instanceName);
 
     // Extract channel_name from request body
-    let body: { userId?: string; channel_name?: string } = {};
+    let body: { userId?: string; channel_name?: string; accepts_leads?: boolean } = {};
     try { body = await req.clone().json(); } catch {}
     const channelName = body.channel_name?.trim() || `Canal ${Date.now()}`;
+    const acceptsLeads = body.accepts_leads !== false;
 
     // Create instance in Evolution API (WITHOUT webhook - will be configured separately)
     const evolutionResponse = await fetch(`${baseUrl}/instance/create`, {
@@ -587,6 +589,13 @@ serve(async (req) => {
     console.log('💾 Saving to database NOW - QR Code present:', !!qrCodeBase64);
     
     // CRÍTICO: Salvar o QR Code como string pura, não como JSON
+    if (orgId && acceptsLeads) {
+      await supabase
+        .from('whatsapp_instances')
+        .update({ accepts_leads: false })
+        .eq('organization_id', orgId);
+    }
+
     const { data: instanceData, error: dbError } = await supabase
       .from('whatsapp_instances')
       .insert({
@@ -598,6 +607,7 @@ serve(async (req) => {
         qr_code: qrCodeBase64, // String pura, já limpa
         channel_name: channelName,
         channel_color: channelColor,
+        accepts_leads: acceptsLeads,
       })
       .select()
       .single();
