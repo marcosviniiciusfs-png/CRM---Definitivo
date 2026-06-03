@@ -16,11 +16,36 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Shuffle, Loader2, Users, ChevronRight, Search, ChevronDown } from "lucide-react";
+import { Shuffle, Loader2, Users, ChevronRight, Search, ChevronDown, CheckCircle2, XCircle, AlertTriangle, Ban } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+
+type CollabRedistPhase = "idle" | "running" | "done" | "aborted" | "error";
+
+interface CollabAssignment {
+  lead_id: string;
+  lead_nome: string;
+  agent_user_id: string | null;
+  agent_name: string | null;
+  timestamp: number;
+}
+
+interface CollabRedistState {
+  phase: CollabRedistPhase;
+  current: number;
+  total: number;
+  skipped: number;
+  log: CollabAssignment[];
+  errorMessage: string | null;
+  lastParams: { userIds: string[]; configId: string | null } | null;
+}
 
 interface Props {
   onConfirm: (collaboratorUserIds: string[], configId: string | null) => void;
-  isPending: boolean;
+  redistState: CollabRedistState;
+  onCancel: () => void;
+  onClose: () => void;
+  onResume: () => void;
+  computeEta: (remaining: number, current: number) => string;
 }
 
 interface DistributionConfig {
@@ -37,20 +62,46 @@ const methodLabels: Record<string, string> = {
   random: "Aleatório",
 };
 
-export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Props) {
+export function RedistributeFromCollaboratorPanel({ onConfirm, redistState, onCancel, onClose, onResume, computeEta }: Props) {
   const { organizationId } = useOrganization();
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [selectedConfigId, setSelectedConfigId] = useState<string>(""); // "" = Auto
   const [searchTerm, setSearchTerm] = useState("");
 
+  const phase = redistState.phase;
+  const isPending = phase === "running";
+  const isFinished = phase === "done" || phase === "aborted" || phase === "error";
+
+  // Forçar modal aberto durante execução/finalização (não permite fechar pelo overlay)
+  const dialogOpen = modalOpen || isPending || isFinished;
+
   const handleModalChange = (open: boolean) => {
+    // Bloqueia close enquanto está rodando ou em fase final (deve usar botão Fechar)
+    if (!open && (isPending || isFinished)) return;
     setModalOpen(open);
     if (!open) {
       setSelectedUserIds(new Set());
       setSelectedConfigId("");
       setSearchTerm("");
+    }
+  };
+
+  const handleClose = () => {
+    onClose();
+    setModalOpen(false);
+    setSelectedUserIds(new Set());
+    setSelectedConfigId("");
+    setSearchTerm("");
+  };
+
+  const handleCancelClick = () => {
+    if (redistState.current > 0) {
+      setCancelConfirmOpen(true);
+    } else {
+      onCancel();
     }
   };
 
@@ -201,7 +252,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
       </button>
 
       {/* Modal principal */}
-      <Dialog open={modalOpen} onOpenChange={handleModalChange}>
+      <Dialog open={dialogOpen} onOpenChange={handleModalChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Redistribuir leads de colaboradores</DialogTitle>
@@ -212,6 +263,8 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {phase === "idle" && (
+            <>
             {/* Colaboradores (multi-select via Popover) */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Colaboradores</Label>
@@ -354,20 +407,129 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                 })}
               </RadioGroup>
             </div>
+            </>
+            )}
+
+            {/* Fase 2 — Em execução */}
+            {phase === "running" && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium">Redistribuindo {redistState.total} lead(s)...</span>
+                </div>
+                <div className="space-y-1">
+                  <Progress
+                    value={redistState.total > 0 ? (redistState.current / redistState.total) * 100 : 0}
+                    className="h-2"
+                  />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{redistState.current} / {redistState.total}</span>
+                    <span>{computeEta(Math.max(0, redistState.total - redistState.current), redistState.current)}</span>
+                  </div>
+                </div>
+                <div className="rounded-md border bg-muted/30 max-h-72 overflow-y-auto p-2 space-y-1">
+                  {redistState.log.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">Iniciando...</p>
+                  ) : (
+                    redistState.log.slice(0, 50).map((a, i) => (
+                      <div key={`${a.lead_id}-${a.timestamp}-${i}`} className="flex items-center gap-2 text-xs">
+                        {a.agent_user_id ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            <span className="truncate"><span className="font-medium">{a.lead_nome}</span> → {a.agent_name}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Ban className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                            <span className="truncate text-muted-foreground"><span className="font-medium">{a.lead_nome}</span> — sem agente compatível</span>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Fase 3 — Concluído / Cancelado / Erro */}
+            {isFinished && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {phase === "done" && <CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+                  {phase === "aborted" && <AlertTriangle className="h-5 w-5 text-amber-600" />}
+                  {phase === "error" && <XCircle className="h-5 w-5 text-destructive" />}
+                  <span className="text-sm font-medium">
+                    {phase === "done" && `Redistribuição concluída: ${redistState.current - redistState.skipped} de ${redistState.total} leads atribuídos`}
+                    {phase === "aborted" && `Operação cancelada após ${redistState.current - redistState.skipped} de ${redistState.total} leads`}
+                    {phase === "error" && `Erro: ${redistState.errorMessage || "falha desconhecida"}`}
+                  </span>
+                </div>
+                {redistState.skipped > 0 && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+                    {redistState.skipped} lead(s) aguardando configuração de roleta/agente.
+                  </div>
+                )}
+                {phase === "error" && (
+                  <p className="text-xs text-muted-foreground">
+                    {redistState.current - redistState.skipped} leads foram redistribuídos antes da falha. Use "Retomar" para continuar.
+                  </p>
+                )}
+                {redistState.log.length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Ver log completo ({redistState.log.length})</summary>
+                    <div className="mt-2 max-h-48 overflow-y-auto space-y-1 rounded-md border bg-muted/30 p-2">
+                      {redistState.log.map((a, i) => (
+                        <div key={`final-${a.lead_id}-${a.timestamp}-${i}`} className="flex items-center gap-2">
+                          {a.agent_user_id ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span className="truncate"><span className="font-medium">{a.lead_nome}</span> → {a.agent_name}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Ban className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              <span className="truncate text-muted-foreground"><span className="font-medium">{a.lead_nome}</span> — sem agente</span>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleModalChange(false)} disabled={isPending}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setConfirmOpen(true)}
-              disabled={!canConfirm}
-            >
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Redistribuir {activeLeadsCount ?? 0} lead(s)
-            </Button>
+            {phase === "idle" && (
+              <>
+                <Button variant="outline" onClick={() => handleModalChange(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={!canConfirm}
+                >
+                  Redistribuir {activeLeadsCount ?? 0} lead(s)
+                </Button>
+              </>
+            )}
+            {phase === "running" && (
+              <Button variant="destructive" onClick={handleCancelClick}>
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
+              </Button>
+            )}
+            {isFinished && (
+              <>
+                {phase === "error" && (
+                  <Button variant="outline" onClick={onResume}>
+                    Retomar
+                  </Button>
+                )}
+                <Button onClick={handleClose}>Fechar</Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -388,15 +550,36 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
             <AlertDialogAction
               onClick={() => {
                 setConfirmOpen(false);
-                setModalOpen(false);
+                // Modal pai permanece aberto durante a operação (fase 2/3)
                 onConfirm(selectedIdsArray, selectedConfigId || null);
-                setSelectedUserIds(new Set());
-                setSelectedConfigId("");
-                setSearchTerm("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Redistribuir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de cancelamento (somente quando há progresso) */}
+      <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar redistribuição?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{redistState.current - redistState.skipped}</strong> lead(s) já foram redistribuídos. Cancelar agora não desfaz o que já foi feito — os leads restantes permanecem com os colaboradores originais.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar redistribuindo</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setCancelConfirmOpen(false);
+                onCancel();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cancelar operação
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
