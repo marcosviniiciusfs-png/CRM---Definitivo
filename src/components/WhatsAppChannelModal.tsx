@@ -4,11 +4,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { WhatsAppChannel } from "@/types/whatsapp-channel";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { ChannelAssignMembersDialog } from "@/components/ChannelAssignMembersDialog";
 
 const MAX_CHANNELS = 5;
+
+interface LeadCountRow {
+  whatsapp_instance_id: string | null;
+}
 
 interface Props {
   open: boolean;
@@ -25,6 +30,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   const [editName, setEditName] = useState("");
   const [showConnect, setShowConnect] = useState(false);
   const [leadCounts, setLeadCounts] = useState<Record<string, number>>({});
+  const [leadCaptureSaving, setLeadCaptureSaving] = useState<string | null>(null);
 
   // Stale-while-revalidate: only the very first load shows the spinner.
   // Subsequent refetches (polling, post-action refreshes) keep the rendered
@@ -37,7 +43,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
 
     const { data, error } = await supabase
       .from("whatsapp_instances")
-      .select("id, instance_name, channel_name, channel_color, status, phone_number, created_at, connected_at")
+      .select("id, instance_name, channel_name, channel_color, status, phone_number, created_at, connected_at, accepts_leads")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: true });
 
@@ -60,7 +66,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       .in("whatsapp_instance_id", channelIds);
 
     const counts: Record<string, number> = {};
-    (data || []).forEach((l: any) => {
+    ((data || []) as LeadCountRow[]).forEach((l) => {
       const id = l.whatsapp_instance_id;
       if (id) counts[id] = (counts[id] || 0) + 1;
     });
@@ -131,6 +137,54 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
         prev.map((c) => (c.id === channelId ? { ...c, channel_name: editName.trim() } : c))
       );
       setEditingId(null);
+    }
+  };
+
+  const handleLeadCaptureToggle = async (channelId: string, enabled: boolean) => {
+    if (!canManage || !organizationId) return;
+
+    setLeadCaptureSaving(channelId);
+    try {
+      if (enabled) {
+        const { error: disableOthersError } = await supabase
+          .from("whatsapp_instances")
+          .update({ accepts_leads: false })
+          .eq("organization_id", organizationId)
+          .neq("id", channelId);
+
+        if (disableOthersError) throw disableOthersError;
+      }
+
+      const { error } = await supabase
+        .from("whatsapp_instances")
+        .update({ accepts_leads: enabled })
+        .eq("id", channelId)
+        .eq("organization_id", organizationId);
+
+      if (error) throw error;
+
+      setChannels((prev) =>
+        prev.map((channel) => ({
+          ...channel,
+          accepts_leads: channel.id === channelId ? enabled : enabled ? false : channel.accepts_leads,
+        })),
+      );
+
+      toast({
+        title: enabled ? "Canal recebendo novos leads" : "Canal pausado para novos leads",
+        description: enabled
+          ? "Este número será usado para criar leads novos."
+          : "Este número continuará nas conversas, mas não criará novos leads.",
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Não foi possível alterar o número criador de leads.";
+      toast({
+        title: "Erro ao atualizar canal",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setLeadCaptureSaving(null);
     }
   };
 
@@ -261,6 +315,26 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                         {channel.phone_number || "Aguardando..."}
                         {leadCounts[channel.id] != null && ` · ${leadCounts[channel.id]} leads`}
                       </div>
+                      {channel.status === "CONNECTED" && (
+                        <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-emerald-200/70 bg-emerald-50 px-2.5 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold text-emerald-900">
+                              Número que cria leads
+                            </p>
+                            <p className="truncate text-[10px] text-emerald-700">
+                              {channel.accepts_leads !== false
+                                ? "Recebe novos contatos como leads"
+                                : "Somente conversas existentes"}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={channel.accepts_leads !== false}
+                            disabled={!canManage || leadCaptureSaving === channel.id}
+                            onCheckedChange={(checked) => handleLeadCaptureToggle(channel.id, checked)}
+                            aria-label={`Definir ${channel.phone_number || channel.instance_name} como número criador de leads`}
+                          />
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

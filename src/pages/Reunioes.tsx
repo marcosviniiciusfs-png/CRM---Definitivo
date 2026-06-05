@@ -251,7 +251,7 @@ const Reunioes = () => {
           supabase
             .from("leads")
             .select("id, nome_lead, responsavel, responsavel_user_id, avatar_url, valor, stage, status_reuniao")
-            .eq("organization_id", organizationId) as any,
+            .eq("organization_id", organizationId),
           supabase.from("organization_members").select("user_id, display_name, email, role").eq("organization_id", organizationId).eq("is_active", true),
           supabase.from("profiles").select("user_id, full_name, avatar_url"),
           supabase.from("teams").select("id, name, color").eq("organization_id", organizationId),
@@ -325,7 +325,7 @@ const Reunioes = () => {
     },
   });
 
-  const allMeetings = dashboardQuery.data?.meetings || [];
+  const allMeetings = useMemo(() => dashboardQuery.data?.meetings || [], [dashboardQuery.data?.meetings]);
   const teams = dashboardQuery.data?.teams || [];
 
   const weekMeetings = useMemo(
@@ -531,7 +531,8 @@ const Reunioes = () => {
     setPendingAction(actionKey);
 
     try {
-      const { error } = await (supabase.from("leads") as any)
+      const { error } = await supabase
+        .from("leads")
         .update({ status_reuniao: status })
         .eq("id", meeting.leadId);
 
@@ -557,7 +558,8 @@ const Reunioes = () => {
     setPendingAction(actionKey);
 
     try {
-      const { error } = await (supabase.from("leads") as any)
+      const { error } = await supabase
+        .from("leads")
         .update({ status_reuniao: "realizada" })
         .eq("id", meeting.leadId);
 
@@ -610,30 +612,30 @@ const Reunioes = () => {
   }
 
   return (
-    <div className="min-h-screen rounded-lg bg-background p-3 text-foreground sm:p-4 md:p-6">
+    <div className="min-h-screen rounded-lg bg-[#030407] p-3 text-white sm:p-4 md:p-6">
       <div className="space-y-5">
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#07080d]/95 p-3 shadow-[0_18px_70px_rgba(0,0,0,0.55)] lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted">
-              <CalendarDays className="h-5 w-5 text-foreground" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-amber-400/40 bg-amber-400/10 shadow-[0_0_24px_rgba(245,158,11,0.2)]">
+              <CalendarDays className="h-5 w-5 text-amber-300" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Reunioes</h1>
-              <p className="text-sm text-muted-foreground">Agenda, ranking e comparecimento comercial</p>
+              <h1 className="text-xl font-black text-white">Reuniões</h1>
+              <p className="text-sm text-slate-400">Agenda, ranking e comparecimento comercial</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setWeekAnchor((value) => subWeeks(value, 1))}>
+            <Button variant="outline" size="icon" className="border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={() => setWeekAnchor((value) => subWeeks(value, 1))}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex h-10 min-w-[160px] items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground">
+            <div className="flex h-10 min-w-[160px] items-center justify-center rounded-md border border-white/10 bg-white/[0.04] px-3 text-sm font-black text-white shadow-inner">
               {dateRangeLabel}
             </div>
-            <Button variant="outline" size="icon" onClick={() => setWeekAnchor((value) => addWeeks(value, 1))}>
+            <Button variant="outline" size="icon" className="border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={() => setWeekAnchor((value) => addWeeks(value, 1))}>
               <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button variant="outline" className="gap-2" onClick={() => dashboardQuery.refetch()}>
+            <Button variant="outline" className="gap-2 border-rose-400/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20 hover:text-white" onClick={() => dashboardQuery.refetch()}>
               <RefreshCw className={cn("h-4 w-4", dashboardQuery.isFetching && "animate-spin")} />
               Atualizar
             </Button>
@@ -641,12 +643,12 @@ const Reunioes = () => {
         </div>
 
         <Tabs defaultValue="agenda" className="space-y-5">
-          <TabsList className="w-full overflow-x-auto rounded-lg border border-border bg-card p-1 md:w-auto">
-            <TabsTrigger value="agenda" className="gap-2 rounded-md border-0 px-4 py-2 data-[state=active]:bg-foreground data-[state=active]:text-background">
+          <TabsList className="w-full overflow-x-auto rounded-lg border border-white/10 bg-[#080910] p-1 md:w-auto">
+            <TabsTrigger value="agenda" className="gap-2 rounded-md border-0 px-4 py-2 text-slate-300 data-[state=active]:bg-white data-[state=active]:text-black">
               <CalendarDays className="h-4 w-4" />
               Agenda
             </TabsTrigger>
-            <TabsTrigger value="ranking" className="gap-2 rounded-md border-0 px-4 py-2 data-[state=active]:bg-foreground data-[state=active]:text-background">
+            <TabsTrigger value="ranking" className="gap-2 rounded-md border-0 px-4 py-2 text-slate-300 data-[state=active]:bg-white data-[state=active]:text-black">
               <Trophy className="h-4 w-4" />
               Ranking
             </TabsTrigger>
@@ -661,21 +663,21 @@ const Reunioes = () => {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <KpiCard label="Total" tooltip={metricTooltips.total} value={kpis.total} className="text-foreground" loading={isLoading} />
-            <KpiCard label="Vieram" tooltip={metricTooltips.attended} value={kpis.attended} className="text-emerald-700 dark:text-emerald-300" loading={isLoading} />
-            <KpiCard label="Faltaram" tooltip={metricTooltips.missed} value={kpis.missed} className="text-rose-700 dark:text-rose-300" loading={isLoading} />
-            <KpiCard label="Pendentes" tooltip={metricTooltips.pending} value={kpis.pending} className="text-amber-700 dark:text-amber-300" loading={isLoading} />
-            <KpiCard label="Remarcadas" tooltip={metricTooltips.rescheduled} value={kpis.rescheduled} className="text-violet-700 dark:text-violet-300" loading={isLoading} />
-            <KpiCard label="Comparecimento" tooltip={metricTooltips.attendanceRate} value={`${kpis.attendanceRate}%`} className="text-cyan-700 dark:text-cyan-300" loading={isLoading} />
+            <KpiCard label="Total" tooltip={metricTooltips.total} value={kpis.total} className="text-white" loading={isLoading} />
+            <KpiCard label="Vieram" tooltip={metricTooltips.attended} value={kpis.attended} className="text-emerald-300" loading={isLoading} />
+            <KpiCard label="Faltaram" tooltip={metricTooltips.missed} value={kpis.missed} className="text-rose-300" loading={isLoading} />
+            <KpiCard label="Pendentes" tooltip={metricTooltips.pending} value={kpis.pending} className="text-amber-300" loading={isLoading} />
+            <KpiCard label="Remarcadas" tooltip={metricTooltips.rescheduled} value={kpis.rescheduled} className="text-violet-300" loading={isLoading} />
+            <KpiCard label="Comparecimento" tooltip={metricTooltips.attendanceRate} value={`${kpis.attendanceRate}%`} className="text-cyan-300" loading={isLoading} />
           </div>
 
-          <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
+          <div className="grid gap-3 rounded-lg border border-white/10 bg-[#07080d] p-3 shadow-[0_12px_50px_rgba(0,0,0,0.35)] md:grid-cols-[1.3fr_1fr_1fr_1fr]">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar lead ou responsavel" className="pl-9" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar lead ou responsavel" className="border-white/10 bg-black/50 pl-9 text-white placeholder:text-slate-500" />
             </div>
             <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="border-white/10 bg-black/50 text-white">
                 <SelectValue placeholder="Equipe" />
               </SelectTrigger>
               <SelectContent>
@@ -688,7 +690,7 @@ const Reunioes = () => {
               </SelectContent>
             </Select>
             <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="border-white/10 bg-black/50 text-white">
                 <SelectValue placeholder="Responsavel" />
               </SelectTrigger>
               <SelectContent>
@@ -701,7 +703,7 @@ const Reunioes = () => {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-              <SelectTrigger>
+              <SelectTrigger className="border-white/10 bg-black/50 text-white">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -765,15 +767,15 @@ const HighlightCard = ({
   loading: boolean;
 }) => {
   const tones = {
-    amber: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-    rose: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-    slate: "border-border bg-muted/40 text-foreground",
-    blue: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-    emerald: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    amber: "border-amber-400/40 bg-amber-400/10 text-amber-200 shadow-[0_0_28px_rgba(245,158,11,0.14)]",
+    rose: "border-rose-400/40 bg-rose-500/10 text-rose-200 shadow-[0_0_28px_rgba(244,63,94,0.14)]",
+    slate: "border-white/12 bg-white/[0.04] text-slate-100 shadow-[0_0_28px_rgba(148,163,184,0.1)]",
+    blue: "border-blue-400/40 bg-blue-500/10 text-blue-200 shadow-[0_0_28px_rgba(59,130,246,0.14)]",
+    emerald: "border-emerald-400/40 bg-emerald-500/10 text-emerald-200 shadow-[0_0_28px_rgba(16,185,129,0.14)]",
   };
 
   return (
-    <Card className={cn("overflow-hidden rounded-lg border bg-card shadow-sm", tones[tone])}>
+    <Card className={cn("overflow-hidden rounded-lg border bg-[#080910] shadow-sm", tones[tone])}>
       <CardContent className="p-4">
         {loading ? (
           <Skeleton className="h-20" />
@@ -781,16 +783,16 @@ const HighlightCard = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1.5">
-                <p className="truncate text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{title}</p>
+                <p className="truncate text-[11px] font-black uppercase tracking-wide text-slate-400">{title}</p>
                 <MetricHelp content={tooltip} />
               </div>
               <Icon className="h-4 w-4" />
             </div>
             <div>
-              <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+              <p className="truncate text-sm font-bold text-white">{name}</p>
               <p className="mt-1 text-2xl font-black leading-none">{value}</p>
             </div>
-            <p className="text-xs text-muted-foreground">{detail}</p>
+            <p className="text-xs text-slate-400">{detail}</p>
           </div>
         )}
       </CardContent>
@@ -811,14 +813,14 @@ const KpiCard = ({
   className: string;
   loading: boolean;
 }) => (
-  <Card className="rounded-lg border border-border bg-card">
+  <Card className="rounded-lg border border-white/10 bg-[#080910] shadow-[0_10px_30px_rgba(0,0,0,0.28)]">
     <CardContent className="p-4">
       {loading ? (
         <Skeleton className="h-10" />
       ) : (
         <div className="flex items-baseline gap-3">
           <span className={cn("text-3xl font-black leading-none", className)}>{value}</span>
-          <span className="flex items-center gap-1 text-xs font-bold uppercase text-muted-foreground">
+          <span className="flex items-center gap-1 text-xs font-black uppercase text-slate-400">
             {label}
             <MetricHelp content={tooltip} />
           </span>
@@ -831,11 +833,11 @@ const KpiCard = ({
 const MetricHelp = ({ content }: { content: string }) => (
   <Tooltip>
     <TooltipTrigger asChild>
-      <button type="button" className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground">
+      <button type="button" className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-500 transition hover:text-white">
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
     </TooltipTrigger>
-    <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
+    <TooltipContent side="top" className="max-w-[260px] border-white/10 bg-zinc-950 text-xs leading-relaxed text-slate-100">
       {content}
     </TooltipContent>
   </Tooltip>
@@ -856,20 +858,20 @@ const DayColumn = ({
 }) => {
   const today = isSameDay(day.date, new Date());
   return (
-    <div className={cn("min-w-[270px] rounded-lg border bg-card p-3 lg:min-w-0", today ? "border-foreground shadow-sm" : "border-border")}>
+    <div className={cn("min-w-[270px] rounded-lg border bg-[#090a10] p-3 shadow-[0_18px_45px_rgba(0,0,0,0.35)] lg:min-w-0", today ? "border-amber-400/70 shadow-[0_0_30px_rgba(245,158,11,0.12)]" : "border-white/10")}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className={cn("flex h-9 w-9 items-center justify-center rounded-md text-sm font-black", today ? "bg-foreground text-background" : "bg-muted text-foreground")}>
+          <div className={cn("flex h-9 w-9 items-center justify-center rounded-md text-sm font-black", today ? "bg-amber-400 text-black" : "bg-white/10 text-white")}>
             {format(day.date, "dd")}
           </div>
           <div>
-            <p className="text-sm font-bold uppercase text-foreground">{format(day.date, "EEEE", { locale: ptBR })}</p>
-            <p className="text-xs text-muted-foreground">{day.meetings.length} reuniao(s)</p>
+            <p className="text-sm font-black uppercase text-white">{format(day.date, "EEEE", { locale: ptBR })}</p>
+            <p className="text-xs text-slate-500">{day.meetings.length} reuniao(s)</p>
           </div>
         </div>
         <div className="text-right">
-          {today && <Badge className="mb-1 border-border bg-foreground text-background">Hoje</Badge>}
-          <p className="flex items-center justify-end gap-1 text-xs font-semibold text-muted-foreground">
+          {today && <Badge className="mb-1 border-amber-300/30 bg-amber-400 text-black hover:bg-amber-400">Hoje</Badge>}
+          <p className="flex items-center justify-end gap-1 text-xs font-bold text-slate-400">
             {day.rate}% vieram
             <MetricHelp content={metricTooltips.dayRate} />
           </p>
@@ -878,7 +880,7 @@ const DayColumn = ({
 
       <div className="space-y-3">
         {day.meetings.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">Sem reunioes</div>
+          <div className="rounded-lg border border-dashed border-white/10 bg-black/20 p-5 text-center text-sm text-slate-500">Sem reuniões</div>
         ) : (
           day.meetings.map((meeting) => (
             <MeetingCard
@@ -909,19 +911,19 @@ const MeetingCard = ({
   onSale: (meeting: Meeting) => void;
   onReturn: (meeting: Meeting) => void;
 }) => (
-  <div className="rounded-lg border border-border bg-background p-3">
+  <div className="rounded-lg border border-white/10 bg-[#101119] p-3 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
     <div className="mb-3 flex items-start justify-between gap-2">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-          <Clock className="h-3.5 w-3.5 text-foreground" />
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+          <Clock className="h-3.5 w-3.5 text-white" />
           {format(meeting.scheduledAt, "HH:mm")}
         </div>
-        <p className="mt-1 truncate text-sm font-bold text-foreground">{meeting.leadName}</p>
-        <p className="truncate text-xs text-muted-foreground">{meeting.ownerName}</p>
+        <p className="mt-1 truncate text-sm font-black text-white">{meeting.leadName}</p>
+        <p className="truncate text-xs text-slate-400">{meeting.ownerName}</p>
       </div>
-      <Avatar className="h-9 w-9 border border-border">
+      <Avatar className="h-9 w-9 border border-white/20">
         <AvatarImage src={meeting.avatarUrl || undefined} />
-        <AvatarFallback className="bg-muted text-xs text-foreground">{getInitials(meeting.leadName)}</AvatarFallback>
+        <AvatarFallback className="bg-gradient-to-br from-cyan-400 to-violet-500 text-xs font-black text-white">{getInitials(meeting.leadName)}</AvatarFallback>
       </Avatar>
     </div>
 
@@ -932,7 +934,7 @@ const MeetingCard = ({
       <Badge variant="outline" className="border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200">
         Online
       </Badge>
-      <Badge variant="outline" className="max-w-full truncate border-border bg-muted text-muted-foreground">
+      <Badge variant="outline" className="max-w-full truncate border-white/10 bg-white/5 text-slate-300">
         {meeting.teamName}
       </Badge>
     </div>
@@ -941,7 +943,7 @@ const MeetingCard = ({
       <ActionPill
         label="Veio"
         tooltip="Marca esta reunião como realizada e atualiza as métricas de comparecimento."
-        className="border-emerald-500/30 text-emerald-700 dark:text-emerald-200"
+        className="border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:text-white"
         icon={CheckCircle2}
         loading={pendingAction === `${meeting.id}-realizada`}
         onClick={() => onMarkStatus(meeting, "realizada")}
@@ -949,7 +951,7 @@ const MeetingCard = ({
       <ActionPill
         label="Faltou"
         tooltip="Marca esta reunião como no-show e atualiza os contadores de falta."
-        className="border-rose-500/30 text-rose-700 dark:text-rose-200"
+        className="border-rose-400/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:text-white"
         icon={XCircle}
         loading={pendingAction === `${meeting.id}-no_show`}
         onClick={() => onMarkStatus(meeting, "no_show")}
@@ -957,7 +959,7 @@ const MeetingCard = ({
       <ActionPill
         label="Venda"
         tooltip="Marca a reunião como realizada, registra a intenção de venda e abre o lead."
-        className="border-cyan-500/30 text-cyan-700 dark:text-cyan-200"
+        className="border-cyan-400/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 hover:text-white"
         icon={BarChart3}
         loading={pendingAction === `${meeting.id}-sale`}
         onClick={() => onSale(meeting)}
@@ -965,7 +967,7 @@ const MeetingCard = ({
       <ActionPill
         label="Retorno"
         tooltip="Cria uma atividade de retorno para o próximo dia útil às 09:00."
-        className="border-violet-500/30 text-violet-700 dark:text-violet-200"
+        className="border-violet-400/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20 hover:text-white"
         icon={RefreshCw}
         loading={pendingAction === `${meeting.id}-return`}
         onClick={() => onReturn(meeting)}
@@ -1015,11 +1017,11 @@ const RankingPanel = ({ rows, loading, dateRangeLabel }: { rows: RankingRow[]; l
 
   if (rows.length === 0) {
     return (
-      <Card className="border-border bg-card">
+      <Card className="border-white/10 bg-[#080910]">
         <CardContent className="flex min-h-[260px] flex-col items-center justify-center p-6 text-center">
-          <Trophy className="mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="font-semibold text-foreground">Sem ranking para este periodo</p>
-          <p className="text-sm text-muted-foreground">Agende reunioes para gerar a classificacao.</p>
+          <Trophy className="mb-3 h-12 w-12 text-slate-500" />
+          <p className="font-semibold text-white">Sem ranking para este periodo</p>
+          <p className="text-sm text-slate-400">Agende reunioes para gerar a classificacao.</p>
         </CardContent>
       </Card>
     );
@@ -1031,20 +1033,20 @@ const RankingPanel = ({ rows, loading, dateRangeLabel }: { rows: RankingRow[]; l
 
   return (
     <div className="grid gap-4 xl:grid-cols-[430px_1fr]">
-      <Card className="overflow-hidden border-border bg-card">
+      <Card className="overflow-hidden border-white/10 bg-[#080910] shadow-[0_20px_70px_rgba(0,0,0,0.45)]">
         <CardContent className="p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-foreground" />
-              <h2 className="font-black text-foreground">Podio da semana</h2>
+              <Trophy className="h-5 w-5 text-amber-300" />
+              <h2 className="font-black text-white">Pódio da semana</h2>
               <MetricHelp content={metricTooltips.podiumScore} />
             </div>
-            <span className="rounded-full bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">{totalScore} pts</span>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-300">{totalScore} pts</span>
           </div>
 
-          <div className="mb-5 rounded-lg border border-border bg-background px-3 py-2">
-            <p className="text-[11px] font-bold uppercase text-muted-foreground">Periodo do podio</p>
-            <p className="text-sm font-black text-foreground">{dateRangeLabel}</p>
+          <div className="mb-5 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+            <p className="text-[11px] font-bold uppercase text-slate-500">Periodo do podio</p>
+            <p className="text-sm font-black text-white">{dateRangeLabel}</p>
           </div>
 
           <div className="mb-5 grid grid-cols-3 items-end gap-2">
@@ -1055,16 +1057,16 @@ const RankingPanel = ({ rows, loading, dateRangeLabel }: { rows: RankingRow[]; l
 
           <div className="space-y-3">
             {podium.map((row, index) => (
-              <div key={row.userId} className={cn("rounded-lg border bg-background p-3", index === 0 ? "border-amber-400/60" : "border-border")}>
+              <div key={row.userId} className={cn("rounded-lg border bg-black/30 p-3", index === 0 ? "border-amber-400/60 shadow-[0_0_28px_rgba(245,158,11,0.12)]" : "border-white/10")}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <CharacterAvatar row={row} size="sm" crowned={index === 0} />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-foreground">{row.name}</p>
-                      <p className="text-xs text-muted-foreground">{row.scheduled} reunioes • {row.attendanceRate}% vieram</p>
+                      <p className="truncate text-sm font-black text-white">{row.name}</p>
+                      <p className="text-xs text-slate-400">{row.scheduled} reunioes • {row.attendanceRate}% vieram</p>
                     </div>
                   </div>
-                  <span className="text-lg font-black text-foreground">{row.score}</span>
+                  <span className="text-lg font-black text-white">{row.score}</span>
                 </div>
               </div>
             ))}
@@ -1072,14 +1074,14 @@ const RankingPanel = ({ rows, loading, dateRangeLabel }: { rows: RankingRow[]; l
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border-border bg-card">
+      <Card className="overflow-hidden border-white/10 bg-[#080910] shadow-[0_20px_70px_rgba(0,0,0,0.45)]">
         <CardContent className="p-4">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-black text-foreground">Ranking de responsaveis</h2>
-              <p className="text-sm text-muted-foreground">Performance semanal por agenda, presenca e vendas. O placar muda ao trocar a semana.</p>
+              <h2 className="text-lg font-black text-white">Ranking de responsaveis</h2>
+              <p className="text-sm text-slate-400">Performance semanal por agenda, presenca e vendas. O placar muda ao trocar a semana.</p>
             </div>
-            <Badge variant="outline" className="w-fit border-border bg-muted text-foreground">
+            <Badge variant="outline" className="w-fit border-white/10 bg-white/5 text-slate-300">
               {rows.length} participante(s)
             </Badge>
           </div>
@@ -1115,11 +1117,11 @@ const CharacterAvatar = ({
   return (
     <div className="relative shrink-0">
       {crowned && (
-        <div className="absolute -top-5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-amber-400 p-1 text-black shadow-sm">
+        <div className="absolute -top-5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-amber-400 p-1 text-black shadow-[0_0_18px_rgba(251,191,36,0.6)]">
           <Crown className="h-4 w-4 fill-current" />
         </div>
       )}
-      <Avatar className={cn("border-2 border-background shadow-md ring-1 ring-border", sizes[size])}>
+      <Avatar className={cn("border-2 border-[#080910] shadow-md ring-1 ring-white/15", sizes[size])}>
         <AvatarImage src={row.avatarUrl || undefined} />
         <AvatarFallback className={cn("bg-gradient-to-br font-black text-white", style.gradient)}>
           <span className="absolute right-0.5 top-0.5 text-[0.65em] drop-shadow">{style.emoji}</span>
@@ -1135,9 +1137,9 @@ const RankingRowCard = ({ row, position, maxScore }: { row: RankingRow; position
   const isChampion = position === 1;
 
   return (
-    <div className={cn("rounded-lg border bg-background p-4 transition hover:bg-muted/40", isChampion ? "border-amber-400/60 shadow-sm" : "border-border")}>
+    <div className={cn("rounded-lg border bg-black/30 p-4 transition hover:bg-white/[0.04]", isChampion ? "border-amber-400/60 shadow-[0_0_28px_rgba(245,158,11,0.12)]" : "border-white/10")}>
       <div className="grid gap-4 lg:grid-cols-[64px_1fr_520px] lg:items-center">
-        <div className={cn("flex h-12 w-12 items-center justify-center rounded-lg text-xl font-black", isChampion ? "bg-amber-400 text-black" : "bg-muted text-foreground")}>
+        <div className={cn("flex h-12 w-12 items-center justify-center rounded-lg text-xl font-black", isChampion ? "bg-amber-400 text-black" : "bg-white/10 text-white")}>
           {position}
         </div>
 
@@ -1145,12 +1147,12 @@ const RankingRowCard = ({ row, position, maxScore }: { row: RankingRow; position
           <CharacterAvatar row={row} size="lg" crowned={isChampion} />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="truncate text-lg font-black text-foreground">{row.name}</p>
+              <p className="truncate text-lg font-black text-white">{row.name}</p>
               {isChampion && <Badge className="bg-amber-400 text-black hover:bg-amber-400">Coroado</Badge>}
             </div>
-            <p className="truncate text-sm text-muted-foreground">{row.teamName}</p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-gradient-to-r from-foreground to-muted-foreground" style={{ width: `${progress}%` }} />
+            <p className="truncate text-sm text-slate-400">{row.teamName}</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-400 to-cyan-300" style={{ width: `${progress}%` }} />
             </div>
           </div>
         </div>
@@ -1180,8 +1182,8 @@ const PodiumPlace = ({
 }) => (
   <div className="flex min-w-0 flex-col items-center gap-2">
     <CharacterAvatar row={row} size={champion ? "lg" : "md"} crowned={champion} />
-    <p className="w-full truncate text-center text-xs font-black text-foreground">{row.name}</p>
-    <div className={cn("flex w-full flex-col items-center justify-end rounded-t-lg border border-border bg-muted p-2", heightClass, champion && "bg-amber-400 text-black")}>
+    <p className="w-full truncate text-center text-xs font-black text-white">{row.name}</p>
+    <div className={cn("flex w-full flex-col items-center justify-end rounded-t-lg border border-white/10 bg-white/10 p-2 text-white", heightClass, champion && "border-amber-300 bg-amber-400 text-black")}>
       <span className="text-2xl font-black">#{position}</span>
       <span className="text-xs font-bold">{row.score} pts</span>
     </div>
@@ -1190,9 +1192,9 @@ const PodiumPlace = ({
 
 const PodiumPlaceholder = ({ position, heightClass, champion = false }: { position: number; heightClass: string; champion?: boolean }) => (
   <div className="flex min-w-0 flex-col items-center gap-2 opacity-50">
-    <div className={cn("rounded-full border-2 border-dashed border-border bg-muted", champion ? "h-20 w-20" : "h-14 w-14")} />
-    <p className="w-full truncate text-center text-xs font-black text-muted-foreground">Livre</p>
-    <div className={cn("flex w-full flex-col items-center justify-end rounded-t-lg border border-dashed border-border bg-muted/40 p-2", heightClass)}>
+    <div className={cn("rounded-full border-2 border-dashed border-white/15 bg-white/5", champion ? "h-20 w-20" : "h-14 w-14")} />
+    <p className="w-full truncate text-center text-xs font-black text-slate-500">Livre</p>
+    <div className={cn("flex w-full flex-col items-center justify-end rounded-t-lg border border-dashed border-white/15 bg-white/5 p-2 text-slate-500", heightClass)}>
       <span className="text-2xl font-black">#{position}</span>
       <span className="text-xs font-bold">0 pts</span>
     </div>
@@ -1200,12 +1202,12 @@ const PodiumPlaceholder = ({ position, heightClass, champion = false }: { positi
 );
 
 const RankMetric = ({ label, tooltip, value, strong }: { label: string; tooltip: string; value: number | string; strong?: boolean }) => (
-  <div className="flex items-baseline justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 md:block md:bg-transparent md:px-0 md:py-0">
-    <p className="flex items-center gap-1 text-[11px] font-bold uppercase text-muted-foreground">
+  <div className="flex items-baseline justify-between gap-2 rounded-md bg-white/[0.04] px-3 py-2 md:block md:bg-transparent md:px-0 md:py-0">
+    <p className="flex items-center gap-1 text-[11px] font-bold uppercase text-slate-500">
       {label}
       <MetricHelp content={tooltip} />
     </p>
-    <p className={cn("text-sm font-bold", strong ? "text-foreground" : "text-foreground")}>{value}</p>
+    <p className={cn("text-sm font-bold", strong ? "text-white" : "text-slate-100")}>{value}</p>
   </div>
 );
 

@@ -7,4 +7,5 @@ export interface WhatsAppChannel {
   phone_number: string | null;
   created_at: string;
   connected_at: string | null;
+  accepts_leads?: boolean | null;
 }
