@@ -909,19 +909,19 @@ const DayColumn = ({
   const today = isSameDay(day.date, new Date());
   return (
     <div className={cn("min-w-[270px] rounded-lg border bg-card p-3 shadow-sm dark:bg-[#090a10] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)] lg:min-w-0", today ? "border-amber-400/70 dark:shadow-[0_0_30px_rgba(245,158,11,0.12)]" : "border-border dark:border-white/10")}>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className={cn("flex h-9 min-w-12 items-center justify-center rounded-md px-2 text-xs font-black uppercase", today ? "bg-amber-400 text-black" : "bg-muted text-foreground dark:bg-white/10 dark:text-white")}>
+      <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className={cn("flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md px-2 text-xs font-black uppercase", today ? "bg-amber-400 text-black" : "bg-muted text-foreground dark:bg-white/10 dark:text-white")}>
             {format(day.date, "EEE", { locale: ptBR })}
           </div>
-          <div>
-            <p className="text-sm font-black uppercase text-foreground dark:text-white">{format(day.date, "EEEE", { locale: ptBR })}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black uppercase text-foreground dark:text-white">{format(day.date, "EEEE", { locale: ptBR })}</p>
             <p className="text-xs text-muted-foreground dark:text-slate-500">{day.meetings.length} reuniao(s)</p>
           </div>
         </div>
-        <div className="text-right">
-          {today && <Badge className="mb-1 border-amber-300/30 bg-amber-400 text-black hover:bg-amber-400">Hoje</Badge>}
-          <p className="flex items-center justify-end gap-1 text-xs font-bold text-muted-foreground dark:text-slate-400">
+        <div className="flex max-w-[92px] shrink-0 flex-col items-end gap-1 text-right">
+          {today && <Badge className="h-6 max-w-full border-amber-300/30 bg-amber-400 px-3 text-[11px] leading-none text-black hover:bg-amber-400">Hoje</Badge>}
+          <p className="flex max-w-full flex-wrap items-center justify-end gap-1 text-xs font-bold leading-tight text-muted-foreground dark:text-slate-400">
             {day.rate}% vieram
             <MetricHelp content={metricTooltips.dayRate} />
           </p>
