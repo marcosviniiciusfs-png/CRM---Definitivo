@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
-  ArrowRight,
   BarChart3,
   CalendarDays,
+  CalendarIcon,
   CheckCircle2,
   Clock,
   Crown,
@@ -19,7 +18,7 @@ import {
 } from "lucide-react";
 import {
   addDays,
-  addWeeks,
+  differenceInCalendarDays,
   endOfDay,
   endOfMonth,
   format,
@@ -28,7 +27,7 @@ import {
   startOfDay,
   startOfMonth,
   startOfWeek,
-  subWeeks,
+  subDays,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -43,10 +42,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
 type MeetingStatus = "realizada" | "no_show" | "pendente";
 type StatusFilter = "all" | MeetingStatus;
+type DayFilter = "week" | "today" | "tomorrow" | "with_meetings" | "custom";
 
 interface LeadActivityRow {
   id: string;
@@ -288,20 +290,50 @@ const getNextBusinessDay = () => {
   return date;
 };
 
+const getCurrentWeekRange = () => {
+  const from = startOfWeek(new Date(), { weekStartsOn: 0 });
+  return { from, to: addDays(from, 6) };
+};
+
 const Reunioes = () => {
   const { organizationId, permissions } = useOrganization();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [weekAnchor, setWeekAnchor] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const [baseRange, setBaseRange] = useState(() => getCurrentWeekRange());
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
+  const [isPickingRangeEnd, setIsPickingRangeEnd] = useState(false);
   const [teamFilter, setTeamFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [dayFilter, setDayFilter] = useState<DayFilter>("week");
+  const [customDay, setCustomDay] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [search, setSearch] = useState("");
   const [hasAutoFocusedWeek, setHasAutoFocusedWeek] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
-  const weekStart = startOfDay(weekAnchor);
-  const weekEnd = endOfDay(addDays(weekStart, 6));
+  const selectedDayDate = useMemo(() => {
+    if (dayFilter === "today") return startOfDay(new Date());
+    if (dayFilter === "tomorrow") return startOfDay(addDays(new Date(), 1));
+    if (dayFilter === "custom" && customDay) return startOfDay(parseISO(`${customDay}T00:00:00`));
+    return null;
+  }, [customDay, dayFilter]);
+  const activeRange = useMemo(() => {
+    if (selectedDayDate) {
+      const from = startOfWeek(selectedDayDate, { weekStartsOn: 0 });
+      return { from, to: addDays(from, 6) };
+    }
+    if (dateRange.from || dateRange.to) {
+      const from = dateRange.from || dateRange.to || baseRange.from;
+      const to = dateRange.to || dateRange.from || from;
+      return { from, to };
+    }
+    return baseRange;
+  }, [baseRange, dateRange.from, dateRange.to, selectedDayDate]);
+  const weekStart = startOfDay(activeRange.from);
+  const weekEnd = endOfDay(activeRange.to);
   const monthStart = startOfMonth(new Date());
   const monthEnd = endOfMonth(new Date());
 
@@ -394,7 +426,8 @@ const Reunioes = () => {
     const targetMeeting = nextMeeting || fallbackMeeting;
 
     if (targetMeeting) {
-      setWeekAnchor(startOfWeek(targetMeeting.scheduledAt, { weekStartsOn: 0 }));
+      const from = startOfWeek(targetMeeting.scheduledAt, { weekStartsOn: 0 });
+      setBaseRange({ from, to: addDays(from, 6) });
       setHasAutoFocusedWeek(true);
     }
   }, [allMeetings, dashboardQuery.isLoading, hasAutoFocusedWeek, weekMeetings.length]);
@@ -402,6 +435,7 @@ const Reunioes = () => {
   const filteredMeetings = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return weekMeetings.filter((meeting) => {
+      if (selectedDayDate && !isSameDay(meeting.scheduledAt, selectedDayDate)) return false;
       if (teamFilter !== "all" && meeting.teamId !== teamFilter) return false;
       if (ownerFilter !== "all" && meeting.ownerId !== ownerFilter) return false;
       if (statusFilter !== "all" && meeting.status !== statusFilter) return false;
@@ -410,7 +444,7 @@ const Reunioes = () => {
       }
       return true;
     });
-  }, [ownerFilter, search, statusFilter, teamFilter, weekMeetings]);
+  }, [ownerFilter, search, selectedDayDate, statusFilter, teamFilter, weekMeetings]);
 
   const owners = useMemo(() => {
     const rows = new Map<string, string>();
@@ -479,8 +513,9 @@ const Reunioes = () => {
   }, [filteredMeetings]);
 
   const weekDays = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, index) => {
+    () => {
+      const periodLength = Math.max(1, differenceInCalendarDays(weekEnd, weekStart) + 1);
+      return Array.from({ length: periodLength }, (_, index) => {
         const date = addDays(weekStart, index);
         const meetings = filteredMeetings
           .filter((meeting) => isSameDay(meeting.scheduledAt, date))
@@ -489,8 +524,14 @@ const Reunioes = () => {
         const missed = meetings.filter((meeting) => meeting.status === "no_show").length;
         const rate = attended + missed ? Math.round((attended / (attended + missed)) * 100) : 0;
         return { date, meetings, rate };
-      }),
-    [filteredMeetings, weekStart],
+      });
+    },
+    [filteredMeetings, weekEnd, weekStart],
+  );
+
+  const visibleWeekDays = useMemo(
+    () => (dayFilter === "with_meetings" ? weekDays.filter((day) => day.meetings.length > 0) : weekDays),
+    [dayFilter, weekDays],
   );
 
   const highlights = useMemo(() => {
@@ -550,6 +591,32 @@ const Reunioes = () => {
 
   const isLoading = dashboardQuery.isLoading;
   const dateRangeLabel = `${format(weekStart, "dd MMM", { locale: ptBR })} - ${format(weekEnd, "dd MMM", { locale: ptBR })}`;
+  const periodButtonLabel =
+    dateRange.from && dateRange.to
+      ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ${format(dateRange.to, "dd/MM", { locale: ptBR })}`
+      : dateRange.from
+        ? `${format(dateRange.from, "dd/MM", { locale: ptBR })} - ...`
+      : "Periodo";
+
+  const setPresetRange = (range: { from: Date | undefined; to: Date | undefined }) => {
+    setDateRange(range);
+    setIsPickingRangeEnd(false);
+  };
+
+  const handlePeriodDayClick = (day: Date) => {
+    const clickedDay = startOfDay(day);
+
+    if (!isPickingRangeEnd || !dateRange.from) {
+      setDateRange({ from: clickedDay, to: undefined });
+      setIsPickingRangeEnd(true);
+      return;
+    }
+
+    const from = startOfDay(dateRange.from);
+    const to = clickedDay;
+    setDateRange(from.getTime() <= to.getTime() ? { from, to } : { from: to, to: from });
+    setIsPickingRangeEnd(false);
+  };
 
   const logMeetingActivity = async (meeting: Meeting, activityType: string, content: Record<string, unknown>) => {
     const {
@@ -676,15 +743,38 @@ const Reunioes = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="icon" className="dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:text-white" onClick={() => setWeekAnchor((value) => subWeeks(value, 1))}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex h-10 min-w-[160px] items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-black text-foreground shadow-inner dark:border-white/10 dark:bg-white/[0.04] dark:text-white">
-              {dateRangeLabel}
-            </div>
-            <Button variant="outline" size="icon" className="dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:text-white" onClick={() => setWeekAnchor((value) => addWeeks(value, 1))}>
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn("h-10 gap-2 text-sm font-bold dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:text-white", (dateRange.from || dateRange.to) && "border-primary text-primary dark:border-amber-300/40 dark:text-amber-100")}
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  {periodButtonLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 dark:border-white/10 dark:bg-[#080910]" align="end">
+                <div className="flex flex-col gap-1 border-b p-2 dark:border-white/10">
+                  <Button variant="ghost" size="sm" className="justify-start text-xs dark:text-slate-200 dark:hover:bg-white/10" onClick={() => setPresetRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                    Ultimos 7 dias
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs dark:text-slate-200 dark:hover:bg-white/10" onClick={() => setPresetRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                    Ultimos 30 dias
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs dark:text-slate-200 dark:hover:bg-white/10" onClick={() => setPresetRange({ from: undefined, to: undefined })}>
+                    Limpar filtro
+                  </Button>
+                </div>
+                <Calendar
+                  mode="range"
+                  selected={dateRange.from || dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
+                  onDayClick={handlePeriodDayClick}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
             <Button variant="outline" className="gap-2 border-rose-300/60 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-400/35 dark:bg-rose-500/10 dark:text-rose-100 dark:hover:bg-rose-500/20 dark:hover:text-white" onClick={() => dashboardQuery.refetch()}>
               <RefreshCw className={cn("h-4 w-4", dashboardQuery.isFetching && "animate-spin")} />
               Atualizar
@@ -721,7 +811,7 @@ const Reunioes = () => {
             <KpiCard label="Comparecimento" tooltip={metricTooltips.attendanceRate} value={`${kpis.attendanceRate}%`} className="text-cyan-700 dark:text-cyan-300" loading={isLoading} />
           </div>
 
-          <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm dark:border-white/10 dark:bg-[#07080d] dark:shadow-[0_12px_50px_rgba(0,0,0,0.35)] md:grid-cols-[1.3fr_1fr_1fr_1fr]">
+          <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm dark:border-white/10 dark:bg-[#07080d] dark:shadow-[0_12px_50px_rgba(0,0,0,0.35)] md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
               <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar lead ou responsavel" className="pl-9 dark:border-white/10 dark:bg-black/50 dark:text-white dark:placeholder:text-slate-500" />
@@ -763,18 +853,45 @@ const Reunioes = () => {
                 <SelectItem value="pendente">Pendente</SelectItem>
               </SelectContent>
             </Select>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto] xl:grid-cols-1 2xl:grid-cols-[1fr_auto]">
+              <Select value={dayFilter} onValueChange={(value) => setDayFilter(value as DayFilter)}>
+                <SelectTrigger className="dark:border-white/10 dark:bg-black/50 dark:text-white">
+                  <SelectValue placeholder="Filtrar dias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="week">Periodo completo</SelectItem>
+                  <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="tomorrow">Amanha</SelectItem>
+                  <SelectItem value="with_meetings">Dias com reunioes</SelectItem>
+                  <SelectItem value="custom">Dia especifico</SelectItem>
+                </SelectContent>
+              </Select>
+              {dayFilter === "custom" && (
+                <Input
+                  type="date"
+                  value={customDay}
+                  onChange={(event) => setCustomDay(event.target.value)}
+                  className="min-w-[150px] dark:border-white/10 dark:bg-black/50 dark:text-white"
+                  aria-label="Escolher dia dos agendamentos"
+                />
+              )}
+            </div>
           </div>
 
           <TabsContent value="agenda" className="mt-0">
             {isLoading ? (
-              <div className="grid gap-3 lg:grid-cols-7">
-                {Array.from({ length: 7 }).map((_, index) => (
-                  <Skeleton key={index} className="h-80 rounded-lg" />
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {Array.from({ length: Math.min(Math.max(weekDays.length, 1), 7) }).map((_, index) => (
+                  <Skeleton key={index} className="h-80 min-w-[270px] rounded-lg" />
                 ))}
               </div>
+            ) : visibleWeekDays.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm font-semibold text-muted-foreground dark:border-white/10 dark:bg-[#090a10] dark:text-slate-400">
+                Nenhum agendamento encontrado para o filtro de dias selecionado.
+              </div>
             ) : (
-              <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-7 lg:overflow-visible">
-                {weekDays.map((day) => (
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {visibleWeekDays.map((day) => (
                   <DayColumn
                     key={day.date.toISOString()}
                     day={day}
@@ -908,7 +1025,7 @@ const DayColumn = ({
 }) => {
   const today = isSameDay(day.date, new Date());
   return (
-    <div className={cn("min-w-[270px] rounded-lg border bg-card p-3 shadow-sm dark:bg-[#090a10] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)] lg:min-w-0", today ? "border-amber-400/70 dark:shadow-[0_0_30px_rgba(245,158,11,0.12)]" : "border-border dark:border-white/10")}>
+    <div className={cn("min-w-[270px] rounded-lg border bg-card p-3 shadow-sm dark:bg-[#090a10] dark:shadow-[0_18px_45px_rgba(0,0,0,0.35)]", today ? "border-amber-400/70 dark:shadow-[0_0_30px_rgba(245,158,11,0.12)]" : "border-border dark:border-white/10")}>
       <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <div className={cn("flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md px-2 text-xs font-black uppercase", today ? "bg-amber-400 text-black" : "bg-muted text-foreground dark:bg-white/10 dark:text-white")}>
