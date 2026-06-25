@@ -33,6 +33,17 @@ export interface RedistributeBatchResult {
   totalRemaining: number;
   hasMore: boolean;
   errors: string[];
+  /**
+   * Lista granular de cada lead processado neste batch.
+   * `agent_user_id`/`agent_name` são null para leads sem agente compatível (skipped).
+   * Consumidores antigos ignoram este campo (aditivo).
+   */
+  assignments: Array<{
+    lead_id: string;
+    lead_nome: string;
+    agent_user_id: string | null;
+    agent_name: string | null;
+  }>;
 }
 
 export async function redistributeBatch(
@@ -56,13 +67,13 @@ export async function redistributeBatch(
     .eq('sales_funnels.organization_id', organizationId)
     .in('stage_type', ['won', 'lost']);
   if (closedStagesErr) {
-    return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [`closedStages: ${closedStagesErr.message}`] };
+    return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [`closedStages: ${closedStagesErr.message}`], assignments: [] };
   }
   const closedStageIds = (closedStages || []).map((s: { id: string }) => s.id);
 
   let leadsQuery = supabase
     .from('leads')
-    .select('id, source, funnel_id')
+    .select('id, nome_lead, source, funnel_id')
     .eq('organization_id', organizationId)
     .is('responsavel_user_id', null)
     .limit(batchSize);
@@ -76,11 +87,11 @@ export async function redistributeBatch(
   }
   const { data: unassignedLeads, error: leadsError } = await leadsQuery;
   if (leadsError) {
-    return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [`leadsFetch: ${leadsError.message}`] };
+    return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [`leadsFetch: ${leadsError.message}`], assignments: [] };
   }
 
   if (!unassignedLeads || unassignedLeads.length === 0) {
-    return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [] };
+    return { redistributed: 0, skipped: 0, totalRemaining: 0, hasMore: false, errors: [], assignments: [] };
   }
 
   // 2. Contar total restante (escopado tambem por leadIds quando aplicavel)
@@ -106,10 +117,17 @@ export async function redistributeBatch(
     .eq('organization_id', organizationId)
     .eq('is_active', true);
   if (configsError) {
-    return { redistributed: 0, skipped: 0, totalRemaining: totalRemaining || 0, hasMore: false, errors: [`configsFetch: ${configsError.message}`] };
+    return { redistributed: 0, skipped: 0, totalRemaining: totalRemaining || 0, hasMore: false, errors: [`configsFetch: ${configsError.message}`], assignments: [] };
   }
   if (!configs || configs.length === 0) {
-    return { redistributed: 0, skipped: unassignedLeads.length, totalRemaining: totalRemaining || 0, hasMore: false, errors: ['Nenhuma roleta ativa'] };
+    // deno-lint-ignore no-explicit-any
+    const skippedAssignments = (unassignedLeads as any[]).map((l: any) => ({
+      lead_id: l.id,
+      lead_nome: l.nome_lead || '(sem nome)',
+      agent_user_id: null,
+      agent_name: null,
+    }));
+    return { redistributed: 0, skipped: unassignedLeads.length, totalRemaining: totalRemaining || 0, hasMore: false, errors: ['Nenhuma roleta ativa'], assignments: skippedAssignments };
   }
 
   // 4. Buscar agentes por config
@@ -170,14 +188,42 @@ export async function redistributeBatch(
   let redistributedCount = 0;
   let skippedCount = 0;
   const errors: string[] = [];
+  const assignments: Array<{
+    lead_id: string;
+    lead_nome: string;
+    agent_user_id: string | null;
+    agent_name: string | null;
+  }> = [];
   // deno-lint-ignore no-explicit-any
   const leadsByConfig = new Map<string, { leads: any[], agents: any[], agentIndex: number }>();
 
   for (const lead of unassignedLeads) {
     const config = effectiveConfig || findBestConfig(configs, lead) || fallbackConfig;
-    if (!config) { skippedCount++; continue; }
+    if (!config) {
+      skippedCount++;
+      assignments.push({
+        // deno-lint-ignore no-explicit-any
+        lead_id: (lead as any).id,
+        // deno-lint-ignore no-explicit-any
+        lead_nome: (lead as any).nome_lead || '(sem nome)',
+        agent_user_id: null,
+        agent_name: null,
+      });
+      continue;
+    }
     const agents = agentsByConfig.get(config.id);
-    if (!agents || agents.length === 0) { skippedCount++; continue; }
+    if (!agents || agents.length === 0) {
+      skippedCount++;
+      assignments.push({
+        // deno-lint-ignore no-explicit-any
+        lead_id: (lead as any).id,
+        // deno-lint-ignore no-explicit-any
+        lead_nome: (lead as any).nome_lead || '(sem nome)',
+        agent_user_id: null,
+        agent_name: null,
+      });
+      continue;
+    }
 
     let group = leadsByConfig.get(config.id);
     if (!group) {
@@ -244,6 +290,12 @@ export async function redistributeBatch(
           trigger_source: 'manual',
           is_redistribution: true,
         });
+        assignments.push({
+          lead_id: item.id,
+          lead_nome: item.nome_lead || '(sem nome)',
+          agent_user_id: agentId,
+          agent_name: agent.full_name || agent.email || '(sem nome)',
+        });
       }
     }
   }
@@ -263,6 +315,7 @@ export async function redistributeBatch(
     totalRemaining: remainingAfter,
     hasMore: remainingAfter > 0,
     errors,
+    assignments,
   };
 }
 
