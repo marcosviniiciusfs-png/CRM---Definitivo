@@ -277,11 +277,13 @@ const calculatePermissions = (
   const basePerms = calculateBasePermissions(role);
   const isOwnerOrAdmin = role === 'owner' || role === 'admin';
 
-  // Owners and Admins always have all granular permissions
+  // Owners and Admins keep their base privileges. Admins may also have a
+  // custom role, whose lead visibility must be honored consistently with RLS.
   if (isOwnerOrAdmin) {
     return {
       ...defaultPermissions,
       ...basePerms,
+      canViewAllLeads: role === 'owner' || customRolePerms?.can_view_all_leads === true,
       canViewKanban: true,
       canCreateTasks: true,
       canEditOwnTasks: true,
@@ -296,9 +298,9 @@ const calculatePermissions = (
       canSendMessages: true,
       canViewAllConversations: true,
       canViewReports: true,
-      customRoleId: null,
-      customRoleName: null,
-      customRoleColor: null,
+      customRoleId: customRolePerms?.custom_role_id ?? null,
+      customRoleName: customRolePerms?.custom_role_name ?? null,
+      customRoleColor: customRolePerms?.custom_role_color ?? null,
     };
   }
 
@@ -562,7 +564,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setOrganizationId(targetOrgId);
 
         const role = primaryMembership.role as 'owner' | 'admin' | 'member';
-        const customPerms = role === 'member' ? await fetchCustomRolePermissions(targetOrgId) : null;
+        const customPerms = role !== 'owner' ? await fetchCustomRolePermissions(targetOrgId) : null;
 
         const perms = calculatePermissions(role, customPerms);
         setPermissions(perms);
