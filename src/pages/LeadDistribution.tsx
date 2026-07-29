@@ -311,6 +311,10 @@ export default function LeadDistribution() {
         const count = data?.redistributed_count || 0;
         const total = data?.total || 0;
         const skipped = data?.skipped || 0;
+        const serverErrors = Array.isArray(data?.errors) ? data.errors.filter(Boolean) : [];
+        if (count === 0 && serverErrors.length > 0) {
+          throw new Error(serverErrors[0]);
+        }
         totalRedistributed += count;
         totalSkipped += skipped;
 
@@ -394,9 +398,9 @@ export default function LeadDistribution() {
 
       {/* Redistribuir leads de um colaborador (colapsavel) */}
       <RedistributeFromCollaboratorPanel
-        onConfirm={(userIds, configId, destinationUserId) =>
-          redistributeFromCollaboratorMutation.mutate({ userIds, configId, destinationUserId })
-        }
+        onConfirm={async (userIds, configId, destinationUserId) => {
+          await redistributeFromCollaboratorMutation.mutateAsync({ userIds, configId, destinationUserId });
+        }}
         isPending={redistributeFromCollaboratorMutation.isPending}
       />
 

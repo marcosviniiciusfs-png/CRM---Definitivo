@@ -202,18 +202,15 @@ serve(async (req) => {
         errors: historyErr ? [`History insert: ${historyErr.message}`] : [],
       };
     } else {
-      const { error: unassignErr } = await supabase
-        .from("leads")
-        .update({ responsavel_user_id: null, responsavel: null })
-        .in("id", batchIds);
-      if (unassignErr) throw new Error(`Unassign: ${unassignErr.message}`);
-
-      // excludeUserIds impede que os leads voltem para os colaboradores de origem.
+      // Transfere diretamente do responsavel atual para o agente escolhido.
+      // Se nenhuma roleta/agente for compativel, o lead permanece com o dono
+      // original em vez de ficar desatribuido.
       result = await redistributeBatch(supabase, organization_id, {
         batchSize: BATCH_SIZE,
         configId: config_id || null,
         leadIds: batchIds,
         excludeUserIds: collaborator_user_ids,
+        requireUnassigned: false,
       });
     }
 

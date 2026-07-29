@@ -13,10 +13,6 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Shuffle, Loader2, ChevronRight, Search, ChevronDown, Dices, GitFork, UserRound,
@@ -27,7 +23,7 @@ interface Props {
     collaboratorUserIds: string[],
     configId: string | null,
     destinationUserId: string | null,
-  ) => void;
+  ) => Promise<void>;
   isPending: boolean;
 }
 
@@ -48,17 +44,19 @@ const methodLabels: Record<string, string> = {
 export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Props) {
   const { organizationId } = useOrganization();
   const [modalOpen, setModalOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [selectedDestination, setSelectedDestination] = useState<string>("auto");
   const [searchTerm, setSearchTerm] = useState("");
 
   const handleModalChange = (open: boolean) => {
+    if (!open && isPending) return;
     setModalOpen(open);
     if (!open) {
       setSelectedUserIds(new Set());
       setSelectedDestination("auto");
       setSearchTerm("");
+      setShowConfirmation(false);
     }
   };
 
@@ -204,6 +202,17 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
     && hasValidDestination
     && !isPending;
 
+  const handleConfirmRedistribution = async () => {
+    try {
+      await onConfirm(selectedIdsArray, selectedConfigId, selectedDestinationUserId);
+      handleModalChange(false);
+    } catch {
+      // A mutation exibe a mensagem detalhada. Mantemos a modal aberta para o
+      // usuario poder revisar o destino e tentar novamente sem overlay preso.
+      setShowConfirmation(false);
+    }
+  };
+
   return (
     <>
       {/* Trigger row */}
@@ -237,6 +246,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
             </DialogDescription>
           </DialogHeader>
 
+          {!showConfirmation ? (
           <div className="space-y-4 py-2">
             {/* Colaboradores (multi-select via Popover) */}
             <div className="space-y-2">
@@ -432,52 +442,49 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
               )}
             </div>
           </div>
+          ) : (
+            <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed">
+              Você está prestes a redistribuir <strong>{activeLeadsCount ?? 0}</strong> lead(s) de{" "}
+              <strong>{selectedIdsArray.length}</strong> colaborador(es) via{" "}
+              <strong>{selectedDestinationName}</strong>.
+              <p className="mt-2 text-xs text-muted-foreground">
+                Os leads ganhos e perdidos não serão alterados. Esta ação não pode ser desfeita.
+              </p>
+            </div>
+          )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleModalChange(false)} disabled={isPending}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setConfirmOpen(true)}
-              disabled={!canConfirm}
-            >
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Redistribuir {activeLeadsCount ?? 0} lead(s)
-            </Button>
+            {!showConfirmation ? (
+              <>
+                <Button variant="outline" onClick={() => handleModalChange(false)} disabled={isPending}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowConfirmation(true)}
+                  disabled={!canConfirm}
+                >
+                  Redistribuir {activeLeadsCount ?? 0} lead(s)
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setShowConfirmation(false)} disabled={isPending}>
+                  Voltar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmRedistribution}
+                  disabled={isPending}
+                >
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isPending ? "Redistribuindo..." : "Confirmar redistribuição"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Confirmação destrutiva */}
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar redistribuição</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você está prestes a desatribuir <strong>{activeLeadsCount ?? 0}</strong> lead(s) de{" "}
-              <strong>{selectedIdsArray.length}</strong> colaborador(es) selecionado(s) e redistribuí-los via{" "}
-              <strong>{selectedDestinationName}</strong>. Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmOpen(false);
-                setModalOpen(false);
-                onConfirm(selectedIdsArray, selectedConfigId, selectedDestinationUserId);
-                setSelectedUserIds(new Set());
-                setSelectedDestination("auto");
-                setSearchTerm("");
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Redistribuir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

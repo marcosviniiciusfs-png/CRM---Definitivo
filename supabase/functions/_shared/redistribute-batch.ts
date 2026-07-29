@@ -19,6 +19,13 @@ export interface RedistributeBatchOptions {
    */
   leadIds?: string[];
   /**
+   * Por padrao o helper busca apenas leads sem responsavel. No fluxo de
+   * redistribuicao por colaborador, os IDs ja foram previamente escopados e
+   * devem ser transferidos diretamente, sem uma etapa intermediaria de
+   * desatribuicao que poderia deixa-los sem dono em caso de falha.
+   */
+  requireUnassigned?: boolean;
+  /**
    * Quando setado, esses user_ids sao removidos do pool de agentes elegiveis
    * de qualquer roleta. Usado pelo redistribute-from-collaborator para evitar
    * que os leads do(s) colaborador(es) escolhido(s) voltem para eles via
@@ -45,6 +52,7 @@ export async function redistributeBatch(
   const configIdFilter = options.configId ?? null;
   const batchId = options.batchId ?? null;
   const leadIdsFilter = options.leadIds && options.leadIds.length > 0 ? options.leadIds : null;
+  const requireUnassigned = options.requireUnassigned ?? true;
   const excludeUserIdsSet = options.excludeUserIds && options.excludeUserIds.length > 0
     ? new Set(options.excludeUserIds)
     : null;
@@ -64,8 +72,10 @@ export async function redistributeBatch(
     .from('leads')
     .select('id, source, funnel_id')
     .eq('organization_id', organizationId)
-    .is('responsavel_user_id', null)
     .limit(batchSize);
+  if (requireUnassigned) {
+    leadsQuery = leadsQuery.is('responsavel_user_id', null);
+  }
   if (closedStageIds.length > 0) {
     leadsQuery = leadsQuery.or(
       `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(',')})`
@@ -87,8 +97,10 @@ export async function redistributeBatch(
   let countQuery = supabase
     .from('leads')
     .select('id', { count: 'exact', head: true })
-    .eq('organization_id', organizationId)
-    .is('responsavel_user_id', null);
+    .eq('organization_id', organizationId);
+  if (requireUnassigned) {
+    countQuery = countQuery.is('responsavel_user_id', null);
+  }
   if (closedStageIds.length > 0) {
     countQuery = countQuery.or(
       `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(',')})`
@@ -161,10 +173,28 @@ export async function redistributeBatch(
     // deno-lint-ignore no-explicit-any
     ? configs.find((c: any) => c.id === configIdFilter) || null
     : null;
+  if (configIdFilter && !effectiveConfig) {
+    return {
+      redistributed: 0,
+      skipped: unassignedLeads.length,
+      totalRemaining: totalRemaining || 0,
+      hasMore: false,
+      errors: ['A roleta selecionada nao existe ou esta inativa'],
+    };
+  }
+  if (effectiveConfig && (agentsByConfig.get(effectiveConfig.id)?.length || 0) === 0) {
+    return {
+      redistributed: 0,
+      skipped: unassignedLeads.length,
+      totalRemaining: totalRemaining || 0,
+      hasMore: false,
+      errors: ['A roleta selecionada nao possui outro colaborador disponivel para receber os leads'],
+    };
+  }
   // deno-lint-ignore no-explicit-any
   const fallbackConfig = configs.find((c: any) => c.source_type === 'all' && !c.funnel_id)
     // deno-lint-ignore no-explicit-any
-    || configs.find((c: any) => agentsByConfig.get(c.id)?.length > 0)
+    || configs.find((c: any) => (agentsByConfig.get(c.id)?.length ?? 0) > 0)
     || null;
 
   let redistributedCount = 0;
