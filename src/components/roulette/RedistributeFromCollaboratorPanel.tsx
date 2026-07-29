@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -16,7 +18,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Shuffle, Loader2, Users, ChevronRight, Search, ChevronDown } from "lucide-react";
+import {
+  Shuffle, Loader2, ChevronRight, Search, ChevronDown, Dices, GitFork, UserRound,
+} from "lucide-react";
 
 interface Props {
   onConfirm: (
@@ -180,24 +184,25 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
   const selectedDestinationUserId = selectedDestination.startsWith("user:")
     ? selectedDestination.slice("user:".length)
     : null;
+  const destinationMode = selectedDestination.startsWith("config:")
+    ? "roulette"
+    : selectedDestination.startsWith("user:")
+      ? "collaborator"
+      : "random";
   const selectedDestinationName = selectedDestinationUserId
     ? destinationAgents.find(c => c.user_id === selectedDestinationUserId)?.display
     : selectedConfigId
       ? configs.find(c => c.id === selectedConfigId)?.name
-      : "Automático (escolhe a melhor roleta para cada lead)";
-  const hasValidDestination = !selectedDestinationUserId
-    || destinationAgents.some(c => c.user_id === selectedDestinationUserId);
+      : "Aleatório (distribuição automática pelas regras configuradas)";
+  const hasValidDestination = destinationMode === "random"
+    || (destinationMode === "roulette" && !!selectedConfigId && configs.some(c => c.id === selectedConfigId))
+    || (destinationMode === "collaborator"
+      && !!selectedDestinationUserId
+      && destinationAgents.some(c => c.user_id === selectedDestinationUserId));
   const canConfirm = selectedIdsArray.length > 0
     && (activeLeadsCount ?? 0) > 0
     && hasValidDestination
     && !isPending;
-
-  // Set de user_ids ativos da org — usado para contar apenas agentes valid+ativos
-  // dentro de cada eligible_agents (ignora inativos e fantasmas).
-  const activeUserIdsSet = useMemo(
-    () => new Set(collaborators.map(c => c.user_id)),
-    [collaborators]
-  );
 
   return (
     <>
@@ -333,58 +338,98 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
             <div className="space-y-2">
               <Label className="text-sm font-medium">Destino dos leads</Label>
               <RadioGroup
-                value={selectedDestination}
-                onValueChange={setSelectedDestination}
-                className="space-y-2 max-h-56 overflow-y-auto"
+                value={destinationMode}
+                onValueChange={(mode) => {
+                  if (mode === "random") setSelectedDestination("auto");
+                  if (mode === "roulette") setSelectedDestination("config:");
+                  if (mode === "collaborator") setSelectedDestination("user:");
+                }}
+                className="grid grid-cols-3 gap-2"
                 disabled={isPending}
               >
-                <div className="flex items-center space-x-3 p-3 rounded-md border bg-muted/30">
-                  <RadioGroupItem value="auto" id="rfc-auto" />
-                  <Label htmlFor="rfc-auto" className="flex-1 cursor-pointer">
-                    <div className="font-medium text-sm">Automático</div>
-                    <div className="text-xs text-muted-foreground">
-                      O sistema escolhe a melhor roleta para cada lead (por source + funil)
-                    </div>
-                  </Label>
-                </div>
-                {destinationAgents.map((collaborator) => (
-                  <div key={collaborator.user_id} className="flex items-center space-x-3 p-3 rounded-md border">
-                    <RadioGroupItem value={`user:${collaborator.user_id}`} id={`rfc-user-${collaborator.user_id}`} />
-                    <Label htmlFor={`rfc-user-${collaborator.user_id}`} className="flex-1 cursor-pointer">
-                      <div className="font-medium text-sm">{collaborator.display}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Enviar todos diretamente para este colaborador
-                      </div>
-                    </Label>
-                  </div>
-                ))}
-                {configs.map((config) => {
-                  const arr = config.eligible_agents || [];
-                  const validActiveCount = arr.filter(id => activeUserIdsSet.has(id)).length;
-                  const isUnrestricted = arr.length === 0;
-                  return (
-                    <div key={config.id} className="flex items-center space-x-3 p-3 rounded-md border">
-                      <RadioGroupItem value={`config:${config.id}`} id={`rfc-${config.id}`} />
-                      <Label htmlFor={`rfc-${config.id}`} className="flex-1 cursor-pointer">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{config.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {methodLabels[config.distribution_method] || config.distribution_method}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Users className="h-3 w-3" />
-                          {isUnrestricted
-                            ? "Todos os colaboradores ativos"
-                            : validActiveCount === 0
-                              ? "Nenhum colaborador ativo"
-                              : `${validActiveCount} colaborador${validActiveCount !== 1 ? "es" : ""} ativo${validActiveCount !== 1 ? "s" : ""}`}
-                        </div>
-                      </Label>
-                    </div>
-                  );
-                })}
+                <Label
+                  htmlFor="rfc-mode-random"
+                  className={`cursor-pointer rounded-lg border p-3 text-center transition-colors ${
+                    destinationMode === "random" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  }`}
+                >
+                  <RadioGroupItem value="random" id="rfc-mode-random" className="sr-only" />
+                  <Dices className="mx-auto mb-1.5 h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Aleatório</span>
+                </Label>
+                <Label
+                  htmlFor="rfc-mode-roulette"
+                  className={`cursor-pointer rounded-lg border p-3 text-center transition-colors ${
+                    destinationMode === "roulette" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  }`}
+                >
+                  <RadioGroupItem value="roulette" id="rfc-mode-roulette" className="sr-only" />
+                  <GitFork className="mx-auto mb-1.5 h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Roleta</span>
+                </Label>
+                <Label
+                  htmlFor="rfc-mode-collaborator"
+                  className={`cursor-pointer rounded-lg border p-3 text-center transition-colors ${
+                    destinationMode === "collaborator" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  }`}
+                >
+                  <RadioGroupItem value="collaborator" id="rfc-mode-collaborator" className="sr-only" />
+                  <UserRound className="mx-auto mb-1.5 h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Colaborador</span>
+                </Label>
               </RadioGroup>
+
+              {destinationMode === "random" && (
+                <p className="px-1 text-xs text-muted-foreground">
+                  O sistema escolhe automaticamente a melhor roleta para cada lead.
+                </p>
+              )}
+
+              {destinationMode === "roulette" && (
+                <Select
+                  value={selectedConfigId || undefined}
+                  onValueChange={(configId) => setSelectedDestination(`config:${configId}`)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma roleta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {configs.length === 0 ? (
+                      <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                        Nenhuma roleta ativa
+                      </div>
+                    ) : configs.map((config) => (
+                      <SelectItem key={config.id} value={config.id}>
+                        {config.name} · {methodLabels[config.distribution_method] || config.distribution_method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {destinationMode === "collaborator" && (
+                <Select
+                  value={selectedDestinationUserId || undefined}
+                  onValueChange={(userId) => setSelectedDestination(`user:${userId}`)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione o colaborador que receberá os leads" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {destinationAgents.length === 0 ? (
+                      <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                        Nenhum outro colaborador ativo
+                      </div>
+                    ) : destinationAgents.map((collaborator) => (
+                      <SelectItem key={collaborator.user_id} value={collaborator.user_id}>
+                        {collaborator.display}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
