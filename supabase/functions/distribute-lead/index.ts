@@ -117,33 +117,6 @@ serve(async (req) => {
       );
     }
 
-    // New-lead group alerts are started here because every supported source
-    // already invokes distribute-lead. Registering with waitUntil keeps the
-    // alert alive even when no roulette is configured or no agent is available.
-    const alertSources = new Set(["whatsapp", "facebook", "webhook"]);
-    if (!is_redistribution && alertSources.has(trigger_source)) {
-      const sourceLabels: Record<string, string> = {
-        whatsapp: "WhatsApp",
-        facebook: "Facebook Leads",
-        webhook: "Formulário",
-      };
-      const alertPromise = sendLeadGroupAlert(supabase, {
-        leadId: lead_id,
-        organizationId: organization_id,
-        sourceLabel: sourceLabels[trigger_source] || trigger_source,
-      }).catch((error: unknown) => {
-        console.error("[lead-group-alert] Falha não bloqueante:", error);
-      });
-
-      // @ts-ignore EdgeRuntime is provided by the Supabase Edge Runtime.
-      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
-        // @ts-ignore EdgeRuntime is provided by the Supabase Edge Runtime.
-        EdgeRuntime.waitUntil(alertPromise);
-      } else {
-        await alertPromise;
-      }
-    }
-
     // Calculate lead score if not already set
     if (!lead.lead_score || lead.lead_score === 0) {
       const score = calculateLeadScore({
@@ -555,6 +528,26 @@ serve(async (req) => {
     }
 
     console.log('Lead distributed successfully to:', selectedAgent.full_name || selectedAgent.email, '(UUID:', selectedAgent.user_id, ')');
+
+    // Send exactly one group alert after the roulette assignment is persisted.
+    // At this point the helper reads both responsavel and responsavel_user_id
+    // from the updated lead, so the message cannot race the assignment.
+    if (!is_redistribution && ["whatsapp", "facebook", "webhook"].includes(trigger_source)) {
+      const sourceLabels: Record<string, string> = {
+        whatsapp: "WhatsApp",
+        facebook: "Facebook Leads",
+        webhook: "Formulário",
+      };
+      try {
+        await sendLeadGroupAlert(supabase, {
+          leadId: lead_id,
+          organizationId: organization_id,
+          sourceLabel: sourceLabels[trigger_source] || trigger_source,
+        });
+      } catch (alertError) {
+        console.error("[lead-group-alert] Falha não bloqueante:", alertError);
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
