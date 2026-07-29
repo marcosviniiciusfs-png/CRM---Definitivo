@@ -275,7 +275,15 @@ export default function LeadDistribution() {
   // Redistribuir leads de um colaborador (loop client-side: cada chamada
   // processa 1 batch, frontend mostra progresso entre chamadas)
   const redistributeFromCollaboratorMutation = useMutation({
-    mutationFn: async ({ userIds, configId }: { userIds: string[]; configId: string | null }) => {
+    mutationFn: async ({
+      userIds,
+      configId,
+      destinationUserId,
+    }: {
+      userIds: string[];
+      configId: string | null;
+      destinationUserId: string | null;
+    }) => {
       if (!organizationId) return { redistributed: 0, skipped: 0 };
 
       setRedistProgress({ current: 0, total: 0, isRunning: true });
@@ -294,6 +302,7 @@ export default function LeadDistribution() {
             organization_id: organizationId,
             collaborator_user_ids: userIds,
             config_id: configId,
+            destination_user_id: destinationUserId,
           },
         });
         if (error) throw error;
@@ -385,7 +394,9 @@ export default function LeadDistribution() {
 
       {/* Redistribuir leads de um colaborador (colapsavel) */}
       <RedistributeFromCollaboratorPanel
-        onConfirm={(userIds, configId) => redistributeFromCollaboratorMutation.mutate({ userIds, configId })}
+        onConfirm={(userIds, configId, destinationUserId) =>
+          redistributeFromCollaboratorMutation.mutate({ userIds, configId, destinationUserId })
+        }
         isPending={redistributeFromCollaboratorMutation.isPending}
       />
 

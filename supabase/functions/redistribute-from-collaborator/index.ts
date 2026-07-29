@@ -34,7 +34,7 @@ serve(async (req) => {
     }
 
     // 2. Parse body
-    const { organization_id, collaborator_user_ids, config_id } = await req.json();
+    const { organization_id, collaborator_user_ids, config_id, destination_user_id } = await req.json();
     if (!organization_id || !Array.isArray(collaborator_user_ids) || collaborator_user_ids.length === 0) {
       return new Response(JSON.stringify({ error: "organization_id e collaborator_user_ids (array não vazio) são obrigatórios" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -70,7 +70,41 @@ serve(async (req) => {
       });
     }
 
-    // 5. Identificar stages won/lost para excluir
+    // 5. Destino direto deve ser outro colaborador ativo da mesma organizacao.
+    let directDestination: { user_id: string; display: string } | null = null;
+    if (destination_user_id) {
+      if (collaborator_user_ids.includes(destination_user_id)) {
+        return new Response(JSON.stringify({ error: "O colaborador de destino nao pode ser um dos colaboradores de origem" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: destinationMember, error: destinationErr } = await supabase
+        .from("organization_members")
+        .select("user_id, email, display_name, is_active")
+        .eq("organization_id", organization_id)
+        .eq("user_id", destination_user_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (destinationErr) throw new Error(`Destination lookup: ${destinationErr.message}`);
+      if (!destinationMember?.user_id) {
+        return new Response(JSON.stringify({ error: "Colaborador de destino nao encontrado ou inativo" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: destinationProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", destination_user_id)
+        .maybeSingle();
+      directDestination = {
+        user_id: destinationMember.user_id,
+        display: destinationProfile?.full_name || destinationMember.display_name || destinationMember.email || "Sem nome",
+      };
+    }
+
+    // 6. Identificar stages won/lost para excluir
     const { data: closedStages } = await supabase
       .from("funnel_stages")
       .select("id, sales_funnels!inner(organization_id)")
@@ -78,7 +112,7 @@ serve(async (req) => {
       .in("stage_type", ["won", "lost"]);
     const closedStageIds = (closedStages || []).map((s: { id: string }) => s.id);
 
-    // 6. Contar leads ainda atribuidos a esses colaboradores (para has_more + total na UI).
+    // 7. Contar leads ainda atribuidos a esses colaboradores (para has_more + total na UI).
     // Cada chamada do cliente processa 1 batch; o cliente loopa ate has_more=false.
     let countQuery = supabase
       .from("leads")
@@ -105,7 +139,7 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 7. Capturar IDs do PROXIMO BATCH (nao todos de uma vez).
+    // 8. Capturar IDs do PROXIMO BATCH (nao todos de uma vez).
     // 25 leads por batch: cada chamada completa em ~1-2s, o cliente loopa
     // com 800ms entre chamadas, e a barra de progresso preenche visivelmente
     // (em vez de pular de 0 -> N em 1 update so).
@@ -137,22 +171,51 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 8. Desatribuir SOMENTE este batch
-    const { error: unassignErr } = await supabase
-      .from("leads")
-      .update({ responsavel_user_id: null, responsavel: null })
-      .in("id", batchIds);
-    if (unassignErr) throw new Error(`Unassign: ${unassignErr.message}`);
+    // 9. Atribuir diretamente ao destino escolhido ou seguir o fluxo de roletas.
+    let result: { redistributed: number; skipped: number; errors: string[] };
+    if (directDestination) {
+      const { error: assignErr } = await supabase
+        .from("leads")
+        .update({
+          responsavel_user_id: directDestination.user_id,
+          responsavel: directDestination.display,
+        })
+        .in("id", batchIds);
+      if (assignErr) throw new Error(`Direct assignment: ${assignErr.message}`);
 
-    // 9. Redistribuir SOMENTE este batch via helper (escopado por leadIds).
-    // excludeUserIds garante que os leads nao voltem para os proprios colaboradores
-    // selecionados (caso eles estejam na roleta como agentes).
-    const result = await redistributeBatch(supabase, organization_id, {
-      batchSize: BATCH_SIZE,
-      configId: config_id || null,
-      leadIds: batchIds,
-      excludeUserIds: collaborator_user_ids,
-    });
+      const historyRecords = batchIds.map((leadId) => ({
+        lead_id: leadId,
+        organization_id,
+        config_id: null,
+        batch_id: null,
+        to_user_id: directDestination!.user_id,
+        distribution_method: "manual",
+        trigger_source: "manual",
+        is_redistribution: true,
+      }));
+      const { error: historyErr } = await supabase
+        .from("lead_distribution_history")
+        .insert(historyRecords);
+      result = {
+        redistributed: batchIds.length,
+        skipped: 0,
+        errors: historyErr ? [`History insert: ${historyErr.message}`] : [],
+      };
+    } else {
+      const { error: unassignErr } = await supabase
+        .from("leads")
+        .update({ responsavel_user_id: null, responsavel: null })
+        .in("id", batchIds);
+      if (unassignErr) throw new Error(`Unassign: ${unassignErr.message}`);
+
+      // excludeUserIds impede que os leads voltem para os colaboradores de origem.
+      result = await redistributeBatch(supabase, organization_id, {
+        batchSize: BATCH_SIZE,
+        configId: config_id || null,
+        leadIds: batchIds,
+        excludeUserIds: collaborator_user_ids,
+      });
+    }
 
     // has_more: ainda existem leads dos colaboradores apos este batch
     const hasMore = totalRemaining > batchIds.length;

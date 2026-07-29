@@ -19,7 +19,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Shuffle, Loader2, Users, ChevronRight, Search, ChevronDown } from "lucide-react";
 
 interface Props {
-  onConfirm: (collaboratorUserIds: string[], configId: string | null) => void;
+  onConfirm: (
+    collaboratorUserIds: string[],
+    configId: string | null,
+    destinationUserId: string | null,
+  ) => void;
   isPending: boolean;
 }
 
@@ -42,14 +46,14 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
-  const [selectedConfigId, setSelectedConfigId] = useState<string>(""); // "" = Auto
+  const [selectedDestination, setSelectedDestination] = useState<string>("auto");
   const [searchTerm, setSearchTerm] = useState("");
 
   const handleModalChange = (open: boolean) => {
     setModalOpen(open);
     if (!open) {
       setSelectedUserIds(new Set());
-      setSelectedConfigId("");
+      setSelectedDestination("auto");
       setSearchTerm("");
     }
   };
@@ -166,10 +170,27 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
     });
   };
 
-  const selectedConfigName = selectedConfigId
-    ? configs.find(c => c.id === selectedConfigId)?.name
-    : "Automático (escolhe a melhor por lead)";
-  const canConfirm = selectedIdsArray.length > 0 && (activeLeadsCount ?? 0) > 0 && !isPending;
+  const destinationAgents = useMemo(
+    () => collaborators.filter(c => !selectedUserIds.has(c.user_id)),
+    [collaborators, selectedUserIds],
+  );
+  const selectedConfigId = selectedDestination.startsWith("config:")
+    ? selectedDestination.slice("config:".length)
+    : null;
+  const selectedDestinationUserId = selectedDestination.startsWith("user:")
+    ? selectedDestination.slice("user:".length)
+    : null;
+  const selectedDestinationName = selectedDestinationUserId
+    ? destinationAgents.find(c => c.user_id === selectedDestinationUserId)?.display
+    : selectedConfigId
+      ? configs.find(c => c.id === selectedConfigId)?.name
+      : "Automático (escolhe a melhor roleta para cada lead)";
+  const hasValidDestination = !selectedDestinationUserId
+    || destinationAgents.some(c => c.user_id === selectedDestinationUserId);
+  const canConfirm = selectedIdsArray.length > 0
+    && (activeLeadsCount ?? 0) > 0
+    && hasValidDestination
+    && !isPending;
 
   // Set de user_ids ativos da org — usado para contar apenas agentes valid+ativos
   // dentro de cada eligible_agents (ignora inativos e fantasmas).
@@ -308,17 +329,17 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
               </div>
             )}
 
-            {/* Roleta */}
+            {/* Destino */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Roleta</Label>
+              <Label className="text-sm font-medium">Destino dos leads</Label>
               <RadioGroup
-                value={selectedConfigId}
-                onValueChange={setSelectedConfigId}
+                value={selectedDestination}
+                onValueChange={setSelectedDestination}
                 className="space-y-2 max-h-56 overflow-y-auto"
                 disabled={isPending}
               >
                 <div className="flex items-center space-x-3 p-3 rounded-md border bg-muted/30">
-                  <RadioGroupItem value="" id="rfc-auto" />
+                  <RadioGroupItem value="auto" id="rfc-auto" />
                   <Label htmlFor="rfc-auto" className="flex-1 cursor-pointer">
                     <div className="font-medium text-sm">Automático</div>
                     <div className="text-xs text-muted-foreground">
@@ -326,13 +347,24 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                     </div>
                   </Label>
                 </div>
+                {destinationAgents.map((collaborator) => (
+                  <div key={collaborator.user_id} className="flex items-center space-x-3 p-3 rounded-md border">
+                    <RadioGroupItem value={`user:${collaborator.user_id}`} id={`rfc-user-${collaborator.user_id}`} />
+                    <Label htmlFor={`rfc-user-${collaborator.user_id}`} className="flex-1 cursor-pointer">
+                      <div className="font-medium text-sm">{collaborator.display}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Enviar todos diretamente para este colaborador
+                      </div>
+                    </Label>
+                  </div>
+                ))}
                 {configs.map((config) => {
                   const arr = config.eligible_agents || [];
                   const validActiveCount = arr.filter(id => activeUserIdsSet.has(id)).length;
                   const isUnrestricted = arr.length === 0;
                   return (
                     <div key={config.id} className="flex items-center space-x-3 p-3 rounded-md border">
-                      <RadioGroupItem value={config.id} id={`rfc-${config.id}`} />
+                      <RadioGroupItem value={`config:${config.id}`} id={`rfc-${config.id}`} />
                       <Label htmlFor={`rfc-${config.id}`} className="flex-1 cursor-pointer">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">{config.name}</span>
@@ -380,7 +412,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
             <AlertDialogDescription>
               Você está prestes a desatribuir <strong>{activeLeadsCount ?? 0}</strong> lead(s) de{" "}
               <strong>{selectedIdsArray.length}</strong> colaborador(es) selecionado(s) e redistribuí-los via{" "}
-              <strong>{selectedConfigName}</strong>. Esta ação não pode ser desfeita.
+              <strong>{selectedDestinationName}</strong>. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -389,9 +421,9 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
               onClick={() => {
                 setConfirmOpen(false);
                 setModalOpen(false);
-                onConfirm(selectedIdsArray, selectedConfigId || null);
+                onConfirm(selectedIdsArray, selectedConfigId, selectedDestinationUserId);
                 setSelectedUserIds(new Set());
-                setSelectedConfigId("");
+                setSelectedDestination("auto");
                 setSearchTerm("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
