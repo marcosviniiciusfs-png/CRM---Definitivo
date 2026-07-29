@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,6 +115,33 @@ serve(async (req) => {
         JSON.stringify({ success: false, message: 'Lead not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       );
+    }
+
+    // New-lead group alerts are started here because every supported source
+    // already invokes distribute-lead. Registering with waitUntil keeps the
+    // alert alive even when no roulette is configured or no agent is available.
+    const alertSources = new Set(["whatsapp", "facebook", "webhook"]);
+    if (!is_redistribution && alertSources.has(trigger_source)) {
+      const sourceLabels: Record<string, string> = {
+        whatsapp: "WhatsApp",
+        facebook: "Facebook Leads",
+        webhook: "Formulário",
+      };
+      const alertPromise = sendLeadGroupAlert(supabase, {
+        leadId: lead_id,
+        organizationId: organization_id,
+        sourceLabel: sourceLabels[trigger_source] || trigger_source,
+      }).catch((error: unknown) => {
+        console.error("[lead-group-alert] Falha não bloqueante:", error);
+      });
+
+      // @ts-ignore EdgeRuntime is provided by the Supabase Edge Runtime.
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+        // @ts-ignore EdgeRuntime is provided by the Supabase Edge Runtime.
+        EdgeRuntime.waitUntil(alertPromise);
+      } else {
+        await alertPromise;
+      }
     }
 
     // Calculate lead score if not already set

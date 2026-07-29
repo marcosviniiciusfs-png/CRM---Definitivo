@@ -5,11 +5,34 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WhatsAppChannel } from "@/types/whatsapp-channel";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { ChannelAssignMembersDialog } from "@/components/ChannelAssignMembersDialog";
 
 const MAX_CHANNELS = 5;
+const ALERT_SOURCES = [
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "facebook", label: "Facebook Leads" },
+  { value: "webhook", label: "Formulários" },
+] as const;
+const DEFAULT_ALERT_SOURCES = ALERT_SOURCES.map(({ value }) => value);
+type AlertSource = (typeof ALERT_SOURCES)[number]["value"];
+
+interface WhatsAppGroupOption {
+  id: string;
+  subject: string;
+  size?: number;
+}
+
+interface EvolutionGroupResult {
+  id?: unknown;
+  subject?: unknown;
+  size?: unknown;
+}
+
+const isConnected = (status?: string | null) =>
+  ["connected", "open"].includes(String(status || "").toLowerCase());
 
 interface LeadCountRow {
   whatsapp_instance_id: string | null;
@@ -31,11 +54,17 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   const [showConnect, setShowConnect] = useState(false);
   const [leadCounts, setLeadCounts] = useState<Record<string, number>>({});
   const [leadCaptureSaving, setLeadCaptureSaving] = useState<string | null>(null);
+  const [alertGroupDrafts, setAlertGroupDrafts] = useState<Record<string, string>>({});
+  const [alertSourceDrafts, setAlertSourceDrafts] = useState<Record<string, AlertSource[]>>({});
+  const [alertSaving, setAlertSaving] = useState<string | null>(null);
+  const [groupsByChannel, setGroupsByChannel] = useState<Record<string, WhatsAppGroupOption[]>>({});
+  const [groupsLoading, setGroupsLoading] = useState<Record<string, boolean>>({});
 
   // Stale-while-revalidate: only the very first load shows the spinner.
   // Subsequent refetches (polling, post-action refreshes) keep the rendered
   // list in place to avoid flicker.
   const hasLoadedOnceRef = useRef(false);
+  const requestedGroupsRef = useRef(new Set<string>());
 
   const loadChannels = useCallback(async () => {
     if (!organizationId) return;
@@ -43,7 +72,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
 
     const { data, error } = await supabase
       .from("whatsapp_instances")
-      .select("id, instance_name, channel_name, channel_color, status, phone_number, created_at, connected_at, accepts_leads")
+      .select("id, instance_name, channel_name, channel_color, status, phone_number, created_at, connected_at, accepts_leads, lead_alerts_enabled, lead_alert_group_id, lead_alert_last_sent_at, lead_alert_source_filters")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: true });
 
@@ -73,6 +102,36 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     setLeadCounts(counts);
   }, []);
 
+  const loadChannelGroups = useCallback(async (channel: WhatsAppChannel) => {
+    if (!channel.instance_name || !isConnected(channel.status)) return;
+    setGroupsLoading((current) => ({ ...current, [channel.id]: true }));
+
+    const { data, error } = await supabase.functions.invoke("get-contact-groups", {
+      body: { instance_name: channel.instance_name },
+    });
+
+    setGroupsLoading((current) => ({ ...current, [channel.id]: false }));
+    if (error || data?.success === false) {
+      toast({
+        title: "Erro ao carregar grupos",
+        description: data?.error || error?.message || "Não foi possível listar os grupos deste canal.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const rawGroups: EvolutionGroupResult[] = Array.isArray(data?.groups) ? data.groups : [];
+    const groups = rawGroups
+      .map((group) => ({
+        id: String(group.id || ""),
+        subject: String(group.subject || group.id || "Grupo sem nome"),
+        size: typeof group.size === "number" ? group.size : undefined,
+      }))
+      .filter((group: WhatsAppGroupOption) => group.id.endsWith("@g.us"));
+
+    setGroupsByChannel((current) => ({ ...current, [channel.id]: groups }));
+  }, [toast]);
+
   useEffect(() => {
     if (open) loadChannels();
   }, [open, loadChannels]);
@@ -80,6 +139,39 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   useEffect(() => {
     if (channels.length > 0) loadLeadCounts(channels.map((c) => c.id));
   }, [channels, loadLeadCounts]);
+
+  useEffect(() => {
+    setAlertGroupDrafts((current) => {
+      const next = { ...current };
+      channels.forEach((channel) => {
+        if (next[channel.id] === undefined) next[channel.id] = channel.lead_alert_group_id || "";
+      });
+      return next;
+    });
+    setAlertSourceDrafts((current) => {
+      const next = { ...current };
+      channels.forEach((channel) => {
+        if (next[channel.id] === undefined) {
+          next[channel.id] = (channel.lead_alert_source_filters?.length
+            ? channel.lead_alert_source_filters
+            : DEFAULT_ALERT_SOURCES) as AlertSource[];
+        }
+      });
+      return next;
+    });
+  }, [channels]);
+
+  useEffect(() => {
+    if (!open) {
+      requestedGroupsRef.current.clear();
+      return;
+    }
+    channels.forEach((channel) => {
+      if (!isConnected(channel.status) || requestedGroupsRef.current.has(channel.id)) return;
+      requestedGroupsRef.current.add(channel.id);
+      void loadChannelGroups(channel);
+    });
+  }, [open, channels, loadChannelGroups]);
 
   // Backfill: when the modal opens, trigger check-whatsapp-status for any
   // CONNECTED channel without phone_number. The Edge Function does the
@@ -90,7 +182,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   useEffect(() => {
     if (!open || channels.length === 0) return;
 
-    const stale = channels.filter((c) => c.status === "CONNECTED" && !c.phone_number);
+    const stale = channels.filter((c) => isConnected(c.status) && !c.phone_number);
     if (stale.length === 0) return;
 
     let cancelled = false;
@@ -188,6 +280,87 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     }
   };
 
+  const handleAlertSourceToggle = (channel: WhatsAppChannel, source: AlertSource) => {
+    const current = alertSourceDrafts[channel.id] || DEFAULT_ALERT_SOURCES;
+    if (current.includes(source) && current.length === 1) {
+      toast({
+        title: "Selecione pelo menos uma origem",
+        description: "O aviso precisa permanecer vinculado a uma origem de lead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const next = current.includes(source)
+      ? current.filter((item) => item !== source)
+      : [...current, source];
+    setAlertSourceDrafts((drafts) => ({ ...drafts, [channel.id]: next }));
+    if (channel.lead_alerts_enabled) void handleLeadAlertToggle(channel, true, undefined, next);
+  };
+
+  const handleLeadAlertToggle = async (
+    channel: WhatsAppChannel,
+    enabled: boolean,
+    groupOverride?: string,
+    sourcesOverride?: AlertSource[],
+  ) => {
+    if (!canManage || !organizationId) return;
+    const groupId = (groupOverride || alertGroupDrafts[channel.id] || channel.lead_alert_group_id || "").trim();
+    const sources = sourcesOverride || alertSourceDrafts[channel.id] || DEFAULT_ALERT_SOURCES;
+
+    if (enabled && !groupId.endsWith("@g.us")) {
+      toast({
+        title: "Selecione um grupo",
+        description: "Escolha o grupo do WhatsApp antes de ativar os avisos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAlertSaving(channel.id);
+    try {
+      if (enabled) {
+        const { error: disableError } = await supabase
+          .from("whatsapp_instances")
+          .update({ lead_alerts_enabled: false, lead_alert_group_id: null })
+          .eq("organization_id", organizationId)
+          .neq("id", channel.id);
+        if (disableError) throw disableError;
+      }
+
+      const { error } = await supabase
+        .from("whatsapp_instances")
+        .update({
+          lead_alerts_enabled: enabled,
+          lead_alert_group_id: enabled ? groupId : null,
+          lead_alert_source_filters: sources,
+        })
+        .eq("id", channel.id)
+        .eq("organization_id", organizationId);
+      if (error) throw error;
+
+      setChannels((current) => current.map((item) => ({
+        ...item,
+        lead_alerts_enabled: item.id === channel.id ? enabled : enabled ? false : item.lead_alerts_enabled,
+        lead_alert_group_id: item.id === channel.id ? (enabled ? groupId : null) : enabled ? null : item.lead_alert_group_id,
+        lead_alert_source_filters: item.id === channel.id ? sources : item.lead_alert_source_filters,
+      })));
+      toast({
+        title: enabled ? "Avisos de novos leads ativados" : "Avisos de novos leads desativados",
+        description: enabled
+          ? "Novos leads das origens selecionadas serão enviados ao grupo."
+          : "Este canal não enviará avisos ao grupo.",
+      });
+    } catch (error: unknown) {
+      toast({
+        title: "Erro ao atualizar avisos",
+        description: error instanceof Error ? error.message : "Não foi possível salvar a configuração.",
+        variant: "destructive",
+      });
+    } finally {
+      setAlertSaving(null);
+    }
+  };
+
   const handleDisconnect = async (channel: WhatsAppChannel) => {
     // The Edge Function expects `instanceId` (matches whatsapp_instances.id),
     // not `instance_name`. The previous payload made the function fail with
@@ -231,12 +404,12 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     }
   };
 
-  const connectedCount = channels.filter((c) => c.status === "CONNECTED").length;
+  const connectedCount = channels.filter((c) => isConnected(c.status)).length;
   const remaining = MAX_CHANNELS - channels.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[640px] p-0 gap-0 overflow-hidden">
         <DialogTitle className="sr-only">Canais WhatsApp</DialogTitle>
         <DialogDescription className="sr-only">
           Gerencie os canais WhatsApp conectados a esta organização. Conecte até 5 números diferentes.
@@ -269,7 +442,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
         </div>
 
         {/* Channel List */}
-        <div className="px-4 py-2 max-h-[320px] overflow-y-auto">
+        <div className="px-4 py-2 max-h-[62vh] overflow-y-auto">
           {loading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Carregando...</div>
           ) : channels.length === 0 ? (
@@ -307,7 +480,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                         <span className="text-[13px] font-medium truncate">
                           {channel.channel_name || channel.instance_name}
                         </span>
-                        {channel.status === "CONNECTED" && (
+                        {isConnected(channel.status) && (
                           <span className="w-1.5 h-1.5 rounded-full bg-[#25D366] flex-shrink-0" />
                         )}
                       </div>
@@ -315,7 +488,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                         {channel.phone_number || "Aguardando..."}
                         {leadCounts[channel.id] != null && ` · ${leadCounts[channel.id]} leads`}
                       </div>
-                      {channel.status === "CONNECTED" && (
+                      {isConnected(channel.status) && (
                         <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-emerald-200/70 bg-emerald-50 px-2.5 py-2">
                           <div className="min-w-0">
                             <p className="text-[11px] font-semibold text-emerald-900">
@@ -333,6 +506,63 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                             onCheckedChange={(checked) => handleLeadCaptureToggle(channel.id, checked)}
                             aria-label={`Definir ${channel.phone_number || channel.instance_name} como número criador de leads`}
                           />
+                        </div>
+                      )}
+                      {isConnected(channel.status) && (
+                        <div className="mt-2 space-y-2.5 rounded-md border bg-muted/20 px-2.5 py-2">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] font-semibold">Avisos de novos leads</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Envia os dados do novo lead para um grupo.
+                              </p>
+                            </div>
+                            <Switch
+                              checked={channel.lead_alerts_enabled === true}
+                              disabled={!canManage || alertSaving === channel.id}
+                              onCheckedChange={(checked) => handleLeadAlertToggle(channel, checked)}
+                              aria-label="Ativar avisos de novos leads no grupo"
+                            />
+                          </div>
+
+                          <Select
+                            value={alertGroupDrafts[channel.id] || channel.lead_alert_group_id || ""}
+                            disabled={!canManage || groupsLoading[channel.id]}
+                            onValueChange={(value) => {
+                              setAlertGroupDrafts((current) => ({ ...current, [channel.id]: value }));
+                              if (channel.lead_alerts_enabled) void handleLeadAlertToggle(channel, true, value);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder={groupsLoading[channel.id] ? "Carregando grupos..." : "Selecionar grupo"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(groupsByChannel[channel.id] || []).map((group) => (
+                                <SelectItem key={group.id} value={group.id}>
+                                  {group.subject}{group.size ? ` (${group.size})` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <div className="flex flex-wrap gap-1.5">
+                            {ALERT_SOURCES.map((source) => {
+                              const selected = (alertSourceDrafts[channel.id] || DEFAULT_ALERT_SOURCES).includes(source.value);
+                              return (
+                                <Button
+                                  key={source.value}
+                                  type="button"
+                                  size="sm"
+                                  variant={selected ? "default" : "outline"}
+                                  className="h-7 px-2 text-[10px]"
+                                  disabled={!canManage || alertSaving === channel.id}
+                                  onClick={() => handleAlertSourceToggle(channel, source.value)}
+                                >
+                                  {source.label}
+                                </Button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </>

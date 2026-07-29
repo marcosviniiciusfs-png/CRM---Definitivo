@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.redistribute-lost-leads]
 verify_jwt = false
+
+[functions.notify-new-lead-group]
+verify_jwt = false
