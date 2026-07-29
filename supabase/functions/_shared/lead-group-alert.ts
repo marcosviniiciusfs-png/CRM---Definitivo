@@ -73,7 +73,7 @@ async function waitForAssignment(supabase: SupabaseAdmin, lead: any) {
   if (await resolveResponsibleName(supabase, lead)) return lead;
 
   let latest = lead;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const { data } = await supabase
       .from("leads")

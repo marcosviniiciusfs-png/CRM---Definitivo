@@ -9,6 +9,7 @@ import {
   createSupabaseAdmin,
 } from "../_shared/evolution-config.ts";
 import { maybeApplyAdLeadTag } from "../_shared/ad-lead-tagging.ts";
+import { sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
 
 // Função auxiliar para baixar mídia usando Evolution API e fazer upload para Supabase Storage
 async function downloadAndUploadMedia(
@@ -1435,7 +1436,7 @@ serve(async (req) => {
       }
 
       // ✅ DISTRIBUIR LEAD NA ROLETA (apenas para leads NOVOS)
-      supabase.functions.invoke('distribute-lead', {
+      const distributePromise = supabase.functions.invoke('distribute-lead', {
         body: {
           lead_id: newLead.id,
           organization_id: organizationId,
@@ -1452,7 +1453,13 @@ serve(async (req) => {
       });
       
       // Buscar foto de perfil do WhatsApp de forma assíncrona (não bloqueia o fluxo)
-      supabase.functions.invoke('fetch-profile-picture', {
+      const groupAlertPromise = sendLeadGroupAlert(supabase, {
+        leadId: newLead.id,
+        organizationId,
+        sourceLabel: 'WhatsApp',
+      }).catch((err: any) => console.error('lead-group-alert:', err));
+
+      const profilePicturePromise = supabase.functions.invoke('fetch-profile-picture', {
         body: {
           instance_name: instance,
           phone_number: phoneNumber,
@@ -1467,6 +1474,12 @@ serve(async (req) => {
       }).catch(err => {
         console.error('⚠️ Falha ao invocar fetch-profile-picture:', err);
       });
+
+      // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+        EdgeRuntime.waitUntil(Promise.allSettled([distributePromise, groupAlertPromise, profilePicturePromise]));
+      }
     }
 
 

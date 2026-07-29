@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -528,26 +527,6 @@ serve(async (req) => {
     }
 
     console.log('Lead distributed successfully to:', selectedAgent.full_name || selectedAgent.email, '(UUID:', selectedAgent.user_id, ')');
-
-    // Send exactly one group alert after the roulette assignment is persisted.
-    // At this point the helper reads both responsavel and responsavel_user_id
-    // from the updated lead, so the message cannot race the assignment.
-    if (!is_redistribution && ["whatsapp", "facebook", "webhook"].includes(trigger_source)) {
-      const sourceLabels: Record<string, string> = {
-        whatsapp: "WhatsApp",
-        facebook: "Facebook Leads",
-        webhook: "Formulário",
-      };
-      try {
-        await sendLeadGroupAlert(supabase, {
-          leadId: lead_id,
-          organizationId: organization_id,
-          sourceLabel: sourceLabels[trigger_source] || trigger_source,
-        });
-      } catch (alertError) {
-        console.error("[lead-group-alert] Falha não bloqueante:", alertError);
-      }
-    }
 
     return new Response(
       JSON.stringify({ 

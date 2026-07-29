@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
+import { sendLeadGroupAlert } from '../_shared/lead-group-alert.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -645,14 +646,26 @@ Deno.serve(async (req) => {
                 if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'success', lead_id: newLead.id, form_id: leadData.form_id }).eq('id', logId);
 
                 // Distribuir na roleta
-                supabase.functions.invoke('distribute-lead', {
+                const distributePromise = supabase.functions.invoke('distribute-lead', {
                   body: { lead_id: newLead.id, organization_id: integration.organization_id, trigger_source: 'facebook' }
                 }).catch((err: any) => console.error('⚠️ distribute-lead:', err));
 
                 // Processar automações
-                supabase.functions.invoke('process-automation-rules', {
+                const automationPromise = supabase.functions.invoke('process-automation-rules', {
                   body: { trigger_type: 'LEAD_CREATED_META_FORM', trigger_data: { lead_id: newLead.id, organization_id: integration.organization_id, form_id: leadData.form_id, form_name: formName } }
                 }).catch((err: any) => console.error('⚠️ process-automation-rules:', err));
+
+                const groupAlertPromise = sendLeadGroupAlert(supabase, {
+                  leadId: newLead.id,
+                  organizationId: integration.organization_id,
+                  sourceLabel: 'Facebook Leads',
+                }).catch((err: any) => console.error('lead-group-alert:', err));
+
+                // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+                if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+                  // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+                  EdgeRuntime.waitUntil(Promise.allSettled([distributePromise, automationPromise, groupAlertPromise]));
+                }
               }
             } catch (integrationError: any) {
               console.error(`❌ [FB-WEBHOOK] Erro ao processar integração ${integration.id}:`, integrationError.message);

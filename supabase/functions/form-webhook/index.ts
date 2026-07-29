@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendLeadGroupAlert } from '../_shared/lead-group-alert.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -616,7 +617,7 @@ Deno.serve(async (req) => {
     }
 
     // ✅ DISTRIBUIR LEAD NA ROLETA
-    supabase.functions.invoke('distribute-lead', {
+    const distributePromise = supabase.functions.invoke('distribute-lead', {
       body: {
         lead_id: lead.id,
         organization_id: webhookConfig.organization_id,
@@ -634,7 +635,7 @@ Deno.serve(async (req) => {
     });
 
     // Processar automações (não bloqueia o retorno)
-    supabase.functions.invoke('process-automation-rules', {
+    const automationPromise = supabase.functions.invoke('process-automation-rules', {
       body: {
         trigger_type: 'LEAD_CREATED_FORM_WEBHOOK',
         trigger_data: {
@@ -652,6 +653,18 @@ Deno.serve(async (req) => {
     }).catch(err => {
       console.error('⚠️ Falha ao invocar process-automation-rules:', err);
     });
+
+    const groupAlertPromise = sendLeadGroupAlert(supabase, {
+      leadId: lead.id,
+      organizationId: webhookConfig.organization_id,
+      sourceLabel: 'Webhook',
+    }).catch((err: any) => console.error('lead-group-alert:', err));
+
+    // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+      // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+      EdgeRuntime.waitUntil(Promise.allSettled([distributePromise, automationPromise, groupAlertPromise]));
+    }
 
     // Log success
     await supabase.from('form_webhook_logs').insert({
