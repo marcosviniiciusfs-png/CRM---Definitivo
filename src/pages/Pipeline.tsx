@@ -416,7 +416,19 @@ const Pipeline = () => {
         },
         async (payload) => {
           const row = payload.new as any;
-          if (!row.is_redistribution || !row.lead_id) return;
+          if (!row.lead_id) return;
+
+          // A roleta cria o lead primeiro e atribui o responsavel em seguida.
+          // Membros que so podem ver os proprios leads descartam o INSERT ainda
+          // sem responsavel. O historico e gravado depois do UPDATE, portanto
+          // este e o momento seguro para refazer a consulta e exibir o card ao
+          // colaborador sorteado sem exigir refresh manual.
+          const currentOrgId = orgIdRef.current;
+          if (!currentOrgId || row.organization_id === currentOrgId) {
+            queryClient.invalidateQueries({ queryKey: ['pipeline-leads', currentOrgId] });
+          }
+
+          if (!row.is_redistribution) return;
           // Buscar nome do colaborador anterior e timeout do config
           const [profileRes, configRes] = await Promise.all([
             row.from_user_id
