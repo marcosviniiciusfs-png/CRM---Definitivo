@@ -55,25 +55,63 @@ function getInterest(lead: any) {
   return lead?.descricao_negocio || null;
 }
 
+function validResponsibleName(value: unknown) {
+  const name = String(value ?? "").trim();
+  if (!name) return null;
+  const normalized = normalizeText(name);
+  if (["sem responsavel", "nao atribuido", "unassigned"].includes(normalized)) return null;
+  return name;
+}
+
+async function resolveUserName(
+  supabase: SupabaseAdmin,
+  organizationId: string,
+  userId: string,
+) {
+  const [{ data: member }, { data: profile }] = await Promise.all([
+    supabase
+      .from("organization_members")
+      .select("display_name, email")
+      .eq("organization_id", organizationId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
+  return validResponsibleName(profile?.full_name) ||
+    validResponsibleName(member?.display_name) ||
+    validResponsibleName(member?.email);
+}
+
 async function resolveResponsibleName(supabase: SupabaseAdmin, lead: any) {
-  if (String(lead?.responsavel || "").trim()) return lead.responsavel;
-  if (!lead?.responsavel_user_id) return null;
+  const directName = validResponsibleName(lead?.responsavel);
+  if (directName && lead?.responsavel_user_id) return directName;
 
-  const { data } = await supabase
-    .from("organization_members")
-    .select("display_name, email")
-    .eq("organization_id", lead.organization_id)
-    .eq("user_id", lead.responsavel_user_id)
-    .maybeSingle();
+  let responsibleUserId = lead?.responsavel_user_id || null;
+  if (!responsibleUserId) {
+    const { data: history } = await supabase
+      .from("lead_distribution_history")
+      .select("to_user_id")
+      .eq("lead_id", lead.id)
+      .eq("organization_id", lead.organization_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    responsibleUserId = history?.to_user_id || null;
+  }
 
-  return data?.display_name || data?.email || null;
+  if (!responsibleUserId) return null;
+  return await resolveUserName(supabase, lead.organization_id, responsibleUserId) || directName;
 }
 
 async function waitForAssignment(supabase: SupabaseAdmin, lead: any) {
   if (await resolveResponsibleName(supabase, lead)) return lead;
 
   let latest = lead;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const { data } = await supabase
       .from("leads")
@@ -131,6 +169,9 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
 
   const assignedLead = await waitForAssignment(supabase, lead);
   const responsibleName = await resolveResponsibleName(supabase, assignedLead);
+  if (!responsibleName) {
+    return { sent: false, skipped: true, reason: "assignment_pending" };
+  }
   const leadForMessage = responsibleName
     ? { ...assignedLead, responsavel: responsibleName }
     : assignedLead;
