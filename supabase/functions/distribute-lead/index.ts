@@ -882,7 +882,27 @@ function evaluateFilterRules(rules: any, lead: any): boolean {
   const { logic, conditions } = rules;
   if (!conditions?.length) return true;
 
-  const results = conditions.map((cond: any) => {
+  const supportedFields = new Set([
+    'source_type',
+    'lead_score',
+    'telefone_lead',
+    'email_lead',
+  ]);
+
+  const applicableConditions = conditions.filter((cond: any) => {
+    if (supportedFields.has(cond?.field)) return true;
+
+    // Configurações antigas podem conter regras de roteamento por resposta de
+    // formulário (form_response + target_user_id). Esse formato nunca foi um
+    // filtro compatível com esta função. Ele deve ser ignorado, pois tratá-lo
+    // como valor nulo bloqueia silenciosamente todos os leads da roleta.
+    console.warn(`[FilterRules] Ignoring unsupported legacy field: ${cond?.field || 'unknown'}`);
+    return false;
+  });
+
+  if (applicableConditions.length === 0) return true;
+
+  const results = applicableConditions.map((cond: any) => {
     const { field, operator, value } = cond;
     const leadValue = getLeadFieldValue(field, lead);
 
