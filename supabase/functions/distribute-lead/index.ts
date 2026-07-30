@@ -86,6 +86,44 @@ function evaluateCustomCondition(value: any, operator: string, conditionValue: s
   }
 }
 
+const BR_TZ = 'America/Sao_Paulo';
+const TIME_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: BR_TZ,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+const DAY_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: BR_TZ,
+  weekday: 'long',
+});
+
+function currentTimeBR(now: Date = new Date()): string {
+  return TIME_FMT.format(now);
+}
+
+function currentDayBR(now: Date = new Date()): string {
+  return DAY_FMT.format(now).toLowerCase();
+}
+
+function parseTriggers(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((trigger): trigger is string => typeof trigger === 'string');
+  }
+  if (typeof raw === 'string') {
+    try {
+      return parseTriggers(JSON.parse(raw));
+    } catch {
+      return [raw];
+    }
+  }
+  if (typeof raw === 'object' && Array.isArray(raw.triggers)) {
+    return parseTriggers(raw.triggers);
+  }
+  return [];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -344,8 +382,7 @@ serve(async (req) => {
 
     // ── Work Hours Check ──
     if (!isHotLead && smartRules.system.work_hours_enabled) {
-      const now = new Date();
-      const currentTime = now.toTimeString().slice(0, 5);
+      const currentTime = currentTimeBR();
       if (currentTime < smartRules.system.work_hours_start || currentTime > smartRules.system.work_hours_end) {
         console.log(`[SmartRules] Outside work hours (${currentTime} not in ${smartRules.system.work_hours_start}-${smartRules.system.work_hours_end}), queuing lead`);
         return new Response(
@@ -368,7 +405,7 @@ serve(async (req) => {
     const mappedTrigger = triggerTypeMap[trigger_source] || trigger_source;
     
     // Verificar se o trigger está habilitado
-    const triggers = (config.triggers as string[]) || [];
+    const triggers = parseTriggers(config.triggers);
     if (!triggers.includes(mappedTrigger)) {
       console.log('Trigger not enabled:', mappedTrigger, 'for trigger_source:', trigger_source);
       return new Response(
@@ -390,25 +427,34 @@ serve(async (req) => {
         .eq('team_id', teamId);
 
       if (teamMembersError) {
-        console.error('Error fetching team members:', teamMembersError);
+        console.error('Error fetching team members, ignoring team filter:', teamMembersError);
       } else if (teamMembers && teamMembers.length > 0) {
         const teamMemberIds = teamMembers.map(tm => tm.user_id);
         console.log(`Team has ${teamMemberIds.length} members:`, teamMemberIds);
         
         // Se já havia agentes elegíveis, fazer interseção
         if (eligibleAgentIds && eligibleAgentIds.length > 0) {
-          eligibleAgentIds = eligibleAgentIds.filter(id => teamMemberIds.includes(id));
+          const intersection = eligibleAgentIds.filter(id => teamMemberIds.includes(id));
+          if (intersection.length > 0) {
+            eligibleAgentIds = intersection;
+          } else {
+            console.warn(`Team ${teamId} has no overlap with eligible_agents; using configured eligible agents`);
+          }
         } else {
           eligibleAgentIds = teamMemberIds;
         }
         
         console.log(`Filtered eligible agents: ${eligibleAgentIds.length}`);
       } else {
-        console.log('Team has no members');
-        return new Response(
-          JSON.stringify({ success: false, message: 'Team has no members' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        if (eligibleAgentIds && eligibleAgentIds.length > 0) {
+          console.warn(`Team ${teamId} has no members; using configured eligible agents`);
+        } else {
+          console.log('Team has no members and no eligible agents configured');
+          return new Response(
+            JSON.stringify({ success: false, message: 'Team has no members' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 
@@ -627,8 +673,8 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
   }
 
   const now = new Date();
-  const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-  const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+  const currentDay = currentDayBR(now);
+  const currentTime = currentTimeBR(now);
 
   // 5. Filtrar agentes disponíveis - ATUALIZADO: usar responsavel_user_id
   const available = [];
