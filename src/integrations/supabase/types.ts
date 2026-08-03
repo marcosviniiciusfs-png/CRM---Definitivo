@@ -1336,6 +1336,7 @@ export type Database = {
           created_at: string
           description: string | null
           distribution_method: string
+          distribution_weights: Json
           eligible_agents: string[] | null
           filter_rules: Json | null
           funnel_id: string | null
@@ -1357,6 +1358,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           distribution_method?: string
+          distribution_weights?: Json
           eligible_agents?: string[] | null
           filter_rules?: Json | null
           funnel_id?: string | null
@@ -1378,6 +1380,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           distribution_method?: string
+          distribution_weights?: Json
           eligible_agents?: string[] | null
           filter_rules?: Json | null
           funnel_id?: string | null

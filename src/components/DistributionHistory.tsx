@@ -88,7 +88,7 @@ export function DistributionHistory() {
   const getMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
       round_robin: 'Round-robin',
-      weighted: 'Ponderado',
+      weighted: 'Por porcentagem',
       load_based: 'Baseado em Carga',
       random: 'Aleatório',
     };

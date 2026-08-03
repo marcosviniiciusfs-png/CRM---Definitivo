@@ -63,7 +63,7 @@ function getSourceIcon(source: string) {
 }
 
 function getMethodLabel(method: string): string {
-  const labels: Record<string, string> = { round_robin: "Rodizio", weighted: "Ponderado", load_based: "Por Carga", random: "Aleatorio", conversion_priority: "Smart AI" };
+  const labels: Record<string, string> = { round_robin: "Rodizio", weighted: "Por porcentagem", load_based: "Por Carga", random: "Aleatorio", conversion_priority: "Smart AI" };
   return labels[method] || method;
 }
 

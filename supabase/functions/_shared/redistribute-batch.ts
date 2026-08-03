@@ -1,3 +1,5 @@
+import { selectByPercentage } from "./weighted-distribution.ts";
+
 /**
  * Helper compartilhado para redistribuir 1 batch de leads sem dono via roletas.
  *
@@ -201,7 +203,7 @@ export async function redistributeBatch(
   let skippedCount = 0;
   const errors: string[] = [];
   // deno-lint-ignore no-explicit-any
-  const leadsByConfig = new Map<string, { leads: any[], agents: any[], agentIndex: number }>();
+  const leadsByConfig = new Map<string, { leads: any[], agents: any[], agentIndex: number, weightedCounts: Map<string, number> }>();
 
   for (const lead of unassignedLeads) {
     const config = effectiveConfig || findBestConfig(configs, lead) || fallbackConfig;
@@ -218,12 +220,19 @@ export async function redistributeBatch(
         const idx = agents.findIndex((a: any) => a.user_id === lastAgentId);
         if (idx !== -1) startIndex = (idx + 1) % agents.length;
       }
-      group = { leads: [], agents, agentIndex: startIndex };
+      group = { leads: [], agents, agentIndex: startIndex, weightedCounts: new Map() };
       leadsByConfig.set(config.id, group);
     }
 
-    const selectedAgent = group.agents[group.agentIndex];
-    group.agentIndex = (group.agentIndex + 1) % group.agents.length;
+    const selectedAgent = config.distribution_method === 'weighted'
+      ? selectByPercentage(group.agents, config.distribution_weights, group.weightedCounts)
+      : group.agents[group.agentIndex];
+    if (!selectedAgent) { skippedCount++; continue; }
+    if (config.distribution_method === 'weighted') {
+      group.weightedCounts.set(selectedAgent.user_id, (group.weightedCounts.get(selectedAgent.user_id) || 0) + 1);
+    } else {
+      group.agentIndex = (group.agentIndex + 1) % group.agents.length;
+    }
     group.leads.push({ ...lead, agent: selectedAgent, config });
   }
 

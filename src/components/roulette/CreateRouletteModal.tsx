@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowRight, ArrowLeft, Check, Shuffle, Scale, Dices, Zap } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Shuffle, Scale, Dices, Zap, ChartPie } from "lucide-react";
 
 interface CreateRouletteModalProps {
   open: boolean;
@@ -20,6 +20,7 @@ interface CreateRouletteModalProps {
 
 const METHODS = [
   { value: "round_robin", label: "Rodizio", icon: Shuffle, desc: "Distribui sequencialmente entre agentes ativos" },
+  { value: "weighted", label: "Por porcentagem", icon: ChartPie, desc: "Define quanto cada agente deve receber" },
   { value: "load_based", label: "Por Carga", icon: Scale, desc: "Envia para quem tem menos leads atribuidos" },
   { value: "random", label: "Aleatorio", icon: Dices, desc: "Escolhe agente aleatoriamente" },
   { value: "conversion_priority", label: "Smart AI", icon: Zap, desc: "Prioriza agentes com melhor taxa de conversao" },
@@ -36,6 +37,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
     funnel_id: "",
     distribution_method: "round_robin",
     eligible_agents: [] as string[],
+    distribution_weights: {} as Record<string, number>,
     is_active: true,
   });
 
@@ -66,20 +68,36 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
         funnel_id: editConfig.funnel_id || "",
         distribution_method: editConfig.distribution_method || "round_robin",
         eligible_agents: editConfig.eligible_agents || [],
+        distribution_weights: Object.keys(editConfig.distribution_weights || {}).length > 0
+          ? editConfig.distribution_weights
+          : distributeEqually(editConfig.eligible_agents || []),
         is_active: editConfig.is_active ?? true,
       });
       setStep(1);
     } else if (!open) {
-      setForm({ name: "", description: "", source_type: "all", funnel_id: "", distribution_method: "round_robin", eligible_agents: [], is_active: true });
+      setForm({ name: "", description: "", source_type: "all", funnel_id: "", distribution_method: "round_robin", eligible_agents: [], distribution_weights: {}, is_active: true });
       setStep(1);
     }
   }, [editConfig, open]);
+
+  const distributeEqually = (agentIds: string[]) => {
+    if (agentIds.length === 0) return {};
+    const base = Math.floor(100 / agentIds.length);
+    const remainder = 100 - (base * agentIds.length);
+    return Object.fromEntries(agentIds.map((id, index) => [id, base + (index < remainder ? 1 : 0)]));
+  };
+
+  const totalWeight = form.eligible_agents.reduce(
+    (total, id) => total + (Number(form.distribution_weights[id]) || 0), 0,
+  );
+  const totalSteps = form.distribution_method === "weighted" ? 4 : 3;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!organizationId) throw new Error("Sem organizacao");
       const payload = {
         ...form,
+        distribution_weights: form.distribution_method === "weighted" ? form.distribution_weights : {},
         organization_id: organizationId,
         funnel_id: form.funnel_id || null,
         triggers: ["new_lead"],
@@ -120,6 +138,8 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
 
   const canProceed = () => {
     if (step === 1) return form.name.trim().length > 0;
+    if (step === 3 && form.distribution_method === "weighted") return form.eligible_agents.length > 0;
+    if (step === 4) return totalWeight === 100 && form.eligible_agents.every(id => (form.distribution_weights[id] || 0) > 0);
     return true;
   };
 
@@ -135,7 +155,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
 
         {/* Step indicator */}
         <div className="flex items-center gap-2 py-2">
-          {[1, 2, 3].map(s => (
+          {Array.from({ length: totalSteps }, (_, index) => index + 1).map(s => (
             <div key={s} className="flex items-center gap-2 flex-1">
               <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
                 s < step ? "bg-primary text-primary-foreground" :
@@ -144,7 +164,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
               }`}>
                 {s < step ? <Check className="h-3.5 w-3.5" /> : s}
               </div>
-              {s < 3 && <div className={`flex-1 h-0.5 rounded ${s < step ? "bg-primary" : "bg-muted"}`} />}
+              {s < totalSteps && <div className={`flex-1 h-0.5 rounded ${s < step ? "bg-primary" : "bg-muted"}`} />}
             </div>
           ))}
         </div>
@@ -196,7 +216,13 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
                   return (
                     <button
                       key={m.value}
-                      onClick={() => setForm({ ...form, distribution_method: m.value })}
+                      onClick={() => setForm({
+                        ...form,
+                        distribution_method: m.value,
+                        distribution_weights: m.value === "weighted" && Object.keys(form.distribution_weights).length === 0
+                          ? distributeEqually(form.eligible_agents)
+                          : form.distribution_weights,
+                      })}
                       className={`flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-all ${
                         form.distribution_method === m.value
                           ? "border-primary bg-primary/5 ring-2 ring-primary/20"
@@ -232,10 +258,13 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
                         type="checkbox"
                         checked={form.eligible_agents.includes(member.user_id)}
                         onChange={e => {
+                          const nextAgents = e.target.checked
+                            ? [...form.eligible_agents, member.user_id]
+                            : form.eligible_agents.filter(id => id !== member.user_id);
                           if (e.target.checked) {
-                            setForm({ ...form, eligible_agents: [...form.eligible_agents, member.user_id] });
+                            setForm({ ...form, eligible_agents: nextAgents, distribution_weights: distributeEqually(nextAgents) });
                           } else {
-                            setForm({ ...form, eligible_agents: form.eligible_agents.filter(id => id !== member.user_id) });
+                            setForm({ ...form, eligible_agents: nextAgents, distribution_weights: distributeEqually(nextAgents) });
                           }
                         }}
                         className="rounded"
@@ -250,6 +279,52 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
               )}
             </div>
           )}
+
+          {/* Step 4: Percentages (weighted only) */}
+          {step === 4 && form.distribution_method === "weighted" && (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <Label className="text-sm font-semibold">Porcentagem por agente</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">Defina quanto dos novos leads cada participante deve receber.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setForm({ ...form, distribution_weights: distributeEqually(form.eligible_agents) })}>
+                  Dividir igualmente
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {form.eligible_agents.map(agentId => {
+                  const member = members.find(item => item.user_id === agentId);
+                  return (
+                    <div key={agentId} className="flex items-center justify-between gap-4 rounded-lg border p-3">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{member?.full_name || "Colaborador"}</span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={100}
+                          step={1}
+                          value={form.distribution_weights[agentId] ?? ""}
+                          onChange={event => {
+                            const value = Math.max(0, Math.min(100, Number(event.target.value)));
+                            setForm({ ...form, distribution_weights: { ...form.distribution_weights, [agentId]: value } });
+                          }}
+                          className="h-9 w-20 text-right"
+                          aria-label={`Porcentagem de ${member?.full_name || "colaborador"}`}
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${totalWeight === 100 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>
+                <span className="font-medium">Total configurado</span>
+                <span className="font-bold">{totalWeight}% de 100%</span>
+              </div>
+              {totalWeight !== 100 && <p className="text-xs text-destructive">A soma das porcentagens precisa ser exatamente 100%.</p>}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -261,12 +336,12 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
           ) : (
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           )}
-          {step < 3 ? (
+          {step < totalSteps ? (
             <Button onClick={() => setStep(s => s + 1)} disabled={!canProceed()} className="gap-1">
               Proximo <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name.trim()}>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name.trim() || (form.distribution_method === "weighted" && totalWeight !== 100)}>
               {saveMutation.isPending ? "Salvando..." : editConfig ? "Atualizar" : "Criar roleta"}
             </Button>
           )}

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { selectByPercentage } from "../_shared/weighted-distribution.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -491,7 +492,8 @@ serve(async (req) => {
         availableAgents,
         config.distribution_method,
         organization_id,
-        config.id
+        config.id,
+        config.distribution_weights
       );
     }
 
@@ -767,14 +769,15 @@ async function selectAgent(
   agents: any[],
   method: string,
   organization_id: string,
-  config_id?: string
+  config_id?: string,
+  distributionWeights?: unknown,
 ) {
   switch (method) {
     case 'round_robin':
       return selectRoundRobin(supabase, agents, organization_id, config_id);
 
     case 'weighted':
-      return selectWeighted(agents);
+      return selectWeighted(supabase, agents, organization_id, config_id, distributionWeights);
 
     case 'load_based':
       return selectLoadBased(agents);
@@ -839,22 +842,28 @@ async function selectRoundRobin(supabase: any, agents: any[], organization_id: s
   return agents[0];
 }
 
-function selectWeighted(agents: any[]) {
-  // Calcular total de pesos
-  const totalWeight = agents.reduce((sum, agent) => sum + agent.priority_weight, 0);
-  
-  // Gerar número aleatório
-  let random = Math.random() * totalWeight;
-  
-  // Selecionar agente baseado no peso
-  for (const agent of agents) {
-    random -= agent.priority_weight;
-    if (random <= 0) {
-      return agent;
-    }
+async function selectWeighted(
+  supabase: any,
+  agents: any[],
+  organizationId: string,
+  configId?: string,
+  distributionWeights?: unknown,
+) {
+  let query = supabase
+    .from('lead_distribution_history')
+    .select('to_user_id')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (configId) query = query.eq('config_id', configId);
+
+  const { data: history, error } = await query;
+  if (error) console.error('[Weighted] Error fetching history:', error);
+  const counts = new Map<string, number>();
+  for (const record of history || []) {
+    counts.set(record.to_user_id, (counts.get(record.to_user_id) || 0) + 1);
   }
-  
-  return agents[0];
+  return selectByPercentage(agents, distributionWeights, counts);
 }
 
 function selectLoadBased(agents: any[]) {

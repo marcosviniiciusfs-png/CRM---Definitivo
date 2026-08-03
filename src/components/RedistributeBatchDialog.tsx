@@ -31,7 +31,7 @@ interface RedistributeBatchDialogProps {
 
 const methodLabels: Record<string, string> = {
   round_robin: "Rodízio",
-  weighted: "Ponderado",
+  weighted: "Por porcentagem",
   load_based: "Por Carga",
   random: "Aleatório",
 };

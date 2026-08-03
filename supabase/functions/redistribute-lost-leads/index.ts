@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
+import { selectByPercentage } from "../_shared/weighted-distribution.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -148,14 +149,14 @@ serve(async (req) => {
     let redistributedCount = 0;
     const errors: string[] = [];
     const historyRecords: any[] = [];
-    const leadsByConfig = new Map<string, { leads: any[], agents: any[], agentIndex: number }>();
+    const leadsByConfig = new Map<string, { leads: any[], agents: any[], agentIndex: number, weightedCounts: Map<string, number> }>();
 
     const effectiveConfig = config_id
       ? configs.find(c => c.id === config_id) || null
       : null;
 
     const fallbackConfig = configs.find(c => c.source_type === 'all' && !c.funnel_id)
-      || configs.find(c => agentsByConfig.get(c.id)?.length > 0)
+      || configs.find(c => (agentsByConfig.get(c.id)?.length ?? 0) > 0)
       || null;
 
     let skippedCount = 0;
@@ -183,12 +184,19 @@ serve(async (req) => {
             startIndex = (idx + 1) % agents.length;
           }
         }
-        group = { leads: [], agents, agentIndex: startIndex };
+        group = { leads: [], agents, agentIndex: startIndex, weightedCounts: new Map() };
         leadsByConfig.set(config.id, group);
       }
 
-      const selectedAgent = group.agents[group.agentIndex];
-      group.agentIndex = (group.agentIndex + 1) % group.agents.length;
+      const selectedAgent = config.distribution_method === 'weighted'
+        ? selectByPercentage(group.agents, config.distribution_weights, group.weightedCounts)
+        : group.agents[group.agentIndex];
+      if (!selectedAgent) { skippedCount++; continue; }
+      if (config.distribution_method === 'weighted') {
+        group.weightedCounts.set(selectedAgent.user_id, (group.weightedCounts.get(selectedAgent.user_id) || 0) + 1);
+      } else {
+        group.agentIndex = (group.agentIndex + 1) % group.agents.length;
+      }
       group.leads.push({ ...lead, agent: selectedAgent, config });
     }
 
@@ -387,8 +395,8 @@ async function getAvailableAgentsFast(supabase: any, organization_id: string, el
     supabase.from('organization_members').select('user_id, email').in('user_id', userIds).eq('organization_id', organization_id),
   ]);
 
-  const profilesMap = new Map((profilesResult.data || []).map((p: any) => [p.user_id, p]));
-  const membersMap = new Map((membersResult.data || []).map((m: any) => [m.user_id, m]));
+  const profilesMap = new Map<string, { user_id: string; full_name: string | null }>((profilesResult.data || []).map((p: any) => [p.user_id, p]));
+  const membersMap = new Map<string, { user_id: string; email: string | null }>((membersResult.data || []).map((m: any) => [m.user_id, m]));
 
   const now = new Date();
   const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();

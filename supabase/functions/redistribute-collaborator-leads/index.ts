@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
+import { buildPercentageSequence } from "../_shared/weighted-distribution.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -141,12 +142,15 @@ serve(async (req) => {
 
     // 5. Distribuir leads em round-robin direto
     let agentIndex = 0;
+    const weightedSequence = config.distribution_method === 'weighted'
+      ? buildPercentageSequence(agents, config.distribution_weights, eligibleLeads.length)
+      : [];
     const updates: Array<{ leadId: string; agentId: string }> = [];
     const historyRecords: any[] = [];
 
-    for (const lead of eligibleLeads) {
-      const agent = agents[agentIndex];
-      agentIndex = (agentIndex + 1) % agents.length;
+    for (const [leadIndex, lead] of eligibleLeads.entries()) {
+      const agent = config.distribution_method === 'weighted' ? weightedSequence[leadIndex] : agents[agentIndex];
+      if (config.distribution_method !== 'weighted') agentIndex = (agentIndex + 1) % agents.length;
 
       updates.push({ leadId: lead.id, agentId: agent.user_id });
 

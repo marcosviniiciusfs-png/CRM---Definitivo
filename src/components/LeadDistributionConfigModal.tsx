@@ -481,7 +481,7 @@ export function LeadDistributionConfigModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="round_robin">Rodízio (Round Robin)</SelectItem>
-                  <SelectItem value="weighted">Ponderado por Prioridade</SelectItem>
+                  <SelectItem value="weighted">Por porcentagem</SelectItem>
                   <SelectItem value="load_based">Baseado em Carga</SelectItem>
                   <SelectItem value="random">Aleatório</SelectItem>
                 </SelectContent>
