@@ -33,6 +33,8 @@ interface CustomRule {
   id: string;
   name: string;
   condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response";
+  condition_form_id?: string;
+  condition_form_source?: "facebook" | "webhook";
   condition_question?: string;
   condition_operator: "equals" | "not_equals" | "greater" | "less";
   condition_value: string;
@@ -68,13 +70,26 @@ function parseSmartRules(raw: any): SmartRulesData {
   };
 }
 
-function getCustomRuleFieldValue(field: string, lead: any, question?: string): any {
+function getCustomRuleFieldValue(field: string, lead: any, rule: CustomRule, webhookToken?: string): any {
   switch (field) {
     case "source": return lead.source || "";
     case "score_min": return lead.lead_score || 0;
     case "score_max": return lead.lead_score || 0;
     case "funnel": return lead.funnel_id || "";
-    case "form_response": return question ? lead.additional_data?.[question] ?? "" : "";
+    case "form_response": {
+      const question = rule.condition_question;
+      if (!question) return "";
+      if (rule.condition_form_source === "facebook") {
+        if (String(lead.additional_data?.form_id || "") !== String(rule.condition_form_id || "")) return "";
+        const fields = Array.isArray(lead.additional_data?.fields) ? lead.additional_data.fields : [];
+        return fields.find((item: any) => item?.name === question)?.value ?? "";
+      }
+      if (rule.condition_form_source === "webhook") {
+        if (webhookToken !== rule.condition_form_id) return "";
+        return lead.additional_data?.[question] ?? "";
+      }
+      return lead.additional_data?.[question] ?? "";
+    }
     default: return "";
   }
 }
@@ -340,7 +355,7 @@ serve(async (req) => {
 
     for (const rule of smartRules.custom) {
       if (!rule.enabled) continue;
-      const fieldValue = getCustomRuleFieldValue(rule.condition_field, lead, rule.condition_question);
+      const fieldValue = getCustomRuleFieldValue(rule.condition_field, lead, rule, webhook_token);
       const matches = evaluateCustomCondition(fieldValue, rule.condition_operator, rule.condition_value);
 
       if (matches) {
