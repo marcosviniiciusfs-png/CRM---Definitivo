@@ -32,11 +32,13 @@ interface SystemRules {
 interface CustomRule {
   id: string;
   name: string;
-  condition_field: "source" | "score_min" | "score_max" | "funnel";
+  condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response";
+  condition_question?: string;
   condition_operator: "equals" | "not_equals" | "greater" | "less";
   condition_value: string;
-  action: "assign_to" | "skip";
+  action: "assign_to" | "route_to_funnel" | "skip";
   agent_id: string;
+  funnel_id?: string;
   enabled: boolean;
 }
 
@@ -66,17 +68,19 @@ function parseSmartRules(raw: any): SmartRulesData {
   };
 }
 
-function getCustomRuleFieldValue(field: string, lead: any): any {
+function getCustomRuleFieldValue(field: string, lead: any, question?: string): any {
   switch (field) {
     case "source": return lead.source || "";
     case "score_min": return lead.lead_score || 0;
     case "score_max": return lead.lead_score || 0;
     case "funnel": return lead.funnel_id || "";
+    case "form_response": return question ? lead.additional_data?.[question] ?? "" : "";
     default: return "";
   }
 }
 
 function evaluateCustomCondition(value: any, operator: string, conditionValue: string): boolean {
+  if (Array.isArray(value)) return value.some(item => evaluateCustomCondition(item, operator, conditionValue));
   const strVal = String(value);
   switch (operator) {
     case "equals": return strVal === conditionValue;
@@ -143,7 +147,7 @@ serve(async (req) => {
     // 1. Buscar lead para identificar o source e o funil atual
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('source, funnel_id, telefone_lead, email, nome_lead, lead_score')
+      .select('source, funnel_id, telefone_lead, email, nome_lead, lead_score, additional_data')
       .eq('id', lead_id)
       .single();
 
@@ -330,11 +334,13 @@ serve(async (req) => {
 
     // ── Custom Rules ──
     let forcedAgentId: string | null = null;
+    let targetFunnelId: string | null = null;
+    let targetFunnelStageId: string | null = null;
     let leadSkipped = false;
 
     for (const rule of smartRules.custom) {
       if (!rule.enabled) continue;
-      const fieldValue = getCustomRuleFieldValue(rule.condition_field, lead);
+      const fieldValue = getCustomRuleFieldValue(rule.condition_field, lead, rule.condition_question);
       const matches = evaluateCustomCondition(fieldValue, rule.condition_operator, rule.condition_value);
 
       if (matches) {
@@ -349,6 +355,11 @@ serve(async (req) => {
           console.log(`[SmartRules] Custom rule forces assignment to agent ${rule.agent_id}`);
           break;
         }
+        if (rule.action === "route_to_funnel" && rule.funnel_id) {
+          targetFunnelId = rule.funnel_id;
+          console.log(`[SmartRules] Custom rule routes lead to funnel ${rule.funnel_id}`);
+          break;
+        }
       }
     }
 
@@ -357,6 +368,39 @@ serve(async (req) => {
         JSON.stringify({ success: false, message: 'Lead skipped by custom smart rule' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    if (targetFunnelId) {
+      const { data: targetFunnel, error: funnelError } = await supabase
+        .from('sales_funnels')
+        .select('id')
+        .eq('id', targetFunnelId)
+        .eq('organization_id', organization_id)
+        .maybeSingle();
+      if (funnelError || !targetFunnel) {
+        console.error('[SmartRules] Target funnel is invalid for this organization:', funnelError);
+        return new Response(
+          JSON.stringify({ success: false, message: 'Target funnel is invalid' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const { data: firstStage, error: stageError } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('funnel_id', targetFunnelId)
+        .not('stage_type', 'in', '("won","lost")')
+        .order('position', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (stageError || !firstStage) {
+        console.error('[SmartRules] Target funnel has no valid first stage:', stageError);
+        return new Response(
+          JSON.stringify({ success: false, message: 'Target funnel has no stages' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      targetFunnelStageId = firstStage.id;
+      lead.funnel_id = targetFunnelId;
     }
 
     // ── Hot Lead Check ──
@@ -512,7 +556,13 @@ serve(async (req) => {
     };
 
     // Se a config tem funil definido, mover o lead para o funil/estágio correto
-    if (config.funnel_id) {
+    if (targetFunnelId && targetFunnelStageId) {
+      leadUpdate.funnel_id = targetFunnelId;
+      leadUpdate.funnel_stage_id = targetFunnelStageId;
+      leadUpdate.stage = targetFunnelStageId;
+      leadUpdate.position = 0;
+      console.log(`Setting funnel_id=${targetFunnelId}, funnel_stage_id=${targetFunnelStageId} (from smart rule)`);
+    } else if (config.funnel_id) {
       leadUpdate.funnel_id = config.funnel_id;
 
       if (config.funnel_stage_id) {

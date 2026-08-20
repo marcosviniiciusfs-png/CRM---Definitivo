@@ -24,11 +24,13 @@ interface SystemRules {
 interface CustomRule {
   id: string;
   name: string;
-  condition_field: "source" | "score_min" | "score_max" | "funnel";
+  condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response";
+  condition_question?: string;
   condition_operator: "equals" | "not_equals" | "greater" | "less";
   condition_value: string;
-  action: "assign_to" | "skip";
+  action: "assign_to" | "route_to_funnel" | "skip";
   agent_id: string;
+  funnel_id?: string;
   enabled: boolean;
 }
 
@@ -60,6 +62,7 @@ const CONDITION_FIELDS = [
   { value: "score_min", label: "Score minimo" },
   { value: "score_max", label: "Score maximo" },
   { value: "funnel", label: "Funil" },
+  { value: "form_response", label: "Resposta do formulario" },
 ];
 
 const CONDITION_OPERATORS = [
@@ -71,6 +74,7 @@ const CONDITION_OPERATORS = [
 
 const ACTIONS = [
   { value: "assign_to", label: "Atribuir para" },
+  { value: "route_to_funnel", label: "Enviar para funil" },
   { value: "skip", label: "Ignorar (nao distribuir)" },
 ];
 
@@ -153,7 +157,7 @@ export function SmartRulesPanel() {
       }
       // Update all configs with the same smart_rules + sync timeout/auto_redistribute
       for (const config of configs) {
-        await supabase
+        const { error } = await supabase
           .from("lead_distribution_configs")
           .update({
             smart_rules: updated as any,
@@ -161,6 +165,7 @@ export function SmartRulesPanel() {
             auto_redistribute: true,
           })
           .eq("id", config.id);
+        if (error) throw error;
       }
     },
     onSuccess: () => {
@@ -229,6 +234,55 @@ export function SmartRulesPanel() {
         .select("user_id, full_name")
         .in("user_id", ids);
       return (profiles || []).map((p: any) => ({ user_id: p.user_id, full_name: p.full_name }));
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: formQuestions = [] } = useQuery({
+    queryKey: ["smart-rules-form-questions", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data, error } = await supabase
+        .from("leads")
+        .select("additional_data")
+        .eq("organization_id", organizationId)
+        .not("additional_data", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+
+      const valuesByQuestion = new Map<string, Set<string>>();
+      for (const lead of data || []) {
+        const fields = lead.additional_data;
+        if (!fields || typeof fields !== "object" || Array.isArray(fields)) continue;
+        for (const [question, rawValue] of Object.entries(fields)) {
+          const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+          const knownValues = valuesByQuestion.get(question) || new Set<string>();
+          for (const value of values) {
+            if (value !== null && value !== undefined && String(value).trim()) knownValues.add(String(value));
+          }
+          valuesByQuestion.set(question, knownValues);
+        }
+      }
+      return Array.from(valuesByQuestion, ([question, values]) => ({ question, values: Array.from(values).sort() }))
+        .sort((a, b) => a.question.localeCompare(b.question));
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: funnels = [] } = useQuery({
+    queryKey: ["smart-rules-funnels", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data, error } = await supabase
+        .from("sales_funnels")
+        .select("id, name")
+        .eq("organization_id", organizationId)
+        .order("name");
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!organizationId,
     staleTime: 5 * 60_000,
@@ -357,6 +411,8 @@ export function SmartRulesPanel() {
                 key={rule.id}
                 rule={rule}
                 agents={agents}
+                formQuestions={formQuestions}
+                funnels={funnels}
                 onChange={changes => updateCustomRule(rule.id, changes)}
                 onRemove={() => removeCustomRule(rule.id)}
               />
@@ -373,11 +429,15 @@ export function SmartRulesPanel() {
 function CustomRuleCard({
   rule,
   agents,
+  formQuestions,
+  funnels,
   onChange,
   onRemove,
 }: {
   rule: CustomRule;
   agents: { user_id: string; full_name: string }[];
+  formQuestions: { question: string; values: string[] }[];
+  funnels: { id: string; name: string }[];
   onChange: (changes: Partial<CustomRule>) => void;
   onRemove: () => void;
 }) {
@@ -411,29 +471,48 @@ function CustomRuleCard({
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
           <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Condicao</p>
-          <div className="grid grid-cols-3 gap-2">
-            <Select value={rule.condition_field} onValueChange={v => onChange({ condition_field: v as CustomRule["condition_field"] })}>
+          <div className={`grid grid-cols-1 gap-2 ${rule.condition_field === "form_response" ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+            <Select value={rule.condition_field} onValueChange={v => onChange({
+              condition_field: v as CustomRule["condition_field"],
+              condition_question: v === "form_response" ? rule.condition_question : undefined,
+              condition_operator: v === "form_response" ? "equals" : rule.condition_operator,
+              condition_value: "",
+            })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {CONDITION_FIELDS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={rule.condition_operator} onValueChange={v => onChange({ condition_operator: v as CustomRule["condition_operator"] })}>
+            {rule.condition_field === "form_response" && (
+              <Select value={rule.condition_question || ""} onValueChange={v => onChange({ condition_question: v, condition_value: "" })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione a pergunta" /></SelectTrigger>
+                <SelectContent>
+                  {formQuestions.map(item => <SelectItem key={item.question} value={item.question}>{item.question}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            <Select value={rule.condition_operator} onValueChange={v => onChange({ condition_operator: v as CustomRule["condition_operator"] })} disabled={rule.condition_field === "form_response"}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {CONDITION_OPERATORS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Input
-              value={rule.condition_value}
-              onChange={e => onChange({ condition_value: e.target.value })}
-              className="h-8 text-xs"
-              placeholder="Valor"
-            />
+            {rule.condition_field === "form_response" ? (
+              <Select value={rule.condition_value} onValueChange={v => onChange({ condition_value: v })} disabled={!rule.condition_question}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione a resposta" /></SelectTrigger>
+                <SelectContent>
+                  {(formQuestions.find(item => item.question === rule.condition_question)?.values || []).map(value => (
+                    <SelectItem key={value} value={value}>{value}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value={rule.condition_value} onChange={e => onChange({ condition_value: e.target.value })} className="h-8 text-xs" placeholder="Valor" />
+            )}
           </div>
 
           <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Acao</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <Select value={rule.action} onValueChange={v => onChange({ action: v as CustomRule["action"] })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -453,18 +532,28 @@ function CustomRuleCard({
                 Lead nao sera distribuido
               </div>
             )}
+            {rule.action === "route_to_funnel" && (
+              <Select value={rule.funnel_id || ""} onValueChange={v => onChange({ funnel_id: v })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o funil" /></SelectTrigger>
+                <SelectContent>
+                  {funnels.map(funnel => <SelectItem key={funnel.id} value={funnel.id}>{funnel.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Summary */}
           <p className="text-[11px] text-muted-foreground">
-            Se <span className="font-medium text-foreground">{CONDITION_FIELDS.find(f => f.value === rule.condition_field)?.label}</span>{" "}
+            Se <span className="font-medium text-foreground">{rule.condition_field === "form_response" ? rule.condition_question || "selecionar pergunta" : CONDITION_FIELDS.find(f => f.value === rule.condition_field)?.label}</span>{" "}
             <span className="font-medium text-foreground">{CONDITION_OPERATORS.find(o => o.value === rule.condition_operator)?.label}</span>{" "}
             <span className="font-medium text-foreground">"{rule.condition_value || "..."}"</span>{" "}
             &rarr;{" "}
             <span className="font-medium text-foreground">
               {rule.action === "assign_to"
                 ? agents.find(a => a.user_id === rule.agent_id)?.full_name || "selecionar agente"
-                : "nao distribuir"}
+                : rule.action === "route_to_funnel"
+                  ? funnels.find(f => f.id === rule.funnel_id)?.name || "selecionar funil"
+                  : "nao distribuir"}
             </span>
           </p>
         </div>
