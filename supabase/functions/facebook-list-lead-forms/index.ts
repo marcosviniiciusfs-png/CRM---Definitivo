@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
 
     // Buscar formulários na API do Facebook
     const response = await fetch(
-      `https://graph.facebook.com/v21.0/${page_id}/leadgen_forms?access_token=${pageAccessToken}&fields=id,name,status,leads_count`,
+      `https://graph.facebook.com/v21.0/${page_id}/leadgen_forms?access_token=${pageAccessToken}&fields=id,name,status,leads_count,questions`,
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
