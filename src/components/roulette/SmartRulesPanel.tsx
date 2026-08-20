@@ -259,8 +259,9 @@ export function SmartRulesPanel() {
         supabase.from("leads").select("additional_data").eq("organization_id", organizationId).not("additional_data", "is", null).order("created_at", { ascending: false }).limit(500),
         supabase.from("form_webhook_logs").select("webhook_token, payload").eq("organization_id", organizationId).eq("status", "success").order("created_at", { ascending: false }).limit(500),
       ]);
-      const queryError = facebookResult.error || selectedFormsResult.error || webhookResult.error || leadsResult.error || logsResult.error;
-      if (queryError) throw queryError;
+      [facebookResult.error, selectedFormsResult.error, webhookResult.error, leadsResult.error, logsResult.error]
+        .filter(Boolean)
+        .forEach(error => console.warn("Nao foi possivel carregar uma fonte de formularios:", error));
 
       const formMap = new Map<string, ConnectedForm & { values: Map<string, Set<string>> }>();
       const registerForm = (source: ConnectedForm["source"], id: string, name: string) => {
@@ -290,6 +291,11 @@ export function SmartRulesPanel() {
         const facebookData = data as Record<string, unknown>;
         const formId = typeof facebookData.form_id === "string" ? facebookData.form_id : "";
         if (!formId || !Array.isArray(facebookData.fields)) continue;
+        registerForm(
+          "facebook",
+          formId,
+          typeof facebookData.form_name === "string" && facebookData.form_name ? facebookData.form_name : formId,
+        );
         for (const field of facebookData.fields) {
           if (!field || typeof field !== "object") continue;
           const item = field as Record<string, unknown>;
@@ -298,6 +304,7 @@ export function SmartRulesPanel() {
       }
       for (const log of logsResult.data || []) {
         if (!log.payload || typeof log.payload !== "object" || Array.isArray(log.payload)) continue;
+        registerForm("webhook", log.webhook_token, `Formulario via webhook (${log.webhook_token.slice(0, 8)})`);
         Object.entries(log.payload).forEach(([question, value]) => registerAnswer("webhook", log.webhook_token, question, value));
       }
 
@@ -513,9 +520,9 @@ function CustomRuleCard({
           <div className={`grid grid-cols-1 gap-2 ${rule.condition_field === "form_response" ? "md:grid-cols-5" : "md:grid-cols-3"}`}>
             <Select value={rule.condition_field} onValueChange={v => onChange({
               condition_field: v as CustomRule["condition_field"],
-              condition_form_id: v === "form_response" ? rule.condition_form_id : undefined,
-              condition_form_source: v === "form_response" ? rule.condition_form_source : undefined,
-              condition_question: v === "form_response" ? rule.condition_question : undefined,
+              condition_form_id: undefined,
+              condition_form_source: undefined,
+              condition_question: undefined,
               condition_operator: v === "form_response" ? "equals" : rule.condition_operator,
               condition_value: "",
             })}>
