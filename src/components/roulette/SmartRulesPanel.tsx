@@ -25,6 +25,8 @@ interface CustomRule {
   id: string;
   name: string;
   condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response";
+  condition_form_id?: string;
+  condition_form_source?: "facebook" | "webhook";
   condition_question?: string;
   condition_operator: "equals" | "not_equals" | "greater" | "less";
   condition_value: string;
@@ -37,6 +39,13 @@ interface CustomRule {
 interface SmartRulesData {
   system: SystemRules;
   custom: CustomRule[];
+}
+
+interface ConnectedForm {
+  id: string;
+  source: "facebook" | "webhook";
+  name: string;
+  questions: { question: string; values: string[] }[];
 }
 
 const DEFAULT_SYSTEM: SystemRules = {
@@ -239,34 +248,64 @@ export function SmartRulesPanel() {
     staleTime: 5 * 60_000,
   });
 
-  const { data: formQuestions = [] } = useQuery({
-    queryKey: ["smart-rules-form-questions", organizationId],
+  const { data: connectedForms = [] } = useQuery({
+    queryKey: ["smart-rules-connected-forms", organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      const { data, error } = await supabase
-        .from("leads")
-        .select("additional_data")
-        .eq("organization_id", organizationId)
-        .not("additional_data", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (error) throw error;
+      const [facebookResult, selectedFormsResult, webhookResult, leadsResult, logsResult] = await Promise.all([
+        supabase.from("facebook_integrations").select("selected_form_id, selected_form_name").eq("organization_id", organizationId).not("selected_form_id", "is", null),
+        (supabase as any).from("facebook_selected_forms").select("form_id, form_name").eq("organization_id", organizationId),
+        supabase.from("webhook_configs").select("webhook_token, name").eq("organization_id", organizationId).eq("is_active", true),
+        supabase.from("leads").select("additional_data").eq("organization_id", organizationId).not("additional_data", "is", null).order("created_at", { ascending: false }).limit(500),
+        supabase.from("form_webhook_logs").select("webhook_token, payload").eq("organization_id", organizationId).eq("status", "success").order("created_at", { ascending: false }).limit(500),
+      ]);
+      const queryError = facebookResult.error || selectedFormsResult.error || webhookResult.error || leadsResult.error || logsResult.error;
+      if (queryError) throw queryError;
 
-      const valuesByQuestion = new Map<string, Set<string>>();
-      for (const lead of data || []) {
-        const fields = lead.additional_data;
-        if (!fields || typeof fields !== "object" || Array.isArray(fields)) continue;
-        for (const [question, rawValue] of Object.entries(fields)) {
-          const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-          const knownValues = valuesByQuestion.get(question) || new Set<string>();
-          for (const value of values) {
-            if (value !== null && value !== undefined && String(value).trim()) knownValues.add(String(value));
-          }
-          valuesByQuestion.set(question, knownValues);
+      const formMap = new Map<string, ConnectedForm & { values: Map<string, Set<string>> }>();
+      const registerForm = (source: ConnectedForm["source"], id: string, name: string) => {
+        const key = `${source}:${id}`;
+        if (!formMap.has(key)) formMap.set(key, { id, source, name, questions: [], values: new Map() });
+      };
+      const registerAnswer = (source: ConnectedForm["source"], id: string, question: string, rawValue: unknown) => {
+        const form = formMap.get(`${source}:${id}`);
+        if (!form || !question) return;
+        const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+        const knownValues = form.values.get(question) || new Set<string>();
+        values.forEach(value => {
+          if (value !== null && value !== undefined && String(value).trim()) knownValues.add(String(value));
+        });
+        form.values.set(question, knownValues);
+      };
+
+      (facebookResult.data || []).forEach(form => {
+        if (form.selected_form_id) registerForm("facebook", form.selected_form_id, form.selected_form_name || form.selected_form_id);
+      });
+      (selectedFormsResult.data || []).forEach((form: { form_id: string; form_name: string }) => registerForm("facebook", form.form_id, form.form_name || form.form_id));
+      (webhookResult.data || []).forEach(form => registerForm("webhook", form.webhook_token, form.name || "Formulario via webhook"));
+
+      for (const lead of leadsResult.data || []) {
+        const data = lead.additional_data;
+        if (!data || typeof data !== "object" || Array.isArray(data)) continue;
+        const facebookData = data as Record<string, unknown>;
+        const formId = typeof facebookData.form_id === "string" ? facebookData.form_id : "";
+        if (!formId || !Array.isArray(facebookData.fields)) continue;
+        for (const field of facebookData.fields) {
+          if (!field || typeof field !== "object") continue;
+          const item = field as Record<string, unknown>;
+          if (typeof item.name === "string") registerAnswer("facebook", formId, item.name, item.value);
         }
       }
-      return Array.from(valuesByQuestion, ([question, values]) => ({ question, values: Array.from(values).sort() }))
-        .sort((a, b) => a.question.localeCompare(b.question));
+      for (const log of logsResult.data || []) {
+        if (!log.payload || typeof log.payload !== "object" || Array.isArray(log.payload)) continue;
+        Object.entries(log.payload).forEach(([question, value]) => registerAnswer("webhook", log.webhook_token, question, value));
+      }
+
+      return Array.from(formMap.values()).map(({ values, ...form }) => ({
+        ...form,
+        questions: Array.from(values, ([question, answers]) => ({ question, values: Array.from(answers).sort() }))
+          .sort((a, b) => a.question.localeCompare(b.question)),
+      })).sort((a, b) => a.name.localeCompare(b.name));
     },
     enabled: !!organizationId,
     staleTime: 5 * 60_000,
@@ -411,7 +450,7 @@ export function SmartRulesPanel() {
                 key={rule.id}
                 rule={rule}
                 agents={agents}
-                formQuestions={formQuestions}
+                connectedForms={connectedForms}
                 funnels={funnels}
                 onChange={changes => updateCustomRule(rule.id, changes)}
                 onRemove={() => removeCustomRule(rule.id)}
@@ -429,14 +468,14 @@ export function SmartRulesPanel() {
 function CustomRuleCard({
   rule,
   agents,
-  formQuestions,
+  connectedForms,
   funnels,
   onChange,
   onRemove,
 }: {
   rule: CustomRule;
   agents: { user_id: string; full_name: string }[];
-  formQuestions: { question: string; values: string[] }[];
+  connectedForms: ConnectedForm[];
   funnels: { id: string; name: string }[];
   onChange: (changes: Partial<CustomRule>) => void;
   onRemove: () => void;
@@ -471,9 +510,11 @@ function CustomRuleCard({
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
           <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Condicao</p>
-          <div className={`grid grid-cols-1 gap-2 ${rule.condition_field === "form_response" ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+          <div className={`grid grid-cols-1 gap-2 ${rule.condition_field === "form_response" ? "md:grid-cols-5" : "md:grid-cols-3"}`}>
             <Select value={rule.condition_field} onValueChange={v => onChange({
               condition_field: v as CustomRule["condition_field"],
+              condition_form_id: v === "form_response" ? rule.condition_form_id : undefined,
+              condition_form_source: v === "form_response" ? rule.condition_form_source : undefined,
               condition_question: v === "form_response" ? rule.condition_question : undefined,
               condition_operator: v === "form_response" ? "equals" : rule.condition_operator,
               condition_value: "",
@@ -484,10 +525,22 @@ function CustomRuleCard({
               </SelectContent>
             </Select>
             {rule.condition_field === "form_response" && (
-              <Select value={rule.condition_question || ""} onValueChange={v => onChange({ condition_question: v, condition_value: "" })}>
+              <Select value={rule.condition_form_id ? `${rule.condition_form_source}:${rule.condition_form_id}` : ""} onValueChange={v => {
+                const selected = connectedForms.find(form => `${form.source}:${form.id}` === v);
+                onChange({ condition_form_id: selected?.id, condition_form_source: selected?.source, condition_question: undefined, condition_value: "" });
+              }}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o formulario" /></SelectTrigger>
+                <SelectContent>
+                  {connectedForms.map(form => <SelectItem key={`${form.source}:${form.id}`} value={`${form.source}:${form.id}`}>{form.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {rule.condition_field === "form_response" && (
+              <Select value={rule.condition_question || ""} onValueChange={v => onChange({ condition_question: v, condition_value: "" })} disabled={!rule.condition_form_id}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione a pergunta" /></SelectTrigger>
                 <SelectContent>
-                  {formQuestions.map(item => <SelectItem key={item.question} value={item.question}>{item.question}</SelectItem>)}
+                  {(connectedForms.find(form => form.id === rule.condition_form_id && form.source === rule.condition_form_source)?.questions || [])
+                    .map(item => <SelectItem key={item.question} value={item.question}>{item.question}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
@@ -501,7 +554,8 @@ function CustomRuleCard({
               <Select value={rule.condition_value} onValueChange={v => onChange({ condition_value: v })} disabled={!rule.condition_question}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione a resposta" /></SelectTrigger>
                 <SelectContent>
-                  {(formQuestions.find(item => item.question === rule.condition_question)?.values || []).map(value => (
+                  {(connectedForms.find(form => form.id === rule.condition_form_id && form.source === rule.condition_form_source)?.questions
+                    .find(item => item.question === rule.condition_question)?.values || []).map(value => (
                     <SelectItem key={value} value={value}>{value}</SelectItem>
                   ))}
                 </SelectContent>
@@ -544,7 +598,7 @@ function CustomRuleCard({
 
           {/* Summary */}
           <p className="text-[11px] text-muted-foreground">
-            Se <span className="font-medium text-foreground">{rule.condition_field === "form_response" ? rule.condition_question || "selecionar pergunta" : CONDITION_FIELDS.find(f => f.value === rule.condition_field)?.label}</span>{" "}
+            Se <span className="font-medium text-foreground">{rule.condition_field === "form_response" ? `${connectedForms.find(form => form.id === rule.condition_form_id && form.source === rule.condition_form_source)?.name || "selecionar formulario"} / ${rule.condition_question || "selecionar pergunta"}` : CONDITION_FIELDS.find(f => f.value === rule.condition_field)?.label}</span>{" "}
             <span className="font-medium text-foreground">{CONDITION_OPERATORS.find(o => o.value === rule.condition_operator)?.label}</span>{" "}
             <span className="font-medium text-foreground">"{rule.condition_value || "..."}"</span>{" "}
             &rarr;{" "}
