@@ -45,7 +45,7 @@ interface ConnectedForm {
   id: string;
   source: "facebook" | "webhook";
   name: string;
-  questions: { question: string; values: string[] }[];
+  questions: { question: string; label?: string; values: string[] }[];
 }
 
 const DEFAULT_SYSTEM: SystemRules = {
@@ -253,7 +253,7 @@ export function SmartRulesPanel() {
     queryFn: async () => {
       if (!organizationId) return [];
       const [facebookResult, selectedFormsResult, webhookResult, leadsResult, logsResult] = await Promise.all([
-        supabase.from("facebook_integrations").select("selected_form_id, selected_form_name").eq("organization_id", organizationId).not("selected_form_id", "is", null),
+        supabase.from("facebook_integrations").select("id, selected_form_id, selected_form_name").eq("organization_id", organizationId),
         (supabase as any).from("facebook_selected_forms").select("form_id, form_name").eq("organization_id", organizationId),
         supabase.from("webhook_configs").select("webhook_token, name").eq("organization_id", organizationId).eq("is_active", true),
         supabase.from("leads").select("additional_data").eq("organization_id", organizationId).not("additional_data", "is", null).order("created_at", { ascending: false }).limit(500),
@@ -263,10 +263,10 @@ export function SmartRulesPanel() {
         .filter(Boolean)
         .forEach(error => console.warn("Nao foi possivel carregar uma fonte de formularios:", error));
 
-      const formMap = new Map<string, ConnectedForm & { values: Map<string, Set<string>> }>();
+      const formMap = new Map<string, ConnectedForm & { values: Map<string, Set<string>>; labels: Map<string, string> }>();
       const registerForm = (source: ConnectedForm["source"], id: string, name: string) => {
         const key = `${source}:${id}`;
-        if (!formMap.has(key)) formMap.set(key, { id, source, name, questions: [], values: new Map() });
+        if (!formMap.has(key)) formMap.set(key, { id, source, name, questions: [], values: new Map(), labels: new Map() });
       };
       const registerAnswer = (source: ConnectedForm["source"], id: string, question: string, rawValue: unknown) => {
         const form = formMap.get(`${source}:${id}`);
@@ -278,12 +278,49 @@ export function SmartRulesPanel() {
         });
         form.values.set(question, knownValues);
       };
+      const registerQuestion = (source: ConnectedForm["source"], id: string, question: string, label = question) => {
+        const form = formMap.get(`${source}:${id}`);
+        if (!form || !question) return;
+        if (!form.values.has(question)) form.values.set(question, new Set());
+        form.labels.set(question, label);
+      };
 
       (facebookResult.data || []).forEach(form => {
         if (form.selected_form_id) registerForm("facebook", form.selected_form_id, form.selected_form_name || form.selected_form_id);
       });
       (selectedFormsResult.data || []).forEach((form: { form_id: string; form_name: string }) => registerForm("facebook", form.form_id, form.form_name || form.form_id));
       (webhookResult.data || []).forEach(form => registerForm("webhook", form.webhook_token, form.name || "Formulario via webhook"));
+
+      const liveFormResults = await Promise.all((facebookResult.data || []).map(integration =>
+        supabase.functions.invoke("facebook-list-lead-forms", {
+          body: { organization_id: organizationId, integration_id: integration.id },
+        }),
+      ));
+      liveFormResults.forEach(result => {
+        if (result.error) {
+          console.warn("Nao foi possivel atualizar formularios Meta ao vivo:", result.error);
+          return;
+        }
+        const forms = Array.isArray(result.data?.forms) ? result.data.forms : [];
+        forms.forEach((form: any) => {
+          if (!form?.id) return;
+          registerForm("facebook", String(form.id), String(form.name || form.id));
+          const questions = Array.isArray(form.questions) ? form.questions : [];
+          questions.forEach((question: any) => {
+            const key = String(question?.key || question?.name || question?.label || "").trim();
+            const label = String(question?.label || key).trim();
+            if (!key) return;
+            registerQuestion("facebook", String(form.id), key, label);
+            const options = Array.isArray(question?.options) ? question.options : [];
+            options.forEach((option: any) => registerAnswer(
+              "facebook",
+              String(form.id),
+              key,
+              option?.value ?? option?.label ?? option?.key,
+            ));
+          });
+        });
+      });
 
       for (const lead of leadsResult.data || []) {
         const data = lead.additional_data;
@@ -308,14 +345,16 @@ export function SmartRulesPanel() {
         Object.entries(log.payload).forEach(([question, value]) => registerAnswer("webhook", log.webhook_token, question, value));
       }
 
-      return Array.from(formMap.values()).map(({ values, ...form }) => ({
+      return Array.from(formMap.values()).map(({ values, labels, ...form }) => ({
         ...form,
-        questions: Array.from(values, ([question, answers]) => ({ question, values: Array.from(answers).sort() }))
+        questions: Array.from(values, ([question, answers]) => ({ question, label: labels.get(question) || question, values: Array.from(answers).sort() }))
           .sort((a, b) => a.question.localeCompare(b.question)),
       })).sort((a, b) => a.name.localeCompare(b.name));
     },
     enabled: !!organizationId,
-    staleTime: 5 * 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const { data: funnels = [] } = useQuery({
@@ -547,7 +586,7 @@ function CustomRuleCard({
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione a pergunta" /></SelectTrigger>
                 <SelectContent>
                   {(connectedForms.find(form => form.id === rule.condition_form_id && form.source === rule.condition_form_source)?.questions || [])
-                    .map(item => <SelectItem key={item.question} value={item.question}>{item.question}</SelectItem>)}
+                    .map(item => <SelectItem key={item.question} value={item.question}>{item.label || item.question}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
