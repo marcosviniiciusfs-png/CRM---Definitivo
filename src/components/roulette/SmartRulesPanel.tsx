@@ -24,11 +24,11 @@ interface SystemRules {
 interface CustomRule {
   id: string;
   name: string;
-  condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response";
+  condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response" | "whatsapp_first_message";
   condition_form_id?: string;
   condition_form_source?: "facebook" | "webhook";
   condition_question?: string;
-  condition_operator: "equals" | "not_equals" | "greater" | "less";
+  condition_operator: "equals" | "not_equals" | "contains" | "greater" | "less";
   condition_value: string;
   action: "assign_to" | "route_to_funnel" | "skip";
   agent_id: string;
@@ -72,11 +72,13 @@ const CONDITION_FIELDS = [
   { value: "score_max", label: "Score maximo" },
   { value: "funnel", label: "Funil" },
   { value: "form_response", label: "Resposta do formulario" },
+  { value: "whatsapp_first_message", label: "Primeira mensagem do WhatsApp" },
 ];
 
 const CONDITION_OPERATORS = [
   { value: "equals", label: "igual a" },
   { value: "not_equals", label: "diferente de" },
+  { value: "contains", label: "contem" },
   { value: "greater", label: "maior que" },
   { value: "less", label: "menor que" },
 ];
@@ -568,7 +570,7 @@ function CustomRuleCard({
               condition_form_id: undefined,
               condition_form_source: undefined,
               condition_question: undefined,
-              condition_operator: v === "form_response" ? "equals" : rule.condition_operator,
+              condition_operator: v === "form_response" ? "equals" : v === "whatsapp_first_message" ? "contains" : rule.condition_operator,
               condition_value: "",
             })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -599,7 +601,9 @@ function CustomRuleCard({
             <Select value={rule.condition_operator} onValueChange={v => onChange({ condition_operator: v as CustomRule["condition_operator"] })} disabled={rule.condition_field === "form_response"}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {CONDITION_OPERATORS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                {CONDITION_OPERATORS
+                  .filter(o => rule.condition_field === "whatsapp_first_message" ? ["equals", "not_equals", "contains"].includes(o.value) : o.value !== "contains")
+                  .map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </SelectContent>
             </Select>
             {rule.condition_field === "form_response" ? (
@@ -612,8 +616,16 @@ function CustomRuleCard({
                   ))}
                 </SelectContent>
               </Select>
+            ) : rule.condition_field === "source" ? (
+              <Select value={rule.condition_value} onValueChange={v => onChange({ condition_value: v })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione a fonte" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Facebook">Facebook</SelectItem>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
-              <Input value={rule.condition_value} onChange={e => onChange({ condition_value: e.target.value })} className="h-8 text-xs" placeholder="Valor" />
+              <Input value={rule.condition_value} onChange={e => onChange({ condition_value: e.target.value })} className="h-8 text-xs" placeholder={rule.condition_field === "whatsapp_first_message" ? "Digite a palavra ou mensagem" : "Valor"} />
             )}
           </div>
 
