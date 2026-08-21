@@ -15,6 +15,8 @@ interface DistributeLeadRequest {
   from_user_id?: string;
   /** Token do formulário/webhook de origem (para roletas específicas por formulário) */
   webhook_token?: string;
+  /** Texto da primeira mensagem recebida de um novo lead do WhatsApp. */
+  first_message?: string;
 }
 
 // ── Smart Rules Types & Helpers ────────────────────────────────
@@ -32,11 +34,11 @@ interface SystemRules {
 interface CustomRule {
   id: string;
   name: string;
-  condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response";
+  condition_field: "source" | "score_min" | "score_max" | "funnel" | "form_response" | "whatsapp_first_message";
   condition_form_id?: string;
   condition_form_source?: "facebook" | "webhook";
   condition_question?: string;
-  condition_operator: "equals" | "not_equals" | "greater" | "less";
+  condition_operator: "equals" | "not_equals" | "contains" | "greater" | "less";
   condition_value: string;
   action: "assign_to" | "route_to_funnel" | "skip";
   agent_id: string;
@@ -70,12 +72,15 @@ function parseSmartRules(raw: any): SmartRulesData {
   };
 }
 
-function getCustomRuleFieldValue(field: string, lead: any, rule: CustomRule, webhookToken?: string): any {
+function getCustomRuleFieldValue(field: string, lead: any, rule: CustomRule, webhookToken?: string, firstMessage?: string): any {
   switch (field) {
-    case "source": return lead.source || "";
+    case "source": {
+      return normalizeLeadSource(lead.source);
+    }
     case "score_min": return lead.lead_score || 0;
     case "score_max": return lead.lead_score || 0;
     case "funnel": return lead.funnel_id || "";
+    case "whatsapp_first_message": return firstMessage || "";
     case "form_response": {
       const question = rule.condition_question;
       if (!question) return "";
@@ -105,6 +110,13 @@ function normalizeComparable(value: unknown): string {
     .replace(/^_+|_+$/g, "");
 }
 
+function normalizeLeadSource(value: unknown): string {
+  const source = normalizeComparable(value);
+  if (source.includes("facebook")) return "facebook";
+  if (source.includes("whatsapp")) return "whatsapp";
+  return source;
+}
+
 function evaluateCustomCondition(value: any, operator: string, conditionValue: string): boolean {
   if (Array.isArray(value)) return value.some(item => evaluateCustomCondition(item, operator, conditionValue));
   const strVal = normalizeComparable(value);
@@ -112,6 +124,7 @@ function evaluateCustomCondition(value: any, operator: string, conditionValue: s
   switch (operator) {
     case "equals": return strVal === normalizedCondition;
     case "not_equals": return strVal !== normalizedCondition;
+    case "contains": return normalizedCondition.length > 0 && strVal.includes(normalizedCondition);
     case "greater": return Number(value) > Number(conditionValue);
     case "less": return Number(value) < Number(conditionValue);
     default: return false;
@@ -167,7 +180,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { lead_id, organization_id, trigger_source, is_redistribution, from_user_id, webhook_token } = await req.json() as DistributeLeadRequest;
+    const { lead_id, organization_id, trigger_source, is_redistribution, from_user_id, webhook_token, first_message } = await req.json() as DistributeLeadRequest;
 
     console.log('Distributing lead:', { lead_id, organization_id, trigger_source });
 
@@ -367,8 +380,10 @@ serve(async (req) => {
 
     for (const rule of smartRules.custom) {
       if (!rule.enabled) continue;
-      const fieldValue = getCustomRuleFieldValue(rule.condition_field, lead, rule, webhook_token);
-      const matches = evaluateCustomCondition(fieldValue, rule.condition_operator, rule.condition_value);
+      if (rule.condition_field === "whatsapp_first_message" && (trigger_source !== "whatsapp" || !first_message)) continue;
+      const fieldValue = getCustomRuleFieldValue(rule.condition_field, lead, rule, webhook_token, first_message);
+      const conditionValue = rule.condition_field === "source" ? normalizeLeadSource(rule.condition_value) : rule.condition_value;
+      const matches = evaluateCustomCondition(fieldValue, rule.condition_operator, conditionValue);
 
       if (matches) {
         console.log(`[SmartRules] Custom rule "${rule.name}" matched: ${rule.condition_field} ${rule.condition_operator} ${rule.condition_value}`);

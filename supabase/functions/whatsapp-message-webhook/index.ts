@@ -1435,23 +1435,6 @@ serve(async (req) => {
         console.warn('⚠️ [webhook] erro ao aplicar tag de anuncio (nao bloqueia):', tagErr);
       }
 
-      // ✅ DISTRIBUIR LEAD NA ROLETA (apenas para leads NOVOS)
-      const distributePromise = supabase.functions.invoke('distribute-lead', {
-        body: {
-          lead_id: newLead.id,
-          organization_id: organizationId,
-          trigger_source: 'whatsapp',
-        },
-      }).then(({ data, error }) => {
-        if (error) {
-          console.error('⚠️ Erro ao distribuir lead:', error);
-        } else {
-          console.log('✅ Lead distribuído:', data);
-        }
-      }).catch(err => {
-        console.error('⚠️ Falha ao invocar distribute-lead:', err);
-      });
-      
       // Buscar foto de perfil do WhatsApp de forma assíncrona (não bloqueia o fluxo)
       const groupAlertPromise = sendLeadGroupAlert(supabase, {
         leadId: newLead.id,
@@ -1478,7 +1461,7 @@ serve(async (req) => {
       // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
       if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
         // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
-        EdgeRuntime.waitUntil(Promise.allSettled([distributePromise, groupAlertPromise, profilePicturePromise]));
+        EdgeRuntime.waitUntil(Promise.allSettled([groupAlertPromise, profilePicturePromise]));
       }
     }
 
@@ -1584,6 +1567,22 @@ serve(async (req) => {
       }
     }
 
+    let isFirstIncomingMessage = false;
+    if (!isFromMe) {
+      const { data: previousIncomingMessage, error: previousIncomingError } = await supabase
+        .from('mensagens_chat')
+        .select('id')
+        .eq('id_lead', leadId)
+        .eq('direcao', 'ENTRADA')
+        .limit(1)
+        .maybeSingle();
+      if (previousIncomingError) {
+        console.warn('⚠️ Falha ao verificar primeira mensagem recebida:', previousIncomingError);
+      } else {
+        isFirstIncomingMessage = !previousIncomingMessage;
+      }
+    }
+
     const { data: savedMessage, error: saveMessageError } = await supabase
       .from('mensagens_chat')
       .insert({
@@ -1637,8 +1636,29 @@ serve(async (req) => {
     // Mensagens fromMe (vendedor respondendo pelo celular) nao sao gatilhos
     // de NEW_INCOMING_MESSAGE / WHATSAPP_FIRST_MESSAGE.
     if (!isFromMe) {
-      const isFirstMessage = !existingLead;
-      const triggerType = isFirstMessage ? 'WHATSAPP_FIRST_MESSAGE' : 'NEW_INCOMING_MESSAGE';
+      const triggerType = isFirstIncomingMessage ? 'WHATSAPP_FIRST_MESSAGE' : 'NEW_INCOMING_MESSAGE';
+
+      if (isFirstIncomingMessage) {
+        const distributePromise = supabase.functions.invoke('distribute-lead', {
+          body: {
+            lead_id: leadId,
+            organization_id: organizationId,
+            trigger_source: 'whatsapp',
+            first_message: messageContent,
+          },
+        }).then(({ data, error }) => {
+          if (error) console.error('⚠️ Erro ao distribuir lead:', error);
+          else console.log('✅ Lead distribuído:', data);
+        }).catch(err => console.error('⚠️ Falha ao invocar distribute-lead:', err));
+
+        // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+        if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+          // @ts-ignore EdgeRuntime is provided by Supabase Edge Functions.
+          EdgeRuntime.waitUntil(distributePromise);
+        } else {
+          await distributePromise;
+        }
+      }
 
       supabase.functions.invoke('process-automation-rules', {
         body: {
