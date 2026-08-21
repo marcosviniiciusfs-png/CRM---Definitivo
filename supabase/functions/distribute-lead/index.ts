@@ -82,7 +82,8 @@ function getCustomRuleFieldValue(field: string, lead: any, rule: CustomRule, web
       if (rule.condition_form_source === "facebook") {
         if (String(lead.additional_data?.form_id || "") !== String(rule.condition_form_id || "")) return "";
         const fields = Array.isArray(lead.additional_data?.fields) ? lead.additional_data.fields : [];
-        return fields.find((item: any) => item?.name === question)?.value ?? "";
+        const normalizedQuestion = normalizeComparable(question);
+        return fields.find((item: any) => normalizeComparable(item?.name) === normalizedQuestion)?.value ?? "";
       }
       if (rule.condition_form_source === "webhook") {
         if (webhookToken !== rule.condition_form_id) return "";
@@ -94,12 +95,23 @@ function getCustomRuleFieldValue(field: string, lead: any, rule: CustomRule, web
   }
 }
 
+function normalizeComparable(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function evaluateCustomCondition(value: any, operator: string, conditionValue: string): boolean {
   if (Array.isArray(value)) return value.some(item => evaluateCustomCondition(item, operator, conditionValue));
-  const strVal = String(value);
+  const strVal = normalizeComparable(value);
+  const normalizedCondition = normalizeComparable(conditionValue);
   switch (operator) {
-    case "equals": return strVal === conditionValue;
-    case "not_equals": return strVal !== conditionValue;
+    case "equals": return strVal === normalizedCondition;
+    case "not_equals": return strVal !== normalizedCondition;
     case "greater": return Number(value) > Number(conditionValue);
     case "less": return Number(value) < Number(conditionValue);
     default: return false;

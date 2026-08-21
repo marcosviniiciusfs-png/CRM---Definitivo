@@ -154,15 +154,15 @@ export function SmartRulesPanel() {
   const current = rules || { system: DEFAULT_SYSTEM, custom: [] };
 
   const saveMutation = useMutation({
+    scope: { id: `smart-rules-save-${organizationId || "none"}` },
     mutationFn: async (updated: SmartRulesData) => {
-      if (!organizationId) return;
+      if (!organizationId) throw new Error("Organizacao nao selecionada");
       const { data: configs } = await supabase
         .from("lead_distribution_configs")
         .select("id")
         .eq("organization_id", organizationId);
       if (!configs?.length) {
-        toast.error("Crie pelo menos uma roleta antes de configurar regras");
-        return;
+        throw new Error("Crie pelo menos uma roleta antes de configurar regras");
       }
       // Update all configs with the same smart_rules + sync timeout/auto_redistribute
       for (const config of configs) {
@@ -178,24 +178,33 @@ export function SmartRulesPanel() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["smart-rules"] });
       toast.success("Regras salvas com sucesso");
     },
-    onError: () => toast.error("Erro ao salvar regras"),
+    onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["smart-rules", organizationId] });
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar regras");
+    },
   });
 
-  const updateSystemRule = (key: keyof SystemRules, value: boolean | number | string) => {
-    const updated: SmartRulesData = {
-      system: { ...current.system, [key]: value },
-      custom: current.custom,
-    };
+  const applyRulesUpdate = (updater: (latest: SmartRulesData) => SmartRulesData) => {
+    const queryKey = ["smart-rules", organizationId];
+    const latest = queryClient.getQueryData<SmartRulesData>(queryKey) || current;
+    const updated = updater(latest);
+    queryClient.setQueryData(queryKey, updated);
     saveMutation.mutate(updated);
+  };
+
+  const updateSystemRule = (key: keyof SystemRules, value: boolean | number | string) => {
+    applyRulesUpdate(latest => ({
+      system: { ...latest.system, [key]: value },
+      custom: latest.custom,
+    }));
   };
 
   const addCustomRule = () => {
     const newRule: CustomRule = {
       id: crypto.randomUUID(),
-      name: `Regra ${current.custom.length + 1}`,
+      name: "",
       condition_field: "source",
       condition_operator: "equals",
       condition_value: "",
@@ -203,27 +212,24 @@ export function SmartRulesPanel() {
       agent_id: "",
       enabled: true,
     };
-    const updated: SmartRulesData = {
-      system: current.system,
-      custom: [...current.custom, newRule],
-    };
-    saveMutation.mutate(updated);
+    applyRulesUpdate(latest => ({
+      system: latest.system,
+      custom: [...latest.custom, { ...newRule, name: `Regra ${latest.custom.length + 1}` }],
+    }));
   };
 
   const updateCustomRule = (id: string, changes: Partial<CustomRule>) => {
-    const updated: SmartRulesData = {
-      system: current.system,
-      custom: current.custom.map(r => (r.id === id ? { ...r, ...changes } : r)),
-    };
-    saveMutation.mutate(updated);
+    applyRulesUpdate(latest => ({
+      system: latest.system,
+      custom: latest.custom.map(r => (r.id === id ? { ...r, ...changes } : r)),
+    }));
   };
 
   const removeCustomRule = (id: string) => {
-    const updated: SmartRulesData = {
-      system: current.system,
-      custom: current.custom.filter(r => r.id !== id),
-    };
-    saveMutation.mutate(updated);
+    applyRulesUpdate(latest => ({
+      system: latest.system,
+      custom: latest.custom.filter(r => r.id !== id),
+    }));
   };
 
   // Fetch agents for custom rules
