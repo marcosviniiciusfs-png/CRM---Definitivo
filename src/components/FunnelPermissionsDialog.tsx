@@ -119,20 +119,23 @@ export function FunnelPermissionsDialog({
   const toggleRestricted = async (newValue: boolean) => {
     setSaving("funnel");
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("sales_funnels")
         .update({ is_restricted: newValue })
         .eq("id", funnel.id)
-        .eq("organization_id", organizationId);
+        .eq("organization_id", organizationId)
+        .select("id")
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error("O funil não foi alterado. Verifique sua permissão de administrador.");
 
       setIsRestricted(newValue);
       onPermissionsChange?.();
       toast.success(newValue ? "Funil bloqueado — escolha quem pode ver" : "Funil desbloqueado para todos");
     } catch (err) {
       console.error("Erro ao alterar visibilidade:", err);
-      toast.error("Erro ao salvar");
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o acesso ao funil");
     } finally {
       setSaving(null);
     }
@@ -143,14 +146,17 @@ export function FunnelPermissionsDialog({
     try {
       if (currentAccess) {
         // Remover acesso
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("funnel_collaborators")
           .delete()
           .eq("funnel_id", funnel.id)
           .eq("user_id", userId)
-          .eq("organization_id", organizationId);
+          .eq("organization_id", organizationId)
+          .select("id")
+          .maybeSingle();
 
         if (error) throw error;
+        if (!data) throw new Error("O acesso não foi removido. Verifique sua permissão de administrador.");
       } else {
         // Conceder acesso
         const { error } = await supabase
@@ -171,7 +177,7 @@ export function FunnelPermissionsDialog({
       toast.success(currentAccess ? "Acesso removido" : "Acesso liberado");
     } catch (err) {
       console.error("Erro ao alterar acesso:", err);
-      toast.error("Erro ao salvar");
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o colaborador");
     } finally {
       setSaving(null);
     }
