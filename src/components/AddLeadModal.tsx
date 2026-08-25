@@ -55,6 +55,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [empresa, setEmpresa] = useState("");
+  const [tipoProduto, setTipoProduto] = useState("");
   const [idade, setIdade] = useState("");
   const [valor, setValor] = useState("");
   const [source, setSource] = useState("Manual");
@@ -196,6 +197,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     setTelefone("");
     setEmail("");
     setEmpresa("");
+    setTipoProduto("");
     setIdade("");
     setValor("");
     setSource("Manual");
@@ -222,6 +224,11 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
 
     if (!validatePhone(telefone)) {
       toast.error("Telefone inválido. Use o formato: +55 XX XXXXX-XXXX");
+      return;
+    }
+
+    if (!tipoProduto.trim()) {
+      toast.error("O tipo de produto é obrigatório");
       return;
     }
 
@@ -255,6 +262,9 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
         telefone_lead: telefone.trim(),
         email: email.trim() || null,
         empresa: empresa.trim() || null,
+        additional_data: {
+          "Tipo de produto": tipoProduto.trim(),
+        },
         idade: idade.trim() ? parseInt(idade) : null,
         source: finalSource,
         lead_score: calculateLeadScore({ telefone_lead: telefone.trim(), email: email.trim(), source: finalSource, nome_lead: nome.trim() }),
@@ -352,6 +362,20 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
               value={empresa}
               onChange={(e) => setEmpresa(e.target.value)}
               placeholder="Nome da empresa"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tipoProduto">
+              Tipo de produto <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="tipoProduto"
+              value={tipoProduto}
+              onChange={(e) => setTipoProduto(e.target.value)}
+              placeholder="Digite o produto desejado pelo lead"
+              maxLength={120}
+              required
             />
           </div>
 

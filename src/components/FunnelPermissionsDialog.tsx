@@ -2,13 +2,22 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Eye, EyeOff, Settings, Users, Lock, Unlock } from "lucide-react";
+import { Users, Lock, Unlock } from "lucide-react";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface FunnelPermissionsDialogProps {
-  funnel: { id: string; name: string; is_active?: boolean };
+  funnel: { id: string; name: string; is_restricted?: boolean };
   organizationId: string;
   onClose: () => void;
+  onPermissionsChange?: () => void;
 }
 
 interface Collaborator {
@@ -23,8 +32,9 @@ export function FunnelPermissionsDialog({
   funnel,
   organizationId,
   onClose,
+  onPermissionsChange,
 }: FunnelPermissionsDialogProps) {
-  const [isActive, setIsActive] = useState(funnel.is_active !== false);
+  const [isRestricted, setIsRestricted] = useState(funnel.is_restricted === true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -37,13 +47,13 @@ export function FunnelPermissionsDialog({
         // Buscar estado do funil
         const { data: funnelData, error: funnelError } = await supabase
           .from("sales_funnels")
-          .select("is_active")
+          .select("is_restricted")
           .eq("id", funnel.id)
           .single();
 
         if (funnelError) throw funnelError;
         if (funnelData) {
-          setIsActive(funnelData.is_active ?? true);
+          setIsRestricted(funnelData.is_restricted ?? false);
         }
 
         // Buscar membros da organização (apenas members, admins/owners sempre têm acesso)
@@ -51,16 +61,19 @@ export function FunnelPermissionsDialog({
           .from("organization_members")
           .select("user_id, role, email, display_name")
           .eq("organization_id", organizationId)
-          .eq("role", "member");
+          .eq("role", "member")
+          .eq("is_active", true);
 
         if (membersError) throw membersError;
 
         // Buscar quem tem acesso ao funil
-        const { data: accessList } = await supabase
+        const { data: accessList, error: accessError } = await supabase
           .from("funnel_collaborators")
           .select("user_id")
           .eq("funnel_id", funnel.id)
           .eq("organization_id", organizationId);
+
+        if (accessError) throw accessError;
 
         const accessSet = new Set((accessList || []).map((a) => a.user_id));
 
@@ -103,18 +116,20 @@ export function FunnelPermissionsDialog({
     loadData();
   }, [funnel.id, organizationId]);
 
-  const toggleActive = async (newValue: boolean) => {
+  const toggleRestricted = async (newValue: boolean) => {
     setSaving("funnel");
     try {
       const { error } = await supabase
         .from("sales_funnels")
-        .update({ is_active: newValue })
-        .eq("id", funnel.id);
+        .update({ is_restricted: newValue })
+        .eq("id", funnel.id)
+        .eq("organization_id", organizationId);
 
       if (error) throw error;
 
-      setIsActive(newValue);
-      toast.success(newValue ? "Funil desbloqueado para todos" : "Funil bloqueado - apenas autorizados");
+      setIsRestricted(newValue);
+      onPermissionsChange?.();
+      toast.success(newValue ? "Funil bloqueado — escolha quem pode ver" : "Funil desbloqueado para todos");
     } catch (err) {
       console.error("Erro ao alterar visibilidade:", err);
       toast.error("Erro ao salvar");
@@ -132,14 +147,18 @@ export function FunnelPermissionsDialog({
           .from("funnel_collaborators")
           .delete()
           .eq("funnel_id", funnel.id)
-          .eq("user_id", userId);
+          .eq("user_id", userId)
+          .eq("organization_id", organizationId);
 
         if (error) throw error;
       } else {
         // Conceder acesso
         const { error } = await supabase
           .from("funnel_collaborators")
-          .insert({ funnel_id: funnel.id, user_id: userId, organization_id: organizationId });
+          .upsert(
+            { funnel_id: funnel.id, user_id: userId, organization_id: organizationId },
+            { onConflict: "funnel_id,user_id" },
+          );
 
         if (error) throw error;
       }
@@ -147,6 +166,7 @@ export function FunnelPermissionsDialog({
       setCollaborators((prev) =>
         prev.map((c) => (c.user_id === userId ? { ...c, hasAccess: !currentAccess } : c))
       );
+      onPermissionsChange?.();
 
       toast.success(currentAccess ? "Acesso removido" : "Acesso liberado");
     } catch (err) {
@@ -158,29 +178,18 @@ export function FunnelPermissionsDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-end"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="mt-16 mr-4 w-[340px] rounded-xl border border-border bg-card shadow-2xl max-h-[80vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-sm gap-0 overflow-hidden p-0" hideCloseButton={false}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <DialogHeader className="border-b border-border px-4 py-3 pr-12 text-left">
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-sm">Controle de Acesso</span>
+            <DialogTitle className="text-sm">Controle de acesso</DialogTitle>
           </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span className="text-xl">&times;</span>
-          </button>
-        </div>
+          <DialogDescription className="sr-only">
+            Defina quem pode visualizar o funil {funnel.name}.
+          </DialogDescription>
+        </DialogHeader>
 
         {/* Funil name */}
         <div className="px-4 py-2 border-b border-border bg-muted/30">
@@ -192,32 +201,35 @@ export function FunnelPermissionsDialog({
         <div className="px-4 py-3 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {isActive ? (
-                <Unlock className="h-5 w-5 text-green-500" />
-              ) : (
+              {isRestricted ? (
                 <Lock className="h-5 w-5 text-amber-500" />
+              ) : (
+                <Unlock className="h-5 w-5 text-emerald-500" />
               )}
               <div>
-                <p className="font-medium text-sm">
-                  {isActive ? "Desbloqueado" : "Bloqueado"}
-                </p>
+                <Label htmlFor="restrict-funnel" className="font-medium text-sm">
+                  {isRestricted ? "Bloqueado" : "Desbloqueado"}
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  {isActive
-                    ? "Todos os colaboradores podem ver"
-                    : "Apenas autorizados podem ver"}
+                  {isRestricted
+                    ? "Apenas os selecionados podem ver"
+                    : "Todos os colaboradores podem ver"}
                 </p>
               </div>
             </div>
             <Switch
-              checked={isActive}
-              onCheckedChange={toggleActive}
+              id="restrict-funnel"
+              checked={isRestricted}
+              onCheckedChange={toggleRestricted}
               disabled={saving === "funnel"}
+              aria-label={isRestricted ? "Desbloquear funil" : "Bloquear funil"}
+              aria-busy={saving === "funnel"}
             />
           </div>
         </div>
 
         {/* Lista de colaboradores (só mostra quando bloqueado) */}
-        {!isActive && (
+        {isRestricted && (
           <div className="overflow-y-auto max-h-[300px]">
             <div className="px-4 py-2 border-b border-border bg-muted/20">
               <div className="flex items-center gap-2">
@@ -269,11 +281,14 @@ export function FunnelPermissionsDialog({
                       </div>
                     </div>
                     <Switch
+                      id={`funnel-access-${collab.user_id}`}
                       checked={collab.hasAccess}
                       onCheckedChange={() =>
                         toggleCollaboratorAccess(collab.user_id, collab.hasAccess)
                       }
                       disabled={saving === collab.user_id}
+                      aria-label={`${collab.hasAccess ? "Remover" : "Liberar"} acesso de ${collab.full_name}`}
+                      aria-busy={saving === collab.user_id}
                     />
                   </div>
                 ))}
@@ -288,7 +303,7 @@ export function FunnelPermissionsDialog({
             <strong>Owners e Admins</strong> sempre têm acesso a todos os funis.
           </p>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

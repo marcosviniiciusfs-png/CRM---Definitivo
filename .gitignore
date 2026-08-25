@@ -69,3 +69,6 @@ crm_dashboard.html
 # Playwright MCP
 .playwright-mcp/
 .env*
+
+.vercel
+.env*

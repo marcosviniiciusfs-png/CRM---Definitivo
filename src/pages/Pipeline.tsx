@@ -95,6 +95,11 @@ const DEFAULT_STAGES = [
   { id: "PERDIDO", title: "Perdido", color: "bg-red-500" },
 ];
 
+const sortFunnelStages = (stages: any[]) => [...stages].sort((a: any, b: any) => {
+  if (Boolean(a.is_final) !== Boolean(b.is_final)) return a.is_final ? 1 : -1;
+  return a.position - b.position;
+});
+
 const Pipeline = () => {
   const navigate = useNavigate();
   const { user, organizationId, isReady } = useOrganizationReady();
@@ -655,7 +660,8 @@ const Pipeline = () => {
     });
   };
 
-  // Cache de funis com React Query (5 min)
+  // Funnel order is shared organization state. Always revalidate it when the
+  // Pipeline mounts or regains focus so changes made on another device appear.
   const { data: cachedFunnelResult } = useQuery({
     queryKey: ['pipeline-funnels', organizationId, user?.id, permissions.canManagePipeline],
     queryFn: async () => {
@@ -674,13 +680,15 @@ const Pipeline = () => {
           .from('funnel_collaborators').select('funnel_id')
           .eq('user_id', user.id).eq('organization_id', organizationId);
         const accessibleIds = new Set((accessList || []).map((a: any) => a.funnel_id));
-        visibleFunnels = funnels.filter((f: any) => f.is_active !== false || accessibleIds.has(f.id));
+        visibleFunnels = funnels.filter((f: any) => !f.is_restricted || accessibleIds.has(f.id));
       }
       return { isCustom: visibleFunnels.length > 0, funnel: visibleFunnels[0] || null, allFunnels: visibleFunnels };
     },
     enabled: !!organizationId && !!user?.id && !permissions.loading && isReady,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
     gcTime: 1000 * 60 * 10,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
   });
 
   // Cache de leads com React Query (2 min)
@@ -698,7 +706,7 @@ const Pipeline = () => {
         : funnelResult?.funnel;
       let stageIds: string[] = [];
       if (isCustom && funnel?.stages?.length) {
-        stageIds = funnel.stages.sort((a: any, b: any) => a.position - b.position).map((s: any) => s.id);
+        stageIds = sortFunnelStages(funnel.stages).map((s: any) => s.id);
       } else {
         stageIds = DEFAULT_STAGES.map(s => s.id);
       }
@@ -797,7 +805,7 @@ const Pipeline = () => {
     const toActivate = selectedFunnelId ? (visible.find((f: any) => f.id === selectedFunnelId) || visible[0]) : visible[0];
     if (!toActivate) return;
     if (toActivate.stages?.length) {
-      setStages(toActivate.stages.sort((a: any, b: any) => a.position - b.position).map((s: any) => ({ id: s.id, title: s.name, color: s.color, icon: s.icon, stageData: s })));
+      setStages(sortFunnelStages(toActivate.stages).map((s: any) => ({ id: s.id, title: s.name, color: s.color, icon: s.icon, stageData: s })));
       setUsingCustomFunnel(true);
       setActiveFunnel(toActivate);
       if (selectedFunnelId === null) setSelectedFunnelId(toActivate.id);
@@ -1946,10 +1954,12 @@ const Pipeline = () => {
                           Importar
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => navigate("/funnel-builder")}>
-                        <Settings2 className="h-4 w-4 mr-2" />
-                        Gerenciar Funis
-                      </DropdownMenuItem>
+                      {(permissions.role === "owner" || permissions.role === "admin") && (
+                        <DropdownMenuItem onClick={() => navigate("/funnel-builder")}>
+                          <Settings2 className="h-4 w-4 mr-2" />
+                          Gerenciar Funis
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                   {permissions.canCreateLeads && (
@@ -1960,10 +1970,12 @@ const Pipeline = () => {
                 </>
               ) : (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
-                    <Settings2 className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Gerenciar Funis</span>
-                  </Button>
+                  {(permissions.role === "owner" || permissions.role === "admin") && (
+                    <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
+                      <Settings2 className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Gerenciar Funis</span>
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={handleExportCSV}>
                     <Upload className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Exportar</span>
@@ -2484,13 +2496,14 @@ const Pipeline = () => {
                               }}
                               className={cn(
                                 "ml-1 p-1 rounded transition-colors",
-                                funnel.is_active === false
+                                funnel.is_restricted === true
                                   ? "text-amber-500 hover:text-amber-400"
                                   : "text-muted-foreground hover:text-foreground"
                               )}
-                              title={funnel.is_active === false ? "Funil bloqueado - Clique para gerenciar" : "Funil aberto - Clique para gerenciar"}
+                              title={funnel.is_restricted === true ? "Funil bloqueado — clique para gerenciar" : "Funil aberto — clique para gerenciar"}
+                              aria-label={`Gerenciar acesso ao funil ${funnel.name}`}
                             >
-                              {funnel.is_active === false ? (
+                              {funnel.is_restricted === true ? (
                                 <Lock className="h-3.5 w-3.5" />
                               ) : (
                                 <Unlock className="h-3.5 w-3.5" />
@@ -2884,6 +2897,9 @@ const Pipeline = () => {
         <FunnelPermissionsDialog
           funnel={allFunnels.find((f) => f.id === permissionsFunnelId) || { id: permissionsFunnelId, name: "" }}
           organizationId={organizationId}
+          onPermissionsChange={() => {
+            queryClient.invalidateQueries({ queryKey: ['pipeline-funnels', organizationId] });
+          }}
           onClose={() => {
             setPermissionsFunnelId(null);
             queryClient.invalidateQueries({ queryKey: ['pipeline-funnels', organizationId] });
