@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, ArrowLeft, Edit, Trash2, Copy, Loader2 } from "lucide-react";
+import { Plus, ArrowLeft, Edit, Trash2, Copy, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { FunnelConfigDialog } from "@/components/FunnelConfigDialog";
 import { Badge } from "@/components/ui/badge";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,8 @@ interface Funnel {
 const FunnelBuilder = () => {
   const navigate = useNavigate();
   const { organizationId, isReady } = useOrganizationReady();
+  const permissions = usePermissions();
+  const canManageFunnels = permissions.role === "owner" || permissions.role === "admin";
   const queryClient = useQueryClient();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [showDialog, setShowDialog] = useState(false);
@@ -58,7 +61,7 @@ const FunnelBuilder = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!organizationId && isReady,
+    enabled: !!organizationId && isReady && !permissions.loading && canManageFunnels,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,
   });
@@ -174,10 +177,30 @@ const FunnelBuilder = () => {
   };
 
   // Tela de carregamento enquanto auth/org inicializa
-  if (!isReady) {
+  if (!isReady || permissions.loading) {
     return (
       <div className="flex items-center justify-center py-16">
         <LoadingAnimation text="Carregando..." />
+      </div>
+    );
+  }
+
+  if (!canManageFunnels) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Card className="max-w-md p-6 text-center space-y-4">
+          <Lock className="mx-auto h-10 w-10 text-muted-foreground" />
+          <div>
+            <h1 className="text-xl font-semibold">Acesso restrito</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Somente o dono da conta e administradores podem criar ou editar funis e etapas.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => navigate("/pipeline")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar ao funil de vendas
+          </Button>
+        </Card>
       </div>
     );
   }

@@ -5,7 +5,8 @@ import { TaskLeaderboard, LeaderboardData } from "@/components/dashboard/TaskLea
 import { AppointmentRaceTab } from "@/components/dashboard/AppointmentRaceTab";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Trophy, Settings2, TrendingUp, CheckSquare, Calendar } from "lucide-react";
+import { Trophy, Settings2, TrendingUp, CheckSquare, Calendar, Target, ShoppingBag, WalletCards } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { startOfMonth, startOfQuarter, startOfYear, endOfMonth, endOfQuarter, endOfYear, startOfWeek, endOfWeek } from "date-fns";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -18,6 +19,62 @@ import { RankingCompetitionBanner } from "@/components/dashboard/RankingCompetit
 type PeriodType = "week" | "month" | "quarter" | "year";
 type RankingType = "sales" | "tasks" | "appointments";
 type SortType = "revenue" | "won_leads" | "percentage" | "task_points";
+
+const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+}).format(value);
+
+function PersonalSalesPerformance({
+  data,
+  userId,
+  period,
+}: {
+  data: LeaderboardData[];
+  userId: string;
+  period: PeriodType;
+}) {
+  const sortedData = [...data].sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0));
+  const personalData = data.find((item) => item.user_id === userId);
+  const position = personalData ? sortedData.findIndex((item) => item.user_id === userId) + 1 : null;
+  const personalRevenue = personalData?.total_revenue || 0;
+  const personalSales = personalData?.won_leads || 0;
+  const personalName = personalData?.full_name || "Seu desempenho";
+  const periodLabel = { week: "esta semana", month: "este mês", quarter: "este trimestre", year: "este ano" }[period];
+
+  return (
+    <Card className="mb-4 border-primary/20 bg-primary/[0.03]">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Meu desempenho</p>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">{personalName}</h2>
+            <p className="text-sm text-muted-foreground">Resumo das suas vendas em {periodLabel}.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:min-w-[390px]">
+            <div className="rounded-md border border-border bg-background p-3">
+              <ShoppingBag className="mb-2 h-4 w-4 text-primary" />
+              <p className="text-lg font-bold text-foreground">{personalSales}</p>
+              <p className="text-xs text-muted-foreground">Vendas</p>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <WalletCards className="mb-2 h-4 w-4 text-emerald-600" />
+              <p className="truncate text-lg font-bold text-foreground">{formatCurrency(personalRevenue)}</p>
+              <p className="text-xs text-muted-foreground">Faturamento</p>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <Target className="mb-2 h-4 w-4 text-amber-600" />
+              <p className="text-lg font-bold text-foreground">{position || "-"}</p>
+              <p className="text-xs text-muted-foreground">Posição</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 const getDateRange = (periodType: PeriodType) => {
   const now = new Date();
@@ -177,6 +234,15 @@ export default function Ranking() {
   const [sortBy, setSortBy] = useState<SortType>("revenue");
   const queryClient = useQueryClient();
 
+  const {
+    competition,
+    isActive: competitionActive,
+    isRevealed: competitionRevealed,
+    revealCompetition,
+    isAdmin: competitionIsAdmin,
+    shouldFilterByTeam,
+  } = useRankingCompetition(organizationId);
+
   const { data: salesData = [], isLoading: salesLoading } = useQuery({
     queryKey: ['ranking-sales', organizationId, period],
     queryFn: () => fetchSalesData(organizationId!, period),
@@ -249,14 +315,6 @@ export default function Ranking() {
 
   // Ranking Competition
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const {
-    competition,
-    isActive: competitionActive,
-    isRevealed: competitionRevealed,
-    revealCompetition,
-    isAdmin: competitionIsAdmin,
-    shouldFilterByTeam,
-  } = useRankingCompetition(organizationId);
 
   // Get team member user IDs for current user (for competition filtering)
   const currentUserTeamMemberIds = useMemo(() => {
@@ -277,9 +335,12 @@ export default function Ranking() {
 
   // Filter data for competition hidden mode
   const filterData = useCallback((d: LeaderboardData[]) => {
+    if (competitionActive && !competitionRevealed && !competitionIsAdmin && user?.id) {
+      return d.filter(item => item.user_id === user.id);
+    }
     if (!shouldFilterByTeam || !currentUserTeamMemberIds) return d;
     return d.filter(item => currentUserTeamMemberIds.has(item.user_id));
-  }, [shouldFilterByTeam, currentUserTeamMemberIds]);
+  }, [competitionActive, competitionRevealed, competitionIsAdmin, user?.id, shouldFilterByTeam, currentUserTeamMemberIds]);
 
   const data = rankingType === 'sales' ? salesData : tasksData;
   const isLoading = rankingType === 'sales' ? salesLoading : tasksLoading;
@@ -399,6 +460,9 @@ export default function Ranking() {
           </TabsContent>
 
           <TabsContent value="sales" className="mt-0">
+            {user?.id && (
+              <PersonalSalesPerformance data={salesData} userId={user.id} period={period} />
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">

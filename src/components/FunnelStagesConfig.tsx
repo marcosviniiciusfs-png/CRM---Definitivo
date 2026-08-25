@@ -33,6 +33,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { StageAutomationConfig } from "./StageAutomationConfig";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Stage {
   id: string;
@@ -126,11 +127,13 @@ const SortableStageItem = ({
 };
 
 export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
+  const queryClient = useQueryClient();
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [showAutomation, setShowAutomation] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Form state
   const [name, setName] = useState("");
@@ -260,25 +263,39 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     const oldIndex = stages.findIndex((s) => s.id === active.id);
     const newIndex = stages.findIndex((s) => s.id === over.id);
 
-    const newStages = arrayMove(stages, oldIndex, newIndex);
+    const reorderedStages = arrayMove(stages, oldIndex, newIndex);
+    // The editor always renders final stages at the end. Persist that same
+    // canonical order so the Pipeline never receives duplicate/tied positions.
+    const newStages = [
+      ...reorderedStages.filter((stage) => !stage.is_final),
+      ...reorderedStages.filter((stage) => stage.is_final),
+    ];
     setStages(newStages);
 
     // Atualizar posições no banco
     try {
       const updates = newStages
-        .filter((s) => !s.is_final)
         .map((stage, index) => ({
           id: stage.id,
           position: index,
         }));
 
-      for (const update of updates) {
-        await supabase
+      const results = await Promise.all(updates.map((update) =>
+        supabase
           .from("funnel_stages")
           .update({ position: update.position })
-          .eq("id", update.id);
+          .eq("id", update.id)
+          .eq("funnel_id", funnelId)
+          .select("id")
+          .maybeSingle()
+      ));
+
+      const failedUpdate = results.find(({ data, error }) => error || !data);
+      if (failedUpdate) {
+        throw failedUpdate.error || new Error("Uma ou mais etapas nao foram reordenadas");
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["pipeline-funnels"] });
       toast.success("Ordem atualizada!");
     } catch (error) {
       console.error("Erro ao atualizar ordem:", error);
@@ -299,46 +316,69 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       return;
     }
 
+    setSaving(true);
     try {
+      const isFinalStage = editingStage?.is_final ?? false;
       const stageData = {
         funnel_id: funnelId,
-        name,
+        name: name.trim(),
         description: description || null,
         color,
         icon: null,
-        stage_type: stageType,
+        // Preserve the structural semantics of won/lost stages while editing.
+        stage_type: isFinalStage ? editingStage!.stage_type : stageType,
         stage_config: stageConfig,
         default_value: defaultValue ? parseFloat(defaultValue) : null,
         max_days_in_stage: maxDays ? parseInt(maxDays) : null,
         required_fields: requiredFields
           ? requiredFields.split(",").map((f) => f.trim())
           : [],
-        is_final: false,
+        is_final: isFinalStage,
       };
 
       if (editingStage) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("funnel_stages")
           .update(stageData)
-          .eq("id", editingStage.id);
+          .eq("id", editingStage.id)
+          .eq("funnel_id", funnelId)
+          .select("id")
+          .maybeSingle();
 
         if (error) throw error;
+        if (!data) throw new Error("Etapa nao atualizada: permissao insuficiente ou registro inexistente");
         toast.success("Etapa atualizada!");
       } else {
-        const { error } = await supabase.from("funnel_stages").insert({
-          ...stageData,
-          position: customStagesCount,
-        });
+        const { data, error } = await supabase
+          .from("funnel_stages")
+          .insert({
+            ...stageData,
+            position: customStagesCount,
+          })
+          .select("id")
+          .single();
 
         if (error) throw error;
+        if (!data) throw new Error("Etapa nao criada");
         toast.success("Etapa criada! Configure mais ou vá para Origens.");
       }
 
       resetForm();
-      loadStages();
+      await Promise.all([
+        loadStages(),
+        queryClient.invalidateQueries({ queryKey: ["pipeline-funnels"] }),
+      ]);
     } catch (error) {
       console.error("Erro ao salvar etapa:", error);
-      toast.error("Erro ao salvar etapa");
+      const isPermissionError =
+        typeof error === "object" && error !== null &&
+        (("code" in error && error.code === "42501") ||
+          ("message" in error && String(error.message).toLowerCase().includes("permiss")));
+      toast.error(isPermissionError
+        ? "VocÃª nÃ£o tem permissÃ£o para alterar as etapas deste funil"
+        : "Erro ao salvar etapa");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -351,7 +391,10 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
       if (error) throw error;
       toast.success("Etapa excluída!");
-      loadStages();
+      await Promise.all([
+        loadStages(),
+        queryClient.invalidateQueries({ queryKey: ["pipeline-funnels"] }),
+      ]);
     } catch (error) {
       console.error("Erro ao excluir etapa:", error);
       toast.error("Erro ao excluir etapa");
@@ -619,8 +662,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
             <Button variant="outline" onClick={resetForm}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
-              {editingStage ? "Atualizar" : "Adicionar"}
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : editingStage ? "Atualizar" : "Adicionar"}
             </Button>
           </div>
         </Card>
