@@ -253,7 +253,7 @@ const calculateBasePermissions = (role: 'owner' | 'admin' | 'member' | null): Pa
     canCreateRoulettes: isOwnerOrAdmin,
     canDeleteRoulettes: isOwner,
     canManualDistribute: isOwnerOrAdmin,
-    canViewAllLeads: isOwner,
+    canViewAllLeads: isOwnerOrAdmin,
     canViewTeamLeads: isOwnerOrAdmin,
     canAssignLeads: isOwnerOrAdmin,
     canDeleteLeads: isOwnerOrAdmin,
@@ -277,13 +277,13 @@ const calculatePermissions = (
   const basePerms = calculateBasePermissions(role);
   const isOwnerOrAdmin = role === 'owner' || role === 'admin';
 
-  // Owners and Admins keep their base privileges. Admins may also have a
-  // custom role, whose lead visibility must be honored consistently with RLS.
+  // Owners and admins keep their base privileges, including organization-wide
+  // lead visibility. Custom roles only add metadata/granular permissions here.
   if (isOwnerOrAdmin) {
     return {
       ...defaultPermissions,
       ...basePerms,
-      canViewAllLeads: role === 'owner' || customRolePerms?.can_view_all_leads === true,
+      canViewAllLeads: true,
       canViewKanban: true,
       canCreateTasks: true,
       canEditOwnTasks: true,
