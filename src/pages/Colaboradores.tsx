@@ -320,7 +320,17 @@ const Colaboradores = () => {
       });
 
       if (error) {
-        toast({ title: "Erro ao adicionar colaborador", description: error.message || "Não foi possível adicionar o colaborador. Tente novamente.", variant: "destructive" });
+        let description = error.message || "Não foi possível adicionar o colaborador. Tente novamente.";
+        const response = (error as { context?: Response }).context;
+        if (response) {
+          try {
+            const payload = await response.clone().json();
+            description = payload?.error || payload?.details || description;
+          } catch {
+            // Mantém a mensagem padrão se a Edge Function não retornar JSON.
+          }
+        }
+        toast({ title: "Erro ao adicionar colaborador", description, variant: "destructive" });
         setIsMutating(false);
         return;
       }
