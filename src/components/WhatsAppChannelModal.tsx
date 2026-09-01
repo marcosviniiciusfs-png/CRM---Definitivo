@@ -120,7 +120,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   }, []);
 
   const loadChannelGroups = useCallback(async (channel: WhatsAppChannel) => {
-    if (!channel.instance_name) return;
+    if (!channel.instance_name || !isConnected(channel.status)) return;
     setGroupsLoading((current) => ({ ...current, [channel.id]: true }));
 
     try {
@@ -188,7 +188,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       return;
     }
     channels.forEach((channel) => {
-      if (!channel.instance_name || requestedGroupsRef.current.has(channel.id)) return;
+      if (!channel.instance_name || !isConnected(channel.status) || requestedGroupsRef.current.has(channel.id)) return;
       requestedGroupsRef.current.add(channel.id);
       void loadChannelGroups(channel);
     });
@@ -559,7 +559,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                                   ? "Verificando conexão..."
                                   : isConnected(channel.status)
                                     ? "Envia os dados do novo lead para um grupo."
-                                    : "Você ainda pode ajustar o grupo e as origens dos avisos."}
+                                    : "A sessão foi encerrada. Reconecte o WhatsApp para carregar os grupos."}
                               </p>
                             </div>
                             <Switch
@@ -572,7 +572,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
 
                           <Select
                             value={alertGroupDrafts[channel.id] || channel.lead_alert_group_id || ""}
-                            disabled={!canManage || groupsLoading[channel.id]}
+                            disabled={!canManage || !isConnected(channel.status) || groupsLoading[channel.id]}
                             onValueChange={(value) => {
                               setAlertGroupDrafts((current) => ({ ...current, [channel.id]: value }));
                               if (channel.lead_alerts_enabled) void handleLeadAlertToggle(channel, true, value);
@@ -661,7 +661,9 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
               disabled={remaining <= 0 || !canManage}
               onClick={() => setShowConnect(true)}
             >
-              + Conectar novo canal {remaining > 0 ? `(${remaining} restante${remaining !== 1 ? "s" : ""})` : "(limite atingido)"}
+              {connectedCount === 0 && channels.length > 0
+                ? "Reconectar WhatsApp"
+                : `+ Conectar novo canal ${remaining > 0 ? `(${remaining} restante${remaining !== 1 ? "s" : ""})` : "(limite atingido)"}`}
             </Button>
           )}
         </div>
