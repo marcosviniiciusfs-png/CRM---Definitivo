@@ -105,8 +105,10 @@ export const PipelineColumn = memo(({
               const responsavelProfile = lead.responsavel_user_id
                 ? profilesMap[lead.responsavel_user_id]
                 : undefined;
-              // Fallback: se o perfil não foi carregado mas o campo texto existe, usa ele
-              const responsavelName = responsavelProfile?.full_name || (lead as any).responsavel || undefined;
+              // O UUID é a fonte de verdade; o texto legado pode estar desatualizado.
+              const responsavelName = lead.responsavel_user_id
+                ? (responsavelProfile?.full_name || 'Responsável não identificado')
+                : 'Sem responsável';
               const responsavelAvatarUrl = responsavelProfile?.avatar_url || undefined;
               return (
                 <SortableLeadCard

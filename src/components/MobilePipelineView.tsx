@@ -171,7 +171,9 @@ export function MobilePipelineView({
                   onEdit={() => onEdit(lead)}
                   onDelete={() => onDelete(lead)}
                   onMoveRequest={() => setMoveSheetLead(lead)}
-                  responsavelName={profile?.full_name || (lead as any).responsavel}
+                  responsavelName={lead.responsavel_user_id
+                    ? (profile?.full_name || 'Responsável não identificado')
+                    : 'Sem responsável'}
                   responsavelAvatarUrl={profile?.avatar_url}
                   tags={leadTagsMap[lead.id] || []}
                   isDuplicate={duplicateLeadIds.has(lead.id)}

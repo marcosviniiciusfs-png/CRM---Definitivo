@@ -105,6 +105,11 @@ const Pipeline = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
   const queryClient = useQueryClient();
   const permissions = usePermissions();
+  // Owner/admin visibility is a base-role guarantee. Do not let a transient
+  // granular-permission state restrict the first Pipeline request.
+  const canViewOrganizationLeads = permissions.role === 'owner'
+    || permissions.role === 'admin'
+    || permissions.canViewAllLeads;
   const { toast: toastUI } = useToast();
   const isMobile = useIsMobile();
   const toggleNoShow = useToggleNoShow();
@@ -169,6 +174,10 @@ const Pipeline = () => {
   const [permissionsFunnelId, setPermissionsFunnelId] = useState<string | null>(null);
   // Mapa user_id -> { full_name, avatar_url } para exibir no card
   const [profilesMap, setProfilesMap] = useState<Record<string, { full_name: string; avatar_url: string | null }>>({});
+  const getResponsibleLabel = useCallback((lead: Lead) => {
+    if (!lead.responsavel_user_id) return 'Sem responsável';
+    return profilesMap[lead.responsavel_user_id]?.full_name || 'Responsável não identificado';
+  }, [profilesMap]);
   // Mapa leadId -> { reuniao, venda } para ícones de agendamento nos cards
   const [agendamentosMap, setAgendamentosMap] = useState<Record<string, { reuniao?: string | null; venda?: string | null }>>({});
   // Mapa leadId -> { fromName, minutes } para badge de redistribuição nos cards
@@ -334,13 +343,13 @@ const Pipeline = () => {
   useEffect(() => { orgIdRef.current = organizationId; }, [organizationId]);
   useEffect(() => { pauseRealtimeRef.current = pauseRealtime; }, [pauseRealtime]);
   // Sincronizar refs de segurança com permissões e userId atuais
-  useEffect(() => { canViewAllLeadsRef.current = permissions.canViewAllLeads; }, [permissions.canViewAllLeads]);
+  useEffect(() => { canViewAllLeadsRef.current = canViewOrganizationLeads; }, [canViewOrganizationLeads]);
   useEffect(() => { currentUserIdRef.current = user?.id; }, [user?.id]);
   useEffect(() => { teamMemberIdsRef.current = teamMemberIds; }, [teamMemberIds]);
 
   // Buscar IDs dos membros da equipe quando canViewTeamLeads está ativo
   useEffect(() => {
-    if (!user?.id || !organizationId || !permissions.canViewTeamLeads || permissions.canViewAllLeads) {
+    if (!user?.id || !organizationId || !permissions.canViewTeamLeads || canViewOrganizationLeads) {
       setTeamMemberIds([]);
       return;
     }
@@ -371,7 +380,7 @@ const Pipeline = () => {
       }
     };
     fetchTeamMembers();
-  }, [user?.id, organizationId, permissions.canViewTeamLeads, permissions.canViewAllLeads]);
+  }, [user?.id, organizationId, permissions.canViewTeamLeads, canViewOrganizationLeads]);
 
   // Inicialização de áudio e subscrição a novos leads
   useEffect(() => {
@@ -622,7 +631,7 @@ const Pipeline = () => {
     return () => {
       isMounted = false;
     };
-  }, [selectedFunnelId, user?.id, organizationId, isReady, permissions.canViewAllLeads, permissions.canViewTeamLeads, permissions.loading, teamMemberIds]);
+  }, [selectedFunnelId, user?.id, organizationId, isReady, canViewOrganizationLeads, permissions.canViewTeamLeads, permissions.loading, teamMemberIds]);
 
   const handleExportCSV = () => {
     import("xlsx").then((XLSX) => {
@@ -630,7 +639,7 @@ const Pipeline = () => {
         "Nome": lead.nome_lead || "",
         "Email": (lead as any).email || "",
         "Telefone": lead.telefone_lead || "",
-        "Responsável": lead.responsavel || "",
+        "Responsável": getResponsibleLabel(lead),
         "Etapa": lead.stage || "NOVO",
         "Origem": lead.source || "",
         "Valor (R$)": lead.valor ? parseFloat(String(lead.valor)) : 0,
@@ -693,7 +702,7 @@ const Pipeline = () => {
 
   // Cache de leads com React Query (2 min)
   const pipelineCacheKey = ['pipeline-leads', organizationId, user?.id,
-    selectedFunnelId, permissions.canViewAllLeads, responsibleFilter];
+    selectedFunnelId, canViewOrganizationLeads, responsibleFilter];
 
   const { data: cachedLeadsResult, isFetching: isFetchingLeads } = useQuery({
     queryKey: pipelineCacheKey,
@@ -714,7 +723,7 @@ const Pipeline = () => {
       // Filtros base comuns a todas as queries
       const applyBaseFilters = (q: any) => {
         q = q.eq('organization_id', organizationId);
-        if (!permissions.canViewAllLeads && user?.id) {
+        if (!canViewOrganizationLeads && user?.id) {
           if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
             q = q.in('responsavel_user_id', teamMemberIds);
           } else {
@@ -743,7 +752,7 @@ const Pipeline = () => {
       };
       if (responsibleFilter !== 'all') {
         rpcParams.p_responsavel_user_id = responsibleFilter;
-      } else if (!permissions.canViewAllLeads && user?.id) {
+      } else if (!canViewOrganizationLeads && user?.id) {
         if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
           rpcParams.p_responsavel_user_ids = teamMemberIds;
         } else {
@@ -872,7 +881,7 @@ const Pipeline = () => {
         .eq('organization_id', organizationId);
 
       // Aplicar filtro de permissão
-      if (!permissions.canViewAllLeads && user?.id) {
+      if (!canViewOrganizationLeads && user?.id) {
         if (permissions.canViewTeamLeads && teamMemberIds.length > 0) {
           query = query.in('responsavel_user_id', teamMemberIds);
         } else {
@@ -1137,7 +1146,7 @@ const Pipeline = () => {
         lead.email?.toLowerCase().includes(term) ||
         lead.telefone_lead?.toLowerCase().includes(term) ||
         lead.source?.toLowerCase().includes(term) ||
-        lead.responsavel?.toLowerCase().includes(term)
+        getResponsibleLabel(lead).toLowerCase().includes(term)
       );
     }
 
@@ -1167,7 +1176,7 @@ const Pipeline = () => {
     }
 
     return result;
-  }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange]);
+  }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange, getResponsibleLabel]);
 
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
@@ -1948,7 +1957,7 @@ const Pipeline = () => {
                         <Upload className="h-4 w-4 mr-2" />
                         Exportar
                       </DropdownMenuItem>
-                      {permissions.canViewAllLeads && (
+                      {canViewOrganizationLeads && (
                         <DropdownMenuItem onClick={() => setShowImportModal(true)}>
                           <Download className="h-4 w-4 mr-2" />
                           Importar
@@ -1980,7 +1989,7 @@ const Pipeline = () => {
                     <Upload className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Exportar</span>
                   </Button>
-                  {permissions.canViewAllLeads && (
+                  {canViewOrganizationLeads && (
                     <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
                       <Download className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Importar</span>
@@ -2241,11 +2250,11 @@ const Pipeline = () => {
                               {lead.source}
                             </span>
                           )}
-                          {(responsible?.full_name || lead.responsavel) && (
-                            <span className="text-[10px] text-muted-foreground truncate">
-                              {responsible?.full_name || lead.responsavel}
-                            </span>
-                          )}
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {lead.responsavel_user_id
+                              ? (responsible?.full_name || 'Responsável não identificado')
+                              : 'Sem responsável'}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -2408,7 +2417,9 @@ const Pipeline = () => {
                       </span>
                       <span className="w-[100px] truncate text-muted-foreground">{lead.source || "-"}</span>
                       <span className="w-[120px] truncate text-muted-foreground">
-                        {responsible?.full_name || lead.responsavel || "-"}
+                        {lead.responsavel_user_id
+                          ? (responsible?.full_name || 'Responsável não identificado')
+                          : 'Sem responsável'}
                       </span>
                       <span className="flex-1 text-muted-foreground">
                         {new Date(lead.created_at).toLocaleDateString('pt-BR')}
