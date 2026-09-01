@@ -134,10 +134,11 @@ function WhatsAppCard({
 }) {
   const [hov, setHov] = useState(false);
   const isConnected = connectedCount > 0;
+  const isConfigured = instanceCount > 0;
 
   return (
     <div
-      onClick={isConnected && canManage ? onManage : undefined}
+      onClick={isConfigured && canManage ? onManage : undefined}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       className={`min-h-[190px] rounded-[5px] border flex flex-col p-4 pb-3.5 transition-all ${
@@ -161,7 +162,7 @@ function WhatsAppCard({
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <span className={`w-[7px] h-[7px] rounded-full ${isConnected ? "bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" : "bg-muted-foreground/30"}`}/>
           <span className={`text-[11px] font-medium ${isConnected ? "text-success" : "text-muted-foreground"}`}>
-            {isConnected ? "Online" : "Offline"}
+            {isConnected ? "Online" : isConfigured ? "Configurado" : "Offline"}
           </span>
         </div>
       </div>
@@ -178,6 +179,19 @@ function WhatsAppCard({
               <span className="w-[7px] h-[7px] rounded-full bg-success shadow-[0_0_6px_rgba(46,204,113,.5)]" />
               <span className="text-[12px] font-semibold text-[#25D366]">{connectedCount} ativo{connectedCount !== 1 ? "s" : ""}</span>
             </div>
+          </div>
+        </div>
+      ) : isConfigured ? (
+        <div className="flex-1 flex flex-col justify-between">
+          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+            {instanceCount} {instanceCount === 1 ? "canal configurado" : "canais configurados"}. Abra o painel para conferir a conexão e ajustar os avisos.
+          </p>
+          <div className="flex justify-end">
+            <button
+              onClick={canManage ? onManage : undefined}
+              disabled={!canManage}
+              className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] border border-[#25D366]/35 text-[#128C7E] transition-all hover:bg-[#25D366]/10 disabled:opacity-45 disabled:cursor-not-allowed"
+            >Gerenciar WhatsApp</button>
           </div>
         </div>
       ) : (

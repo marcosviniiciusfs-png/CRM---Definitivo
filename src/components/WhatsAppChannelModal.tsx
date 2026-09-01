@@ -18,6 +18,21 @@ const ALERT_SOURCES = [
 ] as const;
 const DEFAULT_ALERT_SOURCES = ALERT_SOURCES.map(({ value }) => value);
 type AlertSource = (typeof ALERT_SOURCES)[number]["value"];
+const LIVE_CHECK_TIMEOUT_MS = 12_000;
+
+const withTimeout = async <T,>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Tempo limite da consulta excedido")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
 
 interface WhatsAppGroupOption {
   id: string;
@@ -105,33 +120,37 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   }, []);
 
   const loadChannelGroups = useCallback(async (channel: WhatsAppChannel) => {
-    if (!channel.instance_name || !isConnected(channel.status)) return;
+    if (!channel.instance_name) return;
     setGroupsLoading((current) => ({ ...current, [channel.id]: true }));
 
-    const { data, error } = await supabase.functions.invoke("get-contact-groups", {
-      body: { instance_name: channel.instance_name },
-    });
+    try {
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke("get-contact-groups", {
+          body: { instance_name: channel.instance_name },
+        }),
+        LIVE_CHECK_TIMEOUT_MS,
+      );
+      if (error || data?.success === false) throw new Error(data?.error || error?.message);
 
-    setGroupsLoading((current) => ({ ...current, [channel.id]: false }));
-    if (error || data?.success === false) {
+      const rawGroups: EvolutionGroupResult[] = Array.isArray(data?.groups) ? data.groups : [];
+      const groups = rawGroups
+        .map((group) => ({
+          id: String(group.id || ""),
+          subject: String(group.subject || group.id || "Grupo sem nome"),
+          size: typeof group.size === "number" ? group.size : undefined,
+        }))
+        .filter((group: WhatsAppGroupOption) => group.id.endsWith("@g.us"));
+
+      setGroupsByChannel((current) => ({ ...current, [channel.id]: groups }));
+    } catch (error: unknown) {
       toast({
         title: "Erro ao carregar grupos",
-        description: data?.error || error?.message || "Não foi possível listar os grupos deste canal.",
+        description: error instanceof Error ? error.message : "Não foi possível listar os grupos deste canal.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setGroupsLoading((current) => ({ ...current, [channel.id]: false }));
     }
-
-    const rawGroups: EvolutionGroupResult[] = Array.isArray(data?.groups) ? data.groups : [];
-    const groups = rawGroups
-      .map((group) => ({
-        id: String(group.id || ""),
-        subject: String(group.subject || group.id || "Grupo sem nome"),
-        size: typeof group.size === "number" ? group.size : undefined,
-      }))
-      .filter((group: WhatsAppGroupOption) => group.id.endsWith("@g.us"));
-
-    setGroupsByChannel((current) => ({ ...current, [channel.id]: groups }));
   }, [toast]);
 
   useEffect(() => {
@@ -169,7 +188,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       return;
     }
     channels.forEach((channel) => {
-      if (!isConnected(channel.status) || requestedGroupsRef.current.has(channel.id)) return;
+      if (!channel.instance_name || requestedGroupsRef.current.has(channel.id)) return;
       requestedGroupsRef.current.add(channel.id);
       void loadChannelGroups(channel);
     });
@@ -200,9 +219,12 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     (async () => {
       await Promise.allSettled(
         unchecked.map((channel) =>
-          supabase.functions.invoke("check-whatsapp-status", {
-            body: { instance_name: channel.instance_name },
-          })
+          withTimeout(
+            supabase.functions.invoke("check-whatsapp-status", {
+              body: { instance_name: channel.instance_name },
+            }),
+            LIVE_CHECK_TIMEOUT_MS,
+          )
         )
       );
       if (!cancelled) {
@@ -515,7 +537,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                               {statusChecking[channel.id]
                                 ? "Verificando conexão..."
                                 : !isConnected(channel.status)
-                                  ? "Reconecte o canal para alterar esta configuração"
+                                  ? "Status não confirmado; configuração disponível"
                                   : channel.accepts_leads !== false
                                     ? "Recebe novos contatos como leads"
                                     : "Somente conversas existentes"}
@@ -523,7 +545,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                           </div>
                           <Switch
                             checked={channel.accepts_leads !== false}
-                            disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || leadCaptureSaving === channel.id}
+                            disabled={!canManage || leadCaptureSaving === channel.id}
                             onCheckedChange={(checked) => handleLeadCaptureToggle(channel.id, checked)}
                             aria-label={`Definir ${channel.phone_number || channel.instance_name} como número criador de leads`}
                           />
@@ -537,12 +559,12 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                                   ? "Verificando conexão..."
                                   : isConnected(channel.status)
                                     ? "Envia os dados do novo lead para um grupo."
-                                    : "Reconecte o canal para selecionar um grupo e ativar avisos."}
+                                    : "Você ainda pode ajustar o grupo e as origens dos avisos."}
                               </p>
                             </div>
                             <Switch
                               checked={channel.lead_alerts_enabled === true}
-                              disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || alertSaving === channel.id}
+                              disabled={!canManage || alertSaving === channel.id}
                               onCheckedChange={(checked) => handleLeadAlertToggle(channel, checked)}
                               aria-label="Ativar avisos de novos leads no grupo"
                             />
@@ -550,7 +572,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
 
                           <Select
                             value={alertGroupDrafts[channel.id] || channel.lead_alert_group_id || ""}
-                            disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || groupsLoading[channel.id]}
+                            disabled={!canManage || groupsLoading[channel.id]}
                             onValueChange={(value) => {
                               setAlertGroupDrafts((current) => ({ ...current, [channel.id]: value }));
                               if (channel.lead_alerts_enabled) void handleLeadAlertToggle(channel, true, value);
@@ -578,7 +600,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                                   size="sm"
                                   variant={selected ? "default" : "outline"}
                                   className="h-7 px-2 text-[10px]"
-                                  disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || alertSaving === channel.id}
+                                  disabled={!canManage || alertSaving === channel.id}
                                   onClick={() => handleAlertSourceToggle(channel, source.value)}
                                 >
                                   {source.label}
