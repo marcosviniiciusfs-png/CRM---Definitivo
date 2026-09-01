@@ -1,0 +1,22 @@
+services:
+  # Docker-published ports can bypass host-level UFW rules. Database access is
+  # intentionally available only through docker exec or an explicit SSH tunnel.
+  supavisor:
+    ports: !reset []
+
+  functions:
+    env_file:
+      - ./functions.env
+    volumes:
+      - ./runtime/main/index.ts:/home/deno/functions/main/index.ts:ro,z
+
+  auth:
+    environment:
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOOGLE_ENABLED:-false}
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GOOGLE_SECRET:-}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: ${API_EXTERNAL_URL}/callback
+
+  db:
+    volumes:
+      - ./volumes/db/99-crm.conf:/etc/postgresql-custom/conf.d/99-crm.conf:ro,z

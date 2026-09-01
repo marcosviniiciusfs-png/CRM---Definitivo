@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
 import { selectByPercentage } from "../_shared/weighted-distribution.ts";
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from "../_shared/organization-auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +32,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
+
+    await requireOrganizationMember(req, supabase, organization_id, ['owner', 'admin']);
 
     console.log(`🔄 [redistribute-lost] Iniciando para org: ${organization_id}`);
 
@@ -295,6 +301,8 @@ serve(async (req) => {
     );
 
   } catch (err: any) {
+    const authResponse = authorizationErrorResponse(err, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('❌ Erro em redistribute-lost-leads:', err);
     return new Response(
       JSON.stringify({ success: false, error: err.message }),

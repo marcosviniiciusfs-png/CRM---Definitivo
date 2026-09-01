@@ -177,16 +177,25 @@ Deno.serve(async (req) => {
                 });
             }
 
-            // Remove team memberships first
-            await adminClient
-                .from("team_members")
-                .delete()
-                .eq("user_id", user_id)
-                .in("team_id", adminClient
-                    .from("teams")
-                    .select("id")
-                    .eq("organization_id", organization_id)
-                );
+            // Remove team memberships first. PostgREST's .in() accepts values,
+            // not a nested query builder, so resolve this organization's IDs.
+            const { data: organizationTeams, error: teamsError } = await adminClient
+                .from("teams")
+                .select("id")
+                .eq("organization_id", organization_id);
+
+            if (teamsError) throw teamsError;
+
+            const teamIds = (organizationTeams ?? []).map((team) => team.id);
+            if (teamIds.length > 0) {
+                const { error: teamMembersError } = await adminClient
+                    .from("team_members")
+                    .delete()
+                    .eq("user_id", user_id)
+                    .in("team_id", teamIds);
+
+                if (teamMembersError) throw teamMembersError;
+            }
 
             // Remove from organization
             const { error } = await adminClient

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { withSupabasePublicOrigin } from "../_shared/supabase-urls.ts";
 import {
   getEvolutionApiUrl,
   getEvolutionApiKey,
@@ -245,7 +246,7 @@ serve(async (req) => {
           .upload(filePath, bytes, { contentType: actualMime.split(";")[0].trim(), upsert: true });
         if (!upErr) {
           const { data: pub } = supabase.storage.from("chat-media").getPublicUrl(filePath);
-          storageUrl = pub.publicUrl;
+          storageUrl = withSupabasePublicOrigin(pub.publicUrl);
         }
       } catch (uploadErr) {
         console.warn("⚠️ Falha upload audio PTT grupo:", uploadErr);
@@ -348,7 +349,7 @@ serve(async (req) => {
         .upload(filePath, bytes, { contentType: finalMime, upsert: false });
       if (!upErr) {
         const { data: pub } = supabase.storage.from("chat-media").getPublicUrl(filePath);
-        storageUrl = pub.publicUrl;
+        storageUrl = withSupabasePublicOrigin(pub.publicUrl);
       }
     } catch (uploadErr) {
       console.warn("⚠️ Falha upload midia grupo:", uploadErr);

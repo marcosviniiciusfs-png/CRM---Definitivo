@@ -93,10 +93,9 @@ serve(async (req) => {
       // Passo 1: limpar liderança em equipes (set leader_id = NULL)
       const { count: leaderCount, error: leaderErr } = await adminClient
         .from("teams")
-        .update({ leader_id: null })
+        .update({ leader_id: null }, { count: "exact" })
         .eq("leader_id", targetUserId)
-        .eq("organization_id", organization_id)
-        .select("*", { count: "exact", head: true });
+        .eq("organization_id", organization_id);
       if (leaderErr) throw new Error(`Step 1 (teams.leader_id): ${leaderErr.message}`);
       summary.teams_as_leader_cleared = leaderCount ?? 0;
 
@@ -158,7 +157,10 @@ serve(async (req) => {
       // Filtro: funnel_stage_id IS NULL OR NOT IN (won/lost) — 3VL-safe via .or()
       let activeQuery = adminClient
         .from("leads")
-        .update({ responsavel_user_id: null, responsavel: null })
+        .update(
+          { responsavel_user_id: null, responsavel: null },
+          { count: "exact" }
+        )
         .eq("organization_id", organization_id)
         .eq("responsavel_user_id", targetUserId);
       if (closedStageIds.length > 0) {
@@ -166,8 +168,7 @@ serve(async (req) => {
           `funnel_stage_id.is.null,funnel_stage_id.not.in.(${closedStageIds.join(",")})`
         );
       }
-      const { count: activeCount, error: activeErr } = await activeQuery
-        .select("*", { count: "exact", head: true });
+      const { count: activeCount, error: activeErr } = await activeQuery;
       if (activeErr) throw new Error(`Step 4b (active leads): ${activeErr.message}`);
       summary.active_leads_unassigned = activeCount ?? 0;
 
@@ -175,11 +176,10 @@ serve(async (req) => {
       if (closedStageIds.length > 0) {
         const { count: closedCount, error: closedErr } = await adminClient
           .from("leads")
-          .update({ responsavel_user_id: null })
+          .update({ responsavel_user_id: null }, { count: "exact" })
           .eq("organization_id", organization_id)
           .eq("responsavel_user_id", targetUserId)
-          .in("funnel_stage_id", closedStageIds)
-          .select("*", { count: "exact", head: true });
+          .in("funnel_stage_id", closedStageIds);
         if (closedErr) throw new Error(`Step 4c (closed leads): ${closedErr.message}`);
         summary.closed_leads_preserved = closedCount ?? 0;
       }

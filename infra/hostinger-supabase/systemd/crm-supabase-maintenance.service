@@ -1,0 +1,21 @@
+[Unit]
+Description=CRM Supabase backup and weekly restic maintenance
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=@SCRIPT_DIR@/09-backup.sh --maintenance
+TimeoutStartSec=12h
+RuntimeDirectory=crm-supabase-maintenance
+Environment=DOCKER_CONFIG=/run/crm-supabase-maintenance
+Nice=15
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=full

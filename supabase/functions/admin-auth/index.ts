@@ -9,7 +9,10 @@ const corsHeaders = {
 
 // Segredo para assinar JWTs admin (deve ser configurado como secret no Supabase)
 async function getAdminSecret(): Promise<CryptoKey> {
-  const secret = Deno.env.get("ADMIN_JWT_SECRET") || "kairoz-admin-secret-key-2026-change-me";
+  const secret = Deno.env.get("ADMIN_JWT_SECRET");
+  if (!secret || new TextEncoder().encode(secret).length < 32) {
+    throw new Error("ADMIN_JWT_SECRET must contain at least 32 bytes");
+  }
   const encoder = new TextEncoder();
   return await crypto.subtle.importKey(
     "raw",

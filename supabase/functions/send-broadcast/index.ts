@@ -1,12 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
-  getEvolutionApiUrl,
-  getEvolutionApiKey,
-  normalizeUrl,
   createSupabaseAdmin,
   formatPhoneToJid,
+  getEvolutionApiKey,
+  getEvolutionApiUrl,
+  normalizeUrl,
 } from "../_shared/evolution-config.ts";
+import {
+  authorizationErrorResponse,
+  isInternalServiceRoleRequest,
+  RequestAuthorizationError,
+  requireOrganizationMember,
+} from "../_shared/organization-auth.ts";
 
 interface SendBroadcastRequest {
   broadcast_id: string;
@@ -19,12 +25,19 @@ serve(async (req) => {
   }
 
   try {
-    const { broadcast_id, batch_size = 50 }: SendBroadcastRequest = await req.json();
+    const { broadcast_id, batch_size = 50 }: SendBroadcastRequest = await req
+      .json();
+    const normalizedBatchSize = Number.isInteger(batch_size)
+      ? Math.min(Math.max(batch_size, 1), 50)
+      : 50;
 
     if (!broadcast_id) {
       return new Response(
         JSON.stringify({ success: false, error: "broadcast_id é obrigatório" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        },
       );
     }
 
@@ -33,21 +46,51 @@ serve(async (req) => {
     // Fetch broadcast
     const { data: broadcast, error: broadcastError } = await supabase
       .from("broadcasts")
-      .select("id, organization_id, message_text, delay_seconds, status, sent_count, error_count")
+      .select(
+        "id, organization_id, created_by, message_text, delay_seconds, status, sent_count, error_count",
+      )
       .eq("id", broadcast_id)
       .maybeSingle();
 
     if (broadcastError || !broadcast) {
       return new Response(
         JSON.stringify({ success: false, error: "Transmissão não encontrada" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
       );
+    }
+
+    if (!isInternalServiceRoleRequest(req)) {
+      const { user, membership } = await requireOrganizationMember(
+        req,
+        supabase,
+        broadcast.organization_id,
+        ["owner", "admin", "member"],
+      );
+      const canSend = broadcast.created_by === user.id ||
+        membership.role === "owner" || membership.role === "admin";
+      if (!canSend) {
+        throw new RequestAuthorizationError(
+          403,
+          "Apenas o criador da transmissao ou um administrador pode envia-la",
+        );
+      }
     }
 
     if (broadcast.status === "cancelled" || broadcast.status === "completed") {
       return new Response(
-        JSON.stringify({ success: false, error: `Transmissão já ${broadcast.status === 'cancelled' ? 'cancelada' : 'concluída'}` }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        JSON.stringify({
+          success: false,
+          error: `Transmissão já ${
+            broadcast.status === "cancelled" ? "cancelada" : "concluída"
+          }`,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
       );
     }
 
@@ -66,8 +109,14 @@ serve(async (req) => {
 
     if (instanceError || !instance) {
       return new Response(
-        JSON.stringify({ success: false, error: "Nenhuma instância WhatsApp conectada" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        JSON.stringify({
+          success: false,
+          error: "Nenhuma instância WhatsApp conectada",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
       );
     }
 
@@ -80,7 +129,10 @@ serve(async (req) => {
     } catch (configError: any) {
       return new Response(
         JSON.stringify({ success: false, error: configError.message }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
       );
     }
     const cleanBaseUrl = normalizeUrl(evolutionApiUrl);
@@ -92,19 +144,25 @@ serve(async (req) => {
       .eq("broadcast_id", broadcast_id)
       .eq("status", "pending")
       .order("created_at", { ascending: true })
-      .limit(batch_size);
+      .limit(normalizedBatchSize);
 
     if (contactsError) {
       return new Response(
         JSON.stringify({ success: false, error: "Erro ao buscar contatos" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
       );
     }
 
     if (!contacts || contacts.length === 0) {
       return new Response(
         JSON.stringify({ success: true, processed: 0, has_more: false }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
       );
     }
 
@@ -127,7 +185,10 @@ serve(async (req) => {
       } catch {
         await supabase
           .from("broadcast_contacts")
-          .update({ status: "error", error_message: "Número de telefone inválido" })
+          .update({
+            status: "error",
+            error_message: "Número de telefone inválido",
+          })
           .eq("id", contact.id);
         errorCount++;
         await supabase
@@ -141,7 +202,8 @@ serve(async (req) => {
       }
 
       try {
-        const sendUrl = `${cleanBaseUrl}/message/sendText/${instance.instance_name}`;
+        const sendUrl =
+          `${cleanBaseUrl}/message/sendText/${instance.instance_name}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 25000);
 
@@ -176,7 +238,10 @@ serve(async (req) => {
       } catch (err: any) {
         await supabase
           .from("broadcast_contacts")
-          .update({ status: "error", error_message: err.message?.slice(0, 500) || "Erro de conexão" })
+          .update({
+            status: "error",
+            error_message: err.message?.slice(0, 500) || "Erro de conexão",
+          })
           .eq("id", contact.id);
         errorCount++;
       }
@@ -214,12 +279,20 @@ serve(async (req) => {
         errors: errorCount,
         has_more: hasMore,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
     );
   } catch (err: any) {
+    const authResponse = authorizationErrorResponse(err, corsHeaders);
+    if (authResponse) return authResponse;
     return new Response(
       JSON.stringify({ success: false, error: err.message || "Erro interno" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
     );
   }
 });

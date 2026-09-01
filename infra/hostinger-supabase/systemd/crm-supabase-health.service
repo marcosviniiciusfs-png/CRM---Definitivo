@@ -1,0 +1,18 @@
+[Unit]
+Description=CRM Supabase infrastructure health check
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=@SCRIPT_DIR@/10-healthcheck.sh
+TimeoutStartSec=2m
+RuntimeDirectory=crm-supabase-health
+Environment=DOCKER_CONFIG=/run/crm-supabase-health
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=full

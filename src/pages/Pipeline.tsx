@@ -13,7 +13,7 @@ import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X, ArrowRight, UserCog, MessageSquarePlus, Trash2, Filter } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X, ArrowRight, UserCog, MessageSquarePlus, Trash2, Filter, Copy } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
@@ -50,6 +50,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useToggleNoShow } from "@/hooks/useToggleNoShow";
 import type { StatusReuniao } from "@/types/chat";
+import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -1198,28 +1199,14 @@ const Pipeline = () => {
     return map;
   }, [filteredLeads, stages, usingCustomFunnel]);
 
-  // Calcular quais leads são duplicados (mesmo email ou telefone na mesma org)
+  // Marcar somente o novo registro identificado explicitamente como duplicado.
+  // Não inferir por telefone/e-mail: isso também marcaria o lead original.
   const duplicateLeadIds = useMemo(() => {
-    const phoneMap = new Map<string, string[]>(); // phone -> lead ids
-    const emailMap = new Map<string, string[]>(); // email -> lead ids
-    filteredLeads.forEach((lead) => {
-      const phone = lead.telefone_lead?.replace(/\D/g, "");
-      if (phone) {
-        const arr = phoneMap.get(phone) || [];
-        arr.push(lead.id);
-        phoneMap.set(phone, arr);
-      }
-      const email = lead.email?.toLowerCase().trim();
-      if (email) {
-        const arr = emailMap.get(email) || [];
-        arr.push(lead.id);
-        emailMap.set(email, arr);
-      }
-    });
-    const duplicates = new Set<string>();
-    phoneMap.forEach((ids) => { if (ids.length > 1) ids.forEach((id) => duplicates.add(id)); });
-    emailMap.forEach((ids) => { if (ids.length > 1) ids.forEach((id) => duplicates.add(id)); });
-    return duplicates;
+    return new Set(
+      filteredLeads
+        .filter((lead) => isLeadDuplicateRecord(lead.additional_data))
+        .map((lead) => lead.id),
+    );
   }, [filteredLeads]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -2230,6 +2217,15 @@ const Pipeline = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1.5">
                           <span className="font-medium text-sm truncate">{lead.nome_lead || 'Sem nome'}</span>
+                          {isLeadDuplicateRecord(lead.additional_data) && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700 flex-shrink-0"
+                              title="Novo registro criado para um contato que já existia no CRM"
+                            >
+                              <Copy className="h-2.5 w-2.5" />
+                              Duplicado
+                            </span>
+                          )}
                           {lead.valor && (
                             <span className="text-xs font-medium text-green-600 dark:text-green-400 flex-shrink-0">
                               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor)}
@@ -2398,7 +2394,18 @@ const Pipeline = () => {
                         onClick={(e) => e.stopPropagation()}
                         className="mr-3"
                       />
-                      <span className="w-[200px] font-medium truncate text-foreground">{lead.nome_lead || "Sem nome"}</span>
+                      <div className="w-[200px] min-w-0 flex items-center gap-1.5 pr-2">
+                        <span className="font-medium truncate text-foreground">{lead.nome_lead || "Sem nome"}</span>
+                        {isLeadDuplicateRecord(lead.additional_data) && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700 flex-shrink-0"
+                            title="Novo registro criado para um contato que já existia no CRM"
+                          >
+                            <Copy className="h-2.5 w-2.5" />
+                            Duplicado
+                          </span>
+                        )}
+                      </div>
                       <span className="w-[120px] truncate text-muted-foreground">{lead.telefone_lead || "-"}</span>
                       <span className="w-[150px]">
                         <span className={cn(
@@ -2637,6 +2644,8 @@ const Pipeline = () => {
                   createdAt={activeLead.created_at}
                   source={activeLead.source}
                   description={activeLead.descricao_negocio}
+                  additionalData={activeLead.additional_data}
+                  isDuplicate={duplicateLeadIds.has(activeLead.id)}
                   leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
                   leadTags={leadTagsMap[activeLead.id] || EMPTY_TAGS}
                   dataAgendamentoReuniao={agendamentosMap[activeLead.id]?.reuniao}

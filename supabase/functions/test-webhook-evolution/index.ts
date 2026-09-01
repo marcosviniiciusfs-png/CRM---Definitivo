@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey } from "../_shared/evolution-config.ts";
+import { getSupabasePublicUrl } from '../_shared/supabase-urls.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -44,7 +45,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           enabled: true,
-          url: 'https://uvwanpztskkhzdqifbai.supabase.co/functions/v1/whatsapp-message-webhook',
+          url: `${getSupabasePublicUrl()}/functions/v1/whatsapp-message-webhook`,
           webhook_by_events: true,
           events: [
             'MESSAGES_UPSERT',

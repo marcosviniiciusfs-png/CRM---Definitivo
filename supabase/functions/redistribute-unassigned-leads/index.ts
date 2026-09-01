@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
 import { redistributeBatch } from "../_shared/redistribute-batch.ts";
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from "../_shared/organization-auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +30,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
+
+    await requireOrganizationMember(req, supabase, organization_id, ['owner', 'admin']);
 
     console.log(`🔄 [redistribute-unassigned] Iniciando para org: ${organization_id}`);
 
@@ -81,6 +87,8 @@ serve(async (req) => {
     );
 
   } catch (err) {
+    const authResponse = authorizationErrorResponse(err, corsHeaders);
+    if (authResponse) return authResponse;
     const message = err instanceof Error ? err.message : String(err);
     console.error('❌ Erro em redistribute-unassigned-leads:', message);
     return new Response(

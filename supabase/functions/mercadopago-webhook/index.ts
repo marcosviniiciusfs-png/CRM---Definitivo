@@ -35,64 +35,73 @@ serve(async (req) => {
 
     // Validate webhook signature
     const WEBHOOK_SECRET = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
-    if (WEBHOOK_SECRET) {
-      const xSignature = req.headers.get("x-signature") || "";
-      const xRequestId = req.headers.get("x-request-id") || "";
-      const url = new URL(req.url);
-      const dataId = url.searchParams.get("data.id") || "";
+    if (!WEBHOOK_SECRET) throw new Error("MERCADOPAGO_WEBHOOK_SECRET not configured");
 
-      // Parse x-signature: "ts=...,v1=..."
-      const parts: Record<string, string> = {};
-      xSignature.split(",").forEach(part => {
-        const [key, val] = part.trim().split("=", 2);
-        if (key && val) parts[key] = val;
+    const xSignature = req.headers.get("x-signature") || "";
+    const xRequestId = req.headers.get("x-request-id") || "";
+    const url = new URL(req.url);
+    const dataId = url.searchParams.get("data.id") || "";
+
+    // Parse x-signature: "ts=...,v1=..."
+    const parts: Record<string, string> = {};
+    xSignature.split(",").forEach(part => {
+      const [key, val] = part.trim().split("=", 2);
+      if (key && val) parts[key] = val;
+    });
+    const ts = parts["ts"] || "";
+    const v1 = parts["v1"] || "";
+
+    if (!dataId || !xRequestId || !ts || !/^[a-fA-F0-9]{64}$/.test(v1)) {
+      logStep("Missing or malformed signature fields");
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
       });
-      const ts = parts["ts"] || "";
-      const v1 = parts["v1"] || "";
-
-      if (ts && v1) {
-        // Build manifest: "id:[dataId];request-id:[xRequestId];ts:[ts];"
-        const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
-        const key = await crypto.subtle.importKey(
-          "raw",
-          new TextEncoder().encode(WEBHOOK_SECRET),
-          { name: "HMAC", hash: "SHA-256" },
-          false,
-          ["sign"]
-        );
-        const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
-        const computedHash = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, "0")).join("");
-
-        if (computedHash !== v1) {
-          logStep("Invalid signature", { expected: computedHash, received: v1 });
-          return new Response(JSON.stringify({ error: "Invalid signature" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 401,
-          });
-        }
-        logStep("Signature validated successfully");
-      } else {
-        logStep("No signature parts found, skipping validation");
-      }
-    } else {
-      logStep("WEBHOOK_SECRET not configured, skipping signature validation");
     }
+
+    // Build manifest: "id:[dataId];request-id:[xRequestId];ts:[ts];"
+    const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(WEBHOOK_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
+    const computedHash = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, "0")).join("");
+    let signatureDifference = computedHash.length ^ v1.length;
+    for (let index = 0; index < computedHash.length; index += 1) {
+      signatureDifference |= computedHash.charCodeAt(index) ^ v1.toLowerCase().charCodeAt(index);
+    }
+
+    if (signatureDifference !== 0) {
+      logStep("Invalid signature");
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+    logStep("Signature validated successfully");
 
     // Parse the notification
     const body = await req.json();
-    logStep("Notification body", body);
-
     const { type, data } = body;
+    const bodyDataId = data?.id == null ? "" : String(data.id);
+
+    // The signature authenticates the ID from the query string. Never let an
+    // unsigned body select a different Mercado Pago resource.
+    if (!bodyDataId || bodyDataId.toLowerCase() !== dataId.toLowerCase()) {
+      logStep("Signed data ID does not match notification body");
+      return new Response(JSON.stringify({ error: "Invalid notification" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+    logStep("Notification accepted", { type, dataId });
 
     if (type === "preapproval") {
-      const preapprovalId = data?.id;
-      if (!preapprovalId) {
-        logStep("No preapproval ID in notification");
-        return new Response(JSON.stringify({ received: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        });
-      }
+      const preapprovalId = dataId;
 
       // Fetch preapproval details from Mercado Pago
       const mpResponse = await fetch(

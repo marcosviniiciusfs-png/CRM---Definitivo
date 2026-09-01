@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+
 export type StatusReuniao = 'realizada' | 'no_show';
 
 export interface Lead {
@@ -26,7 +28,8 @@ export interface Lead {
   last_seen?: string | null;
   funnel_id?: string | null;
   funnel_stage_id?: string | null;
-  additional_data?: any;
+  additional_data?: Json | null;
+  duplicate_attempts_count?: number | null;
   whatsapp_instance_id?: string | null;
   status_reuniao?: StatusReuniao | null;
 }

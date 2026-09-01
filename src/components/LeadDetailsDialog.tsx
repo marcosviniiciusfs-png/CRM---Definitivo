@@ -13,6 +13,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
 import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
+import { getLeadDuplicateMetadata } from "@/lib/leadDuplicate";
 
 interface LeadDetailsDialogProps {
   open: boolean;
@@ -77,13 +78,11 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
   const [calendarEvent, setCalendarEvent] = useState<CalendarEventDetails | null>(null);
   const [loadingCalendarEvent, setLoadingCalendarEvent] = useState(false);
   const [currentUserName, setCurrentUserName] = useState<string>('');
-  const [isDuplicate, setIsDuplicate] = useState(false);
+  const duplicateMetadata = getLeadDuplicateMetadata(details?.additional_data);
 
   useEffect(() => {
     if (open && leadId) {
       loadLeadDetails();
-    } else if (!open) {
-      setIsDuplicate(false);
     }
   }, [open, leadId]);
 
@@ -195,27 +194,6 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
       }
       setDetails(leadData);
 
-      // Verificar se é um lead duplicado (mesmo email ou telefone na mesma organização)
-      if (leadData?.organization_id) {
-        const conditions: string[] = [];
-        const phone = leadData.telefone_lead?.replace(/\D/g, "");
-        if (phone) conditions.push(`telefone_lead.eq.${phone}`);
-        if (leadData.email) conditions.push(`email.eq.${leadData.email}`);
-        if (conditions.length > 0) {
-          const { data: dupData } = await supabase
-            .from("leads")
-            .select("id")
-            .eq("organization_id", leadData.organization_id)
-            .or(conditions.join(","))
-            .neq("id", leadId)
-            .limit(1);
-          setIsDuplicate((dupData?.length ?? 0) > 0);
-        } else {
-          setIsDuplicate(false);
-        }
-      }
-
-
       // Buscar atividades do lead
       const { data: activitiesData, error: activitiesError } = await supabase
         .from("lead_activities")
@@ -308,13 +286,23 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
           </div>
         ) : (
           <div className="space-y-4 sm:space-y-6">
-            {/* Badge de Lead Duplicado */}
-            {isDuplicate && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-700">
-                <Copy className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                <span className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-                  Lead Duplicado — já existe outro lead com o mesmo email ou telefone no banco de dados
-                </span>
+            {/* Indicador de registro duplicado */}
+            {duplicateMetadata.isDuplicateRecord && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-700">
+                <Copy className="h-4 w-4 mt-0.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-400">
+                    Novo registro duplicado
+                  </p>
+                  <p className="text-xs text-yellow-700/90 dark:text-yellow-400/90">
+                    {`Este registro foi criado mesmo já existindo outro lead${duplicateMetadata.matchType === 'phone' ? ' com o mesmo telefone' : duplicateMetadata.matchType === 'email' ? ' com o mesmo e-mail' : ''} no CRM.`}
+                  </p>
+                  {duplicateMetadata.duplicateOfLeadId && (
+                    <p className="text-[11px] text-yellow-700/75 dark:text-yellow-400/75">
+                      Lead original: <span className="font-mono">{duplicateMetadata.duplicateOfLeadId}</span>
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 

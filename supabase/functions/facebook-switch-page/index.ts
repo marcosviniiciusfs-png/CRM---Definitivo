@@ -1,68 +1,18 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from '../_shared/organization-auth.ts';
+import {
+  decryptMetaToken,
+  encryptMetaToken,
+} from '../_shared/meta-token-crypto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
-
-// Decrypt token using AES-GCM
-async function decryptToken(encryptedToken: string, key: string): Promise<string> {
-  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
-  try {
-    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const data = combined.slice(12);
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-    return new TextDecoder().decode(decrypted);
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
-
-// Encrypt token using AES-GCM
-async function encryptToken(token: string, key: string): Promise<string> {
-  if (!token) return '';
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt']
-    );
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(encrypted), iv.length);
-    return btoa(String.fromCharCode(...combined));
-  } catch (error) {
-    console.error('Encryption error:', error);
-    return token;
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -81,9 +31,8 @@ Deno.serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await requireOrganizationMember(req, supabase, organization_id, ['owner', 'admin']);
 
     console.log(`🔄 [FB-SWITCH-PAGE] Switching integration ${integration_id} to page ${page_id}`);
 
@@ -138,7 +87,7 @@ Deno.serve(async (req) => {
     }
 
     // Decrypt the user access token
-    const userAccessToken = await decryptToken(encrypted_access_token, ENCRYPTION_KEY);
+    const userAccessToken = await decryptMetaToken(encrypted_access_token);
     if (!userAccessToken) {
       throw new Error('Failed to decrypt user access token. Please reconnect Facebook.');
     }
@@ -166,8 +115,8 @@ Deno.serve(async (req) => {
     console.log(`✅ [FB-SWITCH-PAGE] Found target page: ${targetPage.name} (${targetPage.id})`);
 
     // Encrypt the new page access token
-    const encryptedPageToken = await encryptToken(targetPage.access_token, ENCRYPTION_KEY);
-    const encryptedUserToken = await encryptToken(userAccessToken, ENCRYPTION_KEY);
+    const encryptedPageToken = await encryptMetaToken(targetPage.access_token);
+    const encryptedUserToken = await encryptMetaToken(userAccessToken);
 
     // Update the integration with the new page
     const { error: updateIntError } = await supabase
@@ -213,6 +162,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (err: any) {
+    const authResponse = authorizationErrorResponse(err, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('❌ [FB-SWITCH-PAGE] Error:', err.message);
     return new Response(
       JSON.stringify({ error: err.message || 'Internal server error' }),

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
+import { getSupabasePublicUrl } from '../_shared/supabase-urls.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,15 +32,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // 🔒 VALIDAÇÃO DE AUTENTICAÇÃO
-  // Só validar quando EVOLUTION_WEBHOOK_SECRET está configurado.
-  // Antes: !webhookSecret || → rejeitava TODOS os QR Codes quando a variável
-  // não estava definida, bloqueando o fluxo de conexão por completo.
-  // Mesmo padrão já corrigido em whatsapp-message-webhook.
+  // 🔒 VALIDAÇÃO DE AUTENTICAÇÃO — fail closed.
   const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
   const authHeader = req.headers.get('x-api-key');
 
-  if (webhookSecret && (!authHeader || authHeader !== webhookSecret)) {
+  if (!webhookSecret || !authHeader || authHeader !== webhookSecret) {
     console.error('❌ Unauthorized webhook access attempt');
     return new Response(
       JSON.stringify({ error: 'Unauthorized' }),
@@ -49,7 +46,11 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    console.log('📥 Webhook recebido:', JSON.stringify(payload, null, 2));
+    console.log('📥 Webhook recebido', {
+      event: payload?.event ?? 'unknown',
+      instance: payload?.instance ?? 'unknown',
+      hasData: Boolean(payload?.data),
+    });
 
     const event = payload.event;
     const instance = payload.instance;
@@ -154,7 +155,10 @@ serve(async (req) => {
 
     // ==================== EVENTO: CONNECTION.UPDATE ====================
     if (event === 'connection.update' || event === 'CONNECTION_UPDATE') {
-      console.log('🔌 CONNECTION_UPDATE recebido:', JSON.stringify(data, null, 2));
+      console.log('🔌 CONNECTION_UPDATE recebido', {
+        instance,
+        state: data?.state ?? data?.status ?? 'unknown',
+      });
       
       const state = data?.state || data?.status;
       
@@ -274,7 +278,7 @@ serve(async (req) => {
       
       // CRÍTICO: Quando conectado, atualizar webhook_url para receber mensagens
       if (internalStatus === 'CONNECTED') {
-        const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
+        const messageWebhookUrl = `${getSupabasePublicUrl()}/functions/v1/whatsapp-message-webhook`;
         updateData.webhook_url = messageWebhookUrl;
         console.log('✅ Atualizando webhook_url para:', messageWebhookUrl);
       }

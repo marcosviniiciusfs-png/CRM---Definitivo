@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LeadDetailsDialog } from '@/components/LeadDetailsDialog';
 import { type RedistributionReason } from '@/lib/redistribution';
+import { isLeadDuplicateRecord } from '@/lib/leadDuplicate';
 
 interface MobileLeadCardProps {
   lead: Lead;
@@ -84,6 +85,7 @@ export function MobileLeadCard({
   };
 
   const agendStatus = getAgendamentoStatus();
+  const isMarkedDuplicate = isLeadDuplicateRecord(lead.additional_data);
 
   const handleCardClick = useCallback(() => {
     if (justClosedDialogRef.current) return;
@@ -94,7 +96,7 @@ export function MobileLeadCard({
     <Card
       className={cn(
         'p-3 active:scale-[0.99] transition-transform cursor-pointer select-none',
-        isDuplicate && 'border-amber-300'
+        (isMarkedDuplicate || isDuplicate) && 'border-amber-300'
       )}
       onClick={handleCardClick}
       style={{ pointerEvents: showDetailsDialog ? 'none' : undefined }}
@@ -166,11 +168,17 @@ export function MobileLeadCard({
       )}
 
       {/* Badges de status */}
-      {(isDuplicate || agendStatus || isRedistributed) && (
+      {(isMarkedDuplicate || isDuplicate || agendStatus || isRedistributed) && (
         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-          {isDuplicate && (
-            <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
-              <AlertCircle className="h-2.5 w-2.5" />Duplicado
+          {(isMarkedDuplicate || isDuplicate) && (
+            <span
+              className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full"
+              title={isMarkedDuplicate
+                ? 'Novo registro criado para um contato que já existia no CRM'
+                : 'Existe outro lead com o mesmo telefone ou e-mail'}
+            >
+              <AlertCircle className="h-2.5 w-2.5" />
+              Duplicado
             </span>
           )}
           {agendStatus && (

@@ -1,22 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decryptMetaToken } from '../_shared/meta-token-crypto.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-async function decryptToken(encryptedToken: string, key: string): Promise<string> {
-  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return ''
-  try {
-    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0))
-    const iv = combined.slice(0, 12)
-    const data = combined.slice(12)
-    const keyData = new TextEncoder().encode(key.padEnd(32, '0').slice(0, 32))
-    const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['decrypt'])
-    const result = new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, data))
-    return (result && result.length > 10) ? result : ''
-  } catch { return '' }
 }
 
 serve(async (req) => {
@@ -31,8 +19,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!'
-
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     })
@@ -53,7 +39,7 @@ serve(async (req) => {
       const intg = integrations?.find(i => i.id === tr.integration_id)
       if (!intg?.page_id) continue
 
-      const userToken = await decryptToken(tr.encrypted_access_token || '', ENCRYPTION_KEY)
+      const userToken = await decryptMetaToken(tr.encrypted_access_token || '')
       if (!userToken) continue
 
       userTokenMap.set(intg.page_id, userToken)
@@ -215,16 +201,14 @@ serve(async (req) => {
           descricao = descricao.replace('Campanha: N/A', `Campanha: ${info.campaignName}`)
         }
 
-        promises.push(
-          supabaseAdmin
+        promises.push((async () => {
+          const { error } = await supabaseAdmin
             .from('leads')
             .update({ additional_data: additionalData, descricao_negocio: descricao })
             .eq('id', leadId)
-            .then(({ error }) => {
-              if (error) console.error(`❌ ${leadId}: ${error.message}`)
-              else updated++
-            })
-        )
+          if (error) console.error(`❌ ${leadId}: ${error.message}`)
+          else updated++
+        })())
 
         if (promises.length >= 50) {
           await Promise.all(promises)

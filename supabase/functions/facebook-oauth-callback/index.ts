@@ -1,43 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
+import { getSupabasePublicUrl } from '../_shared/supabase-urls.ts';
+import { getAllowedFrontendOrigin, verifyOAuthState } from '../_shared/oauth-state.ts';
+import { encryptMetaToken } from '../_shared/meta-token-crypto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
-
-// Função para criptografar tokens
-async function encryptToken(token: string, key: string): Promise<string> {
-  if (!token) return '';
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt']
-    );
-
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(encrypted), iv.length);
-
-    return btoa(String.fromCharCode(...combined));
-  } catch (error) {
-    console.error('Encryption error:', error);
-    return token;
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -68,45 +38,31 @@ Deno.serve(async (req) => {
 
   console.log(`📬 [FB-CALLBACK] Recebida resposta do Facebook (${isApiCall ? 'API' : 'Redirect'})`);
 
-  // Default redirect on error
-  const defaultOrigin = 'https://www.kairozcrm.com.br';
-  let origin = defaultOrigin;
+  let origin = getAllowedFrontendOrigin();
   let user_id: string | null = null;
   let organization_id: string | null = null;
 
   try {
-    if (state) {
-      console.log('🔄 [FB-CALLBACK] Decodificando state:', state);
-      // Handle URL-safe base64 normalization
-      let normalizedState = state.replace(/-/g, '+').replace(/_/g, '/');
-      // Adicionar padding se necessário
-      while (normalizedState.length % 4 !== 0) {
-        normalizedState += '=';
-      }
-
-      const decodedState = atob(normalizedState);
-      const stateData = JSON.parse(decodedState);
-
-      user_id = stateData.user_id;
-      organization_id = stateData.organization_id;
-      // CORREÇÃO: extrair redirect_uri salvo no state pelo initiate para garantir consistência
-      if (stateData.redirect_uri) {
-        customRedirectUri = stateData.redirect_uri;
-      }
-
-      if (stateData.origin) {
-        origin = stateData.origin.replace(/\/$/, '');
-      }
-      console.log('✅ [FB-CALLBACK] State decodificado:', { user_id, organization_id, origin, redirect_uri: customRedirectUri });
-    }
+    if (!state) throw new Error('State ausente');
+    const stateData = await verifyOAuthState(state);
+    user_id = stateData.user_id;
+    organization_id = stateData.organization_id;
+    customRedirectUri = stateData.redirect_uri || null;
+    origin = stateData.origin;
+    console.log('✅ [FB-CALLBACK] State validado:', { user_id, organization_id, origin });
   } catch (e) {
-    console.error('❌ [FB-CALLBACK] Falha ao decodificar state:', e instanceof Error ? e.message : e);
-  }
-
-  // Use current origin if we couldn't get one from state or it's just the default
-  if (!origin || origin === 'https://www.kairozcrm.com.br') {
-    const requestOrigin = req.headers.get('origin');
-    if (requestOrigin) origin = requestOrigin.replace(/\/$/, '');
+    console.error('❌ [FB-CALLBACK] State inválido:', e instanceof Error ? e.message : e);
+    const message = 'Fluxo de autenticação inválido ou expirado.';
+    if (isApiCall) {
+      return new Response(JSON.stringify({ error: message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, 'Location': `${origin}/integrations?facebook=error&message=${encodeURIComponent(message)}` },
+    });
   }
 
   // Se houver erro do Facebook (ex: usuário cancelou)
@@ -146,10 +102,10 @@ Deno.serve(async (req) => {
   const FACEBOOK_APP_SECRET = Deno.env.get('FACEBOOK_APP_SECRET');
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const SUPABASE_CALLBACK_URI = `${SUPABASE_URL}/functions/v1/facebook-oauth-callback`;
-  const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
+  const SUPABASE_CALLBACK_URI = `${getSupabasePublicUrl()}/functions/v1/facebook-oauth-callback`;
+  const META_ENCRYPTION_KEY = Deno.env.get('META_TOKEN_ENCRYPTION_KEY');
 
-  if (!FACEBOOK_APP_ID || !FACEBOOK_APP_SECRET) {
+  if (!FACEBOOK_APP_ID || !FACEBOOK_APP_SECRET || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !META_ENCRYPTION_KEY) {
     console.error('❌ [FB-CALLBACK] Configurações de ambiente ausentes');
     const errorRedirect = `${origin}/integrations?facebook=error&message=${encodeURIComponent('O servidor não está configurado para o Facebook.')}`;
     return new Response(null, {
@@ -158,11 +114,35 @@ Deno.serve(async (req) => {
     });
   }
 
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('id')
+    .eq('user_id', user_id)
+    .eq('organization_id', organization_id)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!membership) {
+    const message = 'Usuário não pertence à organização.';
+    if (isApiCall) {
+      return new Response(JSON.stringify({ error: message }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, 'Location': `${origin}/integrations?facebook=error&message=${encodeURIComponent(message)}` },
+    });
+  }
+
   try {
     // 1. Exchange authorization code for short-lived token
     // Prioridade: redirect_uri do state (salvo pelo initiate) > body.redirect_uri > SUPABASE_CALLBACK_URI
     // Isso garante que o mesmo redirect_uri usado na URL do Facebook seja usado na troca de token
-    const exchangeRedirectUri = customRedirectUri || SUPABASE_CALLBACK_URI;
+    const exchangeRedirectUri = customRedirectUri === SUPABASE_CALLBACK_URI
+      ? customRedirectUri
+      : SUPABASE_CALLBACK_URI;
 
     console.log('🔄 [FB-CALLBACK] Obtendo access_token com redirect_uri:', exchangeRedirectUri);
 
@@ -315,7 +295,6 @@ Deno.serve(async (req) => {
 
     console.log(`💾 [FB-CALLBACK] Salvando integração para página: ${selectedPage.name} (${selectedPage.id})`);
 
-    const supabase = createClient(SUPABASE_URL ?? '', SUPABASE_SERVICE_ROLE_KEY ?? '');
     // Garantir pelo menos 60 dias de validade (5184000s).
     // Se o Facebook retornar expires_in suspeito (< 1h), usamos o fallback para evitar
     // tokens curtos sendo armazenados silenciosamente.
@@ -329,7 +308,7 @@ Deno.serve(async (req) => {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
-    const encryptedMainToken = await encryptToken(accessToken, ENCRYPTION_KEY);
+    const encryptedMainToken = await encryptMetaToken(accessToken);
 
     // Upsert da integração buscando por user_id + organization_id (Uma por usuário/org)
     const { data: existing } = await supabase
@@ -386,7 +365,7 @@ Deno.serve(async (req) => {
 
     // 5. Salvar tokens na tabela segura com CRIPTOGRAFIA
     try {
-      const encryptedPageToken = await encryptToken(selectedPage.access_token, ENCRYPTION_KEY);
+      const encryptedPageToken = await encryptMetaToken(selectedPage.access_token);
 
       await supabase.rpc('update_facebook_tokens_secure', {
         p_integration_id: integrationId,
@@ -419,7 +398,7 @@ Deno.serve(async (req) => {
           const freshPageToken = pageTokenMap[other.page_id];
           if (!freshPageToken) continue;
 
-          const encryptedFreshPageToken = await encryptToken(freshPageToken, ENCRYPTION_KEY);
+          const encryptedFreshPageToken = await encryptMetaToken(freshPageToken);
 
           // Atualizar token seguro da integração
           await supabase.rpc('update_facebook_tokens_secure', {

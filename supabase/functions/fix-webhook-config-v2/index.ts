@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
+import { getSupabasePublicUrl } from '../_shared/supabase-urls.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -41,8 +42,7 @@ serve(async (req) => {
 
     const evolutionApiUrl = getEvolutionApiUrl();
     const evolutionApiKey = getEvolutionApiKey();
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const messageWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-message-webhook`;
+    const messageWebhookUrl = `${getSupabasePublicUrl()}/functions/v1/whatsapp-message-webhook`;
 
     console.log('🔧 Evolution API URL:', evolutionApiUrl);
 

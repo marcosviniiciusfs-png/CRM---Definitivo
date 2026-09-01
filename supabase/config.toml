@@ -1,5 +1,11 @@
 project_id = "uxttihjsxfowursjyult"
 
+[functions.admin-auth]
+verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = false
+
 [functions.admin-panel-rpc]
 verify_jwt = false
 
@@ -19,10 +25,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.facebook-subscribe-webhook]
-verify_jwt = false
+verify_jwt = true
 
 [functions.facebook-list-lead-forms]
-verify_jwt = false
+verify_jwt = true
 
 [functions.facebook-oauth-callback]
 verify_jwt = false
@@ -43,10 +49,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.fetch-ads-insights]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fetch-campaign-ads]
-verify_jwt = false
+verify_jwt = true
 
 [functions.add-organization-member]
 verify_jwt = false
@@ -58,13 +64,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.facebook-switch-page]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-whatsapp-instance]
 verify_jwt = false
 
 [functions.check-whatsapp-status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.disconnect-whatsapp-instance]
 verify_jwt = false
@@ -73,7 +79,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-whatsapp-message]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-whatsapp-media]
 verify_jwt = false
@@ -85,10 +91,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.fetch-presence-status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fetch-profile-picture]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-all-profile-pictures]
 verify_jwt = false
@@ -109,7 +115,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.process-automation-rules]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-scheduled-reminders]
 verify_jwt = false
@@ -121,7 +127,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.distribute-lead]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-subscription]
 verify_jwt = false
@@ -130,16 +136,71 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.redistribute-batch]
-verify_jwt = false
+verify_jwt = true
 
 [functions.redistribute-collaborator-leads]
-verify_jwt = false
+verify_jwt = true
 
 [functions.redistribute-unassigned-leads]
-verify_jwt = false
+verify_jwt = true
 
 [functions.redistribute-lost-leads]
-verify_jwt = false
+verify_jwt = true
 
 [functions.notify-new-lead-group]
+verify_jwt = false
+
+# OAuth providers redirect the browser without the Supabase Authorization
+# header. The callback authenticates the request with a short-lived,
+# HMAC-signed state and revalidates the user before persisting tokens.
+[functions.google-calendar-oauth-callback]
+verify_jwt = false
+
+# Public lead-capture routes are exempt from the gateway JWT check and enforce
+# bounded JSON, explicit allowed origins, honeypots and per-isolate throttling.
+[functions.analise-credito-submit]
+verify_jwt = false
+
+[functions.apr-submit]
+verify_jwt = false
+
+[functions.benchmark-download-submit]
+verify_jwt = false
+
+[functions.disc-submit]
+verify_jwt = false
+
+# Uses its own constant-time dashboard token.
+[functions.disc-dashboard]
+verify_jwt = false
+
+# User route: gateway JWT plus getUser/active organization membership.
+[functions.convex-proxy]
+verify_jwt = true
+
+[functions.google-sheets-oauth-initiate]
+verify_jwt = true
+
+# Provider callback: short-lived HMAC-signed state, fixed redirect URI and
+# active organization membership are revalidated before storing tokens.
+[functions.google-sheets-oauth-callback]
+verify_jwt = false
+
+# Internal sync accepts only the exact service-role bearer token or CRON_SECRET.
+[functions.sync-google-sheets]
+verify_jwt = false
+
+[functions.sync-google-sheets-meta]
+verify_jwt = true
+
+# Both are blocked by EDGE_DISABLED_FUNCTIONS as defense in depth.
+[functions.facebook-leads-backfill]
+verify_jwt = true
+
+[functions.meta-event]
+verify_jwt = true
+
+# Public lead-capture endpoint. Google Sheets remains optional and is dormant
+# on the VPS while the Google secrets are intentionally not configured.
+[functions.link-bio-marcos-submit]
 verify_jwt = false

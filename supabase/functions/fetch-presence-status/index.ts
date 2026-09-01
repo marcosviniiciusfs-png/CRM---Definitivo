@@ -1,5 +1,9 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from "../_shared/organization-auth.ts";
 
 interface FetchPresenceRequest {
   instance_name: string;
@@ -41,7 +45,7 @@ Deno.serve(async (req) => {
 
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('last_message_at, updated_at')
+      .select('organization_id, last_message_at, updated_at')
       .eq('id', lead_id)
       .maybeSingle();
 
@@ -49,6 +53,15 @@ Deno.serve(async (req) => {
       console.error('❌ Erro ao buscar lead para cálculo de presença:', leadError);
       throw leadError;
     }
+
+    if (!lead) {
+      return new Response(JSON.stringify({ error: 'Lead não encontrado' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    await requireOrganizationMember(req, supabase, lead.organization_id);
 
     console.log('📄 Dados do lead para presença:', lead);
 
@@ -156,6 +169,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('❌ Erro ao buscar status de presença:', error);
 
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

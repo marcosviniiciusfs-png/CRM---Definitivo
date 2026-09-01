@@ -19,6 +19,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { SectionGate } from "@/components/SectionGate";
 import { AssetPreloader } from "@/components/AssetPreloader";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
+import { MigrationMaintenance } from "@/components/MigrationMaintenance";
 
 // Páginas críticas - carregadas imediatamente
 import Landing from "./pages/Landing";
@@ -83,8 +84,13 @@ const LazyPage = ({ children }: { children: React.ReactNode }) => (
   </Suspense>
 );
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const App = () => {
+  if (import.meta.env.VITE_MAINTENANCE_MODE === "true") {
+    return <MigrationMaintenance />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -144,7 +150,8 @@ const App = () => (
         </AdminAuthProvider>
       </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;

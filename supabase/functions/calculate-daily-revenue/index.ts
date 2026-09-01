@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import {
+  authorizationErrorResponse,
+  requireSuperAdmin,
+} from "../_shared/organization-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -14,13 +19,25 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
+    await requireSuperAdmin(req, supabaseAdmin);
 
     // Get subscriptions created today
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).toISOString();
+    const endOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+    ).toISOString();
 
     const { data: todaySubs, error } = await supabaseAdmin
       .from("subscriptions")
@@ -38,24 +55,38 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[calculate-daily-revenue] Receita do dia: R$ ${dailyRevenue.toFixed(2)}, Assinaturas hoje: ${todaySubs?.length || 0}`);
+    console.log(
+      `[calculate-daily-revenue] Receita do dia: R$ ${
+        dailyRevenue.toFixed(2)
+      }, Assinaturas hoje: ${todaySubs?.length || 0}`,
+    );
 
-    return new Response(JSON.stringify({
-      dailyRevenue,
-      subscriptionsToday: todaySubs?.length || 0,
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        dailyRevenue,
+        subscriptionsToday: todaySubs?.length || 0,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Erro desconhecido";
     console.error("[calculate-daily-revenue] Erro:", errorMessage);
-    return new Response(JSON.stringify({
-      error: errorMessage,
-      dailyRevenue: 0,
-      subscriptionsToday: 0,
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: errorMessage,
+        dailyRevenue: 0,
+        subscriptionsToday: 0,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

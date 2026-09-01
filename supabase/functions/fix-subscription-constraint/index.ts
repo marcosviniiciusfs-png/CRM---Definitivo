@@ -22,12 +22,18 @@ serve(async (req) => {
     console.log('[FIX-CONSTRAINT] Iniciando correção...')
 
     // Executar SQL para remover NOT NULL constraint
-    const { error: alterError } = await supabaseAdmin.rpc('exec_sql', {
-      query: `
-        ALTER TABLE public.subscriptions
-        ALTER COLUMN user_id DROP NOT NULL;
-      `
-    }).catch(() => ({ error: { message: 'RPC não disponível' } }))
+    let alterError: { message?: string } | null
+    try {
+      const result = await supabaseAdmin.rpc('exec_sql', {
+        query: `
+          ALTER TABLE public.subscriptions
+          ALTER COLUMN user_id DROP NOT NULL;
+        `
+      })
+      alterError = result.error
+    } catch {
+      alterError = { message: 'RPC não disponível' }
+    }
 
     if (alterError) {
       console.log('[FIX-CONSTRAINT] Tentando abordagem alternativa...')

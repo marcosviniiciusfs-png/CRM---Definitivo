@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
+import { validateSupabaseFrontendConfig } from './config';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key';
+const {
+  url: SUPABASE_URL,
+  publishableKey: SUPABASE_PUBLISHABLE_KEY,
+} = validateSupabaseFrontendConfig(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+);
 
 // Storage seguro com fallback: tenta localStorage, se falhar usa memória
 const createSafeStorage = () => {

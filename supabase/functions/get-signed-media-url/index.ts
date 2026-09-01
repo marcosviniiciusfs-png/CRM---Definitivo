@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
+import { withSupabasePublicOrigin } from "../_shared/supabase-urls.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -117,7 +118,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ signedUrl: signedUrlData.signedUrl }),
+      JSON.stringify({ signedUrl: withSupabasePublicOrigin(signedUrlData.signedUrl) }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { selectByPercentage } from "../_shared/weighted-distribution.ts";
+import {
+  authorizationErrorResponse,
+  requireInternalServiceRole,
+} from "../_shared/organization-auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -175,6 +179,7 @@ serve(async (req) => {
   }
 
   try {
+    requireInternalServiceRole(req);
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -255,7 +260,7 @@ serve(async (req) => {
         return ids.includes(webhook_token);
       });
 
-      console.log(`Configs webhook com token "${webhook_token}": ${matchingByToken.length}`);
+      console.log(`Configs webhook correspondentes ao token informado: ${matchingByToken.length}`);
 
       // P1: token + funil específico
       if (leadFunnelId) {
@@ -679,6 +684,8 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('Error in distribute-lead function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(

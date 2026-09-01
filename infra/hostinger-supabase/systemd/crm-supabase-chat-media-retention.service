@@ -1,0 +1,26 @@
+[Unit]
+Description=CRM Supabase chat-media seven-day retention
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=@SCRIPT_DIR@/13-chat-media-retention.sh
+TimeoutStartSec=15m
+RuntimeDirectory=crm-supabase-chat-media-retention
+RuntimeDirectoryMode=0700
+Environment=DOCKER_CONFIG=/run/crm-supabase-chat-media-retention
+Environment=RETENTION_BATCH_SIZE=250
+Environment=RETENTION_MAX_OBJECTS_PER_RUN=2000
+Environment=RETENTION_MAX_RUNTIME_SECONDS=300
+Environment=RETENTION_API_TIMEOUT_SECONDS=60
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=full

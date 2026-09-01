@@ -1,0 +1,21 @@
+[Unit]
+Description=CRM Supabase encrypted off-site backup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=@SCRIPT_DIR@/09-backup.sh
+TimeoutStartSec=6h
+RuntimeDirectory=crm-supabase-backup
+Environment=DOCKER_CONFIG=/run/crm-supabase-backup
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=full

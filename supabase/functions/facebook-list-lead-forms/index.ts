@@ -1,41 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from '../_shared/organization-auth.ts';
+import { decryptMetaToken } from '../_shared/meta-token-crypto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Função para descriptografar tokens
-async function decryptToken(encryptedToken: string, key: string): Promise<string> {
-  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
-
-  try {
-    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const data = combined.slice(12);
-
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
-
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-
-    return new TextDecoder().decode(decrypted);
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -56,7 +29,32 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
+    let authorizedOrganizationId = organization_id as string | undefined;
+    if (integration_id) {
+      const { data: integrationOwner, error: integrationOwnerError } = await supabase
+        .from('facebook_integrations')
+        .select('organization_id')
+        .eq('id', integration_id)
+        .maybeSingle();
+
+      if (integrationOwnerError || !integrationOwner) {
+        throw new Error('Integração do Facebook não encontrada');
+      }
+      if (authorizedOrganizationId && authorizedOrganizationId !== integrationOwner.organization_id) {
+        return new Response(JSON.stringify({ error: 'Integração não pertence à organização' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      authorizedOrganizationId = integrationOwner.organization_id;
+    }
+
+    await requireOrganizationMember(
+      req,
+      supabase,
+      authorizedOrganizationId ?? '',
+      ['owner', 'admin'],
+    );
 
     let pageAccessToken: string | null = null;
     let page_id: string | null = null;
@@ -74,7 +72,7 @@ Deno.serve(async (req) => {
 
         if (row.encrypted_page_access_token) {
           console.log('[FB-FORMS] Token criptografado encontrado via RPC, descriptografando...');
-          const decrypted = await decryptToken(row.encrypted_page_access_token, ENCRYPTION_KEY);
+          const decrypted = await decryptMetaToken(row.encrypted_page_access_token);
           if (decrypted) {
             pageAccessToken = decrypted;
             console.log('[FB-FORMS] ✅ Token descriptografado com sucesso via RPC');
@@ -101,7 +99,7 @@ Deno.serve(async (req) => {
         page_id = row.page_id;
 
         if (row.encrypted_page_access_token) {
-          const decrypted = await decryptToken(row.encrypted_page_access_token, ENCRYPTION_KEY);
+          const decrypted = await decryptMetaToken(row.encrypted_page_access_token);
           if (decrypted) {
             pageAccessToken = decrypted;
             console.log('[FB-FORMS] ✅ Token via org fallback RPC');
@@ -136,7 +134,7 @@ Deno.serve(async (req) => {
 
         if (tokenRow) {
           // Tentar user token para renovar page token
-          const userToken = await decryptToken(tokenRow.encrypted_access_token || '', ENCRYPTION_KEY);
+          const userToken = await decryptMetaToken(tokenRow.encrypted_access_token || '');
           if (userToken && page_id) {
             try {
               const resp = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${userToken}`);
@@ -167,7 +165,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (tokenRow?.encrypted_page_access_token) {
-        const decrypted = await decryptToken(tokenRow.encrypted_page_access_token, ENCRYPTION_KEY);
+        const decrypted = await decryptMetaToken(tokenRow.encrypted_page_access_token);
         if (decrypted) {
           pageAccessToken = decrypted;
           console.log('[FB-FORMS] ✅ Token via query direta em facebook_integration_tokens');
@@ -219,6 +217,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('[FB-FORMS] Erro:', error);
 
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

@@ -1,0 +1,4 @@
+7e1f854f81d3775e338ecfed200c30711d2c38e304ac372ca580864f940f2f5a  0061-mark-filename-immutable.sql
+45969060b55102f56af317b0d7981434be58927de1ff76e1e1789139a3f2defc  0062-object-versioning-core.sql
+4656900fd7953a821f45802baa85b83456a7334a0923fd53dee6c886cccf69b3  0063-fix-search-name-relative-to-prefix.sql
+4351d651632bb62841d75f0a85ea8b23b62e141a53fd08d0426ce60f44672d20  0064-fix-search-by-timestamp-sqli.sql

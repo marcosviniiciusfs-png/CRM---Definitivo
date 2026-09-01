@@ -1,0 +1,6 @@
+project_id = "uxttihjsxfowursjyult"
+
+# Temporary, server-to-server migration endpoint. Supabase JWT verification is
+# disabled because the endpoint enforces its own high-entropy one-time bearer.
+[functions.meta-token-rewrap]
+verify_jwt = false

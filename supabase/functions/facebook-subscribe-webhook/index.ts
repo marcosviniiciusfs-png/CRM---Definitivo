@@ -1,41 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from '../_shared/organization-auth.ts';
+import { decryptMetaToken } from '../_shared/meta-token-crypto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Função para descriptografar tokens
-async function decryptToken(encryptedToken: string, key: string): Promise<string> {
-  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
-
-  try {
-    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const data = combined.slice(12);
-
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
-
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-
-    return new TextDecoder().decode(decrypted);
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return ''; // CRÍTICO: retornar '' para não usar token corrompido
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -53,7 +26,20 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
+    await requireOrganizationMember(req, supabase, organization_id, ['owner', 'admin']);
+
+    const { data: integrationOwner, error: integrationOwnerError } = await supabase
+      .from('facebook_integrations')
+      .select('id')
+      .eq('id', integration_id)
+      .eq('organization_id', organization_id)
+      .maybeSingle();
+    if (integrationOwnerError || !integrationOwner) {
+      return new Response(JSON.stringify({ error: 'Integração não pertence à organização' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Buscar tokens de forma segura usando o integration_id específico
     let { data: tokenData, error: tokenError } = await supabase.rpc('get_facebook_token_by_integration', {
@@ -96,7 +82,7 @@ Deno.serve(async (req) => {
     const { encrypted_page_access_token, page_id } = tokenData[0];
 
     // Descriptografar o token
-    const pageAccessToken = await decryptToken(encrypted_page_access_token, ENCRYPTION_KEY);
+    const pageAccessToken = await decryptMetaToken(encrypted_page_access_token);
 
     if (!pageAccessToken) {
       throw new Error('Failed to decrypt page access token. Please reconnect Facebook.');
@@ -164,6 +150,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('Error subscribing webhook:', error);
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

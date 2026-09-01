@@ -8,6 +8,10 @@ import {
   normalizeUrl,
   extractPhoneNumber,
 } from '../_shared/evolution-config.ts';
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from '../_shared/organization-auth.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -47,6 +51,13 @@ Deno.serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    await requireOrganizationMember(
+      req,
+      supabase,
+      instanceData.organization_id,
+      ['owner', 'admin'],
+    );
 
     // Chamar a Evolution API para obter o status real
     let evolutionApiUrl: string;
@@ -100,7 +111,8 @@ Deno.serve(async (req) => {
         const { error: deleteError } = await supabase
           .from('whatsapp_instances')
           .delete()
-          .eq('instance_name', instance_name);
+          .eq('instance_name', instance_name)
+          .eq('organization_id', instanceData.organization_id);
           
         if (!deleteError) {
           console.log('✅ Registro órfão deletado do banco de dados');
@@ -303,6 +315,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('Error in check-whatsapp-status:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
     return new Response(

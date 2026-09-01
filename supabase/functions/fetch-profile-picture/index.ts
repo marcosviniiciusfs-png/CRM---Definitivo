@@ -1,5 +1,9 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin, formatPhoneToJid } from "../_shared/evolution-config.ts";
+import {
+  authorizationErrorResponse,
+  requireInternalServiceRole,
+} from "../_shared/organization-auth.ts";
 
 interface FetchProfilePictureRequest {
   instance_name: string;
@@ -13,6 +17,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    requireInternalServiceRole(req);
     const { instance_name, phone_number, lead_id } = await req.json() as FetchProfilePictureRequest;
 
     console.log('📸 Buscando foto de perfil:', { instance_name, phone_number, lead_id });
@@ -104,6 +109,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: any) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('❌ Erro na função fetch-profile-picture:', error);
     return new Response(
       JSON.stringify({

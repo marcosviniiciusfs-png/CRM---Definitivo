@@ -27,7 +27,7 @@ serve(async (req) => {
   try {
     const payload = await req.json();
     
-    console.log('Webhook received:', JSON.stringify(payload, null, 2));
+    console.log('Webhook de status recebido');
 
     // Extract event type and data from Evolution API webhook
     const event = payload.event;

@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabasePublicUrl } from '../_shared/supabase-urls.ts';
+import { getAllowedFrontendOrigin, verifyOAuthState } from '../_shared/oauth-state.ts';
 
 // Função para criptografar token usando AES-256-GCM
 async function encryptToken(plainToken: string, encryptionKey: string): Promise<string> {
@@ -38,8 +40,7 @@ async function encryptToken(plainToken: string, encryptionKey: string): Promise<
 }
 
 serve(async (req) => {
-  // Fallback padrão para redirect
-  let redirectUrl = 'https://kairozspace.com.br';
+  let redirectUrl = getAllowedFrontendOrigin();
   
   try {
     const url = new URL(req.url);
@@ -47,17 +48,9 @@ serve(async (req) => {
     const state = url.searchParams.get('state');
     const error = url.searchParams.get('error');
 
-    // Decodificar state primeiro para pegar o origin (se disponível)
-    if (state) {
-      try {
-        const stateData = JSON.parse(atob(state));
-        if (stateData.origin) {
-          redirectUrl = stateData.origin;
-        }
-      } catch {
-        // State inválido, usar fallback
-      }
-    }
+    if (!state) throw new Error('State ausente');
+    const stateData = await verifyOAuthState(state);
+    redirectUrl = stateData.origin;
 
     // Se usuário negou autorização
     if (error) {
@@ -70,13 +63,11 @@ serve(async (req) => {
       });
     }
 
-    if (!code || !state) {
+    if (!code) {
       throw new Error('Código ou state ausente');
     }
 
-    // Decodificar state completo (agora inclui organization_id para multi-org)
-    const { user_id, organization_id, origin } = JSON.parse(atob(state));
-    if (origin) redirectUrl = origin;
+    const { user_id, organization_id } = stateData;
     console.log('🔄 Processando callback para usuário:', user_id, 'org:', organization_id, 'redirect:', redirectUrl);
 
     // Validar que organization_id existe no state
@@ -113,7 +104,7 @@ serve(async (req) => {
     // Trocar código por tokens
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')!;
     const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')!;
-    const redirectUri = `${supabaseUrl}/functions/v1/google-calendar-oauth-callback`;
+    const redirectUri = `${getSupabasePublicUrl()}/functions/v1/google-calendar-oauth-callback`;
 
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',

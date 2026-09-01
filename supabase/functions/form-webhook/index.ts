@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
   try {
     // Verificar se o token foi fornecido
     if (!webhookToken || webhookToken === 'form-webhook' || webhookToken.length < 32) {
-      console.error('❌ Token inválido:', webhookToken);
+      console.error('❌ Token de webhook inválido ou ausente');
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -351,8 +351,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('📋 Campos mapeados:', { nome, telefone, email, empresa, valor });
-    console.log('📝 Dados adicionais:', additionalData);
+    console.log('📋 Campos mapeados:', {
+      nome: Boolean(nome),
+      telefone: Boolean(telefone),
+      email: Boolean(email),
+      empresa: Boolean(empresa),
+      valor: valor > 0,
+    });
+    console.log('📝 Campos adicionais:', Object.keys(additionalData));
 
     // Validate data
     const validation = validateLeadData(nome, telefone);

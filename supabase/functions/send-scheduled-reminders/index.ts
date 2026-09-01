@@ -1,11 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { rejectUnauthorizedCron } from "../_shared/cron-auth.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const unauthorized = rejectUnauthorizedCron(req);
+  if (unauthorized) return unauthorized;
 
   try {
     const supabase = createSupabaseAdmin();

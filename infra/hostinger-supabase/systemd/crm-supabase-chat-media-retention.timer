@@ -1,0 +1,13 @@
+[Unit]
+Description=Run CRM chat-media seven-day retention hourly
+
+[Timer]
+OnCalendar=hourly
+OnActiveSec=15m
+RandomizedDelaySec=5m
+AccuracySec=1m
+Persistent=true
+Unit=crm-supabase-chat-media-retention.service
+
+[Install]
+WantedBy=timers.target

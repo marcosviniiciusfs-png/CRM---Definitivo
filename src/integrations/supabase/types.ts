@@ -1615,6 +1615,7 @@ export type Database = {
           duplicate_attempts_history: Json | null
           email: string | null
           empresa: string | null
+          facebook_lead_id: string | null
           funnel_id: string | null
           funnel_stage_id: string | null
           id: string
@@ -1649,6 +1650,7 @@ export type Database = {
           duplicate_attempts_history?: Json | null
           email?: string | null
           empresa?: string | null
+          facebook_lead_id?: string | null
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string
@@ -1683,6 +1685,7 @@ export type Database = {
           duplicate_attempts_history?: Json | null
           email?: string | null
           empresa?: string | null
+          facebook_lead_id?: string | null
           funnel_id?: string | null
           funnel_stage_id?: string | null
           id?: string

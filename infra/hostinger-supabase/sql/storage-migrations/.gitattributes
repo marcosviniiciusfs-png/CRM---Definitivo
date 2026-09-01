@@ -1,0 +1,4 @@
+# Byte-exact upstream migrations: CRLF conversion changes both the integrity
+# manifest and the hashes recorded by postgres-migrations.
+*.sql text eol=lf
+SHA256SUMS text eol=lf

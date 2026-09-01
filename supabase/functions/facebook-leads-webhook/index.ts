@@ -1,46 +1,43 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
 import { sendLeadGroupAlert } from '../_shared/lead-group-alert.ts';
+import {
+  addFacebookDuplicateMetadata,
+  findFacebookDuplicateReference,
+  findLeadByFacebookLeadId,
+} from '../_shared/facebook-lead-policy.ts';
+import { decryptMetaToken } from '../_shared/meta-token-crypto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Função para descriptografar tokens
-// CORREÇÃO: retorna '' em caso de falha (antes retornava o token cifrado corrompido)
-async function decryptToken(encryptedToken: string, key: string): Promise<string> {
-  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
+async function hasValidMetaSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
+  const appSecret = Deno.env.get('FACEBOOK_APP_SECRET');
+  if (!appSecret || !signatureHeader?.startsWith('sha256=')) return false;
 
-  try {
-    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const data = combined.slice(12);
+  const providedHex = signatureHeader.slice('sha256='.length).toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(providedHex)) return false;
 
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(appSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signed = new Uint8Array(await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(rawBody),
+  ));
+  const expectedHex = Array.from(signed, byte => byte.toString(16).padStart(2, '0')).join('');
 
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-
-    const result = new TextDecoder().decode(decrypted);
-    // Validate result looks like a real token (not empty, not the encrypted string)
-    if (!result || result.length < 10) return '';
-    return result;
-  } catch (error) {
-    // CRÍTICO: retornar '' para não enviar lixo para a Graph API
-    console.error('⚠️ [FB-WEBHOOK] Falha na descriptografia do token:', error);
-    return '';
+  let difference = expectedHex.length ^ providedHex.length;
+  for (let index = 0; index < expectedHex.length; index += 1) {
+    difference |= expectedHex.charCodeAt(index) ^ providedHex.charCodeAt(index);
   }
+  return difference === 0;
 }
 
 // Tenta obter novo page_access_token usando o user_access_token
@@ -80,8 +77,6 @@ async function getSecureTokens(
   pageId: string,
   legacyToken: string | null
 ): Promise<{ pageToken: string; userToken: string }> {
-  const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
-
   // 1. Buscar tokens da tabela segura
   const { data: secureTokens } = await supabase
     .from('facebook_integration_tokens')
@@ -93,8 +88,8 @@ async function getSecureTokens(
   let userToken = '';
 
   if (secureTokens) {
-    pageToken = await decryptToken(secureTokens.encrypted_page_access_token || '', ENCRYPTION_KEY);
-    userToken = await decryptToken(secureTokens.encrypted_access_token || '', ENCRYPTION_KEY);
+    pageToken = await decryptMetaToken(secureTokens.encrypted_page_access_token || '');
+    userToken = await decryptMetaToken(secureTokens.encrypted_access_token || '');
   }
 
   // 2. Se o page token foi decriptado com sucesso, validar rapidamente
@@ -120,99 +115,6 @@ async function getSecureTokens(
   return { pageToken: '', userToken };
 }
 
-// Função para verificar duplicidade de lead
-async function checkDuplicateLead(
-  supabase: any,
-  organizationId: string,
-  telefone: string,
-  email?: string
-): Promise<{
-  isDuplicate: boolean;
-  existingLead: any | null;
-  hasAdvancedInFunnel: boolean;
-  matchType: 'phone' | 'email' | null;
-}> {
-  if (telefone) {
-    const { data: leadByPhone } = await supabase
-      .from('leads')
-      .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history')
-      .eq('organization_id', organizationId)
-      .eq('telefone_lead', telefone)
-      .maybeSingle();
-
-    if (leadByPhone) {
-      const hasAdvanced = await checkIfLeadAdvanced(supabase, leadByPhone);
-      return { isDuplicate: true, existingLead: leadByPhone, hasAdvancedInFunnel: hasAdvanced, matchType: 'phone' };
-    }
-  }
-
-  if (email) {
-    const { data: leadByEmail } = await supabase
-      .from('leads')
-      .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history')
-      .eq('organization_id', organizationId)
-      .eq('email', email)
-      .maybeSingle();
-
-    if (leadByEmail) {
-      const hasAdvanced = await checkIfLeadAdvanced(supabase, leadByEmail);
-      return { isDuplicate: true, existingLead: leadByEmail, hasAdvancedInFunnel: hasAdvanced, matchType: 'email' };
-    }
-  }
-
-  return { isDuplicate: false, existingLead: null, hasAdvancedInFunnel: false, matchType: null };
-}
-
-async function checkIfLeadAdvanced(supabase: any, lead: any): Promise<boolean> {
-  if (!lead.funnel_id || !lead.funnel_stage_id) return false;
-
-  const { data: firstStage } = await supabase
-    .from('funnel_stages')
-    .select('id')
-    .eq('funnel_id', lead.funnel_id)
-    .order('position')
-    .limit(1)
-    .maybeSingle();
-
-  return firstStage && firstStage.id !== lead.funnel_stage_id;
-}
-
-async function registerDuplicateAttempt(
-  supabase: any,
-  existingLeadId: string,
-  source: string,
-  originalPayload: any
-) {
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('duplicate_attempts_count, duplicate_attempts_history')
-    .eq('id', existingLeadId)
-    .single();
-
-  const currentCount = lead?.duplicate_attempts_count || 0;
-  const currentHistory = Array.isArray(lead?.duplicate_attempts_history) ? lead.duplicate_attempts_history : [];
-
-  const newEntry = {
-    source,
-    attempted_at: new Date().toISOString(),
-    form_name: originalPayload.formName || null,
-    campaign_name: originalPayload.campaignName || null,
-    original_data: originalPayload.leadData || null
-  };
-
-  await supabase
-    .from('leads')
-    .update({
-      duplicate_attempts_count: currentCount + 1,
-      last_duplicate_attempt_at: new Date().toISOString(),
-      duplicate_attempts_history: [...currentHistory, newEntry],
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', existingLeadId);
-
-  console.log(`📊 [FB-WEBHOOK] Tentativa de duplicação registrada para lead ${existingLeadId}. Total: ${currentCount + 1}`);
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -224,9 +126,9 @@ Deno.serve(async (req) => {
     const mode = url.searchParams.get('hub.mode');
     const token = url.searchParams.get('hub.verify_token');
     const challenge = url.searchParams.get('hub.challenge');
-    const VERIFY_TOKEN = Deno.env.get('FACEBOOK_WEBHOOK_VERIFY_TOKEN') || 'kairoz_webhook_verify_token';
+    const VERIFY_TOKEN = Deno.env.get('FACEBOOK_WEBHOOK_VERIFY_TOKEN');
 
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    if (VERIFY_TOKEN && mode === 'subscribe' && token === VERIFY_TOKEN) {
       console.log('✅ [FB-WEBHOOK] Webhook verificado com sucesso');
       return new Response(challenge, { status: 200 });
     }
@@ -235,8 +137,16 @@ Deno.serve(async (req) => {
 
   if (req.method === 'POST') {
     try {
-      const body = await req.json();
-      console.log('📥 [FB-WEBHOOK] Evento recebido:', JSON.stringify(body).slice(0, 500));
+      const rawBody = await req.text();
+      if (!await hasValidMetaSignature(rawBody, req.headers.get('x-hub-signature-256'))) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+
+      const body = JSON.parse(rawBody);
+      console.log('📥 [FB-WEBHOOK] Evento recebido', {
+        object: body?.object ?? 'unknown',
+        entries: Array.isArray(body?.entry) ? body.entry.length : 0,
+      });
 
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -248,8 +158,8 @@ Deno.serve(async (req) => {
           if (change.field !== 'leadgen') continue;
 
           const leadgenData = change.value;
-          const pageId = leadgenData.page_id || entry.id;
-          const leadgenId = leadgenData.leadgen_id;
+          const pageId = String(leadgenData.page_id || entry.id || '').trim();
+          const leadgenId = String(leadgenData.leadgen_id || '').trim();
           // CORREÇÃO CRÍTICA: extrair form_id e ad_id do payload do webhook
           // O Facebook envia form_id e ad_id diretamente no payload — usar como fonte primária
           const webhookFormId = leadgenData.form_id || null;
@@ -293,6 +203,29 @@ Deno.serve(async (req) => {
                 .single();
               logId = logEntry?.id || null;
 
+              // Idempotencia: uma reentrega do MESMO leadgen_id nao deve criar
+              // outro card. IDs Meta diferentes seguem o fluxo mesmo quando o
+              // telefone ou o email coincidem com um lead existente.
+              const alreadyProcessedLead = await findLeadByFacebookLeadId(
+                supabase,
+                integration.organization_id,
+                leadgenId,
+              );
+              if (alreadyProcessedLead) {
+                console.log(`ℹ️ [FB-WEBHOOK] Evento Meta ${leadgenId} ja processado no lead ${alreadyProcessedLead.id}`);
+                if (logId) {
+                  await supabase
+                    .from('facebook_webhook_logs')
+                    .update({
+                      status: 'duplicate',
+                      lead_id: alreadyProcessedLead.id,
+                      error_message: 'Evento Meta ja processado; nenhuma nova acao executada',
+                    })
+                    .eq('id', logId);
+                }
+                continue;
+              }
+
               // Obter tokens (page token para leadgen/form, user token para ads/campaign)
               const { pageToken: pageAccessToken, userToken: userAccessToken } = await getSecureTokens(
                 supabase,
@@ -306,11 +239,13 @@ Deno.serve(async (req) => {
                 console.error(`❌ [FB-WEBHOOK] ${msg}`);
                 // CORREÇÃO: Marcar integração como precisando reconexão (expires_at = now())
                 // para que o frontend mostre o aviso "needs_reconnect = true" ao usuário.
-                await supabase
+                const { error: expirationError } = await supabase
                   .from('facebook_integrations')
                   .update({ expires_at: new Date().toISOString() })
-                  .eq('id', integration.id)
-                  .catch((e: any) => console.warn('⚠️ [FB-WEBHOOK] Erro ao marcar expiração:', e));
+                  .eq('id', integration.id);
+                if (expirationError) {
+                  console.warn('⚠️ [FB-WEBHOOK] Erro ao marcar expiração:', expirationError);
+                }
                 if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'error', error_message: msg }).eq('id', logId);
                 continue;
               }
@@ -333,7 +268,6 @@ Deno.serve(async (req) => {
                 if (firstCode === 100) {
                   // Leads de teste às vezes só são acessíveis via user access token
                   // Tentar recuperar user token da tabela de tokens
-                  const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
                   const { data: secureTokens } = await supabase
                     .from('facebook_integration_tokens')
                     .select('encrypted_access_token')
@@ -341,7 +275,7 @@ Deno.serve(async (req) => {
                     .maybeSingle();
 
                   if (secureTokens?.encrypted_access_token) {
-                    const userToken = await decryptToken(secureTokens.encrypted_access_token, ENCRYPTION_KEY);
+                    const userToken = await decryptMetaToken(secureTokens.encrypted_access_token);
                     if (userToken && userToken.length > 20) {
                       console.log(`🔄 [FB-WEBHOOK] Tentando buscar lead ${leadgenId} com user token (fallback para lead de teste)...`);
                       leadResponse = await fetch(
@@ -460,7 +394,7 @@ Deno.serve(async (req) => {
                 .map((f: any) => ({ name: f.name, value: f.values?.[0] || '' }))
                 .filter((f: any) => f.value !== '');
 
-              const additionalData = {
+              const baseAdditionalData = {
                 source: 'facebook',
                 form_id: leadData.form_id,
                 form_name: formName,
@@ -503,28 +437,24 @@ Deno.serve(async (req) => {
                 console.log(`🧪 [FB-WEBHOOK] Lead de teste detectado (leadgen_id=${leadgenId})`);
               }
 
-              // Verificar duplicidade — leads de teste são sempre criados de novo (sem bloqueio)
-              const duplicateCheck = isTestLead
-                ? { isDuplicate: false, existingLead: null, hasAdvancedInFunnel: false, matchType: null }
-                : await checkDuplicateLead(supabase, integration.organization_id, phoneNumber, email || undefined);
+              // Coincidencia de contato agora e apenas informativa. Cada novo
+              // facebook_lead_id continua ate o INSERT e dispara o fluxo normal.
+              const duplicateReference = await findFacebookDuplicateReference(
+                supabase,
+                integration.organization_id,
+                phoneNumber,
+                email,
+              );
+              const additionalData = addFacebookDuplicateMetadata(
+                baseAdditionalData,
+                duplicateReference,
+              );
 
-              if (duplicateCheck.isDuplicate && duplicateCheck.existingLead) {
-                console.log(`⚠️ [FB-WEBHOOK] Lead duplicado via ${duplicateCheck.matchType}: ${duplicateCheck.existingLead.id}`);
-                await registerDuplicateAttempt(supabase, duplicateCheck.existingLead.id, 'Facebook', { leadData, formName, campaignName });
-
-                if (!duplicateCheck.hasAdvancedInFunnel) {
-                  const { data: curr } = await supabase.from('leads').select('descricao_negocio').eq('id', duplicateCheck.existingLead.id).single();
-                  await supabase.from('leads').update({
-                    nome_lead: leadInfo.full_name || leadInfo.nome_completo || leadInfo['first name'] || leadInfo.first_name || leadInfo.name || leadInfo.nome || duplicateCheck.existingLead.nome_lead,
-                    email: email || undefined,
-                    descricao_negocio: (curr?.descricao_negocio || '') + '\n\n--- NOVA TENTATIVA (' + new Date().toLocaleDateString('pt-BR') + ') ---\n' + allFieldsDescription,
-                    additional_data: additionalData,
-                    updated_at: new Date().toISOString()
-                  }).eq('id', duplicateCheck.existingLead.id);
-                }
-
-                if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'duplicate', lead_id: duplicateCheck.existingLead.id, error_message: `Lead já existe (match: ${duplicateCheck.matchType})` }).eq('id', logId);
-                continue;
+              if (duplicateReference) {
+                console.log(
+                  `ℹ️ [FB-WEBHOOK] Novo card com contato coincidente via ${duplicateReference.matchType}; ` +
+                  `referencia=${duplicateReference.id}`,
+                );
               }
 
               // Buscar mapeamento de funil para este formulário
@@ -627,6 +557,7 @@ Deno.serve(async (req) => {
                   email,
                   empresa: leadInfo.company_name || leadInfo.company || leadInfo.empresa || null,
                   organization_id: integration.organization_id,
+                  facebook_lead_id: leadgenId,
                   source: 'Facebook Leads',
                   stage: 'NOVO',
                   funnel_id: funnelId,
@@ -638,9 +569,35 @@ Deno.serve(async (req) => {
                 .single();
 
               if (leadError) {
-                const msg = `Erro ao criar lead: ${leadError.message}`;
-                console.error(`❌ [FB-WEBHOOK] ${msg}`);
-                if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'error', error_message: msg }).eq('id', logId);
+                // Duas entregas simultaneas podem passar pelo pre-check. A
+                // constraint UNIQUE por org + facebook_lead_id e a autoridade
+                // final; nesse caso a segunda entrega e tratada como sucesso
+                // idempotente e nao dispara efeitos colaterais novamente.
+                const racedLead = leadError.code === '23505'
+                  ? await findLeadByFacebookLeadId(
+                    supabase,
+                    integration.organization_id,
+                    leadgenId,
+                  )
+                  : null;
+
+                if (racedLead) {
+                  console.log(`ℹ️ [FB-WEBHOOK] Corrida idempotente para evento Meta ${leadgenId}; lead=${racedLead.id}`);
+                  if (logId) {
+                    await supabase
+                      .from('facebook_webhook_logs')
+                      .update({
+                        status: 'duplicate',
+                        lead_id: racedLead.id,
+                        error_message: 'Evento Meta processado por outra entrega concorrente',
+                      })
+                      .eq('id', logId);
+                  }
+                } else {
+                  const msg = `Erro ao criar lead: ${leadError.message}`;
+                  console.error(`❌ [FB-WEBHOOK] ${msg}`);
+                  if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'error', error_message: msg }).eq('id', logId);
+                }
               } else {
                 console.log(`✅ [FB-WEBHOOK] Lead criado: ${newLead.id} | funil=${funnelId} | etapa=${funnelStageId}`);
                 if (logId) await supabase.from('facebook_webhook_logs').update({ status: 'success', lead_id: newLead.id, form_id: leadData.form_id }).eq('id', logId);
@@ -670,7 +627,11 @@ Deno.serve(async (req) => {
             } catch (integrationError: any) {
               console.error(`❌ [FB-WEBHOOK] Erro ao processar integração ${integration.id}:`, integrationError.message);
               if (logId) {
-                await supabase.from('facebook_webhook_logs').update({ status: 'error', error_message: integrationError.message }).eq('id', logId).catch(() => {});
+                const { error: logUpdateError } = await supabase
+                  .from('facebook_webhook_logs')
+                  .update({ status: 'error', error_message: integrationError.message })
+                  .eq('id', logId);
+                if (logUpdateError) console.error('❌ [FB-WEBHOOK] Falha ao atualizar log:', logUpdateError);
               }
             }
           }

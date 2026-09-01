@@ -44,8 +44,26 @@ DATABASE_BACKUP_*
 FULL_DATABASE_SCHEMA*
 _db_*.txt
 
+# Hostinger/Supabase migration runtime artifacts and secrets
+supabase/.temp/
+infra/hostinger-supabase/artifacts/
+infra/hostinger-supabase/work/
+infra/hostinger-supabase/migration.env
+infra/hostinger-supabase/functions.env
+infra/hostinger-supabase/backup.env
+infra/hostinger-supabase/rclone.conf
+infra/hostinger-supabase/*.dump
+infra/hostinger-supabase/*.sql.gz
+infra/hostinger-supabase/managed-meta-rewrap/supabase/.temp/
+.crm-cutover-state/
+
 # Migration backups
 migrations_backup/
+
+# Local exports and one-off diagnostics
+exports/
+.codex-db-audit-*.sql
+*.tsbuildinfo
 
 # Debug/output files
 lint_output.txt
@@ -68,6 +86,7 @@ crm_dashboard.html
 
 # Playwright MCP
 .playwright-mcp/
+.claude/settings.local.json
 .env*
 
 .vercel

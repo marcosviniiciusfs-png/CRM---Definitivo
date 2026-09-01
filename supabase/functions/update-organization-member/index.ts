@@ -24,8 +24,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Auth check — decode JWT locally (no extra network call, consistent with add-organization-member)
+    // Validate the signature and claims with GoTrue before any service-role action.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -35,17 +36,14 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    let currentUserId: string;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      currentUserId = payload.sub;
-      if (!currentUserId) throw new Error("No sub in token");
-    } catch {
+    const { data: authData, error: authError } = await adminClient.auth.getUser(token);
+    if (authError || !authData.user) {
       return new Response(JSON.stringify({ error: "Token inválido" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const currentUserId = authData.user.id;
 
     // Parse body
     const body: UpdateMemberRequest = await req.json();
@@ -57,9 +55,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Create admin client
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get target member first to know the organization_id
     const { data: targetMemberPre, error: targetMemberPreError } = await adminClient
@@ -81,6 +76,7 @@ Deno.serve(async (req) => {
       .select("organization_id, role")
       .eq("user_id", currentUserId)
       .eq("organization_id", targetMemberPre.organization_id)
+      .eq("is_active", true)
       .maybeSingle();
 
     if (currentUserError || !currentUserMember) {
@@ -122,7 +118,24 @@ Deno.serve(async (req) => {
     // Only owners can change system roles — silently skip if non-owner tries to change it
     if (role !== undefined && currentUserMember.role === "owner") memberUpdates.role = role;
     if (is_active !== undefined) memberUpdates.is_active = is_active;
-    if (custom_role_id !== undefined) memberUpdates.custom_role_id = custom_role_id;
+    if (custom_role_id !== undefined) {
+      if (custom_role_id !== null) {
+        const { data: customRole, error: customRoleError } = await adminClient
+          .from("organization_custom_roles")
+          .select("id")
+          .eq("id", custom_role_id)
+          .eq("organization_id", targetMember.organization_id)
+          .maybeSingle();
+
+        if (customRoleError || !customRole) {
+          return new Response(JSON.stringify({ error: "Cargo personalizado inválido para esta organização" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+      memberUpdates.custom_role_id = custom_role_id;
+    }
     
     // If no user_id, store name in display_name column
     if (!targetMember.user_id && name !== undefined) {

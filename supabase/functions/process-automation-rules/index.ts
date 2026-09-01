@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
+import {
+  authorizationErrorResponse,
+  requireInternalServiceRole,
+} from "../_shared/organization-auth.ts";
 
 interface ProcessAutomationRequest {
   trigger_type: string;
@@ -19,11 +23,16 @@ serve(async (req) => {
   }
 
   try {
+    requireInternalServiceRole(req);
     const supabase = createSupabaseAdmin();
 
     const { trigger_type, trigger_data } = await req.json() as ProcessAutomationRequest;
 
-    console.log('Processing automation for trigger:', trigger_type, trigger_data);
+    console.log('Processing automation', {
+      trigger_type,
+      organization_id: trigger_data?.organization_id,
+      lead_id: trigger_data?.lead_id,
+    });
 
     // Buscar regras ativas para este gatilho e organização
     const { data: rules, error: rulesError } = await supabase
@@ -121,6 +130,8 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error: any) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('Critical error in automation processing:', error);
     return new Response(
       JSON.stringify({ error: error.message }),

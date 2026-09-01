@@ -1,4 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.0';
+import {
+  authorizationErrorResponse,
+  requireOrganizationMember,
+} from '../_shared/organization-auth.ts';
+import { decryptMetaToken } from '../_shared/meta-token-crypto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,38 +33,6 @@ interface CampaignAd {
     object_type?: string;
   } | null;
   preview_html?: string;
-}
-
-// Função para descriptografar tokens
-async function decryptToken(encryptedToken: string, key: string): Promise<string> {
-  if (!encryptedToken || encryptedToken === 'ENCRYPTED_IN_TOKENS_TABLE') return '';
-
-  try {
-    const combined = Uint8Array.from(atob(encryptedToken), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const data = combined.slice(12);
-
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(key.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
-
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-
-    return new TextDecoder().decode(decrypted);
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return encryptedToken;
-  }
 }
 
 // Fetch ad preview iframe from Meta API
@@ -111,11 +84,11 @@ Deno.serve(async (req) => {
       throw new Error('Missing required parameter: campaign_id or campaign_name');
     }
 
+    await requireOrganizationMember(req, supabase, organization_id);
+
     console.log(`Fetching ads for campaign: ${campaign_id || campaign_name} in org ${organization_id}`);
 
     // Buscar tokens de forma segura
-    const ENCRYPTION_KEY = Deno.env.get('GOOGLE_CALENDAR_ENCRYPTION_KEY') || 'default-encryption-key-32chars!';
-
     let access_token: string | null = null;
     let ad_account_id: string | null = null;
 
@@ -147,7 +120,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (secureToken?.encrypted_access_token) {
-      access_token = await decryptToken(secureToken.encrypted_access_token, ENCRYPTION_KEY);
+      access_token = await decryptMetaToken(secureToken.encrypted_access_token);
       console.log('Using secure token');
     }
 
@@ -285,6 +258,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error, corsHeaders);
+    if (authResponse) return authResponse;
     console.error('Error fetching campaign ads:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(

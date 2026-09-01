@@ -7,6 +7,7 @@ import { Lead } from "@/types/chat";
 import type { StatusReuniao } from "@/types/chat";
 import { memo } from "react";
 import { mapTriggerSourceToReason } from "@/lib/redistribution";
+import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 
 interface StagePaginationState {
   loadedCount: number;
@@ -124,6 +125,7 @@ export const PipelineColumn = memo(({
                   createdAt={lead.created_at}
                   source={lead.source}
                   description={lead.descricao_negocio}
+                  additionalData={lead.additional_data}
                   onUpdate={onLeadUpdate}
                   onEdit={() => onEdit?.(lead)}
                   onDelete={() => onDelete?.(lead)}
@@ -193,7 +195,10 @@ export const PipelineColumn = memo(({
     prevProps.isEmpty === nextProps.isEmpty &&
     prevProps.isDraggingActive === nextProps.isDraggingActive &&
     prevProps.leads.length === nextProps.leads.length &&
-    prevProps.leads.every((lead, i) => lead.id === nextProps.leads[i]?.id) &&
+    prevProps.leads.every((lead, i) =>
+      lead.id === nextProps.leads[i]?.id &&
+      isLeadDuplicateRecord(lead.additional_data) === isLeadDuplicateRecord(nextProps.leads[i]?.additional_data)
+    ) &&
     prevProps.profilesMap === nextProps.profilesMap &&
     prevProps.duplicateLeadIds === nextProps.duplicateLeadIds &&
     prevProps.agendamentosMap === nextProps.agendamentosMap &&

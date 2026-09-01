@@ -794,9 +794,11 @@ USING (
 | `STRIPE_SECRET_KEY` | Chave secreta Stripe |
 | `GOOGLE_CLIENT_ID` | Client ID Google OAuth |
 | `GOOGLE_CLIENT_SECRET` | Client Secret Google |
-| `GOOGLE_CALENDAR_ENCRYPTION_KEY` | Chave de criptografia tokens |
+| `GOOGLE_CALENDAR_ENCRYPTION_KEY` | Chave de criptografia dos tokens Google |
 | `FACEBOOK_APP_ID` | App ID do Facebook |
 | `FACEBOOK_APP_SECRET` | App Secret do Facebook |
+| `FACEBOOK_WEBHOOK_VERIFY_TOKEN` | Token de verificação do webhook Facebook |
+| `META_TOKEN_ENCRYPTION_KEY` | Chave de criptografia exclusiva dos tokens Meta/Facebook |
 | `RESEND_API_KEY` | API Key do Resend (emails) |
 | `LOVABLE_API_KEY` | Chave Lovable AI |
 

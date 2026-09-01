@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { type RedistributionReason } from "@/lib/redistribution";
 import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { LeadTagsBadgeStatic } from "@/components/LeadTagsBadgeStatic";
+import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import * as Icons from "lucide-react";
 import { Trash2 } from "lucide-react";
 import { FaTooth } from "react-icons/fa";
@@ -124,6 +125,7 @@ export interface BaseLeadCardProps {
   createdAt?: string;
   source?: string;
   description?: string;
+  additionalData?: unknown;
   onUpdate?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -181,6 +183,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   createdAt,
   source,
   description,
+  additionalData,
   onUpdate,
   onEdit,
   onDelete,
@@ -227,6 +230,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   const isFacebookLead =
     source === "Facebook Leads" ||
     description?.includes("=== INFORMAÇÕES DO FORMULÁRIO ===");
+  const isMarkedDuplicate = isLeadDuplicateRecord(additionalData);
 
   const isWhatsAppLead = source === "WhatsApp" || source?.toLowerCase().includes("whatsapp");
 
@@ -286,7 +290,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
               ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
               : isRedistributed && !dragging
               ? "border-slate-600 dark:border-slate-500 hover:border-slate-400 hover:shadow-[0_4px_18px_0_rgba(100,116,139,0.35)]"
-              : isDuplicate && !dragging
+              : (isMarkedDuplicate || isDuplicate) && !dragging
               ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
               : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
           )}
@@ -332,9 +336,12 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                       </Badge>
                     );
                   })()}
-                  {isDuplicate && (
+                  {(isMarkedDuplicate || isDuplicate) && (
                     <Badge
                       variant="secondary"
+                      title={isMarkedDuplicate
+                        ? "Novo registro criado para um contato que já existia no CRM"
+                        : "Existe outro lead com o mesmo telefone ou e-mail"}
                       className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-700"
                     >
                       <Copy className="h-2.5 w-2.5" />
@@ -690,6 +697,7 @@ export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingAct
     prevProps.avatarUrl === nextProps.avatarUrl &&
     prevProps.value === nextProps.value &&
     prevProps.source === nextProps.source &&
+    isLeadDuplicateRecord(prevProps.additionalData) === isLeadDuplicateRecord(nextProps.additionalData) &&
     prevProps.isDraggingActive === nextProps.isDraggingActive &&
     prevProps.leadItems?.length === nextProps.leadItems?.length &&
     prevProps.leadTags?.length === nextProps.leadTags?.length &&
