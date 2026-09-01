@@ -86,8 +86,9 @@ crm_dashboard.html
 
 # Playwright MCP
 .playwright-mcp/
-.claude/settings.local.json
+.claude/
 .env*
 
 .vercel
 .env*
+!.env.example
