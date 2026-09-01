@@ -59,12 +59,14 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   const [alertSaving, setAlertSaving] = useState<string | null>(null);
   const [groupsByChannel, setGroupsByChannel] = useState<Record<string, WhatsAppGroupOption[]>>({});
   const [groupsLoading, setGroupsLoading] = useState<Record<string, boolean>>({});
+  const [statusChecking, setStatusChecking] = useState<Record<string, boolean>>({});
 
   // Stale-while-revalidate: only the very first load shows the spinner.
   // Subsequent refetches (polling, post-action refreshes) keep the rendered
   // list in place to avoid flicker.
   const hasLoadedOnceRef = useRef(false);
   const requestedGroupsRef = useRef(new Set<string>());
+  const requestedStatusChecksRef = useRef(new Set<string>());
 
   const loadChannels = useCallback(async () => {
     if (!organizationId) return;
@@ -173,28 +175,44 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     });
   }, [open, channels, loadChannelGroups]);
 
-  // Backfill: when the modal opens, trigger check-whatsapp-status for any
-  // CONNECTED channel without phone_number. The Edge Function does the
-  // backfill on-demand (fetchInstances on Evolution API) and updates the row.
-  // Realtime then propagates the update back into `channels`. Without this,
-  // channels that connected before the webhook captured phone_number show
-  // "Aguardando..." forever.
+  // Stored connection states can become stale when a webhook is missed. Check
+  // every channel once per modal session so this works for every organization.
   useEffect(() => {
-    if (!open || channels.length === 0) return;
+    if (!open) {
+      requestedStatusChecksRef.current.clear();
+      setStatusChecking({});
+      return;
+    }
 
-    const stale = channels.filter((c) => isConnected(c.status) && !c.phone_number);
-    if (stale.length === 0) return;
+    const unchecked = channels.filter(
+      (channel) => channel.instance_name && !requestedStatusChecksRef.current.has(channel.id),
+    );
+    if (unchecked.length === 0) return;
+
+    unchecked.forEach((channel) => requestedStatusChecksRef.current.add(channel.id));
+    setStatusChecking((current) => {
+      const next = { ...current };
+      unchecked.forEach((channel) => { next[channel.id] = true; });
+      return next;
+    });
 
     let cancelled = false;
     (async () => {
       await Promise.allSettled(
-        stale.map((c) =>
+        unchecked.map((channel) =>
           supabase.functions.invoke("check-whatsapp-status", {
-            body: { instance_name: c.instance_name },
+            body: { instance_name: channel.instance_name },
           })
         )
       );
-      if (!cancelled) loadChannels();
+      if (!cancelled) {
+        setStatusChecking((current) => {
+          const next = { ...current };
+          unchecked.forEach((channel) => { delete next[channel.id]; });
+          return next;
+        });
+        void loadChannels();
+      }
     })();
 
     return () => {
@@ -488,38 +506,43 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                         {channel.phone_number || "Aguardando..."}
                         {leadCounts[channel.id] != null && ` · ${leadCounts[channel.id]} leads`}
                       </div>
-                      {isConnected(channel.status) && (
-                        <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-emerald-200/70 bg-emerald-50 px-2.5 py-2">
+                      <div className="mt-2 flex items-center justify-between gap-3 rounded-md border bg-muted/20 px-2.5 py-2">
                           <div className="min-w-0">
-                            <p className="text-[11px] font-semibold text-emerald-900">
+                            <p className="text-[11px] font-semibold">
                               Número que cria leads
                             </p>
-                            <p className="truncate text-[10px] text-emerald-700">
-                              {channel.accepts_leads !== false
-                                ? "Recebe novos contatos como leads"
-                                : "Somente conversas existentes"}
+                            <p className="truncate text-[10px] text-muted-foreground">
+                              {statusChecking[channel.id]
+                                ? "Verificando conexão..."
+                                : !isConnected(channel.status)
+                                  ? "Reconecte o canal para alterar esta configuração"
+                                  : channel.accepts_leads !== false
+                                    ? "Recebe novos contatos como leads"
+                                    : "Somente conversas existentes"}
                             </p>
                           </div>
                           <Switch
                             checked={channel.accepts_leads !== false}
-                            disabled={!canManage || leadCaptureSaving === channel.id}
+                            disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || leadCaptureSaving === channel.id}
                             onCheckedChange={(checked) => handleLeadCaptureToggle(channel.id, checked)}
                             aria-label={`Definir ${channel.phone_number || channel.instance_name} como número criador de leads`}
                           />
                         </div>
-                      )}
-                      {isConnected(channel.status) && (
-                        <div className="mt-2 space-y-2.5 rounded-md border bg-muted/20 px-2.5 py-2">
+                      <div className="mt-2 space-y-2.5 rounded-md border bg-muted/20 px-2.5 py-2">
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] font-semibold">Avisos de novos leads</p>
                               <p className="text-[10px] text-muted-foreground">
-                                Envia os dados do novo lead para um grupo.
+                                {statusChecking[channel.id]
+                                  ? "Verificando conexão..."
+                                  : isConnected(channel.status)
+                                    ? "Envia os dados do novo lead para um grupo."
+                                    : "Reconecte o canal para selecionar um grupo e ativar avisos."}
                               </p>
                             </div>
                             <Switch
                               checked={channel.lead_alerts_enabled === true}
-                              disabled={!canManage || alertSaving === channel.id}
+                              disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || alertSaving === channel.id}
                               onCheckedChange={(checked) => handleLeadAlertToggle(channel, checked)}
                               aria-label="Ativar avisos de novos leads no grupo"
                             />
@@ -527,7 +550,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
 
                           <Select
                             value={alertGroupDrafts[channel.id] || channel.lead_alert_group_id || ""}
-                            disabled={!canManage || groupsLoading[channel.id]}
+                            disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || groupsLoading[channel.id]}
                             onValueChange={(value) => {
                               setAlertGroupDrafts((current) => ({ ...current, [channel.id]: value }));
                               if (channel.lead_alerts_enabled) void handleLeadAlertToggle(channel, true, value);
@@ -555,7 +578,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                                   size="sm"
                                   variant={selected ? "default" : "outline"}
                                   className="h-7 px-2 text-[10px]"
-                                  disabled={!canManage || alertSaving === channel.id}
+                                  disabled={!canManage || !isConnected(channel.status) || statusChecking[channel.id] || alertSaving === channel.id}
                                   onClick={() => handleAlertSourceToggle(channel, source.value)}
                                 >
                                   {source.label}
@@ -563,8 +586,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                               );
                             })}
                           </div>
-                        </div>
-                      )}
+                      </div>
                     </>
                   )}
                 </div>
