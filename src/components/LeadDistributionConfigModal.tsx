@@ -16,22 +16,24 @@ import { HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { FilterRuleBuilder } from "./distribution/FilterRuleBuilder";
 import type { FilterRules } from "./distribution/FilterRuleChips";
+import type { Json, TablesInsert } from "@/integrations/supabase/types";
 
-interface DistributionConfig {
+export interface DistributionConfig {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   source_type: string;
   source_identifiers: any;
   distribution_method: string;
   is_active: boolean;
   triggers: any;
   auto_redistribute: boolean;
-  redistribution_timeout_minutes?: number;
-  eligible_agents?: string[];
-  team_id?: string;
+  redistribution_timeout_minutes?: number | null;
+  eligible_agents?: string[] | null;
+  team_id?: string | null;
   funnel_id?: string | null;
   funnel_stage_id?: string | null;
+  filter_rules?: unknown;
 }
 
 interface Team {
@@ -67,6 +69,23 @@ interface LeadDistributionConfigModalProps {
   organizationId: string | null | undefined;
 }
 
+interface DistributionFormData {
+  name: string;
+  description: string;
+  source_type: string;
+  source_identifiers: string[];
+  distribution_method: string;
+  is_active: boolean;
+  triggers: string[];
+  auto_redistribute: boolean;
+  redistribution_timeout_minutes: number;
+  eligible_agents: string[];
+  team_id: string;
+  funnel_id: string;
+  funnel_stage_id: string;
+  filter_rules: FilterRules;
+}
+
 // Descrições de cada método de distribuição
 const DISTRIBUTION_METHOD_TOOLTIPS: Record<string, string> = {
   round_robin:
@@ -86,7 +105,7 @@ export function LeadDistributionConfigModal({
   organizationId,
 }: LeadDistributionConfigModalProps) {
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<DistributionFormData>({
     name: "",
     description: "",
     source_type: "all",
@@ -249,6 +268,7 @@ export function LeadDistributionConfigModal({
         team_id: "",
         funnel_id: "",
         funnel_stage_id: "",
+        filter_rules: { logic: 'AND', conditions: [] },
       });
     }
   }, [config, open]);
@@ -257,10 +277,10 @@ export function LeadDistributionConfigModal({
     mutationFn: async () => {
       if (!organizationId) throw new Error("Organization ID not found");
 
-      const payload = {
+      const payload: TablesInsert<"lead_distribution_configs"> = {
         ...formData,
         organization_id: organizationId,
-        filter_rules: formData.filter_rules,
+        filter_rules: formData.filter_rules as unknown as Json,
         team_id: formData.team_id === "" ? null : formData.team_id,
         funnel_id: formData.funnel_id === "" ? null : formData.funnel_id,
         funnel_stage_id: formData.funnel_stage_id === "" ? null : formData.funnel_stage_id,

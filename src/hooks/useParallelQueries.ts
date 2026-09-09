@@ -14,7 +14,7 @@ export async function executeParallelQueries<T extends Record<string, any>>(
   const promises = keys.map(key => 
     queries[key]()
       .then(result => ({ key, data: result.data, error: result.error }))
-      .catch(error => ({ key, data: null, error }))
+      .catch(error => ({ key, data: null as T[typeof key] | null, error }))
   );
   
   const results = await Promise.all(promises);
@@ -130,7 +130,7 @@ export function useLeadsParallelQueries() {
             .in('user_id', userIds);
           
           const profilesMap = profiles?.reduce((acc, p) => {
-            if (p.user_id) acc[p.user_id] = p.full_name;
+            if (p.user_id) acc[p.user_id] = p.full_name ?? "";
             return acc;
           }, {} as Record<string, string>) || {};
           

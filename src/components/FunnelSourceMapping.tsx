@@ -90,12 +90,20 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
     }
 
     try {
+      const { data: funnel, error: funnelError } = await supabase
+        .from("sales_funnels")
+        .select("organization_id")
+        .eq("id", funnelId)
+        .single();
+      if (funnelError || !funnel) throw funnelError || new Error("Funil não encontrado");
+
       const mappingsToCreate = [];
 
       if (sourceType === "whatsapp") {
         // WhatsApp não precisa de identifier
         mappingsToCreate.push({
           funnel_id: funnelId,
+          organization_id: funnel.organization_id,
           source_type: sourceType,
           source_identifier: null,
           target_stage_id: targetStageId,
@@ -108,6 +116,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
         selectedWebhooks.forEach((webhookId) => {
           mappingsToCreate.push({
             funnel_id: funnelId,
+            organization_id: funnel.organization_id,
             source_type: sourceType,
             source_identifier: webhookId,
             target_stage_id: targetStageId,
@@ -121,6 +130,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
         selectedForms.forEach((formId) => {
           mappingsToCreate.push({
             funnel_id: funnelId,
+            organization_id: funnel.organization_id,
             source_type: sourceType,
             source_identifier: formId,
             target_stage_id: targetStageId,

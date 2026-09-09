@@ -1,9 +1,9 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, LucideIcon, Copy, Check, CalendarDays, CalendarCheck, GripVertical, MessageCircle } from "lucide-react";
+import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, Copy, Check, CalendarDays, CalendarCheck, GripVertical, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect, CSSProperties, memo, useCallback } from "react";
+import { useState, useEffect, CSSProperties, memo, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -25,9 +25,8 @@ import { type RedistributionReason } from "@/lib/redistribution";
 import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { LeadTagsBadgeStatic } from "@/components/LeadTagsBadgeStatic";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
-import * as Icons from "lucide-react";
 import { Trash2 } from "lucide-react";
-import { FaTooth } from "react-icons/fa";
+import { getAppIcon } from "@/lib/iconRegistry";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,16 +37,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-// Wrapper para ícone do react-icons
-const ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <FaTooth className={className} />
-);
-
-// Mapa de ícones customizados (não-lucide)
-const customIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  Tooth: ToothIcon,
-};
 
 const CopyPhoneButton: React.FC<{ phone: string }> = ({ phone }) => {
   const [copied, setCopied] = useState(false);
@@ -239,7 +228,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
     tags.some(tag => tag.name.toLowerCase().includes("webhook"));
 
   const hasRedBorder = isNewLead();
-  const leadItems = initialLeadItems || [];
+  const leadItems = useMemo(() => initialLeadItems || [], [initialLeadItems]);
 
   useEffect(() => {
     if (leadItems.length > 0) {
@@ -256,17 +245,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   const getItemIcon = (iconName: string | null, size: string = "h-4 w-4") => {
     if (!iconName) return null;
 
-    if (iconName in customIcons) {
-      const CustomIcon = customIcons[iconName];
-      return <CustomIcon className={size} />;
-    }
-
-    if (iconName in Icons) {
-      const LucideIcon = Icons[iconName as keyof typeof Icons] as LucideIcon;
-      return <LucideIcon className={size} />;
-    }
-
-    return null;
+    const ItemIcon = getAppIcon(iconName);
+    return ItemIcon ? <ItemIcon className={size} /> : null;
   };
 
   return (

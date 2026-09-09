@@ -88,7 +88,7 @@ export function ProductionBlockCard({ block, organizationId, isCurrent, onClick,
       }
 
       const userIds = [...countMap.values()].filter(e => e.user_id).map(e => e.user_id!);
-      let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
+      const profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")

@@ -292,8 +292,8 @@ export default function Ranking() {
     };
   }, [organizationId, queryClient]);
 
-  const teams = teamsData?.teams ?? [];
-  const teamMembers = teamsData?.teamMembers ?? [];
+  const teams = useMemo(() => teamsData?.teams ?? [], [teamsData?.teams]);
+  const teamMembers = useMemo(() => teamsData?.teamMembers ?? [], [teamsData?.teamMembers]);
 
   // Buscar role do usuário atual para determinar visibilidade
   const { data: userRoleData } = useQuery({

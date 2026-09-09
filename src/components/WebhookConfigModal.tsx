@@ -299,6 +299,7 @@ export const WebhookConfigModal = ({
             .from("funnel_source_mappings")
             .insert({
               funnel_id: selectedFunnelId,
+              organization_id: organizationId,
               source_type: "webhook",
               source_identifier: webhook.id,
               target_stage_id: selectedStageId,

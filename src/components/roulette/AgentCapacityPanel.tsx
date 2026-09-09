@@ -56,6 +56,7 @@ export function AgentCapacityPanel() {
       );
       const loadCounts = new Map<string, number>();
       for (const row of leadsRes.data || []) {
+        if (!row.responsavel_user_id) continue;
         loadCounts.set(row.responsavel_user_id, (loadCounts.get(row.responsavel_user_id) || 0) + 1);
       }
 
@@ -82,6 +83,7 @@ export function AgentCapacityPanel() {
 
   const pauseMutation = useMutation({
     mutationFn: async ({ userId, pause }: { userId: string; pause: boolean }) => {
+      if (!organizationId) throw new Error("Organização não encontrada");
       const updates = pause
         ? { is_paused: true, pause_until: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), pause_reason: "Pausa manual" }
         : { is_paused: false, pause_until: null, pause_reason: null };

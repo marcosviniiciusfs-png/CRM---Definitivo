@@ -26,31 +26,12 @@ import {
   Globe,
 } from "lucide-react";
 import { toast } from "sonner";
-import { LeadDistributionConfigModal } from "./LeadDistributionConfigModal";
+import { LeadDistributionConfigModal, type DistributionConfig } from "./LeadDistributionConfigModal";
 import { RedistributeBatchDialog } from "./RedistributeBatchDialog";
 import { ConversionSparkline } from "./distribution/ConversionSparkline";
 import { FilterRuleChips } from "./distribution/FilterRuleChips";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
-
-interface DistributionConfig {
-  id: string;
-  name: string;
-  description?: string;
-  source_type: string;
-  source_identifiers: any;
-  distribution_method: string;
-  is_active: boolean;
-  triggers: any;
-  auto_redistribute: boolean;
-  redistribution_timeout_minutes?: number;
-  eligible_agents?: string[];
-  team_id?: string | null;
-  funnel_id?: string | null;
-  funnel_stage_id?: string | null;
-  filter_rules?: any;
-  created_at?: string;
-}
 
 interface Funnel {
   id: string;
@@ -200,11 +181,13 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
       const stats: Record<string, { today: number; week: number; lastAt: string | null }> = {};
       const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
       for (const row of data) {
-        if (!stats[row.config_id]) stats[row.config_id] = { today: 0, week: 0, lastAt: null };
-        stats[row.config_id].week++;
-        if (row.created_at >= todayStart) stats[row.config_id].today++;
-        if (!stats[row.config_id].lastAt || row.created_at > stats[row.config_id].lastAt!) {
-          stats[row.config_id].lastAt = row.created_at;
+        if (!row.config_id) continue;
+        const configStat = stats[row.config_id] ?? { today: 0, week: 0, lastAt: null };
+        stats[row.config_id] = configStat;
+        configStat.week++;
+        if (row.created_at >= todayStart) configStat.today++;
+        if (!configStat.lastAt || row.created_at > configStat.lastAt) {
+          configStat.lastAt = row.created_at;
         }
       }
       return stats;
@@ -249,11 +232,14 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
         .in("responsavel_user_id", agentIds);
       const countMap = new Map<string, number>();
       for (const row of leadCounts || []) {
+        if (!row.responsavel_user_id) continue;
         countMap.set(row.responsavel_user_id, (countMap.get(row.responsavel_user_id) || 0) + 1);
       }
       const atCapacitySet = new Set<string>();
       for (const agent of cappedAgents) {
-        if ((countMap.get(agent.user_id) || 0) >= agent.max_capacity) atCapacitySet.add(agent.user_id);
+        if (agent.max_capacity != null && (countMap.get(agent.user_id) || 0) >= agent.max_capacity) {
+          atCapacitySet.add(agent.user_id);
+        }
       }
       if (atCapacitySet.size === 0) return [] as CapacityAlert[];
       const { data: activeConfigs } = await supabase
@@ -271,8 +257,9 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
       const allActiveIds = new Set((allActiveAgents || []).map((a) => a.user_id));
       const alerts: CapacityAlert[] = [];
       for (const config of activeConfigs) {
-        const eligibleIds: string[] = config.eligible_agents?.length > 0
-          ? config.eligible_agents.filter((id: string) => allActiveIds.has(id))
+        const configuredAgentIds = config.eligible_agents ?? [];
+        const eligibleIds: string[] = configuredAgentIds.length > 0
+          ? configuredAgentIds.filter((id: string) => allActiveIds.has(id))
           : [...allActiveIds];
         if (eligibleIds.length === 0) continue;
         const cappedInConfig = eligibleIds.filter((id) => atCapacitySet.has(id));

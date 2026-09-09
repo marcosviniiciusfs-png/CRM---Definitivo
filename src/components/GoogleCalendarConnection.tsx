@@ -13,9 +13,9 @@ interface GoogleCalendarConnectionProps {
 
 interface CalendarIntegration {
   id: string;
-  is_active: boolean;
-  calendar_id: string;
-  created_at: string;
+  is_active: boolean | null;
+  calendar_id: string | null;
+  created_at: string | null;
 }
 
 export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionProps) => {
@@ -34,11 +34,12 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
   const loadIntegration = async () => {
     try {
       setLoading(true);
+      if (!user?.id) return;
       
       const { data, error } = await supabase
         .from("google_calendar_integrations")
         .select("*")
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .eq("is_active", true)
         .maybeSingle();
 

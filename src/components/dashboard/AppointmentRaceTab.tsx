@@ -435,7 +435,7 @@ export function AppointmentRaceTab({ organizationId, shouldFilterByTeam, current
         .select('user_id')
         .eq('organization_id', organizationId);
 
-      const userIds = (members || []).map(m => m.user_id).filter(Boolean);
+      const userIds = (members || []).map(m => m.user_id).filter((id): id is string => Boolean(id));
 
       if (userIds.length === 0) {
         setRacers([]);

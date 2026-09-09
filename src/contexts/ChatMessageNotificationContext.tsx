@@ -241,14 +241,15 @@ export function ChatMessageNotificationProvider({ children }: { children: React.
             )
             .subscribe();
 
-        // Polling fallback: o Realtime tem se mostrado nao-confiavel neste
-        // ambiente (RLS + JWT, throttle de WS em background). A cada 5s
+        // Polling fallback: o Realtime continua sendo o caminho principal.
+        // A reconciliação roda em baixa frequência e apenas com a aba visível,
+        // evitando consultas contínuas enquanto o usuário está em outra tela.
         // buscamos mensagens ENTRADA da org com data_hora > ultima vista
         // e disparamos notificacao para as novas. Deduplicacao por seenIds
         // evita disparar duas vezes quando Realtime e polling pegam o mesmo
         // INSERT.
         const pollMessages = async () => {
-            if (!orgRef.current) return;
+            if (!orgRef.current || document.visibilityState !== 'visible' || !navigator.onLine) return;
             try {
                 let q = supabase
                     .from('mensagens_chat')
@@ -293,11 +294,18 @@ export function ChatMessageNotificationProvider({ children }: { children: React.
         if (!lastSeenTsRef.current) {
             lastSeenTsRef.current = new Date().toISOString();
         }
-        const pollInterval = setInterval(pollMessages, 5000);
+        const reconcileWhenActive = () => {
+            if (document.visibilityState === 'visible') void pollMessages();
+        };
+        const pollInterval = window.setInterval(pollMessages, 60_000);
+        document.addEventListener('visibilitychange', reconcileWhenActive);
+        window.addEventListener('online', reconcileWhenActive);
 
         return () => {
             supabase.removeChannel(channel);
-            clearInterval(pollInterval);
+            window.clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', reconcileWhenActive);
+            window.removeEventListener('online', reconcileWhenActive);
         };
     }, [user, organizationId, addNotification, resolveLeadInfo]);
 

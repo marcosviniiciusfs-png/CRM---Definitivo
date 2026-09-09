@@ -181,8 +181,8 @@ export const CollaborativeTaskApproval = ({
 
                 if (cardDetails && boardData) {
                   const now = new Date();
-                  const hadDueDate = !!cardDetails.due_date;
-                  const wasOnTimeDueDate = hadDueDate && new Date(cardDetails.due_date) >= now;
+                  const hadDueDate = cardDetails.due_date !== null;
+                  const wasOnTimeDueDate = cardDetails.due_date !== null && new Date(cardDetails.due_date) >= now;
                   
                   const hadTimer = !!(cardDetails.estimated_time && cardDetails.timer_started_at && !cardDetails.due_date);
                   let wasOnTimeTimer = false;
@@ -243,10 +243,11 @@ export const CollaborativeTaskApproval = ({
       // Notificar outros membros
       const otherAssignees = assignees.filter((a) => a.user_id !== user?.id);
       if (otherAssignees.length > 0) {
+        if (!user?.id) throw new Error("Usuário não autenticado");
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name")
-          .eq("user_id", user?.id)
+          .eq("user_id", user.id)
           .single();
 
         for (const assignee of otherAssignees) {

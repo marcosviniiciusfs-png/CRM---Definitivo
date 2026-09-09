@@ -1,9 +1,7 @@
 import React from "react";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
-import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { RefreshCw, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -12,7 +10,6 @@ export default function Pricing() {
   const location = useLocation();
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const [isCreating, setIsCreating] = React.useState(false);
 
   // Se organização foi detectada, redirecionar para dashboard (sem reload)
   React.useEffect(() => {
@@ -25,34 +22,6 @@ export default function Pricing() {
     }
   }, [isReady, organizationId, location.state, navigate]);
 
-  const handleCreateOrg = async () => {
-    if (isCreating) return;
-    setIsCreating(true);
-    try {
-      const { data, error } = await (supabase.rpc as any)('ensure_user_organization');
-
-      if (error) {
-        console.error("[Pricing] RPC Error:", error);
-        alert("Erro no servidor: " + error.message);
-        setIsCreating(false);
-        return;
-      }
-
-      if (data?.success) {
-        const fromPath = (location.state as any)?.from?.pathname || "/dashboard";
-        const fromSearch = (location.state as any)?.from?.search || "";
-        navigate(fromPath + fromSearch, { replace: true });
-      } else {
-        alert("Não foi possível criar seu workspace: " + (data?.error || "Erro desconhecido"));
-        setIsCreating(false);
-      }
-    } catch (err) {
-      console.error("[Pricing] Catch Error:", err);
-      alert("Falha na comunicação com o servidor.");
-      setIsCreating(false);
-    }
-  };
-
   const handleLogout = async () => {
     await signOut();
     navigate("/auth", { replace: true });
@@ -62,28 +31,20 @@ export default function Pricing() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full text-center space-y-8 p-8 border rounded-2xl bg-card shadow-lg">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Quase lá!</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Acesso pendente</h1>
           <p className="text-muted-foreground text-balance">
-            Não encontramos um Workspace vinculado à sua conta.
-            Clique no botão abaixo para criar seu acesso gratuito agora mesmo.
+            Sua conta ainda não está vinculada a uma organização. Solicite ao administrador da sua empresa que libere o acesso.
           </p>
         </div>
 
         <div className="space-y-4">
           <Button
-            onClick={handleCreateOrg}
-            disabled={isCreating}
+            onClick={() => window.location.reload()}
             size="lg"
-            className="w-full h-16 text-lg gap-3 bg-primary hover:bg-primary/90 transition-all font-semibold shadow-md active:scale-[0.98]"
+            className="w-full h-12 gap-2 bg-primary hover:bg-primary/90 transition-all font-semibold shadow-md active:scale-[0.98]"
           >
-            {isCreating ? (
-              <LoadingAnimation text="Configurando tudo..." />
-            ) : (
-              <>
-                <PlusCircle className="w-6 h-6" />
-                Criar meu Workspace Grátis
-              </>
-            )}
+            <RefreshCw className="w-4 h-4" />
+            Verificar acesso novamente
           </Button>
 
           <Button

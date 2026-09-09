@@ -141,6 +141,7 @@ export const GlobalFunnelMapping = () => {
           .from("funnel_source_mappings")
           .insert({
             funnel_id: funnelId,
+            organization_id: orgData.organization_id,
             source_type: sourceType,
             target_stage_id: stageData.id,
           });

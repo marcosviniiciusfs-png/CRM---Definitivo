@@ -374,8 +374,8 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
               details?.descricao_negocio?.includes('=== INFORMAÇÕES DO FORMULÁRIO ===')) && (
                 <>
                   <FacebookFormData
-                    description={details.descricao_negocio}
-                    customFields={details.additional_data as any}
+                    description={details?.descricao_negocio ?? null}
+                    customFields={details?.additional_data as any}
                   />
                   <Separator />
                 </>
@@ -432,7 +432,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
 
                 <div>
                   <span className="text-muted-foreground">Data de Início:</span>
-                  <p className="font-medium">{formatDate(details?.data_inicio)}</p>
+                  <p className="font-medium">{formatDate(details?.data_inicio ?? null)}</p>
                 </div>
 
                 {details?.data_conclusao && (

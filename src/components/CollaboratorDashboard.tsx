@@ -217,16 +217,16 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
 
       const allWonLeads = leads.filter(l => {
         const updatedAt = new Date(l.updated_at);
-        return updatedAt >= dateRange.start && updatedAt <= dateRange.end && stageTypeMap[l.funnel_stage_id] === 'won';
+        return updatedAt >= dateRange.start && updatedAt <= dateRange.end && stageTypeMap[l.funnel_stage_id ?? ''] === 'won';
       });
       const wonLeads = filterByCollaborator(allWonLeads);
 
       let selectedMetrics: CollaboratorMetricsData | null = null;
       if (selectedCollaborator) {
         const collabLeads = leads.filter(l => l.responsavel_user_id === selectedCollaborator);
-        const collabWonLeads = collabLeads.filter(l => stageTypeMap[l.funnel_stage_id] === 'won');
+        const collabWonLeads = collabLeads.filter(l => stageTypeMap[l.funnel_stage_id ?? ''] === 'won');
         const collabPendingLeads = collabLeads.filter(l => {
-          const st = stageTypeMap[l.funnel_stage_id];
+          const st = stageTypeMap[l.funnel_stage_id ?? ''];
           return st !== 'won' && st !== 'lost' && st !== 'discarded';
         });
         const avgResponseTime = await calculateAvgResponseTime(selectedCollaborator, collabLeads.map(l => l.id));
@@ -273,7 +273,7 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
       const forecastByOwner = salesReps.slice(0, 6).map(rep => ({ name: rep.full_name, value: rep.total_revenue, color: "" }));
 
       const pendingLeads = leads
-        .filter(l => { const st = stageTypeMap[l.funnel_stage_id]; return st !== 'won' && st !== 'lost' && st !== 'discarded'; })
+        .filter(l => { const st = stageTypeMap[l.funnel_stage_id ?? '']; return st !== 'won' && st !== 'lost' && st !== 'discarded'; })
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         .slice(0, 10);
 
@@ -293,7 +293,7 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
         const monthEnd = i === 0 ? new Date() : startOfMonth(subMonths(new Date(), i - 1));
         const monthWonLeads = leads.filter(l => {
           const updatedAt = new Date(l.updated_at);
-          return updatedAt >= monthStart && updatedAt < monthEnd && stageTypeMap[l.funnel_stage_id] === 'won';
+          return updatedAt >= monthStart && updatedAt < monthEnd && stageTypeMap[l.funnel_stage_id ?? ''] === 'won';
         });
         trendData.push({ month: format(monthDate, "MMM", { locale: ptBR }), value: monthWonLeads.reduce((sum, l) => sum + (l.valor || 0), 0) });
       }

@@ -84,7 +84,7 @@ export function UserProfileMenu() {
           <Avatar className="h-8 w-8 cursor-pointer">
             <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || "User"} />
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-              {getInitials(profile?.full_name)}
+              {getInitials(profile?.full_name ?? null)}
             </AvatarFallback>
           </Avatar>
         </button>

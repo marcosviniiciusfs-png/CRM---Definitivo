@@ -66,7 +66,9 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
       }
 
       // Buscar tags associadas
-      const tagIds = webhooksData.filter((w) => w.tag_id).map((w) => w.tag_id);
+      const tagIds = webhooksData
+        .map((webhook) => webhook.tag_id)
+        .filter((id): id is string => Boolean(id));
       let tagsMap: Record<string, string> = {};
 
       if (tagIds.length > 0) {
@@ -115,8 +117,8 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
 
               if (leadsData) {
                 const stageIds = leadsData
-                  .filter((l) => l.funnel_stage_id)
-                  .map((l) => l.funnel_stage_id);
+                  .map((lead) => lead.funnel_stage_id)
+                  .filter((id): id is string => Boolean(id));
 
                 if (stageIds.length > 0) {
                   const { data: stagesData } = await supabase

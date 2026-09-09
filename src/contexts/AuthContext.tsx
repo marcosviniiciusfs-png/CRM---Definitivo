@@ -22,9 +22,7 @@ interface AuthContextType {
   sectionAccessLoading: boolean;
   refreshSubscription: (organizationId?: string) => Promise<void>;
   refreshSectionAccess: () => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: unknown }>;
   signIn: (email: string, password: string) => Promise<{ error: unknown }>;
-  signInWithGoogle: () => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: unknown }>;
   isSuperAdmin: boolean;
@@ -391,13 +389,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // First load or different user - proceed normally
           setSession(session);
           setUser(session?.user ?? null);
-          if (!session?.user) {
-            setLoading(false);
-          }
+          setLoading(false);
           // Fall through to SIGNED_IN handling below
         } else {
           setSession(session);
           setUser(session?.user ?? null);
+          if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') setLoading(false);
         }
 
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && session?.access_token) {
@@ -503,134 +500,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Initial session check - OPTIMIZED: Non-blocking
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        if (!mounted) return;
-
-        logger.log('[AUTH] Initial session check, user:', session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        // LIBERAR LOADING IMEDIATAMENTE - não bloquear UI
-        setLoading(false);
-
-        if (session?.user && session?.access_token) {
-          checkSuperAdmin(session.user.id);
-          // NÃO logar sessão aqui - já é feito no SIGNED_IN
-
-          // Check cache first para UI rápida
-          const cachedData = getSubscriptionCache(session.user.id);
-          if (cachedData) {
-            logger.log('[AUTH] Using cached subscription data on initial load');
-            setSubscriptionData(cachedData);
-            subscriptionFetchedRef.current = true;
-          }
-
-          const cachedAccess = getSectionAccessCache(session.user.id);
-          if (cachedAccess) {
-            logger.log('[AUTH] Using cached section access on initial load');
-            setSectionAccess(cachedAccess);
-            // Mantemos o loading como true se vamos atualizar em background
-            sectionAccessFetchedRef.current = true;
-          }
-
-          // ATIVAR LOADING IMEDIATAMENTE (síncrono) para evitar flicker
-          setSectionAccessLoading(true);
-
-          // Atualizar dados em BACKGROUND (não bloquear)
-          setTimeout(async () => {
-            if (!mounted) return;
-
-            try {
-              // Fallback inteligente: buscar organização e contar membros
-              let maxCollaborators = 5; // Default para novas contas
-
-              const { data: memberData } = await supabase
-                .from('organization_members')
-                .select('organization_id')
-                .eq('user_id', session.user.id)
-                .limit(1)
-                .maybeSingle();
-
-              if (memberData?.organization_id) {
-                const { count } = await supabase
-                  .from('organization_members')
-                  .select('*', { count: 'exact', head: true })
-                  .eq('organization_id', memberData.organization_id);
-
-                if (count && count > 0) {
-                  maxCollaborators = Math.max(20, count);
-                }
-              }
-
-              setSubscriptionData({
-                subscribed: false,
-                product_id: 'free',
-                subscription_end: null,
-                max_collaborators: maxCollaborators,
-                extra_collaborators: 0,
-                total_collaborators: maxCollaborators
-              });
-              subscriptionFetchedRef.current = true;
-
-              // 2. Section Access
-              const { data: accData, error: accError } = await supabase
-                .from('user_section_access')
-                .select('section_key, is_enabled')
-                .eq('user_id', session.user.id);
-
-              if (!accError && accData && mounted) {
-                const map: Record<string, boolean> = {};
-                accData.forEach((r) => { map[r.section_key] = r.is_enabled; });
-                setSectionAccess(map);
-                setSectionAccessCache(map, session.user.id);
-                sessionStorage.setItem(FAST_ACCESS_CACHE_KEY, JSON.stringify(map));
-                sectionAccessFetchedRef.current = true;
-              } else if (mounted) {
-                // Se não há dados, garantimos que não fique null para liberar a UI
-                setSectionAccess({});
-              }
-            } catch (error) {
-              logger.error('[AUTH] Erro ao verificar dados iniciais:', error);
-              if (mounted) setSectionAccess({});
-            } finally {
-              setSectionAccessLoading(false);
-            }
-          }, 100);
-        }
-      })
-      .catch((error) => {
-        logger.error('[AUTH] Erro ao obter sessão:', error);
-        if (mounted) {
-          setLoading(false);
-        }
-        setSectionAccessLoading(false);
-      });
-
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
-
-  const signUp = async (email: string, password: string, name: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          name: name,
-        }
-      }
-    });
-
-    // Não redirecionar aqui - deixar a página de Auth verificar múltiplas orgs
-    return { error };
-  };
 
   const signIn = async (email: string, password: string) => {
     // Limpar cache de organização para garantir verificação limpa
@@ -649,17 +523,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      }
-    });
-
-    return { error };
-  };
-
   const signOut = async () => {
     if (user?.id) {
       await logUserSession(user.id, false);
@@ -670,7 +533,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Limpar cache de organização
     try {
       localStorage.removeItem('kairoz_org_cache');
-    } catch {}
+    } catch {
+      // O localStorage pode estar indisponível em modo privado ou por política do navegador.
+    }
     navigate("/auth", { replace: true });
   };
 
@@ -691,9 +556,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sectionAccessLoading,
       refreshSubscription,
       refreshSectionAccess,
-      signUp,
       signIn,
-      signInWithGoogle,
       signOut,
       resetPassword,
       isSuperAdmin,

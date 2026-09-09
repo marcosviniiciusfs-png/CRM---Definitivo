@@ -82,15 +82,17 @@ export function useKanbanBoard(
       const { data: members } = await supabase.rpc('get_organization_members_masked');
 
       if (members) {
-        const userIds = members.filter((m: RpcMemberResult) => m.user_id).map((m: RpcMemberResult) => m.user_id);
+        const membersWithUser = members.filter(
+          (member: RpcMemberResult): member is RpcMemberResult & { user_id: string } => Boolean(member.user_id)
+        );
+        const userIds = membersWithUser.map((member) => member.user_id);
         const { data: profiles } = await supabase
           .from("profiles")
           .select("user_id, full_name, avatar_url")
           .in("user_id", userIds);
 
-        const memberOptions: UserOption[] = members
-          .filter((m: RpcMemberResult) => m.user_id)
-          .map((m: RpcMemberResult) => {
+        const memberOptions: UserOption[] = membersWithUser
+          .map((m) => {
             const profile = profiles?.find(p => p.user_id === m.user_id);
             return {
               user_id: m.user_id,
@@ -146,10 +148,17 @@ export function useKanbanBoard(
       stage_color: col.stage_color,
       cards: cardsData?.filter(card => card.column_id === col.id).map(card => ({
         ...card,
-        lead: card.leads || undefined,
+        description: card.description ?? undefined,
+        due_date: card.due_date ?? undefined,
+        estimated_time: card.estimated_time ?? undefined,
+        timer_started_at: card.timer_started_at ?? undefined,
+        calendar_event_id: card.calendar_event_id ?? undefined,
+        calendar_event_link: card.calendar_event_link ?? undefined,
+        lead_id: card.lead_id ?? undefined,
+        lead: card.leads ? { ...card.leads, email: card.leads.email ?? undefined } : undefined,
         is_collaborative: card.is_collaborative ?? false,
         requires_all_approval: card.requires_all_approval ?? true,
-        timer_start_column_id: card.timer_start_column_id || null,
+        timer_start_column_id: card.timer_start_column_id ?? undefined,
       })) || []
     })) || [];
 

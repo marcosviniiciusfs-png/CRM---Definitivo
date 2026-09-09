@@ -108,6 +108,7 @@ export function RouletteCard({ config, funnelName, onEdit, onDelete, canDelete }
       const loadCounts = new Map<string, number>();
       for (const row of leadsRes.data || []) {
         const uid = row.responsavel_user_id;
+        if (!uid) continue;
         loadCounts.set(uid, (loadCounts.get(uid) || 0) + 1);
       }
 

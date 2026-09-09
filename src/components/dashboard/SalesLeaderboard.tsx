@@ -306,9 +306,10 @@ export function SalesLeaderboard({
         return sorted.sort((a, b) => b.total_revenue - a.total_revenue);
       case "won_leads":
         return sorted.sort((a, b) => b.won_leads - a.won_leads);
-      case "percentage":
+      case "percentage": {
         const getPercentage = (r: SalesRepData) => r.target > 0 ? (r.won_leads / r.target) * 100 : 0;
         return sorted.sort((a, b) => getPercentage(b) - getPercentage(a));
+      }
       default:
         return sorted;
     }

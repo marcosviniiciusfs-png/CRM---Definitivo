@@ -59,10 +59,11 @@ export const FunnelConfigDialog = ({
 
     setLoading(true);
     try {
+      if (!user?.id) throw new Error("Usuário não autenticado");
       const { data: orgData } = await supabase
         .from("organization_members")
         .select("organization_id")
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (!orgData) {

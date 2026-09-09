@@ -17,7 +17,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lead } from "@/types/chat";
-import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check, LucideIcon, CalendarDays, CalendarCheck } from "lucide-react";
+import { Mail, Phone, MessageSquare, FileText, X, Pencil, Video, MapPin, Paperclip, User, Trash2, Check, CalendarDays, CalendarCheck } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -27,18 +27,7 @@ import { FacebookFormData } from "@/components/FacebookFormData";
 import { cn } from "@/lib/utils";
 import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
 import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
-import * as Icons from "lucide-react";
-import { FaTooth } from "react-icons/fa";
-
-// Wrapper para ícone do react-icons
-const ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <FaTooth className={className} />
-);
-
-// Mapa de ícones customizados (não-lucide)
-const customIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  Tooth: ToothIcon,
-};
+import { getAppIcon } from "@/lib/iconRegistry";
 
 interface EditLeadModalProps {
   lead: Lead;
@@ -511,19 +500,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const getItemIcon = (iconName: string | null) => {
     if (!iconName) return null;
 
-    // Verificar ícones customizados primeiro
-    if (iconName in customIcons) {
-      const CustomIcon = customIcons[iconName];
-      return <CustomIcon className="h-5 w-5 text-primary" />;
-    }
-
-    // Verificar ícones do Lucide
-    if (iconName in Icons) {
-      const LucideIcon = Icons[iconName as keyof typeof Icons] as LucideIcon;
-      return <LucideIcon className="h-5 w-5 text-primary" />;
-    }
-
-    return null;
+    const ItemIcon = getAppIcon(iconName);
+    return ItemIcon ? <ItemIcon className="h-5 w-5 text-primary" /> : null;
   };
 
   const fetchActivities = async () => {

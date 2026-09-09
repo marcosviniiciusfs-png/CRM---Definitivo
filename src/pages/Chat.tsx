@@ -396,7 +396,7 @@ const Chat = () => {
   // Quando seleciona um lead, limpa selecao de grupo (e vice-versa via onSelectGroup).
   useEffect(() => {
     if (selectedLead) setSelectedGroup(null);
-  }, [selectedLead?.id]);
+  }, [selectedLead]);
 
   /**
    * Escolhe a membership "preferida" pra abrir um lead via deep-link.
@@ -543,7 +543,7 @@ const Chat = () => {
 
       if (profileData?.full_name) {
         setCurrentUserName(profileData.full_name);
-        setUserProfile(profileData);
+        setUserProfile({ full_name: profileData.full_name });
       }
     };
 
@@ -585,7 +585,11 @@ const Chat = () => {
 
     const savedPinnedLeads = localStorage.getItem("pinnedLeads");
     if (savedPinnedLeads) {
-      try { setPinnedLeads(JSON.parse(savedPinnedLeads)); } catch { }
+      try {
+        setPinnedLeads(JSON.parse(savedPinnedLeads));
+      } catch {
+        localStorage.removeItem("pinnedLeads");
+      }
     }
 
     if (location.state?.selectedLead) {
@@ -714,16 +718,13 @@ const Chat = () => {
 
     setupGlobalChannel();
 
-    // Polling defensivo: a cada 5s, invalida a query para refetchar leads.
-    // Garante que mensagens chegam ate em casos de Realtime falhar (CHANNEL_ERROR
-    // silencioso, RLS bloqueando stream, throttle do navegador em background).
-    // Intervalo curto porque Realtime tem se mostrado nao-confiavel — usuario
-    // espera ver leads novos quase imediatamente.
-    // O loadAllChatData usa stale-while-revalidate, entao o refetch e silencioso
-    // (sem flicker de "Carregando leads...").
+    // Fallback de baixa frequencia. O Realtime e a fonte principal; o refetch
+    // apenas reconcilia o estado caso o websocket tenha sido interrompido.
     const pollingInterval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey });
-    }, 5000);
+      if (document.visibilityState === "visible") {
+        queryClient.invalidateQueries({ queryKey: chatLeadsQueryKey });
+      }
+    }, 60000);
 
     return () => {
       clearTimeout(reloadTimeout);
@@ -843,86 +844,61 @@ const Chat = () => {
         });
     }, 200);
 
-    // Polling incremental de mensagens — fallback para quando o Realtime
-    // postgres_changes em mensagens_chat nao entrega (RLS bloqueando stream,
-    // throttle do navegador, etc). A cada 4s, busca mensagens com
-    // data_hora > ultima conhecida e adiciona ao state com deduplicacao.
-    // Nao usa setLoading, entao roda em background sem flicker.
+    // Uma unica reconciliacao periodica substitui as duas queries que rodavam
+    // a cada 2 segundos. Realtime continua entregando inserts/updates em tempo
+    // real; este fallback cobre reconexao, status de entrega e abas suspensas.
     const messagePollingInterval = setInterval(async () => {
       const leadId = selectedLeadRef.current?.id;
-      if (!leadId || !isMountedRef.current) return;
-
-      // Determina timestamp da ultima mensagem ja conhecida.
-      let lastTs: string | null = null;
-      setMessages((prev) => {
-        if (prev.length > 0) {
-          const ordered = [...prev].sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime());
-          lastTs = ordered[0]?.data_hora || null;
-        }
-        return prev; // nao muda state aqui
-      });
+      if (!leadId || !isMountedRef.current || document.visibilityState !== "visible") return;
 
       try {
-        // Fetch 1: mensagens novas (data_hora > ultima conhecida).
-        let q = supabase
+        let query = supabase
           .from("mensagens_chat")
           .select("*, quoted:quoted_message_id(id, corpo_mensagem, direcao, media_type)")
           .eq("id_lead", leadId)
-          .order("data_hora", { ascending: true })
-          .limit(50);
-        if (lastTs) q = q.gt("data_hora", lastTs);
-
-        const { data, error } = await q;
-        const newMessages = !error && data ? parseMessages(data) : [];
-
-        // Fetch 2: ultimas 20 mensagens do lead (qualquer data) para sincronizar
-        // mudancas em campos como status_entrega (SENT -> DELIVERED -> READ) e
-        // media_url, que NAO mudam data_hora e nao chegam pelo Realtime quando
-        // este esta nao-confiavel. Sem isso, o status do envio (incluindo midias)
-        // ficava congelado em SENT ate o usuario recarregar a pagina.
-        const { data: recentData } = await supabase
-          .from("mensagens_chat")
-          .select("*")
-          .eq("id_lead", leadId)
           .order("data_hora", { ascending: false })
-          .limit(20);
-        const recentMessages = recentData || [];
+          .limit(50);
+
+        const currentChannel = selectedMembership?.whatsapp_instance_id;
+        if (currentChannel) {
+          query = query.or(`whatsapp_instance_id.eq.${currentChannel},whatsapp_instance_id.is.null`);
+        }
+
+        const { data, error } = await query;
+        if (error || !data) return;
+        const freshMessages = parseMessages(data.slice().reverse());
 
         let hadNewIncoming = false;
         setMessages((prev) => {
-          const existingIds = new Set(prev.map((m) => m.id));
-          const existingEvIds = new Set(prev.filter((m) => m.evolution_message_id).map((m) => m.evolution_message_id));
-
-          // 1) Aplica updates em mensagens ja presentes (status_entrega, media_url, etc).
-          const recentById = new Map<string, any>();
-          for (const r of recentMessages) recentById.set(r.id, r);
+          const freshById = new Map(freshMessages.map((message) => [message.id, message]));
+          const existingIds = new Set(prev.map((message) => message.id));
+          const existingEvolutionIds = new Set(
+            prev.flatMap((message) => message.evolution_message_id ? [message.evolution_message_id] : []),
+          );
           let mutated = false;
-          const merged = prev.map((m) => {
-            const fresh = recentById.get(m.id);
-            if (!fresh) return m;
-            const statusChanged = fresh.status_entrega !== m.status_entrega;
-            const mediaUrlChanged = fresh.media_url && fresh.media_url !== m.media_url;
-            if (!statusChanged && !mediaUrlChanged && fresh.updated_at === (m as any).updated_at) {
-              return m;
+          const merged = prev.map((message) => {
+            const fresh = freshById.get(message.id);
+            if (!fresh) return message;
+            if (
+              fresh.status_entrega === message.status_entrega
+              && fresh.media_url === message.media_url
+            ) {
+              return message;
             }
             mutated = true;
-            return {
-              ...m,
-              status_entrega: fresh.status_entrega ?? m.status_entrega,
-              media_url: fresh.media_url || m.media_url,
-              media_metadata: fresh.media_metadata ?? m.media_metadata,
-            };
+            return { ...message, ...fresh, isOptimistic: false, sendError: false };
           });
 
-          // 2) Adiciona mensagens novas que nao estavam em prev.
-          const fresh = newMessages.filter((m) => {
-            if (existingIds.has(m.id)) return false;
-            if (m.evolution_message_id && existingEvIds.has(m.evolution_message_id)) return false;
+          const additions = freshMessages.filter((message) => {
+            if (existingIds.has(message.id)) return false;
+            if (message.evolution_message_id && existingEvolutionIds.has(message.evolution_message_id)) return false;
             return true;
           });
-          if (fresh.length === 0) return mutated ? merged : prev;
-          if (fresh.some((m) => m.direcao === "ENTRADA")) hadNewIncoming = true;
-          return [...merged, ...fresh];
+          if (additions.length === 0) return mutated ? merged : prev;
+          hadNewIncoming = additions.some((message) => message.direcao === "ENTRADA");
+          return [...merged, ...additions].sort(
+            (a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime(),
+          );
         });
 
         if (hadNewIncoming && notificationSoundEnabledRef.current && notificationAudioRef.current) {
@@ -933,7 +909,7 @@ const Chat = () => {
       } catch {
         // silencioso — proxima iteracao tenta de novo
       }
-    }, 2000);
+    }, 30000);
 
     return () => {
       clearTimeout(debounceTimeout);
@@ -1221,7 +1197,7 @@ const Chat = () => {
       // Re-enable auto-scroll on next realtime message after a brief delay
       setTimeout(() => { isLoadingMoreRef.current = false; }, 100);
     }
-  }, [selectedLead, loadingMoreMessages, toast]);
+  }, [selectedLead, selectedMembership?.whatsapp_instance_id, loadingMoreMessages, toast]);
 
   // Message actions
   const sendMessage = useCallback(async (messageText: string) => {
@@ -1700,10 +1676,11 @@ const Chat = () => {
     switch (filterOption) {
       case "alphabetical": return a.nome_lead.localeCompare(b.nome_lead);
       case "created": return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      case "last_interaction":
+      case "last_interaction": {
         const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
         const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
         return bTime - aTime;
+      }
       default: return 0;
     }
   }), [baseFilteredLeads, pinnedLeads, filterOption, lockedLeadId]);

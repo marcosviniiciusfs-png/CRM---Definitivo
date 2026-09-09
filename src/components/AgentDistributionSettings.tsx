@@ -20,11 +20,11 @@ interface AgentSettings {
   organization_id: string;
   is_active: boolean;
   is_paused: boolean;
-  pause_reason?: string;
-  pause_until?: string;
-  max_capacity: number;
-  capacity_enabled: boolean;
-  priority_weight: number;
+  pause_reason?: string | null;
+  pause_until?: string | null;
+  max_capacity: number | null;
+  capacity_enabled: boolean | null;
+  priority_weight: number | null;
   working_hours?: any;
 }
 
@@ -351,7 +351,7 @@ export function AgentDistributionSettings() {
               type="number"
               min="1"
               max="10"
-              value={settings.priority_weight}
+              value={settings.priority_weight ?? 1}
               onChange={(e) => setSettings({ ...settings, priority_weight: parseInt(e.target.value) })}
               disabled={isReadOnly}
             />

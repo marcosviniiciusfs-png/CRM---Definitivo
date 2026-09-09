@@ -78,7 +78,8 @@ export const WhatsAppStatus = () => {
         .eq('organization_id', organizationId)
         .eq('status', 'CONNECTED')
         .order('connected_at', { ascending: false })
-        .limit(1); // Removed .maybeSingle()
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
         console.error('Erro ao verificar status:', error);

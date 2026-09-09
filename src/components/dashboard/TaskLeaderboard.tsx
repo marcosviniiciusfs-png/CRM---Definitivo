@@ -395,9 +395,10 @@ export function TaskLeaderboard({
         return sorted.sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0));
       case "won_leads":
         return sorted.sort((a, b) => (b.won_leads || 0) - (a.won_leads || 0));
-      case "percentage":
+      case "percentage": {
         const getPercentage = (r: LeaderboardData) => (r.target || 0) > 0 ? ((r.won_leads || 0) / (r.target || 1)) * 100 : 0;
         return sorted.sort((a, b) => getPercentage(b) - getPercentage(a));
+      }
       default:
         return sorted;
     }

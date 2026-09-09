@@ -103,18 +103,20 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
     let endDate: Date;
 
     switch (periodType) {
-      case 'weekly':
+      case 'weekly': {
         const dayOfWeek = now.getDay();
         startDate = new Date(now);
         startDate.setDate(now.getDate() - dayOfWeek);
         endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 6);
         break;
-      case 'quarterly':
+      }
+      case 'quarterly': {
         const quarter = Math.floor(now.getMonth() / 3);
         startDate = new Date(now.getFullYear(), quarter * 3, 1);
         endDate = new Date(now.getFullYear(), (quarter + 1) * 3, 0);
         break;
+      }
       case 'monthly':
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);

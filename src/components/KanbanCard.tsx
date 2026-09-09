@@ -156,7 +156,7 @@ export const KanbanCard = ({
         estimated_time: editEstimatedTime ? parseInt(editEstimatedTime) : undefined,
         color: editColor || null,
         assignees: editAssignees,
-        timer_start_column_id: editTimerStartColumnId,
+        timer_start_column_id: editTimerStartColumnId || undefined,
       },
       oldDescription
     );

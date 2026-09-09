@@ -83,7 +83,7 @@ void main(){gl_Position=position;}`;
     this.canvas = canvas;
     this.scale = scale;
     this.gl = canvas.getContext('webgl2')!;
-    this.gl.viewport(0, 0, canvas.width * scale, canvas.height * scale);
+    this.gl.viewport(0, 0, canvas.width, canvas.height);
     this.shaderSource = kairozShaderSource;
   }
 
@@ -94,7 +94,7 @@ void main(){gl_Position=position;}`;
 
   updateScale(scale: number) {
     this.scale = scale;
-    this.gl.viewport(0, 0, this.canvas.width * scale, this.canvas.height * scale);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
   }
 
   compile(shader: WebGLShader, source: string) {
@@ -170,8 +170,8 @@ void main(){gl_Position=position;}`;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     gl.uniform2f((program as any).resolution, this.canvas.width, this.canvas.height);
     gl.uniform1f((program as any).time, now * 1e-3);
-    gl.uniform2f((program as any).move, ...this.mouseMove);
-    gl.uniform2f((program as any).touch, ...this.mouseCoords);
+    gl.uniform2f((program as any).move, this.mouseMove[0], this.mouseMove[1]);
+    gl.uniform2f((program as any).touch, this.mouseCoords[0], this.mouseCoords[1]);
     gl.uniform1i((program as any).pointerCount, this.nbrOfPointers);
     gl.uniform2fv((program as any).pointers, new Float32Array(this.pointerCoords.length > 0 ? this.pointerCoords : [0, 0]));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -184,35 +184,40 @@ class PointerHandler {
   private pointers = new Map<number, number[]>();
   private lastCoords = [0, 0];
   private moves = [0, 0];
+  private element: HTMLCanvasElement;
+  private map = (x: number, y: number) => [x * this.scale, this.element.height - y * this.scale];
+  private onPointerDown = (event: PointerEvent) => {
+    this.active = true;
+    this.pointers.set(event.pointerId, this.map(event.offsetX, event.offsetY));
+  };
+  private onPointerUp = (event: PointerEvent) => {
+    if (this.count === 1) this.lastCoords = this.first;
+    this.pointers.delete(event.pointerId);
+    this.active = this.pointers.size > 0;
+  };
+  private onPointerMove = (event: PointerEvent) => {
+    if (!this.active) return;
+    this.lastCoords = [event.offsetX, event.offsetY];
+    this.pointers.set(event.pointerId, this.map(event.offsetX, event.offsetY));
+    this.moves = [this.moves[0] + event.movementX, this.moves[1] + event.movementY];
+  };
 
   constructor(element: HTMLCanvasElement, scale: number) {
+    this.element = element;
     this.scale = scale;
-    const map = (el: HTMLCanvasElement, s: number, x: number, y: number) =>
-      [x * s, el.height - y * s];
-
-    element.addEventListener('pointerdown', (e) => {
-      this.active = true;
-      this.pointers.set(e.pointerId, map(element, this.scale, e.offsetX, e.offsetY));
-    });
-    element.addEventListener('pointerup', (e) => {
-      if (this.count === 1) this.lastCoords = this.first;
-      this.pointers.delete(e.pointerId);
-      this.active = this.pointers.size > 0;
-    });
-    element.addEventListener('pointerleave', (e) => {
-      if (this.count === 1) this.lastCoords = this.first;
-      this.pointers.delete(e.pointerId);
-      this.active = this.pointers.size > 0;
-    });
-    element.addEventListener('pointermove', (e) => {
-      if (!this.active) return;
-      this.lastCoords = [e.offsetX, e.offsetY];
-      this.pointers.set(e.pointerId, map(element, this.scale, e.offsetX, e.offsetY));
-      this.moves = [this.moves[0] + e.movementX, this.moves[1] + e.movementY];
-    });
+    element.addEventListener('pointerdown', this.onPointerDown);
+    element.addEventListener('pointerup', this.onPointerUp);
+    element.addEventListener('pointerleave', this.onPointerUp);
+    element.addEventListener('pointermove', this.onPointerMove);
   }
 
   updateScale(scale: number) { this.scale = scale; }
+  destroy() {
+    this.element.removeEventListener('pointerdown', this.onPointerDown);
+    this.element.removeEventListener('pointerup', this.onPointerUp);
+    this.element.removeEventListener('pointerleave', this.onPointerUp);
+    this.element.removeEventListener('pointermove', this.onPointerMove);
+  }
   get count() { return this.pointers.size; }
   get move() { return this.moves; }
   get coords() { return this.pointers.size > 0 ? Array.from(this.pointers.values()).flat() : [0, 0]; }
@@ -254,11 +259,28 @@ function useShaderBackground() {
     rendererRef.current.setup();
     rendererRef.current.init();
     resize();
-    loop(0);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) {
+      rendererRef.current.render(0);
+    } else {
+      loop(0);
+    }
+    const handleVisibility = () => {
+      if (reducedMotion) return;
+      if (document.visibilityState === 'hidden' && animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
+      } else if (document.visibilityState === 'visible' && !animationFrameRef.current) {
+        animationFrameRef.current = requestAnimationFrame(loop);
+      }
+    };
     window.addEventListener('resize', resize);
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      pointersRef.current?.destroy();
       if (rendererRef.current) rendererRef.current.reset();
     };
   }, []);
@@ -321,7 +343,7 @@ const Hero: React.FC<HeroProps> = ({
             <span className="block text-white hero-fade-in-up" style={{ textShadow: '0 2px 20px rgba(0,0,0,.8)', animationDelay: '.15s' }}>
               {headline.line1}
             </span>
-            <span className="block hero-fade-in-up" style={{ color: '#606060', animation: 'fade-in-up .7s .3s ease-out both' }}>
+            <span className="block hero-fade-in-up" style={{ color: '#f87171', animationDelay: '.3s' }}>
               {headline.line2}
             </span>
           </h1>
@@ -335,7 +357,7 @@ const Hero: React.FC<HeroProps> = ({
               {buttons.primary && (
                 <button
                   onClick={buttons.primary.onClick}
-                  className="px-8 py-4 text-sm font-bold tracking-[.07em] uppercase text-white transition-all duration-300 hover:scale-[1.04] hover:shadow-xl"
+                  className="px-8 py-4 text-sm font-bold tracking-[.07em] uppercase text-white transition-all duration-300 hover:scale-[1.04] hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                   style={{
                     background: '#dc2626',
                     clipPath: 'polygon(9px 0%,100% 0%,calc(100% - 9px) 100%,0% 100%)',
@@ -349,7 +371,7 @@ const Hero: React.FC<HeroProps> = ({
               {buttons.secondary && (
                 <button
                   onClick={buttons.secondary.onClick}
-                  className="px-8 py-4 text-sm font-semibold tracking-[.07em] uppercase text-white backdrop-blur-sm transition-all duration-300 hover:scale-[1.02]"
+                  className="px-8 py-4 text-sm font-semibold tracking-[.07em] uppercase text-white backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                   style={{
                     background: 'rgba(0,0,0,.5)',
                     border: '1px solid rgba(255,255,255,.3)',

@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertCircle, X, RefreshCw, Ban, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useOrganization } from "@/contexts/OrganizationContext";
 
 // Detect delimiter automatically (TAB, semicolon, comma)
@@ -283,6 +284,10 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       });
 
       setMappings(autoMappings);
+
+      if (!organizationId) {
+        throw new Error("Organização não encontrada para importar os leads.");
+      }
 
       // Load funnels for step 3 — same query as Pipeline page
       const { data: funnelData } = await supabase
@@ -618,7 +623,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     // Mark as updating
     setDuplicateLeads(prev => prev.map((d, i) => i === index ? { ...d, updating: true } : d));
 
-    const updateData: Record<string, any> = {};
+    const updateData: Partial<Record<(typeof UPDATABLE_FIELDS)[number], string | number | null>> = {};
     for (const field of UPDATABLE_FIELDS) {
       if (dup.newData[field] !== undefined && dup.newData[field] !== null && dup.newData[field] !== "") {
         updateData[field] = dup.newData[field];
@@ -627,7 +632,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
     const { error } = await supabase
       .from("leads")
-      .update(updateData)
+      .update(updateData as TablesUpdate<"leads">)
       .eq("id", dup.existingData.id);
 
     if (error) {
@@ -669,7 +674,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
     for (const index of pendingIndexes) {
       const dup = duplicateLeads[index];
-      const updateData: Record<string, any> = {};
+      const updateData: Partial<Record<(typeof UPDATABLE_FIELDS)[number], string | number | null>> = {};
       for (const field of UPDATABLE_FIELDS) {
         if (dup.newData[field] !== undefined && dup.newData[field] !== null && dup.newData[field] !== "") {
           updateData[field] = dup.newData[field];
@@ -678,7 +683,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
       const { error } = await supabase
         .from("leads")
-        .update(updateData)
+        .update(updateData as TablesUpdate<"leads">)
         .eq("id", dup.existingData.id);
 
       if (error) {

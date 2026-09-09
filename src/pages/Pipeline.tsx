@@ -1,6 +1,6 @@
 import { PipelineColumn } from "@/components/PipelineColumn";
 import { MobilePipelineView } from "@/components/MobilePipelineView";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types/chat";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -8,8 +8,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { LeadCard } from "@/components/LeadCard";
 import { toast } from "sonner";
-import { EditLeadModal } from "@/components/EditLeadModal";
-import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +32,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { AddLeadModal } from "@/components/AddLeadModal";
-import { ImportLeadsModal } from "@/components/ImportLeadsModal";
-import { BulkAssignDialog } from "@/components/BulkAssignDialog";
-import { BulkMoveStageDialog } from "@/components/BulkMoveStageDialog";
-import { BulkAddNoteDialog } from "@/components/BulkAddNoteDialog";
-import { BulkDeleteDialog } from "@/components/BulkDeleteDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -51,6 +43,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useToggleNoShow } from "@/hooks/useToggleNoShow";
 import type { StatusReuniao } from "@/types/chat";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
+
+const AddLeadModal = lazy(() => import("@/components/AddLeadModal").then((module) => ({ default: module.AddLeadModal })));
+const ImportLeadsModal = lazy(() => import("@/components/ImportLeadsModal").then((module) => ({ default: module.ImportLeadsModal })));
+const EditLeadModal = lazy(() => import("@/components/EditLeadModal").then((module) => ({ default: module.EditLeadModal })));
+const LeadDetailsDialog = lazy(() => import("@/components/LeadDetailsDialog").then((module) => ({ default: module.LeadDetailsDialog })));
+const BulkAssignDialog = lazy(() => import("@/components/BulkAssignDialog").then((module) => ({ default: module.BulkAssignDialog })));
+const BulkMoveStageDialog = lazy(() => import("@/components/BulkMoveStageDialog").then((module) => ({ default: module.BulkMoveStageDialog })));
+const BulkAddNoteDialog = lazy(() => import("@/components/BulkAddNoteDialog").then((module) => ({ default: module.BulkAddNoteDialog })));
+const BulkDeleteDialog = lazy(() => import("@/components/BulkDeleteDialog").then((module) => ({ default: module.BulkDeleteDialog })));
 
 // Constantes vazias estáveis para evitar novas referências
 const EMPTY_ITEMS: any[] = [];
@@ -341,7 +342,7 @@ const Pipeline = () => {
   // Manter refs sincronizadas com o estado (para uso na callback da subscrição Realtime)
   useEffect(() => { activeFunnelRef.current = activeFunnel; }, [activeFunnel]);
   useEffect(() => { usingCustomFunnelRef.current = usingCustomFunnel; }, [usingCustomFunnel]);
-  useEffect(() => { orgIdRef.current = organizationId; }, [organizationId]);
+  useEffect(() => { orgIdRef.current = organizationId ?? undefined; }, [organizationId]);
   useEffect(() => { pauseRealtimeRef.current = pauseRealtime; }, [pauseRealtime]);
   // Sincronizar refs de segurança com permissões e userId atuais
   useEffect(() => { canViewAllLeadsRef.current = canViewOrganizationLeads; }, [canViewOrganizationLeads]);
@@ -538,7 +539,7 @@ const Pipeline = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []); // Deps vazias: subscrição criada uma vez por mount; valores dinâmicos acessados via refs
+  }, [queryClient]); // Valores dinâmicos do funil são acessados via refs.
 
   // Carregar perfil do usuário
   useEffect(() => {
@@ -554,7 +555,7 @@ const Pipeline = () => {
           .maybeSingle();
 
         if (isMounted && profileData?.full_name) {
-          setUserProfile(profileData);
+          setUserProfile({ full_name: profileData.full_name });
         }
       } catch (error) {
         console.error('Erro ao buscar perfil:', error);
@@ -570,12 +571,13 @@ const Pipeline = () => {
   const { data: cachedColaboradores } = useQuery({
     queryKey: ['pipeline-colaboradores', organizationId],
     queryFn: async () => {
+      if (!organizationId) return [];
       const { data: membersData } = await supabase
         .from('organization_members').select('user_id, email, display_name')
         .eq('organization_id', organizationId);
       if (!membersData || membersData.length === 0) return [];
       const userIds = membersData.map((m: any) => m.user_id).filter(Boolean);
-      let pMap: Record<string, string | null> = {};
+      const pMap: Record<string, string | null> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
         if (profiles) profiles.forEach(p => { pMap[p.user_id] = p.full_name; });
@@ -596,43 +598,6 @@ const Pipeline = () => {
   useEffect(() => {
     if (cachedColaboradores) setColaboradores(cachedColaboradores);
   }, [cachedColaboradores]);
-
-  // UseEffect para carregar dados do pipeline
-  useEffect(() => {
-    // Aguardar que auth + organização estejam prontos antes de carregar
-    if (!isReady || !organizationId) return;
-
-    let isMounted = true;
-
-    const fetchPipelineData = async () => {
-      try {
-        if (!user?.id || permissions.loading) {
-          if (!permissions.loading) {
-            setInitialLoading(false);
-          }
-          return;
-        }
-
-        // Carregar funil e leads (agora via invalidação de cache React Query)
-        const funnelData = await loadFunnel();
-        if (isMounted) {
-          await loadLeads(funnelData);
-        }
-      } catch (err) {
-        console.error("Erro crítico ao carregar pipeline:", err);
-      } finally {
-        if (isMounted) {
-          setInitialLoading(false);
-        }
-      }
-    };
-
-    fetchPipelineData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedFunnelId, user?.id, organizationId, isReady, canViewOrganizationLeads, permissions.canViewTeamLeads, permissions.loading, teamMemberIds]);
 
   const handleExportCSV = () => {
     import("xlsx").then((XLSX) => {
@@ -695,10 +660,10 @@ const Pipeline = () => {
       return { isCustom: visibleFunnels.length > 0, funnel: visibleFunnels[0] || null, allFunnels: visibleFunnels };
     },
     enabled: !!organizationId && !!user?.id && !permissions.loading && isReady,
-    staleTime: 0,
+    staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 10,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   // Cache de leads com React Query (2 min)
@@ -847,11 +812,6 @@ const Pipeline = () => {
     }
   }, [isFetchingLeads, isReady, organizationId, user?.id, permissions.loading]);
 
-  const loadFunnel = async () => {
-    queryClient.invalidateQueries({ queryKey: ['pipeline-funnels', organizationId] });
-    return cachedFunnelResult ?? { isCustom: false, funnel: null };
-  };
-
   const PAGE_SIZE = 20;
 
   const loadLeads = async (_funnelData?: { isCustom: boolean; funnel: any }, _isTabChange: boolean = false) => {
@@ -915,7 +875,7 @@ const Pipeline = () => {
         // Adicionar novos leads ao estado
         setLeads(prev => {
           const existingIds = new Set(prev.map(l => l.id));
-          const newLeads = data.filter(l => !existingIds.has(l.id));
+          const newLeads = (data as unknown as Lead[]).filter(l => !existingIds.has(l.id));
           return [...prev, ...newLeads];
         });
 
@@ -1063,7 +1023,9 @@ const Pipeline = () => {
           } else if (a.activity_type === 'Agendamento Venda' && !map[a.lead_id].venda) {
             map[a.lead_id].venda = isoDate;
           }
-        } catch {}
+        } catch {
+          // Atividades antigas podem conter texto livre em vez de JSON.
+        }
       });
       setAgendamentosMap(map);
     }
@@ -1091,8 +1053,12 @@ const Pipeline = () => {
     });
 
     // Buscar nomes dos "from_user_id" e timeout dos configs
-    const fromUserIds = [...new Set([...latestByLead.values()].map(r => r.from_user_id).filter(Boolean))];
-    const configIds = [...new Set([...latestByLead.values()].map(r => r.config_id).filter(Boolean))];
+    const fromUserIds = [...new Set(
+      [...latestByLead.values()].map((row) => row.from_user_id).filter((id): id is string => Boolean(id))
+    )];
+    const configIds = [...new Set(
+      [...latestByLead.values()].map((row) => row.config_id).filter((id): id is string => Boolean(id))
+    )];
 
     const [profilesRes, configsRes] = await Promise.all([
       fromUserIds.length > 0
@@ -1177,7 +1143,7 @@ const Pipeline = () => {
     }
 
     return result;
-  }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange, getResponsibleLabel]);
+  }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange, getResponsibleLabel, usingCustomFunnel]);
 
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
@@ -1757,6 +1723,7 @@ const Pipeline = () => {
 
   const createFollowUpTask = async (leadId: string, lead: Lead, config: any) => {
     try {
+      if (!organizationId || !user?.id) return;
 
       const { data: board } = await supabase
         .from("kanban_boards")
@@ -1772,7 +1739,7 @@ const Pipeline = () => {
         content: config.task_title,
         description: `Follow-up com lead: ${lead.nome_lead}`,
         estimated_time: config.estimated_time || null,
-        created_by: user?.id,
+        created_by: user.id,
       });
 
       toast.success("Tarefa de follow-up criada!");
@@ -2638,12 +2605,12 @@ const Pipeline = () => {
                   name={activeLead.nome_lead}
                   phone={activeLead.telefone_lead}
                   date={(activeLead as any).formattedDate || new Date(activeLead.created_at).toLocaleString("pt-BR")}
-                  avatarUrl={activeLead.avatar_url}
-                  stage={activeLead.stage}
-                  value={activeLead.valor}
+                  avatarUrl={activeLead.avatar_url ?? undefined}
+                  stage={activeLead.stage ?? undefined}
+                  value={activeLead.valor ?? undefined}
                   createdAt={activeLead.created_at}
-                  source={activeLead.source}
-                  description={activeLead.descricao_negocio}
+                  source={activeLead.source ?? undefined}
+                  description={activeLead.descricao_negocio ?? undefined}
                   additionalData={activeLead.additional_data}
                   isDuplicate={duplicateLeadIds.has(activeLead.id)}
                   leadItems={leadItems[activeLead.id] || EMPTY_ITEMS}
@@ -2661,79 +2628,100 @@ const Pipeline = () => {
 
       {/* Modal de Edição - FORA do DndContext */}
       {showAddModal && (
-        <AddLeadModal
-          open={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => setShowAddModal(false)}
-        />
+        <Suspense fallback={null}>
+          <AddLeadModal
+            open={showAddModal}
+            onClose={() => setShowAddModal(false)}
+            onSuccess={() => setShowAddModal(false)}
+          />
+        </Suspense>
       )}
 
       {/* Bulk action dialogs */}
-      <BulkMoveStageDialog
-        open={bulkMoveStageOpen}
-        onClose={() => setBulkMoveStageOpen(false)}
-        onConfirm={handleBulkMoveStage}
-        selectedCount={selectedLeadIds.size}
-        stages={stages.map(s => ({ id: s.id, title: s.title || s.name || 'Etapa' }))}
-      />
+      {bulkMoveStageOpen && (
+        <Suspense fallback={null}>
+          <BulkMoveStageDialog
+            open={bulkMoveStageOpen}
+            onClose={() => setBulkMoveStageOpen(false)}
+            onConfirm={handleBulkMoveStage}
+            selectedCount={selectedLeadIds.size}
+            stages={stages.map(s => ({ id: s.id, title: s.title || s.name || 'Etapa' }))}
+          />
+        </Suspense>
+      )}
 
-      <BulkAssignDialog
-        open={bulkAssignOpen}
-        onClose={() => setBulkAssignOpen(false)}
-        onConfirm={handleBulkAssign}
-        selectedCount={selectedLeadIds.size}
-        colaboradores={(colaboradores || [])
-          .filter((c: any) => c.is_active !== false && c.user_id)
-          .map((c: any) => ({ user_id: c.user_id, full_name: c.full_name || c.email || 'Colaborador' }))
-        }
-      />
+      {bulkAssignOpen && (
+        <Suspense fallback={null}>
+          <BulkAssignDialog
+            open={bulkAssignOpen}
+            onClose={() => setBulkAssignOpen(false)}
+            onConfirm={handleBulkAssign}
+            selectedCount={selectedLeadIds.size}
+            colaboradores={(colaboradores || [])
+              .filter((c: any) => c.is_active !== false && c.user_id)
+              .map((c: any) => ({ user_id: c.user_id, full_name: c.full_name || c.email || 'Colaborador' }))
+            }
+          />
+        </Suspense>
+      )}
 
-      <BulkAddNoteDialog
-        open={bulkAddNoteOpen}
-        onClose={() => setBulkAddNoteOpen(false)}
-        onConfirm={handleBulkAddNote}
-        selectedCount={selectedLeadIds.size}
-      />
+      {bulkAddNoteOpen && (
+        <Suspense fallback={null}>
+          <BulkAddNoteDialog
+            open={bulkAddNoteOpen}
+            onClose={() => setBulkAddNoteOpen(false)}
+            onConfirm={handleBulkAddNote}
+            selectedCount={selectedLeadIds.size}
+          />
+        </Suspense>
+      )}
 
-      <BulkDeleteDialog
-        open={bulkDeleteOpen}
-        onClose={() => setBulkDeleteOpen(false)}
-        onConfirm={handleBulkDelete}
-        selectedCount={selectedLeadIds.size}
-      />
+      {bulkDeleteOpen && (
+        <Suspense fallback={null}>
+          <BulkDeleteDialog
+            open={bulkDeleteOpen}
+            onClose={() => setBulkDeleteOpen(false)}
+            onConfirm={handleBulkDelete}
+            selectedCount={selectedLeadIds.size}
+          />
+        </Suspense>
+      )}
 
       {showImportModal && (
-        <ImportLeadsModal
-          open={showImportModal}
-          onOpenChange={setShowImportModal}
-          organizationId={organizationId}
-        />
+        <Suspense fallback={null}>
+          <ImportLeadsModal
+            open={showImportModal}
+            onOpenChange={setShowImportModal}
+          />
+        </Suspense>
       )}
 
       {editingLead && (
-        <EditLeadModal
-          lead={editingLead}
-          open={!!editingLead}
-          onClose={() => setEditingLead(null)}
-          onUpdate={async () => {
-            if (editingLead) {
-              const { data } = await supabase
-                .from("leads")
-                .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data")
-                .eq("id", editingLead.id)
-                .single();
-              if (data) {
-                setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
-                // Se o lead tem um novo responsável, garantir que o perfil está no mapa
-                if (data.responsavel_user_id && !profilesMap[data.responsavel_user_id]) {
-                  loadProfiles([data.responsavel_user_id]);
+        <Suspense fallback={null}>
+          <EditLeadModal
+            lead={editingLead}
+            open={!!editingLead}
+            onClose={() => setEditingLead(null)}
+            onUpdate={async () => {
+              if (editingLead) {
+                const { data } = await supabase
+                  .from("leads")
+                  .select("id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data")
+                  .eq("id", editingLead.id)
+                  .single();
+                if (data) {
+                  setLeads(prev => prev.map(l => l.id === data.id ? { ...l, ...data } : l));
+                  // Se o lead tem um novo responsável, garantir que o perfil está no mapa
+                  if (data.responsavel_user_id && !profilesMap[data.responsavel_user_id]) {
+                    loadProfiles([data.responsavel_user_id]);
+                  }
                 }
+                // Recarregar agendamentos para refletir ícones de calendário em tempo real
+                await loadAgendamentos([editingLead.id]);
               }
-              // Recarregar agendamentos para refletir ícones de calendário em tempo real
-              await loadAgendamentos([editingLead.id]);
-            }
-          }}
-        />
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Mobile: Sheet de Filtros */}
@@ -2840,17 +2828,21 @@ const Pipeline = () => {
       </Sheet>
 
       {/* Dialog de Detalhes do Lead (list view) */}
-      <LeadDetailsDialog
-        leadId={detailsLeadId || ''}
-        leadName={detailsLeadName}
-        open={!!detailsLeadId}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDetailsLeadId(null);
-            setDetailsLeadName('');
-          }
-        }}
-      />
+      {detailsLeadId && (
+        <Suspense fallback={null}>
+          <LeadDetailsDialog
+            leadId={detailsLeadId}
+            leadName={detailsLeadName}
+            open
+            onOpenChange={(open) => {
+              if (!open) {
+                setDetailsLeadId(null);
+                setDetailsLeadName('');
+              }
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Dialog de Confirmação de Exclusão de Lead */}
       <AlertDialog open={!!leadToDelete} onOpenChange={(open) => !open && setLeadToDelete(null)}>

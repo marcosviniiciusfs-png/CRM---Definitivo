@@ -8,8 +8,8 @@ import "./Landing.css";
 /* ---------- FAQ Data ---------- */
 const faqItems = [
   { q: "O que é o KairoZ?", a: "O KairoZ é um CRM focado em equipes de vendas. Centraliza gestão de leads, funil, metas, comissões e métricas em um único lugar — com integração nativa ao WhatsApp e em breve Instagram Direct." },
-  { q: "Preciso instalar algo?", a: "Não! O KairoZ é 100% online. Basta criar sua conta e começar a usar diretamente pelo navegador, no computador ou celular." },
-  { q: "Posso testar antes de assinar?", a: "Sim! Oferecemos acesso gratuito para que você conheça todas as funcionalidades essenciais antes de escolher um plano pago." },
+  { q: "Preciso instalar algo?", a: "Não. O KairoZ é 100% online e funciona diretamente pelo navegador, no computador ou celular." },
+  { q: "Como obtenho acesso?", a: "As contas são criadas e liberadas pelo administrador da sua organização. Se você ainda não recebeu seu acesso, fale com o seu gestor responsável." },
   { q: "O WhatsApp já funciona?", a: "Sim! A integração com WhatsApp via Evolution API está totalmente ativa — receba e responda mensagens, envie áudios e mídias direto pelo chat do CRM." },
   { q: "Como funciona a distribuição de leads?", a: "O sistema de roleta distribui leads automaticamente entre os vendedores, respeitando regras de disponibilidade e capacidade configuradas pelo gestor." },
 ];
@@ -46,7 +46,7 @@ const Landing = () => {
   }
 
   return (
-    <div style={{ background: "#000" }}>
+    <div className="landing-page" style={{ background: "#000" }}>
       {/* NAV */}
       <nav>
         <div className="nav-logo">Kairoz<em>.</em></div>
@@ -72,7 +72,7 @@ const Landing = () => {
         subtitle={'Gerencie leads, controle seu funil e acompanhe métricas da sua equipe — <strong>tudo em tempo real, em um só lugar.</strong>'}
         buttons={{
           primary: {
-            text: "Começar agora — grátis",
+            text: "Entrar no CRM",
             onClick: goToAuth
           },
           secondary: {
@@ -246,8 +246,8 @@ const Landing = () => {
       <div style={{ padding: "64px 0 0" }}>
         <div className="cta-block">
           <h2 className="cta-h">Pronto para organizar<br />suas vendas?</h2>
-          <p className="cta-sub">Comece agora e veja a diferença que um CRM de verdade faz na sua equipe.</p>
-          <button className="btn-p" style={{ fontSize: 15, padding: "16px 44px" }} onClick={goToAuth}>Criar conta grátis →</button>
+          <p className="cta-sub">Já recebeu seu acesso? Entre para gerenciar seus leads, tarefas e resultados.</p>
+          <button className="btn-p" style={{ fontSize: 15, padding: "16px 44px" }} onClick={goToAuth}>Entrar no CRM →</button>
         </div>
       </div>
 

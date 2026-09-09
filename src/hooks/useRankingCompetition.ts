@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -31,7 +31,7 @@ export function useRankingCompetition(organizationId: string | null): UseRanking
   const { permissions } = useOrganization();
   const isAdmin = permissions.role === 'owner' || permissions.role === 'admin';
 
-  const queryKey = ['ranking-competition', organizationId];
+  const queryKey = useMemo(() => ['ranking-competition', organizationId], [organizationId]);
 
   const { data: competition, isLoading } = useQuery({
     queryKey,
@@ -143,7 +143,7 @@ export function useRankingCompetition(organizationId: string | null): UseRanking
   const shouldFilterByTeam = !isAdmin && (!competition || !isRevealed);
 
   return {
-    competition,
+    competition: competition ?? null,
     isHiddenMode,
     isActive,
     isRevealed,

@@ -1,7 +1,4 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useOrganization } from "@/contexts/OrganizationContext";
+import { useAssignedChannelsContext } from "@/contexts/AssignedChannelsContext";
 
 /**
  * Hook que retorna o conjunto de IDs de canais WhatsApp aos quais o usuario
@@ -28,73 +25,9 @@ export function useAssignedChannels(): {
   assignedChannelIds: Set<string> | null;
   loading: boolean;
   hasFullAccess: boolean;
+  refresh: () => Promise<void>;
 } {
-  const { user } = useAuth();
-  const { organizationId, permissions } = useOrganization();
-  const hasFullAccess = !!permissions.canViewAllLeads;
-
-  const [assignedChannelIds, setAssignedChannelIds] = useState<Set<string> | null>(
-    hasFullAccess ? null : new Set()
-  );
-  const [loading, setLoading] = useState(!hasFullAccess);
-
-  useEffect(() => {
-    if (hasFullAccess) {
-      setAssignedChannelIds(null);
-      setLoading(false);
-      return;
-    }
-
-    if (!user?.id || !organizationId) {
-      setAssignedChannelIds(new Set());
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const fetchAssignments = async () => {
-      const { data } = await supabase
-        .from("whatsapp_channel_members")
-        .select("whatsapp_instance_id")
-        .eq("user_id", user.id)
-        .eq("organization_id", organizationId);
-
-      if (cancelled) return;
-      const ids = new Set<string>((data || []).map((r: any) => r.whatsapp_instance_id));
-      setAssignedChannelIds(ids);
-      setLoading(false);
-    };
-
-    fetchAssignments();
-
-    // Realtime: atualiza quando admin muda atribuicoes do user logado.
-    const channel = supabase
-      .channel(`wcm-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "whatsapp_channel_members",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchAssignments();
-        }
-      )
-      .subscribe();
-
-    // Polling defensivo (Realtime tem se mostrado nao confiavel neste ambiente).
-    const interval = setInterval(fetchAssignments, 15000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, organizationId, hasFullAccess]);
-
-  return { assignedChannelIds, loading, hasFullAccess };
+  return useAssignedChannelsContext();
 }
 
 /**

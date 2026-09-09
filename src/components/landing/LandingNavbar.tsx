@@ -40,7 +40,7 @@ const LandingNavbar = () => {
             Entrar
           </Button>
           <Button size="sm" onClick={() => navigate("/auth")}>
-            Começar grátis
+            Entrar no CRM
           </Button>
         </div>
 
@@ -59,7 +59,7 @@ const LandingNavbar = () => {
         >
           <button onClick={() => scrollTo("funcionalidades")} className="text-sm font-medium text-muted-foreground py-2">Funcionalidades</button>
           <Button variant="outline" size="sm" onClick={() => navigate("/auth")} className="w-full">Entrar</Button>
-          <Button size="sm" onClick={() => navigate("/auth")} className="w-full">Começar grátis</Button>
+          <Button size="sm" onClick={() => navigate("/auth")} className="w-full">Entrar no CRM</Button>
         </motion.div>
       )}
     </motion.nav>

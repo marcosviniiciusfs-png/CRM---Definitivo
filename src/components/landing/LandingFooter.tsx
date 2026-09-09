@@ -21,14 +21,14 @@ const LandingFooter = () => {
               Pronto para organizar suas vendas?
             </h2>
             <p className="text-primary-foreground/80 mb-8 max-w-md mx-auto">
-              Comece agora e veja a diferença que um CRM de verdade faz na sua equipe.
+              Já recebeu seu acesso? Entre para organizar suas vendas em um só lugar.
             </p>
             <Button
               size="lg"
               onClick={() => navigate("/auth")}
               className="bg-background text-primary hover:bg-background/90 rounded-full px-10 h-12 text-base gap-2 font-semibold"
             >
-              Começar agora <ArrowRight size={18} />
+              Entrar no CRM <ArrowRight size={18} />
             </Button>
           </motion.div>
         </div>

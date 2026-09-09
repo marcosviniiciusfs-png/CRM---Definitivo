@@ -70,6 +70,10 @@ const Leads = () => {
   const { user, organizationId, isReady } = useOrganizationReady();
   const permissions = usePermissions();
   const queryClient = useQueryClient();
+  const loadAllLeads = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['leads-list', user?.id, permissions.canViewAllLeads] }),
+    [permissions.canViewAllLeads, queryClient, user?.id],
+  );
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -294,7 +298,7 @@ const Leads = () => {
         if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
         return 0;
       });
-  }, [leads, searchQuery, statusFilter, sourceFilter, responsibleFilter, funnelFilter, stageFilter, dateRange, sortColumn, sortOrder, permissions.canViewAllLeads, userProfile?.full_name]);
+  }, [leads, searchQuery, statusFilter, sourceFilter, responsibleFilter, funnelFilter, stageFilter, dateRange, sortColumn, sortOrder]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
@@ -1247,7 +1251,6 @@ const Leads = () => {
       <ImportLeadsModal
         open={showImportModal}
         onOpenChange={setShowImportModal}
-        organizationId={organizationId}
       />
     </div>
   );

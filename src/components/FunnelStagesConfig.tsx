@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -211,7 +212,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         { name: "Pós-venda / Ativação", color: "#34D399", icon: "✨", position: 6, description: "Cliente em processo de ativação" },
       ];
 
-      const stagesToInsert = defaultStages.map(stage => ({
+      const stagesToInsert: TablesInsert<"funnel_stages">[] = defaultStages.map(stage => ({
         funnel_id: funnelId,
         name: stage.name,
         color: stage.color,
@@ -220,9 +221,9 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         description: stage.description,
         stage_type: "custom",
         is_final: false,
-        default_value: null,
-        max_days_in_stage: null,
-        required_fields: [],
+        default_value: null as number | null,
+        max_days_in_stage: null as number | null,
+        required_fields: [] as string[],
         stage_config: {},
       }));
 
@@ -319,7 +320,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setSaving(true);
     try {
       const isFinalStage = editingStage?.is_final ?? false;
-      const stageData = {
+      const stageData: TablesInsert<"funnel_stages"> = {
         funnel_id: funnelId,
         name: name.trim(),
         description: description || null,
@@ -334,6 +335,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
           ? requiredFields.split(",").map((f) => f.trim())
           : [],
         is_final: isFinalStage,
+        position: editingStage?.position ?? customStagesCount,
       };
 
       if (editingStage) {

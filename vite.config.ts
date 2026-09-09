@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
@@ -15,7 +15,21 @@ export default defineConfig(({ mode }) => ({
   ].filter(Boolean),
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
+    },
+  },
+  build: {
+    sourcemap: false,
+    rolldownOptions: {
+      output: {
+        minify: mode === "production" ? {
+          compress: {
+            treeshake: {
+              manualPureFunctions: ["console.log", "console.debug", "console.info"],
+            },
+          },
+        } : false,
+      },
     },
   },
 }));

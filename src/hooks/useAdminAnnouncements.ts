@@ -14,8 +14,8 @@ interface RpcAnnouncement {
   title: string;
   content: string;
   gif_url: string | null;
-  template_type: string | null;
-  target_type: string;
+  template_type: Announcement['template_type'];
+  target_type: Announcement['target_type'];
   target_organization_id: string | null;
   is_active: boolean;
   scheduled_at: string | null;
@@ -126,15 +126,26 @@ export function useAdminAnnouncements() {
     const token = getToken();
     if (!token) throw new Error('Admin token not found');
 
-    const params: Record<string, unknown> = {
+    const params: {
+      p_token: string;
+      p_id: string;
+      p_title?: string;
+      p_content?: string;
+      p_gif_url?: string | null;
+      p_template_type?: Announcement['template_type'];
+      p_target_type?: Announcement['target_type'];
+      p_target_organization_id?: string | null;
+      p_is_active?: boolean;
+      p_scheduled_at?: string | null;
+    } = {
       p_token: token,
       p_id: id,
-      p_title: formData.title,
-      p_content: formData.content,
-      p_template_type: formData.template_type,
-      p_target_type: formData.target_type,
-      p_scheduled_at: formData.scheduled_at,
     };
+    if (formData.title !== undefined) params.p_title = formData.title;
+    if (formData.content !== undefined) params.p_content = formData.content;
+    if (formData.template_type !== undefined) params.p_template_type = formData.template_type;
+    if (formData.target_type !== undefined) params.p_target_type = formData.target_type;
+    if (formData.scheduled_at !== undefined) params.p_scheduled_at = formData.scheduled_at;
     if (formData.gif_url !== undefined) params.p_gif_url = formData.gif_url || null;
     if (formData.target_type === 'global') {
       params.p_target_organization_id = null;

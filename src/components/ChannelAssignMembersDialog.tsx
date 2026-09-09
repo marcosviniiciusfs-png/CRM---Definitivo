@@ -72,7 +72,7 @@ export function ChannelAssignMembersDialog({
 
       // 2) Buscar profiles para nomes e avatares.
       const userIds = filteredMembers.map((m: any) => m.user_id);
-      let profilesMap = new Map<string, { full_name: string | null; avatar_url: string | null }>();
+      const profilesMap = new Map<string, { full_name: string | null; avatar_url: string | null }>();
 
       if (userIds.length > 0) {
         const { data: profilesData } = await supabase

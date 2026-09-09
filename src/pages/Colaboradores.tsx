@@ -147,11 +147,16 @@ const Colaboradores = () => {
         supabase.functions.invoke('check-subscription')
       ]);
 
-      const customRoles: CustomRoleOption[] = rolesResult.data || [];
+      const customRoles: CustomRoleOption[] = (rolesResult.data || []).map((role) => ({
+        ...role,
+        color: role.color ?? "#6B7280",
+      }));
       if (membersResult.error) throw membersResult.error;
 
       const members = membersResult.data || [];
-      const userIds = members.filter(m => m.user_id).map(m => m.user_id);
+      const userIds = members
+        .map((member) => member.user_id)
+        .filter((id): id is string => Boolean(id));
       let profilesMap: { [key: string]: { full_name: string | null; avatar_url: string | null } } = {};
 
       if (userIds.length > 0) {
@@ -194,7 +199,9 @@ const Colaboradores = () => {
           .select('user_id, target_value')
           .eq('organization_id', contextOrgId);
         (goalsData || []).forEach(g => { goalsByUser[g.user_id] = g.target_value; });
-      } catch { }
+      } catch {
+        // Metas são complementares; a listagem de colaboradores continua sem elas.
+      }
 
       const now = new Date();
       const thisMonth = now.getMonth();

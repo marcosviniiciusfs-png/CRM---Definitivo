@@ -90,9 +90,10 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
     switch(action.type) {
       case "SET_TYPING_STATUS":
         return `Digitação: ${action.config?.duration_seconds || 10}s`;
-      case "SEND_PREDEFINED_MESSAGE":
+      case "SEND_PREDEFINED_MESSAGE": {
         const message = action.config?.message || "";
         return `Enviar: "${message.length > 50 ? message.substring(0, 50) + "..." : message}"`;
+      }
       case "CHANGE_FUNNEL_STAGE":
         return `Mudar para etapa: ${action.config?.stage}`;
       case "ASSIGN_TO_AGENT":
@@ -119,10 +120,12 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
 
   const createMutation = useMutation({
     mutationFn: async (ruleData: any) => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user?.id) throw new Error("Usuário não autenticado");
       const { data: orgData } = await supabase
         .from("organization_members")
         .select("organization_id")
-        .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+        .eq("user_id", authData.user.id)
         .single();
 
       const { data, error } = await supabase

@@ -5,7 +5,7 @@ import { UserProfileMenu } from "@/components/UserProfileMenu";
 import { AutomationRulesModal } from "@/components/AutomationRulesModal";
 import { AutomationDashboardModal } from "@/components/AutomationDashboardModal";
 import { GoogleCalendarModal } from "@/components/GoogleCalendarModal";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -21,40 +21,9 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  // Popup detection - if this page loaded inside a Facebook OAuth popup, close it immediately
-  if (typeof window !== 'undefined' && window.opener && (
+  const isOAuthPopup = typeof window !== 'undefined' && window.opener && (
     window.location.search.includes('code=') || window.location.search.includes('facebook=')
-  )) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    const fbStatus = urlParams.get('facebook');
-    const hasOAuthParams = !!(code && state);
-
-    const payload = hasOAuthParams
-      ? { code, state, redirect_uri: `${window.location.origin}${window.location.pathname}` }
-      : { facebook: fbStatus, message: urlParams.get('message') };
-
-    try {
-      window.opener.postMessage({
-        type: 'FACEBOOK_OAUTH_RESPONSE',
-        payload
-      }, window.location.origin);
-    } catch (e) {
-      // Ignore cross-origin errors
-    }
-
-    setTimeout(() => window.close(), 300);
-
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4" />
-        <h2 className="text-xl font-semibold">Conectando ao Facebook</h2>
-        <p className="text-muted-foreground mt-2">Esta janela fechara automaticamente em instantes.</p>
-      </div>
-    );
-  }
-
+  );
   const { user, isSuperAdmin } = useAuth();
   const location = useLocation();
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
@@ -63,6 +32,36 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isOnChatPage = location.pathname === "/chat";
   const isPipelinePage = location.pathname === '/pipeline';
   const { currentAnnouncement, dismissAnnouncement } = useAnnouncements();
+
+  useEffect(() => {
+    if (!isOAuthPopup) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const hasOAuthParams = !!(code && state);
+    const payload = hasOAuthParams
+      ? { code, state, redirect_uri: `${window.location.origin}${window.location.pathname}` }
+      : { facebook: urlParams.get('facebook'), message: urlParams.get('message') };
+
+    try {
+      window.opener.postMessage({ type: 'FACEBOOK_OAUTH_RESPONSE', payload }, window.location.origin);
+    } catch {
+      // O popup ainda se fecha mesmo se a janela de origem nao estiver acessivel.
+    }
+
+    const closeTimer = window.setTimeout(() => window.close(), 300);
+    return () => window.clearTimeout(closeTimer);
+  }, [isOAuthPopup]);
+
+  if (isOAuthPopup) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4" />
+        <h2 className="text-xl font-semibold">Conectando ao Facebook</h2>
+        <p className="text-muted-foreground mt-2">Esta janela fechara automaticamente em instantes.</p>
+      </div>
+    );
+  }
 
   const handleDismissAnnouncement = (announcementId: string, dontShowAgain: boolean) => {
     dismissAnnouncement(announcementId, dontShowAgain);

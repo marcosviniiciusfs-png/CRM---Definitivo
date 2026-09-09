@@ -37,7 +37,6 @@ export function TrackingChannelStats({ instanceId, keywords }: Props) {
     setLoading(true);
 
     const cutoff = getCutoff(window);
-    // @ts-expect-error: tracking_match_log nao gerado nos types ainda
     let query = supabase
       .from('tracking_match_log')
       .select('matched_keyword')

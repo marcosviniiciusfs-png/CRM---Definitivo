@@ -142,7 +142,7 @@ export const KanbanColumn = ({
       // Check if user created the card or is assigned to it
       const isCreator = card.created_by === currentUserId;
       const isAssigned = cardAssigneesMap?.[card.id]?.includes(currentUserId || '');
-      return isCreator || isAssigned;
+      return isCreator || Boolean(isAssigned);
     }
     return false;
   };

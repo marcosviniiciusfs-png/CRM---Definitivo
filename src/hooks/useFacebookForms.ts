@@ -57,7 +57,7 @@ export const useFacebookForms = (
   const [subscribing, setSubscribing] = useState(false);
 
   const fetchLeadForms = useCallback(async (integrationData?: FacebookIntegrationData | null) => {
-    let activeIntegration = integrationData;
+    const activeIntegration = integrationData;
 
     if (!activeIntegration || !activeIntegration.page_id) {
       logger.log('[FB-FORMS] Dados incompletos no fetch.');

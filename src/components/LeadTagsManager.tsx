@@ -101,8 +101,9 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
   const loadAvailableTags = async () => {
     setLoading(true);
     try {
+      if (!user?.id) return;
       const { data: orgData } = await supabase.rpc("get_user_organization_id", {
-        _user_id: user?.id,
+        _user_id: user.id,
       });
 
       if (!orgData) return;

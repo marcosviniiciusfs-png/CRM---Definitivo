@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Package, Briefcase, Download, LucideIcon } from "lucide-react";
+import { Edit, Trash2, Package, Briefcase, Download } from "lucide-react";
 import { Item } from "@/pages/Producao";
 import {
   AlertDialog,
@@ -14,18 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import * as Icons from "lucide-react";
-import { FaTooth } from "react-icons/fa";
-
-// Wrapper para ícone do react-icons
-const ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <FaTooth className={className} />
-);
-
-// Mapa de ícones customizados (não-lucide)
-const customIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  Tooth: ToothIcon,
-};
+import { getAppIcon } from "@/lib/iconRegistry";
 
 interface ItemCardProps {
   item: Item;
@@ -60,14 +49,8 @@ export function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
   // Use custom icon if available, otherwise use type default icon
   const getDisplayIcon = (): React.ComponentType<{ className?: string }> => {
     if (item.icon) {
-      // Check custom icons first
-      if (item.icon in customIcons) {
-        return customIcons[item.icon];
-      }
-      // Then check lucide icons
-      if (item.icon in Icons) {
-        return Icons[item.icon as keyof typeof Icons] as LucideIcon;
-      }
+      const configuredIcon = getAppIcon(item.icon);
+      if (configuredIcon) return configuredIcon;
     }
     return typeConfig.icon;
   };

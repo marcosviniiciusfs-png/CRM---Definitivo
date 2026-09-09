@@ -56,10 +56,10 @@ export function DistributionTimeline() {
       if (!data?.length) return [];
 
       // Batch fetch names
-      const leadIds = [...new Set(data.map(d => d.lead_id).filter(Boolean))];
+      const leadIds = [...new Set(data.map(d => d.lead_id).filter((id): id is string => Boolean(id)))];
       const userIds = [...new Set([
-        ...data.map(d => d.to_user_id).filter(Boolean),
-        ...data.map(d => d.from_user_id).filter(Boolean),
+        ...data.map(d => d.to_user_id).filter((id): id is string => Boolean(id)),
+        ...data.map(d => d.from_user_id).filter((id): id is string => Boolean(id)),
       ])];
 
       const [leadsRes, profilesRes] = await Promise.all([
@@ -77,7 +77,7 @@ export function DistributionTimeline() {
         fromAgentName: row.from_user_id ? (profileMap.get(row.from_user_id) || null) : null,
         source: row.source_type || leadMap.get(row.lead_id)?.source || "",
         method: "",
-        funnelName: null,
+        funnelName: null as string | null,
         createdAt: row.created_at,
         isRedistribution: row.is_redistribution || !!row.from_user_id,
       })) as TimelineItem[];

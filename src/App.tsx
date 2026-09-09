@@ -6,30 +6,28 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
-import { OrganizationProvider } from "@/contexts/OrganizationContext";
-import { TaskAlertProvider } from "@/contexts/TaskAlertContext";
-import { LeadNotificationProvider } from '@/contexts/LeadNotificationContext';
-import { LeadNotificationDisplay } from '@/components/LeadNotificationDisplay';
-import { ChatMessageNotificationProvider } from '@/contexts/ChatMessageNotificationContext';
-import { ChatMessageNotificationDisplay } from '@/components/ChatMessageNotificationDisplay';
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SubscriptionGate } from "@/components/SubscriptionGate";
-import { SuperAdminRoute } from "@/components/SuperAdminRoute";
-import { DashboardLayout } from "@/components/DashboardLayout";
-import { SectionGate } from "@/components/SectionGate";
-import { AssetPreloader } from "@/components/AssetPreloader";
-import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { MigrationMaintenance } from "@/components/MigrationMaintenance";
 
-// Páginas críticas - carregadas imediatamente
-import Landing from "./pages/Landing";
-import Auth from "./pages/Auth";
-
 // Páginas carregadas sob demanda (lazy)
+const Landing = lazy(() => import("./pages/Landing"));
+const Auth = lazy(() => import("./pages/Auth"));
 const Index = lazy(() => import("./pages/Index"));
+const OrganizationAppScope = lazy(() => import("@/components/OrganizationAppScope"));
+const ProtectedRoute = lazy(() => import("@/components/ProtectedRoute").then((module) => ({
+  default: module.ProtectedRoute,
+})));
+const SectionGate = lazy(() => import("@/components/SectionGate").then((module) => ({
+  default: module.SectionGate,
+})));
+const SuperAdminRoute = lazy(() => import("@/components/SuperAdminRoute").then((module) => ({
+  default: module.SuperAdminRoute,
+})));
+const DashboardLayout = lazy(() => import("@/components/DashboardLayout").then((module) => ({
+  default: module.DashboardLayout,
+})));
+const AuthenticatedAppProviders = lazy(() => import("@/components/AuthenticatedAppProviders"));
 const Pipeline = lazy(() => import("./pages/Pipeline"));
 const FunnelBuilder = lazy(() => import("./pages/FunnelBuilder"));
-const Leads = lazy(() => import("./pages/Leads"));
 const LeadDetails = lazy(() => import("./pages/LeadDetails"));
 const LeadMetrics = lazy(() => import("./pages/LeadMetrics"));
 const LeadDistribution = lazy(() => import("./pages/LeadDistribution"));
@@ -72,8 +70,9 @@ const queryClient = new QueryClient({
 
 // Componente de fallback para Suspense
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen bg-background">
-    <LoadingAnimation text="Carregando..." />
+  <div className="flex min-h-screen items-center justify-center bg-background" role="status" aria-live="polite">
+    <div className="h-10 w-10 animate-spin rounded-full border-4 border-red-500/25 border-t-red-500" aria-hidden="true" />
+    <span className="sr-only">Carregando...</span>
   </div>
 );
 
@@ -94,58 +93,53 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <AssetPreloader />
       <BrowserRouter>
         <AdminAuthProvider>
           <AuthProvider>
-            <OrganizationProvider>
-              <TaskAlertProvider>
-                <LeadNotificationProvider>
-                <ChatMessageNotificationProvider>
-                  <Routes>
-                    <Route path="/" element={<Landing />} />
-                    <Route path="/auth" element={<Auth />} />
+            <Routes>
+                    <Route path="/" element={<LazyPage><Landing /></LazyPage>} />
+                    <Route path="/auth" element={<LazyPage><Auth /></LazyPage>} />
                     <Route path="/admin-login" element={<LazyPage><AdminLogin /></LazyPage>} />
-                    <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
-                    <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDetails /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    {/* Features controladas por SectionGate - acessiveis quando liberadas via admin */}
-                    <Route path="/lead-metrics" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadMetrics /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
-                    <Route path="/lead-distribution" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
-                    <Route path="/chat" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
-                    <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/reunioes" element={<ProtectedRoute><DashboardLayout><LazyPage><Reunioes /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/integrations" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Integrations /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
-                    <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
-                    <Route path="/facebook-webhook-logs" element={<ProtectedRoute><LazyPage><FacebookWebhookLogs /></LazyPage></ProtectedRoute>} />
-                    <Route path="/whatsapp-webhook-logs" element={<ProtectedRoute><LazyPage><WhatsAppWebhookLogs /></LazyPage></ProtectedRoute>} />
-                    <Route path="/form-webhook-logs" element={<ProtectedRoute><LazyPage><FormWebhookLogs /></LazyPage></ProtectedRoute>} />
-                    <Route path="/meta-pixel-logs" element={<ProtectedRoute><DashboardLayout><LazyPage><MetaPixelLogs /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                    <Route element={<LazyPage><OrganizationAppScope /></LazyPage>}>
+                      <Route element={<LazyPage><AuthenticatedAppProviders /></LazyPage>}>
+                        <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
+                        <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDetails /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        {/* Features controladas por SectionGate - acessiveis quando liberadas via admin */}
+                        <Route path="/lead-metrics" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadMetrics /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
+                        <Route path="/lead-distribution" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
+                        <Route path="/chat" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
+                        <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/reunioes" element={<ProtectedRoute><DashboardLayout><LazyPage><Reunioes /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/integrations" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Integrations /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
+                        <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/facebook-webhook-logs" element={<ProtectedRoute><LazyPage><FacebookWebhookLogs /></LazyPage></ProtectedRoute>} />
+                        <Route path="/whatsapp-webhook-logs" element={<ProtectedRoute><LazyPage><WhatsAppWebhookLogs /></LazyPage></ProtectedRoute>} />
+                        <Route path="/form-webhook-logs" element={<ProtectedRoute><LazyPage><FormWebhookLogs /></LazyPage></ProtectedRoute>} />
+                        <Route path="/meta-pixel-logs" element={<ProtectedRoute><DashboardLayout><LazyPage><MetaPixelLogs /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                      </Route>
+
+                      {/* Pricing precisa do contexto de organização para verificar o vínculo administrativo. */}
+                      <Route path="/pricing" element={<LazyPage><Pricing /></LazyPage>} />
+                    </Route>
                     <Route path="/admin" element={<SuperAdminRoute><LazyPage><AdminDashboard /></LazyPage></SuperAdminRoute>} />
                     <Route path="/admin/user/:userId" element={<SuperAdminRoute><LazyPage><AdminUserDetails /></LazyPage></SuperAdminRoute>} />
                     <Route path="/privacy-policy" element={<LazyPage><PrivacyPolicy /></LazyPage>} />
                     <Route path="/terms-of-service" element={<LazyPage><TermsOfService /></LazyPage>} />
                     <Route path="/data-deletion" element={<LazyPage><DataDeletion /></LazyPage>} />
 
-                    {/* Pricing e Success ficam FORA do ProtectedRoute para evitar loops de redirecionamento */}
-                    <Route path="/pricing" element={<LazyPage><Pricing /></LazyPage>} />
+                    {/* Success fica fora do ProtectedRoute para evitar loops de redirecionamento. */}
                     <Route path="/success" element={<LazyPage><PaymentSuccess /></LazyPage>} />
 
                     <Route path="*" element={<LazyPage><NotFound /></LazyPage>} />
-                  </Routes>
-                  <LeadNotificationDisplay />
-                  <ChatMessageNotificationDisplay />
-                </ChatMessageNotificationProvider>
-                </LeadNotificationProvider>
-              </TaskAlertProvider>
-            </OrganizationProvider>
+            </Routes>
           </AuthProvider>
         </AdminAuthProvider>
       </BrowserRouter>

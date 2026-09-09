@@ -68,8 +68,9 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
   const loadTags = async () => {
     setLoading(true);
     try {
+      if (!user?.id) throw new Error("Usuário não autenticado");
       const { data: orgData } = await supabase.rpc("get_user_organization_id", {
-        _user_id: user?.id,
+        _user_id: user.id,
       });
 
       if (!orgData) {
@@ -107,8 +108,9 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
     }
 
     try {
+      if (!user?.id) throw new Error("Usuário não autenticado");
       const { data: orgData } = await supabase.rpc("get_user_organization_id", {
-        _user_id: user?.id,
+        _user_id: user.id,
       });
 
       if (!orgData) throw new Error("Organização não encontrada");

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -95,7 +96,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!organizationId) throw new Error("Sem organizacao");
-      const payload = {
+      const payload: TablesInsert<"lead_distribution_configs"> = {
         ...form,
         distribution_weights: form.distribution_method === "weighted" ? form.distribution_weights : {},
         organization_id: organizationId,
@@ -103,8 +104,8 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
         triggers: ["new_lead"],
         auto_redistribute: false,
         redistribution_timeout_minutes: 60,
-        source_identifiers: [],
-        filter_rules: { logic: "AND", conditions: [] },
+        source_identifiers: [] as string[],
+        filter_rules: { logic: "AND", conditions: [] } as Json,
       };
       if (editConfig?.id) {
         const { error } = await supabase.from("lead_distribution_configs").update(payload).eq("id", editConfig.id);

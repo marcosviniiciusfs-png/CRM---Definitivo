@@ -26,7 +26,7 @@ const HeroSection = () => {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Button size="lg" onClick={() => navigate("/auth")} className="gap-2 rounded-full px-8 h-12 text-base">
-                Começar agora <ArrowRight size={18} />
+                Entrar no CRM <ArrowRight size={18} />
               </Button>
               <Button
                 size="lg"

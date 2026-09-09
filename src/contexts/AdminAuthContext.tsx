@@ -102,7 +102,13 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     const adminLogout = () => {
         const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
         if (token) {
-            supabase.rpc("admin_logout_system", { p_token: token }).catch(() => { });
+            void (async () => {
+                try {
+                    await supabase.rpc("admin_logout_system", { p_token: token });
+                } catch {
+                    // A sessão local deve ser encerrada mesmo se o servidor estiver indisponível.
+                }
+            })();
         }
         sessionStorage.removeItem(ADMIN_TOKEN_KEY);
         sessionStorage.removeItem(ADMIN_EMAIL_KEY);

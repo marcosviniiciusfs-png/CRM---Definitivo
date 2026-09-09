@@ -14,6 +14,7 @@ interface OrganizationMember {
 
 // Type for RPC response from get_organization_members_masked
 interface RpcMemberResult {
+  avatar_url: string | null;
   id: string;
   user_id: string | null;
   organization_id: string;
@@ -46,9 +47,11 @@ export function useOrganizationMembers(organizationId?: string | null) {
       // Buscar membros usando função mascarada, passando organizationId
       // para evitar o bug de retornar membros da org errada quando o usuario
       // e' membro de varias orgs.
-      let { data: members, error } = await supabase.rpc('get_organization_members_masked', {
+      const rpcResult = await supabase.rpc('get_organization_members_masked', {
         p_organization_id: organizationId || null,
       });
+      let members = rpcResult.data as unknown as RpcMemberResult[] | null;
+      let { error } = rpcResult;
 
       // Fallback para query direta se a RPC não existir
       if (error && (error.code === 'PGRST202' || error.message?.includes('not found'))) {
@@ -66,6 +69,7 @@ export function useOrganizationMembers(organizationId?: string | null) {
           // Normalizar para o formato esperado pela interface
           members = directData.map((m: DirectMemberQuery) => ({
             ...m,
+            avatar_url: null as string | null,
             email: m.email || null,
           })) as RpcMemberResult[];
           error = null;
@@ -76,7 +80,9 @@ export function useOrganizationMembers(organizationId?: string | null) {
       if (!members) return [];
 
       // Buscar profiles em paralelo para obter full_name e avatar_url
-      const userIds = members.filter((m: RpcMemberResult) => m.user_id).map((m: RpcMemberResult) => m.user_id);
+      const userIds = members
+        .map((member: RpcMemberResult) => member.user_id)
+        .filter((id): id is string => Boolean(id));
 
       let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
 
@@ -117,7 +123,9 @@ export function useOrganizationMembers(organizationId?: string | null) {
  * Para componentes que não podem usar hooks diretamente
  */
 export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember[]> {
-  let { data: members, error } = await supabase.rpc('get_organization_members_masked');
+  const rpcResult = await supabase.rpc('get_organization_members_masked');
+  let members = rpcResult.data as unknown as RpcMemberResult[] | null;
+  let { error } = rpcResult;
 
   // Fallback para query direta se a RPC não existir
   if (error && (error.code === 'PGRST202' || error.message?.includes('not found'))) {
@@ -130,6 +138,7 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
     if (!directError && directData) {
       members = directData.map((m: DirectMemberQuery) => ({
         ...m,
+        avatar_url: null as string | null,
         email: m.email || null,
       })) as RpcMemberResult[];
       error = null;
@@ -139,7 +148,9 @@ export async function fetchOrganizationMembersSafe(): Promise<OrganizationMember
   if (error) throw error;
   if (!members) return [];
 
-  const userIds = members.filter((m: RpcMemberResult) => m.user_id).map((m: RpcMemberResult) => m.user_id);
+  const userIds = members
+    .map((member: RpcMemberResult) => member.user_id)
+    .filter((id): id is string => Boolean(id));
 
   let profilesMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
 

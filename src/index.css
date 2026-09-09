@@ -7,9 +7,6 @@ All colors MUST be HSL.
 */
 
 @layer base {
-  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
   :root {
     --background: 0 0% 100%;
     --foreground: 215 20% 15%;
@@ -32,7 +29,7 @@ All colors MUST be HSL.
     --accent: 357 75% 52%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 74% 42%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 142 71% 45%;
@@ -86,12 +83,12 @@ All colors MUST be HSL.
     --secondary-foreground: 0 0% 95%;
 
     --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 65%;
+    --muted-foreground: 0 0% 72%;
 
     --accent: 0 0% 15%;
     --accent-foreground: 0 0% 95%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 74% 42%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 142 71% 45%;
@@ -194,7 +191,7 @@ All colors MUST be HSL.
 
   /* === ARCADE 8-BIT THEME === */
   .arcade-font {
-    font-family: 'Press Start 2P', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
   .arcade-border {
@@ -209,7 +206,7 @@ All colors MUST be HSL.
   }
 
   .arcade-btn {
-    font-family: 'Press Start 2P', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 11px;
     letter-spacing: 0.5px;
     border: 2px solid;
@@ -234,7 +231,7 @@ All colors MUST be HSL.
   }
 
   .arcade-btn-outline {
-    font-family: 'Press Start 2P', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 11px;
     letter-spacing: 0.5px;
     border: 2px solid hsl(var(--primary));
@@ -293,7 +290,7 @@ All colors MUST be HSL.
   }
 
   .arcade-pill {
-    font-family: 'Press Start 2P', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 9px;
     border: 2px solid hsl(var(--border));
     padding: 6px 12px;
@@ -784,4 +781,15 @@ All colors MUST be HSL.
 /* Logo vermelho no light mode */
 .logo-red-filter {
   filter: invert(13%) sepia(90%) saturate(3000%) hue-rotate(350deg) brightness(80%) contrast(110%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

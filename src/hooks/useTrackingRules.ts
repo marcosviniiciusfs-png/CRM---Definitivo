@@ -52,7 +52,6 @@ export function useTrackingRules(): UseTrackingRulesResult {
           .eq('organization_id', organizationId)
           .eq('status', 'CONNECTED')
           .order('created_at', { ascending: true }),
-        // @ts-expect-error - whatsapp_tracking_rules table types not yet regenerated
         supabase
           .from('whatsapp_tracking_rules')
           .select('*')
@@ -106,7 +105,6 @@ export function useTrackingRules(): UseTrackingRulesResult {
     };
 
     const { error } = await supabase
-      // @ts-expect-error - whatsapp_tracking_rules table types not yet regenerated
       .from('whatsapp_tracking_rules')
       .upsert(next, { onConflict: 'whatsapp_instance_id' });
 

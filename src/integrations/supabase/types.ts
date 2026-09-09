@@ -775,6 +775,7 @@ export type Database = {
           created_at: string
           funnel_id: string
           id: string
+          organization_id: string
           source_identifier: string | null
           source_type: string
           target_stage_id: string
@@ -783,6 +784,7 @@ export type Database = {
           created_at?: string
           funnel_id: string
           id?: string
+          organization_id: string
           source_identifier?: string | null
           source_type: string
           target_stage_id: string
@@ -791,6 +793,7 @@ export type Database = {
           created_at?: string
           funnel_id?: string
           id?: string
+          organization_id?: string
           source_identifier?: string | null
           source_type?: string
           target_stage_id?: string
@@ -879,6 +882,7 @@ export type Database = {
       }
       funnel_stages: {
         Row: {
+          automation_enabled: boolean
           color: string
           created_at: string
           default_value: number | null
@@ -896,6 +900,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          automation_enabled?: boolean
           color?: string
           created_at?: string
           default_value?: number | null
@@ -913,6 +918,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          automation_enabled?: boolean
           color?: string
           created_at?: string
           default_value?: number | null
@@ -1200,8 +1206,11 @@ export type Database = {
           due_date: string | null
           estimated_time: number | null
           id: string
+          is_collaborative: boolean
           lead_id: string | null
           position: number
+          requires_all_approval: boolean
+          timer_start_column_id: string | null
           timer_started_at: string | null
           updated_at: string
         }
@@ -1216,8 +1225,11 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          is_collaborative?: boolean
           lead_id?: string | null
           position?: number
+          requires_all_approval?: boolean
+          timer_start_column_id?: string | null
           timer_started_at?: string | null
           updated_at?: string
         }
@@ -1232,8 +1244,11 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          is_collaborative?: boolean
           lead_id?: string | null
           position?: number
+          requires_all_approval?: boolean
+          timer_start_column_id?: string | null
           timer_started_at?: string | null
           updated_at?: string
         }
@@ -1256,24 +1271,39 @@ export type Database = {
       }
       kanban_columns: {
         Row: {
+          auto_delete_enabled: boolean
+          auto_delete_hours: number | null
+          block_backward_movement: boolean
           board_id: string
           created_at: string
           id: string
+          is_completion_stage: boolean
           position: number
+          stage_color: string | null
           title: string
         }
         Insert: {
+          auto_delete_enabled?: boolean
+          auto_delete_hours?: number | null
+          block_backward_movement?: boolean
           board_id: string
           created_at?: string
           id?: string
+          is_completion_stage?: boolean
           position?: number
+          stage_color?: string | null
           title: string
         }
         Update: {
+          auto_delete_enabled?: boolean
+          auto_delete_hours?: number | null
+          block_backward_movement?: boolean
           board_id?: string
           created_at?: string
           id?: string
+          is_completion_stage?: boolean
           position?: number
+          stage_color?: string | null
           title?: string
         }
         Relationships: [
@@ -1430,6 +1460,8 @@ export type Database = {
       }
       lead_distribution_history: {
         Row: {
+          batch_id: string | null
+          config_id: string | null
           created_at: string
           distribution_method: string
           from_user_id: string | null
@@ -1438,10 +1470,13 @@ export type Database = {
           lead_id: string
           organization_id: string
           redistribution_reason: string | null
+          source_type: string | null
           to_user_id: string
           trigger_source: string
         }
         Insert: {
+          batch_id?: string | null
+          config_id?: string | null
           created_at?: string
           distribution_method: string
           from_user_id?: string | null
@@ -1450,10 +1485,13 @@ export type Database = {
           lead_id: string
           organization_id: string
           redistribution_reason?: string | null
+          source_type?: string | null
           to_user_id: string
           trigger_source: string
         }
         Update: {
+          batch_id?: string | null
+          config_id?: string | null
           created_at?: string
           distribution_method?: string
           from_user_id?: string | null
@@ -1462,6 +1500,7 @@ export type Database = {
           lead_id?: string
           organization_id?: string
           redistribution_reason?: string | null
+          source_type?: string | null
           to_user_id?: string
           trigger_source?: string
         }
@@ -1636,6 +1675,7 @@ export type Database = {
           telefone_lead: string
           updated_at: string
           valor: number | null
+          whatsapp_instance_id: string | null
         }
         Insert: {
           additional_data?: Json | null
@@ -1671,6 +1711,7 @@ export type Database = {
           telefone_lead: string
           updated_at?: string
           valor?: number | null
+          whatsapp_instance_id?: string | null
         }
         Update: {
           additional_data?: Json | null
@@ -1706,6 +1747,7 @@ export type Database = {
           telefone_lead?: string
           updated_at?: string
           valor?: number | null
+          whatsapp_instance_id?: string | null
         }
         Relationships: [
           {
@@ -1745,6 +1787,7 @@ export type Database = {
           media_url: string | null
           quoted_message_id: string | null
           status_entrega: string | null
+          whatsapp_instance_id: string | null
         }
         Insert: {
           corpo_mensagem: string
@@ -1759,6 +1802,7 @@ export type Database = {
           media_url?: string | null
           quoted_message_id?: string | null
           status_entrega?: string | null
+          whatsapp_instance_id?: string | null
         }
         Update: {
           corpo_mensagem?: string
@@ -1773,6 +1817,7 @@ export type Database = {
           media_url?: string | null
           quoted_message_id?: string | null
           status_entrega?: string | null
+          whatsapp_instance_id?: string | null
         }
         Relationships: [
           {
@@ -2023,6 +2068,7 @@ export type Database = {
           can_view_kanban: boolean | null
           can_view_pipeline: boolean | null
           can_view_reports: boolean | null
+          can_view_team_leads: boolean | null
           color: string | null
           created_at: string | null
           description: string | null
@@ -2053,6 +2099,7 @@ export type Database = {
           can_view_kanban?: boolean | null
           can_view_pipeline?: boolean | null
           can_view_reports?: boolean | null
+          can_view_team_leads?: boolean | null
           color?: string | null
           created_at?: string | null
           description?: string | null
@@ -2083,6 +2130,7 @@ export type Database = {
           can_view_kanban?: boolean | null
           can_view_pipeline?: boolean | null
           can_view_reports?: boolean | null
+          can_view_team_leads?: boolean | null
           color?: string | null
           created_at?: string | null
           description?: string | null
@@ -2339,6 +2387,7 @@ export type Database = {
           avatar_url: string | null
           button_click_sound_enabled: boolean | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
           job_title: string | null
@@ -2350,6 +2399,7 @@ export type Database = {
           avatar_url?: string | null
           button_click_sound_enabled?: boolean | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           job_title?: string | null
@@ -2361,6 +2411,7 @@ export type Database = {
           avatar_url?: string | null
           button_click_sound_enabled?: boolean | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           job_title?: string | null
@@ -2762,6 +2813,8 @@ export type Database = {
         Row: {
           created_at: string
           default_responsible_user_id: string | null
+          funnel_id: string | null
+          funnel_stage_id: string | null
           id: string
           is_active: boolean
           name: string | null
@@ -2773,6 +2826,8 @@ export type Database = {
         Insert: {
           created_at?: string
           default_responsible_user_id?: string | null
+          funnel_id?: string | null
+          funnel_stage_id?: string | null
           id?: string
           is_active?: boolean
           name?: string | null
@@ -2784,6 +2839,8 @@ export type Database = {
         Update: {
           created_at?: string
           default_responsible_user_id?: string | null
+          funnel_id?: string | null
+          funnel_stage_id?: string | null
           id?: string
           is_active?: boolean
           name?: string | null
@@ -2912,13 +2969,453 @@ export type Database = {
           },
         ]
       }
+      appointment_goals: {
+        Row: {
+          created_at: string
+          id: string
+          month: number
+          organization_id: string
+          target_value: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month: number
+          organization_id: string
+          target_value?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month?: number
+          organization_id?: string
+          target_value?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_goals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcast_contacts: {
+        Row: {
+          broadcast_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string
+          name: string
+          phone: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          broadcast_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          name: string
+          phone: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          broadcast_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          name?: string
+          phone?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_contacts_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broadcast_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcasts: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          delay_seconds: number
+          error_count: number
+          id: string
+          message_text: string
+          name: string
+          organization_id: string
+          sent_count: number
+          status: string
+          total_contacts: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          delay_seconds?: number
+          error_count?: number
+          id?: string
+          message_text: string
+          name: string
+          organization_id: string
+          sent_count?: number
+          status?: string
+          total_contacts?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          delay_seconds?: number
+          error_count?: number
+          id?: string
+          message_text?: string
+          name?: string
+          organization_id?: string
+          sent_count?: number
+          status?: string
+          total_contacts?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcasts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_channel_memberships: {
+        Row: {
+          created_at: string
+          last_message_at: string | null
+          lead_id: string
+          organization_id: string
+          source: string
+          transferred_at: string | null
+          transferred_by_user_id: string | null
+          transferred_from_instance_id: string | null
+          whatsapp_instance_id: string
+        }
+        Insert: {
+          created_at?: string
+          last_message_at?: string | null
+          lead_id: string
+          organization_id: string
+          source: string
+          transferred_at?: string | null
+          transferred_by_user_id?: string | null
+          transferred_from_instance_id?: string | null
+          whatsapp_instance_id: string
+        }
+        Update: {
+          created_at?: string
+          last_message_at?: string | null
+          lead_id?: string
+          organization_id?: string
+          source?: string
+          transferred_at?: string | null
+          transferred_by_user_id?: string | null
+          transferred_from_instance_id?: string | null
+          whatsapp_instance_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_channel_memberships_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_channel_memberships_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ranking_competitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          reveal_at: string | null
+          revealed_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          reveal_at?: string | null
+          revealed_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          reveal_at?: string | null
+          revealed_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_competitions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      redistribution_batches: {
+        Row: {
+          batch_type: string
+          config_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string
+          status: string
+          total_leads: number
+        }
+        Insert: {
+          batch_type: string
+          config_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id: string
+          status?: string
+          total_leads?: number
+        }
+        Update: {
+          batch_type?: string
+          config_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string
+          status?: string
+          total_leads?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "redistribution_batches_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "lead_distribution_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_completion_logs: {
+        Row: {
+          base_points: number
+          bonus_due_date: number
+          bonus_timer: number
+          card_id: string
+          completed_at: string
+          had_due_date: boolean
+          had_timer: boolean
+          id: string
+          organization_id: string
+          user_id: string
+          was_on_time_due_date: boolean
+          was_on_time_timer: boolean
+        }
+        Insert: {
+          base_points?: number
+          bonus_due_date?: number
+          bonus_timer?: number
+          card_id: string
+          completed_at?: string
+          had_due_date?: boolean
+          had_timer?: boolean
+          id?: string
+          organization_id: string
+          user_id: string
+          was_on_time_due_date?: boolean
+          was_on_time_timer?: boolean
+        }
+        Update: {
+          base_points?: number
+          bonus_due_date?: number
+          bonus_timer?: number
+          card_id?: string
+          completed_at?: string
+          had_due_date?: boolean
+          had_timer?: boolean
+          id?: string
+          organization_id?: string
+          user_id?: string
+          was_on_time_due_date?: boolean
+          was_on_time_timer?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_completion_logs_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_match_log: {
+        Row: {
+          id: string
+          lead_id: string
+          matched_at: string
+          matched_keyword: string
+          organization_id: string
+          whatsapp_instance_id: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          matched_at?: string
+          matched_keyword: string
+          organization_id: string
+          whatsapp_instance_id: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          matched_at?: string
+          matched_keyword?: string
+          organization_id?: string
+          whatsapp_instance_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_channel_members: {
+        Row: {
+          created_at: string
+          organization_id: string
+          user_id: string
+          whatsapp_instance_id: string
+        }
+        Insert: {
+          created_at?: string
+          organization_id: string
+          user_id: string
+          whatsapp_instance_id: string
+        }
+        Update: {
+          created_at?: string
+          organization_id?: string
+          user_id?: string
+          whatsapp_instance_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_channel_members_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_tracking_rules: {
+        Row: {
+          case_sensitive: boolean
+          created_at: string
+          detect_unknown_contacts: boolean
+          enabled: boolean
+          keywords: string[]
+          match_mode: string
+          organization_id: string
+          updated_at: string
+          whatsapp_instance_id: string
+        }
+        Insert: {
+          case_sensitive?: boolean
+          created_at?: string
+          detect_unknown_contacts?: boolean
+          enabled?: boolean
+          keywords?: string[]
+          match_mode?: string
+          organization_id: string
+          updated_at?: string
+          whatsapp_instance_id: string
+        }
+        Update: {
+          case_sensitive?: boolean
+          created_at?: string
+          detect_unknown_contacts?: boolean
+          enabled?: boolean
+          keywords?: string[]
+          match_mode?: string
+          organization_id?: string
+          updated_at?: string
+          whatsapp_instance_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_tracking_rules_whatsapp_instance_id_fkey"
+            columns: ["whatsapp_instance_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
           Row: {
             accepts_leads: boolean
+            channel_color: string | null
+            channel_name: string | null
             connected_at: string | null
             created_at: string
           id: string
           instance_name: string
+          lead_alert_group_id: string | null
+          lead_alert_last_sent_at: string | null
+          lead_alert_source_filters: string[]
+          lead_alerts_enabled: boolean
           organization_id: string | null
           phone_number: string | null
           qr_code: string | null
@@ -2929,10 +3426,16 @@ export type Database = {
         }
           Insert: {
             accepts_leads?: boolean
+            channel_color?: string | null
+            channel_name?: string | null
             connected_at?: string | null
             created_at?: string
           id?: string
           instance_name: string
+          lead_alert_group_id?: string | null
+          lead_alert_last_sent_at?: string | null
+          lead_alert_source_filters?: string[]
+          lead_alerts_enabled?: boolean
           organization_id?: string | null
           phone_number?: string | null
           qr_code?: string | null
@@ -2943,10 +3446,16 @@ export type Database = {
         }
           Update: {
             accepts_leads?: boolean
+            channel_color?: string | null
+            channel_name?: string | null
             connected_at?: string | null
             created_at?: string
           id?: string
           instance_name?: string
+          lead_alert_group_id?: string | null
+          lead_alert_last_sent_at?: string | null
+          lead_alert_source_filters?: string[]
+          lead_alerts_enabled?: boolean
           organization_id?: string | null
           phone_number?: string | null
           qr_code?: string | null
@@ -2970,6 +3479,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_logout_system: {
+        Args: { p_token: string }
+        Returns: undefined
+      }
       admin_get_user_subscription: {
         Args: { p_user_id: string }
         Returns: Json
@@ -3050,6 +3563,10 @@ export type Database = {
         Returns: string
       }
       ensure_user_organization: { Args: never; Returns: Json }
+      bulk_insert_leads: {
+        Args: { p_leads: Json; p_organization_id: string }
+        Returns: { inserted: number }
+      }
       get_accessible_funnel_ids: {
         Args: { p_organization_id: string }
         Returns: {
@@ -3057,6 +3574,36 @@ export type Database = {
         }[]
       }
       get_auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      get_member_custom_role_permissions: {
+        Args: { org_id: string }
+        Returns: {
+          can_assign_leads: boolean
+          can_create_leads: boolean
+          can_create_tasks: boolean
+          can_delete_leads: boolean
+          can_delete_tasks: boolean
+          can_edit_all_tasks: boolean
+          can_edit_leads: boolean
+          can_edit_own_tasks: boolean
+          can_manage_automations: boolean
+          can_manage_collaborators: boolean
+          can_manage_integrations: boolean
+          can_manage_tags: boolean
+          can_move_leads_pipeline: boolean
+          can_send_messages: boolean
+          can_view_all_conversations: boolean
+          can_view_all_leads: boolean
+          can_view_assigned_leads: boolean
+          can_view_chat: boolean
+          can_view_kanban: boolean
+          can_view_pipeline: boolean
+          can_view_reports: boolean
+          can_view_team_leads: boolean
+          custom_role_color: string
+          custom_role_id: string
+          custom_role_name: string
+        }[]
+      }
       get_facebook_integrations_masked: {
         Args: never
         Returns: {
@@ -3139,7 +3686,7 @@ export type Database = {
         }[]
       }
       get_organization_members_masked: {
-        Args: never
+        Args: { p_organization_id?: string | null }
         Returns: {
           avatar_url: string
           created_at: string
@@ -3167,7 +3714,7 @@ export type Database = {
           user_role: string
         }[]
       }
-      get_user_organization_id: { Args: { p_user_id: string }; Returns: string }
+      get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       get_user_organization_role: {
         Args: { _user_id: string }
         Returns: {
@@ -3185,16 +3732,54 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      preview_organization_member_deletion: {
+        Args: { p_member_id: string; p_organization_id: string }
+        Returns: {
+          active_leads: number
+          closed_leads: number
+          has_auth_user: boolean
+          member_name: string
+          roulettes_in: number
+          teams_as_leader: number
+        }
+      }
+      reveal_ranking_competition: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
       safe_calculate_daily_revenue: { Args: { p_token: string }; Returns: Json }
       safe_calculate_mrr: { Args: { p_token: string }; Returns: Json }
       safe_count_main_users: { Args: { p_token: string }; Returns: number }
       safe_count_paying_users: { Args: { p_token: string }; Returns: Json }
-      safe_get_all_subscriptions: { Args: { p_token: string }; Returns: Json }
+      safe_delete_admin: {
+        Args: { p_target_email: string; p_token: string }
+        Returns: { error?: string; success: boolean }
+      }
+      safe_get_all_subscriptions: {
+        Args: { p_token: string }
+        Returns: { plan_id: string; user_id: string }[]
+      }
       safe_get_user_subscription: {
         Args: { p_token: string; user_id: string }
         Returns: Json
       }
       safe_list_all_users: { Args: { p_token: string }; Returns: Json }
+      safe_list_admins: {
+        Args: { p_token: string }
+        Returns: { created_at: string; email: string }[]
+      }
+      safe_list_owner_users: {
+        Args: { p_token: string }
+        Returns: {
+          created_at: string
+          email: string
+          email_confirmed_at: string | null
+          id: string
+          is_active: boolean | null
+          last_sign_in_at: string | null
+          organization_name: string | null
+        }[]
+      }
       safe_manage_user_subscription: {
         Args: {
           p_organization_id?: string
@@ -3219,7 +3804,7 @@ export type Database = {
       }
       upsert_admin_credential: {
         Args: { p_email: string; p_password: string }
-        Returns: Json
+        Returns: { error?: string; success: boolean }
       }
       validate_admin_token: { Args: { p_token: string }; Returns: boolean }
     }

@@ -18,7 +18,7 @@ interface DistributionConfig {
   distribution_method: string;
   triggers: string[];
   auto_redistribute: boolean;
-  redistribution_timeout_minutes: number;
+  redistribution_timeout_minutes: number | null;
 }
 
 export function LeadDistributionConfig() {
@@ -292,7 +292,7 @@ export function LeadDistributionConfig() {
                   id="timeout"
                   type="number"
                   min="1"
-                  value={config.redistribution_timeout_minutes}
+                  value={config.redistribution_timeout_minutes ?? 60}
                   onChange={(e) => setConfig({ ...config, redistribution_timeout_minutes: parseInt(e.target.value) })}
                 />
                 <p className="text-xs text-muted-foreground">

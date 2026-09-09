@@ -17,6 +17,7 @@ docs
 infra
 migrations_backup
 /supabase
+/outputs
 tests
 OBSIDIAN_SETUP.md
 DOCUMENTATION.md

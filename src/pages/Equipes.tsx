@@ -116,7 +116,13 @@ const Equipes = () => {
         .eq("organization_id", organizationId)
         .order("created_at");
 
-      const teams: Team[] = teamsData || [];
+      const teams: Team[] = (teamsData || []).map((team) => ({
+        ...team,
+        description: team.description ?? undefined,
+        color: team.color ?? "#6B7280",
+        leader_id: team.leader_id ?? undefined,
+        avatar_url: team.avatar_url ?? undefined,
+      }));
 
       const teamIds = teams.map(t => t.id);
       let teamMembers: TeamMember[] = [];
@@ -125,7 +131,10 @@ const Equipes = () => {
           .from("team_members")
           .select("*")
           .in("team_id", teamIds);
-        teamMembers = teamMembersData || [];
+        teamMembers = (teamMembersData || []).map((member) => ({
+          ...member,
+          role: member.role ?? "member",
+        }));
       }
 
       // Buscar membros da organização diretamente

@@ -39,7 +39,9 @@ export const MentionInput = ({ value, onChange, placeholder }: MentionInputProps
 
       if (!orgMembers) return;
 
-      const userIds = orgMembers.map(m => m.user_id).filter(Boolean);
+      const userIds = orgMembers
+        .map((member) => member.user_id)
+        .filter((id): id is string => Boolean(id));
 
       const { data, error } = await supabase
         .from("profiles")

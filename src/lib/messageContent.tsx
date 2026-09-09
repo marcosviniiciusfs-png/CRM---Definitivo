@@ -25,7 +25,7 @@ function normalizeUrl(raw: string): string {
  * pertence a frase, nao ao link.
  */
 function trimTrailingPunctuation(url: string): { clean: string; trailing: string } {
-  const m = url.match(/^(.*?)([.,;!?\)\]\}]+)$/);
+  const m = url.match(/^(.*?)([.,;!?)\]}]+)$/);
   if (m && m[1].length >= 4) {
     return { clean: m[1], trailing: m[2] };
   }

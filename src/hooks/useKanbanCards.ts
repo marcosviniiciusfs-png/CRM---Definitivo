@@ -204,7 +204,17 @@ export function useKanbanCards(
 
       const newCard: Card = {
         ...data,
-        lead: data.leads || task.lead,
+        description: data.description ?? undefined,
+        due_date: data.due_date ?? undefined,
+        estimated_time: data.estimated_time ?? undefined,
+        timer_started_at: data.timer_started_at ?? undefined,
+        calendar_event_id: data.calendar_event_id ?? undefined,
+        calendar_event_link: data.calendar_event_link ?? undefined,
+        lead_id: data.lead_id ?? undefined,
+        timer_start_column_id: data.timer_start_column_id ?? undefined,
+        lead: data.leads
+          ? { ...data.leads, email: data.leads.email ?? undefined }
+          : task.lead,
         is_collaborative: task.is_collaborative,
         requires_all_approval: task.requires_all_approval,
         color: task.color,

@@ -416,7 +416,9 @@ function GoogleCalendarCard({
         try {
           const errorData = await error.context?.json?.();
           if (errorData?.error) errorMessage = errorData.error;
-        } catch {}
+        } catch {
+          // Mantém a mensagem padrão quando a resposta não contém JSON válido.
+        }
         throw new Error(errorMessage);
       }
       if (data?.error) throw new Error(data.error);
@@ -505,17 +507,19 @@ function GoogleCalendarCard({
 const Integrations = () => {
   const { organizationId, isReady } = useOrganizationReady();
   const { permissions } = useOrganization();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const role = permissions.role;
   const canAccess = role === "owner" || role === "admin";
+  const isOAuthPopup = typeof window !== 'undefined' && Boolean(window.opener) && (
+    window.location.search.includes('code=') || window.location.search.includes('facebook=')
+  );
 
   useEffect(() => {
     if (role !== null && !canAccess) {
       navigate("/", { replace: true });
     }
   }, [role, canAccess, navigate]);
-
-  if (!canAccess) return null;
 
   const canManage = permissions.canManageIntegrations;
   const [tab, setTab] = useState<"connections" | "webhooks" | "logs" | "tracking">("connections");
@@ -644,33 +648,32 @@ const Integrations = () => {
       }
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [refreshIntegrations, toast]);
 
-  // Popup detection - close OAuth popup immediately without rendering the full page
-  if (typeof window !== 'undefined' && window.opener && (
-    window.location.search.includes('code=') || window.location.search.includes('facebook=')
-  )) {
+  useEffect(() => {
+    if (!isOAuthPopup) return;
+
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const state = urlParams.get('state');
     const fbStatus = urlParams.get('facebook');
     const hasOAuthParams = !!(code && state);
-
     const payload = hasOAuthParams
       ? { code, state, redirect_uri: `${window.location.origin}${window.location.pathname}` }
       : { facebook: fbStatus, message: urlParams.get('message') };
 
     try {
-      window.opener.postMessage({
-        type: 'FACEBOOK_OAUTH_RESPONSE',
-        payload
-      }, window.location.origin);
-    } catch (e) {
-      // Ignore cross-origin errors
+      window.opener.postMessage({ type: 'FACEBOOK_OAUTH_RESPONSE', payload }, window.location.origin);
+    } catch {
+      // O popup ainda pode ser fechado quando a janela de origem não estiver disponível.
     }
 
-    setTimeout(() => window.close(), 300);
+    const closeTimer = window.setTimeout(() => window.close(), 300);
+    return () => window.clearTimeout(closeTimer);
+  }, [isOAuthPopup]);
 
+  // Popup detection - close OAuth popup immediately without rendering the full page
+  if (isOAuthPopup) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4" />
@@ -679,6 +682,8 @@ const Integrations = () => {
       </div>
     );
   }
+
+  if (!canAccess) return null;
 
   if (!isReady || !organizationId) {
     return (

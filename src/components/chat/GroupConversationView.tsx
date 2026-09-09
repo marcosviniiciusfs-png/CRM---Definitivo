@@ -362,7 +362,7 @@ function GroupConversationViewImpl({ group, instanceName, onBack }: Props) {
   // referencia a cada render, fazendo o cleanup re-disparar a cada segundo
   // (mata a gravacao em andamento). Cleanup so deve rodar ao trocar de grupo
   // ou desmontar o componente.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     return () => recorder.cleanup();
   }, [group.id]);

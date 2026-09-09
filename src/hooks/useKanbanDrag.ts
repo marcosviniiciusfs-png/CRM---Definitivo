@@ -195,7 +195,7 @@ export function useKanbanDrag(
         const now = new Date();
 
         const hadDueDate = !!card.due_date;
-        const wasOnTimeDueDate = hadDueDate && new Date(card.due_date) >= now;
+        const wasOnTimeDueDate = card.due_date ? new Date(card.due_date) >= now : false;
 
         const hadTimer = !!(card.estimated_time && card.timer_started_at && !card.due_date);
         let wasOnTimeTimer = false;

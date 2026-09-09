@@ -33,12 +33,6 @@ interface RpcErrorWithStatus extends Error {
   status?: number;
 }
 
-// Interface for ensure_user_organization RPC result
-interface EnsureUserOrganizationResult {
-  success: boolean;
-  error?: string;
-}
-
 // Custom role permissions from organization_custom_roles table
 interface CustomRolePermissions {
   can_view_kanban: boolean;
@@ -573,30 +567,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         dataLoadedRef.current = true;
         refreshSubscription(targetOrgId);
       } else {
-        // No org found. Try to create one automatically.
-        console.log('[ORG] No memberships found. Potential orphan user.');
-
-        try {
-          const { data: ensureData, error: ensureErr } = await supabase.rpc<EnsureUserOrganizationResult>('ensure_user_organization');
-
-          if (!ensureErr && ensureData?.success) {
-            console.log('[ORG] New organization created for orphan user, refreshing...');
-            await loadOrganizationData(true);
-            return;
-          } else {
-            console.error('[ORG] Automatic workspace creation failed:', ensureErr || ensureData?.error);
-
-            if (retryCountRef.current < MAX_RETRIES) {
-              retryCountRef.current += 1;
-              setTimeout(() => loadOrganizationData(true), RETRY_DELAY);
-              return;
-            }
-          }
-        } catch (e) {
-          console.error('[ORG] Exception during automatic creation:', e);
-        }
-
-        console.warn('[ORG] Cleanup: User definitively has no organizations after retries.');
+        // Contas e vínculos são provisionados exclusivamente pelo painel administrativo.
+        console.warn('[ORG] Usuário autenticado sem organização vinculada. Acesso pendente de provisionamento administrativo.');
         setIsInitialized(true);
         setPermissions(prev => ({ ...prev, loading: false }));
       }

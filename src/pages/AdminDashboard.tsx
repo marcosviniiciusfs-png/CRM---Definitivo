@@ -132,6 +132,7 @@ export default function AdminDashboard() {
     setAdminsLoading(true);
     try {
       const token = getAdminToken();
+      if (!token) throw new Error("Sessão administrativa expirada");
       const { data, error } = await supabase.rpc('safe_list_admins', { p_token: token });
       if (error) throw error;
       setAdmins(data || []);
@@ -177,6 +178,7 @@ export default function AdminDashboard() {
     }
     try {
       const token = getAdminToken();
+      if (!token) throw new Error("Sessão administrativa expirada");
       const { data, error } = await supabase.rpc('safe_delete_admin', {
         p_token: token,
         p_target_email: email
@@ -199,6 +201,7 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const token = getAdminToken();
+      if (!token) throw new Error("Sessão administrativa expirada");
       const [countResult, usersResult, subsResult] = await Promise.all([
         supabase.rpc('safe_count_main_users', { p_token: token }),
         supabase.rpc('safe_list_owner_users', { p_token: token }),
@@ -212,7 +215,10 @@ export default function AdminDashboard() {
       setMainUsersCount(Number(countResult.data) || 0);
       const usersData = usersResult.data || [];
       // is_active comes directly from the RPC (SECURITY DEFINER bypasses RLS)
-      setUsers(usersData);
+      setUsers(usersData.map((ownerUser) => ({
+        ...ownerUser,
+        is_active: ownerUser.is_active ?? false,
+      })));
 
       const subMap: Record<string, string> = {};
       (subsResult.data || []).forEach((s: any) => { subMap[s.user_id] = s.plan_id; });

@@ -333,11 +333,12 @@ const Dashboard = () => {
         start = new Date(now.getFullYear(), now.getMonth(), 1);
         end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         break;
-      case 'quarter':
+      case 'quarter': {
         const qMonth = Math.floor(now.getMonth() / 3) * 3;
         start = new Date(now.getFullYear(), qMonth, 1);
         end = new Date(now.getFullYear(), qMonth + 3, 0, 23, 59, 59);
         break;
+      }
       case 'year':
         start = new Date(now.getFullYear(), 0, 1);
         end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
@@ -350,6 +351,23 @@ const Dashboard = () => {
   };
 
   const { startDate, endDate } = getDateRange(period);
+
+  // Compartilhado por vendas, receita e ranking. Antes cada card repetia a
+  // mesma consulta de estágios ganhos, multiplicando round-trips na abertura.
+  const { data: wonStageIds = [], isFetched: wonStagesFetched } = useQuery({
+    queryKey: ['dashboard-won-stage-ids', organizationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('funnel_stages')
+        .select('id')
+        .eq('stage_type', 'won');
+      if (error) throw error;
+      return (data || []).map((stage) => stage.id);
+    },
+    enabled: !!organizationId,
+    staleTime: 1000 * 60 * 30,
+  });
+  const wonStageKey = wonStageIds.join(',');
 
   // ════════════════════════════════════════════════════════════════════════════
   // QUERIES
@@ -453,14 +471,9 @@ const Dashboard = () => {
 
   // 5. Vendas no período
   const { data: soldTotal } = useQuery({
-    queryKey: ['dashboard-sold-total', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryKey: ['dashboard-sold-total', organizationId, startDate?.toISOString(), endDate?.toISOString(), wonStageKey],
     queryFn: async () => {
       if (!organizationId || !startDate) return 0;
-      const { data: wonStages } = await supabase
-        .from('funnel_stages')
-        .select('id')
-        .eq('stage_type', 'won');
-      const wonStageIds = wonStages?.map(s => s.id) || [];
       if (wonStageIds.length === 0) return 0;
 
       const { count } = await supabase
@@ -473,20 +486,15 @@ const Dashboard = () => {
         .not('data_conclusao', 'is', null);
       return count || 0;
     },
-    enabled: !!organizationId && !!startDate,
+    enabled: !!organizationId && !!startDate && wonStagesFetched,
     staleTime: 1000 * 60 * 5,
   });
 
   // 6. Receita do período
   const { data: monthRevenue } = useQuery({
-    queryKey: ['dashboard-month-revenue', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryKey: ['dashboard-month-revenue', organizationId, startDate?.toISOString(), endDate?.toISOString(), wonStageKey],
     queryFn: async () => {
       if (!organizationId || !startDate) return 0;
-      const { data: wonStages } = await supabase
-        .from('funnel_stages')
-        .select('id')
-        .eq('stage_type', 'won');
-      const wonStageIds = wonStages?.map(s => s.id) || [];
       if (wonStageIds.length === 0) return 0;
 
       const { data: wonLeads } = await supabase
@@ -500,24 +508,19 @@ const Dashboard = () => {
 
       return (wonLeads || []).reduce((sum, l) => sum + (l.valor || 0), 0);
     },
-    enabled: !!organizationId && !!startDate,
+    enabled: !!organizationId && !!startDate && wonStagesFetched,
     staleTime: 1000 * 60 * 5,
   });
 
   // 7. Receita trimestre
   const { data: quarterRevenue } = useQuery({
-    queryKey: ['dashboard-quarter-revenue', organizationId],
+    queryKey: ['dashboard-quarter-revenue', organizationId, wonStageKey],
     queryFn: async () => {
       if (!organizationId) return 0;
       const now = new Date();
       const qMonth = Math.floor(now.getMonth() / 3) * 3;
       const start = new Date(now.getFullYear(), qMonth, 1);
 
-      const { data: wonStages } = await supabase
-        .from('funnel_stages')
-        .select('id')
-        .eq('stage_type', 'won');
-      const wonStageIds = wonStages?.map(s => s.id) || [];
       if (wonStageIds.length === 0) return 0;
 
       const { data: wonLeads } = await supabase
@@ -530,23 +533,18 @@ const Dashboard = () => {
 
       return (wonLeads || []).reduce((sum, l) => sum + (l.valor || 0), 0);
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId && wonStagesFetched,
     staleTime: 1000 * 60 * 5,
   });
 
   // 8. Receita ano
   const { data: yearRevenue } = useQuery({
-    queryKey: ['dashboard-year-revenue', organizationId],
+    queryKey: ['dashboard-year-revenue', organizationId, wonStageKey],
     queryFn: async () => {
       if (!organizationId) return 0;
       const now = new Date();
       const start = new Date(now.getFullYear(), 0, 1);
 
-      const { data: wonStages } = await supabase
-        .from('funnel_stages')
-        .select('id')
-        .eq('stage_type', 'won');
-      const wonStageIds = wonStages?.map(s => s.id) || [];
       if (wonStageIds.length === 0) return 0;
 
       const { data: wonLeads } = await supabase
@@ -559,7 +557,7 @@ const Dashboard = () => {
 
       return (wonLeads || []).reduce((sum, l) => sum + (l.valor || 0), 0);
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId && wonStagesFetched,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -630,15 +628,11 @@ const Dashboard = () => {
 
   // 11. Top Vendedores
   const { data: topSellersResult } = useQuery({
-    queryKey: ['dashboard-top-sellers', organizationId, startDate?.toISOString(), endDate?.toISOString()],
+    queryKey: ['dashboard-top-sellers', organizationId, startDate?.toISOString(), endDate?.toISOString(), wonStageKey],
     queryFn: async () => {
       if (!organizationId || !startDate) return [];
-      const [membersResult, wonStagesResult] = await Promise.all([
-        supabase.rpc('get_organization_members_masked'),
-        supabase.from('funnel_stages').select('id').eq('stage_type', 'won')
-      ]);
+      const membersResult = await supabase.rpc('get_organization_members_masked');
       const members = membersResult.data || [];
-      const wonStageIds = wonStagesResult.data?.map(s => s.id) || [];
       if (wonStageIds.length === 0 || members.length === 0) return [];
 
       const memberUserIds = members.filter((m: any) => m.user_id).map((m: any) => m.user_id);
@@ -682,7 +676,7 @@ const Dashboard = () => {
         .sort((a, b) => b.total_revenue - a.total_revenue)
         .slice(0, 5);
     },
-    enabled: !!organizationId && !!startDate,
+    enabled: !!organizationId && !!startDate && wonStagesFetched,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -728,8 +722,8 @@ const Dashboard = () => {
     queryKey: ['dashboard-sparkline', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      const months: number[] = [];
-      for (let i = 6; i >= 0; i--) {
+      return Promise.all(Array.from({ length: 7 }, async (_, index) => {
+        const i = 6 - index;
         const d = new Date();
         const mStart = new Date(d.getFullYear(), d.getMonth() - i, 1);
         const mEnd = new Date(d.getFullYear(), d.getMonth() - i + 1, 0, 23, 59, 59);
@@ -741,9 +735,8 @@ const Dashboard = () => {
           .gte('created_at', mStart.toISOString())
           .lte('created_at', mEnd.toISOString());
 
-        months.push(count || 0);
-      }
-      return months;
+        return count || 0;
+      }));
     },
     enabled: !!organizationId,
     staleTime: 1000 * 60 * 10,

@@ -39,7 +39,7 @@ interface Lead {
   id: string;
   nome_lead: string;
   telefone_lead: string;
-  email?: string;
+  email?: string | null;
 }
 
 interface CreateTaskModalProps {
@@ -143,10 +143,12 @@ export const CreateTaskModal = ({
   }, [open]);
 
   const loadKanbanColumns = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user?.id) return;
     const { data: orgMember } = await supabase
       .from("organization_members")
       .select("organization_id")
-      .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+      .eq("user_id", authData.user.id)
       .single();
 
     if (orgMember) {
@@ -169,10 +171,12 @@ export const CreateTaskModal = ({
   };
 
   const loadLeads = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user?.id) return;
     const { data: orgMember } = await supabase
       .from("organization_members")
       .select("organization_id")
-      .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+      .eq("user_id", authData.user.id)
       .single();
 
     if (orgMember) {

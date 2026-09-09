@@ -405,7 +405,7 @@ export function ProductionBlockDetailModal({ block, open, onOpenChange, onBlockU
                   <div className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${kpi.bg} ${kpi.color}`}>
                     {kpi.icon}
                   </div>
-                  {'trend' in kpi && kpi.trend !== null && (
+                  {'trend' in kpi && typeof kpi.trend === 'number' && (
                     <Badge
                       variant={kpi.trend >= 0 ? "default" : "destructive"}
                       className="text-[10px] px-1.5 py-0 font-semibold flex items-center gap-0.5"

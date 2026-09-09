@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ interface Login1Props {
     alt: string;
   };
   onLogin: (email: string, password: string) => Promise<void>;
-  onGoogleLogin: () => Promise<void>;
   onForgotPassword: (email: string) => Promise<void>;
   loading?: boolean;
 }
@@ -18,7 +16,6 @@ interface Login1Props {
 const Login1 = ({
   logo,
   onLogin,
-  onGoogleLogin,
   onForgotPassword,
   loading = false,
 }: Login1Props) => {
@@ -50,8 +47,7 @@ const Login1 = ({
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 relative z-10">
-      {/* Card branco com logo dentro */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-md w-full max-w-sm px-8 py-10">
+      <div className="w-full max-w-sm rounded-xl border border-red-950/80 bg-zinc-950/95 px-6 py-8 text-white shadow-2xl shadow-red-950/30 backdrop-blur sm:px-8 sm:py-10">
         {/* Logo dentro do card - otimizada para carregamento rápido */}
         <div className="flex justify-center mb-6 h-12">
           <img
@@ -60,33 +56,46 @@ const Login1 = ({
             className="h-12 w-auto"
             loading="eager"
             decoding="async"
-            fetchPriority="high"
           />
         </div>
+
+        {!isForgotPassword && (
+          <div className="mb-6 text-center">
+            <h1 className="text-xl font-bold tracking-tight text-white">Acesse sua conta</h1>
+            <p className="mt-2 text-sm leading-5 text-zinc-400">
+              Acesso exclusivo para usuários cadastrados por um administrador.
+            </p>
+          </div>
+        )}
 
         {isForgotPassword ? (
           /* Formulário de recuperação de senha */
           <form onSubmit={handleForgotPasswordSubmit} className="flex w-full flex-col gap-6">
             <div className="text-center">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Recuperar senha</h2>
-              <p className="text-sm text-gray-500">
+              <h1 className="mb-2 text-lg font-semibold text-white">Recuperar senha</h1>
+              <p className="text-sm text-zinc-400">
                 Digite seu email para receber um link de recuperação
               </p>
             </div>
 
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              required
-              className="h-11 bg-white border-gray-300 rounded-lg placeholder:text-gray-400 text-gray-900 focus:border-gray-400 focus:ring-gray-400"
-            />
+            <div className="space-y-2">
+              <label htmlFor="recovery-email" className="text-sm font-medium text-zinc-200">Email</label>
+              <Input
+                id="recovery-email"
+                type="email"
+                autoComplete="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                required
+                className="h-11 rounded-lg border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-500 focus-visible:ring-red-500"
+              />
+            </div>
 
             <Button 
               type="submit" 
-              className="h-11 w-full bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              className="h-11 w-full rounded-lg bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-400"
               disabled={loading}
             >
               {loading ? (
@@ -100,42 +109,52 @@ const Login1 = ({
               type="button"
               onClick={backToLogin}
               disabled={loading}
-              className="flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+              className="flex min-h-11 items-center justify-center gap-2 text-sm text-zinc-400 hover:text-white disabled:opacity-50"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar ao login
             </button>
           </form>
         ) : (
-          /* Formulário de login/cadastro */
+          /* Formulário de login */
           <>
             <form onSubmit={handleSubmit} className="flex w-full flex-col gap-6">
               <div className="flex flex-col gap-4">
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                  required
-                  className="h-11 bg-white border-gray-300 rounded-lg placeholder:text-gray-400 text-gray-900 focus:border-gray-400 focus:ring-gray-400"
-                />
-
-                <div className="relative">
+                <div className="space-y-2">
+                  <label htmlFor="login-email" className="text-sm font-medium text-zinc-200">Email</label>
                   <Input
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    required
+                    className="h-11 rounded-lg border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-500 focus-visible:ring-red-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="login-password" className="text-sm font-medium text-zinc-200">Senha</label>
+                  <div className="relative">
+                  <Input
+                    id="login-password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Senha"
+                    autoComplete="current-password"
+                    placeholder="Digite sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
                     required
-                    className="h-11 bg-white border-gray-300 rounded-lg placeholder:text-gray-400 text-gray-900 focus:border-gray-400 focus:ring-gray-400 pr-10"
+                    className="h-11 rounded-lg border-zinc-700 bg-zinc-900 pr-10 text-white placeholder:text-zinc-500 focus-visible:ring-red-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={loading}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-white disabled:opacity-50"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -143,22 +162,23 @@ const Login1 = ({
                       <Eye className="h-5 w-5" />
                     )}
                   </button>
+                  </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={goToForgotPassword}
                   disabled={loading}
-                  className="text-sm text-gray-500 hover:text-gray-700 hover:underline self-end -mt-2 disabled:opacity-50"
+                  className="min-h-11 self-end text-sm text-zinc-400 hover:text-white hover:underline disabled:opacity-50"
                 >
                   Esqueceu a senha?
                 </button>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div>
                 <Button 
                   type="submit" 
-                  className="h-11 w-full bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                  className="h-11 w-full rounded-lg bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-400"
                   disabled={loading}
                 >
                   {loading ? (
@@ -167,19 +187,12 @@ const Login1 = ({
                     "Entrar"
                   )}
                 </Button>
-                
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  className="h-11 w-full border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                  disabled={loading}
-                  onClick={onGoogleLogin}
-                >
-                  <FcGoogle className="mr-2 size-5" />
-                  {"Entrar com Google"}
-                </Button>
               </div>
             </form>
+
+            <a href="/" className="mt-6 block min-h-11 text-center text-sm leading-[44px] text-zinc-400 hover:text-white hover:underline">
+              Voltar ao site
+            </a>
 
             </>
         )}

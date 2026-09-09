@@ -119,12 +119,12 @@ export const PipelineColumn = memo(({
                   phone={lead.telefone_lead}
                   email={(lead as any).email}
                   date={(lead as any).formattedDate || new Date(lead.created_at).toLocaleString("pt-BR")}
-                  avatarUrl={lead.avatar_url}
-                  stage={lead.stage}
-                  value={lead.valor}
+                  avatarUrl={lead.avatar_url ?? undefined}
+                  stage={lead.stage ?? undefined}
+                  value={lead.valor ?? undefined}
                   createdAt={lead.created_at}
-                  source={lead.source}
-                  description={lead.descricao_negocio}
+                  source={lead.source ?? undefined}
+                  description={lead.descricao_negocio ?? undefined}
                   additionalData={lead.additional_data}
                   onUpdate={onLeadUpdate}
                   onEdit={() => onEdit?.(lead)}

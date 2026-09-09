@@ -22,7 +22,7 @@ export function useAnnouncements() {
 
     const { data, error } = await supabase
       .from('announcements')
-      .select('id, title, content, gif_url, template_type, target_type, target_organization_id, is_active, scheduled_at, created_at')
+      .select('id, title, content, gif_url, template_type, target_type, target_organization_id, is_active, scheduled_at, created_by, created_at')
       .eq('is_active', true)
       .or(`scheduled_at.is.null,scheduled_at.lte.${now}`)
       .order('created_at', { ascending: true });
@@ -33,7 +33,8 @@ export function useAnnouncements() {
       return;
     }
 
-    const filtered = (data || []).filter((a: Announcement) => {
+    const rows = (data || []) as Announcement[];
+    const filtered = rows.filter((a) => {
       if (a.target_type === 'global') return true;
       if (a.target_organization_id === organizationId) return true;
       return false;
