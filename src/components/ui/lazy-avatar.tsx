@@ -13,6 +13,77 @@ interface LazyAvatarProps {
   onClick?: (e: React.MouseEvent) => void;
 }
 
+type VisibilityCallback = () => void;
+
+const visibilityCallbacks = new Map<Element, VisibilityCallback>();
+let sharedAvatarObserver: IntersectionObserver | null = null;
+
+const observeAvatar = (element: Element, onVisible: VisibilityCallback) => {
+  if (typeof IntersectionObserver === "undefined") {
+    onVisible();
+    return () => undefined;
+  }
+
+  if (!sharedAvatarObserver) {
+    sharedAvatarObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          visibilityCallbacks.get(entry.target)?.();
+          visibilityCallbacks.delete(entry.target);
+          sharedAvatarObserver?.unobserve(entry.target);
+        }
+      },
+      { rootMargin: "100px", threshold: 0 },
+    );
+  }
+
+  visibilityCallbacks.set(element, onVisible);
+  sharedAvatarObserver.observe(element);
+  return () => {
+    visibilityCallbacks.delete(element);
+    sharedAvatarObserver?.unobserve(element);
+  };
+};
+
+const LazyAvatarWithImage = ({
+  src,
+  name,
+  size,
+  className,
+  onClick,
+}: LazyAvatarProps & { src: string }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const initials = getInitials(name);
+  const { signedUrl } = useSignedMediaUrl(src);
+  const optimizedUrl = getOptimizedAvatarUrl(signedUrl ?? src, initials, size);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    return observeAvatar(element, () => setIsVisible(true));
+  }, []);
+
+  return (
+    <div ref={containerRef} className={cn("relative", className)}>
+      {!isVisible ? (
+        <Skeleton className={cn("rounded-full", className)} />
+      ) : (
+        <Avatar
+          className={cn(onClick && "cursor-pointer hover:opacity-80 transition-opacity", className)}
+          onClick={onClick}
+        >
+          <AvatarImage src={optimizedUrl} alt={name} loading="lazy" decoding="async" />
+          <AvatarFallback className="bg-muted text-muted-foreground">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+      )}
+    </div>
+  );
+};
+
 /**
  * Lazy-loaded Avatar component using IntersectionObserver
  * Only loads image when it enters the viewport
@@ -24,76 +95,20 @@ export const LazyAvatar = memo(function LazyAvatar({
   className,
   onClick,
 }: LazyAvatarProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  
   const initials = getInitials(name);
 
-  // Se o avatar estiver em um bucket privado do Supabase, obtemos a URL assinada.
-  // Para URLs externas, blob:// e buckets públicos, useSignedMediaUrl retorna diretamente.
-  const { signedUrl } = useSignedMediaUrl(src ?? null);
-  const resolvedSrc = signedUrl ?? src ?? null;
-  const optimizedUrl = getOptimizedAvatarUrl(resolvedSrc, initials, size);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-
-    // Use IntersectionObserver for lazy loading
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setIsVisible(true);
-            observer.unobserve(element);
-          }
-        });
-      },
-      {
-        rootMargin: "100px", // Start loading 100px before entering viewport
-        threshold: 0,
-      }
-    );
-
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
+  if (src) {
+    return <LazyAvatarWithImage src={src} name={name} size={size} className={className} onClick={onClick} />;
+  }
 
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
-      {!isVisible ? (
-        <Skeleton className={cn("rounded-full", className)} />
-      ) : (
-        <Avatar
-          className={cn(
-            onClick && "cursor-pointer hover:opacity-80 transition-opacity",
-            className
-          )}
-          onClick={onClick}
-        >
-          <AvatarImage
-            src={optimizedUrl}
-            alt={name}
-            onLoad={() => setIsLoaded(true)}
-            className={cn(
-              "transition-opacity duration-200",
-              isLoaded ? "opacity-100" : "opacity-0"
-            )}
-          />
-          <AvatarFallback
-            className={cn(
-              "bg-muted text-muted-foreground transition-opacity duration-200",
-              isLoaded ? "opacity-0" : "opacity-100"
-            )}
-          >
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-      )}
-    </div>
+    <Avatar
+      className={cn(onClick && "cursor-pointer hover:opacity-80 transition-opacity", className)}
+      onClick={onClick}
+    >
+      <AvatarFallback className="bg-muted text-muted-foreground">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
   );
 });

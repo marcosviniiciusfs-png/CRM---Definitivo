@@ -14,6 +14,7 @@ interface MobilePipelineViewProps {
   allFunnels: any[];
   onTabChange: (funnelId: string) => void;
   onEdit: (lead: Lead) => void;
+  onViewDetails: (lead: Lead) => void;
   onDelete: (lead: Lead) => void;
   onLeadMove: (leadId: string, targetStageId: string) => Promise<void>;
   leadTagsMap: Record<string, Array<{ id: string; name: string; color: string }>>;
@@ -27,7 +28,7 @@ interface MobilePipelineViewProps {
 
 export function MobilePipelineView({
   stages, leadsByStage, selectedFunnelId, allFunnels,
-  onTabChange, onEdit, onDelete, onLeadMove,
+  onTabChange, onEdit, onViewDetails, onDelete, onLeadMove,
   leadTagsMap, profilesMap, duplicateLeadIds,
   agendamentosMap, redistributedMap, stagePagination, onLoadMore,
 }: MobilePipelineViewProps) {
@@ -169,6 +170,7 @@ export function MobilePipelineView({
                   stages={stages}
                   currentStageId={activeStageId}
                   onEdit={() => onEdit(lead)}
+                  onViewDetails={() => onViewDetails(lead)}
                   onDelete={() => onDelete(lead)}
                   onMoveRequest={() => setMoveSheetLead(lead)}
                   responsavelName={lead.responsavel_user_id

@@ -162,9 +162,7 @@ const Pipeline = () => {
   const [allFunnels, setAllFunnels] = useState<any[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
   const [leadItems, setLeadItems] = useState<LeadItems>({});
-  const [pauseRealtime, setPauseRealtime] = useState(false);
   const [leadTagsMap, setLeadTagsMap] = useState<LeadTagsMap>({});
-  const [isDraggingActive, setIsDraggingActive] = useState(false);
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
   const [wonConfirmation, setWonConfirmation] = useState<{
     show: boolean;
@@ -188,9 +186,10 @@ const Pipeline = () => {
   // Scrollbar fixa customizada
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
+  const scrollThumbRef = useRef<HTMLDivElement>(null);
+  const scrollRafRef = useRef<number | null>(null);
+  const showScrollbarRef = useRef(false);
   const dragStartRef = useRef<{ mouseX: number; scrollLeft: number } | null>(null);
-  const [scrollThumbWidth, setScrollThumbWidth] = useState(20);
-  const [scrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [showScrollbar, setShowScrollbar] = useState(false);
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -220,24 +219,33 @@ const Pipeline = () => {
 
   // Atualiza a posição e tamanho do thumb da scrollbar
   const updateScrollbarThumb = useCallback(() => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      const hasOverflow = scrollWidth > clientWidth;
-      setShowScrollbar(hasOverflow);
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+      const hasOverflow = scrollWidth > clientWidth + 1;
+      if (showScrollbarRef.current !== hasOverflow) {
+        showScrollbarRef.current = hasOverflow;
+        setShowScrollbar(hasOverflow);
+      }
 
-      if (hasOverflow) {
+      if (hasOverflow && scrollThumbRef.current) {
         const thumbWidth = (clientWidth / scrollWidth) * 100;
         const maxScrollLeft = scrollWidth - clientWidth;
         const thumbPosition = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * (100 - thumbWidth) : 0;
-        setScrollThumbWidth(thumbWidth);
-        setScrollThumbPosition(thumbPosition);
+        scrollThumbRef.current.style.width = `${thumbWidth}%`;
+        scrollThumbRef.current.style.marginLeft = `${thumbPosition}%`;
       }
     }
   }, []);
 
-  // Sincroniza scroll do container com a barra customizada
+  // Atualizar estado a cada pixel fazia o Pipeline inteiro renderizar de novo.
+  // O indicador visual agora é sincronizado diretamente, no máximo uma vez por frame.
   const handleScrollContainerScroll = useCallback(() => {
-    updateScrollbarThumb();
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      updateScrollbarThumb();
+    });
   }, [updateScrollbarThumb]);
 
   // Clique na track da scrollbar
@@ -326,8 +334,21 @@ const Pipeline = () => {
   // Atualiza scrollbar quando stages/leads mudam
   useEffect(() => {
     updateScrollbarThumb();
-    const timer = setTimeout(updateScrollbarThumb, 100);
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(updateScrollbarThumb, 100);
+    const resizeObserver = typeof ResizeObserver === 'undefined' || !scrollContainerRef.current
+      ? null
+      : new ResizeObserver(updateScrollbarThumb);
+    if (resizeObserver && scrollContainerRef.current) {
+      resizeObserver.observe(scrollContainerRef.current);
+    }
+    return () => {
+      window.clearTimeout(timer);
+      resizeObserver?.disconnect();
+      if (scrollRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
   }, [stages, leads, selectedFunnelId, updateScrollbarThumb]);
 
   // Configurar sensores: apenas PointerSensor (desktop) - mobile usa MobilePipelineView
@@ -343,7 +364,6 @@ const Pipeline = () => {
   useEffect(() => { activeFunnelRef.current = activeFunnel; }, [activeFunnel]);
   useEffect(() => { usingCustomFunnelRef.current = usingCustomFunnel; }, [usingCustomFunnel]);
   useEffect(() => { orgIdRef.current = organizationId ?? undefined; }, [organizationId]);
-  useEffect(() => { pauseRealtimeRef.current = pauseRealtime; }, [pauseRealtime]);
   // Sincronizar refs de segurança com permissões e userId atuais
   useEffect(() => { canViewAllLeadsRef.current = canViewOrganizationLeads; }, [canViewOrganizationLeads]);
   useEffect(() => { currentUserIdRef.current = user?.id; }, [user?.id]);
@@ -812,7 +832,9 @@ const Pipeline = () => {
     }
   }, [isFetchingLeads, isReady, organizationId, user?.id, permissions.loading]);
 
-  const PAGE_SIZE = 20;
+  // O limite vale por etapa. Com dez etapas, 20 cards criavam até 200 árvores
+  // de drag de uma vez; 10 mantém o quadro utilizável e reduz o custo inicial.
+  const PAGE_SIZE = 10;
 
   const loadLeads = async (_funnelData?: { isCustom: boolean; funnel: any }, _isTabChange: boolean = false) => {
     queryClient.invalidateQueries({ queryKey: ['pipeline-leads', organizationId] });
@@ -1147,20 +1169,18 @@ const Pipeline = () => {
 
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
-    const map = new Map<string, Lead[]>();
+    const map = new Map<string, Lead[]>(stages.map((stage) => [stage.id, []]));
 
-    stages.forEach((stage) => {
-      let filtered;
+    for (const lead of filteredLeads) {
+      const stageId = usingCustomFunnel
+        ? lead.funnel_stage_id
+        : (lead.stage || "NOVO");
+      if (stageId) map.get(stageId)?.push(lead);
+    }
 
-      if (usingCustomFunnel) {
-        filtered = filteredLeads.filter((lead) => lead.funnel_stage_id === stage.id);
-      } else {
-        filtered = filteredLeads.filter((lead) => (lead.stage || "NOVO") === stage.id);
-      }
-
-      filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
-      map.set(stage.id, filtered);
-    });
+    for (const stageLeads of map.values()) {
+      stageLeads.sort((a, b) => (a.position || 0) - (b.position || 0));
+    }
 
     return map;
   }, [filteredLeads, stages, usingCustomFunnel]);
@@ -1176,16 +1196,19 @@ const Pipeline = () => {
   }, [filteredLeads]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    pauseRealtimeRef.current = true;
     setActiveId(event.active.id as string);
-    setPauseRealtime(true);
-    setIsDraggingActive(true);
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    pauseRealtimeRef.current = false;
+    setActiveId(null);
   }, []);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
+    pauseRealtimeRef.current = false;
     setActiveId(null);
-    setPauseRealtime(false);
-    setIsDraggingActive(false);
 
     if (!over) {
       return;
@@ -1592,6 +1615,11 @@ const Pipeline = () => {
     setEditingLead(lead);
   }, []);
 
+  const handleViewDetails = useCallback((lead: Lead) => {
+    setDetailsLeadId(lead.id);
+    setDetailsLeadName(lead.nome_lead || 'Sem nome');
+  }, []);
+
   // Mover lead via mobile (sem drag-and-drop)
   const handleMobileLeadMove = useCallback(async (leadId: string, targetStageId: string) => {
     const activeLead = leads.find(l => l.id === leadId);
@@ -1811,6 +1839,7 @@ const Pipeline = () => {
     leads.find((lead) => lead.id === activeId),
     [leads, activeId]
   );
+  const isDraggingActive = activeId !== null;
 
   // Guard: Aguardar inicialização completa (auth + org)
   if (!isReady || !organizationId) {
@@ -2426,6 +2455,7 @@ const Pipeline = () => {
               allFunnels={allFunnels}
               onTabChange={handleTabChange}
               onEdit={handleEditLead}
+              onViewDetails={handleViewDetails}
               onDelete={handleDeleteLead}
               onLeadMove={handleMobileLeadMove}
               leadTagsMap={leadTagsMap}
@@ -2443,6 +2473,7 @@ const Pipeline = () => {
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
             sensors={sensors}
           >
             <div data-dragging-active={isDraggingActive} className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -2533,10 +2564,10 @@ const Pipeline = () => {
                             isEmpty={stageLeads.length === 0}
                             onLeadUpdate={() => loadLeads(undefined, false)}
                             onEdit={setEditingLead}
+                            onViewDetails={handleViewDetails}
                             onDelete={handleDeleteLead}
                             leadItems={leadItems}
                             leadTagsMap={leadTagsMap}
-                            isDraggingActive={isDraggingActive}
                             profilesMap={profilesMap}
                             duplicateLeadIds={duplicateLeadIds}
                             agendamentosMap={agendamentosMap}
@@ -2580,10 +2611,10 @@ const Pipeline = () => {
                         isEmpty={stageLeads.length === 0}
                         onLeadUpdate={() => loadLeads(undefined, false)}
                         onEdit={handleEditLead}
+                        onViewDetails={handleViewDetails}
                         onDelete={handleDeleteLead}
                         leadItems={leadItems}
                         leadTagsMap={leadTagsMap}
-                        isDraggingActive={isDraggingActive}
                         profilesMap={profilesMap}
                         duplicateLeadIds={duplicateLeadIds}
                         agendamentosMap={agendamentosMap}
@@ -2840,6 +2871,10 @@ const Pipeline = () => {
                 setDetailsLeadName('');
               }
             }}
+            onEdit={() => {
+              const lead = leads.find((item) => item.id === detailsLeadId);
+              if (lead) handleEditLead(lead);
+            }}
           />
         </Suspense>
       )}
@@ -2927,11 +2962,9 @@ const Pipeline = () => {
           onClick={handleScrollbarTrackClick}
         >
           <div
+            ref={scrollThumbRef}
             className="h-full bg-muted-foreground/25 rounded-full hover:bg-muted-foreground/40 transition-colors cursor-grab active:cursor-grabbing"
-            style={{
-              width: `${scrollThumbWidth}%`,
-              marginLeft: `${scrollThumbPosition}%`
-            }}
+            style={{ width: '20%', marginLeft: '0%' }}
             onMouseDown={handleThumbMouseDown}
           />
         </div>

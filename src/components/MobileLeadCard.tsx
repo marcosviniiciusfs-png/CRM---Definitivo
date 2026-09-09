@@ -3,7 +3,7 @@ import type { StatusReuniao } from '@/types/chat';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Phone, Check, AlertCircle, Calendar, RefreshCw, Pencil, Trash2 } from 'lucide-react';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,7 +11,6 @@ import {
   DropdownMenu, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { LeadDetailsDialog } from '@/components/LeadDetailsDialog';
 import { type RedistributionReason } from '@/lib/redistribution';
 import { isLeadDuplicateRecord } from '@/lib/leadDuplicate';
 
@@ -20,6 +19,7 @@ interface MobileLeadCardProps {
   stages: any[];
   currentStageId: string;
   onEdit: () => void;
+  onViewDetails: () => void;
   onDelete: () => void;
   onMoveRequest: () => void;
   responsavelName?: string;
@@ -35,16 +35,13 @@ interface MobileLeadCardProps {
 }
 
 export function MobileLeadCard({
-  lead, stages, currentStageId, onEdit, onDelete, onMoveRequest,
+  lead, stages, currentStageId, onEdit, onViewDetails, onDelete, onMoveRequest,
   responsavelName, tags = [], isDuplicate, agendamentos,
   statusReuniao, onToggleNoShow,
   isRedistributed, redistributedFromName, redistributionReason = 'inactivity',
 }: MobileLeadCardProps) {
   const [copied, setCopied] = useState(false);
   const [copiedInfo, setCopiedInfo] = useState(false);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  // Debounce para evitar que fechar o LeadDetailsDialog dispare o onClick do card
-  const justClosedDialogRef = useRef(false);
 
   const handleCopyInfo = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -87,19 +84,13 @@ export function MobileLeadCard({
   const agendStatus = getAgendamentoStatus();
   const isMarkedDuplicate = isLeadDuplicateRecord(lead.additional_data);
 
-  const handleCardClick = useCallback(() => {
-    if (justClosedDialogRef.current) return;
-    setShowDetailsDialog(true);
-  }, []);
-
   return (
     <Card
       className={cn(
         'p-3 active:scale-[0.99] transition-transform cursor-pointer select-none',
         (isMarkedDuplicate || isDuplicate) && 'border-amber-300'
       )}
-      onClick={handleCardClick}
-      style={{ pointerEvents: showDetailsDialog ? 'none' : undefined }}
+      onClick={onViewDetails}
     >
       {/* Linha 1: avatar iniciais + nome + valor */}
       <div className="flex items-center gap-2 mb-1.5">
@@ -244,21 +235,6 @@ export function MobileLeadCard({
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>
-
-      {/* Dialog de Detalhes do Lead */}
-      <LeadDetailsDialog
-        leadId={lead.id}
-        leadName={lead.nome_lead || 'Sem nome'}
-        open={showDetailsDialog}
-        onOpenChange={(open) => {
-          setShowDetailsDialog(open);
-          if (!open) {
-            justClosedDialogRef.current = true;
-            setTimeout(() => { justClosedDialogRef.current = false; }, 500);
-          }
-        }}
-        onEdit={onEdit}
-      />
     </Card>
   );
 }

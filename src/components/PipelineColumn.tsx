@@ -5,7 +5,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Lead } from "@/types/chat";
 import type { StatusReuniao } from "@/types/chat";
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { mapTriggerSourceToReason } from "@/lib/redistribution";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 
@@ -25,10 +25,10 @@ interface PipelineColumnProps {
   isEmpty?: boolean;
   onLeadUpdate?: () => void;
   onEdit?: (lead: Lead) => void;
+  onViewDetails?: (lead: Lead) => void;
   onDelete?: (lead: Lead) => void;
   leadItems: Record<string, any[]>;
   leadTagsMap: Record<string, Array<{ id: string; name: string; color: string }>>;
-  isDraggingActive: boolean;
   profilesMap?: Record<string, { full_name: string; avatar_url: string | null }>;
   duplicateLeadIds?: Set<string>;
   agendamentosMap?: Record<string, { reuniao?: string | null; venda?: string | null }>;
@@ -39,6 +39,9 @@ interface PipelineColumnProps {
   onToggleNoShow?: (leadId: string, currentStatus: StatusReuniao | null | undefined) => void;
 }
 
+const EMPTY_ITEMS: any[] = [];
+const EMPTY_TAGS: Array<{ id: string; name: string; color: string }> = [];
+
 export const PipelineColumn = memo(({
   id,
   title,
@@ -48,10 +51,10 @@ export const PipelineColumn = memo(({
   isEmpty,
   onLeadUpdate,
   onEdit,
+  onViewDetails,
   onDelete,
   leadItems,
   leadTagsMap,
-  isDraggingActive,
   profilesMap = {},
   duplicateLeadIds,
   agendamentosMap = {},
@@ -60,15 +63,39 @@ export const PipelineColumn = memo(({
   onLoadMore,
   onToggleNoShow,
 }: PipelineColumnProps) => {
+  const columnRef = useRef<HTMLDivElement>(null);
+  const [shouldRenderCards, setShouldRenderCards] = useState(false);
   const { setNodeRef, isOver } = useDroppable({
     id: id,
   });
+
+  useEffect(() => {
+    const node = columnRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") {
+      setShouldRenderCards(true);
+      return;
+    }
+
+    // Monta os cards apenas quando a coluna está visível ou prestes a entrar
+    // no viewport horizontal. A coluna continua sendo um alvo de drop desde o
+    // início, mas dezenas de árvores de cards fora da tela deixam de disputar
+    // o thread principal durante o carregamento e o primeiro arraste.
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setShouldRenderCards(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "0px" });
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // Detecta se a cor é hex ou classe Tailwind
   const isHexColor = (color: string) => color?.startsWith('#');
 
   return (
-    <div className="flex flex-col w-[260px] md:w-[300px] lg:w-[320px] flex-shrink-0 h-full">
+    <div ref={columnRef} className="flex flex-col w-[260px] md:w-[300px] lg:w-[320px] flex-shrink-0 h-full">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
         <Badge
@@ -92,8 +119,7 @@ export const PipelineColumn = memo(({
         <div
           ref={setNodeRef}
           className={cn(
-            "pipeline-column space-y-2 flex-1 min-h-0 overflow-y-auto p-2 pb-4 rounded-lg scrollbar-subtle",
-            !isDraggingActive && "transition-colors duration-200",
+            "pipeline-column space-y-2 flex-1 min-h-0 overflow-y-auto p-2 pb-4 rounded-lg scrollbar-subtle transition-colors duration-200",
             isOver && "bg-muted/50 ring-2 ring-primary/20"
           )}
         >
@@ -101,7 +127,7 @@ export const PipelineColumn = memo(({
             <p className="text-xs text-muted-foreground text-center py-4">
               Nenhum lead nesta etapa
             </p>
-          ) : (
+          ) : shouldRenderCards ? (
             leads.map((lead) => {
               const responsavelProfile = lead.responsavel_user_id
                 ? profilesMap[lead.responsavel_user_id]
@@ -128,10 +154,10 @@ export const PipelineColumn = memo(({
                   additionalData={lead.additional_data}
                   onUpdate={onLeadUpdate}
                   onEdit={() => onEdit?.(lead)}
+                  onViewDetails={() => onViewDetails?.(lead)}
                   onDelete={() => onDelete?.(lead)}
-                  leadItems={leadItems[lead.id] || []}
-                  leadTags={leadTagsMap[lead.id] || []}
-                  isDraggingActive={isDraggingActive}
+                  leadItems={leadItems[lead.id] || EMPTY_ITEMS}
+                  leadTags={leadTagsMap[lead.id] || EMPTY_TAGS}
                   responsavelName={responsavelName}
                   responsavelAvatarUrl={responsavelAvatarUrl}
                   isDuplicate={duplicateLeadIds ? duplicateLeadIds.has(lead.id) : false}
@@ -146,6 +172,8 @@ export const PipelineColumn = memo(({
                 />
               );
             })
+          ) : (
+            <div className="h-16" aria-hidden="true" />
           )}
 
           {/* Botão Carregar Mais */}
@@ -170,7 +198,7 @@ export const PipelineColumn = memo(({
                   Carregando...
                 </span>
               ) : (
-                `Carregar mais (${Math.min(20, pagination.totalCount - pagination.loadedCount)})`
+                `Carregar mais (${pagination.totalCount - pagination.loadedCount} restantes)`
               )}
             </button>
           )}
@@ -193,7 +221,6 @@ export const PipelineColumn = memo(({
     prevProps.count === nextProps.count &&
     prevProps.color === nextProps.color &&
     prevProps.isEmpty === nextProps.isEmpty &&
-    prevProps.isDraggingActive === nextProps.isDraggingActive &&
     prevProps.leads.length === nextProps.leads.length &&
     prevProps.leads.every((lead, i) =>
       lead.id === nextProps.leads[i]?.id &&

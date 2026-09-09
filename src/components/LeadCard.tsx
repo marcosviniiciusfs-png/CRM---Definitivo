@@ -3,7 +3,7 @@ import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, Copy, Check, CalendarDa
 import { Button } from "@/components/ui/button";
 import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect, CSSProperties, memo, useCallback, useMemo } from "react";
+import { useState, CSSProperties, memo, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -22,21 +22,10 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { type RedistributionReason } from "@/lib/redistribution";
-import { LeadDetailsDialog } from "@/components/LeadDetailsDialog";
 import { LeadTagsBadgeStatic } from "@/components/LeadTagsBadgeStatic";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import { Trash2 } from "lucide-react";
 import { getAppIcon } from "@/lib/iconRegistry";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 const CopyPhoneButton: React.FC<{ phone: string }> = ({ phone }) => {
   const [copied, setCopied] = useState(false);
@@ -117,10 +106,10 @@ export interface BaseLeadCardProps {
   additionalData?: unknown;
   onUpdate?: () => void;
   onEdit?: () => void;
+  onViewDetails?: () => void;
   onDelete?: () => void;
   leadItems?: any[];
   leadTags?: Array<{ id: string; name: string; color: string }>;
-  isDraggingActive?: boolean;
   duplicateAttemptsCount?: number;
   responsavelName?: string;
   responsavelAvatarUrl?: string | null;
@@ -138,14 +127,7 @@ export interface BaseLeadCardProps {
 interface LeadCardViewProps extends BaseLeadCardProps {
   isDropdownOpen: boolean;
   setIsDropdownOpen: (open: boolean) => void;
-  showDetailsDialog: boolean;
-  setShowDetailsDialog: (open: boolean) => void;
   dragging: boolean;
-  style?: CSSProperties;
-  // DnD attrs são opcionais para permitir uso em overlay simples
-  listeners?: Record<string, any>;
-  attributes?: Record<string, any>;
-  setNodeRef?: (node: HTMLElement | null) => void;
   responsavelName?: string;
   responsavelAvatarUrl?: string | null;
   isDuplicate?: boolean;
@@ -175,22 +157,16 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   additionalData,
   onUpdate,
   onEdit,
+  onViewDetails,
   onDelete,
   leadItems: initialLeadItems,
   leadTags: tags = [],
-  isDraggingActive = false,
   duplicateAttemptsCount = 0,
   responsavelName,
   responsavelAvatarUrl,
   isDropdownOpen,
   setIsDropdownOpen,
-  showDetailsDialog,
-  setShowDetailsDialog,
   dragging,
-  style,
-  listeners,
-  attributes,
-  setNodeRef,
   isDuplicate = false,
   dataAgendamentoReuniao,
   dataAgendamentoVenda,
@@ -201,8 +177,6 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   redistributionMinutes,
   redistributionReason = 'inactivity',
 }) => {
-  const [totalValue, setTotalValue] = useState<number>(0);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const navigate = useNavigate();
 
 
@@ -229,18 +203,10 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
 
   const hasRedBorder = isNewLead();
   const leadItems = useMemo(() => initialLeadItems || [], [initialLeadItems]);
-
-  useEffect(() => {
-    if (leadItems.length > 0) {
-      const total = leadItems.reduce(
-        (sum, item) => sum + (item.total_price || 0),
-        0
-      );
-      setTotalValue(total);
-    } else {
-      setTotalValue(0);
-    }
-  }, [leadItems]);
+  const totalValue = useMemo(
+    () => leadItems.reduce((sum, item) => sum + (item.total_price || 0), 0),
+    [leadItems],
+  );
 
   const getItemIcon = (iconName: string | null, size: string = "h-4 w-4") => {
     if (!iconName) return null;
@@ -253,10 +219,6 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <Card
-          ref={setNodeRef}
-          style={style}
-          {...attributes}
-          {...listeners}
           data-dragging={dragging}
           className={cn(
             "lead-card rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
@@ -265,7 +227,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
               ? "transition-none"
               : "transition-[border-color,box-shadow] duration-200 ease-in-out",
             hasRedBorder && !dragging
-              ? "border-border animate-glow-pulse"
+              ? "border-red-500/80 shadow-[0_0_10px_rgba(239,68,68,0.28)]"
               : isRedistributed && !dragging && redistributionReason === 'inactivity'
               ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
               : isRedistributed && !dragging
@@ -473,7 +435,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowDetailsDialog(true);
+                      onViewDetails?.();
                     }}
                     onSelect={(e) => e.preventDefault()}
                   >
@@ -483,7 +445,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                     className="text-destructive focus:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowDeleteConfirm(true);
+                      onDelete?.();
                     }}
                     onSelect={(e) => e.preventDefault()}
                   >
@@ -576,47 +538,13 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            setShowDetailsDialog(true);
+            onViewDetails?.();
           }}
         >
           <Eye className="h-4 w-4 text-primary-foreground" />
         </div>
       )}
 
-      <LeadDetailsDialog
-        leadId={id}
-        leadName={name}
-        open={showDetailsDialog}
-        onOpenChange={setShowDetailsDialog}
-        onEdit={onEdit}
-      />
-
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir lead</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir o lead <strong>{name || "sem nome"}</strong>?
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteConfirm(false);
-                if (onDelete) onDelete();
-              }}
-            >
-              Sim, excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
         </Card>
       </ContextMenuTrigger>
       <ContextMenuContent className="bg-background z-50">
@@ -634,79 +562,86 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   );
 };
 
-export const SortableLeadCard = memo((props: BaseLeadCardProps & { isDraggingActive?: boolean }) => {
+const areBaseLeadCardPropsEqual = (prevProps: BaseLeadCardProps, nextProps: BaseLeadCardProps) => (
+  prevProps.id === nextProps.id &&
+  prevProps.name === nextProps.name &&
+  prevProps.phone === nextProps.phone &&
+  prevProps.email === nextProps.email &&
+  prevProps.date === nextProps.date &&
+  prevProps.avatarUrl === nextProps.avatarUrl &&
+  prevProps.stage === nextProps.stage &&
+  prevProps.value === nextProps.value &&
+  prevProps.createdAt === nextProps.createdAt &&
+  prevProps.source === nextProps.source &&
+  prevProps.description === nextProps.description &&
+  isLeadDuplicateRecord(prevProps.additionalData) === isLeadDuplicateRecord(nextProps.additionalData) &&
+  prevProps.leadItems === nextProps.leadItems &&
+  prevProps.leadTags === nextProps.leadTags &&
+  prevProps.duplicateAttemptsCount === nextProps.duplicateAttemptsCount &&
+  prevProps.responsavelName === nextProps.responsavelName &&
+  prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl &&
+  prevProps.isDuplicate === nextProps.isDuplicate &&
+  prevProps.dataAgendamentoReuniao === nextProps.dataAgendamentoReuniao &&
+  prevProps.statusReuniao === nextProps.statusReuniao &&
+  prevProps.dataAgendamentoVenda === nextProps.dataAgendamentoVenda &&
+  prevProps.isRedistributed === nextProps.isRedistributed &&
+  prevProps.redistributedFromName === nextProps.redistributedFromName &&
+  prevProps.redistributionMinutes === nextProps.redistributionMinutes &&
+  prevProps.redistributionReason === nextProps.redistributionReason
+);
+
+const MemoizedLeadCardView = memo(LeadCardView, (prevProps, nextProps) => (
+  prevProps.isDropdownOpen === nextProps.isDropdownOpen &&
+  prevProps.dragging === nextProps.dragging &&
+  areBaseLeadCardPropsEqual(prevProps, nextProps)
+));
+
+export const SortableLeadCard = memo((props: BaseLeadCardProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: props.id,
-      disabled: isDropdownOpen || showDetailsDialog,
+      disabled: isDropdownOpen,
     });
 
   const style: CSSProperties = {
     transform: DndCSS.Transform.toString(transform),
-    transition: props.isDraggingActive ? "none" : transition,
+    transition,
     opacity: isDragging ? 0.5 : 1,
     willChange: transform ? "transform" : undefined,
     cursor: isDragging ? "grabbing" : "grab",
   };
 
   return (
-    <LeadCardView
-      {...props}
-      isDropdownOpen={isDropdownOpen}
-      setIsDropdownOpen={setIsDropdownOpen}
-      showDetailsDialog={showDetailsDialog}
-      setShowDetailsDialog={setShowDetailsDialog}
-      dragging={isDragging}
+    <div
+      ref={setNodeRef}
       style={style}
-      listeners={listeners}
-      attributes={attributes}
-      setNodeRef={setNodeRef}
-    />
+      {...attributes}
+      {...listeners}
+      className="w-full"
+    >
+      <MemoizedLeadCardView
+        {...props}
+        isDropdownOpen={isDropdownOpen}
+        setIsDropdownOpen={setIsDropdownOpen}
+        dragging={isDragging}
+      />
+    </div>
   );
-}, (prevProps, nextProps) => {
-  // Comparação otimizada - ignorar mudanças que não afetam visual
-  return (
-    prevProps.id === nextProps.id &&
-    prevProps.name === nextProps.name &&
-    prevProps.phone === nextProps.phone &&
-    prevProps.email === nextProps.email &&
-    prevProps.date === nextProps.date &&
-    prevProps.avatarUrl === nextProps.avatarUrl &&
-    prevProps.value === nextProps.value &&
-    prevProps.source === nextProps.source &&
-    isLeadDuplicateRecord(prevProps.additionalData) === isLeadDuplicateRecord(nextProps.additionalData) &&
-    prevProps.isDraggingActive === nextProps.isDraggingActive &&
-    prevProps.leadItems?.length === nextProps.leadItems?.length &&
-    prevProps.leadTags?.length === nextProps.leadTags?.length &&
-    prevProps.duplicateAttemptsCount === nextProps.duplicateAttemptsCount &&
-    prevProps.responsavelName === nextProps.responsavelName &&
-    prevProps.responsavelAvatarUrl === nextProps.responsavelAvatarUrl &&
-    prevProps.isDuplicate === nextProps.isDuplicate &&
-    prevProps.dataAgendamentoReuniao === nextProps.dataAgendamentoReuniao &&
-    prevProps.statusReuniao === nextProps.statusReuniao &&
-    prevProps.dataAgendamentoVenda === nextProps.dataAgendamentoVenda &&
-    prevProps.isRedistributed === nextProps.isRedistributed &&
-    prevProps.redistributionReason === nextProps.redistributionReason
-  );
-});
+}, areBaseLeadCardPropsEqual);
 
 SortableLeadCard.displayName = "SortableLeadCard";
 
 // Versão sem lógica de drag, usada no DragOverlay
 export const LeadCard: React.FC<BaseLeadCardProps> = (props) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   return (
-    <LeadCardView
+    <MemoizedLeadCardView
       {...props}
       isDropdownOpen={isDropdownOpen}
       setIsDropdownOpen={setIsDropdownOpen}
-      showDetailsDialog={showDetailsDialog}
-      setShowDetailsDialog={setShowDetailsDialog}
       dragging={false}
     />
   );
