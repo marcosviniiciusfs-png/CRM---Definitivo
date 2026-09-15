@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { demoSectionAccess, isDemoRoute } from "@/lib/demoMode";
 
 interface SubscriptionData {
   subscribed: boolean;
@@ -131,7 +132,54 @@ const clearSectionAccessCache = () => {
   }
 };
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function DemoAuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  const demoUser = {
+    id: "demo-user",
+    email: "demo@kairoz.local",
+    aud: "authenticated",
+    app_metadata: {},
+    user_metadata: { full_name: "Usuário Demo" },
+    created_at: new Date().toISOString(),
+  } as User;
+  const demoSession = {
+    access_token: "demo-access-token",
+    refresh_token: "demo-refresh-token",
+    expires_in: 3600,
+    token_type: "bearer",
+    user: demoUser,
+  } as Session;
+  const demoSubscriptionData: SubscriptionData = {
+    subscribed: true,
+    product_id: "prod_TVqr72myTFqI39",
+    subscription_end: null,
+    max_collaborators: 20,
+    extra_collaborators: 0,
+    total_collaborators: 20,
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user: demoUser,
+      session: demoSession,
+      loading: false,
+      subscriptionData: demoSubscriptionData,
+      sectionAccess: demoSectionAccess,
+      sectionAccessLoading: false,
+      refreshSubscription: async () => {},
+      refreshSectionAccess: async () => {},
+      signIn: async () => ({ error: null }),
+      signOut: async () => navigate("/auth", { replace: true }),
+      resetPassword: async () => ({ error: null }),
+      isSuperAdmin: false,
+      roleLoading: false,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+function RealAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -565,6 +613,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return isDemoRoute()
+    ? <DemoAuthProvider>{children}</DemoAuthProvider>
+    : <RealAuthProvider>{children}</RealAuthProvider>;
 }
 
 export function useAuth() {

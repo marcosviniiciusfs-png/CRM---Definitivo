@@ -824,11 +824,11 @@ const Dashboard = () => {
   // RENDER
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-secondary/40 dark:bg-background p-6" style={{ fontFamily: "'Syne', sans-serif" }}>
+    <div className="min-h-full bg-secondary/40 dark:bg-background" style={{ fontFamily: "'Syne', sans-serif" }}>
       {/* ════════════════════════════════════════════════════════════════════════
           HEADER
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard Comercial</h1>
           <p className="text-sm text-muted-foreground mt-1">Acompanhe a performance da sua equipe</p>

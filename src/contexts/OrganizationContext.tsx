@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
+import { isDemoRoute } from "@/lib/demoMode";
 
 // Interface for Postgres change payload old/new records
 interface OrganizationMemberPayload {
@@ -366,7 +367,69 @@ const OrganizationContext = createContext<OrganizationContextType>({
   isInitialized: false,
 });
 
-export function OrganizationProvider({ children }: { children: ReactNode }) {
+function DemoOrganizationProvider({ children }: { children: ReactNode }) {
+  const demoOrganizationId = "demo-organization";
+  const demoPermissions: Permissions = {
+    ...defaultPermissions,
+    canManageCollaborators: true,
+    canDeleteCollaborators: true,
+    canChangeRoles: true,
+    canCreateRoulettes: true,
+    canDeleteRoulettes: true,
+    canManualDistribute: true,
+    canViewAllLeads: true,
+    canViewTeamLeads: true,
+    canAssignLeads: true,
+    canDeleteLeads: true,
+    canManageAutomation: true,
+    canManageIntegrations: true,
+    canManageTags: true,
+    canManagePipeline: true,
+    canViewTeamMetrics: true,
+    canAccessAdminSection: true,
+    canManageAgentSettings: true,
+    canViewKanban: true,
+    canCreateTasks: true,
+    canEditOwnTasks: true,
+    canEditAllTasks: true,
+    canDeleteTasks: true,
+    canViewAssignedLeads: true,
+    canCreateLeads: true,
+    canEditLeads: true,
+    canViewPipeline: true,
+    canMoveLeadsPipeline: true,
+    canViewChat: true,
+    canSendMessages: true,
+    canViewAllConversations: true,
+    canViewReports: true,
+    role: "owner",
+    loading: false,
+  };
+  const demoOrganizations: OrganizationMembership[] = [{
+    organization_id: demoOrganizationId,
+    role: "owner",
+    organizations: {
+      id: demoOrganizationId,
+      name: "KairoZ Demo",
+    },
+  }];
+
+  return (
+    <OrganizationContext.Provider value={{
+      organizationId: demoOrganizationId,
+      permissions: demoPermissions,
+      availableOrganizations: demoOrganizations,
+      switchOrganization: async () => {},
+      refresh: async () => {},
+      needsOrgSelection: false,
+      isInitialized: true,
+    }}>
+      {children}
+    </OrganizationContext.Provider>
+  );
+}
+
+function RealOrganizationProvider({ children }: { children: ReactNode }) {
   const { user, refreshSubscription } = useAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Permissions>(defaultPermissions);
@@ -730,6 +793,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       {children}
     </OrganizationContext.Provider>
   );
+}
+
+export function OrganizationProvider({ children }: { children: ReactNode }) {
+  return isDemoRoute()
+    ? <DemoOrganizationProvider>{children}</DemoOrganizationProvider>
+    : <RealOrganizationProvider>{children}</RealOrganizationProvider>;
 }
 
 export function useOrganization() {

@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Announcement } from '@/types/announcements';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { isDemoRoute } from '@/lib/demoMode';
 
 export function useAnnouncements() {
+  const isDemo = isDemoRoute();
   const { user } = useAuth();
   const { organizationId } = useOrganization();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -15,6 +17,12 @@ export function useAnnouncements() {
   const sessionDismissed = useRef<Set<string>>(new Set());
 
   const fetchAnnouncements = useCallback(async () => {
+    if (isDemo) {
+      setAnnouncements([]);
+      setLoading(false);
+      return;
+    }
+
     if (!user) return;
 
     setLoading(true);
@@ -58,9 +66,10 @@ export function useAnnouncements() {
     }
 
     setLoading(false);
-  }, [user, organizationId]);
+  }, [isDemo, user, organizationId]);
 
   const dismissAnnouncement = useCallback(async (announcementId: string, permanent: boolean = true) => {
+    if (isDemo) return;
     if (!user) return;
 
     // Always track dismissal in session
@@ -81,15 +90,17 @@ export function useAnnouncements() {
         console.error('Error dismissing announcement:', error);
       }
     }
-  }, [user]);
+  }, [isDemo, user]);
 
   // Fetch on mount and when user/org changes
   useEffect(() => {
+    if (isDemo) return;
     fetchAnnouncements();
-  }, [fetchAnnouncements]);
+  }, [fetchAnnouncements, isDemo]);
 
   // Realtime subscription for new announcements
   useEffect(() => {
+    if (isDemo) return;
     if (!user) return;
 
     const channel = supabase
@@ -121,7 +132,7 @@ export function useAnnouncements() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchAnnouncements]);
+  }, [isDemo, user, fetchAnnouncements]);
 
   const currentAnnouncement = announcements[currentIndex] || null;
 

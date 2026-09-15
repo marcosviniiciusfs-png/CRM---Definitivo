@@ -53,6 +53,7 @@ const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const DataDeletion = lazy(() => import("./pages/DataDeletion"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const DemoDashboard = lazy(() => import("./pages/DemoDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // QueryClient otimizado com cache
@@ -103,6 +104,7 @@ const App = () => {
                     <Route element={<LazyPage><OrganizationAppScope /></LazyPage>}>
                       <Route element={<LazyPage><AuthenticatedAppProviders /></LazyPage>}>
                         <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/demo-dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><DemoDashboard /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/leads" element={<Navigate to="/pipeline" replace />} />

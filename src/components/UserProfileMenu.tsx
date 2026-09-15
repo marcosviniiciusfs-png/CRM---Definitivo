@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+import { isDemoRoute } from "@/lib/demoMode";
 
 const PLAN_NAMES: { [key: string]: string } = {
   'prod_TVqqdFt1DYCcCI': 'Star',
@@ -31,6 +32,10 @@ export function UserProfileMenu() {
   useEffect(() => {
     const loadProfile = async () => {
       if (!user?.id) return;
+      if (isDemoRoute()) {
+        setProfile({ avatar_url: null, full_name: "Usuário Demo" });
+        return;
+      }
 
       // Verificar cache primeiro
       const cacheKey = `profile_${user.id}`;
