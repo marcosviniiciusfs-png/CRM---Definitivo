@@ -368,7 +368,7 @@ const OrganizationContext = createContext<OrganizationContextType>({
 });
 
 function DemoOrganizationProvider({ children }: { children: ReactNode }) {
-  const demoOrganizationId = "demo-organization";
+  const demoOrganizationId = "00000000-0000-4000-8000-000000000002";
   const demoPermissions: Permissions = {
     ...defaultPermissions,
     canManageCollaborators: true,

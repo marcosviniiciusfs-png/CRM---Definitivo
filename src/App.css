@@ -2,12 +2,12 @@
 
 /* Pipeline mobile offset — header + title/filters height */
 :root {
-  --pipeline-offset: 98px;
+  --pipeline-offset: 72px;
 }
 
 @media (min-width: 640px) {
   :root {
-    --pipeline-offset: 108px;
+    --pipeline-offset: 82px;
   }
 }
 

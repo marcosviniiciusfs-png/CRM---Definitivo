@@ -88,19 +88,27 @@ export const PipelineColumn = memo(({
     }, { rootMargin: "0px" });
 
     observer.observe(node);
-    return () => observer.disconnect();
+    const fallbackTimer = window.setTimeout(() => {
+      setShouldRenderCards(true);
+      observer.disconnect();
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      observer.disconnect();
+    };
   }, []);
 
   // Detecta se a cor é hex ou classe Tailwind
   const isHexColor = (color: string) => color?.startsWith('#');
 
   return (
-    <div ref={columnRef} className="flex flex-col w-[260px] md:w-[300px] lg:w-[320px] flex-shrink-0 h-full">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-sm text-foreground">{title}</h3>
+    <div ref={columnRef} className="flex flex-col w-[184px] md:w-[210px] lg:w-[224px] flex-shrink-0 h-full">
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <h3 className="min-w-0 truncate font-semibold text-sm text-foreground">{title}</h3>
         <Badge
           className={cn(
-            "rounded-full w-auto min-w-6 h-6 flex items-center justify-center px-2 text-xs",
+            "rounded-full w-auto min-w-6 h-6 flex shrink-0 items-center justify-center px-2 text-xs",
             isHexColor(color) ? "text-white" : "",
             !isHexColor(color) && color
           )}
@@ -111,7 +119,7 @@ export const PipelineColumn = memo(({
       </div>
 
       <div
-        className={cn("h-0.5 mb-3 rounded-full", !isHexColor(color) && color)}
+        className={cn("h-0.5 mb-2 rounded-full", !isHexColor(color) && color)}
         style={isHexColor(color) ? { backgroundColor: color } : undefined}
       />
 
@@ -119,7 +127,7 @@ export const PipelineColumn = memo(({
         <div
           ref={setNodeRef}
           className={cn(
-            "pipeline-column space-y-2 flex-1 min-h-0 overflow-y-auto p-2 pb-4 rounded-lg scrollbar-subtle transition-colors duration-200",
+            "pipeline-column space-y-2 flex-1 min-h-0 overflow-y-auto p-1.5 pb-4 rounded-lg scrollbar-subtle transition-colors duration-200",
             isOver && "bg-muted/50 ring-2 ring-primary/20"
           )}
         >

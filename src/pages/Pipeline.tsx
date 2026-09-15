@@ -43,6 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useToggleNoShow } from "@/hooks/useToggleNoShow";
 import type { StatusReuniao } from "@/types/chat";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
+import { isDemoRoute } from "@/lib/demoMode";
 
 const AddLeadModal = lazy(() => import("@/components/AddLeadModal").then((module) => ({ default: module.AddLeadModal })));
 const ImportLeadsModal = lazy(() => import("@/components/ImportLeadsModal").then((module) => ({ default: module.ImportLeadsModal })));
@@ -97,6 +98,58 @@ const DEFAULT_STAGES = [
   { id: "PERDIDO", title: "Perdido", color: "bg-red-500" },
 ];
 
+const makeDemoLead = (
+  id: string,
+  stage: string,
+  position: number,
+  name: string,
+  source: string,
+  value: number,
+  minutesAgo: number,
+  description: string,
+): Lead => {
+  const date = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  return {
+    id,
+    nome_lead: name,
+    telefone_lead: "(11) 9" + id.slice(-8, -4) + "-" + id.slice(-4),
+    email: `${name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ".")}@demo.local`,
+    created_at: date,
+    updated_at: date,
+    organization_id: "00000000-0000-4000-8000-000000000002",
+    source,
+    stage,
+    funnel_id: null,
+    funnel_stage_id: null,
+    position,
+    avatar_url: null,
+    responsavel: null,
+    responsavel_user_id: null,
+    valor: value,
+    descricao_negocio: description,
+    additional_data: null,
+    duplicate_attempts_count: 0,
+    status_reuniao: null,
+  };
+};
+
+const DEMO_PIPELINE_LEADS: Lead[] = [
+  makeDemoLead("00000000-0000-4000-8000-000000010001", "NOVO_LEAD", 1, "Ana Paula", "WhatsApp", 8900, 12, "Quer automatizar o atendimento inicial."),
+  makeDemoLead("00000000-0000-4000-8000-000000010002", "NOVO_LEAD", 2, "Clínica Sul", "Facebook Leads", 14500, 34, "Formulário de campanha para avaliação comercial."),
+  makeDemoLead("00000000-0000-4000-8000-000000010003", "QUALIFICACAO", 1, "Bruno Martins", "Indicação", 12000, 76, "Validando quantidade de usuários e canais."),
+  makeDemoLead("00000000-0000-4000-8000-000000010004", "QUALIFICACAO", 2, "Marina Costa", "Instagram", 7200, 118, "Pediu demonstração rápida do funil."),
+  makeDemoLead("00000000-0000-4000-8000-000000010005", "AGENDAMENTO", 1, "Construtora Vértice", "Site", 26000, 180, "Reunião marcada com diretoria comercial."),
+  makeDemoLead("00000000-0000-4000-8000-000000010006", "AGENDAMENTO", 2, "Studio Norte", "WhatsApp", 9900, 220, "Quer integrar mensagens e tarefas."),
+  makeDemoLead("00000000-0000-4000-8000-000000010007", "REUNIAO", 1, "Dra. Helena", "Google Ads", 18400, 310, "Reunião feita, aguardando confirmação de escopo."),
+  makeDemoLead("00000000-0000-4000-8000-000000010008", "PROPOSTA", 1, "Rede Prime", "Facebook Leads", 24900, 420, "Proposta enviada para três unidades."),
+  makeDemoLead("00000000-0000-4000-8000-000000010009", "PROPOSTA", 2, "Lucas Ferreira", "Indicação", 6800, 510, "Negociando plano de entrada."),
+  makeDemoLead("00000000-0000-4000-8000-000000010010", "APROVACAO", 1, "Omega Fit", "Instagram", 32800, 640, "Aguardando financeiro aprovar contrato."),
+  makeDemoLead("00000000-0000-4000-8000-000000010011", "VENDA", 1, "Hurtz Company", "Site", 41000, 760, "Venda fechada, implantação em andamento."),
+  makeDemoLead("00000000-0000-4000-8000-000000010012", "POS_VENDA", 1, "Nova Saúde", "WhatsApp", 17700, 880, "Cliente em ativação, checklist iniciado."),
+  makeDemoLead("00000000-0000-4000-8000-000000010013", "PERDIDO", 1, "Grupo Alfa", "Google Ads", 11200, 940, "Sem orçamento para este trimestre."),
+  makeDemoLead("00000000-0000-4000-8000-000000010014", "REUNIAO", 2, "Camila Rocha", "Webinar", 15300, 1040, "Precisa apresentar proposta ao sócio."),
+];
+
 const sortFunnelStages = (stages: any[]) => [...stages].sort((a: any, b: any) => {
   if (Boolean(a.is_final) !== Boolean(b.is_final)) return a.is_final ? 1 : -1;
   return a.position - b.position;
@@ -115,6 +168,7 @@ const Pipeline = () => {
   const { toast: toastUI } = useToast();
   const isMobile = useIsMobile();
   const toggleNoShow = useToggleNoShow();
+  const isDemo = isDemoRoute();
 
   const handleToggleNoShow = useCallback((leadId: string, currentStatus: StatusReuniao | null | undefined) => {
     toggleNoShow.mutate({ leadId, currentStatus: currentStatus ?? null });
@@ -371,6 +425,10 @@ const Pipeline = () => {
 
   // Buscar IDs dos membros da equipe quando canViewTeamLeads está ativo
   useEffect(() => {
+    if (isDemo) {
+      setTeamMemberIds([]);
+      return;
+    }
     if (!user?.id || !organizationId || !permissions.canViewTeamLeads || canViewOrganizationLeads) {
       setTeamMemberIds([]);
       return;
@@ -402,13 +460,14 @@ const Pipeline = () => {
       }
     };
     fetchTeamMembers();
-  }, [user?.id, organizationId, permissions.canViewTeamLeads, canViewOrganizationLeads]);
+  }, [isDemo, user?.id, organizationId, permissions.canViewTeamLeads, canViewOrganizationLeads]);
 
   // Inicialização de áudio e subscrição a novos leads
   useEffect(() => {
     // Inicializar áudio de notificação
     audioRef.current = new Audio("/notification.mp3");
     audioRef.current.volume = 0.5;
+    if (isDemo) return;
 
     // Usar nome único por mount para evitar conflito de channel ao re-navegar
     const channelName = channelIdRef.current;
@@ -559,11 +618,15 @@ const Pipeline = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]); // Valores dinâmicos do funil são acessados via refs.
+  }, [isDemo, queryClient]); // Valores dinâmicos do funil são acessados via refs.
 
   // Carregar perfil do usuário
   useEffect(() => {
     const loadUserProfile = async () => {
+      if (isDemo) {
+        setUserProfile({ full_name: "Usuário Demo" });
+        return;
+      }
       if (!user?.id) return;
 
       try {
@@ -585,12 +648,13 @@ const Pipeline = () => {
     let isMounted = true;
     loadUserProfile();
     return () => { isMounted = false; };
-  }, [user?.id]);
+  }, [isDemo, user?.id]);
 
   // Cache de colaboradores com React Query (10 min)
   const { data: cachedColaboradores } = useQuery({
-    queryKey: ['pipeline-colaboradores', organizationId],
+    queryKey: ['pipeline-colaboradores', organizationId, isDemo],
     queryFn: async () => {
+      if (isDemo) return [];
       if (!organizationId) return [];
       const { data: membersData } = await supabase
         .from('organization_members').select('user_id, email, display_name')
@@ -610,7 +674,7 @@ const Pipeline = () => {
         full_name: pMap[m.user_id] || rpcMap[m.user_id] || m.display_name || m.email || 'Sem nome',
       }));
     },
-    enabled: !!organizationId && isReady,
+    enabled: isDemo || (!!organizationId && isReady),
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 20,
   });
@@ -658,8 +722,9 @@ const Pipeline = () => {
   // Funnel order is shared organization state. Always revalidate it when the
   // Pipeline mounts or regains focus so changes made on another device appear.
   const { data: cachedFunnelResult } = useQuery({
-    queryKey: ['pipeline-funnels', organizationId, user?.id, permissions.canManagePipeline],
+    queryKey: ['pipeline-funnels', organizationId, user?.id, permissions.canManagePipeline, isDemo],
     queryFn: async () => {
+      if (isDemo) return { isCustom: false, funnel: null, allFunnels: [] };
       if (!organizationId) return { isCustom: false, funnel: null, allFunnels: [] };
       const { data: funnels, error } = await supabase
         .from('sales_funnels')
@@ -679,7 +744,7 @@ const Pipeline = () => {
       }
       return { isCustom: visibleFunnels.length > 0, funnel: visibleFunnels[0] || null, allFunnels: visibleFunnels };
     },
-    enabled: !!organizationId && !!user?.id && !permissions.loading && isReady,
+    enabled: isDemo || (!!organizationId && !!user?.id && !permissions.loading && isReady),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 10,
     refetchOnMount: false,
@@ -688,11 +753,24 @@ const Pipeline = () => {
 
   // Cache de leads com React Query (2 min)
   const pipelineCacheKey = ['pipeline-leads', organizationId, user?.id,
-    selectedFunnelId, canViewOrganizationLeads, responsibleFilter];
+    selectedFunnelId, canViewOrganizationLeads, responsibleFilter, isDemo];
 
   const { data: cachedLeadsResult, isFetching: isFetchingLeads } = useQuery({
     queryKey: pipelineCacheKey,
     queryFn: async () => {
+      if (isDemo) {
+        const paginationInit: Record<string, StagePaginationState> = {};
+        DEFAULT_STAGES.forEach((stage) => {
+          const total = DEMO_PIPELINE_LEADS.filter((lead) => lead.stage === stage.id).length;
+          paginationInit[stage.id] = {
+            loadedCount: total,
+            totalCount: total,
+            isLoading: false,
+            hasMore: false,
+          };
+        });
+        return { allLeads: DEMO_PIPELINE_LEADS, paginationInit };
+      }
       if (!user?.id || !organizationId) return null;
       const funnelResult = cachedFunnelResult;
       const isCustom = funnelResult?.isCustom ?? false;
@@ -786,7 +864,7 @@ const Pipeline = () => {
       });
       return { allLeads, paginationInit };
     },
-    enabled: !!organizationId && !!user?.id && !permissions.loading && isReady && !!cachedFunnelResult,
+    enabled: isDemo || (!!organizationId && !!user?.id && !permissions.loading && isReady && !!cachedFunnelResult),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
   });
@@ -949,6 +1027,7 @@ const Pipeline = () => {
   };
 
   const loadLeadItems = async (leadIds: string[]) => {
+    if (isDemo) return;
     if (leadIds.length === 0) return;
 
     const { data, error } = await supabase
@@ -977,6 +1056,7 @@ const Pipeline = () => {
   };
 
   const loadLeadTags = async (leadIds: string[]) => {
+    if (isDemo) return;
     if (leadIds.length === 0) return;
 
     const { data, error } = await supabase
@@ -1007,6 +1087,7 @@ const Pipeline = () => {
   };
 
   const loadProfiles = async (userIds: string[]) => {
+    if (isDemo) return;
     if (userIds.length === 0) return;
 
     const { data, error } = await supabase
@@ -1024,6 +1105,7 @@ const Pipeline = () => {
   };
 
   const loadAgendamentos = async (leadIds: string[]) => {
+    if (isDemo) return;
     if (leadIds.length === 0) return;
 
     const { data } = await supabase
@@ -1054,6 +1136,7 @@ const Pipeline = () => {
   };
 
   const loadRedistributionData = async (leadIds: string[]) => {
+    if (isDemo) return;
     if (leadIds.length === 0) return;
 
     // Buscar a redistribuição mais recente por lead
@@ -1883,28 +1966,28 @@ const Pipeline = () => {
   return (
     <>
       {/* Header Section - Always Visible */}
-      <div className="flex flex-col h-full p-3 sm:p-4 md:p-6">
-        <div className="space-y-2 sm:space-y-3 flex-shrink-0 mb-4 md:mb-6">
+      <div className="flex flex-col h-full p-2 sm:p-3">
+        <div className="space-y-1.5 flex-shrink-0 mb-2">
           {/* Linha 1: Título + Ações */}
-          <div className="flex items-center justify-between gap-2 sm:gap-3">
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground truncate">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">
                 Funil de Vendas
               </h1>
-              <p className="text-[11px] sm:text-sm text-muted-foreground mt-0.5 hidden sm:block">
+              <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block">
                 {viewMode === 'kanban'
                   ? "Arraste e solte os cards para mover leads entre as etapas"
                   : "Visualize e gerencie seus leads em formato de lista"}
               </p>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
               {/* View Mode Toggle */}
               <div className="flex items-center border rounded-md overflow-hidden">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-9 px-2 sm:px-3",
+                    "rounded-none h-8 px-2.5 text-sm",
                     viewMode === 'kanban' && "bg-primary/10 text-primary"
                   )}
                   onClick={() => setViewMode('kanban')}
@@ -1916,7 +1999,7 @@ const Pipeline = () => {
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-9 px-2 sm:px-3 border-l",
+                    "rounded-none h-8 px-2.5 text-sm border-l",
                     viewMode === 'list' && "bg-primary/10 text-primary"
                   )}
                   onClick={() => setViewMode('list')}
@@ -1963,23 +2046,23 @@ const Pipeline = () => {
               ) : (
                 <>
                   {(permissions.role === "owner" || permissions.role === "admin") && (
-                    <Button variant="outline" size="sm" onClick={() => navigate("/funnel-builder")}>
+                    <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => navigate("/funnel-builder")}>
                       <Settings2 className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Gerenciar Funis</span>
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                  <Button variant="outline" size="sm" className="h-8 px-3" onClick={handleExportCSV}>
                     <Upload className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Exportar</span>
                   </Button>
                   {canViewOrganizationLeads && (
-                    <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                    <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => setShowImportModal(true)}>
                       <Download className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Importar</span>
                     </Button>
                   )}
                   {permissions.canCreateLeads && (
-                    <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
+                    <Button size="sm" className="h-8 px-3 bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
                       <Plus className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Adicionar Lead</span>
                     </Button>
@@ -2027,18 +2110,18 @@ const Pipeline = () => {
             </div>
           ) : (
             /* Desktop: busca + filtros inline */
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <div className="relative flex-1 min-w-[140px] sm:min-w-[180px] max-w-full sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por nome, email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 h-9"
+                  className="pl-8 h-8"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
+                <SelectTrigger className="h-8 w-[110px] sm:w-[145px] bg-background">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2049,7 +2132,7 @@ const Pipeline = () => {
                 </SelectContent>
               </Select>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="h-9 w-[110px] sm:w-[145px] bg-background">
+                <SelectTrigger className="h-8 w-[110px] sm:w-[145px] bg-background">
                   <SelectValue placeholder="Origem" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2060,7 +2143,7 @@ const Pipeline = () => {
                 </SelectContent>
               </Select>
               <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-                <SelectTrigger className="h-9 w-[120px] sm:w-[155px] bg-background">
+                <SelectTrigger className="h-8 w-[120px] sm:w-[155px] bg-background">
                   <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2077,7 +2160,7 @@ const Pipeline = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className={cn("h-9 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
+                    className={cn("h-8 text-sm", (dateRange.from || dateRange.to) && "border-primary text-primary")}
                   >
                     <CalendarIcon className="h-4 w-4 mr-2" />
                     {dateRange.from && dateRange.to
@@ -2490,11 +2573,11 @@ const Pipeline = () => {
                         <div key={funnel.id} className="flex items-center">
                           <TabsTrigger
                             value={funnel.id}
-                            className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 py-3 transition-all duration-200 hover:bg-muted/50"
+                            className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2 text-sm transition-all duration-200 hover:bg-muted/50"
                           >
                             <div className="flex items-center gap-2">
                               {iconEmoji && (
-                                <span className="text-lg">{iconEmoji}</span>
+                                <span className="text-base">{iconEmoji}</span>
                               )}
                               <span>{funnel.name}</span>
                               {funnel.is_default && (
@@ -2511,7 +2594,7 @@ const Pipeline = () => {
                                 setPermissionsFunnelId(funnel.id);
                               }}
                               className={cn(
-                                "ml-1 p-1 rounded transition-colors",
+                                "ml-0.5 p-0.5 rounded transition-colors",
                                 funnel.is_restricted === true
                                   ? "text-amber-500 hover:text-amber-400"
                                   : "text-muted-foreground hover:text-foreground"
@@ -2533,7 +2616,7 @@ const Pipeline = () => {
 
                   <TabsContent
                     value={selectedFunnelId || allFunnels[0]?.id || "default"}
-                    className="mt-6"
+                    className="mt-2"
                   >
                     <div
                       ref={scrollContainerRef}

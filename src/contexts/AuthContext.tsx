@@ -135,7 +135,7 @@ const clearSectionAccessCache = () => {
 function DemoAuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const demoUser = {
-    id: "demo-user",
+    id: "00000000-0000-4000-8000-000000000001",
     email: "demo@kairoz.local",
     aud: "authenticated",
     app_metadata: {},

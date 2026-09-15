@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
-import { Phone, Calendar, Pencil, Eye, Globe, RefreshCw, Copy, Check, CalendarDays, CalendarCheck, GripVertical, MessageCircle } from "lucide-react";
+import { Calendar, Pencil, Eye, Globe, RefreshCw, Copy, Check, CalendarDays, CalendarCheck, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LazyAvatar } from "@/components/ui/lazy-avatar";
 import { Badge } from "@/components/ui/badge";
 import { useState, CSSProperties, memo, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,28 +25,6 @@ import { LeadTagsBadgeStatic } from "@/components/LeadTagsBadgeStatic";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import { Trash2 } from "lucide-react";
 import { getAppIcon } from "@/lib/iconRegistry";
-
-const CopyPhoneButton: React.FC<{ phone: string }> = ({ phone }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(phone).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }, [phone]);
-
-  return (
-    <button
-      onClick={handleCopy}
-      className="opacity-0 group-hover/phone:opacity-100 transition-opacity ml-0.5 text-muted-foreground hover:text-foreground flex-shrink-0"
-      title="Copiar número"
-    >
-      {copied ? <Check className="h-2.5 w-2.5 text-green-500" /> : <Copy className="h-2.5 w-2.5" />}
-    </button>
-  );
-};
 
 interface CopyLeadButtonProps {
   name: string;
@@ -207,6 +184,11 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
     () => leadItems.reduce((sum, item) => sum + (item.total_price || 0), 0),
     [leadItems],
   );
+  const responsibleLabel = responsavelName?.trim() || "Sem responsável";
+  const compactResponsibleName =
+    /^sem responsável$/i.test(responsibleLabel)
+      ? "Sem resp."
+      : responsibleLabel.split(/\s+/)[0];
 
   const getItemIcon = (iconName: string | null, size: string = "h-4 w-4") => {
     if (!iconName) return null;
@@ -237,21 +219,13 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
               : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
           )}
         >
-      <div className="p-1.5">
-        <div className="flex items-start gap-2 mb-1">
-          <LazyAvatar
-            src={avatarUrl}
-            name={name}
-            size="sm"
-            className="h-8 w-8"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-1">
-              <div className="flex flex-col gap-1 min-w-0">
+          <div className="p-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <h3 className="font-semibold text-xs text-foreground leading-tight truncate">
                   {name}
                 </h3>
-                <div className="flex items-center gap-1 flex-wrap" data-lead-badges>
+                <div className="mt-1 flex items-center gap-1 flex-wrap" data-lead-badges>
                   {isRedistributed && (() => {
                     const isInactivity = redistributionReason === 'inactivity';
                     const isLost = redistributionReason === 'lost';
@@ -456,42 +430,25 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
               </DropdownMenu>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="space-y-0.5 pl-2">
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground group/phone">
-            <Phone className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{phone}</span>
-            {phone && (
-              <CopyPhoneButton phone={phone} />
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Calendar className="h-3 w-3 flex-shrink-0" />
-              <span>{date}</span>
-            </div>
-            {responsavelName && (
-              <div
-                className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0 max-w-[50%]"
-                title="Este é o colaborador responsável por este lead."
-              >
-                <LazyAvatar
-                  src={responsavelAvatarUrl || undefined}
-                  name={responsavelName}
-                  size="sm"
-                  className="h-4 w-4 flex-shrink-0"
-                />
-                <span className="truncate">
-                  {responsavelName.length > 11
-                    ? responsavelName.substring(0, 10) + "…"
-                    : responsavelName}
+            <div className="mt-1.5 space-y-0.5">
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Phone className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{phone}</span>
+              </div>
+              <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+                <div className="min-w-0 flex items-center gap-1">
+                  <Calendar className="h-3 w-3 flex-shrink-0" />
+                  <span className="whitespace-nowrap">{date}</span>
+                </div>
+                <span
+                  className="max-w-[34%] truncate rounded-full bg-muted px-1 py-0.5 text-[9px] text-muted-foreground"
+                  title={`Colaborador responsável: ${responsibleLabel}`}
+                >
+                  {compactResponsibleName}
                 </span>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
         {leadItems.length > 0 && (
           <div className="mt-2 pt-2 border-t border-border">

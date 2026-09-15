@@ -105,6 +105,7 @@ const App = () => {
                       <Route element={<LazyPage><AuthenticatedAppProviders /></LazyPage>}>
                         <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><Index /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/demo-dashboard" element={<ProtectedRoute><DashboardLayout><LazyPage><DemoDashboard /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/demo-pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/pipeline" element={<ProtectedRoute><DashboardLayout><LazyPage><Pipeline /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/funnel-builder" element={<ProtectedRoute><DashboardLayout><LazyPage><FunnelBuilder /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
