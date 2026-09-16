@@ -369,7 +369,7 @@ if [[ "$inode_usage" =~ ^[0-9]+$ ]] && (( inode_usage >= INODE_USAGE_WARN_PERCEN
   failures+=("inodes em ${inode_usage}%")
 fi
 
-if ss -H -ltn | awk '{print $4}' | grep -Eq '^(0\.0\.0\.0|\[::\]|\*):(5432|6543|8000)$'; then
+if ss -H -ltn | awk '{print $4}' | grep -Eq '^(0\.0\.0\.0|\[::\]|\*):(5432|6543|8000|8080)$'; then
   failures+=('porta interna publicada globalmente')
 fi
 

@@ -386,11 +386,20 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   const handleReconfigureWebhooks = async () => {
     setReconfiguring(true);
     try {
-      const { data, error } = await supabase.functions.invoke("fix-webhook-config");
-      if (error) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Não autenticado");
+      }
+
+      const { data, error } = await supabase.functions.invoke("fix-webhook-config", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (error || data?.success === false) {
         toast({
           title: "Erro ao reconfigurar webhooks",
-          description: error.message,
+          description: data?.error || data?.message || error?.message,
           variant: "destructive",
         });
       } else {

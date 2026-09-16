@@ -23,12 +23,17 @@ fi
 [[ $# -eq 0 ]] || die 'uso: 02-prepare-stack.sh [--start]'
 
 PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-api.kairozcrm.com.br}"
+EVOLUTION_DOMAIN="${EVOLUTION_DOMAIN:-evolution.kairozcrm.com.br}"
 SITE_URL_VALUE="${SITE_URL_VALUE:-https://www.kairozcrm.com.br}"
 [[ "$PUBLIC_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || die 'PUBLIC_DOMAIN inválido'
+[[ "$EVOLUTION_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || die 'EVOLUTION_DOMAIN inválido'
 [[ "$SITE_URL_VALUE" =~ ^https://[^[:space:]]+$ ]] || die 'SITE_URL_VALUE precisa usar https://'
 PUBLIC_URL="https://$PUBLIC_DOMAIN"
+EVOLUTION_PUBLIC_URL="https://$EVOLUTION_DOMAIN"
+EVOLUTION_INTERNAL_URL="http://evolution-api:8080"
 created_env=false
 created_functions_env=false
+created_evolution_env=false
 
 install_supabase_cli() {
   local reported arch asset base_url temp_dir
@@ -212,14 +217,25 @@ chmod 0750 "$SCRIPT_DIR"/*.sh
 
 log 'Instalando overrides e configurações do CRM'
 install -m 0644 "$KIT_DIR/config/docker-compose.crm.yml" "$INSTALL_DIR/docker-compose.crm.yml"
-install -d -m 0755 "$INSTALL_DIR/runtime/main" "$INSTALL_DIR/volumes/db"
+install -d -m 0755 \
+  "$INSTALL_DIR/runtime/main" \
+  "$INSTALL_DIR/volumes/db" \
+  "$INSTALL_DIR/volumes/evolution/instances" \
+  "$INSTALL_DIR/volumes/evolution/postgres" \
+  "$INSTALL_DIR/volumes/evolution/redis"
 install -m 0644 "$KIT_DIR/runtime/main/index.ts" "$INSTALL_DIR/runtime/main/index.ts"
 install -m 0644 "$KIT_DIR/config/postgresql.crm.conf" "$INSTALL_DIR/volumes/db/99-crm.conf"
+install -m 0644 "$KIT_DIR/config/Caddyfile.crm" "$INSTALL_DIR/volumes/proxy/caddy/Caddyfile"
 if [[ ! -f "$INSTALL_DIR/functions.env" ]]; then
   created_functions_env=true
   install -m 0600 "$KIT_DIR/config/functions.env.example" "$INSTALL_DIR/functions.env"
 fi
 chmod 0600 "$INSTALL_DIR/functions.env"
+if [[ ! -f "$INSTALL_DIR/evolution.env" ]]; then
+  created_evolution_env=true
+  install -m 0600 "$KIT_DIR/config/evolution.env.example" "$INSTALL_DIR/evolution.env"
+fi
+chmod 0600 "$INSTALL_DIR/evolution.env"
 
 merge_functions_env_schema() {
   local target="$1"
@@ -255,6 +271,7 @@ merge_functions_env_schema() {
 }
 
 merge_functions_env_schema "$INSTALL_DIR/functions.env" "$KIT_DIR/config/functions.env.example"
+merge_functions_env_schema "$INSTALL_DIR/evolution.env" "$KIT_DIR/config/evolution.env.example"
 
 placeholder_temp="$(mktemp "${INSTALL_DIR}/functions.env.placeholders.XXXXXX")"
 awk '
@@ -274,6 +291,9 @@ fi
 if [[ -z "$(env_file_value "$INSTALL_DIR/functions.env" PUBLIC_FORM_ALLOWED_ORIGINS)" ]]; then
   set_env_value "$INSTALL_DIR/functions.env" PUBLIC_FORM_ALLOWED_ORIGINS "$SITE_URL_VALUE"
 fi
+set_env_value "$INSTALL_DIR/evolution.env" SERVER_URL "$EVOLUTION_PUBLIC_URL"
+set_env_value "$INSTALL_DIR/evolution.env" CORS_ORIGIN '*'
+set_env_value "$INSTALL_DIR/evolution.env" CORS_METHODS 'GET,POST,PUT,DELETE,PATCH,OPTIONS'
 
 ensure_function_secret() {
   local key="$1"
@@ -290,9 +310,34 @@ ensure_function_secret() {
 ensure_function_secret ADMIN_JWT_SECRET
 ensure_function_secret CRON_SECRET
 ensure_function_secret OAUTH_STATE_SECRET
+ensure_function_secret EVOLUTION_WEBHOOK_SECRET
+
+ensure_evolution_runtime_secret() {
+  local key="$1"
+  local current
+  current="$(env_file_value "$INSTALL_DIR/evolution.env" "$key")"
+  if [[ -z "$current" || "$current" == REPLACE* ]]; then
+    current="$(openssl rand -hex 32)"
+    set_env_value "$INSTALL_DIR/evolution.env" "$key" "$current"
+    log "$key gerado em evolution.env sem exibir o valor"
+  fi
+  (( ${#current} >= 32 )) || die "$key precisa conter ao menos 32 caracteres em evolution.env"
+  [[ "$current" != *[[:space:]]* ]] || die "$key não pode conter espaços em evolution.env"
+}
+
+ensure_evolution_runtime_secret POSTGRES_PASSWORD
+ensure_evolution_runtime_secret AUTHENTICATION_API_KEY
+
+evolution_postgres_password="$(env_file_value "$INSTALL_DIR/evolution.env" POSTGRES_PASSWORD)"
+evolution_api_key="$(env_file_value "$INSTALL_DIR/evolution.env" AUTHENTICATION_API_KEY)"
+set_env_value "$INSTALL_DIR/evolution.env" DATABASE_CONNECTION_URI "postgresql://evolution:${evolution_postgres_password}@evolution-postgres:5432/evolution?schema=public"
+set_env_value "$INSTALL_DIR/functions.env" EVOLUTION_API_URL "$EVOLUTION_INTERNAL_URL"
+set_env_value "$INSTALL_DIR/functions.env" EVOLUTION_API_KEY "$evolution_api_key"
+unset evolution_postgres_password evolution_api_key
 
 set_env_value "$INSTALL_DIR/.env" COMPOSE_FILE 'docker-compose.yml:docker-compose.caddy.yml:docker-compose.crm.yml'
 set_env_value "$INSTALL_DIR/.env" FUNCTIONS_VERIFY_JWT 'true'
+set_env_value "$INSTALL_DIR/.env" EVOLUTION_DOMAIN "$EVOLUTION_DOMAIN"
 if [[ "$created_env" == true ]]; then
   set_env_value "$INSTALL_DIR/.env" SUPABASE_PUBLIC_URL "$PUBLIC_URL"
   set_env_value "$INSTALL_DIR/.env" API_EXTERNAL_URL "$PUBLIC_URL/auth/v1"
@@ -474,6 +519,10 @@ fi
 )
 
 if [[ "$START_STACK" == true ]]; then
+  for key in \
+    SERVER_URL AUTHENTICATION_API_KEY POSTGRES_PASSWORD DATABASE_CONNECTION_URI CACHE_REDIS_URI; do
+    require_configured_env_key "$INSTALL_DIR/evolution.env" "$key"
+  done
   for key in \
     ADMIN_JWT_SECRET CRON_SECRET OAUTH_STATE_SECRET EVOLUTION_API_URL EVOLUTION_API_KEY \
     EVOLUTION_WEBHOOK_SECRET FACEBOOK_APP_ID FACEBOOK_APP_SECRET FACEBOOK_WEBHOOK_VERIFY_TOKEN \

@@ -20,6 +20,7 @@ Vercel: www.kairozcrm.com.br
    |
    v
 Hostinger DNS: api.kairozcrm.com.br
+Hostinger DNS: evolution.kairozcrm.com.br
    |
    v
 Caddy :443 (TLS automático)
@@ -35,6 +36,14 @@ Supabase self-hosted v0.8.0
           |
           |-- healthcheck e retenção de chat-media
           `-- sem backup recorrente no modo atual
+
+Evolution API roda no mesmo KVM 4, mas isolada do banco do Supabase em
+containers próprios (`evolution-api`, `evolution-postgres` e
+`evolution-redis`). O Caddy publica somente HTTPS em
+`https://evolution.kairozcrm.com.br`; a porta 8080 da Evolution não deve ser
+publicada no host. As Edge Functions usam a URL interna
+`http://evolution-api:8080`, então o CRM não depende do DNS público da
+Evolution para operar.
 ```
 
 ### Versões fixadas
@@ -138,7 +147,7 @@ WAL e staging. O ensaio continua obrigatório para medir CPU, I/O e duração.
 - [DR_CHECKLIST.md](DR_CHECKLIST.md): prontidão, ensaio trimestral e execução de desastre.
 - [ACCESS_CHECKLIST.md](ACCESS_CHECKLIST.md): acessos e decisões necessários antes da execução.
 - [META_TOKEN_REWRAP.md](META_TOKEN_REWRAP.md): rewrap temporário e transacional dos tokens Meta sem expor plaintext.
-- `config/`: override Docker, tuning conservador e modelos de variáveis.
+- `config/`: override Docker, Caddy, Evolution API, tuning conservador e modelos de variáveis.
 - `scripts/`: bootstrap, instalação, export, restore, Storage, backup, smoke tests e freeze/unfreeze reversível da origem.
 - `sql/`: inventário, configuração pós-restore e comparação.
 - `runtime/`: gateway de Edge Functions com política JWT por função.
@@ -149,7 +158,7 @@ WAL e staging. O ensaio continua obrigatório para medir CPU, I/O e duração.
 1. Preencher [ACCESS_CHECKLIST.md](ACCESS_CHECKLIST.md) sem registrar senhas no Git ou no chat.
 2. Executar inventário somente leitura na origem.
 3. Provisionar e endurecer o KVM 4.
-4. Criar `api.kairozcrm.com.br` apontando para o IP do VPS.
+4. Criar `api.kairozcrm.com.br` e `evolution.kairozcrm.com.br` apontando para o IP do VPS.
 5. Copiar o kit e `supabase/functions/` para `/opt/crm-migration-kit/app-functions/`, instalar a stack isolada e preencher os arquivos secretos no servidor.
 6. Para o corte atual, validar o modo `managed-source-cold` conforme [MANAGED_SOURCE_COLD_MODE.md](MANAGED_SOURCE_COLD_MODE.md). Não habilitar os timers de backup/manutenção nem declarar RPO recorrente. Restic, segunda chave e [DR_CHECKLIST.md](DR_CHECKLIST.md) voltam a ser obrigatórios antes de mudar para `restic-offsite`.
 7. Fazer um ensaio completo de dump/restore, descarte target-only de `chat-media`
@@ -167,6 +176,7 @@ WAL e staging. O ensaio continua obrigatório para medir CPU, I/O e duração.
 - Nesta implantação, a autenticação SSH por senha permanece habilitada para `root` e `hurtz` por decisão explícita do responsável; chaves SSH continuam preferenciais. Proteger com UFW e Fail2ban e nunca registrar a senha no repositório ou na documentação.
 - Manter somente 22 (restrito quando possível), 80 e 443 no firewall Hostinger.
 - Não publicar 5432, 6543, 8000 ou o socket Docker.
+- Não publicar a porta 8080 da Evolution; usar somente `https://evolution.kairozcrm.com.br` via Caddy.
 - Nunca executar `reset.sh` ou `docker compose down -v` na instalação de produção.
 - Todo artefato de dump deve ficar com modo `0600`, hash SHA-256 e cópia criptografada off-site.
 - A senha operacional do Restic no VPS não é escrow. Manter uma segunda chave e acesso de recuperação testados fora do VPS e do próprio bucket.

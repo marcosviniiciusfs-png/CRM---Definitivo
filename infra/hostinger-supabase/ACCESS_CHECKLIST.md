@@ -42,7 +42,8 @@ Os valores não são recuperáveis do Git e normalmente não podem ser lidos de 
 - [ ] `ADMIN_JWT_SECRET` (pode ser rotacionado; invalida sessão admin).
 - [ ] `OAUTH_STATE_SECRET` novo e aleatório (não reutilizar segredo exposto).
 - [ ] `CRON_SECRET` (pode ser rotacionado junto dos jobs).
-- [ ] `EVOLUTION_API_URL`.
+- [ ] `EVOLUTION_API_URL` apontando para `http://evolution-api:8080` nas Edge Functions da VPS.
+- [ ] DNS opcional `evolution.kairozcrm.com.br` apontando para o KVM 4 caso o painel/API da Evolution precise ficar acessível fora da rede Docker.
 - [ ] `EVOLUTION_API_KEY`.
 - [ ] `EVOLUTION_WEBHOOK_SECRET`.
 - [ ] `FACEBOOK_APP_ID`.

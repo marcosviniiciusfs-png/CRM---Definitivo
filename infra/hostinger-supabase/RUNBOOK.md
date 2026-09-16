@@ -10,6 +10,7 @@ Premissas provisórias:
 
 - frontend continua na Vercel;
 - API pública nova: `https://api.kairozcrm.com.br`;
+- Evolution API no mesmo KVM, publicada em `https://evolution.kairozcrm.com.br`;
 - destino: Ubuntu 24.04 LTS + Docker Compose oficial Supabase `self-hosted/v0.8.0` + PostgreSQL 17;
 - autenticação de usuários é preservada, mas novas chaves JWT forçarão novo login;
 - RPO do corte: zero enquanto as escritas estiverem congeladas;
@@ -72,7 +73,7 @@ afrouxar as contagens durante o corte.
 1. Instalar Ubuntu limpo.
 2. Aplicar o firewall Hostinger antes de expor o VPS: SSH, 80 e 443 apenas.
 3. Executar `scripts/01-bootstrap-host.sh`.
-4. Criar o registro A de `api.kairozcrm.com.br` para o IP do VPS.
+4. Criar os registros A de `api.kairozcrm.com.br` e `evolution.kairozcrm.com.br` para o IP do VPS.
 5. Copiar este diretório para `/opt/crm-migration-kit` e copiar também `supabase/functions/` do mesmo commit para `/opt/crm-migration-kit/app-functions/`. Sem argumento explícito, `05-deploy-functions.sh` usa esse diretório.
 6. Executar `scripts/02-prepare-stack.sh`.
    Na primeira execução, o preparo faz o pull e grava atomicamente
@@ -170,7 +171,7 @@ Janela planejada = tempo medido no ensaio + 50% de margem. Se o ensaio não foi 
 | Google Calendar OAuth | `/functions/v1/google-calendar-oauth-callback` | atualizar no Google Cloud |
 | Meta OAuth | `/functions/v1/facebook-oauth-callback` | atualizar no Meta Developers |
 | Meta Leads webhook | `/functions/v1/facebook-leads-webhook` | validar challenge e evento assinado |
-| Evolution | funções `whatsapp-message-webhook`, `whatsapp-qr-webhook` e `whatsapp-status-webhook` | reaplicar em **todas** as instâncias a URL nova e o header `x-api-key: EVOLUTION_WEBHOOK_SECRET`; alterar apenas `webhook_url` no banco não muda o provedor |
+| Evolution | serviço interno `http://evolution-api:8080`, opcionalmente publicado em `https://evolution.kairozcrm.com.br`, + funções `whatsapp-message-webhook`, `whatsapp-qr-webhook` e `whatsapp-status-webhook` | Evolution roda dentro do KVM; `EVOLUTION_API_URL` das Edge Functions deve apontar para o serviço interno. Depois, reaplicar em **todas** as instâncias a URL nova do webhook do CRM e o header `x-api-key: EVOLUTION_WEBHOOK_SECRET`; alterar apenas `webhook_url` no banco não muda o provedor |
 | Mercado Pago | `/functions/v1/mercadopago-webhook` | alterar com janela/retry controlados |
 | Formulários externos | `/functions/v1/form-webhook/<token>` | inventariar cada URL já publicada; não confiar apenas nas novas URLs geradas pelo frontend |
 
@@ -231,7 +232,7 @@ O freeze é um guardrail operacional, não uma barreira contra credenciais admin
 
 ### E4. Virada
 
-1. Atualizar callbacks/webhooks externos para `api.kairozcrm.com.br`.
+1. Atualizar callbacks/webhooks externos para `api.kairozcrm.com.br` e validar `evolution.kairozcrm.com.br`.
    Na Evolution, conferir por API cada instância: URL, eventos habilitados e o
    header secreto `x-api-key`; sem esse header os handlers do destino falham
    fechado com HTTP 401.

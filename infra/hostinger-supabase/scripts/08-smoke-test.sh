@@ -57,11 +57,11 @@ for service in "${services[@]}"; do
   fi
 done
 
-if ss -H -ltn | awk '{print $4}' | grep -Eq '^(0\.0\.0\.0|\[::\]|\*):(5432|6543|8000)$'; then
-  warn 'FAIL rede: uma porta interna (5432, 6543 ou 8000) está publicada globalmente'
+if ss -H -ltn | awk '{print $4}' | grep -Eq '^(0\.0\.0\.0|\[::\]|\*):(5432|6543|8000|8080)$'; then
+  warn 'FAIL rede: uma porta interna (5432, 6543, 8000 ou 8080) está publicada globalmente'
   failures=$((failures + 1))
 else
-  log 'PASS rede: Postgres, pooler e gateway interno não estão publicados'
+  log 'PASS rede: Postgres, pooler, gateway interno e Evolution não estão publicados'
 fi
 
 base_url="${SUPABASE_PUBLIC_URL%/}"

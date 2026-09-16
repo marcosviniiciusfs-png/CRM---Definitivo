@@ -83,9 +83,25 @@ docker exec supabase-db test -r /etc/postgresql-custom/pgsodium_root.key \
   || die 'pgsodium_root.key não encontrado; backup completo recusado'
 docker exec supabase-db cat /etc/postgresql-custom/pgsodium_root.key >"$stage/pgsodium_root.key"
 chmod 0600 "$stage/postgres.dump" "$stage/roles.sql" "$stage/pgsodium_root.key"
+
+evolution_db_container_id="$(compose ps -q evolution-postgres 2>/dev/null || true)"
+if [[ -n "$evolution_db_container_id" ]]; then
+  wait_for_container_health "$evolution_db_container_id" 60
+  log 'Gerando dump lógico PostgreSQL da Evolution'
+  docker exec "$evolution_db_container_id" pg_dump \
+    -U evolution -d evolution \
+    --format=custom --compress=9 --file=/tmp/evolution.dump
+  docker cp "$evolution_db_container_id:/tmp/evolution.dump" "$stage/evolution.dump"
+  docker exec "$evolution_db_container_id" rm -f -- /tmp/evolution.dump
+  chmod 0600 "$stage/evolution.dump"
+else
+  warn 'container evolution-postgres ausente; backup lógico da Evolution não foi gerado'
+fi
 (
   cd "$stage"
-  sha256sum postgres.dump roles.sql pgsodium_root.key >SHA256SUMS
+  checksum_files=(postgres.dump roles.sql pgsodium_root.key)
+  [[ ! -f evolution.dump ]] || checksum_files+=(evolution.dump)
+  sha256sum "${checksum_files[@]}" >SHA256SUMS
 )
 chmod 0600 "$stage/SHA256SUMS"
 
@@ -95,6 +111,7 @@ backup_paths=(
   "$INSTALL_DIR/.env"
   "$INSTALL_DIR/.crm-image-manifest"
   "$INSTALL_DIR/functions.env"
+  "$INSTALL_DIR/evolution.env"
   "$INSTALL_DIR/docker-compose.yml"
   "$INSTALL_DIR/docker-compose.caddy.yml"
   "$INSTALL_DIR/docker-compose.crm.yml"
@@ -106,6 +123,7 @@ backup_paths=(
   "$INSTALL_DIR/volumes/proxy"
   "$INSTALL_DIR/volumes/snippets"
   "$INSTALL_DIR/volumes/storage"
+  "$INSTALL_DIR/volumes/evolution/instances"
 )
 mapfile -t db_config_files < <(find "$INSTALL_DIR/volumes/db" -maxdepth 1 -type f -print)
 (( ${#db_config_files[@]} > 0 )) || die 'nenhum arquivo de configuração do banco foi encontrado'
