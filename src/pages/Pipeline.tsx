@@ -844,7 +844,12 @@ const Pipeline = () => {
         let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao').eq('organization_id', organizationId);
         dataQ = applyBaseFilters(dataQ) as any;
         dataQ = applyStageFilter(dataQ, stageId) as any;
-        const dataRes = await dataQ.order('position', { ascending: true }).order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1);
+        // A primeira coluna é a caixa de entrada do pipeline: nela, priorizamos
+        // sempre os leads mais recentes. As demais continuam respeitando a ordem
+        // manual definida por arrastar e soltar.
+        const dataRes = stageId === stageIds[0]
+          ? await dataQ.order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1)
+          : await dataQ.order('position', { ascending: true }).order('created_at', { ascending: false }).range(0, PAGE_SIZE - 1);
         return { stageId, count: stageCount, leads: (dataRes.data || []) as Lead[] };
       }));
       const allLeads: Lead[] = perStage.flatMap(r => r.leads);
@@ -964,10 +969,12 @@ const Pipeline = () => {
         query = query.eq('stage', stageId);
       }
 
-      const { data, error } = await query
-        .order('position', { ascending: true })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
+      const isFirstPipelineColumn = stageId === stages[0]?.id;
+      const orderedQuery = isFirstPipelineColumn
+        ? query.order('created_at', { ascending: false })
+        : query.order('position', { ascending: true }).order('created_at', { ascending: false });
+
+      const { data, error } = await orderedQuery.range(offset, offset + PAGE_SIZE - 1);
 
       if (error) throw error;
 
@@ -1261,9 +1268,18 @@ const Pipeline = () => {
       if (stageId) map.get(stageId)?.push(lead);
     }
 
-    for (const stageLeads of map.values()) {
-      stageLeads.sort((a, b) => (a.position || 0) - (b.position || 0));
+    // A primeira etapa recebe os leads recém-chegados; mantenha-os no topo.
+    const firstStageId = stages[0]?.id;
+    for (const [stageId, stageLeads] of map.entries()) {
+      if (stageId === firstStageId) {
+        stageLeads.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      } else {
+        stageLeads.sort((a, b) => (a.position || 0) - (b.position || 0));
+      }
     }
+
+      // A primeira etapa recebe os leads recém-chegados; mantenha-os no topo,
+      // independentemente de posições legadas ou de duplicidades de posição.
 
     return map;
   }, [filteredLeads, stages, usingCustomFunnel]);
