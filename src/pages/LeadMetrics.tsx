@@ -284,6 +284,19 @@ const LeadMetrics = () => {
     };
   };
 
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+
   const loadMetrics = async () => {
     try {
       if (!organizationId) return;
@@ -351,8 +364,12 @@ const LeadMetrics = () => {
         setManualAgeMetrics(null);
       }
 
-      // Load ads metrics
-      await loadAdsMetrics(organizationId!, startDate, endDate);
+      setLoading(false);
+      setUpdating(false);
+
+      // Campaign/Meta metrics depend on an Edge Function and external APIs.
+      // Keep them isolated so a slow provider never blocks the whole dashboard.
+      void loadAdsMetrics(organizationId!, startDate, endDate);
 
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
@@ -368,14 +385,18 @@ const LeadMetrics = () => {
       setAdsError(null);
       setAdsNeedsReconnect(false);
 
-      const { data, error } = await supabase.functions.invoke('fetch-ads-insights', {
-        body: {
-          organization_id: orgId,
-          start_date: format(startDate, 'yyyy-MM-dd'),
-          end_date: format(endDate, 'yyyy-MM-dd'),
-          ad_account_id: adAccountId || selectedAdAccountId || undefined
-        }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('fetch-ads-insights', {
+          body: {
+            organization_id: orgId,
+            start_date: format(startDate, 'yyyy-MM-dd'),
+            end_date: format(endDate, 'yyyy-MM-dd'),
+            ad_account_id: adAccountId || selectedAdAccountId || undefined
+          }
+        }),
+        25000,
+        'Tempo esgotado ao carregar métricas de anúncios'
+      );
 
       if (error) {
         console.error('Error fetching ads insights:', error);
