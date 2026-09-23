@@ -75,19 +75,30 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   const [loadingFunnels, setLoadingFunnels] = useState(false);
   const [loadingStages, setLoadingStages] = useState(false);
 
+  const normalizeInternationalPhoneDigits = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return (digits.startsWith("00") ? digits.slice(2) : digits).slice(0, 15);
+  };
+
   const formatPhoneNumber = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    
-    if (numbers.length <= 2) {
-      return `+${numbers}`;
-    } else if (numbers.length <= 4) {
-      return `+${numbers.slice(0, 2)} ${numbers.slice(2)}`;
-    } else if (numbers.length <= 9) {
-      return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4)}`;
-    } else if (numbers.length <= 13) {
-      return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 9)}-${numbers.slice(9)}`;
+    const numbers = normalizeInternationalPhoneDigits(value);
+
+    if (!numbers) return "";
+
+    // Keep the familiar mask for Brazil without guessing the area-code
+    // boundaries of foreign numbering plans.
+    if (numbers.startsWith("55")) {
+      if (numbers.length <= 2) return `+${numbers}`;
+      if (numbers.length <= 4) return `+${numbers.slice(0, 2)} ${numbers.slice(2)}`;
+      if (numbers.length <= 9) {
+        return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4)}`;
+      }
+      if (numbers.length <= 13) {
+        return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 9)}-${numbers.slice(9)}`;
+      }
     }
-    return `+${numbers.slice(0, 2)} ${numbers.slice(2, 4)} ${numbers.slice(4, 9)}-${numbers.slice(9, 13)}`;
+
+    return `+${numbers}`;
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,14 +107,8 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
   };
 
   const validatePhone = (phone: string): boolean => {
-    const numbers = phone.replace(/\D/g, '');
-    if (numbers.length < 12 || numbers.length > 13) {
-      return false;
-    }
-    if (!numbers.startsWith('55')) {
-      return false;
-    }
-    return true;
+    const numbers = normalizeInternationalPhoneDigits(phone);
+    return /^[1-9]\d{6,14}$/.test(numbers);
   };
 
   // Load funnels when modal opens
@@ -223,7 +228,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     }
 
     if (!validatePhone(telefone)) {
-      toast.error("Telefone inválido. Use o formato: +55 XX XXXXX-XXXX");
+      toast.error("Telefone inválido. Informe o código do país e de 7 a 15 dígitos.");
       return;
     }
 
@@ -334,13 +339,17 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
             </Label>
             <Input
               id="telefone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={telefone}
               onChange={handlePhoneChange}
-              placeholder="+55 11 99999-9999"
+              placeholder="+55 11 99999-9999 ou +1 415 555 2671"
+              aria-describedby="telefone-hint"
               required
             />
-            <p className="text-xs text-muted-foreground">
-              Formato: +55 XX XXXXX-XXXX
+            <p id="telefone-hint" className="text-xs text-muted-foreground">
+              Inclua o código do país. Aceita números nacionais e estrangeiros.
             </p>
           </div>
 
