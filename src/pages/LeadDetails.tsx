@@ -11,6 +11,7 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isMeetingScheduleActivity, parseMeetingSchedule } from "@/lib/meetingSchedule";
 
 interface LeadData {
   id: string;
@@ -183,6 +184,22 @@ const LeadDetails = () => {
     }
   };
 
+  const renderActivityContent = (activity: ActivityWithUser) => {
+    const schedule = isMeetingScheduleActivity(activity.activity_type)
+      ? parseMeetingSchedule(activity.content)
+      : null;
+
+    if (!schedule) return <p className="text-sm font-medium">{activity.content}</p>;
+
+    return (
+      <div className="text-sm">
+        <p className="font-medium">Data e horário: {format(schedule.scheduledAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+        {schedule.phone && <p className="text-muted-foreground">Telefone: {schedule.phone}</p>}
+        {schedule.notes && <p className="text-muted-foreground whitespace-pre-wrap">Obs.: {schedule.notes}</p>}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -239,7 +256,7 @@ const LeadDetails = () => {
                         {getActivityIcon(activity.activity_type)}
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{activity.content}</p>
+                        {renderActivityContent(activity)}
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatDateTime(activity.created_at)} • {activity.user_name}
                         </p>

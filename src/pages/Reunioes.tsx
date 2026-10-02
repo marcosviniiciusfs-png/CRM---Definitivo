@@ -30,6 +30,7 @@ import {
   subDays,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { parseMeetingSchedule } from "@/lib/meetingSchedule";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -160,27 +161,7 @@ const getAvatarStyle = (seed: string) => {
 };
 
 const parseMeetingDate = (content: string) => {
-  try {
-    const parsed = JSON.parse(content);
-    const rawDate = String(parsed?.data || parsed?.date || parsed?.dataHora || parsed?.datetime || "").trim();
-    const rawTime = String(parsed?.hora || parsed?.time || "00:00").trim();
-    if (!rawDate) return null;
-
-    if (rawDate.includes("T")) return parseISO(rawDate);
-
-    const normalizedTime = rawTime.length === 5 ? `${rawTime}:00` : rawTime;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return parseISO(`${rawDate}T${normalizedTime}`);
-
-    const brDate = rawDate.match(/^(\d{2})\/(\d{2})\/(\d{2}|\d{4})$/);
-    if (brDate) {
-      const [, day, month, year] = brDate;
-      const fullYear = year.length === 2 ? `20${year}` : year;
-      return parseISO(`${fullYear}-${month}-${day}T${normalizedTime}`);
-    }
-  } catch {
-    return null;
-  }
-  return null;
+  return parseMeetingSchedule(content)?.scheduledAt ?? null;
 };
 
 const isMeetingScheduleActivity = (activityType: string) => {
