@@ -1062,7 +1062,12 @@ const Pipeline = () => {
           }
         } catch {}
       });
-      setAgendamentosMap(map);
+      setAgendamentosMap((previous) => {
+        const next = { ...previous };
+        // Atualiza somente os leads consultados e também remove ícones que foram excluídos.
+        leadIds.forEach((leadId) => delete next[leadId]);
+        return { ...next, ...map };
+      });
     }
   };
 
