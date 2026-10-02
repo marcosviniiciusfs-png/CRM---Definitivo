@@ -905,9 +905,8 @@ const Pipeline = () => {
     setIsTabTransitioning(false);
     if (allLeads.length > 0) {
       const responsavelIds = [...new Set(allLeads.map((l: Lead) => l.responsavel_user_id).filter(Boolean))] as string[];
-      // Apenas carregar profiles (leve) - dados pesados (items, tags, agendamentos, redistribuição)
-      // serão carregados sob demanda ao clicar no olho ou editar
       loadProfiles(responsavelIds);
+      void loadAgendamentos(allLeads.map((lead: Lead) => lead.id));
     }
   }, [cachedLeadsResult]);
 
@@ -1018,6 +1017,7 @@ const Pipeline = () => {
         if (newResponsavelIds.length > 0) {
           loadProfiles(newResponsavelIds);
         }
+        void loadAgendamentos(data.map((lead) => lead.id));
       } else {
         // No more data
         setStagePagination(prev => ({
@@ -1117,12 +1117,17 @@ const Pipeline = () => {
     if (isDemo) return;
     if (leadIds.length === 0) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('lead_activities')
       .select('lead_id, activity_type, content, created_at')
       .in('lead_id', leadIds)
       .in('activity_type', ['Agendamento Reunião', 'Agendamento Venda'])
       .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao carregar agendamentos:', error);
+      return;
+    }
 
     if (data) {
       const map: Record<string, { reuniao?: string | null; venda?: string | null }> = {};
