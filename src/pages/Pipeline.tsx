@@ -44,6 +44,7 @@ import { useToggleNoShow } from "@/hooks/useToggleNoShow";
 import type { StatusReuniao } from "@/types/chat";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import { isDemoRoute } from "@/lib/demoMode";
+import { parseMeetingSchedule, toMeetingScheduleLocalISOString } from "@/lib/meetingSchedule";
 
 const AddLeadModal = lazy(() => import("@/components/AddLeadModal").then((module) => ({ default: module.AddLeadModal })));
 const ImportLeadsModal = lazy(() => import("@/components/ImportLeadsModal").then((module) => ({ default: module.ImportLeadsModal })));
@@ -487,8 +488,9 @@ const Pipeline = () => {
           const leadId = payload.new?.lead_id;
           if (!leadId || (activityType !== 'Agendamento Reunião' && activityType !== 'Agendamento Venda')) return;
           try {
-            const content = JSON.parse(payload.new.content);
-            const isoDate = `${content.data}T${content.hora}:00`;
+            const schedule = parseMeetingSchedule(payload.new.content);
+            if (!schedule) return;
+            const isoDate = toMeetingScheduleLocalISOString(schedule);
             setAgendamentosMap(prev => {
               const current = prev[leadId] || {};
               if (activityType === 'Agendamento Reunião') {
@@ -1127,8 +1129,8 @@ const Pipeline = () => {
       data.forEach((a: any) => {
         if (!map[a.lead_id]) map[a.lead_id] = {};
         try {
-          const parsed = JSON.parse(a.content);
-          const isoDate = parsed.data && parsed.hora ? `${parsed.data}T${parsed.hora}:00` : null;
+          const schedule = parseMeetingSchedule(a.content);
+          const isoDate = schedule ? toMeetingScheduleLocalISOString(schedule) : null;
           if (a.activity_type === 'Agendamento Reunião' && !map[a.lead_id].reuniao) {
             map[a.lead_id].reuniao = isoDate;
           } else if (a.activity_type === 'Agendamento Venda' && !map[a.lead_id].venda) {

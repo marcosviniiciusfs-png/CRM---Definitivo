@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
 import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { getLeadDuplicateMetadata } from "@/lib/leadDuplicate";
+import { isMeetingScheduleActivity, parseMeetingSchedule } from "@/lib/meetingSchedule";
 
 interface LeadDetailsDialogProps {
   open: boolean;
@@ -242,6 +243,23 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
   const formatDate = (date: string | null) => {
     if (!date) return "-";
     return format(new Date(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+  };
+
+  const renderActivityContent = (activity: ActivityWithUser) => {
+    const schedule = isMeetingScheduleActivity(activity.activity_type)
+      ? parseMeetingSchedule(activity.content)
+      : null;
+
+    if (!schedule) return <p className="text-sm whitespace-pre-wrap">{activity.content}</p>;
+
+    return (
+      <div className="space-y-1 text-sm">
+        <p className="font-medium">Data e horário: {format(schedule.scheduledAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+        {schedule.phone && <p className="text-muted-foreground">Telefone: {schedule.phone}</p>}
+        {schedule.value && <p className="text-muted-foreground">Valor: R$ {Number(schedule.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
+        {schedule.notes && <p className="whitespace-pre-wrap text-muted-foreground">Obs.: {schedule.notes}</p>}
+      </div>
+    );
   };
 
   return (
@@ -522,7 +540,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
                           {formatDate(activity.created_at)}
                         </span>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{activity.content}</p>
+                      {renderActivityContent(activity)}
 
                       {/* Anexo */}
                       {activity.attachment_name && activity.attachment_url && (

@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
 import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { getAppIcon } from "@/lib/iconRegistry";
+import { parseMeetingSchedule } from "@/lib/meetingSchedule";
 
 interface EditLeadModalProps {
   lead: Lead;
@@ -727,12 +728,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
   const renderAgendamentoContent = (content: string, tipo: string) => {
     try {
       const parsed = JSON.parse(content);
+      const schedule = parseMeetingSchedule(content);
+      if (!schedule) throw new Error("Agendamento inválido");
       return (
         <div className="space-y-1.5 text-sm">
           <div className="flex gap-2">
             <span className="text-muted-foreground text-xs">Data/Hora:</span>
             <span className="font-medium">
-              {format(new Date(`${parsed.data}T${parsed.hora}`), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              {format(schedule.scheduledAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </span>
           </div>
           {parsed.telefone && (
@@ -802,8 +805,9 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       setEditingAgendType(activity.activity_type as "Agendamento Reunião" | "Agendamento Venda");
       try {
         const parsed = JSON.parse(activity.content);
-        setEditingAgendData(parsed.data ? new Date(`${parsed.data}T${parsed.hora || '00:00'}`) : undefined);
-        setEditingAgendHora(parsed.hora || "10:00");
+        const schedule = parseMeetingSchedule(activity.content);
+        setEditingAgendData(schedule?.scheduledAt);
+        setEditingAgendHora(schedule?.time || parsed.hora || "10:00");
         setEditingAgendTelefone(parsed.telefone || "");
         setEditingAgendObs(parsed.observacoes || "");
         setEditingAgendValor(parsed.valor || "");
