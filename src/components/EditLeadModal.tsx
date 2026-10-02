@@ -686,16 +686,15 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
         content.lembrete_sent = "false";
       }
 
-      const { error } = await supabase
+      const { data: savedActivity, error } = await supabase
         .from("lead_activities")
-        .insert({
-          lead_id: lead.id,
-          user_id: user.id,
-          activity_type: tipo,
-          content: JSON.stringify(content),
-        });
+        .insert({ lead_id: lead.id, user_id: user.id, activity_type: tipo, content: JSON.stringify(content) })
+        .select("id")
+        .single();
+      const savedSchedule = savedActivity;
 
       if (error) throw error;
+      if (isReuniao && !savedSchedule) throw new Error("O agendamento não foi confirmado pelo servidor");
 
       const lembreteMsg = lembreteData
         ? ` Lembrete agendado para ${format(lembreteData, "dd/MM")} às ${lembreteHora}.`

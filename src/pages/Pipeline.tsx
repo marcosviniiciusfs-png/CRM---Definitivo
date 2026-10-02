@@ -843,7 +843,7 @@ const Pipeline = () => {
         if (stageCount === 0) {
           return { stageId, count: 0, leads: [] as Lead[] };
         }
-        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao').eq('organization_id', organizationId);
+        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao,data_agendamento_reuniao').eq('organization_id', organizationId);
         dataQ = applyBaseFilters(dataQ) as any;
         dataQ = applyStageFilter(dataQ, stageId) as any;
         // A primeira coluna é a caixa de entrada do pipeline: nela, priorizamos
@@ -944,7 +944,7 @@ const Pipeline = () => {
 
       let query = supabase
         .from('leads')
-        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data, status_reuniao')
+        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data, status_reuniao, data_agendamento_reuniao')
         .eq('organization_id', organizationId);
 
       // Aplicar filtro de permissão
@@ -1117,6 +1117,11 @@ const Pipeline = () => {
     if (isDemo) return;
     if (leadIds.length === 0) return;
 
+    const { data: persistedSchedules, error: persistedScheduleError } = await supabase
+      .from('leads')
+      .select('id, data_agendamento_reuniao')
+      .in('id', leadIds);
+
     const { data, error } = await supabase
       .from('lead_activities')
       .select('lead_id, activity_type, content, created_at')
@@ -1124,14 +1129,19 @@ const Pipeline = () => {
       .in('activity_type', ['Agendamento Reunião', 'Agendamento Venda'])
       .order('created_at', { ascending: false });
 
-    if (error) {
+    if (error && persistedScheduleError) {
       console.error('Erro ao carregar agendamentos:', error);
       return;
     }
 
-    if (data) {
+    if (data || persistedSchedules) {
       const map: Record<string, { reuniao?: string | null; venda?: string | null }> = {};
-      data.forEach((a: any) => {
+      persistedSchedules?.forEach((lead) => {
+        if (lead.data_agendamento_reuniao) {
+          map[lead.id] = { reuniao: lead.data_agendamento_reuniao };
+        }
+      });
+      (data || []).forEach((a: any) => {
         if (!map[a.lead_id]) map[a.lead_id] = {};
         try {
           const schedule = parseMeetingSchedule(a.content);

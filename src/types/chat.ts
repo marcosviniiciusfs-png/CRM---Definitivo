@@ -23,6 +23,7 @@ export interface Lead {
   data_inicio?: string | null;
   data_conclusao?: string | null;
   data_agendamento_venda?: string | null;
+  data_agendamento_reuniao?: string | null;
   idade?: number | null;
   is_online?: boolean | null;
   last_seen?: string | null;
