@@ -1145,7 +1145,12 @@ const Pipeline = () => {
           // Atividades antigas podem conter texto livre em vez de JSON.
         }
       });
-      setAgendamentosMap(map);
+      setAgendamentosMap((previous) => {
+        const next = { ...previous };
+        // Atualiza somente os leads consultados e também remove ícones que foram excluídos.
+        leadIds.forEach((leadId) => delete next[leadId]);
+        return { ...next, ...map };
+      });
     }
   };
 
