@@ -523,6 +523,26 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
           )}
         </div>
 
+        {channels.length > 0 && canManage && (
+          <div className="flex items-center justify-between gap-2 px-4 pt-3">
+            <p className="text-[11px] text-muted-foreground">
+              {missedAlerts > 0
+                ? `${missedAlerts} alerta(s) de lead perdido(s) nas últimas 24h`
+                : "Nenhum alerta de lead perdido nas últimas 24h"}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[10px]"
+              disabled={missedSending || missedAlerts === 0}
+              onClick={() => void handleSendMissedAlerts()}
+            >
+              {missedSending ? "Enviando..." : "Reenviar alertas perdidos"}
+            </Button>
+          </div>
+        )}
+
         {/* Channel List */}
         <div className="px-4 py-2 max-h-[62vh] overflow-y-auto">
           {loading ? (
@@ -658,25 +678,6 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                             })}
                           </div>
 
-                          {channel.lead_alerts_enabled && (
-                            <div className="flex items-center justify-between gap-2 border-t pt-2">
-                              <p className="text-[10px] text-muted-foreground">
-                                {missedAlerts > 0
-                                  ? `${missedAlerts} alerta(s) perdido(s) nas últimas 24h`
-                                  : "Nenhum alerta perdido nas últimas 24h"}
-                              </p>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-[10px]"
-                                disabled={!canManage || missedSending || missedAlerts === 0}
-                                onClick={() => void handleSendMissedAlerts()}
-                              >
-                                {missedSending ? "Enviando..." : "Reenviar alertas perdidos"}
-                              </Button>
-                            </div>
-                          )}
                         </div>
                       )}
                     </>
