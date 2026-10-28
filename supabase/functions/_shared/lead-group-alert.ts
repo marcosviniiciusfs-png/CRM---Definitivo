@@ -1,6 +1,8 @@
 import {
   getEvolutionApiKey,
   getEvolutionApiUrl,
+  getLiveInstanceState,
+  isConnectedState,
   normalizeUrl,
 } from "./evolution-config.ts";
 
@@ -10,6 +12,7 @@ interface LeadAlertInput {
   leadId: string;
   organizationId: string;
   sourceLabel: string;
+  waitForAssignment?: boolean;
 }
 
 const clean = (value: unknown, fallback = "Não informado") => {
@@ -78,7 +81,7 @@ async function resolveUserName(
     supabase
       .from("profiles")
       .select("full_name")
-      .eq("id", userId)
+      .eq("user_id", userId)
       .maybeSingle(),
   ]);
   return validResponsibleName(profile?.full_name) ||
@@ -167,9 +170,17 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
     return { sent: false, skipped: true, reason: "lead_not_found" };
   }
 
-  const assignedLead = await waitForAssignment(supabase, lead);
+  const assignedLead = input.waitForAssignment === false
+    ? lead
+    : await waitForAssignment(supabase, lead);
   const responsibleName = await resolveResponsibleName(supabase, assignedLead);
   if (!responsibleName) {
+    await writeLog(supabase, {
+      organization_id: input.organizationId,
+      lead_id: input.leadId,
+      status: "skipped",
+      error_message: "Lead sem responsável após aguardar distribuição",
+    });
     return { sent: false, skipped: true, reason: "assignment_pending" };
   }
   const leadForMessage = responsibleName
@@ -185,6 +196,12 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
     .maybeSingle();
 
   if (firstStage?.id && assignedLead.funnel_stage_id && firstStage.id !== assignedLead.funnel_stage_id) {
+    await writeLog(supabase, {
+      organization_id: input.organizationId,
+      lead_id: input.leadId,
+      status: "skipped",
+      error_message: "Lead não está na primeira etapa do funil no momento do envio",
+    });
     return { sent: false, skipped: true, reason: "not_first_stage" };
   }
 
@@ -210,7 +227,10 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
     return { sent: false, skipped: true, reason: "source_filtered" };
   }
 
-  const connected = ["connected", "open"].includes(String(channel.status || "").toLowerCase());
+  const liveState = await getLiveInstanceState(channel.instance_name);
+  const connected = liveState
+    ? isConnectedState(liveState)
+    : ["connected", "open"].includes(String(channel.status || "").toLowerCase());
   const validGroup = String(channel.lead_alert_group_id).endsWith("@g.us");
   if (!connected || !validGroup) {
     await writeLog(supabase, {
@@ -219,7 +239,9 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
       group_id: channel.lead_alert_group_id,
       lead_id: input.leadId,
       status: "error",
-      error_message: !connected ? `Canal ${channel.status || "desconhecido"}` : "Grupo de aviso inválido",
+      error_message: !connected
+        ? `Canal indisponível (banco=${channel.status || "desconhecido"}, evolution=${liveState || "sem resposta"})`
+        : "Grupo de aviso inválido",
     });
     return { sent: false, skipped: true, reason: !connected ? "channel_not_connected" : "invalid_group_id" };
   }
