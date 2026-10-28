@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getEdgeFunctionErrorMessage } from "@/lib/edge-function-error";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -365,19 +366,20 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     // The Edge Function expects `instanceId` (matches whatsapp_instances.id),
     // not `instance_name`. The previous payload made the function fail with
     // "Instance ID is required" → toast "Erro ao desconectar" no console.
-    const { data, error } = await supabase.functions.invoke("disconnect-whatsapp-instance", {
-      body: { instanceId: channel.id },
-    });
-
-    if (error || !data?.success) {
+    try {
+      const { data, error } = await supabase.functions.invoke("disconnect-whatsapp-instance", {
+        body: { instanceId: channel.id },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Não foi possível desconectar o canal.");
+      toast({ title: "Canal desconectado" });
+      await loadChannels();
+    } catch (error: unknown) {
       toast({
         title: "Erro ao desconectar",
-        description: data?.error || error?.message || undefined,
+        description: await getEdgeFunctionErrorMessage(error, "Não foi possível desconectar o canal."),
         variant: "destructive",
       });
-    } else {
-      toast({ title: "Canal desconectado" });
-      loadChannels();
     }
   };
 
@@ -537,11 +539,26 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                               <SelectValue placeholder={groupsLoading[channel.id] ? "Carregando grupos..." : "Selecionar grupo"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {(groupsByChannel[channel.id] || []).map((group) => (
-                                <SelectItem key={group.id} value={group.id}>
-                                  {group.subject}{group.size ? ` (${group.size})` : ""}
-                                </SelectItem>
-                              ))}
+                              {(() => {
+                                const groups = groupsByChannel[channel.id] || [];
+                                const selectedId = alertGroupDrafts[channel.id] || channel.lead_alert_group_id || "";
+                                const selectedInList = !selectedId || groups.some((group) => group.id === selectedId);
+                                return (
+                                  <>
+                                    {/* Mantém o grupo salvo visível mesmo quando a lista da Evolution não o traz */}
+                                    {!selectedInList && (
+                                      <SelectItem value={selectedId}>
+                                        Grupo salvo ({selectedId.split("@")[0]})
+                                      </SelectItem>
+                                    )}
+                                    {groups.map((group) => (
+                                      <SelectItem key={group.id} value={group.id}>
+                                        {group.subject}{group.size ? ` (${group.size})` : ""}
+                                      </SelectItem>
+                                    ))}
+                                  </>
+                                );
+                              })()}
                             </SelectContent>
                           </Select>
 
