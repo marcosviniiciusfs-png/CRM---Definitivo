@@ -322,17 +322,18 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       if (enabled) {
         const { error: disableError } = await supabase
           .from("whatsapp_instances")
-          .update({ lead_alerts_enabled: false, lead_alert_group_id: null })
+          .update({ lead_alerts_enabled: false })
           .eq("organization_id", organizationId)
           .neq("id", channel.id);
         if (disableError) throw disableError;
       }
 
+      // O grupo escolhido fica salvo mesmo com o aviso desligado.
       const { error } = await supabase
         .from("whatsapp_instances")
         .update({
           lead_alerts_enabled: enabled,
-          lead_alert_group_id: enabled ? groupId : null,
+          lead_alert_group_id: groupId || null,
           lead_alert_source_filters: sources,
         })
         .eq("id", channel.id)
@@ -342,7 +343,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       setChannels((current) => current.map((item) => ({
         ...item,
         lead_alerts_enabled: item.id === channel.id ? enabled : enabled ? false : item.lead_alerts_enabled,
-        lead_alert_group_id: item.id === channel.id ? (enabled ? groupId : null) : enabled ? null : item.lead_alert_group_id,
+        lead_alert_group_id: item.id === channel.id ? (groupId || null) : item.lead_alert_group_id,
         lead_alert_source_filters: item.id === channel.id ? sources : item.lead_alert_source_filters,
       })));
       toast({
@@ -360,6 +361,34 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     } finally {
       setAlertSaving(null);
     }
+  };
+
+  // Salva o grupo escolhido mesmo com o aviso desligado. Com o aviso ligado,
+  // reaproveita o fluxo de ativação para manter a regra de um canal por vez.
+  const handleAlertGroupSelect = async (channel: WhatsAppChannel, groupId: string) => {
+    if (!canManage || !organizationId) return;
+    setAlertGroupDrafts((current) => ({ ...current, [channel.id]: groupId }));
+    if (channel.lead_alerts_enabled) {
+      await handleLeadAlertToggle(channel, true, groupId);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("whatsapp_instances")
+      .update({ lead_alert_group_id: groupId })
+      .eq("id", channel.id)
+      .eq("organization_id", organizationId);
+    if (error) {
+      toast({
+        title: "Erro ao salvar grupo",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    setChannels((current) => current.map((item) => (
+      item.id === channel.id ? { ...item, lead_alert_group_id: groupId } : item
+    )));
   };
 
   const handleDisconnect = async (channel: WhatsAppChannel) => {
@@ -530,10 +559,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                           <Select
                             value={alertGroupDrafts[channel.id] || channel.lead_alert_group_id || ""}
                             disabled={!canManage || groupsLoading[channel.id]}
-                            onValueChange={(value) => {
-                              setAlertGroupDrafts((current) => ({ ...current, [channel.id]: value }));
-                              if (channel.lead_alerts_enabled) void handleLeadAlertToggle(channel, true, value);
-                            }}
+                            onValueChange={(value) => void handleAlertGroupSelect(channel, value)}
                           >
                             <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder={groupsLoading[channel.id] ? "Carregando grupos..." : "Selecionar grupo"} />
