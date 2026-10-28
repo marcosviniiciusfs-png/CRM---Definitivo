@@ -60,6 +60,8 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   const [alertSaving, setAlertSaving] = useState<string | null>(null);
   const [groupsByChannel, setGroupsByChannel] = useState<Record<string, WhatsAppGroupOption[]>>({});
   const [groupsLoading, setGroupsLoading] = useState<Record<string, boolean>>({});
+  const [missedAlerts, setMissedAlerts] = useState(0);
+  const [missedSending, setMissedSending] = useState(false);
 
   // Stale-while-revalidate: only the very first load shows the spinner.
   // Subsequent refetches (polling, post-action refreshes) keep the rendered
@@ -391,6 +393,46 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     )));
   };
 
+  // Alertas de leads das últimas 24h que não chegaram ao grupo.
+  const loadMissedAlerts = useCallback(async () => {
+    if (!organizationId) return;
+    const { data, error } = await supabase.functions.invoke("notify-new-lead-group", {
+      body: { mode: "count", organization_id: organizationId },
+    });
+    if (error || data?.success === false) return;
+    setMissedAlerts(Number(data?.missed) || 0);
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (open) void loadMissedAlerts();
+  }, [open, loadMissedAlerts]);
+
+  const handleSendMissedAlerts = async () => {
+    if (!canManage || !organizationId || missedSending) return;
+    setMissedSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("notify-new-lead-group", {
+        body: { mode: "sweep", organization_id: organizationId, window_hours: 24 },
+      });
+      if (error || data?.success === false) {
+        throw new Error(data?.error || error?.message || "Falha ao reenviar os alertas.");
+      }
+      toast({
+        title: "Alertas reenviados",
+        description: `${data?.attempted ?? 0} enviado(s) agora. ${data?.remaining ?? 0} restante(s) para o próximo envio.`,
+      });
+    } catch (error: unknown) {
+      toast({
+        title: "Erro ao reenviar alertas",
+        description: error instanceof Error ? error.message : "Não foi possível reenviar os alertas.",
+        variant: "destructive",
+      });
+    } finally {
+      setMissedSending(false);
+      void loadMissedAlerts();
+    }
+  };
+
   const handleDisconnect = async (channel: WhatsAppChannel) => {
     // The Edge Function expects `instanceId` (matches whatsapp_instances.id),
     // not `instance_name`. The previous payload made the function fail with
@@ -615,6 +657,26 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                               );
                             })}
                           </div>
+
+                          {channel.lead_alerts_enabled && (
+                            <div className="flex items-center justify-between gap-2 border-t pt-2">
+                              <p className="text-[10px] text-muted-foreground">
+                                {missedAlerts > 0
+                                  ? `${missedAlerts} alerta(s) perdido(s) nas últimas 24h`
+                                  : "Nenhum alerta perdido nas últimas 24h"}
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[10px]"
+                                disabled={!canManage || missedSending || missedAlerts === 0}
+                                onClick={() => void handleSendMissedAlerts()}
+                              >
+                                {missedSending ? "Enviando..." : "Reenviar alertas perdidos"}
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
