@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { WhatsAppChannel } from "@/types/whatsapp-channel";
+import { Plus, Trash2 } from "lucide-react";
+import { WhatsAppChannel, LeadAlertInterestRule } from "@/types/whatsapp-channel";
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { ChannelAssignMembersDialog } from "@/components/ChannelAssignMembersDialog";
 
@@ -19,6 +20,23 @@ const ALERT_SOURCES = [
 ] as const;
 const DEFAULT_ALERT_SOURCES = ALERT_SOURCES.map(({ value }) => value);
 type AlertSource = (typeof ALERT_SOURCES)[number]["value"];
+
+// Rascunho de uma regra de interesse: palavras separadas por vírgula e o texto que aparece no aviso.
+interface InterestRuleDraft {
+  keywords: string;
+  interest: string;
+}
+
+const toInterestRuleDrafts = (rules?: LeadAlertInterestRule[] | null): InterestRuleDraft[] =>
+  (rules || []).map((rule) => ({ keywords: (rule.keywords || []).join(", "), interest: rule.interest || "" }));
+
+const toInterestRules = (drafts: InterestRuleDraft[]): LeadAlertInterestRule[] =>
+  drafts
+    .map((draft) => ({
+      interest: draft.interest.replace(/\s+/g, " ").trim(),
+      keywords: draft.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean),
+    }))
+    .filter((rule) => rule.interest && rule.keywords.length > 0);
 
 interface WhatsAppGroupOption {
   id: string;
@@ -58,6 +76,8 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   const [alertGroupDrafts, setAlertGroupDrafts] = useState<Record<string, string>>({});
   const [alertSourceDrafts, setAlertSourceDrafts] = useState<Record<string, AlertSource[]>>({});
   const [alertSaving, setAlertSaving] = useState<string | null>(null);
+  const [interestRuleDrafts, setInterestRuleDrafts] = useState<Record<string, InterestRuleDraft[]>>({});
+  const [interestRulesSaving, setInterestRulesSaving] = useState<string | null>(null);
   const [groupsByChannel, setGroupsByChannel] = useState<Record<string, WhatsAppGroupOption[]>>({});
   const [groupsLoading, setGroupsLoading] = useState<Record<string, boolean>>({});
   const [missedAlerts, setMissedAlerts] = useState(0);
@@ -75,7 +95,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
 
     const { data, error } = await supabase
       .from("whatsapp_instances")
-      .select("id, instance_name, channel_name, channel_color, status, phone_number, created_at, connected_at, accepts_leads, lead_alerts_enabled, lead_alert_group_id, lead_alert_last_sent_at, lead_alert_source_filters")
+      .select("id, instance_name, channel_name, channel_color, status, phone_number, created_at, connected_at, accepts_leads, lead_alerts_enabled, lead_alert_group_id, lead_alert_last_sent_at, lead_alert_source_filters, lead_alert_interest_rules")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: true });
 
@@ -159,6 +179,13 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
             ? channel.lead_alert_source_filters
             : DEFAULT_ALERT_SOURCES) as AlertSource[];
         }
+      });
+      return next;
+    });
+    setInterestRuleDrafts((current) => {
+      const next = { ...current };
+      channels.forEach((channel) => {
+        if (next[channel.id] === undefined) next[channel.id] = toInterestRuleDrafts(channel.lead_alert_interest_rules);
       });
       return next;
     });
@@ -298,6 +325,47 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       : [...current, source];
     setAlertSourceDrafts((drafts) => ({ ...drafts, [channel.id]: next }));
     if (channel.lead_alerts_enabled) void handleLeadAlertToggle(channel, true, undefined, next);
+  };
+
+  const updateInterestRuleDraft = (channelId: string, index: number, patch: Partial<InterestRuleDraft>) => {
+    setInterestRuleDrafts((drafts) => ({
+      ...drafts,
+      [channelId]: (drafts[channelId] || []).map((draft, i) => (i === index ? { ...draft, ...patch } : draft)),
+    }));
+  };
+
+  const handleInterestRulesSave = async (channel: WhatsAppChannel) => {
+    if (!canManage || !organizationId) return;
+    const rules = toInterestRules(interestRuleDrafts[channel.id] || []);
+
+    setInterestRulesSaving(channel.id);
+    try {
+      const { error } = await supabase
+        .from("whatsapp_instances")
+        .update({ lead_alert_interest_rules: rules })
+        .eq("id", channel.id)
+        .eq("organization_id", organizationId);
+      if (error) throw error;
+
+      setChannels((current) => current.map((item) => (
+        item.id === channel.id ? { ...item, lead_alert_interest_rules: rules } : item
+      )));
+      setInterestRuleDrafts((drafts) => ({ ...drafts, [channel.id]: toInterestRuleDrafts(rules) }));
+      toast({
+        title: "Regras de interesse salvas",
+        description: rules.length
+          ? "Os próximos avisos usarão essas regras na primeira mensagem do lead."
+          : "Nenhuma regra ativa: o aviso mostrará \"Não informado\" para leads do WhatsApp.",
+      });
+    } catch (error: unknown) {
+      toast({
+        title: "Erro ao salvar regras",
+        description: error instanceof Error ? error.message : "Não foi possível salvar as regras de interesse.",
+        variant: "destructive",
+      });
+    } finally {
+      setInterestRulesSaving(null);
+    }
   };
 
   const handleLeadAlertToggle = async (
@@ -678,6 +746,76 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                             })}
                           </div>
 
+                          <div className="space-y-1.5 border-t pt-2">
+                            <p className="text-[11px] font-semibold">Interesse do lead (WhatsApp)</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Se a primeira mensagem tiver uma das palavras, o aviso mostra o interesse. Vale a
+                              primeira regra que bater. Ex.: palavra "moto" → interesse "Moto".
+                            </p>
+                            {(interestRuleDrafts[channel.id] || []).map((draft, index) => (
+                              <div key={index} className="flex items-center gap-1.5">
+                                <Input
+                                  value={draft.keywords}
+                                  disabled={!canManage || interestRulesSaving === channel.id}
+                                  onChange={(event) => updateInterestRuleDraft(channel.id, index, { keywords: event.target.value })}
+                                  placeholder="Palavras (separe por vírgula)"
+                                  className="h-7 flex-1 text-[11px]"
+                                  aria-label="Palavras da primeira mensagem"
+                                />
+                                <span className="text-[10px] text-muted-foreground">→</span>
+                                <Input
+                                  value={draft.interest}
+                                  disabled={!canManage || interestRulesSaving === channel.id}
+                                  onChange={(event) => updateInterestRuleDraft(channel.id, index, { interest: event.target.value })}
+                                  placeholder="Interesse"
+                                  maxLength={80}
+                                  className="h-7 w-28 text-[11px]"
+                                  aria-label="Interesse mostrado no aviso"
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 shrink-0"
+                                  disabled={!canManage || interestRulesSaving === channel.id}
+                                  onClick={() => setInterestRuleDrafts((drafts) => ({
+                                    ...drafts,
+                                    [channel.id]: (drafts[channel.id] || []).filter((_, i) => i !== index),
+                                  }))}
+                                  aria-label="Remover regra"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                            {canManage && (
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[10px]"
+                                  disabled={interestRulesSaving === channel.id}
+                                  onClick={() => setInterestRuleDrafts((drafts) => ({
+                                    ...drafts,
+                                    [channel.id]: [...(drafts[channel.id] || []), { keywords: "", interest: "" }],
+                                  }))}
+                                >
+                                  <Plus className="mr-1 h-3 w-3" />
+                                  Adicionar regra
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-7 px-2 text-[10px]"
+                                  disabled={interestRulesSaving === channel.id}
+                                  onClick={() => void handleInterestRulesSave(channel)}
+                                >
+                                  {interestRulesSaving === channel.id ? "Salvando..." : "Salvar regras"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </>

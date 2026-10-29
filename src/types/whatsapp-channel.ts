@@ -12,4 +12,11 @@ export interface WhatsAppChannel {
   lead_alert_group_id?: string | null;
   lead_alert_last_sent_at?: string | null;
   lead_alert_source_filters?: string[] | null;
+  lead_alert_interest_rules?: LeadAlertInterestRule[] | null;
 }
+
+// type alias (not interface) so it stays assignable to the generated Supabase Json type.
+export type LeadAlertInterestRule = {
+  interest: string;
+  keywords: string[];
+};

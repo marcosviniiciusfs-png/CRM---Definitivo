@@ -3418,6 +3418,7 @@ export type Database = {
           lead_alert_group_id: string | null
           lead_alert_last_sent_at: string | null
           lead_alert_source_filters: string[]
+          lead_alert_interest_rules: Json
           lead_alerts_enabled: boolean
           organization_id: string | null
           phone_number: string | null
@@ -3438,6 +3439,7 @@ export type Database = {
           lead_alert_group_id?: string | null
           lead_alert_last_sent_at?: string | null
           lead_alert_source_filters?: string[]
+          lead_alert_interest_rules?: Json
           lead_alerts_enabled?: boolean
           organization_id?: string | null
           phone_number?: string | null
@@ -3458,6 +3460,7 @@ export type Database = {
           lead_alert_group_id?: string | null
           lead_alert_last_sent_at?: string | null
           lead_alert_source_filters?: string[]
+          lead_alert_interest_rules?: Json
           lead_alerts_enabled?: boolean
           organization_id?: string | null
           phone_number?: string | null
