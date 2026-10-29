@@ -13,7 +13,16 @@ interface LeadAlertInput {
   organizationId: string;
   sourceLabel: string;
   waitForAssignment?: boolean;
+  // Texto da primeira mensagem do lead; comparado com as regras de interesse do canal.
+  firstMessage?: string | null;
 }
+
+interface InterestRule {
+  interest: string;
+  keywords: string[];
+}
+
+const INTEREST_MAX_LENGTH = 80;
 
 const clean = (value: unknown, fallback = "Não informado") => {
   const text = String(value ?? "").trim();
@@ -56,6 +65,61 @@ function getInterest(lead: any) {
   if (explicit) return fieldValue(explicit);
 
   return lead?.descricao_negocio || null;
+}
+
+function parseInterestRules(value: unknown): InterestRule[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((rule: any) => ({
+      interest: String(rule?.interest ?? "").replace(/\s+/g, " ").trim().slice(0, INTEREST_MAX_LENGTH),
+      keywords: (Array.isArray(rule?.keywords) ? rule.keywords : [])
+        .map((keyword: unknown) => normalizeText(keyword))
+        .filter(Boolean),
+    }))
+    .filter((rule) => rule.interest && rule.keywords.length > 0);
+}
+
+// Palavra inteira, sem diferenciar maiúsculas/acentos; aceita plural simples ("moto" acha "motos").
+function messageHasKeyword(normalizedMessage: string, keyword: string) {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${escaped}(s|es)?([^a-z0-9]|$)`).test(normalizedMessage);
+}
+
+function matchInterestRule(rules: InterestRule[], message: string) {
+  const normalizedMessage = normalizeText(message);
+  if (!normalizedMessage) return null;
+  const rule = rules.find((item) => item.keywords.some((keyword) => messageHasKeyword(normalizedMessage, keyword)));
+  return rule?.interest || null;
+}
+
+// Interesse estruturado (Facebook, formulários) tem prioridade. Sem ele, as regras do canal
+// são aplicadas à primeira mensagem do lead. O texto da mensagem nunca vai direto ao aviso.
+async function resolveInterest(
+  supabase: SupabaseAdmin,
+  lead: any,
+  firstMessage: string | null | undefined,
+  rawRules: unknown,
+) {
+  const structured = getInterest(lead);
+  if (structured) return structured;
+
+  const rules = parseInterestRules(rawRules);
+  if (rules.length === 0) return null;
+
+  const fromInput = firstMessage ? matchInterestRule(rules, firstMessage) : null;
+  if (fromInput) return fromInput;
+
+  // Reenvios (varredura) não têm a mensagem em mãos: busca a primeira recebida do lead.
+  if (firstMessage || normalizeSource(lead?.source) !== "whatsapp") return null;
+  const { data: message } = await supabase
+    .from("mensagens_chat")
+    .select("corpo_mensagem")
+    .eq("id_lead", lead.id)
+    .eq("direcao", "ENTRADA")
+    .order("data_hora", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return matchInterestRule(rules, String(message?.corpo_mensagem ?? ""));
 }
 
 function validResponsibleName(value: unknown) {
@@ -130,14 +194,14 @@ async function waitForAssignment(supabase: SupabaseAdmin, lead: any) {
   return latest;
 }
 
-function buildMessage(lead: any, sourceLabel: string) {
+function buildMessage(lead: any, sourceLabel: string, interest: unknown) {
   return [
     "🚨 *Novo lead recebido*",
     "",
     `👤 *Nome:* ${clean(lead?.nome_lead)}`,
     `📞 *Telefone:* ${clean(lead?.telefone_lead)}`,
     `🙋 *Responsável:* ${clean(lead?.responsavel, "Sem responsável")}`,
-    `🎯 *Interesse:* ${clean(getInterest(lead))}`,
+    `🎯 *Interesse:* ${clean(interest)}`,
     `📍 *Origem:* ${clean(sourceLabel || lead?.source)}`,
   ].join("\n");
 }
@@ -207,7 +271,7 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
 
   const { data: channel } = await supabase
     .from("whatsapp_instances")
-    .select("id, instance_name, organization_id, status, lead_alert_group_id, lead_alert_last_sent_at, lead_alert_source_filters")
+    .select("id, instance_name, organization_id, status, lead_alert_group_id, lead_alert_last_sent_at, lead_alert_source_filters, lead_alert_interest_rules")
     .eq("organization_id", input.organizationId)
     .eq("lead_alerts_enabled", true)
     .not("lead_alert_group_id", "is", null)
@@ -252,7 +316,13 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
   const waitMs = 3500 - (Date.now() - lastSent);
   if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
 
-  const text = buildMessage(leadForMessage, input.sourceLabel);
+  const interest = await resolveInterest(
+    supabase,
+    leadForMessage,
+    input.firstMessage,
+    channel.lead_alert_interest_rules,
+  );
+  const text = buildMessage(leadForMessage, input.sourceLabel, interest);
   const response = await fetch(
     `${normalizeUrl(getEvolutionApiUrl())}/message/sendText/${encodeURIComponent(channel.instance_name)}`,
     {
