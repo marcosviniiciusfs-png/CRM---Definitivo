@@ -109,13 +109,15 @@ async function resolveInterest(
   const fromInput = firstMessage ? matchInterestRule(rules, firstMessage) : null;
   if (fromInput) return fromInput;
 
-  // Reenvios (varredura) não têm a mensagem em mãos: busca a primeira recebida do lead.
+  // Reenvios (varredura) não têm a mensagem em mãos: busca a primeira mensagem de texto recebida
+  // do lead (mídia é gravada como "[Áudio]" etc. e não serve para as regras).
   if (firstMessage || normalizeSource(lead?.source) !== "whatsapp") return null;
   const { data: message } = await supabase
     .from("mensagens_chat")
     .select("corpo_mensagem")
     .eq("id_lead", lead.id)
     .eq("direcao", "ENTRADA")
+    .is("media_type", null)
     .order("data_hora", { ascending: true })
     .limit(1)
     .maybeSingle();
