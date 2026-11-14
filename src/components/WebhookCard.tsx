@@ -44,7 +44,7 @@ export const WebhookCard = ({
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(webhookUrl);
     setCopied(true);
-    toast.success("URL copiada para a área de transferência!");
+    toast.success("URL copiada.");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -80,12 +80,12 @@ export const WebhookCard = ({
       {/* Informações */}
       <CardContent className="pt-3 space-y-2 text-sm">
         <div>
-          <span className="text-muted-foreground">Etapa Padrão:</span>{" "}
+          <span className="text-muted-foreground">Etapa padrão:</span>{" "}
           <span className="font-medium">{stageName || "NOVO LEAD"}</span>
         </div>
         <div>
           <span className="text-muted-foreground">Responsável:</span>{" "}
-          <span className="font-medium">{responsibleName || "Distribuição Automática"}</span>
+          <span className="font-medium">{responsibleName || "Roleta"}</span>
         </div>
         <div className="flex items-center gap-1 flex-wrap">
           <span className="text-muted-foreground">Tags:</span>

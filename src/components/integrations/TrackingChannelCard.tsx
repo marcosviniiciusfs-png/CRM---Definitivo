@@ -51,7 +51,7 @@ export function TrackingChannelCard({ channel, canEdit, onCardClick, onToggle }:
             checked={enabled}
             disabled={!canEdit}
             onCheckedChange={onToggle}
-            aria-label="Trackear este canal"
+            aria-label="Rastrear este canal"
             className="data-[state=checked]:bg-green-500"
           />
         </div>
@@ -65,7 +65,7 @@ export function TrackingChannelCard({ channel, canEdit, onCardClick, onToggle }:
               {keywordCount === 1 ? 'palavra' : 'palavras'}
             </span>
             {channel.rule?.detect_unknown_contacts && (
-              <span className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" title="Detecta números desconhecidos">
+              <span className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" title="Detecta números que não estão na agenda">
                 <UserX className="h-3 w-3" />
                 desconhecidos
               </span>

@@ -35,7 +35,7 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
     {
       id: "meta_pixel",
       name: "Meta Conversions API",
-      description: "Envie eventos de conversão para o Meta Ads automaticamente",
+      description: "Envie eventos de conversão ao Meta Ads automaticamente.",
       icon: <img src={metaPixelIcon} alt="Meta Pixel" className="h-6 w-6" />,
       status: "available",
       component: MetaPixelConnection,
@@ -43,7 +43,7 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
     {
       id: "google_calendar",
       name: "Google Calendar",
-      description: "Agende reuniões e eventos automaticamente com leads",
+      description: "Agende reuniões com leads automaticamente.",
       icon: <img src={googleCalendarIcon} alt="Google Calendar" className="h-6 w-6" />,
       status: "available",
       component: GoogleCalendarConnection,
@@ -51,49 +51,49 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
     {
       id: "gmail",
       name: "Gmail",
-      description: "Envie e-mails diretamente do CRM com templates",
+      description: "Envie e-mails do CRM com modelos prontos.",
       icon: <img src={gmailIcon} alt="Gmail" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "google_meet",
       name: "Google Meet",
-      description: "Gere links de reunião automaticamente",
+      description: "Gere links de reunião automaticamente.",
       icon: <img src={googleMeetIcon} alt="Google Meet" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "google_sheets",
       name: "Google Sheets",
-      description: "Exporte dados e crie relatórios personalizados",
+      description: "Exporte dados e crie relatórios personalizados.",
       icon: <img src={googleSheetsIcon} alt="Google Sheets" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "slack",
       name: "Slack",
-      description: "Notificações em tempo real no seu workspace",
+      description: "Receba avisos em tempo real no seu workspace.",
       icon: <img src={slackIcon} alt="Slack" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "mercado_pago",
       name: "Mercado Pago",
-      description: "Gere links de pagamento e acompanhe status",
+      description: "Gere links de pagamento e acompanhe o status.",
       icon: <img src={mercadoPagoIcon} alt="Mercado Pago" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "instagram",
       name: "Instagram Direct",
-      description: "Receba mensagens do Instagram no chat",
+      description: "Receba mensagens do Instagram no chat.",
       icon: <img src={instagramIcon} alt="Instagram" className="h-6 w-6" />,
       status: "coming_soon",
     },
     {
       id: "notion",
       name: "Notion",
-      description: "Sincronize tarefas do Kanban com o Notion",
+      description: "Sincronize as tarefas do Kanban com o Notion.",
       icon: <img src={notionIcon} alt="Notion" className="h-6 w-6" />,
       status: "coming_soon",
     },
@@ -124,9 +124,9 @@ export const IntegrationsModal = ({ open, onOpenChange }: IntegrationsModalProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Integrações Disponíveis</DialogTitle>
+          <DialogTitle>Integrações disponíveis</DialogTitle>
           <DialogDescription>
-            Conecte ferramentas externas ao CRM para automatizar seu trabalho
+            Conecte ferramentas externas ao CRM para automatizar o trabalho da equipe.
           </DialogDescription>
         </DialogHeader>
 

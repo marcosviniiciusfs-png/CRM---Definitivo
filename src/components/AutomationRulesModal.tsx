@@ -32,25 +32,25 @@ interface AutomationRule {
 }
 
 const TRIGGER_TYPES = [
-  { value: "WHATSAPP_FIRST_MESSAGE", label: "Primeira mensagem do Lead (WhatsApp)" },
-  { value: "LEAD_CREATED_META_FORM", label: "Lead criado via Meta Ads" },
-  { value: "LEAD_STAGE_CHANGED", label: "Etapa do Lead alterada" },
+  { value: "WHATSAPP_FIRST_MESSAGE", label: "Primeira mensagem do lead (WhatsApp)" },
+  { value: "LEAD_CREATED_META_FORM", label: "Lead criado pelo Meta Ads" },
+  { value: "LEAD_STAGE_CHANGED", label: "Etapa do lead alterada" },
   { value: "NEW_INCOMING_MESSAGE", label: "Nova mensagem recebida" },
 ];
 
 const CONDITION_TYPES = [
   { value: "MESSAGE_CONTENT", label: "Conteúdo da mensagem" },
   { value: "LAST_CONVERSATION_ACTIVITY", label: "Última atividade" },
-  { value: "AGENT_RESPONSE_TIME", label: "Tempo de resposta do agente" },
+  { value: "AGENT_RESPONSE_TIME", label: "Tempo de resposta do responsável" },
   { value: "TIME_OF_DAY", label: "Horário do dia" },
   { value: "ALWAYS_TRUE", label: "Sempre executar" },
 ];
 
 const ACTION_TYPES = [
-  { value: "SET_TYPING_STATUS", label: "Digitação com delay" },
+  { value: "SET_TYPING_STATUS", label: "Digitação com atraso" },
   { value: "SEND_PREDEFINED_MESSAGE", label: "Enviar mensagem pronta" },
   { value: "CHANGE_FUNNEL_STAGE", label: "Mudar etapa do funil" },
-  { value: "ASSIGN_TO_AGENT", label: "Atribuir para agente" },
+  { value: "ASSIGN_TO_AGENT", label: "Atribuir a um responsável" },
 ];
 
 const FUNNEL_STAGES = ["NOVO", "QUALIFICACAO", "CONTATO_FEITO", "PROPOSTA", "NEGOCIACAO", "GANHO", "PERDIDO", "DESCARTADO"];
@@ -76,7 +76,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
       case "TIME_OF_DAY":
         return `Horário: ${condition.start_time} - ${condition.end_time}`;
       case "AGENT_RESPONSE_TIME":
-        return `Agente sem responder há ${condition.minutes} minutos`;
+        return `Responsável sem responder há ${condition.minutes} minutos`;
       case "LAST_CONVERSATION_ACTIVITY":
         return `Sem atividade há ${condition.days} dias`;
       case "ALWAYS_TRUE":
@@ -97,7 +97,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
       case "CHANGE_FUNNEL_STAGE":
         return `Mudar para etapa: ${action.config?.stage}`;
       case "ASSIGN_TO_AGENT":
-        return `Atribuir para: ${action.config?.agent_email}`;
+        return `Atribuir a: ${action.config?.agent_email}`;
       default:
         return "Ação não especificada";
     }
@@ -143,12 +143,13 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
     onSuccess: (data) => {
       console.log('Rule created successfully with data:', JSON.stringify(data, null, 2));
       queryClient.invalidateQueries({ queryKey: ["automation-rules"] });
-      toast.success("Regra criada com sucesso!");
+      toast.success("Regra criada.");
       resetForm();
       setActiveTab("list");
     },
     onError: (error: any) => {
-      toast.error("Erro ao criar regra: " + error.message);
+      console.error("Erro ao criar regra:", error);
+      toast.error("Não foi possível criar a regra. Tente novamente.");
     },
   });
 
@@ -163,7 +164,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automation-rules"] });
-      toast.success("Regra atualizada!");
+      toast.success("Regra atualizada.");
       resetForm();
       setActiveTab("list");
     },
@@ -180,7 +181,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automation-rules"] });
-      toast.success("Regra excluída!");
+      toast.success("Regra excluída.");
     },
   });
 
@@ -207,7 +208,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
 
   const handleSave = () => {
     if (!name || !triggerType || actions.length === 0) {
-      toast.error("Preencha os campos obrigatórios");
+      toast.error("Preencha o nome, o gatilho e ao menos uma ação.");
       return;
     }
 
@@ -277,24 +278,24 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Regras de Automação</DialogTitle>
+          <DialogTitle className="text-2xl">Regras de automação</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-            <TabsTrigger value="list" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Minhas Regras</TabsTrigger>
+            <TabsTrigger value="list" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Minhas regras</TabsTrigger>
             <TabsTrigger value="create" className="rounded-none px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200" onClick={() => {
               if (activeTab !== "create") {
                 resetForm();
               }
             }}>
-              {editingRule ? "Editar Regra" : "Nova Regra"}
+              {editingRule ? "Editar regra" : "Nova regra"}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="list" className="space-y-4">
             {isLoading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="text-center py-8">Carregando…</div>
             ) : rules && rules.length > 0 ? (
               <Accordion type="single" collapsible className="w-full">
                 {rules.map((rule) => (
@@ -339,7 +340,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm("Tem certeza que deseja excluir esta regra?")) {
+                            if (confirm("Excluir esta regra? Não dá para desfazer.")) {
                               deleteMutation.mutate(rule.id);
                             }
                           }}
@@ -361,7 +362,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                           <div className="flex items-start gap-2">
                             <Zap className="h-4 w-4 mt-1 text-yellow-500" />
                             <div>
-                              <div className="font-semibold text-sm">GATILHO</div>
+                              <div className="font-semibold text-sm">Gatilho</div>
                               <div className="text-sm text-muted-foreground">
                                 {TRIGGER_TYPES.find((t) => t.value === rule.trigger_type)?.label}
                               </div>
@@ -372,7 +373,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                             <div className="flex items-start gap-2">
                               <Target className="h-4 w-4 mt-1 text-blue-500" />
                               <div className="flex-1">
-                                <div className="font-semibold text-sm">CONDIÇÕES</div>
+                                <div className="font-semibold text-sm">Condições</div>
                                 <ul className="text-sm text-muted-foreground space-y-1 mt-1">
                                   {rule.conditions.map((condition, idx) => (
                                     <li key={idx}>• {renderConditionDetail(condition)}</li>
@@ -385,7 +386,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                           <div className="flex items-start gap-2">
                             <PlayCircle className="h-4 w-4 mt-1 text-green-500" />
                             <div className="flex-1">
-                              <div className="font-semibold text-sm">AÇÕES (executadas em ordem)</div>
+                              <div className="font-semibold text-sm">Ações (executadas em ordem)</div>
                               <ol className="text-sm text-muted-foreground space-y-1 mt-1">
                                 {rule.actions.map((action, idx) => (
                                   <li key={idx}>{idx + 1}. {renderActionDetail(action)}</li>
@@ -401,7 +402,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
               </Accordion>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                Nenhuma regra criada ainda. Crie sua primeira regra de automação!
+                Nenhuma regra de automação ainda. Crie a primeira na aba "Nova regra".
               </div>
             )}
           </TabsContent>
@@ -409,7 +410,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
           <TabsContent value="create" className="space-y-6">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Nome da Regra *</Label>
+                <Label htmlFor="name">Nome da regra *</Label>
                 <Input
                   id="name"
                   value={name}
@@ -674,7 +675,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                               placeholder="10"
                             />
                             <p className="text-xs text-muted-foreground mt-1">
-                              Tempo que o efeito "digitando..." aparecerá antes da mensagem
+                              Tempo em que o aviso "digitando…" aparece antes da mensagem.
                             </p>
                           </div>
                         </div>
@@ -693,7 +694,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                               };
                               setActions(newActions);
                             }}
-                            placeholder="Digite a mensagem a ser enviada"
+                            placeholder="Digite a mensagem que será enviada"
                           />
                         </div>
                       )}
@@ -725,7 +726,7 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
 
                       {action.type === "ASSIGN_TO_AGENT" && (
                         <div className="flex-1">
-                          <Label>E-mail do agente</Label>
+                          <Label>E-mail do responsável</Label>
                           <Input
                             value={action.config.agent_email || ""}
                             onChange={(e) => {
@@ -765,10 +766,10 @@ export function AutomationRulesModal({ open, onOpenChange }: AutomationRulesModa
                   disabled={createMutation.isPending || updateMutation.isPending}
                 >
                   {createMutation.isPending || updateMutation.isPending 
-                    ? "Salvando..." 
+                    ? "Salvando…" 
                     : editingRule 
-                      ? "Atualizar Regra" 
-                      : "Criar Regra"
+                      ? "Atualizar regra" 
+                      : "Criar regra"
                   }
                 </Button>
               </div>

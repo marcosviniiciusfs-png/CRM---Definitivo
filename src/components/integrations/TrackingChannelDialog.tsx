@@ -125,7 +125,7 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
             <span className="text-sm text-muted-foreground font-normal">{phoneLabel}</span>
           </DialogTitle>
           <DialogDescription>
-            Configure palavras-chave para identificar leads que vêm de anúncios e veja as estatísticas de trackeamento.
+            Cadastre palavras-chave para identificar leads que vêm de anúncios e veja as estatísticas do rastreamento.
           </DialogDescription>
         </DialogHeader>
 
@@ -133,9 +133,9 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
           {/* Toggle */}
           <div className="flex items-center justify-between p-3 border border-border rounded-md bg-muted/30">
             <div>
-              <Label className="text-sm font-medium">Trackear este canal</Label>
+              <Label className="text-sm font-medium">Rastrear este canal</Label>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Quando ativo, leads cuja primeira mensagem bate em alguma keyword recebem a tag "Lead de anúncio".
+                Com o rastreamento ativo, o lead cuja primeira mensagem tiver alguma palavra-chave recebe a tag "Lead de anúncio".
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -144,7 +144,7 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
                 checked={enabled}
                 disabled={!canEdit}
                 onCheckedChange={handleToggle}
-                aria-label="Trackear este canal"
+                aria-label="Rastrear este canal"
                 className="data-[state=checked]:bg-green-500"
               />
             </div>
@@ -158,8 +158,8 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
             <div>
               <Label className="text-sm font-medium">Detectar contatos desconhecidos</Label>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Tagueia leads cujo número não está na agenda do aparelho do canal.
-                Útil pra pegar leads que apagaram a mensagem pré-preenchida do anúncio.
+                Marca leads cujo número não está na agenda do aparelho do canal.
+                Útil para pegar quem apagou a mensagem pré-preenchida do anúncio.
               </p>
             </div>
             <Switch
@@ -174,26 +174,26 @@ export function TrackingChannelDialog({ channel, canEdit, onClose, onSave }: Pro
           {/* Keywords editor */}
           <div className={cn(!enabled && "opacity-50 pointer-events-none")}>
             <Label className="text-sm font-medium block mb-1.5">
-              Palavras-chave (qualquer match)
+              Palavras-chave (qualquer uma vale)
             </Label>
             <KeywordsInput
               value={keywords}
               onChange={handleKeywordsChange}
               disabled={!canEdit || !enabled}
-              placeholder={enabled ? "Digite uma frase ou palavra-chave" : "Ative o trackeamento primeiro"}
+              placeholder={enabled ? "Digite uma frase ou palavra-chave" : "Ative o rastreamento primeiro"}
             />
 
             <div className="flex items-start gap-1.5 mt-2 text-[11px] text-muted-foreground">
               <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
               <span>
-                Compara sem distinguir maiúsculas/acentos. Mensagens de leads novos que contiverem
-                qualquer uma dessas palavras receberão a tag <strong>Lead de anúncio</strong>.
+                A busca ignora maiúsculas e acentos. Leads novos cuja mensagem tiver
+                qualquer uma dessas palavras recebem a tag <strong>Lead de anúncio</strong>.
               </span>
             </div>
 
             {enabled && keywords.length === 0 && (
               <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-                ⚠ Nenhuma palavra cadastrada — nenhum lead será tagueado.
+                Nenhuma palavra-chave cadastrada. Nenhum lead receberá a tag.
               </div>
             )}
           </div>

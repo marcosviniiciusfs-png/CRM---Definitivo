@@ -135,14 +135,14 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       }
 
       if (fbStatus === 'success' && !isPopup) {
-        toast.success('Facebook conectado com sucesso!');
+        toast.success('Facebook conectado.');
         window.history.replaceState({}, '', window.location.pathname);
         if (integrationData) {
           setTimeout(() => fetchLeadForms(integrationData), 1000);
         }
       } else if (fbStatus === 'error' && !isPopup) {
-        const errorMessage = urlParams.get('message') || 'Erro ao conectar com Facebook';
-        toast.error(errorMessage);
+        console.error('[FB-CONN] Erro ao conectar com o Facebook:', urlParams.get('message'));
+        toast.error('Não foi possível conectar o Facebook. Tente novamente.');
         window.history.replaceState({}, '', window.location.pathname);
       }
     };
@@ -186,7 +186,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
         <h2 className="text-xl font-semibold">Conectando ao Facebook</h2>
-        <p className="text-muted-foreground mt-2">Sincronizando dados com a sua conta... Esta janela fechara automaticamente em instantes.</p>
+        <p className="text-muted-foreground mt-2">Sincronizando dados da sua conta. Esta janela fecha sozinha em instantes.</p>
       </div>
     );
   }
@@ -199,7 +199,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           Facebook Leads
         </CardTitle>
         <CardDescription>
-          Conecte sua conta do Facebook para receber leads automaticamente das suas campanhas de anuncios
+          Conecte sua conta do Facebook para receber leads das suas campanhas de anúncios automaticamente.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -207,7 +207,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertDescription className="text-sm text-green-800 dark:text-green-200">
-              <strong>Conexao estabelecida!</strong> Configure o funil de destino para cada formulario abaixo.
+              <strong>Facebook conectado.</strong> Escolha o funil de cada formulário abaixo.
             </AlertDescription>
           </Alert>
         )}
@@ -217,8 +217,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <AlertDescription className="text-sm text-amber-800 dark:text-amber-200 flex items-start justify-between gap-3">
               <span>
-                <strong>Reconexao necessaria.</strong> O token de acesso expirou.
-                Desconecte e reconecte para restaurar o acesso.
+                <strong>Reconexão necessária.</strong> O acesso ao Facebook expirou.
+                Desconecte e conecte de novo para restaurar o acesso.
               </span>
             </AlertDescription>
           </Alert>
@@ -234,17 +234,17 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
               <AlertCircle className="h-5 w-5 text-muted-foreground" />
             )}
             <div>
-              <p className="font-medium">Status da Conexao</p>
+              <p className="font-medium">Status da conexão</p>
               <p className="text-sm text-muted-foreground">
                 {needsReconnect
-                  ? 'Reconexao necessaria'
+                  ? 'Reconexão necessária'
                   : isConnected
-                    ? `Conectado - ${activeIntegration?.page_name || 'Pagina configurada'}`
-                    : 'Nao conectado'}
+                    ? `Conectado: ${activeIntegration?.page_name || 'Página configurada'}`
+                    : 'Não conectado'}
               </p>
               {isConnected && configuredFormIds.size > 0 && !needsReconnect && (
                 <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                  {configuredFormIds.size} formulario{configuredFormIds.size !== 1 ? 's' : ''} ativo{configuredFormIds.size !== 1 ? 's' : ''} no CRM
+                  {configuredFormIds.size === 1 ? '1 formulário ativo' : `${configuredFormIds.size} formulários ativos`} no CRM
                 </p>
               )}
             </div>
@@ -259,8 +259,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                 size="sm"
               >
                 {subscribing ? (
-                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Ativando...</>
-                ) : activeIntegration.webhook_verified ? 'Webhook OK' : 'Ativar Webhook'}
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Ativando…</>
+                ) : activeIntegration.webhook_verified ? 'Webhook ativo' : 'Ativar Webhook'}
               </Button>
             )}
             {/* Mostrar "Gerenciar" mesmo quando needsReconnect = true para facilitar diagnostico */}
@@ -271,8 +271,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                 variant="outline"
               >
                 {loadingForms ? (
-                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando...</>
-                ) : 'Gerenciar Formularios'}
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando…</>
+                ) : 'Gerenciar formulários'}
               </Button>
             )}
             {isConnected ? (
@@ -282,7 +282,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             ) : (
               <Button onClick={handleConnect} disabled={loading} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                 <Facebook className="h-4 w-4" />
-                {loading ? 'Conectando...' : 'Conectar ao Facebook'}
+                {loading ? 'Conectando…' : 'Conectar Facebook'}
               </Button>
             )}
           </div>
@@ -294,7 +294,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Megaphone className="h-4 w-4 text-orange-500" />
-                <p className="font-medium text-sm">Contas de Anúncios</p>
+                <p className="font-medium text-sm">Contas de anúncios</p>
               </div>
               <a
                 href="/metrics?tab=campaigns"
@@ -341,7 +341,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             ) : (
               <div className="text-sm text-muted-foreground p-3 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
                 <AlertCircle className="h-4 w-4 inline mr-2 text-amber-500" />
-                Nenhuma conta de anúncios configurada. Acesse a aba <a href="/metrics?tab=campaigns" className="text-blue-600 hover:underline">Campanhas</a> para configurar.
+                Nenhuma conta de anúncios configurada ainda. Configure na aba <a href="/metrics?tab=campaigns" className="text-blue-600 hover:underline">Campanhas</a>.
               </div>
             )}
           </div>
@@ -351,19 +351,19 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
           <div className="text-sm text-muted-foreground space-y-2">
             <p className="font-medium">Como funciona:</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Conecte sua conta do Facebook Business</li>
-              <li>Configure um funil de destino para cada formulario desejado</li>
-              <li>Multiplos formularios podem receber leads simultaneamente</li>
-              <li>Cada lead vira com a fonte "Facebook Leads"</li>
+              <li>Conecte sua conta do Facebook Business.</li>
+              <li>Escolha um funil de destino para cada formulário.</li>
+              <li>Vários formulários podem receber leads ao mesmo tempo.</li>
+              <li>Cada lead chega com a fonte "Facebook Leads".</li>
             </ul>
           </div>
         )}
 
         {isConnected && activeIntegration && configuredFormIds.size > 0 && !needsReconnect && (
           <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-            <p className="font-medium text-sm text-green-800 dark:text-green-200">Tudo Configurado!</p>
+            <p className="font-medium text-sm text-green-800 dark:text-green-200">Tudo configurado</p>
             <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-              {configuredFormIds.size} formulario{configuredFormIds.size !== 1 ? 's' : ''} ativo{configuredFormIds.size !== 1 ? 's' : ''} - os leads aparecerar automaticamente nas secoes <strong>Leads</strong> e <strong>Pipeline</strong>.
+              {configuredFormIds.size === 1 ? '1 formulário ativo' : `${configuredFormIds.size} formulários ativos`}. Os leads aparecem automaticamente em <strong>Leads</strong> e no <strong>Funil</strong>.
             </p>
           </div>
         )}
@@ -373,9 +373,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       <Dialog open={showPageSelector} onOpenChange={handlePageSelectorClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Selecione a Pagina do Facebook</DialogTitle>
+            <DialogTitle>Selecione a página do Facebook</DialogTitle>
             <DialogDescription>
-              Sua conta gerencia multiplas paginas. Escolha qual pagina sera usada para receber leads nesta organizacao.
+              Sua conta gerencia várias páginas. Escolha qual delas recebe os leads desta organização.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
@@ -403,9 +403,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
       <Dialog open={showFormSelector} onOpenChange={setShowFormSelector}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Formularios de Lead</DialogTitle>
+            <DialogTitle>Formulários de lead</DialogTitle>
             <DialogDescription>
-              Configure um funil de destino para cada formulario. Formularios configurados receberao leads automaticamente.
+              Escolha um funil de destino para cada formulário. Os formulários configurados recebem leads automaticamente.
             </DialogDescription>
           </DialogHeader>
 
@@ -415,8 +415,8 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
             </div>
           ) : leadForms.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              <p>Nenhum formulario de lead encontrado nesta pagina.</p>
-              <p className="text-sm mt-2">Crie um formulario no Facebook Ads Manager primeiro.</p>
+              <p>Nenhum formulário de lead nesta página.</p>
+              <p className="text-sm mt-2">Crie um formulário no Gerenciador de Anúncios do Facebook primeiro.</p>
             </div>
           ) : (
             <>
@@ -425,9 +425,9 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                   <span>
-                    <strong className="text-foreground">{configuredFormIds.size}</strong> ativo{configuredFormIds.size !== 1 ? 's' : ''} no CRM
+                    <strong className="text-foreground">{configuredFormIds.size}</strong> {configuredFormIds.size === 1 ? 'ativo' : 'ativos'} no CRM
                     {' '} - {' '}
-                    <strong className="text-foreground">{leadForms.length}</strong> formulario{leadForms.length !== 1 ? 's' : ''} na pagina do Facebook
+                    <strong className="text-foreground">{leadForms.length}</strong> {leadForms.length === 1 ? 'formulário' : 'formulários'} na página do Facebook
                   </span>
                 </div>
               </div>
@@ -466,7 +466,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                               {form.status}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {form.leads_count || 0} leads
+                              {form.leads_count === 1 ? '1 lead' : `${form.leads_count || 0} leads`}
                             </span>
                           </div>
                         </div>
@@ -484,7 +484,7 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                         />
                         {!isConfigured && (
                           <p className="text-[10px] text-muted-foreground mt-1.5 italic">
-                            Selecione um funil acima para ativar o recebimento de leads deste formulario.
+                            Selecione um funil acima para receber leads deste formulário.
                           </p>
                         )}
                       </div>

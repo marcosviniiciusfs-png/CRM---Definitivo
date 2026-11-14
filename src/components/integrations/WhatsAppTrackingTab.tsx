@@ -52,8 +52,8 @@ export function WhatsAppTrackingTab() {
       await upsertRule(instanceId, patch);
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar',
-        description: err?.message || 'Tente novamente',
+        title: 'Não foi possível salvar',
+        description: 'Tente novamente.',
         variant: 'destructive',
       });
     }
@@ -62,7 +62,7 @@ export function WhatsAppTrackingTab() {
   if (!canEdit) {
     return (
       <div className="text-center py-12 text-sm text-muted-foreground">
-        Apenas owner ou admin pode configurar o trackeamento.
+        Só o proprietário ou um administrador pode configurar o rastreamento.
       </div>
     );
   }
@@ -79,9 +79,9 @@ export function WhatsAppTrackingTab() {
     return (
       <div className="text-center py-12 px-4">
         <Target className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-        <h3 className="text-sm font-medium mb-1">Nenhum canal WhatsApp conectado</h3>
+        <h3 className="text-sm font-medium mb-1">Nenhum canal de WhatsApp conectado ainda.</h3>
         <p className="text-xs text-muted-foreground">
-          Conecte um canal WhatsApp na aba <strong>Conexões</strong> primeiro.
+          Conecte um canal na aba <strong>Conexões</strong> para começar.
         </p>
       </div>
     );
@@ -92,10 +92,10 @@ export function WhatsAppTrackingTab() {
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-1">
           <Target className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">Trackeamento WhatsApp</h2>
+          <h2 className="text-sm font-semibold">Rastreamento de WhatsApp</h2>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Identifique automaticamente leads que vêm de anúncios WhatsApp marcando-os com a tag{" "}
+          Identifique leads que vêm de anúncios no WhatsApp com a tag{" "}
           <strong>Lead de anúncio</strong>.
         </p>
 
@@ -117,7 +117,7 @@ export function WhatsAppTrackingTab() {
           </span>
           {!adTag && (
             <span className="text-muted-foreground italic ml-auto">
-              (será criada quando o primeiro lead bater)
+              (criada quando o primeiro lead for marcado)
             </span>
           )}
         </div>

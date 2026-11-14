@@ -191,14 +191,14 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Dashboard de Automações</DialogTitle>
+            <DialogTitle className="text-2xl">Painel de automações</DialogTitle>
           </DialogHeader>
 
           {/* Cards de Métricas */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Execuções</CardTitle>
+                <CardTitle className="text-sm font-medium">Total de execuções</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -208,7 +208,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taxa de Sucesso</CardTitle>
+                <CardTitle className="text-sm font-medium">Taxa de sucesso</CardTitle>
                 <CheckCircle2 className="h-4 w-4 text-success" />
               </CardHeader>
               <CardContent>
@@ -231,7 +231,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Condições Não Atendidas</CardTitle>
+                <CardTitle className="text-sm font-medium">Condições não atendidas</CardTitle>
                 <AlertCircle className="h-4 w-4 text-warning" />
               </CardHeader>
               <CardContent>
@@ -243,7 +243,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
           {/* Gráfico de Área */}
           <Card>
             <CardHeader>
-              <CardTitle>Execuções ao Longo do Tempo</CardTitle>
+              <CardTitle>Execuções ao longo do tempo</CardTitle>
             </CardHeader>
             <CardContent>
               {chartData.length > 0 ? (
@@ -283,7 +283,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  Nenhum dado disponível para o período selecionado
+                  Nenhuma execução neste período.
                 </div>
               )}
             </CardContent>
@@ -340,7 +340,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data/Hora</TableHead>
+                  <TableHead>Data e hora</TableHead>
                   <TableHead>Regra</TableHead>
                   <TableHead>Lead</TableHead>
                   <TableHead>Condições</TableHead>
@@ -353,7 +353,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
                 {logsLoading ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      Carregando...
+                      Carregando…
                     </TableCell>
                   </TableRow>
                 ) : logs && logs.length > 0 ? (
@@ -389,7 +389,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhum log encontrado para os filtros selecionados.
+                      Nenhum log neste filtro.
                     </TableCell>
                   </TableRow>
                 )}
@@ -403,20 +403,20 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto !z-[100]" style={{ zIndex: 100 }}>
           <SheetHeader>
-            <SheetTitle>Detalhes da Execução</SheetTitle>
+            <SheetTitle>Detalhes da execução</SheetTitle>
             <SheetDescription>
-              Informações completas sobre a execução da regra de automação
+              Informações completas sobre a execução da regra de automação.
             </SheetDescription>
           </SheetHeader>
 
           {selectedLog && (
             <div className="mt-6 space-y-6">
-              {/* Informações Gerais */}
+              {/* Informações gerais */}
               <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Informações Gerais</h3>
+                <h3 className="font-semibold text-lg">Informações gerais</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Data/Hora:</span>
+                    <span className="text-muted-foreground">Data e hora:</span>
                     <p className="font-medium">
                       {format(new Date(selectedLog.created_at), "dd/MM/yyyy HH:mm:ss", {
                         locale: ptBR,
@@ -441,7 +441,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
               {/* Dados do Gatilho */}
               {selectedLog.trigger_data && (
                 <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">Dados do Gatilho</h3>
+                  <h3 className="font-semibold text-lg">Dados do gatilho</h3>
                   <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto">
                     {JSON.stringify(selectedLog.trigger_data, null, 2)}
                   </pre>
@@ -452,7 +452,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
               {selectedLog.actions_executed && (
                 <div className="space-y-2">
                   <h3 className="font-semibold text-lg">
-                    Ações Executadas (
+                    Ações executadas (
                     {Array.isArray(selectedLog.actions_executed)
                       ? selectedLog.actions_executed.length
                       : 0}
@@ -467,7 +467,7 @@ export function AutomationDashboardModal({ open, onOpenChange }: AutomationDashb
               {/* Erro */}
               {selectedLog.error_message && (
                 <div className="space-y-2">
-                  <h3 className="font-semibold text-lg text-destructive">Mensagem de Erro</h3>
+                  <h3 className="font-semibold text-lg text-destructive">Mensagem de erro</h3>
                   <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg">
                     <p className="text-sm text-destructive">{selectedLog.error_message}</p>
                   </div>

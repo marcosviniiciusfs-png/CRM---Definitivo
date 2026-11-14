@@ -86,7 +86,7 @@ export function GoogleCalendarModal({ open, onOpenChange }: GoogleCalendarModalP
       setEvents(data?.events || []);
     } catch (err: any) {
       console.error('Erro ao buscar eventos:', err);
-      setError('Não foi possível carregar os eventos');
+      setError('Não foi possível carregar os eventos. Tente novamente.');
     } finally {
       setLoading(false);
     }

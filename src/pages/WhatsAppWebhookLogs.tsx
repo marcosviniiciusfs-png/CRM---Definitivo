@@ -56,7 +56,7 @@ export default function WhatsAppWebhookLogs() {
       setLogs(data || []);
     } catch (error: any) {
       console.error("Error loading logs:", error);
-      toast.error("Erro ao carregar logs");
+      toast.error("Não foi possível carregar os logs. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -73,13 +73,13 @@ export default function WhatsAppWebhookLogs() {
 
       if (error) throw error;
 
-      toast.success("Log excluído com sucesso");
+      toast.success("Log excluído.");
       setLogs(logs.filter((log) => log.id !== selectedLog));
       setDeleteDialogOpen(false);
       setSelectedLog(null);
     } catch (error: any) {
       console.error("Error deleting log:", error);
-      toast.error("Erro ao excluir log");
+      toast.error("Não foi possível excluir o log. Tente novamente.");
     }
   };
 
@@ -92,11 +92,11 @@ export default function WhatsAppWebhookLogs() {
 
       if (error) throw error;
 
-      toast.success("Todos os logs foram excluídos");
+      toast.success("Logs excluídos.");
       setLogs([]);
     } catch (error: any) {
       console.error("Error clearing logs:", error);
-      toast.error("Erro ao limpar logs");
+      toast.error("Não foi possível excluir os logs. Tente novamente.");
     }
   };
 
@@ -165,9 +165,9 @@ export default function WhatsAppWebhookLogs() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
-            <h1 className="text-3xl font-bold">Logs do Webhook WhatsApp</h1>
+            <h1 className="text-3xl font-bold">Logs do Webhook de WhatsApp</h1>
             <p className="text-muted-foreground mt-2">
-              Monitore e diagnostique o recebimento de mensagens do WhatsApp
+              Acompanhe e diagnostique o recebimento de mensagens do WhatsApp.
             </p>
           </div>
           <div className="flex gap-2">
@@ -177,7 +177,7 @@ export default function WhatsAppWebhookLogs() {
             </Button>
             <Button variant="destructive" onClick={handleClearAllLogs}>
               <Trash2 className="w-4 h-4 mr-2" />
-              Limpar Todos
+              Limpar todos
             </Button>
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function WhatsAppWebhookLogs() {
         ) : logs.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">Nenhum log encontrado</p>
+              <p className="text-muted-foreground">Nenhum log registrado ainda.</p>
             </CardContent>
           </Card>
         ) : (
@@ -274,7 +274,7 @@ export default function WhatsAppWebhookLogs() {
                   {log.message_content && (
                     <div className="bg-muted/50 border rounded-lg p-3">
                       <p className="text-sm font-medium mb-1">
-                        Conteúdo da Mensagem:
+                        Conteúdo da mensagem:
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {log.message_content}
@@ -285,7 +285,7 @@ export default function WhatsAppWebhookLogs() {
                   {log.error_message && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                       <p className="text-sm text-destructive font-medium mb-1">
-                        Mensagem de Erro:
+                        Mensagem de erro:
                       </p>
                       <p className="text-sm text-destructive/90">
                         {log.error_message}
@@ -313,10 +313,9 @@ export default function WhatsAppWebhookLogs() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Log</AlertDialogTitle>
+            <AlertDialogTitle>Excluir log</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este log? Esta ação não pode ser
-              desfeita.
+              Excluir este log? Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -49,8 +49,8 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
     } catch (error: any) {
       console.error("Erro ao carregar integração:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar a integração",
+        title: "Não foi possível carregar a integração",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -93,10 +93,10 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
       const isSetupError = errorMsg.includes("SETUP_REQUIRED");
       
       toast({
-        title: isSetupError ? "Configuração necessária" : "Erro",
+        title: isSetupError ? "Configuração necessária" : "Não foi possível conectar o Google Calendar",
         description: isSetupError 
           ? errorMsg.replace("SETUP_REQUIRED: ", "")
-          : errorMsg || "Não foi possível iniciar a conexão",
+          : "Tente novamente.",
         variant: "destructive",
         duration: isSetupError ? 10000 : 5000, // Mais tempo para ler instruções
       });
@@ -116,16 +116,16 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
       if (error) throw error;
 
       toast({
-        title: "Desconectado",
-        description: "Google Calendar desconectado com sucesso",
+        title: "Google Calendar desconectado",
+        description: "Você pode conectar de novo quando quiser.",
       });
 
       setIntegration(null);
     } catch (error: any) {
       console.error("Erro ao desconectar:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível desconectar",
+        title: "Não foi possível desconectar o Google Calendar",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -144,7 +144,7 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
               Google Calendar
             </CardTitle>
             <CardDescription>
-              Agende reuniões e eventos automaticamente com seus leads
+              Agende reuniões com seus leads e sincronize os eventos automaticamente.
             </CardDescription>
           </div>
         </div>
@@ -203,7 +203,7 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
                     <ul className="text-xs text-muted-foreground space-y-1">
                       <li>• Agende reuniões diretamente do lead</li>
                       <li>• Crie eventos com dados pré-preenchidos</li>
-                      <li>• Envie convites automáticos por email</li>
+                      <li>• Envie convites automáticos por e-mail</li>
                       <li>• Mantenha sua agenda sincronizada</li>
                     </ul>
                   </div>
@@ -219,7 +219,7 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
               {connecting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Conectando...
+                  Conectando…
                 </>
               ) : (
                 <>
@@ -230,7 +230,7 @@ export const GoogleCalendarConnection = ({ onClose }: GoogleCalendarConnectionPr
             </Button>
 
             <p className="text-xs text-muted-foreground text-center">
-              Você será redirecionado para autorizar o acesso ao seu Google Calendar
+              Você será redirecionado para autorizar o acesso ao Google Calendar.
             </p>
           </div>
         )}
