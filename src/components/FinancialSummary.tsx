@@ -99,18 +99,18 @@ export function FinancialSummary({ organizationId }: FinancialSummaryProps) {
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   const cards = [
-    { label: "Receita Total", value: data?.totalRevenue || 0, icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
-    { label: "Custo dos Produtos", value: data?.totalCOGS || 0, icon: TrendingDown, color: "text-red-600", bg: "bg-red-100 dark:bg-red-900/30" },
-    { label: "Despesas Operacionais", value: data?.totalExpenses || 0, icon: Receipt, color: "text-orange-600", bg: "bg-orange-100 dark:bg-orange-900/30" },
+    { label: "Receita total", value: data?.totalRevenue || 0, icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
+    { label: "Custo dos produtos", value: data?.totalCOGS || 0, icon: TrendingDown, color: "text-red-600", bg: "bg-red-100 dark:bg-red-900/30" },
+    { label: "Despesas operacionais", value: data?.totalExpenses || 0, icon: Receipt, color: "text-orange-600", bg: "bg-orange-100 dark:bg-orange-900/30" },
     { label: "Comissões", value: data?.totalCommissions || 0, icon: Users, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30", sub: data ? `Pendente: ${fmt(data.pendingCommissions)} | Pago: ${fmt(data.paidCommissions)}` : undefined },
-    { label: "Lucro Líquido", value: data?.netProfit || 0, icon: Wallet, color: (data?.netProfit || 0) >= 0 ? "text-emerald-600" : "text-red-600", bg: (data?.netProfit || 0) >= 0 ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30" },
+    { label: "Lucro líquido", value: data?.netProfit || 0, icon: Wallet, color: (data?.netProfit || 0) >= 0 ? "text-emerald-600" : "text-red-600", bg: (data?.netProfit || 0) >= 0 ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30" },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold capitalize">Resumo Financeiro - {monthLabel}</h2>
-        <p className="text-muted-foreground">Visão consolidada de receitas, custos e lucro</p>
+        <h2 className="text-2xl font-bold capitalize">Resumo financeiro - {monthLabel}</h2>
+        <p className="text-muted-foreground">Receitas, custos e lucro do mês.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -143,7 +143,7 @@ export function FinancialSummary({ organizationId }: FinancialSummaryProps) {
       {data && data.totalRevenue > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Composição do Resultado</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Composição do resultado</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-6 rounded-full overflow-hidden flex bg-muted">

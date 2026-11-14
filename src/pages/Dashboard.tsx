@@ -264,7 +264,7 @@ const RankingRow = ({
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm text-foreground truncate">{name}</span>
           <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-            {vendas} vendas
+            {vendas} {vendas === 1 ? 'venda' : 'vendas'}
           </span>
         </div>
         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -807,7 +807,7 @@ const Dashboard = () => {
   if (!isReady || (!organizationId && !isSuperAdmin)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-center p-6">
-        <LoadingAnimation text="Carregando workspace..." />
+        <LoadingAnimation text="Carregando o workspace..." />
       </div>
     );
   }
@@ -815,7 +815,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingAnimation text="Carregando dashboard..." />
+        <LoadingAnimation text="Carregando o dashboard..." />
       </div>
     );
   }
@@ -830,12 +830,12 @@ const Dashboard = () => {
           ════════════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard Comercial</h1>
-          <p className="text-sm text-muted-foreground mt-1">Acompanhe a performance da sua equipe</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard comercial</h1>
+          <p className="text-sm text-muted-foreground mt-1">Acompanhe o desempenho da sua equipe</p>
         </div>
         <div className="flex gap-2">
           <PeriodButton active={period === 'today'} onClick={() => setPeriod('today')}>Hoje</PeriodButton>
-          <PeriodButton active={period === 'month'} onClick={() => setPeriod('month')}>Este Mês</PeriodButton>
+          <PeriodButton active={period === 'month'} onClick={() => setPeriod('month')}>Este mês</PeriodButton>
           <PeriodButton active={period === 'quarter'} onClick={() => setPeriod('quarter')}>Trimestre</PeriodButton>
           <PeriodButton active={period === 'year'} onClick={() => setPeriod('year')}>Ano</PeriodButton>
         </div>
@@ -846,7 +846,7 @@ const Dashboard = () => {
           ════════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard
-          title="Leads no Mês"
+          title="Leads no mês"
           value={totalLeadsValue}
           variation={12}
           sparkline={spark}
@@ -854,7 +854,7 @@ const Dashboard = () => {
           subtitle="captados no período"
         />
         <MetricCard
-          title="Leads Atendidos"
+          title="Leads atendidos"
           value={attendedPct}
           variation={5}
           sparkline={[60, 65, 68, 72, 65, 70, attendedPct]}
@@ -863,7 +863,7 @@ const Dashboard = () => {
           format="percent"
         />
         <MetricCard
-          title="Vendas no Mês"
+          title="Vendas no mês"
           value={soldValue}
           variation={soldValue > 20 ? 8 : -3}
           sparkline={[15, 18, 22, 20, 25, 23, soldValue]}
@@ -871,7 +871,7 @@ const Dashboard = () => {
           subtitle="contratos fechados"
         />
         <MetricCard
-          title="Ticket Médio"
+          title="Ticket médio"
           value={ticketMedio}
           variation={8}
           sparkline={[3500, 3800, 4200, 4000, 4500, 4300, ticketMedio]}
@@ -895,28 +895,28 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <TodayCard
             icon={Users}
-            label="Leads Hoje"
+            label="Leads hoje"
             value={todayLeadsValue}
             subValue="captados hoje"
             color="#a78bfa"
           />
           <TodayCard
             icon={Calendar}
-            label="Agendamentos Hoje"
+            label="Agendamentos hoje"
             value={todayApptValue}
             subValue="reuniões marcadas"
             color="#4a7cfb"
           />
           <TodayCard
             icon={Phone}
-            label="Reuniões Realizadas"
+            label="Reuniões realizadas"
             value={todayApptValue > 0 ? `${todayRealizedValue}/${todayApptValue}` : '0/0'}
             subValue="realizadas / agendadas"
             color="#3ecf8e"
           />
           <TodayCard
             icon={DollarSign}
-            label="Faturamento Gerado"
+            label="Faturamento gerado"
             value={fmtCurrency(Math.round(revenueValue * 0.1))}
             subValue="comissões estimadas"
             color="#f5a623"
@@ -932,7 +932,7 @@ const Dashboard = () => {
         <div className="bg-card rounded-xl p-5 border border-border">
           <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-emerald-500" />
-            Receita Total
+            Receita total
           </h3>
           <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
             <RevenueCard label="Mês" value={revenueValue} active={period === 'month'} />
@@ -945,7 +945,7 @@ const Dashboard = () => {
         <div className="bg-card rounded-xl p-5 border border-border">
           <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-blue-500" />
-            Funil Leads → Vendas
+            Funil de leads e vendas
           </h3>
           <div className="space-y-3">
             {funilData.map((item, i) => (
@@ -963,7 +963,7 @@ const Dashboard = () => {
         <div className="bg-card rounded-xl p-5 border border-border">
           <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
             <Target className="w-4 h-4 text-amber-500" />
-            Conversões por Etapa
+            Conversões por etapa
           </h3>
           <div className="space-y-2">
             {conversoesData.map((item, i) => {
@@ -1021,7 +1021,7 @@ const Dashboard = () => {
               </div>
             </>
           ) : (
-            <p className="text-muted-foreground text-sm text-center py-8">Nenhuma venda no período</p>
+            <p className="text-muted-foreground text-sm text-center py-8">Nenhuma venda neste período.</p>
           )}
           <button
             onClick={() => navigate('/ranking')}
@@ -1035,7 +1035,7 @@ const Dashboard = () => {
         <div className="bg-card rounded-xl p-5 border border-border">
           <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
             <Users className="w-4 h-4 text-blue-500" />
-            Origem dos Leads
+            Origem dos leads
           </h3>
           {sources.length > 0 ? (
             <div className="space-y-1">
@@ -1050,13 +1050,13 @@ const Dashboard = () => {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm text-center py-8">Sem dados de origem</p>
+            <p className="text-muted-foreground text-sm text-center py-8">Nenhum lead neste período.</p>
           )}
           <div className="mt-4 pt-3 border-t border-border">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Total de canais</span>
+              <span className="text-muted-foreground">Total de origens</span>
               <span className="text-foreground font-semibold" style={{ fontFamily: "'DM Mono', monospace" }}>
-                {sources.length} canais ativos
+                {sources.length} {sources.length === 1 ? 'origem' : 'origens'}
               </span>
             </div>
           </div>

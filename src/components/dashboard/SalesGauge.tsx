@@ -9,7 +9,7 @@ interface SalesGaugeProps {
 export function SalesGauge({
   current,
   target,
-  label = "Meta Atingida",
+  label = "Meta atingida",
   isLoading
 }: SalesGaugeProps) {
   const percentage = target > 0 ? Math.min(Math.round(current / target * 100), 100) : 0;

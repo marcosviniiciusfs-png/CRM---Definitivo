@@ -37,7 +37,7 @@ export function SoldThisMonth({ totalSold, salesCount, pendingActivities, isLoad
       <CardContent className="pt-6 h-full flex flex-col">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp className="h-5 w-5" />
-          <span className="text-sm font-medium opacity-90">Vendido Este Mês</span>
+          <span className="text-sm font-medium opacity-90">Vendido este mês</span>
         </div>
         <div className="text-3xl font-bold mb-1">
           {formatCurrency(totalSold)}
@@ -50,7 +50,7 @@ export function SoldThisMonth({ totalSold, salesCount, pendingActivities, isLoad
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              <span className="text-sm">Atividades Pendentes</span>
+              <span className="text-sm">Atividades pendentes</span>
             </div>
             <span className="text-xl font-bold">{pendingActivities}</span>
           </div>

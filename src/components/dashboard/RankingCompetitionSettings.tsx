@@ -91,10 +91,11 @@ export function RankingCompetitionSettings({
       }
 
       queryClient.invalidateQueries({ queryKey: ['ranking-competition', organizationId] });
-      toast.success(isActive ? "Competição ativada!" : "Competição desativada");
+      toast.success(isActive ? "Competição ativada." : "Competição desativada.");
       onOpenChange(false);
     } catch (error: any) {
-      toast.error("Erro: " + error.message);
+      console.error('Erro ao salvar competição:', error);
+      toast.error("Não foi possível salvar a competição. Tente novamente.");
     } finally {
       setIsSaving(false);
     }
@@ -116,10 +117,11 @@ export function RankingCompetitionSettings({
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ['ranking-competition', organizationId] });
-      toast.success("Ranking revelado para todos!");
+      toast.success("Ranking revelado para todos.");
       onOpenChange(false);
     } catch (error: any) {
-      toast.error("Erro: " + error.message);
+      console.error('Erro ao revelar ranking:', error);
+      toast.error("Não foi possível revelar o ranking. Tente novamente.");
     } finally {
       setIsRevealing(false);
     }
@@ -134,11 +136,11 @@ export function RankingCompetitionSettings({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-yellow-500" />
-            Competição de Ranking
+            Competição de ranking
           </DialogTitle>
           <DialogDescription>
             Configure a competição e a data de revelação dos resultados.
-            Membros só verão o próprio progresso até a revelação.
+            Os colaboradores só veem o próprio progresso até a revelação.
           </DialogDescription>
         </DialogHeader>
 
@@ -160,7 +162,7 @@ export function RankingCompetitionSettings({
               ) : competitionActive ? (
                 <>
                   <Eye className="h-4 w-4" />
-                  Competição ativa — membros veem apenas próprio progresso
+                  Competição ativa. Os colaboradores só veem o próprio progresso.
                 </>
               ) : (
                 <>
@@ -184,14 +186,14 @@ export function RankingCompetitionSettings({
               }}
             >
               <Trophy className="h-4 w-4" />
-              Criar Nova Competição
+              Criar nova competição
             </Button>
           )}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label className="text-sm font-medium">Ativar competição</Label>
               <p className="text-xs text-muted-foreground">
-                Membros verão apenas o próprio progresso
+                Os colaboradores só veem o próprio progresso.
               </p>
             </div>
             <Switch
@@ -203,18 +205,18 @@ export function RankingCompetitionSettings({
 
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="comp-title">Título da Competição</Label>
+            <Label htmlFor="comp-title">Título da competição</Label>
             <Input
               id="comp-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Competição Mensal"
+              placeholder="Ex.: Competição mensal"
             />
           </div>
 
           {/* Reveal date */}
           <div className="space-y-2">
-            <Label htmlFor="comp-reveal">Data de Revelação</Label>
+            <Label htmlFor="comp-reveal">Data de revelação</Label>
             <Input
               id="comp-reveal"
               type="datetime-local"
@@ -223,7 +225,7 @@ export function RankingCompetitionSettings({
               disabled={isRevealed}
             />
             <p className="text-xs text-muted-foreground">
-              Quando esta data chegar, o ranking será revelado automaticamente para todos.
+              Quando esta data chegar, o ranking é revelado automaticamente para todos.
             </p>
           </div>
 
@@ -236,7 +238,7 @@ export function RankingCompetitionSettings({
               disabled={isRevealing}
             >
               {isRevealing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PartyPopper className="h-4 w-4" />}
-              Revelar Agora
+              Revelar agora
             </Button>
           )}
         </div>

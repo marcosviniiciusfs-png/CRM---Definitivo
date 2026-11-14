@@ -203,7 +203,7 @@ const GoalEditor = ({
   const handleSave = async () => {
     const numValue = parseInt(value, 10);
     if (isNaN(numValue) || numValue < 1) {
-      toast.error("Meta deve ser um número maior que zero");
+      toast.error("Informe uma meta maior que zero.");
       return;
     }
     setIsSaving(true);
@@ -290,10 +290,10 @@ const StatsCard = ({ racers, period, goalTarget }: { racers: RacerData[]; period
   const leader = racers.length > 0 ? racers[0] : null;
 
   const periodLabels: Record<string, string> = {
-    week: "Esta Semana",
-    month: "Este Mês",
-    quarter: "Este Trimestre",
-    year: "Este Ano",
+    week: "Esta semana",
+    month: "Este mês",
+    quarter: "Este trimestre",
+    year: "Este ano",
   };
 
   // Calculate goal progress percentage
@@ -313,7 +313,7 @@ const StatsCard = ({ racers, period, goalTarget }: { racers: RacerData[]; period
             <p className="text-2xl font-bold text-foreground">{totalAppointments}</p>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              Total de Agendamentos
+              Total de agendamentos
             </p>
             {goalTarget > 0 && (
               <div className="mt-2">
@@ -337,10 +337,10 @@ const StatsCard = ({ racers, period, goalTarget }: { racers: RacerData[]; period
             <p className="text-2xl font-bold text-foreground">{avgAppointments}</p>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Users className="h-3 w-3" />
-              Média por Colaborador
+              Média por colaborador
             </p>
             <p className="text-[10px] text-muted-foreground/70 italic">
-              (apenas ativos)
+              (só quem tem agendamentos)
             </p>
           </div>
           
@@ -367,12 +367,12 @@ const StatsCard = ({ racers, period, goalTarget }: { racers: RacerData[]; period
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Trophy className="h-3 w-3 text-yellow-500" />
-                    {leader.appointments_count} agend.
+                    {leader.appointments_count} {leader.appointments_count === 1 ? "agendamento" : "agendamentos"}
                   </p>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum líder ainda</p>
+              <p className="text-sm text-muted-foreground">Nenhum líder ainda.</p>
             )}
           </div>
         </div>
@@ -506,12 +506,12 @@ export function AppointmentRaceTab({ organizationId, shouldFilterByTeam, current
 
     if (error) {
       console.error('Erro ao salvar meta:', error);
-      toast.error("Erro ao salvar meta de agendamentos");
+      toast.error("Não foi possível salvar a meta de agendamentos. Tente novamente.");
       throw error;
     }
 
     setGoalTarget(value);
-    toast.success("Meta de agendamentos atualizada!");
+    toast.success("Meta de agendamentos atualizada.");
   };
 
   useEffect(() => {
@@ -537,8 +537,8 @@ export function AppointmentRaceTab({ organizationId, shouldFilterByTeam, current
             <Flag className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Corrida de Agendamentos</h2>
-            <p className="text-sm text-muted-foreground">Veja quem está na frente!</p>
+            <h2 className="text-lg font-semibold text-foreground">Corrida de agendamentos</h2>
+            <p className="text-sm text-muted-foreground">Veja quem está na frente.</p>
           </div>
         </div>
 
@@ -547,10 +547,10 @@ export function AppointmentRaceTab({ organizationId, shouldFilterByTeam, current
             <SelectValue placeholder="Período" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="week">Esta Semana</SelectItem>
-            <SelectItem value="month">Este Mês</SelectItem>
-            <SelectItem value="quarter">Este Trimestre</SelectItem>
-            <SelectItem value="year">Este Ano</SelectItem>
+            <SelectItem value="week">Esta semana</SelectItem>
+            <SelectItem value="month">Este mês</SelectItem>
+            <SelectItem value="quarter">Este trimestre</SelectItem>
+            <SelectItem value="year">Este ano</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -584,9 +584,9 @@ export function AppointmentRaceTab({ organizationId, shouldFilterByTeam, current
         ) : visibleRacers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Calendar className="h-16 w-16 text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground text-lg">Nenhum participante ainda</p>
+            <p className="text-muted-foreground text-lg">Nenhum participante ainda.</p>
             <p className="text-muted-foreground/60 text-sm mt-1">
-              Agende reuniões para competir na corrida!
+              Agende reuniões para entrar na corrida.
             </p>
           </div>
         ) : (

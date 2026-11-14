@@ -47,10 +47,10 @@ const formatCurrency = (value: number) => {
 
 const getPeriodLabel = (period: string) => {
   switch (period) {
-    case "week": return "Esta Semana";
-    case "month": return "Este Mês";
-    case "quarter": return "Este Trimestre";
-    case "year": return "Este Ano";
+    case "week": return "Esta semana";
+    case "month": return "Este mês";
+    case "quarter": return "Este trimestre";
+    case "year": return "Este ano";
     default: return "Período";
   }
 };
@@ -68,10 +68,10 @@ function calculateStats(data: LeaderboardData[], sortBy: SortType) {
       const totalOnTime = data.reduce((sum, d) => sum + (d.tasks_on_time || 0), 0);
       return {
         items: [
-          { label: "Total de Pontos", value: `${totalPoints} pts`, icon: Zap },
-          { label: "Tarefas Concluídas", value: `${totalTasks}`, icon: Trophy },
-          { label: "Taxa de Pontualidade", value: `${totalTasks > 0 ? Math.round((totalOnTime / totalTasks) * 100) : 0}%`, icon: Clock },
-          { label: "Média por Membro", value: `${data.length > 0 ? Math.round(totalPoints / data.length) : 0} pts`, icon: Users },
+          { label: "Total de pontos", value: `${totalPoints} pts`, icon: Zap },
+          { label: "Tarefas concluídas", value: `${totalTasks}`, icon: Trophy },
+          { label: "Taxa de pontualidade", value: `${totalTasks > 0 ? Math.round((totalOnTime / totalTasks) * 100) : 0}%`, icon: Clock },
+          { label: "Média por colaborador", value: `${data.length > 0 ? Math.round(totalPoints / data.length) : 0} pts`, icon: Users },
         ]
       };
     }
@@ -81,10 +81,10 @@ function calculateStats(data: LeaderboardData[], sortBy: SortType) {
       const totalSales = data.reduce((sum, d) => sum + (d.won_leads || 0), 0);
       return {
         items: [
-          { label: "Faturamento Total", value: formatCurrency(totalRevenue), icon: DollarSign },
-          { label: "Ticket Médio", value: formatCurrency(totalSales > 0 ? totalRevenue / totalSales : 0), icon: Target },
-          { label: "Total de Vendas", value: `${totalSales}`, icon: Trophy },
-          { label: "Média por Vendedor", value: formatCurrency(data.length > 0 ? totalRevenue / data.length : 0), icon: Users },
+          { label: "Faturamento total", value: formatCurrency(totalRevenue), icon: DollarSign },
+          { label: "Ticket médio", value: formatCurrency(totalSales > 0 ? totalRevenue / totalSales : 0), icon: Target },
+          { label: "Total de vendas", value: `${totalSales}`, icon: Trophy },
+          { label: "Média por vendedor", value: formatCurrency(data.length > 0 ? totalRevenue / data.length : 0), icon: Users },
         ]
       };
     }
@@ -95,10 +95,10 @@ function calculateStats(data: LeaderboardData[], sortBy: SortType) {
       const conversionRate = totalLeads > 0 ? Math.round((totalWon / totalLeads) * 100) : 0;
       return {
         items: [
-          { label: "Vendas Fechadas", value: `${totalWon}`, icon: Trophy },
-          { label: "Leads Trabalhados", value: `${totalLeads}`, icon: Users },
-          { label: "Taxa de Conversão", value: `${conversionRate}%`, icon: TrendingUp },
-          { label: "Média por Membro", value: `${data.length > 0 ? Math.round(totalWon / data.length) : 0}`, icon: Award },
+          { label: "Vendas fechadas", value: `${totalWon}`, icon: Trophy },
+          { label: "Leads trabalhados", value: `${totalLeads}`, icon: Users },
+          { label: "Taxa de conversão", value: `${conversionRate}%`, icon: TrendingUp },
+          { label: "Média por colaborador", value: `${data.length > 0 ? Math.round(totalWon / data.length) : 0}`, icon: Award },
         ]
       };
     }
@@ -117,10 +117,10 @@ function calculateStats(data: LeaderboardData[], sortBy: SortType) {
       
       return {
         items: [
-          { label: "Média de Atingimento", value: `${avgPercentage}%`, icon: Percent },
-          { label: "Acima da Meta", value: `${aboveTarget} membros`, icon: TrendingUp },
-          { label: "Abaixo da Meta", value: `${belowTarget} membros`, icon: Target },
-          { label: "Realizado / Meta", value: `${totalRealized}/${totalTarget}`, icon: Award },
+          { label: "Média de atingimento", value: `${avgPercentage}%`, icon: Percent },
+          { label: "Acima da meta", value: `${aboveTarget} ${aboveTarget === 1 ? "colaborador" : "colaboradores"}`, icon: TrendingUp },
+          { label: "Abaixo da meta", value: `${belowTarget} ${belowTarget === 1 ? "colaborador" : "colaboradores"}`, icon: Target },
+          { label: "Realizado / meta", value: `${totalRealized}/${totalTarget}`, icon: Award },
         ]
       };
     }
@@ -162,9 +162,9 @@ function calculateHighlights(data: LeaderboardData[], sortBy: SortType): Highlig
         : 0;
       
       return [
-        { icon: Zap, label: "Mais Produtivo", user: topProducer, value: `${topProducer?.task_points || 0} pts`, color: "text-yellow-500" },
-        { icon: Clock, label: "Mais Pontual", user: mostPunctual, value: `${punctualRate}% no prazo`, color: "text-blue-500" },
-        { icon: Flame, label: "Maior Volume", user: highestVolume, value: `${highestVolume?.tasks_completed || 0} tarefas`, color: "text-orange-500" },
+        { icon: Zap, label: "Mais produtivo", user: topProducer, value: `${topProducer?.task_points || 0} pts`, color: "text-yellow-500" },
+        { icon: Clock, label: "Mais pontual", user: mostPunctual, value: `${punctualRate}% no prazo`, color: "text-blue-500" },
+        { icon: Flame, label: "Maior volume", user: highestVolume, value: `${highestVolume?.tasks_completed || 0} ${highestVolume?.tasks_completed === 1 ? "tarefa" : "tarefas"}`, color: "text-orange-500" },
       ].filter(h => h.user);
     }
     
@@ -184,9 +184,9 @@ function calculateHighlights(data: LeaderboardData[], sortBy: SortType): Highlig
         : 0;
       
       return [
-        { icon: DollarSign, label: "Maior Faturamento", user: topRevenue, value: formatCurrency(topRevenue?.total_revenue || 0), color: "text-green-500" },
-        { icon: Target, label: "Melhor Ticket", user: bestTicket, value: formatCurrency(ticket), color: "text-purple-500" },
-        { icon: TrendingUp, label: "Mais Consistente", user: mostConsistent, value: `${mostConsistent?.won_leads || 0} vendas`, color: "text-blue-500" },
+        { icon: DollarSign, label: "Maior faturamento", user: topRevenue, value: formatCurrency(topRevenue?.total_revenue || 0), color: "text-green-500" },
+        { icon: Target, label: "Melhor ticket", user: bestTicket, value: formatCurrency(ticket), color: "text-purple-500" },
+        { icon: TrendingUp, label: "Mais consistente", user: mostConsistent, value: `${mostConsistent?.won_leads || 0} ${mostConsistent?.won_leads === 1 ? "venda" : "vendas"}`, color: "text-blue-500" },
       ].filter(h => h.user);
     }
     
@@ -206,9 +206,9 @@ function calculateHighlights(data: LeaderboardData[], sortBy: SortType): Highlig
         : 0;
       
       return [
-        { icon: Trophy, label: "Campeão de Vendas", user: topSales, value: `${topSales?.won_leads || 0} vendas`, color: "text-yellow-500" },
-        { icon: Target, label: "Melhor Conversão", user: bestConversion, value: `${conversionRate}%`, color: "text-green-500" },
-        { icon: Users, label: "Maior Volume", user: highestVolume, value: `${highestVolume?.total_leads || 0} leads`, color: "text-blue-500" },
+        { icon: Trophy, label: "Campeão de vendas", user: topSales, value: `${topSales?.won_leads || 0} ${topSales?.won_leads === 1 ? "venda" : "vendas"}`, color: "text-yellow-500" },
+        { icon: Target, label: "Melhor conversão", user: bestConversion, value: `${conversionRate}%`, color: "text-green-500" },
+        { icon: Users, label: "Maior volume", user: highestVolume, value: `${highestVolume?.total_leads || 0} ${highestVolume?.total_leads === 1 ? "lead" : "leads"}`, color: "text-blue-500" },
       ].filter(h => h.user);
     }
     
@@ -223,16 +223,16 @@ function calculateHighlights(data: LeaderboardData[], sortBy: SortType): Highlig
         .sort((a, b) => getPercentage(b) - getPercentage(a))[0];
       
       const highlights: Highlight[] = [
-        { icon: Award, label: "Superou a Meta", user: topPercentage, value: `${Math.round(getPercentage(topPercentage))}%`, color: "text-yellow-500" },
+        { icon: Award, label: "Superou a meta", user: topPercentage, value: `${Math.round(getPercentage(topPercentage))}%`, color: "text-yellow-500" },
       ];
       
       if (closest) {
-        highlights.push({ icon: TrendingUp, label: "Mais Próximo", user: closest, value: `${Math.round(getPercentage(closest))}%`, color: "text-blue-500" });
+        highlights.push({ icon: TrendingUp, label: "Mais próximo", user: closest, value: `${Math.round(getPercentage(closest))}%`, color: "text-blue-500" });
       }
       
       if (aboveTarget.length > 0) {
         const mostConsistent = aboveTarget.sort((a, b) => (b.won_leads || 0) - (a.won_leads || 0))[0];
-        highlights.push({ icon: Flame, label: "Mais Consistente", user: mostConsistent, value: `${mostConsistent?.won_leads || 0} vendas`, color: "text-orange-500" });
+        highlights.push({ icon: Flame, label: "Mais consistente", user: mostConsistent, value: `${mostConsistent?.won_leads || 0} ${mostConsistent?.won_leads === 1 ? "venda" : "vendas"}`, color: "text-orange-500" });
       }
       
       return highlights.filter(h => h.user);

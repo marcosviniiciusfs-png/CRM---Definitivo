@@ -60,7 +60,7 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
     try {
       const value = parseFloat(targetValue);
       if (isNaN(value) || value <= 0) {
-        toast.error("Insira um valor válido");
+        toast.error("Informe uma meta maior que zero.");
         return;
       }
 
@@ -82,10 +82,11 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
         });
       }
 
-      toast.success("Meta atualizada com sucesso!");
+      toast.success("Meta atualizada.");
       setEditingRep(null);
     } catch (error: any) {
-      toast.error("Erro ao salvar meta");
+      console.error("Erro ao salvar meta:", error);
+      toast.error("Não foi possível salvar a meta. Tente novamente.");
     } finally {
       setSaving(false);
     }
@@ -95,7 +96,7 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Top Vendedores</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Top vendedores</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {[1, 2, 3, 4, 5].map(i => (
@@ -116,11 +117,11 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
     <>
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Top Vendedores</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Top vendedores</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {reps.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Nenhum dado disponível</p>
+            <p className="text-sm text-muted-foreground text-center py-4">Nenhuma venda neste período.</p>
           ) : (
             reps.slice(0, 5).map((rep, index) => {
               const percentage = rep.target > 0 ? Math.round((rep.total_revenue / rep.target) * 100) : 0;
@@ -170,16 +171,16 @@ export function TopSalesReps({ reps, isLoading }: TopSalesRepsProps) {
       <Dialog open={!!editingRep} onOpenChange={(open) => !open && setEditingRep(null)}>
         <DialogContent className="sm:max-w-[360px]">
           <DialogHeader>
-            <DialogTitle>Definir Meta - {editingRep?.full_name}</DialogTitle>
+            <DialogTitle>Definir meta - {editingRep?.full_name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Meta de Faturamento (R$)</Label>
+              <Label>Meta de faturamento (R$)</Label>
               <Input
                 type="number"
                 value={targetValue}
                 onChange={(e) => setTargetValue(e.target.value)}
-                placeholder="Ex: 50000"
+                placeholder="Ex.: 50000"
               />
             </div>
           </div>

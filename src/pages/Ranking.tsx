@@ -353,7 +353,7 @@ export default function Ranking() {
 
   // Guard: Aguardar inicialização completa (auth + org)
   if (!isReady || !organizationId) {
-    return <LoadingAnimation text="Carregando ranking..." />;
+    return <LoadingAnimation text="Carregando o ranking..." />;
   }
 
   return (
@@ -367,6 +367,7 @@ export default function Ranking() {
           size="icon"
           className="text-muted-foreground hover:text-foreground"
           onClick={() => competitionIsAdmin && setSettingsOpen(true)}
+          aria-label="Configurar competição"
         >
           <Settings2 className="h-5 w-5" />
         </Button>
@@ -375,7 +376,7 @@ export default function Ranking() {
       <div className="p-4 md:p-6">
         {/* Competition Banner */}
         <RankingCompetitionBanner
-          title={competition?.title || 'Competição de Ranking'}
+          title={competition?.title || 'Competição de ranking'}
           isActive={competitionActive}
           isRevealed={competitionRevealed}
           revealAt={competition?.reveal_at ?? null}
@@ -407,7 +408,7 @@ export default function Ranking() {
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                   <span>📊</span>
-                  <span>Ranking de Tarefas</span>
+                  <span>Ranking de tarefas</span>
                 </div>
 
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
@@ -415,10 +416,10 @@ export default function Ranking() {
                     <SelectValue placeholder="Ordenar por" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="task_points">Ord. Pontos</SelectItem>
-                    <SelectItem value="revenue">Ord. Faturamento</SelectItem>
-                    <SelectItem value="won_leads">Ord. Vendas</SelectItem>
-                    <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
+                    <SelectItem value="task_points">Por pontos</SelectItem>
+                    <SelectItem value="revenue">Por faturamento</SelectItem>
+                    <SelectItem value="won_leads">Por vendas</SelectItem>
+                    <SelectItem value="percentage">Por porcentagem</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -427,10 +428,10 @@ export default function Ranking() {
                     <SelectValue placeholder="Período" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="week">Esta Semana</SelectItem>
-                    <SelectItem value="month">Este Mês</SelectItem>
-                    <SelectItem value="quarter">Este Trimestre</SelectItem>
-                    <SelectItem value="year">Este Ano</SelectItem>
+                    <SelectItem value="week">Esta semana</SelectItem>
+                    <SelectItem value="month">Este mês</SelectItem>
+                    <SelectItem value="quarter">Este trimestre</SelectItem>
+                    <SelectItem value="year">Este ano</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -467,7 +468,7 @@ export default function Ranking() {
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                   <span>📊</span>
-                  <span>Ranking de Vendas</span>
+                  <span>Ranking de vendas</span>
                 </div>
 
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
@@ -475,9 +476,9 @@ export default function Ranking() {
                     <SelectValue placeholder="Ordenar por" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="revenue">Ord. Faturamento</SelectItem>
-                    <SelectItem value="won_leads">Ord. Vendas</SelectItem>
-                    <SelectItem value="percentage">Ord. Porcentagem</SelectItem>
+                    <SelectItem value="revenue">Por faturamento</SelectItem>
+                    <SelectItem value="won_leads">Por vendas</SelectItem>
+                    <SelectItem value="percentage">Por porcentagem</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -486,10 +487,10 @@ export default function Ranking() {
                     <SelectValue placeholder="Período" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="week">Esta Semana</SelectItem>
-                    <SelectItem value="month">Este Mês</SelectItem>
-                    <SelectItem value="quarter">Este Trimestre</SelectItem>
-                    <SelectItem value="year">Este Ano</SelectItem>
+                    <SelectItem value="week">Esta semana</SelectItem>
+                    <SelectItem value="month">Este mês</SelectItem>
+                    <SelectItem value="quarter">Este trimestre</SelectItem>
+                    <SelectItem value="year">Este ano</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

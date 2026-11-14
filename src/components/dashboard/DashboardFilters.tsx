@@ -9,7 +9,7 @@ interface DashboardFiltersProps {
 
 const periodLabels: Record<PeriodType, string> = {
   today: 'Hoje',
-  month: 'Este Mês',
+  month: 'Este mês',
   quarter: 'Trimestre',
   year: 'Ano',
 };
