@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
 import { getSupabasePublicUrl } from '../_shared/supabase-urls.ts';
+import { extractWhatsAppDisplayName } from '../_shared/whatsapp-display-name.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -338,7 +339,7 @@ serve(async (req) => {
 
       const remoteJid = data?.key?.remoteJid;
       const fromMe = data?.key?.fromMe || false;
-      const pushName = data?.pushName || 'Desconhecido';
+      const contactDisplayName = extractWhatsAppDisplayName(data, { isFromMe: fromMe });
       const messageContent = data?.message?.conversation 
         || data?.message?.extendedTextMessage?.text
         || data?.message?.imageMessage?.caption
@@ -400,7 +401,7 @@ serve(async (req) => {
           .from('leads')
           .insert({
             telefone_lead: phoneNumber,
-            nome_lead: pushName,
+            nome_lead: contactDisplayName || phoneNumber,
             source: 'WhatsApp',
             last_message_at: messageTimestamp,
             stage: 'NOVO',
@@ -422,7 +423,10 @@ serve(async (req) => {
 
         await supabase
           .from('leads')
-          .update({ last_message_at: messageTimestamp, nome_lead: pushName })
+          .update({
+            last_message_at: messageTimestamp,
+            ...(contactDisplayName ? { nome_lead: contactDisplayName } : {}),
+          })
           .eq('id', leadId);
       }
 

@@ -12,7 +12,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "test": "node --import tsx --test tests/lead-duplicate.test.ts supabase/functions/_shared/facebook-lead-policy.node.test.ts",
+    "test": "node --import tsx --test tests/lead-duplicate.test.ts tests/whatsapp-display-name.test.ts tests/whatsapp-self-reported-name.test.ts supabase/functions/_shared/facebook-lead-policy.node.test.ts",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "preview": "vite preview"
   },

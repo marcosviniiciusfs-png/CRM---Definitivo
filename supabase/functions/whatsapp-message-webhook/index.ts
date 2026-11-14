@@ -11,6 +11,11 @@ import {
 } from "../_shared/evolution-config.ts";
 import { maybeApplyAdLeadTag } from "../_shared/ad-lead-tagging.ts";
 import { sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
+import { extractWhatsAppDisplayName } from "../_shared/whatsapp-display-name.ts";
+import {
+  extractSelfReportedName,
+  isPhoneLikeName,
+} from "../_shared/whatsapp-self-reported-name.ts";
 
 // Função auxiliar para baixar mídia usando Evolution API e fazer upload para Supabase Storage
 async function downloadAndUploadMedia(
@@ -997,7 +1002,10 @@ serve(async (req) => {
 
         // Adicionar dados da mensagem se disponível
         if (data?.key?.remoteJid) logData.remote_jid = data.key.remoteJid;
-        if (data?.pushName) logData.sender_name = data.pushName;
+        const displayNameForLog = extractWhatsAppDisplayName(data, {
+          isFromMe: Boolean(data?.key?.fromMe),
+        });
+        if (displayNameForLog) logData.sender_name = displayNameForLog;
         if (data?.message) {
           const msgContent = data.message?.conversation ||
               data.message?.extendedTextMessage?.text ||
@@ -1042,6 +1050,7 @@ serve(async (req) => {
 
     // Determinar direção da mensagem
     const isFromMe = messageKey.fromMe || false;
+    const contactDisplayName = extractWhatsAppDisplayName(data, { isFromMe });
 
     // CRÍTICO: Extrair número de telefone do remetente usando múltiplas estratégias
     // Prioridade: senderPn > remoteJid > participant
@@ -1505,21 +1514,32 @@ serve(async (req) => {
       leadId = existingLead.id;
       leadName = existingLead.nome_lead;
 
-      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome se pushName estiver disponível e for diferente.
-      // CRITICO: ignorar para mensagens fromMe — o pushName desses eventos e o nome do
-      // dono da conta WhatsApp (vendedor), nao do contato. Se atualizassemos, todos os
-      // leads recebiam o nome do vendedor.
-      if (!isFromMe && pushName && pushName !== existingLead.nome_lead) {
-        console.log("🔄 Atualizando nome do lead:", pushName);
+      // SINCRONIZAÇÃO AUTOMÁTICA: só preenche o nome quando o lead ainda está
+      // identificado pelo telefone. Nome real (inclusive editado pelo vendedor)
+      // nunca é sobrescrito. Para fromMe, o helper de display ignora pushName solto
+      // (nome do vendedor) e a mensagem não é usada (foi o vendedor quem escreveu).
+      const existingNameIsPhoneLike = isPhoneLikeName(
+        existingLead.nome_lead,
+        phoneNumber,
+      );
+      const nextLeadName = existingNameIsPhoneLike
+        ? (!isFromMe ? extractSelfReportedName(messageContent) : null) ||
+          contactDisplayName
+        : null;
+
+      if (
+        nextLeadName && nextLeadName !== existingLead.nome_lead
+      ) {
+        console.log("🔄 Atualizando nome do lead:", nextLeadName);
         await supabase
           .from("leads")
           .update({
-            nome_lead: pushName,
+            nome_lead: nextLeadName,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingLead.id);
 
-        leadName = pushName;
+        leadName = nextLeadName;
       }
 
       // Associate lead to channel if not yet linked
@@ -1662,11 +1682,13 @@ serve(async (req) => {
 
       console.log("🆕 Criando novo lead...");
 
-      // Usar pushName so quando a mensagem foi recebida (ENTRADA): nesse caso
-      // pushName e o nome do contato no WhatsApp dele.
-      // Para fromMe (vendedor enviou pelo celular para um contato novo), o
-      // pushName e o nome do vendedor — nao serve como nome do lead.
-      const newLeadName = (!isFromMe && pushName) ? pushName : phoneNumber;
+      // Usa nome salvo/display do contato quando o payload trouxer esse dado.
+      // Se a primeira mensagem do lead se apresentar ("meu nome é X"), usa esse nome.
+      // Se nao houver nome confiavel, cai para o telefone para evitar lead vazio.
+      const selfReportedName = !isFromMe
+        ? extractSelfReportedName(messageContent)
+        : null;
+      const newLeadName = selfReportedName || contactDisplayName || phoneNumber;
 
       // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WHATSAPP
       console.log("🔍 Buscando mapeamento de funil para WhatsApp...");
