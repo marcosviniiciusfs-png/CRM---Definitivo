@@ -32,9 +32,9 @@ interface TeamGoalsCardProps {
 }
 
 const GOAL_TYPES = [
-  { value: "sales_count", label: "Quantidade de Vendas" },
+  { value: "sales_count", label: "Quantidade de vendas" },
   { value: "revenue", label: "Receita (R$)" },
-  { value: "leads_converted", label: "Leads Convertidos" },
+  { value: "leads_converted", label: "Leads convertidos" },
 ];
 
 const PERIOD_TYPES = [
@@ -132,7 +132,7 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
 
   const handleSave = async () => {
     if (formData.target_value <= 0) {
-      toast.error("Meta deve ser maior que zero");
+      toast.error("Informe um valor de meta maior que zero.");
       return;
     }
 
@@ -151,7 +151,7 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
           .eq('id', editingGoal.id);
 
         if (error) throw error;
-        toast.success("Meta atualizada!");
+        toast.success("Meta atualizada.");
       } else {
         const { error } = await supabase
           .from('team_goals')
@@ -166,7 +166,7 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
           });
 
         if (error) throw error;
-        toast.success("Meta criada!");
+        toast.success("Meta criada.");
       }
 
       loadGoals();
@@ -174,7 +174,8 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
       setEditingGoal(null);
       setFormData({ goal_type: "sales_count", target_value: 0, period_type: "monthly" });
     } catch (error: any) {
-      toast.error("Erro: " + error.message);
+      console.error("Erro ao salvar meta:", error);
+      toast.error("Não foi possível salvar a meta. Tente novamente.");
     }
   };
 
@@ -186,10 +187,11 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
         .eq('id', goalId);
 
       if (error) throw error;
-      toast.success("Meta excluída!");
+      toast.success("Meta excluída.");
       loadGoals();
     } catch (error: any) {
-      toast.error("Erro: " + error.message);
+      console.error("Erro ao excluir meta:", error);
+      toast.error("Não foi possível excluir a meta. Tente novamente.");
     }
   };
 
@@ -238,7 +240,7 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Target className="h-4 w-4" style={{ color: teamColor }} />
-              Metas da Equipe
+              Metas da equipe
             </CardTitle>
             {canEdit && (
               <Button
@@ -258,12 +260,12 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
         <CardContent className="px-4 pb-4">
           {!canSeeData && (
             <p className="text-xs text-muted-foreground text-center py-1 mb-2 italic">
-              Dados visíveis apenas para membros desta equipe
+              Dados visíveis só para colaboradores desta equipe.
             </p>
           )}
           {goals.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-2">
-              Nenhuma meta definida
+              Nenhuma meta definida ainda.
             </p>
           ) : (
             <div className="space-y-3">
@@ -309,7 +311,7 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingGoal ? "Editar Meta" : "Nova Meta"}</DialogTitle>
+            <DialogTitle>{editingGoal ? "Editar meta" : "Nova meta"}</DialogTitle>
             <DialogDescription>
               Configure a meta para {teamName}
             </DialogDescription>
@@ -317,7 +319,7 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Tipo de Meta</Label>
+              <Label>Tipo de meta</Label>
               <Select
                 value={formData.goal_type}
                 onValueChange={(value) => setFormData({ ...formData, goal_type: value })}
@@ -336,13 +338,13 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
             </div>
 
             <div className="space-y-2">
-              <Label>Valor da Meta</Label>
+              <Label>Valor da meta</Label>
               <Input
                 type="number"
                 min="0"
                 value={formData.target_value}
                 onChange={(e) => setFormData({ ...formData, target_value: parseFloat(e.target.value) || 0 })}
-                placeholder={formData.goal_type === 'revenue' ? "Ex: 50000" : "Ex: 100"}
+                placeholder={formData.goal_type === 'revenue' ? "Ex.: 50000" : "Ex.: 100"}
               />
             </div>
 
@@ -371,7 +373,7 @@ export function TeamGoalsCard({ teamId, teamName, teamColor, organizationId, isM
               Cancelar
             </Button>
             <Button onClick={handleSave}>
-              {editingGoal ? "Salvar" : "Criar"}
+              {editingGoal ? "Salvar meta" : "Criar meta"}
             </Button>
           </div>
         </DialogContent>

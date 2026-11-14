@@ -186,8 +186,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
     } catch (error: any) {
       console.error("Error loading roles:", error);
       toast({
-        title: "Erro ao carregar cargos",
-        description: error.message,
+        title: "Não foi possível carregar os cargos",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -236,8 +236,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
   const handleSaveRole = async () => {
     if (!formData.name.trim()) {
       toast({
-        title: "Erro",
-        description: "O nome do cargo é obrigatório",
+        title: "Nome obrigatório",
+        description: "Preencha o nome do cargo.",
         variant: "destructive",
       });
       return;
@@ -286,8 +286,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
         }
 
         toast({
-          title: "Cargo atualizado!",
-          description: `O cargo "${formData.name}" foi atualizado com sucesso.`,
+          title: "Cargo atualizado",
+          description: `O cargo "${formData.name}" foi atualizado.`,
         });
       } else {
         // Create new role
@@ -325,8 +325,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
         if (error) throw error;
 
         toast({
-          title: "Cargo criado!",
-          description: `O cargo "${formData.name}" foi criado com sucesso.`,
+          title: "Cargo criado",
+          description: `O cargo "${formData.name}" foi criado.`,
         });
       }
 
@@ -335,8 +335,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
     } catch (error: any) {
       console.error("Error saving role:", error);
       toast({
-        title: "Erro ao salvar cargo",
-        description: error.message,
+        title: "Não foi possível salvar o cargo",
+        description: error?.message?.startsWith("Sem permissão para atualizar") ? "Só o proprietário pode editar cargos." : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -367,8 +367,8 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
     } catch (error: any) {
       console.error("Error deleting role:", error);
       toast({
-        title: "Erro ao excluir cargo",
-        description: error.message,
+        title: "Não foi possível excluir o cargo",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -410,15 +410,15 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Cargos Personalizados</h3>
+          <h3 className="text-lg font-semibold">Cargos personalizados</h3>
           <p className="text-sm text-muted-foreground">
-            Crie cargos com permissões específicas para seus colaboradores
+            Crie cargos com permissões específicas para os colaboradores.
           </p>
         </div>
         {isOwner && (
           <Button onClick={handleOpenCreateDialog} className="gap-2">
             <Plus className="h-4 w-4" />
-            Criar Cargo
+            Criar cargo
           </Button>
         )}
       </div>
@@ -429,9 +429,9 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Shield className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground text-center">
-              Nenhum cargo personalizado criado ainda.
+              Nenhum cargo personalizado ainda.
               <br />
-              {isOwner ? "Clique em \"Criar Cargo\" para começar." : "Aguarde o proprietário criar cargos."}
+              {isOwner ? "Clique em \"Criar cargo\" para começar." : "O proprietário pode criar cargos."}
             </p>
           </CardContent>
         </Card>
@@ -485,7 +485,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
               <CardContent className="pt-0">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  <span>{role.member_count || 0} membro(s)</span>
+                  <span>{role.member_count === 1 ? "1 colaborador" : `${role.member_count || 0} colaboradores`}</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-3">
                   {role.can_view_kanban && (
@@ -495,13 +495,13 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                     <Badge variant="outline" className="text-xs">Chat</Badge>
                   )}
                   {role.can_view_pipeline && (
-                    <Badge variant="outline" className="text-xs">Pipeline</Badge>
+                    <Badge variant="outline" className="text-xs">Funil</Badge>
                   )}
                   {role.can_view_all_leads && (
-                    <Badge variant="outline" className="text-xs">Todos Leads</Badge>
+                    <Badge variant="outline" className="text-xs">Todos os leads</Badge>
                   )}
                   {role.can_view_team_leads && (
-                    <Badge variant="outline" className="text-xs">Líder Equipe</Badge>
+                    <Badge variant="outline" className="text-xs">Líder de equipe</Badge>
                   )}
                   {role.can_view_reports && (
                     <Badge variant="outline" className="text-xs">Relatórios</Badge>
@@ -518,10 +518,10 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>
-              {editingRole ? "Editar Cargo" : "Criar Novo Cargo"}
+              {editingRole ? "Editar cargo" : "Criar cargo"}
             </DialogTitle>
             <DialogDescription>
-              Configure as permissões que os membros com este cargo terão.
+              Defina o que os colaboradores com este cargo podem fazer.
             </DialogDescription>
           </DialogHeader>
 
@@ -530,12 +530,12 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
               {/* Basic Info */}
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nome do Cargo *</Label>
+                  <Label htmlFor="name">Nome do cargo *</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ex: Vendedor, Gerente, Atendente..."
+                    placeholder="Ex.: Vendedor, Gerente, Atendente"
                     className="mt-1"
                   />
                 </div>
@@ -545,13 +545,13 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                     id="description"
                     value={formData.description || ""}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Descreva as responsabilidades deste cargo..."
+                    placeholder="Descreva as responsabilidades deste cargo"
                     className="mt-1"
                     rows={2}
                   />
                 </div>
                 <div>
-                  <Label>Cor do Cargo</Label>
+                  <Label>Cor do cargo</Label>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {colorOptions.map((color) => (
                       <button
@@ -576,7 +576,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Kanban className="h-4 w-4" />
-                  Tarefas / Kanban
+                  Tarefas e Kanban
                 </div>
                 <div className="grid grid-cols-2 gap-3 pl-6">
                   <PermissionCheckbox
@@ -629,13 +629,13 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                   />
                   <PermissionCheckbox
                     id="can_view_all_leads"
-                    label="Ver TODOS os leads"
+                    label="Ver todos os leads"
                     checked={formData.can_view_all_leads}
                     onChange={(v) => setFormData({ ...formData, can_view_all_leads: v })}
                   />
                   <PermissionCheckbox
                     id="can_view_team_leads"
-                    label="Líder de Equipe (ver leads da equipe)"
+                    label="Líder de equipe (ver leads da equipe)"
                     checked={formData.can_view_team_leads}
                     onChange={(v) => setFormData({ ...formData, can_view_team_leads: v })}
                   />
@@ -659,7 +659,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                   />
                   <PermissionCheckbox
                     id="can_assign_leads"
-                    label="Atribuir leads a outros"
+                    label="Atribuir leads a outros colaboradores"
                     checked={formData.can_assign_leads}
                     onChange={(v) => setFormData({ ...formData, can_assign_leads: v })}
                   />
@@ -672,18 +672,18 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <LayoutGrid className="h-4 w-4" />
-                  Pipeline
+                  Funil
                 </div>
                 <div className="grid grid-cols-2 gap-3 pl-6">
                   <PermissionCheckbox
                     id="can_view_pipeline"
-                    label="Visualizar pipeline"
+                    label="Visualizar funil"
                     checked={formData.can_view_pipeline}
                     onChange={(v) => setFormData({ ...formData, can_view_pipeline: v })}
                   />
                   <PermissionCheckbox
                     id="can_move_leads_pipeline"
-                    label="Mover leads no pipeline"
+                    label="Mover leads no funil"
                     checked={formData.can_move_leads_pipeline}
                     onChange={(v) => setFormData({ ...formData, can_move_leads_pipeline: v })}
                   />
@@ -713,7 +713,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
                   />
                   <PermissionCheckbox
                     id="can_view_all_conversations"
-                    label="Ver TODAS as conversas"
+                    label="Ver todas as conversas"
                     checked={formData.can_view_all_conversations}
                     onChange={(v) => setFormData({ ...formData, can_view_all_conversations: v })}
                   />
@@ -770,7 +770,7 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
             </Button>
             <Button onClick={handleSaveRole} disabled={isSaving}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editingRole ? "Salvar Alterações" : "Criar Cargo"}
+              {editingRole ? "Salvar cargo" : "Criar cargo"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -780,12 +780,12 @@ export const RoleManagementTab = ({ organizationId, userRole }: RoleManagementTa
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Excluir Cargo</DialogTitle>
+            <DialogTitle>Excluir cargo?</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir o cargo "{roleToDelete?.name}"?
+              Excluir o cargo "{roleToDelete?.name}"? Não dá para desfazer.
               {(roleToDelete?.member_count || 0) > 0 && (
                 <span className="block mt-2 text-destructive">
-                  ⚠️ {roleToDelete?.member_count} membro(s) perderão este cargo.
+                  {roleToDelete?.member_count === 1 ? "1 colaborador perde" : `${roleToDelete?.member_count} colaboradores perdem`} este cargo.
                 </span>
               )}
             </DialogDescription>

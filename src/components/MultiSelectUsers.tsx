@@ -37,7 +37,7 @@ export const MultiSelectUsers = ({
   value,
   onChange,
   users,
-  placeholder = "Selecionar responsáveis...",
+  placeholder = "Selecionar responsáveis",
   disabled = false,
 }: MultiSelectUsersProps) => {
   const [open, setOpen] = useState(false);
@@ -107,9 +107,9 @@ export const MultiSelectUsers = ({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Buscar membro..." />
+          <CommandInput placeholder="Buscar colaborador" />
           <CommandList>
-            <CommandEmpty>Nenhum membro encontrado.</CommandEmpty>
+            <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
             <CommandGroup>
               {users.map((user) => {
                 const isSelected = value.includes(user.user_id);

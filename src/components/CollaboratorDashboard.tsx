@@ -37,7 +37,7 @@ function ActivityFeed({ userId, organizationId }: { userId: string; organization
   if (isLoading) {
     return (
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Atividades Recentes</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Atividades recentes</CardTitle></CardHeader>
         <CardContent><div className="animate-pulse space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 bg-muted rounded" />)}</div></CardContent>
       </Card>
     );
@@ -47,12 +47,12 @@ function ActivityFeed({ userId, organizationId }: { userId: string; organization
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <Clock className="h-4 w-4" /> Atividades Recentes
+          <Clock className="h-4 w-4" /> Atividades recentes
         </CardTitle>
       </CardHeader>
       <CardContent>
         {activities.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma atividade registrada</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma atividade registrada ainda.</p>
         ) : (
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {activities.map((act) => (
@@ -344,8 +344,8 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
       {/* Header with selectors */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Dashboard de Performance</h2>
-          <p className="text-muted-foreground">Acompanhe as métricas de vendas da equipe</p>
+          <h2 className="text-2xl font-bold">Dashboard de performance</h2>
+          <p className="text-muted-foreground">Acompanhe as métricas de vendas da equipe.</p>
         </div>
         <div className="flex items-center gap-3">
           {canSelectCollaborator && (
@@ -395,7 +395,7 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
                       <span>{member.full_name}</span>
                       {member.role && (
                         <span className="text-xs text-muted-foreground ml-1">
-                          ({member.role === 'owner' ? 'Dono' : member.role === 'admin' ? 'Admin' : 'Membro'})
+                          ({member.role === 'owner' ? 'Proprietário' : member.role === 'admin' ? 'Administrador' : 'Colaborador'})
                         </span>
                       )}
                     </div>
@@ -415,9 +415,9 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="week">Esta Semana</SelectItem>
-              <SelectItem value="month">Este Mês</SelectItem>
-              <SelectItem value="quarter">Este Trimestre</SelectItem>
+              <SelectItem value="week">Esta semana</SelectItem>
+              <SelectItem value="month">Este mês</SelectItem>
+              <SelectItem value="quarter">Este trimestre</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -445,7 +445,7 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
               </div>
               <div>
                 <p className="text-2xl font-bold">{dashboardData.leadsToday}</p>
-                <p className="text-xs text-muted-foreground">Leads Hoje</p>
+                <p className="text-xs text-muted-foreground">Leads hoje</p>
               </div>
             </div>
           </CardContent>
@@ -458,7 +458,7 @@ export function CollaboratorDashboard({ organizationId }: CollaboratorDashboardP
               </div>
               <div>
                 <p className="text-2xl font-bold">{dashboardData.leadsWeek}</p>
-                <p className="text-xs text-muted-foreground">Leads Semana</p>
+                <p className="text-xs text-muted-foreground">Leads na semana</p>
               </div>
             </div>
           </CardContent>

@@ -81,14 +81,14 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
     // Validar tipo de arquivo
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      toast.error("Formato de arquivo inválido. Use JPG, PNG ou WEBP.");
+      toast.error("Formato inválido. Use JPG, PNG ou WEBP.");
       event.target.value = '';
       return;
     }
 
     // Validar tamanho (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Arquivo muito grande. O tamanho máximo é 5MB.");
+      toast.error("Arquivo muito grande. O limite é 5MB.");
       event.target.value = '';
       return;
     }
@@ -128,9 +128,9 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
       if (uploadError) {
         console.error('Erro de storage:', uploadError);
         if (uploadError.message?.includes('No space') || uploadError.message?.includes('FILE_ERROR_NO_SPACE')) {
-          toast.error('Sem espaço no storage. Entre em contato com o suporte.');
+          toast.error('Não há espaço de armazenamento disponível. Fale com o suporte.');
         } else {
-          toast.error(`Erro ao enviar imagem: ${uploadError.message}`);
+          toast.error('Não foi possível enviar a imagem. Tente novamente.');
         }
         return;
       }
@@ -150,7 +150,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
       if (updateError) throw updateError;
 
       onAvatarUpdate(urlWithTimestamp);
-      toast.success('Foto de perfil atualizada com sucesso!');
+      toast.success('Foto de perfil atualizada.');
 
       // Resetar estado
       setShowCropDialog(false);
@@ -159,7 +159,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
       setZoom(1);
     } catch (error: any) {
       console.error('Erro ao fazer upload:', error);
-      toast.error(error.message || 'Erro ao atualizar foto de perfil. Tente novamente.');
+      toast.error('Não foi possível atualizar a foto de perfil. Tente novamente.');
     } finally {
       setUploading(false);
     }
@@ -209,7 +209,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
                 ) : (
                   <>
                     <Upload className="h-4 w-4 mr-2" />
-                    Alterar Foto
+                    Alterar foto
                   </>
                 )}
               </span>
@@ -224,7 +224,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
             className="hidden"
           />
           <p className="text-xs text-muted-foreground text-center">
-            JPG, PNG ou WEBP. Máx. 5MB
+            JPG, PNG ou WEBP. Máximo de 5MB.
           </p>
         </div>
       </div>
@@ -232,7 +232,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
       <Dialog open={showCropDialog} onOpenChange={setShowCropDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Ajustar Foto de Perfil</DialogTitle>
+            <DialogTitle>Ajustar foto de perfil</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -282,7 +282,7 @@ export function AvatarUpload({ avatarUrl, userId, userName, onAvatarUpdate }: Av
                   Salvando...
                 </>
               ) : (
-                "Salvar Foto"
+                "Salvar foto"
               )}
             </Button>
           </DialogFooter>

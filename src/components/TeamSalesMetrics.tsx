@@ -154,7 +154,7 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUs
 
   const formatSalesCount = (teamId: string, count: number) => {
     if (!canSeeTeamData(teamId)) return '••';
-    return `${count} vendas`;
+    return count === 1 ? "1 venda" : `${count} vendas`;
   };
 
   return (
@@ -164,7 +164,7 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUs
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Trophy className="h-5 w-5 text-amber-500" />
-            Ranking de Equipes — Vendas do Mês
+            Ranking de equipes: vendas do mês
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -254,7 +254,7 @@ export function TeamSalesMetrics({ organizationId, teams, teamMembers, currentUs
               )}
               {!visible && (
                 <p className="text-xs text-muted-foreground italic pt-1 border-t border-border">
-                  Dados visíveis apenas para membros
+                  Dados visíveis só para colaboradores da equipe.
                 </p>
               )}
             </CardContent>

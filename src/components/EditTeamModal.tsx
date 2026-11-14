@@ -111,7 +111,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
   const handleSave = async () => {
     if (!team) return;
     if (!formData.name.trim()) {
-      toast.error("Nome da equipe é obrigatório");
+      toast.error("Preencha o nome da equipe.");
       return;
     }
 
@@ -167,13 +167,13 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
         );
       }
 
-      toast.success("Equipe atualizada com sucesso!");
+      toast.success("Equipe atualizada.");
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error updating team:', error);
-      toast.error("Erro ao atualizar equipe: " + error.message);
+      toast.error("Não foi possível atualizar a equipe. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -191,13 +191,13 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
 
       if (error) throw error;
 
-      toast.success("Equipe excluída com sucesso!");
+      toast.success("Equipe excluída.");
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error deleting team:', error);
-      toast.error("Erro ao excluir equipe: " + error.message);
+      toast.error("Não foi possível excluir a equipe. Tente novamente.");
     } finally {
       setDeleting(false);
     }
@@ -209,9 +209,9 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Equipe</DialogTitle>
+          <DialogTitle>Editar equipe</DialogTitle>
           <DialogDescription>
-            Atualize as informações da equipe
+            Atualize as informações da equipe.
           </DialogDescription>
         </DialogHeader>
 
@@ -246,12 +246,12 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
 
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="edit-name">Nome da Equipe *</Label>
+            <Label htmlFor="edit-name">Nome da equipe *</Label>
             <Input
               id="edit-name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Ex: Vendas Premium"
+              placeholder="Ex.: Vendas Premium"
             />
           </div>
 
@@ -262,14 +262,14 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
               id="edit-description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descrição da equipe (opcional)"
+              placeholder="Descreva a equipe (opcional)"
               rows={2}
             />
           </div>
 
           {/* Color */}
           <div className="space-y-2">
-            <Label>Cor da Equipe</Label>
+            <Label>Cor da equipe</Label>
             <div className="flex flex-wrap gap-2">
               {TEAM_COLORS.map((color) => (
                 <button
@@ -288,7 +288,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
 
           {/* Leader */}
           <div className="space-y-2">
-            <Label>Líder da Equipe</Label>
+            <Label>Líder da equipe</Label>
             <Select
               value={formData.leader_id}
               onValueChange={(value) => setFormData({ ...formData, leader_id: value })}
@@ -309,7 +309,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
 
           {/* Members Selection */}
           <div className="space-y-2">
-            <Label>Membros da Equipe</Label>
+            <Label>Colaboradores da equipe</Label>
             <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
               {members.map((member) => (
                 <div 
@@ -336,7 +336,7 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
               ))}
               {members.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum membro disponível
+                  Nenhum colaborador disponível.
                 </p>
               )}
             </div>
@@ -353,10 +353,9 @@ export function EditTeamModal({ open, onOpenChange, team, organizationId, member
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Excluir Equipe</AlertDialogTitle>
+                <AlertDialogTitle>Excluir equipe?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Tem certeza que deseja excluir a equipe "{team.name}"? 
-                  Todos os membros serão removidos da equipe. Esta ação não pode ser desfeita.
+                  Excluir a equipe "{team.name}"? Os colaboradores saem da equipe, mas continuam na organização. Não dá para desfazer.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
