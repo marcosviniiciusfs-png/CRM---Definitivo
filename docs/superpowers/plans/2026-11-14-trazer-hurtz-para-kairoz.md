@@ -89,6 +89,35 @@ precisam disparar sempre.
 **Pronto quando:** mover o lead por qualquer caminho dispara as ações exatamente uma vez, e o
 histórico mostra quem moveu.
 
+**Feito (branch `feat/acoes-etapa-servidor`):**
+- Migration `20261114150000_stage_moves_and_actions.sql`: `funnel_stage_history.source`, fila
+  `stage_action_runs`, trigger `leads_record_stage_move`, `claim_stage_action_runs` (só service role) e
+  cron `process-stage-actions-sweep` (1 min). O trigger também chama a função na hora via pg_net.
+- Edge Function `process-stage-actions` + regras puras em `_shared/stage-actions.ts`
+  (testes em `tests/stage-actions.test.ts`).
+- `Pipeline.tsx` não executa mais ações.
+
+**Decisões tomadas:**
+- Ação só quando o lead **já estava numa etapa e mudou**. Lead novo, ou distribuição que define a
+  primeira etapa, só grava histórico (igual ao comportamento anterior).
+- No máximo uma vez: execução que travou no meio vira `failed` e não é repetida (a mensagem pode já
+  ter saído); ação esperando há mais de 6 h vira `skipped`; lead que saiu da etapa antes da ação rodar
+  é pulado.
+- Mensagem automática sai pelo canal do lead; sem canal, pelo primeiro canal conectado **da mesma
+  organização** (antes pegava qualquer canal conectado). Atribuição procura o e-mail só na organização
+  do lead.
+- Origem: `human` quando há usuário logado; `automation` quando a Edge Function manda
+  `x-move-source: automation`; `system` no resto.
+
+**Ordem de deploy:** frontend primeiro, depois migration + função. Na ordem inversa, por alguns
+minutos a mesma movimentação dispararia a ação no navegador e no servidor.
+
+**Ficou para depois (decidir com o dono):**
+- `StageAutomationConfig` (tela vazia), `funnel_automation_rules` (sem uso), `max_days_in_stage` e
+  `required_fields` (salvos e não aplicados).
+- `process-automation-rules` muda a coluna antiga `leads.stage`, não `funnel_stage_id`: a ação
+  "mudar etapa" das automações não move o lead nos funis.
+
 ---
 
 ## Fase 3 — Card, tarefas e lembretes do agendado

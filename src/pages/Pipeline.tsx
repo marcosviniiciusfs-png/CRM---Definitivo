@@ -1440,11 +1440,7 @@ const Pipeline = () => {
 
         if (error) throw error;
 
-        // Executar ações automáticas da etapa
-        if (targetStageData?.stageData) {
-          await executeStageActions(leadId, activeLead, targetStageData.stageData);
-        }
-
+        // Ações da etapa rodam no servidor (trigger + process-stage-actions).
         toast.success("Lead movido!");
 
       } else if (overLead) {
@@ -1549,11 +1545,6 @@ const Pipeline = () => {
           ];
 
           await Promise.all(updates);
-
-          // Executar ações automáticas da etapa se houver
-          if (targetStageData?.stageData) {
-            await executeStageActions(leadId, activeLead, targetStageData.stageData);
-          }
 
           toast.success("Lead movido!");
         }
@@ -1791,10 +1782,6 @@ const Pipeline = () => {
       const { error } = await supabase.from('leads').update(updateData).eq('id', leadId);
       if (error) throw error;
 
-      if (targetStageData?.stageData) {
-        await executeStageActions(leadId, activeLead, targetStageData.stageData);
-      }
-
       toast.success(`Lead movido para ${targetStageData?.title || 'próxima etapa'}!`);
     } catch (err) {
       console.error('Erro ao mover lead:', err);
@@ -1802,153 +1789,6 @@ const Pipeline = () => {
       loadLeads(undefined, false);
     }
   }, [leads, stages, usingCustomFunnel, user?.id, permissions, teamMemberIds]);
-
-  // Executar ações automáticas baseadas no tipo da etapa
-  const executeStageActions = async (leadId: string, lead: Lead, stage: any) => {
-    if (!stage.stage_type || stage.stage_type === "custom") return;
-
-    try {
-      switch (stage.stage_type) {
-        case "send_message":
-          if (stage.stage_config?.message_template) {
-            await sendAutomaticMessage(leadId, lead, stage.stage_config.message_template);
-          }
-          break;
-        case "create_task":
-          if (stage.stage_config?.task_title) {
-            await createFollowUpTask(leadId, lead, stage.stage_config);
-          }
-          break;
-        case "assign_agent":
-          if (stage.stage_config?.agent_email) {
-            await assignLeadToAgent(leadId, stage.stage_config.agent_email);
-          }
-          break;
-        case "won":
-          // Enviar evento de conversão para Meta Conversions API
-          await sendMetaConversionEvent(leadId, lead);
-          break;
-        case "lost":
-        case "discarded":
-          // Ações futuras podem ser adicionadas aqui (ex: métricas, notificações)
-          break;
-      }
-    } catch (error) {
-      console.error("Erro ao executar ação automática:", error);
-    }
-  };
-
-  const sendAutomaticMessage = async (leadId: string, lead: Lead, template: string) => {
-    try {
-      // Substituir variáveis no template
-      const message = template.replace(/\{\{nome\}\}/g, lead.nome_lead);
-
-      const { data: instances } = await supabase
-        .from("whatsapp_instances")
-        .select("instance_name")
-        .eq("status", "connected")
-        .limit(1)
-        .maybeSingle();
-
-      if (!instances?.instance_name) {
-        console.log("Nenhuma instância WhatsApp conectada");
-        return;
-      }
-
-      await supabase.functions.invoke("send-whatsapp-message", {
-        body: {
-          instance_name: instances.instance_name,
-          remoteJid: lead.telefone_lead,
-          message_text: message,
-          leadId: leadId,
-        },
-      });
-
-      toast.success("Mensagem automática enviada!");
-    } catch (error) {
-      console.error("Erro ao enviar mensagem automática:", error);
-    }
-  };
-
-  const createFollowUpTask = async (leadId: string, lead: Lead, config: any) => {
-    try {
-      if (!organizationId || !user?.id) return;
-
-      const { data: board } = await supabase
-        .from("kanban_boards")
-        .select("id, kanban_columns(id)")
-        .eq("organization_id", organizationId)
-        .limit(1)
-        .maybeSingle();
-
-      if (!board?.kanban_columns?.[0]?.id) return;
-
-      await supabase.from("kanban_cards").insert({
-        column_id: board.kanban_columns[0].id,
-        content: config.task_title,
-        description: `Follow-up com lead: ${lead.nome_lead}`,
-        estimated_time: config.estimated_time || null,
-        created_by: user.id,
-      });
-
-      toast.success("Tarefa de follow-up criada!");
-    } catch (error) {
-      console.error("Erro ao criar tarefa:", error);
-    }
-  };
-
-  const assignLeadToAgent = async (leadId: string, agentEmail: string) => {
-    try {
-      const { data: profile } = await supabase
-        .from("organization_members")
-        .select("user_id, profiles(full_name)")
-        .eq("email", agentEmail)
-        .limit(1)
-        .maybeSingle();
-
-      if (!profile) {
-        toast.error("Agente não encontrado");
-        return;
-      }
-
-      const agentName = (profile as any).profiles?.full_name || agentEmail;
-      const agentUserId = profile.user_id;
-
-      // ATUALIZADO: usar UUID + TEXT para compatibilidade
-      await supabase
-        .from("leads")
-        .update({
-          responsavel_user_id: agentUserId,
-          responsavel: agentName // Mantém TEXT para compatibilidade
-        })
-        .eq("id", leadId);
-
-      toast.success(`Lead atribuído para ${agentName}!`);
-    } catch (error) {
-      console.error("Erro ao atribuir lead:", error);
-    }
-  };
-
-  // Enviar evento de conversão para Meta Conversions API (funciona para todos os funis)
-  const sendMetaConversionEvent = async (leadId: string, lead: Lead) => {
-    try {
-      const { error } = await supabase.functions.invoke("send-meta-conversion-event", {
-        body: {
-          lead_id: leadId,
-          event_name: "Purchase",
-          value: lead.valor || 0,
-        },
-      });
-
-      if (error) {
-        console.error("Erro ao enviar evento Meta:", error);
-      } else {
-        console.log("Evento de conversão enviado para Meta");
-      }
-    } catch (error) {
-      console.error("Erro ao enviar evento Meta:", error);
-    }
-  };
 
   // Handler otimizado para mudança de aba com transição suave
   const handleTabChange = useCallback((value: string) => {
