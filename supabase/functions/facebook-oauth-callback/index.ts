@@ -364,16 +364,20 @@ Deno.serve(async (req) => {
     }
 
     // 5. Salvar tokens na tabela segura com CRIPTOGRAFIA
+    // Sem tokens salvos a integração fica inutilizável ("reconectar"), então
+    // qualquer falha aqui (inclusive { error } da RPC, que não lança exceção) aborta o fluxo.
     try {
       const encryptedPageToken = await encryptMetaToken(selectedPage.access_token);
 
-      await supabase.rpc('update_facebook_tokens_secure', {
+      const { error: tokensError } = await supabase.rpc('update_facebook_tokens_secure', {
         p_integration_id: integrationId,
         p_encrypted_access_token: encryptedMainToken,
         p_encrypted_page_access_token: encryptedPageToken
       });
+      if (tokensError) throw tokensError;
     } catch (e: any) {
-      console.warn(`⚠️ [FB-CALLBACK] Falha no storage seguro para ${selectedPage.name}:`, e.message);
+      console.error(`❌ [FB-CALLBACK] Falha ao salvar tokens de ${selectedPage.name}:`, e.message);
+      throw new Error(`Não foi possível salvar as credenciais do Facebook com segurança: ${e.message}`);
     }
 
     // 6. Renovar tokens de todas as outras integrações do mesmo usuário do Facebook.
@@ -401,11 +405,15 @@ Deno.serve(async (req) => {
           const encryptedFreshPageToken = await encryptMetaToken(freshPageToken);
 
           // Atualizar token seguro da integração
-          await supabase.rpc('update_facebook_tokens_secure', {
+          const { error: otherTokensError } = await supabase.rpc('update_facebook_tokens_secure', {
             p_integration_id: other.id,
             p_encrypted_access_token: encryptedMainToken,
             p_encrypted_page_access_token: encryptedFreshPageToken
           });
+          if (otherTokensError) {
+            console.warn(`⚠️ [FB-CALLBACK] Falha ao renovar tokens da integração ${other.id}:`, otherTokensError.message);
+            continue;
+          }
 
           // Atualizar expires_at para refletir o novo token
           await supabase
