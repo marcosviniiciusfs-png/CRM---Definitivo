@@ -24,6 +24,10 @@ interface InterestRule {
 
 const INTEREST_MAX_LENGTH = 80;
 
+// Motivo gravado quando um lead do WhatsApp não atende às regras de interesse do canal.
+// A varredura de perdidos usa esse motivo para não reenviar esses leads.
+export const INTEREST_RULE_NOT_MATCHED = "interest_rule_not_matched";
+
 const clean = (value: unknown, fallback = "Não informado") => {
   const text = String(value ?? "").trim();
   return text || fallback;
@@ -112,6 +116,32 @@ async function resolveInterest(
   // Reenvios (varredura) não têm a mensagem em mãos: busca a primeira mensagem de texto recebida
   // do lead (mídia é gravada como "[Áudio]" etc. e não serve para as regras).
   if (firstMessage || normalizeSource(lead?.source) !== "whatsapp") return null;
+  const { data: message } = await supabase
+    .from("mensagens_chat")
+    .select("corpo_mensagem")
+    .eq("id_lead", lead.id)
+    .eq("direcao", "ENTRADA")
+    .is("media_type", null)
+    .order("data_hora", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return matchInterestRule(rules, String(message?.corpo_mensagem ?? ""));
+}
+
+function isWhatsAppLead(lead: any) {
+  return normalizeText(lead?.source).includes("whatsapp");
+}
+
+// Com regras no canal, o interesse de um lead do WhatsApp vem só delas, nunca do dado estruturado.
+// Usa a primeira mensagem de texto: a que chega no momento da criação, ou a primeira gravada nos reenvios.
+async function resolveRuleInterest(
+  supabase: SupabaseAdmin,
+  lead: any,
+  firstMessage: string | null | undefined,
+  rules: InterestRule[],
+) {
+  if (firstMessage) return matchInterestRule(rules, firstMessage);
+
   const { data: message } = await supabase
     .from("mensagens_chat")
     .select("corpo_mensagem")
@@ -293,6 +323,29 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
     return { sent: false, skipped: true, reason: "source_filtered" };
   }
 
+  // Regras de interesse do canal: só entram leads do WhatsApp que casam com alguma regra.
+  // Leads de Facebook e formulário não são filtrados por aqui.
+  const interestRules = parseInterestRules(channel.lead_alert_interest_rules);
+  let ruleInterest: string | null = null;
+  if (interestRules.length > 0 && isWhatsAppLead(leadForMessage)) {
+    ruleInterest = await resolveRuleInterest(supabase, leadForMessage, input.firstMessage, interestRules);
+    if (!ruleInterest) {
+      // Na criação sem texto (áudio, figurinha) o lead ainda pode receber texto depois. Nesse caso
+      // não grava o motivo, e a varredura decide quando a primeira mensagem de texto já existir.
+      const finalAnswer = Boolean(input.firstMessage) || input.waitForAssignment === false;
+      if (finalAnswer) {
+        await writeLog(supabase, {
+          organization_id: input.organizationId,
+          lead_id: input.leadId,
+          status: "skipped",
+          reason: INTEREST_RULE_NOT_MATCHED,
+          error_message: "Primeira mensagem não atende às regras de interesse do canal",
+        });
+      }
+      return { sent: false, skipped: true, reason: INTEREST_RULE_NOT_MATCHED };
+    }
+  }
+
   const liveState = await getLiveInstanceState(channel.instance_name);
   const connected = liveState
     ? isConnectedState(liveState)
@@ -318,7 +371,7 @@ export async function sendLeadGroupAlert(supabase: SupabaseAdmin, input: LeadAle
   const waitMs = 3500 - (Date.now() - lastSent);
   if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
 
-  const interest = await resolveInterest(
+  const interest = ruleInterest ?? await resolveInterest(
     supabase,
     leadForMessage,
     input.firstMessage,

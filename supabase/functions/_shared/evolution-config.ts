@@ -75,6 +75,21 @@ export function isConnectedState(state: string | undefined | null): boolean {
   return normalized === 'open' || normalized === 'connected';
 }
 
+/** Consulta o estado real da instância; o status salvo no banco pode ficar obsoleto. */
+export async function getLiveInstanceState(instanceName: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `${getEvolutionApiUrl()}/instance/connectionState/${encodeURIComponent(instanceName)}`,
+      { headers: { apikey: getEvolutionApiKey() } },
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.instance?.state || data?.state || data?.instance?.connectionStatus || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Formata um número de telefone para o formato JID do WhatsApp.
  * Remove todos os caracteres não numéricos e adiciona @s.whatsapp.net

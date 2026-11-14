@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createSupabaseAdmin } from "../_shared/evolution-config.ts";
-import { sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
+import { INTEREST_RULE_NOT_MATCHED, sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
 
 // Leads muito recentes ainda podem estar sendo tratados pelo envio em tempo real.
 const SWEEP_MIN_AGE_MS = 3 * 60 * 1000;
@@ -52,6 +52,17 @@ async function findMissedAlerts(supabase: any, organizationId: string | null, wi
     .eq("status", "success")
     .gte("created_at", since);
   const sentIds = new Set((sent || []).map((row: any) => row.payload?.lead_id));
+
+  // Leads que não atendem às regras de interesse do canal não são perdidos: não devem ser reenviados.
+  const { data: skipped } = await supabase
+    .from("webhook_logs")
+    .select("payload")
+    .eq("event_type", "lead_group_alert")
+    .eq("status", "skipped")
+    .gte("created_at", since);
+  for (const row of skipped || []) {
+    if (row.payload?.reason === INTEREST_RULE_NOT_MATCHED) sentIds.add(row.payload?.lead_id);
+  }
 
   return (leads || []).filter((lead: any) => !sentIds.has(lead.id));
 }
