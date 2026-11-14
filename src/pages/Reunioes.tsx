@@ -46,6 +46,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { AppointmentRemindersDialog } from "@/components/AppointmentRemindersDialog";
 
 type MeetingStatus = "realizada" | "no_show" | "pendente";
 type StatusFilter = "all" | MeetingStatus;
@@ -756,6 +757,9 @@ const Reunioes = () => {
                 />
               </PopoverContent>
             </Popover>
+            {organizationId && permissions.canManageAutomation && (
+              <AppointmentRemindersDialog organizationId={organizationId} />
+            )}
             <Button variant="outline" className="gap-2 border-rose-300/60 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-400/35 dark:bg-rose-500/10 dark:text-rose-100 dark:hover:bg-rose-500/20 dark:hover:text-white" onClick={() => dashboardQuery.refetch()}>
               <RefreshCw className={cn("h-4 w-4", dashboardQuery.isFetching && "animate-spin")} />
               Atualizar

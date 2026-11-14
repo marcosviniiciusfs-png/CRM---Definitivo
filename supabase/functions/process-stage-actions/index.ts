@@ -8,6 +8,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isInternalServiceRoleRequest } from "../_shared/organization-auth.ts";
 import {
+  findFirstTaskColumnId,
+  findOrganizationOwnerId,
+  resolveLeadInstanceName,
+} from "../_shared/lead-outbound.ts";
+import {
   normalizeEmail,
   pickTaskCreator,
   renderMessageTemplate,
@@ -53,29 +58,7 @@ async function sendMessage(supabase: Supabase, run: StageActionRun, lead: StageA
   const message = renderMessageTemplate(String(run.stage_config?.message_template ?? ""), lead);
   if (!message) return { status: "skipped", error: SKIP_REASON_TEXT.missing_config };
 
-  // Canal do lead; se ele não tiver, o primeiro canal conectado da mesma organização.
-  let instanceName: string | null = null;
-  if (lead.whatsapp_instance_id) {
-    const { data } = await supabase
-      .from("whatsapp_instances")
-      .select("instance_name, status, organization_id")
-      .eq("id", lead.whatsapp_instance_id)
-      .maybeSingle();
-    if (data && data.organization_id === lead.organization_id && data.status === "connected") {
-      instanceName = data.instance_name;
-    }
-  }
-  if (!instanceName) {
-    const { data } = await supabase
-      .from("whatsapp_instances")
-      .select("instance_name")
-      .eq("organization_id", lead.organization_id)
-      .eq("status", "connected")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    instanceName = data?.instance_name ?? null;
-  }
+  const instanceName = await resolveLeadInstanceName(supabase, lead);
   if (!instanceName) {
     return { status: "failed", error: "Nenhum canal de WhatsApp conectado na organização." };
   }
@@ -95,30 +78,12 @@ async function sendMessage(supabase: Supabase, run: StageActionRun, lead: StageA
 }
 
 async function createTask(supabase: Supabase, run: StageActionRun, lead: StageActionLead): Promise<Outcome> {
-  const { data: board } = await supabase
-    .from("kanban_boards")
-    .select("id, kanban_columns(id, position)")
-    .eq("organization_id", lead.organization_id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  const columns = [...((board?.kanban_columns as { id: string; position: number | null }[]) ?? [])]
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-  const columnId = columns[0]?.id;
+  const columnId = await findFirstTaskColumnId(supabase, lead.organization_id!);
   if (!columnId) return { status: "failed", error: "A organização não tem quadro de tarefas com coluna." };
 
-  let ownerId: string | null = null;
-  if (!run.moved_by && !lead.responsavel_user_id) {
-    const { data: owner } = await supabase
-      .from("organization_members")
-      .select("user_id")
-      .eq("organization_id", lead.organization_id)
-      .eq("role", "owner")
-      .limit(1)
-      .maybeSingle();
-    ownerId = owner?.user_id ?? null;
-  }
+  const ownerId = !run.moved_by && !lead.responsavel_user_id
+    ? await findOrganizationOwnerId(supabase, lead.organization_id!)
+    : null;
   const createdBy = pickTaskCreator(run.moved_by, lead.responsavel_user_id, ownerId);
   if (!createdBy) return { status: "failed", error: "Não há usuário para registrar como criador da tarefa." };
 

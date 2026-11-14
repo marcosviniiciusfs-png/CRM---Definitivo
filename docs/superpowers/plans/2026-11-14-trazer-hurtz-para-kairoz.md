@@ -139,6 +139,38 @@ minutos a mesma movimentação dispararia a ação no navegador e no servidor.
 **Pronto quando:** um lead agendado recebe os lembretes certos, reagendar não duplica, e o card
 mostra o estado na prioridade acima.
 
+**Feito (branch `feat/card-tarefas-lembretes`):**
+- A data do agendamento já existia como campo próprio: `leads.data_agendamento_reuniao`
+  (migration `20261002110000`, veio do GitHub).
+- 3a — Migration `20261114180000_appointment_reminders.sql`: `appointment_reminder_settings`
+  (uma linha por organização, **nasce desligada**), fila `appointment_reminders`, triggers em
+  `leads`, `funnel_stages` e nas configurações, `claim_due_appointment_reminders` e cron de 1 minuto.
+  Edge Function `send-appointment-reminders`; regras puras em `_shared/appointment-reminders.ts`.
+  Tela "Lembretes" em Reuniões (owner/admin).
+- 3b — Migration `20261114200000_lead_waiting_reply.sql`: `leads.aguardando_resposta_desde`, mantido
+  por trigger em `mensagens_chat` (ENTRADA liga, SAIDA desliga, tolera histórico fora de ordem),
+  preenchido com os últimos 30 dias; RPC `lead_open_tasks`. Estado do card em
+  `src/lib/leadCardState.ts`; chips Responder/Atrasadas/Hoje/Sem tarefa e contadores na coluna.
+- `_shared/lead-outbound.ts` junta canal do lead, coluna de tarefa e dono da organização para as
+  ações de etapa e os lembretes.
+
+**Decisões tomadas:**
+- Mesmo lembrete não sai duas vezes para o mesmo horário: sair e voltar para a etapa recria só o que
+  ainda não saiu (no Hurtz, reentrar reenviava tudo).
+- Lembrete atrasado mais de 30 min não sai (cron ou função fora do ar).
+- Tarefa de no-show só se ninguém marcou a reunião (`status_reuniao`) e o lead ainda está na etapa.
+- Tarefa considerada no card: qualquer tarefa aberta do lead no quadro de tarefas (no Hurtz era só a
+  de quem está vendo). "Sem tarefa" não vira selo no card, só filtro, para não poluir o Pipeline.
+- Chips e contadores contam os leads **carregados** na tela (a paginação continua por etapa).
+
+**Ficou para depois:**
+- Aviso diário às 8h de tarefas que vencem hoje e vencidas.
+- O Pipeline não escuta UPDATE de leads em tempo real: o selo "Responder" atualiza quando a tela
+  recarrega os leads. A versão mobile (`MobilePipelineView`) ainda não mostra os selos.
+- `send-scheduled-reminders` (lembrete manual por agendamento) procura canal com status `'CONNECTED'`
+  em maiúsculas e provavelmente nunca envia. Corrigir solta de uma vez os lembretes antigos
+  pendentes; precisa de limpeza antes.
+
 ---
 
 ## Fase 4 — Painel de acompanhamento

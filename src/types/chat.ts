@@ -33,6 +33,7 @@ export interface Lead {
   duplicate_attempts_count?: number | null;
   whatsapp_instance_id?: string | null;
   status_reuniao?: StatusReuniao | null;
+  aguardando_resposta_desde?: string | null;
 }
 
 export interface MessageReaction {

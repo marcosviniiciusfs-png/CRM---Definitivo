@@ -25,6 +25,13 @@ import { LeadTagsBadgeStatic } from "@/components/LeadTagsBadgeStatic";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import { Trash2 } from "lucide-react";
 import { getAppIcon } from "@/lib/iconRegistry";
+import type { LeadAttention } from "@/lib/leadCardState";
+
+const ATTENTION_TITLES: Record<"needs_reply" | "overdue" | "today", string> = {
+  needs_reply: "O lead mandou mensagem e ainda não teve resposta da equipe.",
+  overdue: "O lead tem tarefa aberta com prazo vencido.",
+  today: "O lead tem tarefa aberta que vence hoje.",
+};
 
 interface CopyLeadButtonProps {
   name: string;
@@ -99,6 +106,9 @@ export interface BaseLeadCardProps {
   redistributedFromName?: string;
   redistributionMinutes?: number;
   redistributionReason?: RedistributionReason;
+  /** Estado de atenção (src/lib/leadCardState.ts). */
+  attentionKind?: LeadAttention;
+  attentionLabel?: string | null;
 }
 
 interface LeadCardViewProps extends BaseLeadCardProps {
@@ -153,6 +163,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
   redistributedFromName,
   redistributionMinutes,
   redistributionReason = 'inactivity',
+  attentionKind,
+  attentionLabel,
 }) => {
   const navigate = useNavigate();
 
@@ -226,6 +238,21 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                   {name}
                 </h3>
                 <div className="mt-1 flex items-center gap-1 flex-wrap" data-lead-badges>
+                  {attentionLabel && (attentionKind === 'needs_reply' || attentionKind === 'overdue' || attentionKind === 'today') && (
+                    <Badge
+                      variant="secondary"
+                      title={ATTENTION_TITLES[attentionKind]}
+                      className={cn(
+                        "w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 cursor-default",
+                        attentionKind === 'needs_reply' && "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-700",
+                        attentionKind === 'overdue' && "bg-red-50 text-red-700 border-red-300 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800",
+                        attentionKind === 'today' && "bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800",
+                      )}
+                    >
+                      {attentionKind === 'needs_reply' ? <MessageCircle className="h-2.5 w-2.5" /> : <CalendarCheck className="h-2.5 w-2.5" />}
+                      {attentionLabel}
+                    </Badge>
+                  )}
                   {isRedistributed && (() => {
                     const isInactivity = redistributionReason === 'inactivity';
                     const isLost = redistributionReason === 'lost';
@@ -544,7 +571,9 @@ const areBaseLeadCardPropsEqual = (prevProps: BaseLeadCardProps, nextProps: Base
   prevProps.isRedistributed === nextProps.isRedistributed &&
   prevProps.redistributedFromName === nextProps.redistributedFromName &&
   prevProps.redistributionMinutes === nextProps.redistributionMinutes &&
-  prevProps.redistributionReason === nextProps.redistributionReason
+  prevProps.redistributionReason === nextProps.redistributionReason &&
+  prevProps.attentionKind === nextProps.attentionKind &&
+  prevProps.attentionLabel === nextProps.attentionLabel
 );
 
 const MemoizedLeadCardView = memo(LeadCardView, (prevProps, nextProps) => (

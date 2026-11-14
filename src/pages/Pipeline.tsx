@@ -45,6 +45,13 @@ import type { StatusReuniao } from "@/types/chat";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import { isDemoRoute } from "@/lib/demoMode";
 import { parseMeetingSchedule, toMeetingScheduleLocalISOString } from "@/lib/meetingSchedule";
+import {
+  ATTENTION_FILTERS,
+  getLeadAttention,
+  type AttentionFilter,
+  type LeadAttentionResult,
+  type LeadOpenTask,
+} from "@/lib/leadCardState";
 
 const AddLeadModal = lazy(() => import("@/components/AddLeadModal").then((module) => ({ default: module.AddLeadModal })));
 const ImportLeadsModal = lazy(() => import("@/components/ImportLeadsModal").then((module) => ({ default: module.ImportLeadsModal })));
@@ -248,6 +255,14 @@ const Pipeline = () => {
   const [showScrollbar, setShowScrollbar] = useState(false);
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter | null>(null);
+  const [leadTasksMap, setLeadTasksMap] = useState<Record<string, LeadOpenTask[]>>({});
+  // Relógio de 1 minuto para o "Responder · X min" do card andar sozinho.
+  const [attentionNow, setAttentionNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setAttentionNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // View mode: 'kanban' or 'list'
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -843,7 +858,7 @@ const Pipeline = () => {
         if (stageCount === 0) {
           return { stageId, count: 0, leads: [] as Lead[] };
         }
-        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao,data_agendamento_reuniao').eq('organization_id', organizationId);
+        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao,data_agendamento_reuniao,aguardando_resposta_desde').eq('organization_id', organizationId);
         dataQ = applyBaseFilters(dataQ) as any;
         dataQ = applyStageFilter(dataQ, stageId) as any;
         // A primeira coluna é a caixa de entrada do pipeline: nela, priorizamos
@@ -907,6 +922,7 @@ const Pipeline = () => {
       const responsavelIds = [...new Set(allLeads.map((l: Lead) => l.responsavel_user_id).filter(Boolean))] as string[];
       loadProfiles(responsavelIds);
       void loadAgendamentos(allLeads.map((lead: Lead) => lead.id));
+      void loadLeadTasks(allLeads.map((lead: Lead) => lead.id));
     }
   }, [cachedLeadsResult]);
 
@@ -944,7 +960,7 @@ const Pipeline = () => {
 
       let query = supabase
         .from('leads')
-        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data, status_reuniao, data_agendamento_reuniao')
+        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data, status_reuniao, data_agendamento_reuniao, aguardando_resposta_desde')
         .eq('organization_id', organizationId);
 
       // Aplicar filtro de permissão
@@ -1018,6 +1034,7 @@ const Pipeline = () => {
           loadProfiles(newResponsavelIds);
         }
         void loadAgendamentos(data.map((lead) => lead.id));
+        void loadLeadTasks(data.map((lead) => lead.id));
       } else {
         // No more data
         setStagePagination(prev => ({
@@ -1164,6 +1181,25 @@ const Pipeline = () => {
     }
   };
 
+  // Tarefas abertas (quadro de tarefas) de cada lead, para o estado do card.
+  const loadLeadTasks = async (leadIds: string[]) => {
+    if (isDemo) return;
+    if (leadIds.length === 0) return;
+
+    const { data, error } = await supabase.rpc('lead_open_tasks', { p_lead_ids: leadIds });
+    if (error) {
+      console.error('Erro ao carregar tarefas dos leads:', error);
+      return;
+    }
+
+    const map: Record<string, LeadOpenTask[]> = {};
+    leadIds.forEach((leadId) => { map[leadId] = []; });
+    (data || []).forEach((task: { lead_id: string; due_date: string | null }) => {
+      (map[task.lead_id] ??= []).push({ due_date: task.due_date });
+    });
+    setLeadTasksMap((previous) => ({ ...previous, ...map }));
+  };
+
   const loadRedistributionData = async (leadIds: string[]) => {
     if (isDemo) return;
     if (leadIds.length === 0) return;
@@ -1279,11 +1315,34 @@ const Pipeline = () => {
     return result;
   }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange, getResponsibleLabel, usingCustomFunnel]);
 
+  // Etapas finais (ganho, perdido, descartado) não cobram tarefa.
+  const finalStageIds = useMemo(() => new Set(
+    stages
+      .filter((stage: any) => stage.stageData?.is_final || ['won', 'lost', 'discarded'].includes(stage.stageData?.stage_type))
+      .map((stage) => stage.id)
+  ), [stages]);
+
+  // Estado de atenção de cada lead: responder > tarefa atrasada > tarefa hoje > sem tarefa.
+  const attentionMap = useMemo(() => {
+    const map: Record<string, LeadAttentionResult> = {};
+    for (const lead of filteredLeads) {
+      const stageId = usingCustomFunnel ? lead.funnel_stage_id : (lead.stage || "NOVO");
+      map[lead.id] = getLeadAttention({
+        waitingSince: lead.aguardando_resposta_desde,
+        openTasks: leadTasksMap[lead.id],
+        isFinalStage: stageId ? finalStageIds.has(stageId) : false,
+        now: attentionNow,
+      });
+    }
+    return map;
+  }, [filteredLeads, leadTasksMap, finalStageIds, usingCustomFunnel, attentionNow]);
+
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
     const map = new Map<string, Lead[]>(stages.map((stage) => [stage.id, []]));
 
     for (const lead of filteredLeads) {
+      if (attentionFilter && attentionMap[lead.id]?.kind !== attentionFilter) continue;
       const stageId = usingCustomFunnel
         ? lead.funnel_stage_id
         : (lead.stage || "NOVO");
@@ -1304,7 +1363,16 @@ const Pipeline = () => {
       // independentemente de posições legadas ou de duplicidades de posição.
 
     return map;
-  }, [filteredLeads, stages, usingCustomFunnel]);
+  }, [filteredLeads, stages, usingCustomFunnel, attentionFilter, attentionMap]);
+
+  // Quantos leads carregados estão em cada estado, para os chips de filtro.
+  const attentionCounts = useMemo(() => {
+    const counts: Record<AttentionFilter, number> = { needs_reply: 0, overdue: 0, today: 0, no_task: 0 };
+    for (const result of Object.values(attentionMap)) {
+      if (result.kind !== 'normal') counts[result.kind] += 1;
+    }
+    return counts;
+  }, [attentionMap]);
 
   // Marcar somente o novo registro identificado explicitamente como duplicado.
   // Não inferir por telefone/e-mail: isso também marcaria o lead original.
@@ -2072,6 +2140,40 @@ const Pipeline = () => {
               </Popover>
             </div>
           )}
+
+          {/* Linha 3: estado de atenção dos leads carregados */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide" role="group" aria-label="Filtrar por atenção">
+            {ATTENTION_FILTERS.map((filter) => {
+              const active = attentionFilter === filter.kind;
+              return (
+                <Button
+                  key={filter.kind}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  size="sm"
+                  aria-pressed={active}
+                  className="h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+                  onClick={() => setAttentionFilter(active ? null : filter.kind)}
+                >
+                  {filter.label}
+                  <span className={cn("tabular-nums", active ? "opacity-90" : "text-muted-foreground")}>
+                    {attentionCounts[filter.kind]}
+                  </span>
+                </Button>
+              );
+            })}
+            {attentionFilter && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 px-2 text-xs"
+                onClick={() => setAttentionFilter(null)}
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* View Mode Content */}
@@ -2533,6 +2635,7 @@ const Pipeline = () => {
                             duplicateLeadIds={duplicateLeadIds}
                             agendamentosMap={agendamentosMap}
                             redistributedMap={redistributedMap}
+                            attentionMap={attentionMap}
                             pagination={stagePagination[stage.id]}
                             onLoadMore={() => loadMoreForStage(stage.id)}
                             onToggleNoShow={handleToggleNoShow}
@@ -2580,6 +2683,7 @@ const Pipeline = () => {
                         duplicateLeadIds={duplicateLeadIds}
                         agendamentosMap={agendamentosMap}
                         redistributedMap={redistributedMap}
+                        attentionMap={attentionMap}
                         pagination={stagePagination[stage.id]}
                         onLoadMore={() => loadMoreForStage(stage.id)}
                         onToggleNoShow={handleToggleNoShow}
@@ -2710,6 +2814,7 @@ const Pipeline = () => {
                 }
                 // Recarregar agendamentos para refletir ícones de calendário em tempo real
                 await loadAgendamentos([editingLead.id]);
+                await loadLeadTasks([editingLead.id]);
               }
             }}
           />
