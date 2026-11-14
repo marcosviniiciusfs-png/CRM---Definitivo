@@ -81,7 +81,7 @@ export function FilterRuleBuilder({ value, onChange }: FilterRuleBuilderProps) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Regras de Filtro
+          Regras de filtro
         </label>
         <button
           type="button"

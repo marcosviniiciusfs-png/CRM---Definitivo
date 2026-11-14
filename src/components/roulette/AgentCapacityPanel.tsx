@@ -96,9 +96,9 @@ export function AgentCapacityPanel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roulette-agent-capacity"] });
-      toast.success("Status atualizado");
+      toast.success("Status atualizado.");
     },
-    onError: () => toast.error("Erro ao atualizar status"),
+    onError: () => toast.error("Não foi possível atualizar o status. Tente novamente."),
   });
 
   if (showSettings) {
@@ -137,27 +137,27 @@ export function AgentCapacityPanel() {
       {/* Agent list */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agentes da roleta</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Colaboradores da roleta</h3>
           <button onClick={() => setShowSettings(true)} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-            <Settings className="h-3 w-3" /> Configuracoes
+            <Settings className="h-3 w-3" /> Configurações
           </button>
         </div>
 
         {agents.length === 0 ? (
           <div className="rounded-lg border bg-card p-6 text-center">
             <Users className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">Nenhum agente configurado</p>
+            <p className="text-xs text-muted-foreground">Nenhum colaborador configurado ainda.</p>
           </div>
         ) : (
           <div className="rounded-lg border overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left font-medium text-muted-foreground px-3 py-2">Agente</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-2">Colaborador</th>
                   <th className="text-center font-medium text-muted-foreground px-2 py-2">Peso</th>
                   <th className="text-center font-medium text-muted-foreground px-2 py-2">Leads</th>
                   <th className="text-center font-medium text-muted-foreground px-2 py-2">Status</th>
-                  <th className="text-right font-medium text-muted-foreground px-3 py-2">Acao</th>
+                  <th className="text-right font-medium text-muted-foreground px-3 py-2">Ação</th>
                 </tr>
               </thead>
               <tbody>

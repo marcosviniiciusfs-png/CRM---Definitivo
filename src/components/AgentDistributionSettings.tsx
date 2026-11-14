@@ -220,15 +220,16 @@ export function AgentDistributionSettings() {
       toast({
         title: "Configurações salvas",
         description: permissions.canManageAgentSettings 
-          ? "As configurações do agente foram atualizadas."
+          ? "As configurações do colaborador foram atualizadas."
           : "Suas preferências de distribuição foram atualizadas.",
       });
 
       loadMemberSettings(selectedMemberId);
     } catch (error: any) {
+      console.error('Error saving agent settings:', error);
       toast({
-        title: "Erro ao salvar",
-        description: error.message,
+        title: "Não foi possível salvar as configurações",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -249,13 +250,13 @@ export function AgentDistributionSettings() {
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
             {permissions.canManageAgentSettings 
-              ? "Configurações de Distribuição dos Agentes"
-              : "Minhas Configurações (Somente Leitura)"}
+              ? "Configurações de distribuição dos colaboradores"
+              : "Minhas configurações (somente leitura)"}
           </CardTitle>
           <CardDescription>
             {permissions.canManageAgentSettings
-              ? "Configure as preferências de distribuição para cada membro da equipe"
-              : "Suas configurações são definidas pelos administradores"}
+              ? "Configure as preferências de distribuição de cada colaborador."
+              : "Suas configurações são definidas pelos administradores."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -263,14 +264,14 @@ export function AgentDistributionSettings() {
           {permissions.canManageAgentSettings && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="member-select">Selecionar Agente</Label>
+                <Label htmlFor="member-select">Selecionar colaborador</Label>
                 <Select 
                   value={selectedMemberId} 
                   onValueChange={setSelectedMemberId}
                   disabled={loadingSettings || members.length === 0}
                 >
                   <SelectTrigger id="member-select">
-                    <SelectValue placeholder={members.length === 0 ? "Carregando membros..." : "Selecione um membro"} />
+                    <SelectValue placeholder={members.length === 0 ? "Carregando colaboradores..." : "Selecione um colaborador"} />
                   </SelectTrigger>
                   <SelectContent>
                     {members.map((member) => (
@@ -287,7 +288,7 @@ export function AgentDistributionSettings() {
 
           {loadingSettings && (
             <div className="py-8">
-              <LoadingAnimation text="Carregando dados do agente" />
+              <LoadingAnimation text="Carregando dados do colaborador" />
             </div>
           )}
 
@@ -308,9 +309,9 @@ export function AgentDistributionSettings() {
           {!loadingSettings && (
             <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="is_active">Participar da Roleta</Label>
+              <Label htmlFor="is_active">Participar da roleta</Label>
               <p className="text-sm text-muted-foreground">
-                Receber leads através da distribuição automática
+                Receber leads pela distribuição automática.
               </p>
             </div>
             <Switch
@@ -330,12 +331,12 @@ export function AgentDistributionSettings() {
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Carga Atual de Leads
+                Carga atual de leads
               </Label>
               <span className="text-2xl font-bold">{currentLoad}</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Capacidade ilimitada — o colaborador receberá leads sem restrição
+              Capacidade ilimitada: o colaborador recebe leads sem restrição.
             </p>
             </div>
           )}
@@ -356,7 +357,7 @@ export function AgentDistributionSettings() {
               disabled={isReadOnly}
             />
             <p className="text-sm text-muted-foreground">
-              Peso para distribuição ponderada. Maior valor = mais leads recebidos
+              Peso da distribuição por prioridade. Quanto maior o valor, mais leads o colaborador recebe.
             </p>
             </div>
           )}
@@ -370,10 +371,10 @@ export function AgentDistributionSettings() {
               <div className="space-y-0.5">
                 <Label htmlFor="is_paused" className="flex items-center gap-2">
                   <Pause className="h-4 w-4" />
-                  Pausar Recebimento
+                  Pausar recebimento
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Temporariamente parar de receber novos leads
+                  Para de receber novos leads por um tempo.
                 </p>
               </div>
               <Switch
@@ -387,10 +388,10 @@ export function AgentDistributionSettings() {
             {settings.is_paused && (
               <div className="space-y-4 pl-6 border-l-2 border-muted">
                 <div className="space-y-2">
-                  <Label htmlFor="pause_reason">Motivo da Pausa</Label>
+                  <Label htmlFor="pause_reason">Motivo da pausa</Label>
                   <Textarea
                     id="pause_reason"
-                    placeholder="Ex: Férias, reunião importante, etc."
+                    placeholder="Ex.: férias, reunião importante"
                     value={settings.pause_reason || ''}
                     onChange={(e) => setSettings({ ...settings, pause_reason: e.target.value })}
                     disabled={isReadOnly}
@@ -407,7 +408,7 @@ export function AgentDistributionSettings() {
                     disabled={isReadOnly}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Deixe vazio para pausar indefinidamente
+                    Deixe vazio para pausar sem data para voltar.
                   </p>
                 </div>
               </div>
@@ -419,7 +420,7 @@ export function AgentDistributionSettings() {
             <div className="flex justify-end pt-4">
               <Button onClick={handleSave} disabled={saving}>
                 <Save className="h-4 w-4 mr-2" />
-                {saving ? "Salvando..." : "Salvar Configurações"}
+                {saving ? "Salvando..." : "Salvar configurações"}
               </Button>
             </div>
           )}

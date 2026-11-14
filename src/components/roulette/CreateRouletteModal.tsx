@@ -20,11 +20,11 @@ interface CreateRouletteModalProps {
 }
 
 const METHODS = [
-  { value: "round_robin", label: "Rodizio", icon: Shuffle, desc: "Distribui sequencialmente entre agentes ativos" },
-  { value: "weighted", label: "Por porcentagem", icon: ChartPie, desc: "Define quanto cada agente deve receber" },
-  { value: "load_based", label: "Por Carga", icon: Scale, desc: "Envia para quem tem menos leads atribuidos" },
-  { value: "random", label: "Aleatorio", icon: Dices, desc: "Escolhe agente aleatoriamente" },
-  { value: "conversion_priority", label: "Smart AI", icon: Zap, desc: "Prioriza agentes com melhor taxa de conversao" },
+  { value: "round_robin", label: "Rodízio", icon: Shuffle, desc: "Distribui em sequência entre os colaboradores ativos" },
+  { value: "weighted", label: "Por porcentagem", icon: ChartPie, desc: "Define quanto cada colaborador deve receber" },
+  { value: "load_based", label: "Por carga", icon: Scale, desc: "Envia para quem tem menos leads atribuídos" },
+  { value: "random", label: "Aleatório", icon: Dices, desc: "Escolhe o colaborador ao acaso" },
+  { value: "conversion_priority", label: "Smart AI", icon: Zap, desc: "Prioriza colaboradores com melhor taxa de conversão" },
 ];
 
 export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRouletteModalProps) {
@@ -131,10 +131,13 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      toast.success(editConfig ? "Roleta atualizada" : "Roleta criada com sucesso");
+      toast.success(editConfig ? "Roleta atualizada." : "Roleta criada.");
       onOpenChange(false);
     },
-    onError: (err: Error) => toast.error("Erro ao salvar: " + err.message),
+    onError: (err: Error) => {
+      console.error("Erro ao salvar roleta:", err);
+      toast.error("Não foi possível salvar a roleta. Tente novamente.");
+    },
   });
 
   const canProceed = () => {
@@ -148,9 +151,9 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editConfig ? "Editar Roleta" : "Nova Roleta"}</DialogTitle>
+          <DialogTitle>{editConfig ? "Editar roleta" : "Nova roleta"}</DialogTitle>
           <DialogDescription>
-            Configure sua roleta de distribuicao em {editConfig ? "poucos passos" : "3 passos"}
+            Configure a roleta em {editConfig ? "poucos passos" : "3 passos"}.
           </DialogDescription>
         </DialogHeader>
 
@@ -179,8 +182,8 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
                 <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: WhatsApp - Funil B2B" />
               </div>
               <div className="space-y-2">
-                <Label>Descricao</Label>
-                <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descricao opcional" rows={2} />
+                <Label>Descrição</Label>
+                <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descrição (opcional)" rows={2} />
               </div>
               <div className="space-y-2">
                 <Label>Origem</Label>
@@ -190,7 +193,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
                     <SelectItem value="all">Todos os canais</SelectItem>
                     <SelectItem value="whatsapp">WhatsApp</SelectItem>
                     <SelectItem value="facebook">Facebook Leads</SelectItem>
-                    <SelectItem value="webhook">Webhook (Formularios)</SelectItem>
+                    <SelectItem value="webhook">Webhook (formulários)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -199,7 +202,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
                 <Select value={form.funnel_id || "__none__"} onValueChange={v => setForm({ ...form, funnel_id: v === "__none__" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="Todos os funis" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Todos os funis (generica)</SelectItem>
+                    <SelectItem value="__none__">Todos os funis (roleta genérica)</SelectItem>
                     {funnels?.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -210,7 +213,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
           {/* Step 2: Method */}
           {step === 2 && (
             <div className="space-y-3">
-              <Label className="text-sm font-semibold">Metodo de distribuicao</Label>
+              <Label className="text-sm font-semibold">Método de distribuição</Label>
               <div className="grid grid-cols-2 gap-3">
                 {METHODS.map(m => {
                   const Icon = m.icon;
@@ -247,11 +250,11 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
           {/* Step 3: Agents */}
           {step === 3 && (
             <div className="space-y-3">
-              <Label className="text-sm font-semibold">Agentes elegiveis</Label>
-              <p className="text-xs text-muted-foreground">Selecione quais colaboradores receberao leads desta roleta.</p>
+              <Label className="text-sm font-semibold">Colaboradores elegíveis</Label>
+              <p className="text-xs text-muted-foreground">Selecione quais colaboradores recebem leads desta roleta.</p>
               <div className="space-y-2 max-h-56 overflow-y-auto border rounded-lg p-3">
                 {members.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">Nenhum membro encontrado</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">Nenhum colaborador encontrado.</p>
                 ) : (
                   members.map(member => (
                     <label key={member.user_id} className="flex items-center gap-2.5 cursor-pointer py-1">
@@ -276,7 +279,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
                 )}
               </div>
               {form.eligible_agents.length === 0 && (
-                <p className="text-xs text-muted-foreground">Se nenhum for selecionado, todos os agentes ativos serao elegiveis.</p>
+                <p className="text-xs text-muted-foreground">Se você não selecionar ninguém, todos os colaboradores ativos ficam elegíveis.</p>
               )}
             </div>
           )}
@@ -286,8 +289,8 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Label className="text-sm font-semibold">Porcentagem por agente</Label>
-                  <p className="mt-1 text-xs text-muted-foreground">Defina quanto dos novos leads cada participante deve receber.</p>
+                  <Label className="text-sm font-semibold">Porcentagem por colaborador</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">Defina quanto dos novos leads cada colaborador recebe.</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => setForm({ ...form, distribution_weights: distributeEqually(form.eligible_agents) })}>
                   Dividir igualmente
@@ -323,7 +326,7 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
                 <span className="font-medium">Total configurado</span>
                 <span className="font-bold">{totalWeight}% de 100%</span>
               </div>
-              {totalWeight !== 100 && <p className="text-xs text-destructive">A soma das porcentagens precisa ser exatamente 100%.</p>}
+              {totalWeight !== 100 && <p className="text-xs text-destructive">A soma das porcentagens precisa ser 100%.</p>}
             </div>
           )}
         </div>
@@ -339,11 +342,11 @@ export function CreateRouletteModal({ open, onOpenChange, editConfig }: CreateRo
           )}
           {step < totalSteps ? (
             <Button onClick={() => setStep(s => s + 1)} disabled={!canProceed()} className="gap-1">
-              Proximo <ArrowRight className="h-4 w-4" />
+              Próximo <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name.trim() || (form.distribution_method === "weighted" && totalWeight !== 100)}>
-              {saveMutation.isPending ? "Salvando..." : editConfig ? "Atualizar" : "Criar roleta"}
+              {saveMutation.isPending ? "Salvando..." : editConfig ? "Salvar roleta" : "Criar roleta"}
             </Button>
           )}
         </div>
