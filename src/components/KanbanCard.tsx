@@ -230,7 +230,7 @@ export const KanbanCard = ({
                 <MentionInput
                   value={editDescription}
                   onChange={setEditDescription}
-                  placeholder="Adicione uma descrição... Use @ para mencionar usuários"
+                  placeholder="Adicione uma descrição. Use @ para mencionar colaboradores."
                 />
               </div>
 
@@ -238,7 +238,7 @@ export const KanbanCard = ({
                 <div>
                   <label className="text-xs font-medium mb-1 block flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    Prazo Final
+                    Prazo final
                   </label>
                   <Input
                     type="date"
@@ -304,12 +304,14 @@ export const KanbanCard = ({
                     value={editAssignees}
                     onChange={handleAssigneeChange}
                     users={orgMembers}
-                    placeholder="Selecionar responsáveis..."
+                    placeholder="Selecionar responsáveis"
                   />
                   {card.is_collaborative && completedAssignees.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
                       <Check className="h-3 w-3 inline mr-1 text-green-500" />
-                      {completedAssignees.length} membro(s) já confirmaram e não podem ser removidos.
+                      {completedAssignees.length === 1
+                        ? "1 colaborador já confirmou e não pode ser removido."
+                        : `${completedAssignees.length} colaboradores já confirmaram e não podem ser removidos.`}
                     </p>
                   )}
                 </div>
@@ -320,7 +322,7 @@ export const KanbanCard = ({
                 <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
                   <label className="text-xs font-medium flex items-center gap-1">
                     <Timer className="h-3 w-3" />
-                    Iniciar cronômetro quando entrar em:
+                    Iniciar cronômetro ao entrar em
                   </label>
                   <Select 
                     value={editTimerStartColumnId || "immediate"} 
@@ -333,13 +335,13 @@ export const KanbanCard = ({
                       <SelectItem value="immediate">Imediatamente</SelectItem>
                       {kanbanColumns.map(col => (
                         <SelectItem key={col.id} value={col.id}>
-                          Quando entrar em "{col.title}"
+                          Ao entrar em "{col.title}"
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    O cronômetro iniciará automaticamente quando a tarefa for movida para esta etapa.
+                    O cronômetro começa quando a tarefa entrar nesta coluna.
                   </p>
                 </div>
               )}
@@ -427,7 +429,7 @@ export const KanbanCard = ({
                   }}
                 >
                   <Check className="h-3 w-3 mr-1" />
-                  Ver Status e Confirmar
+                  Ver status e confirmar
                 </Button>
               )}
 
@@ -451,7 +453,7 @@ export const KanbanCard = ({
                           </div>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Clique para abrir no Google Calendar</p>
+                          <p>Abrir no Google Calendar</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -493,12 +495,13 @@ export const KanbanCard = ({
               variant="ghost"
               size="sm"
               className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+              aria-label="Opções da tarefa"
             >
               <Settings className="h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Opções do Cartão</DropdownMenuLabel>
+            <DropdownMenuLabel>Opções da tarefa</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {canEdit && (
               <DropdownMenuItem onClick={() => setIsEditing(true)}>
@@ -511,13 +514,13 @@ export const KanbanCard = ({
                 onClick={() => card.calendar_event_link && window.open(card.calendar_event_link, '_blank')}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Abrir no Calendar
+                Abrir no Google Calendar
               </DropdownMenuItem>
             ) : (
               onSyncCalendar && canEdit && (
                 <DropdownMenuItem onClick={() => onSyncCalendar(card)}>
                   <Calendar className="h-4 w-4 mr-2" />
-                  Sincronizar Calendar
+                  Sincronizar com o Google Calendar
                 </DropdownMenuItem>
               )
             )}

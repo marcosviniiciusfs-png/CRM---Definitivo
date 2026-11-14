@@ -289,14 +289,14 @@ export const CollaborativeTaskApproval = ({
 
       if (result?.moved) {
         toast({
-          title: "✅ Concluído e Movido!",
-          description: `Sua parte foi confirmada e a tarefa foi movida para "${result.toColumn}".`,
+          title: "Parte confirmada",
+          description: `A tarefa foi movida para "${result.toColumn}".`,
         });
         // Notificar o componente pai para recarregar
         onCardMoved?.();
       } else {
         toast({
-          title: "✅ Concluído!",
+          title: "Parte confirmada",
           description: "Sua parte na tarefa foi marcada como concluída.",
         });
       }
@@ -312,8 +312,8 @@ export const CollaborativeTaskApproval = ({
       console.error("🔴 Erro completo na mutation:", error);
       
       toast({
-        title: "Erro ao Confirmar",
-        description: (error as Error)?.message || "Não foi possível confirmar a conclusão. Verifique sua conexão.",
+        title: "Não foi possível confirmar sua parte",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -330,7 +330,7 @@ export const CollaborativeTaskApproval = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
-            Tarefa Colaborativa
+            Tarefa colaborativa
           </DialogTitle>
           <DialogDescription className="text-base font-medium text-foreground">
             {cardTitle}
@@ -341,9 +341,9 @@ export const CollaborativeTaskApproval = ({
           {/* Status Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Status dos Colaboradores</span>
+              <span className="text-muted-foreground">Status dos colaboradores</span>
               <Badge variant={allCompleted ? "default" : "secondary"} className={cn(allCompleted && "bg-green-500")}>
-                {completedCount}/{assignees.length} concluído
+                {completedCount} de {assignees.length} concluídos
               </Badge>
             </div>
 
@@ -419,7 +419,7 @@ export const CollaborativeTaskApproval = ({
               <div className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
                 <AlertCircle className="h-5 w-5 text-primary mt-0.5" />
                 <p className="text-sm text-muted-foreground">
-                  Você ainda não confirmou a conclusão da sua parte nesta tarefa colaborativa.
+                  Você ainda não confirmou a conclusão da sua parte nesta tarefa.
                 </p>
               </div>
 
@@ -447,7 +447,7 @@ export const CollaborativeTaskApproval = ({
                   className="bg-green-500 hover:bg-green-600"
                 >
                   <Check className="h-4 w-4 mr-2" />
-                  Confirmar Conclusão
+                  Confirmar conclusão
                 </Button>
               </div>
             </div>
@@ -457,7 +457,7 @@ export const CollaborativeTaskApproval = ({
           {currentUserAssignee?.is_completed && (
             <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400">
               <Check className="h-5 w-5" />
-              <span className="text-sm font-medium">Você já confirmou sua parte nesta tarefa!</span>
+              <span className="text-sm font-medium">Você já confirmou sua parte nesta tarefa.</span>
             </div>
           )}
 

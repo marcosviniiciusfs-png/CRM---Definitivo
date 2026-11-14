@@ -185,6 +185,8 @@ export const KanbanColumn = ({
               variant="ghost"
               size="sm"
               onClick={() => onDelete(column.id)}
+              aria-label="Excluir coluna"
+              title="Excluir coluna"
               className="h-6 w-6 p-0"
             >
               <X className="h-4 w-4" />
@@ -278,7 +280,7 @@ export const KanbanColumn = ({
           onClick={() => onAddCard(column.id)}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Adicionar Cartão
+          Adicionar tarefa
         </Button>
       )}
 

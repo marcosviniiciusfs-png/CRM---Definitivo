@@ -19,7 +19,7 @@ export function TaskPermissionAlert() {
     <div className="mb-3 py-2 px-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md flex items-center gap-2">
       <Bell className="h-4 w-4 text-amber-500 flex-shrink-0" />
       <span className="text-sm text-amber-700 dark:text-amber-300 flex-1">
-        Ative o som para receber alertas de tarefas
+        Ative o som para receber alertas de tarefas.
       </span>
       <Button 
         variant="ghost" 
