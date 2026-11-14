@@ -891,6 +891,7 @@ export type Database = {
           icon: string | null
           id: string
           is_final: boolean
+          linked_event: string | null
           max_days_in_stage: number | null
           name: string
           position: number
@@ -909,6 +910,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_final?: boolean
+          linked_event?: string | null
           max_days_in_stage?: number | null
           name: string
           position: number
@@ -927,6 +929,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_final?: boolean
+          linked_event?: string | null
           max_days_in_stage?: number | null
           name?: string
           position?: number

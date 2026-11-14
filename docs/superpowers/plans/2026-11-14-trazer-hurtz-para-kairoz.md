@@ -45,19 +45,26 @@ a partir do `main`, com `npm run check` passando, e só começa depois que a ant
 reconhece `won`, `lost` e `discarded`; "agendado" é um nome de etapa e o no-show fica em `leads.status_reuniao`.
 
 **Entra:**
-- Migration: coluna `funnel_stages.linked_event`, nula por padrão, com os valores
-  `scheduled`, `confirmed`, `attended`, `no_show`, `procedure_done`, `won`, `lost`.
+- Migration `20261114120000_funnel_stage_linked_event.sql`: coluna `funnel_stages.linked_event`, nula por
+  padrão, com os eventos da reunião `scheduled`, `confirmed`, `attended`, `no_show`.
   - Índice único parcial `(funnel_id, linked_event)`: cada evento em no máximo uma etapa por funil.
-  - `stage_type` continua como está (é lido em ~30 arquivos para ganho e perda); `linked_event`
-    é complementar.
-  - Preenchimento inicial: etapas `won` → `won`, `lost` → `lost`; etapas chamadas "Agendamento
-    Realizado"/"Agendado" → `scheduled` (conferir os dados antes de aplicar).
-- `FunnelStagesConfig`: seletor "Esta etapa representa…" em cada etapa, avisando quando o evento sai
-  de outra etapa.
-- Helper único no front para responder "qual etapa é o evento X neste funil".
+  - Trigger: marcar o evento numa etapa tira o evento da etapa que o tinha antes.
+  - Preenchimento inicial pelos nomes ("Agendamento Realizado", "Reunião Feita", "Não compareceu"...),
+    só em etapas não finais e uma por funil.
+  - Funil padrão de organização nova já nasce com Agendamento Realizado = `scheduled` e Reunião Feita = `attended`.
+- `FunnelStagesConfig`: seletor "Esta etapa representa" e selo do evento em cada etapa; avisa quando o
+  evento vai sair de outra etapa.
+- `src/lib/stageEvents.ts`: único lugar para perguntar "qual etapa é o evento X" (`getStageEvent`,
+  `findStagesForEvent`, `missingMeetingEvents`), com testes em `tests/stage-events.test.ts`.
 
-**Decisão a tomar no início:** o no-show/realizada continua em `status_reuniao` (marcação no card)
-ou passa a ser etapa? Proposta: manter `status_reuniao` e, no painel, contar os dois.
+**Decisões tomadas:**
+- Ganho e perdido continuam em `stage_type` (lido em ~30 arquivos); o helper responde `won`/`lost`
+  a partir dele. Assim não há duas fontes que possam divergir.
+- `procedure_done` do Hurtz (clínica) ficou de fora: no KairoZ o fechamento é `won`.
+- No-show/realizada marcado no card (`leads.status_reuniao`) continua; o painel (fase 4) conta os
+  dois, a etapa e a marcação.
+- `ensure_user_organization` (só service role desde 20260908) ainda cria o funil reserva sem eventos;
+  a fase 4 avisa quais eventos faltam marcar.
 
 **Pronto quando:** dá para marcar os eventos nas etapas, o banco impede evento duplicado no funil,
 nada do que usa `stage_type` mudou de comportamento.

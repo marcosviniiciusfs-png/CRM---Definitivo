@@ -35,6 +35,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { StageAutomationConfig } from "./StageAutomationConfig";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  MEETING_EVENTS,
+  MEETING_EVENT_INFO,
+  findMeetingEventOwner,
+  isMeetingEvent,
+  type MeetingEvent,
+} from "@/lib/stageEvents";
 
 interface Stage {
   id: string;
@@ -44,6 +51,7 @@ interface Stage {
   icon: string | null;
   position: number;
   stage_type: string;
+  linked_event: string | null;
   stage_config?: any;
   is_final: boolean;
   default_value: number | null;
@@ -107,6 +115,11 @@ const SortableStageItem = ({
                 {stage.stage_type === "assign_agent" && "👤 Atribuir"}
               </Badge>
             )}
+            {isMeetingEvent(stage.linked_event) && (
+              <Badge variant="outline" className="text-xs">
+                {MEETING_EVENT_INFO[stage.linked_event].label}
+              </Badge>
+            )}
           </div>
           {stage.description && (
             <p className="text-sm text-muted-foreground">{stage.description}</p>
@@ -141,6 +154,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#3B82F6");
   const [stageType, setStageType] = useState("custom");
+  const [linkedEvent, setLinkedEvent] = useState<MeetingEvent | "none">("none");
   const [stageConfig, setStageConfig] = useState<any>({});
   const [defaultValue, setDefaultValue] = useState("");
   const [maxDays, setMaxDays] = useState("");
@@ -202,11 +216,18 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       if (customStages.length > 0) return;
 
       // Criar etapas padrão do Pipeline
-      const defaultStages = [
+      const defaultStages: Array<{
+        name: string;
+        color: string;
+        icon: string;
+        position: number;
+        description: string;
+        linked_event?: MeetingEvent;
+      }> = [
         { name: "Novo Lead", color: "#3B82F6", icon: "📋", position: 0, description: "Leads recém-chegados" },
         { name: "Qualificação / Aquecido", color: "#06B6D4", icon: "🔥", position: 1, description: "Leads sendo qualificados" },
-        { name: "Agendamento Realizado", color: "#EAB308", icon: "📅", position: 2, description: "Reunião agendada" },
-        { name: "Reunião Feita", color: "#F97316", icon: "🤝", position: 3, description: "Reunião realizada com o lead" },
+        { name: "Agendamento Realizado", color: "#EAB308", icon: "📅", position: 2, description: "Reunião agendada", linked_event: "scheduled" },
+        { name: "Reunião Feita", color: "#F97316", icon: "🤝", position: 3, description: "Reunião realizada com o lead", linked_event: "attended" },
         { name: "Proposta / Negociação", color: "#8B5CF6", icon: "📝", position: 4, description: "Proposta enviada, em negociação" },
         { name: "Aprovação / Análise", color: "#6366F1", icon: "🔍", position: 5, description: "Aguardando aprovação do cliente" },
         { name: "Pós-venda / Ativação", color: "#34D399", icon: "✨", position: 6, description: "Cliente em processo de ativação" },
@@ -214,6 +235,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
       const stagesToInsert: TablesInsert<"funnel_stages">[] = defaultStages.map(stage => ({
         funnel_id: funnelId,
+        linked_event: stage.linked_event ?? null,
         name: stage.name,
         color: stage.color,
         icon: stage.icon,
@@ -328,6 +350,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         icon: null,
         // Preserve the structural semantics of won/lost stages while editing.
         stage_type: isFinalStage ? editingStage!.stage_type : stageType,
+        // Etapas finais (ganho/perdido) não representam evento da reunião.
+        linked_event: isFinalStage || linkedEvent === "none" ? null : linkedEvent,
         stage_config: stageConfig,
         default_value: defaultValue ? parseFloat(defaultValue) : null,
         max_days_in_stage: maxDays ? parseInt(maxDays) : null,
@@ -377,7 +401,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         (("code" in error && error.code === "42501") ||
           ("message" in error && String(error.message).toLowerCase().includes("permiss")));
       toast.error(isPermissionError
-        ? "VocÃª nÃ£o tem permissÃ£o para alterar as etapas deste funil"
+        ? "Você não tem permissão para alterar as etapas deste funil."
         : "Erro ao salvar etapa");
     } finally {
       setSaving(false);
@@ -408,6 +432,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setDescription("");
     setColor("#3B82F6");
     setStageType("custom");
+    setLinkedEvent("none");
     setStageConfig({});
     setDefaultValue("");
     setMaxDays("");
@@ -421,6 +446,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setDescription(stage.description || "");
     setColor(stage.color);
     setStageType(stage.stage_type || "custom");
+    setLinkedEvent(isMeetingEvent(stage.linked_event) ? stage.linked_event : "none");
     setStageConfig(stage.stage_config || {});
     setDefaultValue(stage.default_value?.toString() || "");
     setMaxDays(stage.max_days_in_stage?.toString() || "");
@@ -430,6 +456,9 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setEditingStage(stage);
     setShowForm(true);
   };
+
+  const linkedEventOwner =
+    linkedEvent === "none" ? null : findMeetingEventOwner(stages, linkedEvent, editingStage?.id);
 
   if (loading) {
     return <div className="text-center py-8">Carregando etapas...</div>;
@@ -577,6 +606,50 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
               </SelectContent>
             </Select>
           </div>
+
+          {!editingStage?.is_final && (
+            <div className="space-y-2">
+              <Label>Esta etapa representa</Label>
+              <Select
+                value={linkedEvent}
+                onValueChange={(value) => setLinkedEvent(value as MeetingEvent | "none")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um evento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <div className="flex flex-col items-start py-1">
+                      <span>Nenhum evento</span>
+                      <span className="text-xs text-muted-foreground">
+                        Etapa de processo, sem evento do atendimento.
+                      </span>
+                    </div>
+                  </SelectItem>
+                  {MEETING_EVENTS.map((event) => (
+                    <SelectItem key={event} value={event}>
+                      <div className="flex flex-col items-start py-1">
+                        <span>{MEETING_EVENT_INFO[event].label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {MEETING_EVENT_INFO[event].description}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                O painel e os lembretes usam este evento para contar agendamentos e comparecimentos.
+                Cada evento fica em uma etapa só por funil.
+              </p>
+              {linkedEventOwner && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Hoje a etapa “{linkedEventOwner.name}” representa este evento. Ao salvar, ele passa
+                  para esta etapa.
+                </p>
+              )}
+            </div>
+          )}
 
           {stageType === "send_message" && (
             <div className="space-y-2 p-3 bg-muted rounded-lg">
