@@ -3578,6 +3578,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      panel_attendance: {
+        Args: { p_organization_id: string; p_from: string; p_to: string; p_funnel_id?: string }
+        Returns: {
+          attended: number
+          confirmed: number
+          day: string
+          lost: number
+          new_leads: number
+          no_show: number
+          scheduled: number
+          scheduled_from_ads: number
+          won: number
+        }[]
+      }
       lead_open_tasks: {
         Args: { p_lead_ids: string[] }
         Returns: {

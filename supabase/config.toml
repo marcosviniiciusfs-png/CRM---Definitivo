@@ -210,3 +210,6 @@ verify_jwt = false
 
 [functions.send-appointment-reminders]
 verify_jwt = false
+
+[functions.panel-meta-insights]
+verify_jwt = false

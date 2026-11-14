@@ -196,6 +196,30 @@ mostra o estado na prioridade acima.
 **Pronto quando:** os números batem com o Gerenciador de Anúncios para um período de teste e as
 taxas batem com uma contagem manual no funil.
 
+**Feito (branch `feat/painel-acompanhamento`), pronto mas desligado:**
+- Migration `20261114220000_panel.sql`: `panel_settings` (nasce **desligado**), `panel_meta_tokens`
+  (token próprio, criptografado, só service role), `panel_meta_cache` e RPC `panel_attendance`.
+- Edge Function nova `panel-meta-insights` (a `fetch-ads-insights` ficou intacta), modos `status`,
+  `insights`, `set_goal` e `configure`. Fórmulas em `_shared/panel-metrics.ts`.
+- Página `/painel` ("Painel" no menu, mesma permissão de Métricas): resultado com comparação,
+  indicadores, meta do mês, conversas por dia, criativos Melhor/Revisar e atendimento por dia com taxas.
+  Taxas e meta em `src/lib/panelRates.ts`.
+
+**Decisões tomadas:**
+- O dono pediu para **não usar o token dele** ainda (o token dele é só para os clientes dele). Por isso:
+  o painel nasce desligado em toda organização; desligado, nenhuma chamada à Meta é feita; ligar e
+  escolher o token (próprio do painel ou o Facebook conectado na organização) é só do super admin
+  (`user_roles.super_admin`); o admin da organização só muda a meta mensal. Nada foi testado contra a
+  Meta: os testes usam dados fictícios.
+- O atendimento por dia não depende da Meta e aparece mesmo com o painel desligado.
+- "Agendado de anúncio": origem Facebook/Meta/Instagram ou tag "Lead de anúncio".
+- Compareceu/faltou somam a etapa (Fase 1) e a marcação do card (`status_reuniao`), no dia da reunião.
+- Alcance somado entre várias contas de anúncio é aproximado (a Meta não deduplica entre contas).
+
+**Antes de ligar:** escolher o token de cada organização; conferir um período contra o Gerenciador
+de Anúncios. Ficou para depois: miniatura dos criativos, público (idade, plataforma, horário),
+filtro por campanha, imprimir/PDF e tela de configuração no painel de super admin do KairoZ.
+
 ---
 
 ## Fase 5 — Leads de anúncio por dia

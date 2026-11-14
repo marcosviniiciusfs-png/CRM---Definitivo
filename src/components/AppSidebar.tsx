@@ -1,4 +1,4 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -64,6 +64,7 @@ const items = [
   { title: "Início", url: "/dashboard", icon: Home },
   { title: "Funil de Vendas", url: "/pipeline", icon: Filter },
   { title: "Métricas", url: "/lead-metrics", icon: BarChart2 },
+  { title: "Painel", url: "/painel", icon: Gauge },
   { title: "Roleta de Leads", url: "/lead-distribution", icon: Shuffle },
   { title: "Chat", url: "/chat", icon: MessageCircle },
   { title: "Ranking", url: "/ranking", icon: Trophy },
@@ -246,7 +247,7 @@ function AppSidebarComponent() {
               <SidebarMenu className="space-y-1">
                 {items.map((item) => {
                   // Ocultar "Métricas" para membros
-                  if (item.url === '/lead-metrics' && !permissions.canViewTeamMetrics) {
+                  if ((item.url === '/lead-metrics' || item.url === '/painel') && !permissions.canViewTeamMetrics) {
                     return null;
                   }
 
