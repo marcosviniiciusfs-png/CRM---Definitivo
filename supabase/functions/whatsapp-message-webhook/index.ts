@@ -12,6 +12,10 @@ import {
 import { maybeApplyAdLeadTag } from "../_shared/ad-lead-tagging.ts";
 import { sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
 import { extractWhatsAppDisplayName } from "../_shared/whatsapp-display-name.ts";
+import {
+  extractSelfReportedName,
+  isPhoneLikeName,
+} from "../_shared/whatsapp-self-reported-name.ts";
 
 // Variantes do mesmo telefone (com/sem "+", com/sem DDI 55) para vincular ao lead
 // já existente (ex.: lead que chegou pelo site) em vez de criar um duplicado.
@@ -24,103 +28,6 @@ function phoneLookupVariants(raw: string): string[] {
   const variants = new Set<string>();
   for (const b of bases) { variants.add(b); variants.add("+" + b); }
   return [...variants];
-}
-
-const NAME_STOPWORDS = new Set([
-  "audio",
-  "bom dia",
-  "boa tarde",
-  "boa noite",
-  "confirmado",
-  "nao",
-  "não",
-  "ok",
-  "sim",
-  "sou eu",
-  "tudo bem",
-]);
-
-function normalizeNameCandidate(value: string | null | undefined): string | null {
-  if (!value) return null;
-
-  const cleaned = value
-    .replace(/^[\s:,\-.!?]+|[\s,.;!?]+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!cleaned || cleaned.length < 2 || cleaned.length > 80) return null;
-
-  const normalized = cleaned
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-
-  if (NAME_STOPWORDS.has(normalized)) return null;
-  if (/^\[.+\]$/.test(cleaned)) return null;
-  if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(cleaned)) return null;
-  if (/^\d+$/.test(cleaned.replace(/\D/g, ""))) return null;
-  if (cleaned.replace(/\D/g, "").length >= 8) return null;
-  if (/https?:\/\//i.test(cleaned) || /@s\.whatsapp\.net/i.test(cleaned)) return null;
-
-  const words = cleaned.split(" ").filter(Boolean);
-  if (words.length > 5) return null;
-  if (words.some((word) => word.length > 30)) return null;
-
-  return cleaned;
-}
-
-function isPhoneLikeName(name: string | null | undefined, phone: string): boolean {
-  const nameDigits = String(name || "").replace(/\D/g, "");
-  const phoneDigits = String(phone || "").replace(/\D/g, "");
-  if (nameDigits.length < 8 || phoneDigits.length < 8) return false;
-
-  return (
-    nameDigits === phoneDigits ||
-    nameDigits === phoneDigits.slice(-nameDigits.length) ||
-    phoneDigits === nameDigits.slice(-phoneDigits.length)
-  );
-}
-
-function extractExplicitSelfReportedName(message: string): string | null {
-  const text = message
-    .replace(/\s+/g, " ")
-    .replace(/^\[[^\]]+\]\s*/, "")
-    .trim();
-
-  if (!text || text.length > 180) return null;
-
-  const explicitPatterns = [
-    /\bmeu nome (?:e|é)\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'´`^~çÇ.\-\s]{1,79})/i,
-    /\bme chamo\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'´`^~çÇ.\-\s]{1,79})/i,
-    /\bsou (?:o|a)?\s*([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'´`^~çÇ.\-\s]{1,79})/i,
-    /\baqui (?:e|é)\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'´`^~çÇ.\-\s]{1,79})/i,
-  ];
-
-  for (const pattern of explicitPatterns) {
-    const match = text.match(pattern);
-    const candidate = normalizeNameCandidate(match?.[1]);
-    if (candidate) return candidate;
-  }
-
-  return null;
-}
-
-function extractSelfReportedName(message: string): string | null {
-  const explicitName = extractExplicitSelfReportedName(message);
-  if (explicitName) return explicitName;
-
-  const text = message
-    .replace(/\s+/g, " ")
-    .replace(/^\[[^\]]+\]\s*/, "")
-    .trim();
-
-  if (!text || text.length > 180) return null;
-
-  if (/^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'´`^~çÇ.\-\s]{1,79}$/.test(text)) {
-    return normalizeNameCandidate(text);
-  }
-
-  return null;
 }
 
 // Função auxiliar para baixar mídia usando Evolution API e fazer upload para Supabase Storage
@@ -1625,24 +1532,18 @@ serve(async (req) => {
       leadId = existingLead.id;
       leadName = existingLead.nome_lead;
 
-      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome se o WhatsApp trouxer um nome útil.
-      // Para mensagens fromMe, o helper aceita apenas campos de contato/salvos e ignora
-      // pushName solto, que costuma ser o nome do vendedor.
+      // SINCRONIZAÇÃO AUTOMÁTICA: só preenche o nome quando o lead ainda está
+      // identificado pelo telefone. Nome real (inclusive editado pelo vendedor)
+      // nunca é sobrescrito. Para fromMe, o helper de display ignora pushName solto
+      // (nome do vendedor) e a mensagem não é usada (foi o vendedor quem escreveu).
       const existingNameIsPhoneLike = isPhoneLikeName(
         existingLead.nome_lead,
         phoneNumber,
       );
-      const explicitSelfReportedName = !isFromMe
-        ? extractExplicitSelfReportedName(messageContent)
+      const nextLeadName = existingNameIsPhoneLike
+        ? (!isFromMe ? extractSelfReportedName(messageContent) : null) ||
+          contactDisplayName
         : null;
-      const fallbackSelfReportedName = !isFromMe &&
-          existingNameIsPhoneLike
-        ? extractSelfReportedName(messageContent)
-        : null;
-      const nextLeadName = explicitSelfReportedName ||
-        (existingNameIsPhoneLike
-          ? contactDisplayName || fallbackSelfReportedName
-          : null);
 
       if (
         nextLeadName && nextLeadName !== existingLead.nome_lead
@@ -1800,16 +1701,12 @@ serve(async (req) => {
       console.log("🆕 Criando novo lead...");
 
       // Usa nome salvo/display do contato quando o payload trouxer esse dado.
-      // Se a primeira mensagem do lead ja informar o nome, usa esse nome.
+      // Se a primeira mensagem do lead se apresentar ("meu nome é X"), usa esse nome.
       // Se nao houver nome confiavel, cai para o telefone para evitar lead vazio.
-      const explicitSelfReportedName = !isFromMe
-        ? extractExplicitSelfReportedName(messageContent)
-        : null;
-      const fallbackSelfReportedName = !isFromMe
+      const selfReportedName = !isFromMe
         ? extractSelfReportedName(messageContent)
         : null;
-      const newLeadName = explicitSelfReportedName || contactDisplayName ||
-        fallbackSelfReportedName || phoneNumber;
+      const newLeadName = selfReportedName || contactDisplayName || phoneNumber;
 
       // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WHATSAPP
       console.log("🔍 Buscando mapeamento de funil para WhatsApp...");

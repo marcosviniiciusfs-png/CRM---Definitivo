@@ -77,7 +77,7 @@ async function getSecureTokens(
   integrationId: string,
   pageId: string,
   legacyToken: string | null
-): Promise<{ pageToken: string; userToken: string }> {
+): Promise<{ pageToken: string; userToken: string; decryptFailed: boolean }> {
   // 1. Buscar tokens da tabela segura
   const { data: secureTokens } = await supabase
     .from('facebook_integration_tokens')
@@ -87,33 +87,45 @@ async function getSecureTokens(
 
   let pageToken = '';
   let userToken = '';
+  // true quando há token armazenado mas ele não abre com nenhuma chave configurada
+  // (ex.: META_TOKEN_ENCRYPTION_KEY trocada) — diferente de "nunca houve token".
+  let decryptFailed = false;
 
   if (secureTokens) {
-    pageToken = await decryptMetaToken(secureTokens.encrypted_page_access_token || '');
-    userToken = await decryptMetaToken(secureTokens.encrypted_access_token || '');
+    const storedPage = secureTokens.encrypted_page_access_token || '';
+    const storedUser = secureTokens.encrypted_access_token || '';
+    pageToken = await decryptMetaToken(storedPage);
+    userToken = await decryptMetaToken(storedUser);
+    decryptFailed = (!!storedPage && !pageToken) || (!!storedUser && !userToken);
+    if (decryptFailed) {
+      console.error(
+        `❌ [FB-WEBHOOK] Token armazenado não pôde ser descriptografado (integração ${integrationId}). ` +
+        'Verifique META_TOKEN_ENCRYPTION_KEY / chave legada; reconectar o Facebook regrava o token.'
+      );
+    }
   }
 
   // 2. Se o page token foi decriptado com sucesso, validar rapidamente
   if (pageToken && pageToken.length > 20) {
     console.log('✅ [FB-WEBHOOK] Page token obtido da tabela segura');
-    return { pageToken, userToken };
+    return { pageToken, userToken, decryptFailed };
   }
 
   // 3. Tentar usar o user token para obter um page token fresco
   if (userToken && userToken.length > 20) {
     console.log('🔄 [FB-WEBHOOK] Page token inválido, tentando renovar via user token...');
     const freshPageToken = await refreshPageToken(userToken, pageId);
-    if (freshPageToken) return { pageToken: freshPageToken, userToken };
+    if (freshPageToken) return { pageToken: freshPageToken, userToken, decryptFailed };
   }
 
   // 4. Fallback para token legado (se não for sentinela)
   if (legacyToken && legacyToken !== 'ENCRYPTED_IN_TOKENS_TABLE' && legacyToken.length > 20) {
     console.log('⚠️ [FB-WEBHOOK] Usando token legado de page_access_token');
-    return { pageToken: legacyToken, userToken };
+    return { pageToken: legacyToken, userToken, decryptFailed };
   }
 
   console.error('❌ [FB-WEBHOOK] Nenhum token válido encontrado para integrationId:', integrationId);
-  return { pageToken: '', userToken };
+  return { pageToken: '', userToken, decryptFailed };
 }
 
 Deno.serve(async (req) => {
@@ -231,7 +243,7 @@ Deno.serve(async (req) => {
               }
 
               // Obter tokens (page token para leadgen/form, user token para ads/campaign)
-              const { pageToken: pageAccessToken, userToken: userAccessToken } = await getSecureTokens(
+              const { pageToken: pageAccessToken, userToken: userAccessToken, decryptFailed } = await getSecureTokens(
                 supabase,
                 integration.id,
                 pageId,
@@ -239,7 +251,9 @@ Deno.serve(async (req) => {
               );
 
               if (!pageAccessToken) {
-                const msg = `Token não encontrado para integração ${integration.id}. Reconecte o Facebook.`;
+                const msg = decryptFailed
+                  ? `Token da integração ${integration.id} existe mas não pôde ser descriptografado (chave de criptografia divergente). Reconecte o Facebook para regravar o token.`
+                  : `Token não encontrado para integração ${integration.id}. Reconecte o Facebook.`;
                 console.error(`❌ [FB-WEBHOOK] ${msg}`);
                 // CORREÇÃO: Marcar integração como precisando reconexão (expires_at = now())
                 // para que o frontend mostre o aviso "needs_reconnect = true" ao usuário.
